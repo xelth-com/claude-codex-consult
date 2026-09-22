@@ -1,0 +1,33 @@
+{
+  "name": "claude-codex-consult",
+  "description": "A Claude Code plugin that turns OpenAI Codex into a standing reasoning partner with thread continuity and a file-based record of every consultation.",
+  "owner": {
+    "name": "xelth.com",
+    "url": "https://xelth.com"
+  },
+  "plugins": [
+    {
+      "name": "codex-consult",
+      "source": "./plugins/codex-consult",
+      "displayName": "Codex Consult",
+      "description": "Consult OpenAI Codex from Claude Code over your ChatGPT subscription: one command per consultation, fork/resume thread continuity, read-only sandbox, and a brief/reply file pair plus a JSON ledger you can commit.",
+      "version": "0.1.0",
+      "author": {
+        "name": "xelth.com",
+        "url": "https://xelth.com"
+      },
+      "homepage": "https://github.com/OWNER/claude-codex-consult",
+      "repository": "https://github.com/OWNER/claude-codex-consult",
+      "license": "MIT",
+      "category": "workflow",
+      "keywords": [
+        "codex",
+        "openai",
+        "second-opinion",
+        "code-review",
+        "consultation",
+        "powershell"
+      ]
+    }
+  ]
+}

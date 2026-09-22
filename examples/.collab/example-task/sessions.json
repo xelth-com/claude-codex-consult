@@ -1,0 +1,67 @@
+{
+  "_comment": "FABRICATED EXAMPLE - thread ids, timings and paths are invented. The real file has no _comment field.",
+  "task_id": "example-task",
+  "cwd": "/home/you/your-project",
+  "codex": {
+    "tool": "codex-cli 0.155.1",
+    "consults": [
+      {
+        "n": 1,
+        "when": "2026-09-22T10:58:04+02:00",
+        "parent_thread": "",
+        "thread": "01a0c839-48ba-7182-8d15-fdc13dd17193",
+        "thread_source": "events",
+        "mode": "new",
+        "command": "codex exec --sandbox read-only --color never --json -c model_reasoning_effort=\"high\" -o /tmp/codex-consult-last-7b21.md -",
+        "brief": "",
+        "prompt_chars": 268,
+        "reply": "handoffs/01-codex-framing.md",
+        "events": "handoffs/01-codex-framing.events.jsonl",
+        "model": "config default",
+        "effort": "high",
+        "sandbox": "read-only",
+        "reviewed_revision": "4e9cc4f",
+        "outcome": "usable reply",
+        "wall_seconds": 22.7
+      },
+      {
+        "n": 2,
+        "when": "2026-09-22T11:19:41+02:00",
+        "parent_thread": "01a0c839-48ba-7182-8d15-fdc13dd17193",
+        "thread": "",
+        "thread_source": "unknown",
+        "mode": "fork",
+        "command": "codex exec --sandbox read-only --color never --json -c model_reasoning_effort=\"high\" -o /tmp/codex-consult-last-91ae.md fork 01a0c839-48ba-7182-8d15-fdc13dd17193 -",
+        "brief": ".collab/example-task/handoffs/01-claude-cache-invalidation.md",
+        "prompt_chars": 341,
+        "reply": "handoffs/02-codex-cache-invalidation.md",
+        "events": "handoffs/02-codex-cache-invalidation.events.jsonl",
+        "model": "config default",
+        "effort": "high",
+        "sandbox": "read-only",
+        "reviewed_revision": "4e9cc4f + uncommitted",
+        "outcome": "failed: timeout after 120 s",
+        "wall_seconds": 120.4
+      },
+      {
+        "n": 3,
+        "when": "2026-09-22T11:24:27+02:00",
+        "parent_thread": "01a0c839-48ba-7182-8d15-fdc13dd17193",
+        "thread": "01a0c86e-5193-7d70-a644-63a5c3f224b3",
+        "thread_source": "events",
+        "mode": "fork",
+        "command": "codex exec --sandbox read-only --color never --json -c model_reasoning_effort=\"high\" -o /tmp/codex-consult-last-0f3c.md fork 01a0c839-48ba-7182-8d15-fdc13dd17193 -",
+        "brief": ".collab/example-task/handoffs/01-claude-cache-invalidation.md",
+        "prompt_chars": 341,
+        "reply": "handoffs/02-codex-cache-invalidation.md",
+        "events": "handoffs/02-codex-cache-invalidation.events.jsonl",
+        "model": "config default",
+        "effort": "high",
+        "sandbox": "read-only",
+        "reviewed_revision": "4e9cc4f + uncommitted",
+        "outcome": "usable reply",
+        "wall_seconds": 41.3
+      }
+    ]
+  }
+}

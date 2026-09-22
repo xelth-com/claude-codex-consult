@@ -1,0 +1,14 @@
+# OS junk only.
+#
+# Deliberately NOT ignored: .collab/ and *.events.jsonl. Consultation briefs,
+# replies, raw event streams and the sessions.json ledger are meant to be
+# committed next to the code they were about - that is the point of this tool.
+
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+desktop.ini
+*~
