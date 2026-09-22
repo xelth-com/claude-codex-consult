@@ -17,7 +17,7 @@ Any Codex model works. Leave the model unset and Codex uses whatever is in your
 ## Install
 
 ```
-/plugin marketplace add OWNER/claude-codex-consult
+/plugin marketplace add xelth-com/claude-codex-consult
 /plugin install codex-consult@claude-codex-consult
 ```
 

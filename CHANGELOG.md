@@ -40,4 +40,4 @@ First public release.
   macOS/Linux are written for but not yet verified.
 - No bash port yet, so macOS/Linux currently needs `pwsh`.
 
-[0.1.0]: https://github.com/OWNER/claude-codex-consult/releases/tag/v0.1.0
+[0.1.0]: https://github.com/xelth-com/claude-codex-consult/releases/tag/v0.1.0
