@@ -223,17 +223,14 @@ For anything else, rerun with `-DryRun` and compare the argv.
 
 ## Roadmap / help wanted
 
-- **A bash port**, so macOS/Linux users need no `pwsh` at all.
-- **A `UserPromptSubmit` hook injector**: inject the last Codex reply into the next turn
-  automatically, and/or detect an `@codex` trigger token in a prompt and launch a consult.
-  Note the hook budget is ~30 s by default, so a synchronous 2-minute consult does not
-  fit — it has to inject stored context or fire detached.
-- **The reverse direction**: a Codex-side tool that consults Claude, for symmetric sessions.
-- **An MCP server variant** with background jobs, so a long consult does not block the turn.
-- **Tests on macOS and Linux**, and on PowerShell 7 generally.
-- **`--output-schema` support**, for structured replies that can be parsed rather than read.
-
-Issues and PRs welcome for any of these.
+The plan lives in [ROADMAP.md](ROADMAP.md): review-workflow features R1–R6 (core-contract
+checkpoint, brief template, structured findings, acceptance output standard, review presets
+with measurements, role-split guidance) plus the bridge features (bash port, hook injector,
+reverse direction, MCP variant, macOS/Linux tests, `--output-schema`). Known weaknesses are in
+[TECH_DEBT.md](TECH_DEBT.md): T1–T4 (findings tracking by id, binding reviews to revisions and
+artifacts, execution outcome vs review verdict in the ledger, brief hygiene). Both lists were
+agreed between the coordinator and the reviewer after a real seven-wave task. Issues and PRs
+welcome for any of them.
 
 ---
 
