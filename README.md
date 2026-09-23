@@ -100,6 +100,27 @@ so the file is a history, not a success log:
 `thread_source` tells you where the thread id came from (`events`, the `rollout` file
 fallback, or `unknown`), and `outcome` is either `usable reply` or `failed: …`.
 
+### Project isolation
+
+One user-scope install serves every project on the machine without mixing them,
+because everything the bridge touches is scoped to the git repository it runs from:
+
+- the ledger and every brief/reply pair live under `<repo>/<CollabDir>/<task>/`,
+  where `<repo>` is `git rev-parse --show-toplevel` of the current directory (the
+  current directory itself when it is not a git checkout);
+- the parent thread for `fork`/`resume` is taken only from **that** repository's
+  `sessions.json` — a repository with no ledger starts a fresh Codex thread;
+- `codex` runs with the repository root as its working directory.
+
+Verified 2026-09-23 with a throwaway repository: a `-Mode new` call produced a thread
+with no parent, and Codex reported no context from any other project.
+
+What the bridge cannot enforce: Codex's read-only sandbox blocks *writes*, not
+*reads*, so a brief that cites a path outside the repository will be read. Keep briefs
+inside the repository and never pass a `-Thread` id taken from another project's
+ledger. Codex's own `memories` feature (see `codex features list`), if you enable it,
+is a Codex-side channel across all your threads; the bridge neither reads nor writes it.
+
 ### Options
 
 | Option | Default | |

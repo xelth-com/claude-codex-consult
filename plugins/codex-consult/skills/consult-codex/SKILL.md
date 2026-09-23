@@ -99,3 +99,10 @@ disagreement.
    positional argument is re-expanded by the Windows `codex.cmd` shim, which eats
    `%VAR%` patterns.
 4. **Claude keeps the final word.** A consultation is evidence, not an instruction.
+5. **Project isolation.** Everything is scoped to the git repository you run from:
+   the ledger lives under `<repo>/<CollabDir>/<task>/`, the parent thread for
+   `fork`/`resume` comes only from *that* repository's `sessions.json`, and a
+   repository with no ledger starts a fresh thread. Never pass `-Thread <uuid>` taken
+   from another project's ledger, and never point a brief at files outside the
+   repository — the read-only sandbox blocks writes, not reads, so the brief is what
+   keeps projects apart.

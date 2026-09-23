@@ -2,7 +2,7 @@
   "name": "codex-consult",
   "displayName": "Codex Consult",
   "description": "Consult OpenAI Codex from Claude Code over your ChatGPT subscription: one command per consultation, fork/resume thread continuity, read-only sandbox, and a brief/reply file pair plus a JSON ledger you can commit.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "xelth.com",
     "url": "https://xelth.com"

@@ -4,6 +4,22 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-09-23
+
+### Added
+
+- Project-isolation guarantees written down (README "Project isolation", skill
+  invariant 5): the ledger, the `fork`/`resume` parent thread and Codex's working
+  directory are all scoped to the git repository the bridge runs from, so one
+  user-scope install serves many projects; a repository with no ledger starts a fresh
+  thread. Verified with a throwaway repository. Also spelled out what is *not*
+  enforced: the read-only sandbox blocks writes, not reads, so briefs must stay inside
+  the repository and a `-Thread` id must never be borrowed from another project.
+
+### Changed
+
+- No script changes. Version bump only, so installed copies pick up the new skill text.
+
 ## [0.1.0] - 2026-09-22
 
 First public release.
@@ -40,4 +56,5 @@ First public release.
   macOS/Linux are written for but not yet verified.
 - No bash port yet, so macOS/Linux currently needs `pwsh`.
 
+[0.1.1]: https://github.com/xelth-com/claude-codex-consult/releases/tag/v0.1.1
 [0.1.0]: https://github.com/xelth-com/claude-codex-consult/releases/tag/v0.1.0
