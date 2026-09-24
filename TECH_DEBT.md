@@ -49,3 +49,26 @@ seven-wave task with three consultations. Ordered by the damage they did.
   **Status (0.2.0): shipped** — `templates/brief-review.md` has a dedicated "Delta since the
   last review" section and a separate "CURRENT invariants claimed" section, so a checkpoint
   brief cannot collapse into a changelog.
+- **T5 — F12-1 residual: a rotated credential inside the 24 h auth window still needs
+  `-SkipPreflight` once.** An `auth` failure on an endpoint refuses every run against it
+  for 24 hours (endpoint health, see the README), even once the credential has been
+  fixed — the bridge cannot distinguish "still broken" from "fixed since" without
+  actually trying, so it fails closed either way. The 0.3.0 wave-10 reviewer roster does
+  not add a way to record "this credential was just rotated, trust it again"; the
+  operator still has to pass `-SkipPreflight` once to clear the flagged window, exactly
+  as before. What DID ship in wave 10 alongside this: `"auth": "none"` in a roster entry,
+  for an endpoint that genuinely needs no credential at all, so that case at least never
+  needs `-SkipPreflight` in the first place. Fix (not yet designed): a way to mark a
+  specific past auth failure as resolved (by whom, when) without disabling the 24 h
+  window for every OTHER failure on that endpoint.
+- **T6 — F15-1 residual: a legacy `retry_after`-less ledger entry can still be off by a
+  zone difference.** Wave 11 fixed the forward case: a reset time is now parsed with the
+  recording machine's zone rules at WRITE time and stored as a true instant
+  (`provider_failure.retry_after`, offset included). An entry written before that fix has
+  no `retry_after` at all, so a read now reparses its message using the failure's own
+  `when` offset as the reference zone (labelled `RetryAfterBasis "message (reference
+  offset)"`) — correct only if read on a machine in the same zone that recorded it; read
+  elsewhere, it can be off by the zone difference, since no zone was ever stored for such
+  an entry. Not fixable after the fact without guessing; the residual only shrinks as old
+  entries age out. Fix (not planned): none — flagged so a future investigation of a
+  seemingly-wrong `retry_after` on an old entry checks this before assuming a bug.

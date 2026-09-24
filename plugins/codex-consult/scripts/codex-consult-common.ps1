@@ -18,6 +18,21 @@
                          Add-ReplyFindings
       * structured reply ConvertFrom-StructuredReply, Test-StructuredReply,
                          Format-StructuredSection, Format-StructuredStatusLine
+      * codex config     Get-CodexHome, Get-CodexConfigPath, Read-CodexConfigSubset
+                         (constrained TOML scanner), Get-ProviderTable,
+                         ConvertFrom-CodexConfigItems (-CodexConfig / codex_config rules)
+      * reviewer         Resolve-ReviewerIdentity, New-ReviewerRecord,
+                         Resolve-EffortPlan (effort vocabularies), Get-PeakStatus
+                         (peak windows), Select-ParentThread (lineage-scoped parent)
+      * availability     Resolve-CodexLauncher, Get-CodexLoginStatus (UTF-8),
+                         Get-ProviderCredential, Get-ProviderFailureClass,
+                         Get-RetryAfter (a provider's named reset time),
+                         New-ProviderFailure, Get-EndpointHealth (usage limits with a
+                         known reset time block until then), Get-ConsultClock
+      * reviewer roster  Get-RosterPath, Read-ReviewerRoster (fail-closed validation),
+                         Find-RosterEntry, Get-PreflightVerdict, Format-QuotaWarning,
+                         Select-RosterReviewer (the walk), Select-PanelMembers (-Panel),
+                         Format-RosterSkips; Find-ThreadEntry (-Thread lookup)
       * task lock        Enter-TaskLock, Exit-TaskLock (ownership, .consult.lock)
       * recovery record  Read-PendingFile, Write-PendingFile, Remove-PendingFile,
                          Test-PendingActive, Find-CodexProcesses
@@ -55,11 +70,43 @@ function Write-Utf8NoBom {
     [IO.File]::WriteAllText($Path, $Text, $script:Utf8NoBom)
 }
 
-# Replaces $Path with $Text (UTF-8, no BOM) atomically: the text is written and
-# flushed to a temp file in the same directory, which then replaces the destination
-# in one step (Windows: File.Replace -> ReplaceFile; elsewhere: File.Move with
-# overwrite -> rename(2)). A crash leaves either the old or the new file, never a
-# truncated one (at worst a stray .<name>.<guid>.tmp next to it).
+# MoveFileExW for Windows PowerShell 5.1, whose .NET Framework has no File.Move with
+# overwrite: compiled once per process on first use (Add-Type, ~0.2 s) and cached. $true
+# when [CodexConsultNative]::MoveFileEx is available.
+$script:NativeMoveReady = $null
+function Test-NativeMove {
+    if ($null -ne $script:NativeMoveReady) { return $script:NativeMoveReady }
+    $script:NativeMoveReady = $false
+    try {
+        if (-not ('CodexConsultNative' -as [type])) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class CodexConsultNative {
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "MoveFileExW")]
+    public static extern bool MoveFileEx(string existingFileName, string newFileName, int flags);
+}
+'@
+        }
+        $script:NativeMoveReady = $true
+    } catch { }
+    return $script:NativeMoveReady
+}
+
+# Replaces $Path with $Text (UTF-8, no BOM) atomically: the text is written and flushed
+# to disk (FileStream.Flush($true)) in a temp file .<name>.<guid>.tmp NEXT TO the
+# destination (same volume), which then replaces the destination in ONE rename:
+#   PowerShell 7 (Windows, macOS, Linux)  [IO.File]::Move($tmp, $dst, $true) - on
+#       Windows MoveFileEx(MOVEFILE_REPLACE_EXISTING), elsewhere rename(2)
+#   Windows PowerShell 5.1                MoveFileExW(MOVEFILE_REPLACE_EXISTING |
+#       MOVEFILE_WRITE_THROUGH) through Test-NativeMove; only if Add-Type fails, the old
+#       path: File.Move when the destination does not exist, else File.Replace
+#       (ReplaceFile - NOT one atomic step: a process killed inside it can leave the
+#       destination missing and the new text in the temp file)
+# A crash leaves either the old or the new file, never a truncated or a missing one (at
+# worst a stray .<name>.<guid>.tmp next to it). A rename that keeps failing (a reader
+# holding the destination open without FileShare.Delete) is retried, then the temp file
+# is removed and the error thrown.
 function Write-TextAtomic {
     param([string]$Path, [string]$Text)
     $full = [IO.Path]::GetFullPath($Path)
@@ -74,18 +121,24 @@ function Write-TextAtomic {
     $lastError = $null
     for ($attempt = 1; $attempt -le 8; $attempt++) {
         try {
-            if (-not [IO.File]::Exists($full)) {
+            if (-not $script:LegacyPS) {
+                [IO.File]::Move($tmp, $full, $true)
+            } elseif (Test-NativeMove) {
+                # MOVEFILE_REPLACE_EXISTING (0x1) | MOVEFILE_WRITE_THROUGH (0x8)
+                if (-not [CodexConsultNative]::MoveFileEx($tmp, $full, 0x9)) {
+                    throw (New-Object System.ComponentModel.Win32Exception([Runtime.InteropServices.Marshal]::GetLastWin32Error()))
+                }
+            } elseif (-not [IO.File]::Exists($full)) {
                 [IO.File]::Move($tmp, $full)
-            } elseif ($script:OnWindows) {
+            } else {
+                # Fallback only when Add-Type failed (see above): not one atomic step.
                 # $null would reach .NET as '' - NullString is a real null (no backup file).
                 [IO.File]::Replace($tmp, $full, [System.Management.Automation.Language.NullString]::Value)
-            } else {
-                [IO.File]::Move($tmp, $full, $true)
             }
             return
         } catch {
-            # A reader holding the destination open without FileShare.Delete makes
-            # ReplaceFile fail with a sharing violation; it is gone a moment later.
+            # A reader holding the destination open without FileShare.Delete makes the
+            # rename fail with a sharing violation; it is gone a moment later.
             $lastError = $_.Exception
             Start-Sleep -Milliseconds 250
         }
@@ -103,6 +156,21 @@ function Write-JsonFile {
     Write-TextAtomic -Path $Path -Text (($json -replace "`r`n", "`n") + "`n")
 }
 
+# ConvertFrom-Json that keeps a timestamp's recorded offset: PowerShell 7 turns ISO
+# timestamps into LOCAL [datetime] (the offset a ledger recorded is lost, F15-2); from 7.5
+# on, -DateKind Offset returns them as [DateTimeOffset] with that offset. Windows
+# PowerShell 5.1 leaves them strings. (ConvertTo-Json writes a DateTimeOffset back as the
+# same ISO text.)
+$script:JsonDateKindOffset = $null
+function ConvertFrom-JsonKeepOffset {
+    param([string]$Text)
+    if ($null -eq $script:JsonDateKindOffset) {
+        $script:JsonDateKindOffset = [bool]((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind'))
+    }
+    if ($script:JsonDateKindOffset) { return (ConvertFrom-Json -InputObject $Text -DateKind Offset) }
+    return (ConvertFrom-Json -InputObject $Text)
+}
+
 # Reads an existing JSON store. $null when the file does not exist. An EXISTING
 # store that is empty, unreadable, unparseable or not a JSON object is corruption:
 # refuse, never start over with a new store (that would silently drop history).
@@ -115,7 +183,7 @@ function Read-JsonStore {
     if (-not $text.Trim()) {
         $why = 'it is empty or could not be read'
     } else {
-        try { $data = ConvertFrom-Json -InputObject $text } catch { $why = "it does not parse: $(($_.Exception.Message -replace '\s+', ' ').Trim())" }
+        try { $data = ConvertFrom-JsonKeepOffset -Text $text } catch { $why = "it does not parse: $(($_.Exception.Message -replace '\s+', ' ').Trim())" }
         if (-not $why -and -not ($data -is [System.Management.Automation.PSCustomObject])) { $why = 'it is not a JSON object' }
     }
     if ($why) {
@@ -733,8 +801,9 @@ function Format-FindingLine {
 
 function Test-IsJsonString {
     param($Value)
-    # PowerShell 7's ConvertFrom-Json turns ISO-date-looking strings into [datetime].
-    return (($Value -is [string]) -or ($Value -is [datetime]))
+    # PowerShell 7's ConvertFrom-Json turns ISO-date-looking strings into [datetime]
+    # ([DateTimeOffset] with -DateKind Offset).
+    return (($Value -is [string]) -or ($Value -is [datetime]) -or ($Value -is [DateTimeOffset]))
 }
 
 function Test-IsJsonArray {
@@ -761,6 +830,7 @@ function ConvertTo-JsonText {
     param($Value)
     if ($null -eq $Value) { return '' }
     if ($Value -is [datetime]) { return $Value.ToString('o', $script:Invariant) }
+    if ($Value -is [DateTimeOffset]) { return $Value.ToString('yyyy-MM-ddTHH:mm:ss.FFFFFFFzzz', $script:Invariant) }
     return [string]$Value
 }
 
@@ -1398,6 +1468,2001 @@ function Format-StructuredSection {
     return ($out.ToArray() -join "`n")
 }
 
+# ----------------------------------------------------------------------------- codex config + reviewer identity
+#
+# The bridge records WHICH reviewer answered and lets a consultation fork or resume
+# only a thread of the same reviewer. Codex picks the provider and the model from its
+# config (<codex home>/config.toml): the top-level `model_provider` (Codex's own
+# default: the built-in `openai`) and `model`; a provider other than openai is a
+# [model_providers.<name>] table. The bridge reads that file with a CONSTRAINED
+# scanner (no TOML library) and pins what it resolved on the codex command line
+# (-m <model>, -c model_provider="<name>"), so the ledger and the run agree.
+#
+# Scanner contract (Read-CodexConfigSubset):
+#   understood   blank lines; # comments (full-line or trailing); table headers [a.b]
+#                whose segments are bare, "basic" or 'literal' keys; key = value lines
+#                with ONE bare or quoted key and a single-line "basic" or 'literal'
+#                string, a boolean, a number or a date/time as the value
+#   skipped      arrays [...], inline tables {...} and multi-line strings """ / ''':
+#                delimited by their exact lexical extent (strings, escapes, comments and
+#                bracket nesting are honoured) and never interpreted; the KEY holding
+#                one is unsupported, and so is the table the value would define
+#                (x = {...} defines the table x)
+#   unsupported  dotted keys (a.b = 1: the table they write into, a, is unsupported),
+#                arrays of tables [[a]] (a), a table or a key defined twice (that table)
+#   fatal        anything else - a line the scanner cannot tokenize, an unterminated
+#                string or array: the whole file is unusable, because the scanner can
+#                no longer tell which table the rest belongs to
+# Callers decide what an unsupported key means. The top level is usable while the
+# three keys the bridge reads there (model_provider, model, profile) are plain. A
+# provider table is usable only when EVERY key in it is plain and nothing else writes
+# into it (dotted keys, inline tables, sub-tables): all of it describes the endpoint.
+# Nothing is guessed. Profiles are not supported: a config that selects one
+# (`profile = "x"`) can change the provider, the model and the effort behind the
+# bridge, so the reviewer identity stays unresolved (-p/--profile is never passed).
+
+$script:TomlKeySep = [string][char]31
+$script:SecretKeyPattern = '(?i)env_key|api_key|bearer|token|secret|password'
+$script:TomlRe = @{
+    Ws        = [regex]'\G[ \t]*'
+    Comment   = [regex]'\G#[^\n]*'
+    Bare      = [regex]'\G[A-Za-z0-9_-]+'
+    Basic     = [regex]'\G"((?:[^"\\\n]|\\[^\n])*)"'
+    Literal   = [regex]"\G'([^'\n]*)'"
+    MlBasic   = [regex]'\G"""(?:[^"\\]|\\[\s\S]|"{1,2}(?!"))*"{3,5}'
+    MlLiteral = [regex]"\G'''(?:[^']|'{1,2}(?!'))*'{3,5}"
+    Scalar    = [regex]'\G[^ \t\n#]+'
+    DateTail  = [regex]'\G [0-9]{2}:[0-9]{2}[^ \t\n#]*'
+}
+$script:TomlScalarRules = @(
+    @{ Kind = 'boolean'; Re = '^(true|false)$' },
+    @{ Kind = 'integer'; Re = '^[+-]?(0|[1-9](_?[0-9])*)$' },
+    @{ Kind = 'integer'; Re = '^0x[0-9A-Fa-f](_?[0-9A-Fa-f])*$' },
+    @{ Kind = 'integer'; Re = '^0o[0-7](_?[0-7])*$' },
+    @{ Kind = 'integer'; Re = '^0b[01](_?[01])*$' },
+    @{ Kind = 'float'; Re = '^[+-]?(0|[1-9](_?[0-9])*)(\.[0-9](_?[0-9])*)?([eE][+-]?[0-9](_?[0-9])*)?$' },
+    @{ Kind = 'float'; Re = '^[+-]?(inf|nan)$' },
+    @{ Kind = 'datetime'; Re = '^[0-9]{4}-[0-9]{2}-[0-9]{2}([Tt ][0-9]{2}:[0-9]{2}(:[0-9]{2}(\.[0-9]+)?)?([Zz]|[+-][0-9]{2}:[0-9]{2})?)?$' },
+    @{ Kind = 'datetime'; Re = '^[0-9]{2}:[0-9]{2}(:[0-9]{2}(\.[0-9]+)?)?$' }
+)
+
+function Get-CodexHome {
+    if ($env:CODEX_HOME) { return $env:CODEX_HOME }
+    $home_ = $HOME
+    if (-not $home_) { $home_ = $env:USERPROFILE }
+    if (-not $home_) { return '' }
+    return (Join-Path $home_ '.codex')
+}
+
+function Get-CodexConfigPath {
+    $codexHome = Get-CodexHome
+    if (-not $codexHome) { return '' }
+    return (Join-Path $codexHome 'config.toml')
+}
+
+# A config line for an error message (it may reach the ledger's identity_note): the
+# VALUE is masked - every string and every bare word in it becomes '...', only its
+# structure ([ { , = #) stays, since a value can hold a credential; keys and table
+# headers are shown as written. Trimmed to 60 characters.
+function Format-TomlLineForMessage {
+    param([string]$Line, [int]$ValueStart = -1)
+    $head = ''
+    $tail = $Line
+    if ($ValueStart -ge 0 -and $ValueStart -le $Line.Length) {
+        $head = $Line.Substring(0, $ValueStart)
+        $tail = $Line.Substring($ValueStart)
+    } elseif ($Line.TrimStart().StartsWith('[')) {
+        $head = $Line
+        $tail = ''
+    } else {
+        $kp = Read-TomlKeyPath -S $Line -Start 0
+        if (-not $kp -or $kp.End -ge $Line.Length -or $Line[$kp.End] -ne [char]'=') { return '<not a key = value line; content not shown>' }
+        $head = $Line.Substring(0, $kp.End + 1)
+        $tail = $Line.Substring($kp.End + 1)
+    }
+    $sb = New-Object System.Text.StringBuilder
+    $m = [regex]::Match($tail, '"(?:[^"\\]|\\.)*"|''[^'']*''|["'']|[^\s\[\]\{\},=#"'']+')
+    $pos = 0
+    while ($m.Success) {
+        [void]$sb.Append($tail.Substring($pos, $m.Index - $pos))
+        $first = $m.Value.Substring(0, 1)
+        if ($m.Value.Length -eq 1 -and ($first -eq '"' -or $first -eq "'")) { [void]$sb.Append('...'); $pos = $tail.Length; break }
+        if ($first -eq '"' -or $first -eq "'") { [void]$sb.Append($first + '...' + $first) }
+        else { [void]$sb.Append('...') }
+        $pos = $m.Index + $m.Length
+        $m = $m.NextMatch()
+    }
+    if ($pos -lt $tail.Length) { [void]$sb.Append($tail.Substring($pos)) }
+    $t = ($head + $sb.ToString()).Trim()
+    if ($t.Length -gt 60) { $t = $t.Substring(0, 60) }
+    return $t
+}
+
+function ConvertFrom-TomlEscapes {
+    param([string]$Raw)
+    if ($Raw.IndexOf([char]'\') -lt 0) { return $Raw }
+    $evaluator = [System.Text.RegularExpressions.MatchEvaluator] {
+        param($m)
+        $e = $m.Groups[1].Value
+        $first = $e.Substring(0, 1)
+        try {
+            if ($first -ceq 'b') { return [string][char]8 }
+            if ($first -ceq 't') { return [string][char]9 }
+            if ($first -ceq 'n') { return [string][char]10 }
+            if ($first -ceq 'f') { return [string][char]12 }
+            if ($first -ceq 'r') { return [string][char]13 }
+            if ($first -ceq 'e') { return [string][char]27 }
+            if ($first -ceq '"') { return '"' }
+            if ($first -ceq '\') { return '\' }
+            if ($first -ceq 'u' -or $first -ceq 'U' -or $first -ceq 'x') {
+                return [char]::ConvertFromUtf32([Convert]::ToInt32($e.Substring(1), 16))
+            }
+        } catch { }
+        return $m.Value
+    }
+    return [regex]::Replace($Raw, '\\(u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}|x[0-9A-Fa-f]{2}|[\s\S])', $evaluator)
+}
+
+# "a.b" / 'model_providers."my provider"' - segments quoted when they are not bare.
+function Format-TomlPath {
+    param([string[]]$Segments)
+    $parts = @(foreach ($seg in @($Segments)) {
+            if ($seg -match '^[A-Za-z0-9_-]+$') { $seg } else { '"' + ($seg -replace '\\', '\\' -replace '"', '\"') + '"' }
+        })
+    return ($parts -join '.')
+}
+
+# The inside of a TOML basic string, for `-c key="<value>"` (Codex parses the value as
+# TOML): backslash and double quote escaped.
+function ConvertTo-TomlBasicString {
+    param([string]$Value)
+    return ($Value -replace '\\', '\\' -replace '"', '\"')
+}
+
+function Get-TomlTable {
+    param($Tables, [string[]]$Segments)
+    $key = (@($Segments) -join $script:TomlKeySep)
+    if (-not $Tables.ContainsKey($key)) {
+        $Tables[$key] = [pscustomobject]@{
+            Name       = (Format-TomlPath $Segments)
+            Segments   = [string[]]@($Segments)
+            HeaderLine = 0
+            Ok         = $true
+            Reason     = ''
+            Entries    = (New-Object 'System.Collections.Generic.Dictionary[string,object]' ([StringComparer]::Ordinal))
+        }
+    }
+    return $Tables[$key]
+}
+
+function Set-TomlUnsupported {
+    param($Table, [string]$Reason)
+    if ($Table.Ok) { $Table.Ok = $false; $Table.Reason = $Reason }
+}
+
+# One key (a.b."c d".'e') starting at $Start: { Segments; End } (End after trailing
+# blanks) or $null when there is no key there.
+function Read-TomlKeyPath {
+    param([string]$S, [int]$Start)
+    $segs = New-Object System.Collections.Generic.List[string]
+    $i = $Start
+    while ($true) {
+        $i += $script:TomlRe.Ws.Match($S, $i).Length
+        $m = $script:TomlRe.Bare.Match($S, $i)
+        if ($m.Success) { $segs.Add($m.Value) }
+        else {
+            $m = $script:TomlRe.Basic.Match($S, $i)
+            if ($m.Success) { $segs.Add((ConvertFrom-TomlEscapes $m.Groups[1].Value)) }
+            else {
+                $m = $script:TomlRe.Literal.Match($S, $i)
+                if ($m.Success) { $segs.Add($m.Groups[1].Value) } else { return $null }
+            }
+        }
+        $i += $m.Length
+        $i += $script:TomlRe.Ws.Match($S, $i).Length
+        if ($i -lt $S.Length -and $S[$i] -eq [char]'.') { $i++; continue }
+        break
+    }
+    return [pscustomobject]@{ Segments = [string[]]$segs.ToArray(); End = $i }
+}
+
+# The value starting at $Start: { Kind; Value; Supported; End; Lines; Error }. Lines =
+# newlines consumed (multi-line values). Error <> '' when there is no value the scanner
+# knows there (the caller treats that as fatal).
+function Read-TomlValue {
+    param([string]$S, [int]$Start)
+    $len = $S.Length
+    $v = [pscustomobject]@{ Kind = ''; Value = $null; Supported = $false; End = $Start; Lines = 0; Error = '' }
+    if ($Start -ge $len -or $S[$Start] -eq [char]"`n") { $v.Error = 'missing value'; return $v }
+    $c = $S[$Start]
+    if ($c -eq [char]'"' -or $c -eq [char]"'") {
+        $q3 = ([string]$c) * 3
+        if ($Start + 3 -le $len -and $S.Substring($Start, 3) -eq $q3) {
+            $re = if ($c -eq [char]'"') { $script:TomlRe.MlBasic } else { $script:TomlRe.MlLiteral }
+            $m = $re.Match($S, $Start)
+            if (-not $m.Success) { $v.Error = 'unterminated multi-line string'; return $v }
+            $v.Kind = 'multi-line string'
+            $v.End = $Start + $m.Length
+            $v.Lines = $m.Value.Split([char]"`n").Count - 1
+            return $v
+        }
+        if ($c -eq [char]'"') {
+            $m = $script:TomlRe.Basic.Match($S, $Start)
+            if (-not $m.Success) { $v.Error = 'unterminated string'; return $v }
+            $v.Value = ConvertFrom-TomlEscapes $m.Groups[1].Value
+        } else {
+            $m = $script:TomlRe.Literal.Match($S, $Start)
+            if (-not $m.Success) { $v.Error = 'unterminated string'; return $v }
+            $v.Value = $m.Groups[1].Value
+        }
+        $v.Kind = 'string'
+        $v.Supported = $true
+        $v.End = $Start + $m.Length
+        return $v
+    }
+    if ($c -eq [char]'[' -or $c -eq [char]'{') {
+        $kind = if ($c -eq [char]'[') { 'array' } else { 'inline table' }
+        $depth = 0
+        $lines = 0
+        $i = $Start
+        while ($i -lt $len) {
+            $ch = $S[$i]
+            if ($ch -eq [char]"`n") { $lines++; $i++; continue }
+            if ($ch -eq [char]'#') { $i += $script:TomlRe.Comment.Match($S, $i).Length; continue }
+            if ($ch -eq [char]'"' -or $ch -eq [char]"'") {
+                $inner = Read-TomlValue -S $S -Start $i
+                if ($inner.Error) { $v.Error = "unterminated string inside an $kind"; return $v }
+                $lines += $inner.Lines
+                $i = $inner.End
+                continue
+            }
+            if ($ch -eq [char]'[' -or $ch -eq [char]'{') { $depth++ }
+            elseif ($ch -eq [char]']' -or $ch -eq [char]'}') {
+                $depth--
+                if ($depth -eq 0) {
+                    $v.Kind = $kind
+                    $v.End = $i + 1
+                    $v.Lines = $lines
+                    return $v
+                }
+            }
+            $i++
+        }
+        $v.Error = "unterminated $kind"
+        return $v
+    }
+    $m = $script:TomlRe.Scalar.Match($S, $Start)
+    $token = $m.Value
+    $end = $Start + $m.Length
+    if ($token -cmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}$') {
+        $tail = $script:TomlRe.DateTail.Match($S, $end)
+        if ($tail.Success) { $token += $tail.Value; $end += $tail.Length }
+    }
+    foreach ($rule in $script:TomlScalarRules) {
+        if ($token -cmatch $rule.Re) {
+            $v.Kind = $rule.Kind
+            $v.Value = $token
+            $v.Supported = $true
+            $v.End = $end
+            return $v
+        }
+    }
+    $v.Error = 'not a value the scanner knows'
+    return $v
+}
+
+# Position of the end of the line (the newline or the end of the text) after optional
+# blanks and a comment; -1 when something else follows.
+function Get-TomlLineEnd {
+    param([string]$S, [int]$Start)
+    $i = $Start + $script:TomlRe.Ws.Match($S, $Start).Length
+    if ($i -lt $S.Length -and $S[$i] -eq [char]'#') { $i += $script:TomlRe.Comment.Match($S, $i).Length }
+    if ($i -ge $S.Length -or $S[$i] -eq [char]"`n") { return $i }
+    return -1
+}
+
+# Reads the Codex config with the constrained scanner (contract above).
+# { Path; Exists; Ok; Reason; Tables } - Tables maps the table path (segments joined
+# by U+001F, '' = top level) to { Name; Segments; HeaderLine; Ok; Reason; Entries };
+# Entries maps a key (ordinal) to { Key; Line; Kind; Value; Supported; Reason }.
+# Exists $false (no file) is not an error: Codex then runs on its built-in defaults.
+function Read-CodexConfigSubset {
+    param([string]$Path)
+    $tables = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([StringComparer]::Ordinal)
+    $result = [pscustomobject]@{ Path = $Path; Exists = $false; Ok = $true; Reason = ''; Tables = $tables }
+    $top = Get-TomlTable -Tables $tables -Segments @()
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return $result }
+    $result.Exists = $true
+    $text = $null
+    try {
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw 'it is not a file' }
+        $fs = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+        try {
+            $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $true)
+            try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
+        } finally { $fs.Dispose() }
+    } catch {
+        $result.Ok = $false
+        $result.Reason = "the Codex config '$Path' could not be read: $(ConvertTo-OneLine $_.Exception.Message)"
+        return $result
+    }
+    if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
+    $s = $text -replace "`r`n", "`n"
+    $lines = $s -split "`n"
+    $len = $s.Length
+    $i = 0
+    $line = 1
+    $current = $top
+    while ($i -lt $len) {
+        $i += $script:TomlRe.Ws.Match($s, $i).Length
+        if ($i -ge $len) { break }
+        $c = $s[$i]
+        if ($c -eq [char]"`n") { $i++; $line++; continue }
+        if ($c -eq [char]'#') { $i += $script:TomlRe.Comment.Match($s, $i).Length; continue }
+        $lineNo = $line
+        $lineText = $lines[$lineNo - 1]
+        $lineStart = 0
+        if ($i -gt 0) { $lineStart = $s.LastIndexOf([char]"`n", $i - 1) + 1 }
+        $fatal = "unsupported TOML construct at line ${lineNo}: $(Format-TomlLineForMessage -Line $lineText)"
+        if ($c -eq [char]'[') {
+            $isAot = ($i + 1 -lt $len -and $s[$i + 1] -eq [char]'[')
+            $close = if ($isAot) { ']]' } else { ']' }
+            $kp = Read-TomlKeyPath -S $s -Start ($i + $close.Length)
+            if (-not $kp -or $kp.End + $close.Length -gt $len -or $s.Substring($kp.End, $close.Length) -ne $close) {
+                $result.Ok = $false; $result.Reason = $fatal; break
+            }
+            $eol = Get-TomlLineEnd -S $s -Start ($kp.End + $close.Length)
+            if ($eol -lt 0) { $result.Ok = $false; $result.Reason = $fatal; break }
+            $t = Get-TomlTable -Tables $tables -Segments $kp.Segments
+            if ($isAot) { Set-TomlUnsupported $t "$fatal (array of tables)" }
+            elseif ($t.HeaderLine -gt 0) { Set-TomlUnsupported $t "table [$($t.Name)] is defined twice in the Codex config (lines $($t.HeaderLine) and $lineNo)" }
+            if ($t.HeaderLine -eq 0) { $t.HeaderLine = $lineNo }
+            $current = $t
+            $i = $eol
+            continue
+        }
+        $kp = Read-TomlKeyPath -S $s -Start $i
+        if (-not $kp -or $kp.End -ge $len -or $s[$kp.End] -ne [char]'=') { $result.Ok = $false; $result.Reason = $fatal; break }
+        $p = $kp.End + 1
+        $p += $script:TomlRe.Ws.Match($s, $p).Length
+        $v = Read-TomlValue -S $s -Start $p
+        if ($v.Error) { $result.Ok = $false; $result.Reason = "$fatal ($($v.Error))"; break }
+        $eol = Get-TomlLineEnd -S $s -Start $v.End
+        if ($eol -lt 0) { $result.Ok = $false; $result.Reason = $fatal; break }
+        $line += $v.Lines
+        $i = $eol
+        $construct = "unsupported TOML construct at line ${lineNo}: $(Format-TomlLineForMessage -Line $lineText -ValueStart ($p - $lineStart))"
+        $segs = @($kp.Segments)
+        if ($segs.Count -gt 1) {
+            $targetSegs = @($current.Segments) + @($segs[0..($segs.Count - 2)])
+            $target = Get-TomlTable -Tables $tables -Segments $targetSegs
+            Set-TomlUnsupported $target "$construct (dotted key)"
+            if (-not $current.Entries.ContainsKey($segs[0])) {
+                $current.Entries[$segs[0]] = [pscustomobject]@{ Key = $segs[0]; Line = $lineNo; Kind = 'dotted key'; Value = $null; Supported = $false; Reason = "$construct (dotted key)" }
+            }
+            continue
+        }
+        $k = [string]$segs[0]
+        if ($current.Entries.ContainsKey($k)) {
+            Set-TomlUnsupported $current "key '$k' is defined twice in [$($current.Name)] of the Codex config (lines $($current.Entries[$k].Line) and $lineNo)"
+            continue
+        }
+        $why = ''
+        if (-not $v.Supported) { $why = "$construct ($($v.Kind))" }
+        $current.Entries[$k] = [pscustomobject]@{ Key = $k; Line = $lineNo; Kind = $v.Kind; Value = $v.Value; Supported = $v.Supported; Reason = $why }
+        if ($v.Kind -eq 'array' -or $v.Kind -eq 'inline table') {
+            $sub = Get-TomlTable -Tables $tables -Segments (@($current.Segments) + @($k))
+            Set-TomlUnsupported $sub $why
+        }
+    }
+    return $result
+}
+
+# A setting that must be a plain string: { Present; Value; Line; Reason } - Reason when
+# it is present but not a plain string.
+function Get-TomlString {
+    param($Table, [string]$Key)
+    if (-not $Table -or -not $Table.Entries.ContainsKey($Key)) { return [pscustomobject]@{ Present = $false; Value = ''; Line = 0; Reason = '' } }
+    $e = $Table.Entries[$Key]
+    $why = ''
+    if (-not $e.Supported) { $why = $e.Reason }
+    elseif ($e.Kind -ne 'string') { $why = "'$Key' at line $($e.Line) of the Codex config is a $($e.Kind), not a string" }
+    return [pscustomobject]@{ Present = $true; Value = [string]$e.Value; Line = $e.Line; Reason = $why }
+}
+
+function Get-ProviderNames {
+    param($Config)
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($t in $Config.Tables.Values) {
+        if (@($t.Segments).Count -eq 2 -and $t.Segments[0] -ceq 'model_providers') { $names.Add($t.Segments[1]) }
+    }
+    return , $names.ToArray()
+}
+
+# [model_providers.<Name>]: { Found; Ok; Reason; Table }. Usable only when every key in
+# it is plain and nothing else writes into it (dotted keys, inline tables, sub-tables).
+function Get-ProviderTable {
+    param($Config, [string]$Name)
+    $key = (@('model_providers', $Name) -join $script:TomlKeySep)
+    if (-not $Config.Tables.ContainsKey($key)) {
+        # Declared only below its own path (a dotted key or header writing
+        # model_providers.<name>.x): the provider exists, but not as a plain table.
+        $prefix = $key + $script:TomlKeySep
+        foreach ($other in $Config.Tables.Values) {
+            if ((@($other.Segments) -join $script:TomlKeySep).StartsWith($prefix, [StringComparison]::Ordinal)) {
+                $why = $other.Reason
+                if (-not $why) { $why = "unsupported TOML construct at line $($other.HeaderLine): [$($other.Name)] declares the provider only through a sub-table" }
+                return [pscustomobject]@{ Found = $true; Ok = $false; Reason = $why; Table = $null }
+            }
+        }
+        return [pscustomobject]@{ Found = $false; Ok = $false; Reason = ''; Table = $null }
+    }
+    $t = $Config.Tables[$key]
+    $why = ''
+    if (-not $t.Ok) { $why = $t.Reason }
+    if (-not $why) {
+        foreach ($e in $t.Entries.Values) { if (-not $e.Supported) { $why = $e.Reason; break } }
+    }
+    if (-not $why) {
+        $prefix = $key + $script:TomlKeySep
+        foreach ($other in $Config.Tables.Values) {
+            if ((@($other.Segments) -join $script:TomlKeySep).StartsWith($prefix, [StringComparison]::Ordinal)) {
+                $why = $other.Reason
+                if (-not $why) { $why = "unsupported TOML construct at line $($other.HeaderLine): [$($other.Name)] (a sub-table of the provider)" }
+                break
+            }
+        }
+    }
+    return [pscustomobject]@{ Found = $true; Ok = (-not $why); Reason = $why; Table = $t }
+}
+
+# Can the scanner establish whether model_providers.<Name> is declared at all? '' = yes
+# (it is a plain table, or nothing declares it); otherwise the reason. A TOML value at key
+# path P only defines keys below P, so what can hide a declaration of
+# model_providers.<Name> is a construct at `model_providers` itself (an inline table,
+# array or string value; a dotted key `model_providers.<x> = ...` written from the top
+# level; an array of tables; a table defined twice) or an entry <Name> inside a
+# [model_providers] table that is not a sub-table header (an inline table, a dotted key,
+# a multi-line string, even a plain value). A construct under model_providers.<other>
+# cannot declare <Name> and does not count.
+function Get-ProviderSetProblem {
+    param($Config, [string]$Name)
+    $top = $Config.Tables['']
+    # (a top-level dotted key model_providers.<x>... is judged by the table it writes
+    # into, which the scanner marked: [model_providers] itself, or <x>'s table)
+    if ($top -and $top.Entries.ContainsKey('model_providers') -and $top.Entries['model_providers'].Kind -ne 'dotted key') {
+        $e = $top.Entries['model_providers']
+        $why = $e.Reason
+        if (-not $why) { $why = "model_providers at line $($e.Line) is a $($e.Kind), not a table of providers" }
+        return $why
+    }
+    if ($Config.Tables.ContainsKey('model_providers')) {
+        $mp = $Config.Tables['model_providers']
+        if (-not $mp.Ok) { return $mp.Reason }
+        if ($mp.Entries.ContainsKey($Name)) {
+            $e = $mp.Entries[$Name]
+            $why = $e.Reason
+            if (-not $why) { $why = "[model_providers] declares $Name at line $($e.Line) as a $($e.Kind), not as a table" }
+            return $why
+        }
+    }
+    return ''
+}
+
+# base_url as the provider identity sees it: scheme and host lowercased, credentials
+# (user:pass@) dropped, path as written, no trailing slash. { Url; HostName }.
+function ConvertTo-CanonicalBaseUrl {
+    param([string]$Url)
+    $u = ([string]$Url).Trim()
+    $m = [regex]::Match($u, '^([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)(.*)$')
+    if (-not $m.Success) { return [pscustomobject]@{ Url = $u.TrimEnd([char]'/'); HostName = '' } }
+    $scheme = $m.Groups[1].Value.ToLowerInvariant()
+    $authority = $m.Groups[2].Value
+    $at = $authority.LastIndexOf([char]'@')
+    if ($at -ge 0) { $authority = $authority.Substring($at + 1) }
+    $authority = $authority.ToLowerInvariant()
+    $hostName = $authority
+    if ($hostName.StartsWith('[')) {
+        $close = $hostName.IndexOf([char]']')
+        if ($close -gt 0) { $hostName = $hostName.Substring(0, $close + 1) }
+    } else {
+        $hostName = $hostName -replace ':[0-9]*$', ''
+    }
+    return [pscustomobject]@{ Url = ("${scheme}://$authority" + $m.Groups[3].Value).TrimEnd([char]'/'); HostName = $hostName }
+}
+
+# Endpoint identity of a usable provider table: { Compat; HostName; BaseUrl; WireApi;
+# Display; Config; Error }. Compat = 'cc-provider-v1|base_url=<canonical>|wire_api=<v>'.
+# An absent wire_api is 'default' there - no protocol is asserted, and adding the key
+# later is a detected change - and provider_config then has no wire_api key. An absent
+# base_url is '' (Codex's own default endpoint, not asserted either).
+# Config = the table without secret-like keys, sorted by key, base_url without
+# credentials and query values (audit metadata, never compared; the fingerprint covers
+# the full canonical URL).
+function Get-ProviderEndpoint {
+    param($Table, [string]$TableName, [string]$Where)
+    $r = [pscustomobject]@{ Compat = ''; HostName = ''; BaseUrl = ''; WireApi = ''; Display = ''; Config = (New-Object PSObject); Error = '' }
+    $bu = Get-TomlString -Table $Table -Key 'base_url'
+    $wa = Get-TomlString -Table $Table -Key 'wire_api'
+    if ($bu.Reason) { $r.Error = "$TableName in $Where is not usable - $($bu.Reason)"; return $r }
+    if ($wa.Reason) { $r.Error = "$TableName in $Where is not usable - $($wa.Reason)"; return $r }
+    $cu = ConvertTo-CanonicalBaseUrl $bu.Value
+    $wire = 'default'
+    $wireLabel = '(default)'
+    if ($wa.Present) { $wire = $wa.Value.Trim(); $wireLabel = $wire }
+    $audit = ($cu.Url -replace '\?.*$', '?...')
+    $r.Compat = "cc-provider-v1|base_url=$($cu.Url)|wire_api=$wire"
+    $r.HostName = $cu.HostName
+    $r.BaseUrl = $cu.Url
+    $r.WireApi = $wireLabel
+    $r.Display = "endpoint $(if ($audit) { $audit } else { '(default)' }), wire_api: $wireLabel"
+    $keys = [string[]]@($Table.Entries.Keys)
+    [Array]::Sort($keys, [StringComparer]::Ordinal)
+    foreach ($key in $keys) {
+        if ($key -match $script:SecretKeyPattern) { continue }
+        $e = $Table.Entries[$key]
+        $val = $e.Value
+        if ($key -ceq 'base_url') { $val = $audit }
+        elseif ($e.Kind -eq 'boolean') { $val = ($e.Value -ceq 'true') }
+        elseif ($e.Kind -eq 'integer') { $n = [long]0; if ([long]::TryParse(($e.Value -replace '_', ''), [ref]$n)) { $val = $n } }
+        $r.Config | Add-Member -NotePropertyName $key -NotePropertyValue $val
+    }
+    return $r
+}
+
+# The reviewer this run will talk to, as Codex will resolve it:
+#   provider  -Provider, else the config's model_provider, else 'openai' (Codex default)
+#   model     -Model, else the config's model
+#   endpoint  any provider with a [model_providers.<name>] table: its base_url and
+#             wire_api (Get-ProviderEndpoint). openai WITHOUT such a table: built in,
+#             'cc-provider-v1|builtin:openai', plus '|base_url=<canonical>' when
+#             OPENAI_BASE_URL (honoured by Codex for its built-in provider) is set.
+#             A user-defined [model_providers.openai] table is used for the identity
+#             when it is usable (whether Codex merges it over the built-in is not
+#             verified - the table is the safer claim, and it is noted in
+#             identity_note); an unusable one leaves the identity unresolved.
+#             provider_fingerprint = SHA-256 of that canonical string: comments, key
+#             order, whitespace, `name`, headers and secret rotation never change it.
+# Resolved = provider, model and endpoint all known and no profile in play; otherwise
+# Fingerprint is '' (such a run is never a parent) and Note says why (Note may also
+# carry information on a resolved identity). Error is set only for an explicit
+# -Provider that cannot be used (the caller refuses the run).
+function Resolve-ReviewerIdentity {
+    param($Config, [string]$Provider = '', [string]$Model = '', [string]$OpenAiBaseUrl = '')
+    $notes = New-Object System.Collections.Generic.List[string]
+    $id = [pscustomobject]@{
+        Provider       = 'unknown'
+        ProviderSource = ''
+        Model          = 'unknown'
+        ModelSource    = 'unknown'
+        Lineage        = ''
+        Resolved       = $false
+        Note           = ''
+        Error          = ''
+        Fingerprint    = ''
+        CompatString   = ''
+        HostName       = ''
+        BaseUrl        = ''
+        WireApi        = ''
+        ProviderConfig = (New-Object PSObject)
+        Display        = 'endpoint unknown'
+        ConfigPath     = [string]$Config.Path
+    }
+    $where = if ($Config.Path) { [string]$Config.Path } else { '(no Codex home)' }
+    $fileReason = ''
+    if ($Config.Exists -and -not $Config.Ok) { $fileReason = $Config.Reason }
+    $top = $null
+    if ($Config.Exists -and $Config.Ok) { $top = $Config.Tables[''] }
+    $topReason = $fileReason
+    if (-not $topReason -and $top -and -not $top.Ok) { $topReason = $top.Reason }
+    # An unreadable file cannot rule out a profile: never resolved.
+    if ($fileReason) { $notes.Add($fileReason) }
+    if ($top) {
+        $pf = Get-TomlString -Table $top -Key 'profile'
+        if ($pf.Present) {
+            if ($pf.Reason) { $notes.Add($pf.Reason) }
+            else { $notes.Add("the Codex config selects profile '$($pf.Value)' (line $($pf.Line)); profiles are not supported - a profile can change the provider, the model and the effort behind the bridge") }
+        }
+    }
+    $cfgProvider = $null
+    $cfgModel = $null
+    if ($top -and -not $topReason) {
+        $cfgProvider = Get-TomlString -Table $top -Key 'model_provider'
+        $cfgModel = Get-TomlString -Table $top -Key 'model'
+    }
+
+    if ($Provider) {
+        $id.Provider = $Provider; $id.ProviderSource = '-Provider'
+    } elseif ($topReason) {
+        if (-not $notes.Contains($topReason)) { $notes.Add($topReason) }
+    } elseif ($cfgProvider -and $cfgProvider.Present) {
+        if ($cfgProvider.Reason) { $notes.Add($cfgProvider.Reason) }
+        elseif (-not $cfgProvider.Value) { $notes.Add("model_provider at line $($cfgProvider.Line) of $where is empty") }
+        else { $id.Provider = $cfgProvider.Value; $id.ProviderSource = 'config' }
+    } else {
+        $id.Provider = 'openai'; $id.ProviderSource = 'codex default'
+    }
+
+    if ($Model) {
+        $id.Model = $Model; $id.ModelSource = '-Model'
+    } elseif ($topReason) {
+        if (-not $notes.Contains($topReason)) { $notes.Add($topReason) }
+    } elseif ($cfgModel -and $cfgModel.Present) {
+        if ($cfgModel.Reason) { $notes.Add($cfgModel.Reason) }
+        elseif (-not $cfgModel.Value) { $notes.Add("model at line $($cfgModel.Line) of $where is empty") }
+        else { $id.Model = $cfgModel.Value; $id.ModelSource = 'config' }
+    } elseif ($Config.Exists) {
+        $notes.Add("no -Model and no top-level model in $where")
+    } else {
+        $notes.Add("no -Model and no Codex config at $where (the model Codex picks by default is not known to the bridge)")
+    }
+
+    $compat = ''
+    $infos = New-Object System.Collections.Generic.List[string]
+    if ($id.ProviderSource) {
+        $name = $id.Provider
+        $tableName = '[' + (Format-TomlPath @('model_providers', $name)) + ']'
+        $err = ''
+        $pt = $null
+        $setProblem = ''
+        if ($Config.Exists -and $Config.Ok) {
+            $pt = Get-ProviderTable -Config $Config -Name $name
+            $setProblem = Get-ProviderSetProblem -Config $Config -Name $name
+        }
+        if ($setProblem) {
+            # Something the scanner cannot read may declare this provider: neither the
+            # built-in fallback nor "unknown provider" can be claimed.
+            $err = "the providers in $where could not be established, so $tableName may be declared there - $setProblem"
+        } elseif ($name -ceq 'openai' -and -not ($pt -and $pt.Found)) {
+            # Built in, no user table. (A config that cannot be scanned is already a
+            # note: it cannot rule out a [model_providers.openai] table either.)
+            $compat = 'cc-provider-v1|builtin:openai'
+            $id.HostName = 'builtin:openai'
+            $id.WireApi = '(built in)'
+            $display = 'endpoint builtin:openai'
+            $pc = New-Object PSObject
+            $pc | Add-Member -NotePropertyName 'builtin' -NotePropertyValue 'openai'
+            if ($OpenAiBaseUrl -and $OpenAiBaseUrl.Trim()) {
+                $cu = ConvertTo-CanonicalBaseUrl $OpenAiBaseUrl
+                $audit = ($cu.Url -replace '\?.*$', '?...')
+                $compat += "|base_url=$($cu.Url)"
+                $id.HostName = $cu.HostName
+                $id.BaseUrl = $cu.Url
+                $display += " via OPENAI_BASE_URL $audit"
+                $pc | Add-Member -NotePropertyName 'base_url' -NotePropertyValue $audit
+                $pc | Add-Member -NotePropertyName 'base_url_source' -NotePropertyValue 'OPENAI_BASE_URL'
+            }
+            $id.ProviderConfig = $pc
+            $id.Display = $display
+        } elseif (-not $Config.Exists) {
+            $err = "unknown provider '$name': there is no Codex config at $where, so there is no $tableName table (built in: openai)"
+        } elseif (-not $Config.Ok) {
+            $err = "$tableName cannot be read: $($Config.Reason)"
+        } elseif (-not $pt.Found) {
+            $found = Get-ProviderNames -Config $Config
+            $list = '(none)'
+            if ($found.Count -gt 0) { $list = $found -join ', ' }
+            $err = "unknown provider '$name': $where has no $tableName table; providers found: $list (built in: openai)"
+        } elseif (-not $pt.Ok) {
+            $err = "$tableName in $where is not usable - $($pt.Reason)"
+        } else {
+            $ep = Get-ProviderEndpoint -Table $pt.Table -TableName $tableName -Where $where
+            if ($ep.Error) { $err = $ep.Error }
+            else {
+                $compat = $ep.Compat
+                $id.HostName = $ep.HostName
+                $id.BaseUrl = $ep.BaseUrl
+                $id.WireApi = $ep.WireApi
+                $id.ProviderConfig = $ep.Config
+                $id.Display = $ep.Display
+                if ($name -ceq 'openai') { $infos.Add('user-defined [model_providers.openai] table used for the identity') }
+            }
+        }
+        if ($err) {
+            if ($id.ProviderSource -eq '-Provider') { $id.Error = $err }
+            elseif ($name -ceq 'openai') { $notes.Add("$(if ($id.ProviderSource -eq 'config') { "the config's model_provider" } else { "Codex's default provider openai" }): $err") }
+            else { $notes.Add("the config's model_provider: $err") }
+            $compat = ''
+        }
+    }
+    $id.Lineage = Format-Lineage -Provider $id.Provider -Model $id.Model
+    $id.Resolved = [bool]($id.ProviderSource -and $id.ModelSource -ne 'unknown' -and $compat -and -not $id.Error -and $notes.Count -eq 0)
+    if ($id.Resolved) {
+        $id.CompatString = $compat
+        $id.Fingerprint = Get-Sha256Hex ($script:Utf8NoBom.GetBytes($compat))
+    }
+    $id.Note = ((@($notes.ToArray()) + @($infos.ToArray())) -join '; ')
+    return $id
+}
+
+# Display form of a lineage: '<provider> :: <model>'. Display metadata only - a provider
+# name or a model may itself contain '/' or '::', so identities are always compared field
+# by field (reviewer.provider, reviewer.model, provider_fingerprint), never by this string.
+function Format-Lineage {
+    param([string]$Provider, [string]$Model)
+    return "$Provider :: $Model"
+}
+
+# The `reviewer` object of a ledger entry.
+function New-ReviewerRecord {
+    param($Identity, [string]$Harness)
+    return [pscustomobject]@{
+        provider             = $Identity.Provider
+        provider_source      = $(if ($Identity.ProviderSource) { $Identity.ProviderSource } else { 'unknown' })
+        model                = $Identity.Model
+        model_source         = $Identity.ModelSource
+        harness              = $Harness
+        provider_fingerprint = $Identity.Fingerprint
+        provider_config      = $Identity.ProviderConfig
+        identity_note        = $Identity.Note
+    }
+}
+
+# Per-run Codex config overrides: -CodexConfig and a roster entry's codex_config follow the
+# same rules. Each item is key=value; one string may carry several, split only at a comma
+# that starts the next key=, so a value like [1,2] stays whole. Keys that would change what
+# the ledger records (model, model_provider, profile, model_reasoning_effort,
+# model_providers.*) are refused. A value starting with ~/ or ~\ gets the home directory
+# ($HOME, else USERPROFILE) and forward slashes (Codex does not expand ~; on Windows
+# `~/...` fails with os error 123). A value that is not a TOML literal is wrapped in double
+# quotes (Codex parses the value as TOML and falls back to a literal string, so a bare path
+# is a TOML string either way). { Items (string[], as passed to codex and recorded in the
+# ledger); Error ('' or the message, prefixed by $Label) }.
+function ConvertFrom-CodexConfigItems {
+    param([string[]]$Values, [string]$Label = '-CodexConfig')
+    $items = New-Object System.Collections.Generic.List[string]
+    foreach ($cfgArg in @($Values)) {
+        if (-not $cfgArg -or -not $cfgArg.Trim()) { continue }
+        foreach ($item in ($cfgArg.Trim() -split ',(?=\s*[A-Za-z0-9_.]+=)')) {
+            $item = $item.Trim()
+            if ($item -notmatch '^[A-Za-z0-9_.]+=.+$') {
+                return [pscustomobject]@{ Items = [string[]]@(); Error = "$Label '$item' is malformed: expected key=value (key: letters, digits, _ and .; a non-empty value)." }
+            }
+            $cfgKey = $item.Substring(0, $item.IndexOf('='))
+            $cfgValue = $item.Substring($item.IndexOf('=') + 1)
+            if (@('model', 'model_provider', 'profile', 'model_reasoning_effort', 'model_providers') -ccontains $cfgKey -or $cfgKey.StartsWith('model_providers.', [StringComparison]::Ordinal)) {
+                return [pscustomobject]@{ Items = [string[]]@(); Error = "$Label '$item' is refused: $cfgKey is part of the reviewer identity and effort the bridge records (use -Model / -Provider / -Effort; providers belong in the Codex config)." }
+            }
+            if ($cfgValue -match '^~[\\/]') {
+                $homeDir = $HOME
+                if (-not $homeDir) { $homeDir = $env:USERPROFILE }
+                $cfgValue = (($homeDir.TrimEnd([char]'\', [char]'/') + $cfgValue.Substring(1)) -replace '\\', '/')
+            }
+            if ($cfgValue -notmatch '^(["''0-9\[{]|true$|false$)') { $cfgValue = '"' + (ConvertTo-TomlBasicString $cfgValue) + '"' }
+            $items.Add("$cfgKey=$cfgValue")
+        }
+    }
+    return [pscustomobject]@{ Items = [string[]]$items.ToArray(); Error = '' }
+}
+
+# ----------------------------------------------------------------------------- effort vocabularies
+#
+# -Effort and the purpose presets speak low|medium|high|xhigh. What an endpoint accepts
+# is DECLARED, never inferred (no host-wide or model-prefix guess): capability table
+# caps-v1 -
+#   the built-in openai provider (no user table, no OPENAI_BASE_URL)
+#       vocabulary openai for any model (Codex validates its own models)   low medium high xhigh
+#   hosts api.z.ai, open.bigmodel.cn
+#       vocabulary zai (mapping zai-v1) ONLY for the declared models below  low high max
+#       (exact, case-sensitive): medium -> high, xhigh -> max
+#   hosts token-plan-ams.xiaomimimo.com, token-plan-cn.xiaomimimo.com, api.xiaomimimo.com
+#       vocabulary mimo (mapping mimo-v1) ONLY for the declared models     none low medium
+#       below (exact): low, medium, high as is, xhigh -> high               high
+# Anything else - an undeclared model on a known host, any model on another endpoint -
+# has no vocabulary: the run is refused unless -NativeEffort sends a value verbatim.
+# Codex's events do not report the effort the endpoint applied: effort_confirmed is null.
+$script:EffortCapsVersion = 'caps-v1'
+$script:EffortVocabularies = @{
+    'openai' = @{ Mapping = 'openai'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'xhigh' } }
+    'zai'    = @{ Mapping = 'zai-v1'; Map = @{ 'low' = 'low'; 'medium' = 'high'; 'high' = 'high'; 'xhigh' = 'max' } }
+    'mimo'   = @{ Mapping = 'mimo-v1'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'high' } }
+}
+$script:ZaiDeclaredModels = @('glm-5.3', 'glm-5.3-flash', 'glm-5.3-flashx', 'glm-5.2', 'glm-5.1', 'glm-5', 'glm-5-turbo', 'glm-4.7', 'glm-4.6', 'glm-4.5', 'glm-4.5-air')
+$script:MimoDeclaredModels = @('mimo-v2.6-pro', 'mimo-v2.6-flash', 'mimo-v2.6-pro-ultraspeed', 'mimo-v2.5-pro', 'mimo-v2.5')
+# host -> { Vocabulary; Models ($null = any model); SchemaTransport }. SchemaTransport: how
+# the reply schema reaches the endpoint - 'output-schema' (--output-schema; the built-in
+# openai enforces it, z.ai accepts it without enforcing) or 'prompt-only' (MiMo rejects a
+# json_schema response format: the schema travels in the prompt only). An endpoint not
+# in the table is 'prompt-only' (Get-SchemaTransport).
+$script:EffortCaps = @{
+    'builtin:openai'                = @{ Vocabulary = 'openai'; Models = $null; SchemaTransport = 'output-schema' }
+    'api.z.ai'                      = @{ Vocabulary = 'zai'; Models = $script:ZaiDeclaredModels; SchemaTransport = 'output-schema' }
+    'open.bigmodel.cn'              = @{ Vocabulary = 'zai'; Models = $script:ZaiDeclaredModels; SchemaTransport = 'output-schema' }
+    'token-plan-ams.xiaomimimo.com' = @{ Vocabulary = 'mimo'; Models = $script:MimoDeclaredModels; SchemaTransport = 'prompt-only' }
+    'token-plan-cn.xiaomimimo.com'  = @{ Vocabulary = 'mimo'; Models = $script:MimoDeclaredModels; SchemaTransport = 'prompt-only' }
+    'api.xiaomimimo.com'            = @{ Vocabulary = 'mimo'; Models = $script:MimoDeclaredModels; SchemaTransport = 'prompt-only' }
+}
+
+# { Transport ('output-schema' | 'prompt-only'); Basis } for the identity's endpoint;
+# 'prompt-only' is the safe default for an endpoint caps-v1 does not declare (a
+# json_schema response format it may reject would fail the whole run).
+function Get-SchemaTransport {
+    param($Identity)
+    $hostName = [string]$Identity.HostName
+    if ($hostName -and $script:EffortCaps.ContainsKey($hostName)) {
+        return [pscustomobject]@{ Transport = $script:EffortCaps[$hostName].SchemaTransport; Basis = "$($script:EffortCapsVersion): $hostName" }
+    }
+    $label = if ($hostName) { $hostName } else { 'unknown-host' }
+    return [pscustomobject]@{ Transport = 'prompt-only'; Basis = "default for an endpoint $($script:EffortCapsVersion) does not declare: $label" }
+}
+
+# { Requested; Sent; Mapping; Caps; Basis; Error }
+function Resolve-EffortPlan {
+    param($Identity, [string]$Requested, [string]$Native = '')
+    $plan = [pscustomobject]@{ Requested = $Requested; Sent = ''; Mapping = ''; Caps = $script:EffortCapsVersion; Basis = ''; Error = '' }
+    if ($Native) {
+        $plan.Requested = $Native; $plan.Sent = $Native; $plan.Mapping = 'native'; $plan.Basis = '-NativeEffort, sent verbatim'
+        return $plan
+    }
+    $hostName = [string]$Identity.HostName
+    $model = [string]$Identity.Model
+    $cap = $null
+    if ($hostName -and $script:EffortCaps.ContainsKey($hostName)) { $cap = $script:EffortCaps[$hostName] }
+    if (-not $cap) {
+        $hostLabel = if ($hostName) { $hostName } else { 'unknown-host' }
+        $declared = @($script:EffortCaps.Keys | Sort-Object) -join ', '
+        $plan.Error = "no effort vocabulary declared for $hostLabel ($($script:EffortCapsVersion) declares $declared); pass -NativeEffort <value> to send a value verbatim"
+        return $plan
+    }
+    if (($null -ne $cap.Models) -and (($Identity.ModelSource -eq 'unknown') -or -not ($cap.Models -ccontains $model))) {
+        $plan.Error = "no effort vocabulary declared for model '$model' on $hostName ($($script:EffortCapsVersion) declares: $($cap.Models -join ', ')); pass -NativeEffort <value> to send a value verbatim"
+        return $plan
+    }
+    $v = $script:EffortVocabularies[$cap.Vocabulary]
+    $plan.Sent = $v.Map[$Requested]
+    $plan.Mapping = $v.Mapping
+    $plan.Basis = if ($null -eq $cap.Models) { "$($script:EffortCapsVersion): $hostName, any model" } else { "$($script:EffortCapsVersion): $hostName, $model" }
+    return $plan
+}
+
+# ----------------------------------------------------------------------------- peak windows
+#
+# CODEX_CONSULT_PEAK_<PROVIDER> = "<days> <HH:MM>-<HH:MM> <+HH:MM|-HH:MM>" (the provider
+# name upper-cased, every character outside A-Z 0-9 replaced by _), e.g.
+# CODEX_CONSULT_PEAK_ZAI="Mon-Fri 14:00-18:00 +08:00". Days: *, a day (Mon), a range
+# (Mon-Fri; it may wrap: Fri-Mon) or a comma list of those. Optional
+# CODEX_CONSULT_PEAK_<PROVIDER>_EXCEPT = comma-separated YYYY-MM-DD or
+# YYYY-MM-DD..YYYY-MM-DD: those calendar dates (in the schedule's offset) are off-peak all
+# day. Evaluated ONCE at launch in the fixed offset: start inclusive, end exclusive (24:00
+# = midnight); an overnight window (start > end) spans midnight and its day check applies
+# to the day it STARTED. peak = $true | $false; $null = no schedule (unknown). A long
+# consultation that starts off-peak may still run into the window.
+$script:DayNames = @('sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat')
+
+# The clock of the peak evaluations. TEST HOOK: CODEX_CONSULT_NOW = one or more ISO
+# timestamps with an offset, comma-separated; the k-th evaluation of a run uses the k-th
+# (the last one repeats), so a test can put the early check off-peak and the launch-time
+# check inside the window. Unset: the system clock. { Now (DateTimeOffset); Iso; FromEnv;
+# Error }. -Peek reads the value the next evaluation would get without consuming it (the
+# endpoint-health reading of the preflight and codex-providers.ps1 use it).
+$script:ConsultClockCalls = 0
+function Get-ConsultClock {
+    param([switch]$Peek)
+    $raw = [string]$env:CODEX_CONSULT_NOW
+    $call = $script:ConsultClockCalls
+    if (-not $Peek) { $script:ConsultClockCalls++ }
+    if (-not $raw.Trim()) {
+        $n = [DateTimeOffset]::Now
+        return [pscustomobject]@{ Now = $n; Iso = $n.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); FromEnv = $false; Error = '' }
+    }
+    $items = @($raw.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $parsed = New-Object System.Collections.Generic.List[DateTimeOffset]
+    foreach ($item in $items) {
+        $dto = [DateTimeOffset]::MinValue
+        if ($item -notmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?([+-][0-9]{2}:[0-9]{2}|Z)$' -or -not [DateTimeOffset]::TryParse($item, $script:Invariant, [System.Globalization.DateTimeStyles]::None, [ref]$dto)) {
+            return [pscustomobject]@{ Now = $null; Iso = ''; FromEnv = $true; Error = "CODEX_CONSULT_NOW='$raw' is malformed: bad token '$item' (a test hook: ISO timestamps with an offset, e.g. 2026-09-24T13:59:59+08:00, comma-separated)" }
+        }
+        $parsed.Add($dto)
+    }
+    $pick = $parsed[[Math]::Min($call, $parsed.Count - 1)]
+    return [pscustomobject]@{ Now = $pick; Iso = $pick.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); FromEnv = $true; Error = '' }
+}
+
+# Get-PeakStatus at the clock's current reading; adds EvaluatedAt and marks a peak_source
+# 'env (CODEX_CONSULT_NOW)' when the test hook set the time. Error covers both inputs.
+function Get-PeakStatusNow {
+    param([string]$Provider)
+    $clock = Get-ConsultClock
+    if ($clock.Error) { return [pscustomobject]@{ Peak = $null; Schedule = ''; Source = 'none'; Variable = ''; Local = ''; Detail = ''; Error = $clock.Error; EvaluatedAt = '' } }
+    $st = Get-PeakStatus -Provider $Provider -UtcNow $clock.Now.UtcDateTime
+    if ($clock.FromEnv -and $st.Source -eq 'env') { $st.Source = 'env (CODEX_CONSULT_NOW)' }
+    $st | Add-Member -NotePropertyName 'EvaluatedAt' -NotePropertyValue $clock.Iso
+    return $st
+}
+
+function Get-PeakVariableName {
+    param([string]$Provider)
+    return ('CODEX_CONSULT_PEAK_' + ($Provider.ToUpperInvariant() -replace '[^A-Z0-9]', '_'))
+}
+
+# { Days (bool[7], index = [int][DayOfWeek]); Start; End (minutes); Offset; Error }
+function ConvertFrom-PeakSpec {
+    param([string]$Spec, [string]$VarName)
+    $r = [pscustomobject]@{ Days = $null; Start = 0; End = 0; Offset = [TimeSpan]::Zero; Error = '' }
+    $format = "expected '<days> <HH:MM>-<HH:MM> <+HH:MM|-HH:MM>', e.g. 'Mon-Fri 14:00-18:00 +08:00'"
+    $trimmed = ([string]$Spec).Trim()
+    $tokens = @($trimmed -split '\s+')
+    if ($tokens.Count -ne 3) {
+        $r.Error = "$VarName='$Spec' is malformed: bad token '$trimmed' ($($tokens.Count) field(s) instead of 3); $format"
+        return $r
+    }
+    $dayHelp = 'day names are Mon Tue Wed Thu Fri Sat Sun, a range Mon-Fri, a list Mon,Wed or *'
+    $days = New-Object 'bool[]' 7
+    if ($tokens[0] -eq '*') {
+        for ($d = 0; $d -lt 7; $d++) { $days[$d] = $true }
+    } else {
+        foreach ($item in $tokens[0].Split(',')) {
+            $mRange = [regex]::Match($item, '^([A-Za-z]{3})-([A-Za-z]{3})$')
+            if ($mRange.Success) {
+                $a = [Array]::IndexOf($script:DayNames, $mRange.Groups[1].Value.ToLowerInvariant())
+                $b = [Array]::IndexOf($script:DayNames, $mRange.Groups[2].Value.ToLowerInvariant())
+                if ($a -lt 0 -or $b -lt 0) { $r.Error = "$VarName='$Spec' is malformed: bad token '$item' ($dayHelp); $format"; return $r }
+                $d = $a
+                while ($true) { $days[$d] = $true; if ($d -eq $b) { break }; $d = ($d + 1) % 7 }
+                continue
+            }
+            $one = -1
+            if ($item -match '^[A-Za-z]{3}$') { $one = [Array]::IndexOf($script:DayNames, $item.ToLowerInvariant()) }
+            if ($one -lt 0) { $r.Error = "$VarName='$Spec' is malformed: bad token '$item' ($dayHelp); $format"; return $r }
+            $days[$one] = $true
+        }
+    }
+    $mt = [regex]::Match($tokens[1], '^([0-9]{2}):([0-9]{2})-([0-9]{2}):([0-9]{2})$')
+    $timeOk = $mt.Success
+    if ($timeOk) {
+        $sh = [int]$mt.Groups[1].Value; $sm = [int]$mt.Groups[2].Value; $eh = [int]$mt.Groups[3].Value; $em = [int]$mt.Groups[4].Value
+        $timeOk = ($sh -le 23 -and $sm -le 59 -and $em -le 59 -and ($eh -le 23 -or ($eh -eq 24 -and $em -eq 0)))
+        if ($timeOk) {
+            $r.Start = $sh * 60 + $sm
+            $r.End = $eh * 60 + $em
+            if ($r.Start -eq $r.End) { $timeOk = $false }
+        }
+    }
+    if (-not $timeOk) { $r.Error = "$VarName='$Spec' is malformed: bad token '$($tokens[1])' (a window HH:MM-HH:MM, 00:00..23:59, end up to 24:00, start <> end); $format"; return $r }
+    $mo = [regex]::Match($tokens[2], '^([+-])([0-9]{2}):([0-9]{2})$')
+    $offOk = $mo.Success
+    if ($offOk) {
+        $oh = [int]$mo.Groups[2].Value; $om = [int]$mo.Groups[3].Value
+        $offOk = ($om -le 59 -and ($oh * 60 + $om) -le 14 * 60)
+        if ($offOk) {
+            $r.Offset = New-Object TimeSpan($oh, $om, 0)
+            if ($mo.Groups[1].Value -eq '-') { $r.Offset = $r.Offset.Negate() }
+        }
+    }
+    if (-not $offOk) { $r.Error = "$VarName='$Spec' is malformed: bad token '$($tokens[2])' (a UTC offset +HH:MM or -HH:MM, at most 14:00); $format"; return $r }
+    $r.Days = $days
+    return $r
+}
+
+# { Intervals (list of @(start, end) dates, inclusive); Error }. Ranges are kept as
+# intervals - any length, never expanded; only end < start is refused.
+function ConvertFrom-PeakExceptions {
+    param([string]$Text, [string]$VarName)
+    $list = New-Object System.Collections.Generic.List[object]
+    $r = [pscustomobject]@{ Intervals = $list; Error = '' }
+    $format = 'expected comma-separated YYYY-MM-DD or YYYY-MM-DD..YYYY-MM-DD'
+    foreach ($raw in ([string]$Text).Split(',')) {
+        $item = $raw.Trim()
+        if (-not $item) { continue }
+        $parts = @($item -split '\.\.')
+        $parsed = New-Object System.Collections.Generic.List[datetime]
+        foreach ($p in $parts) {
+            $dt = [datetime]::MinValue
+            if ($p -notmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' -or -not [datetime]::TryParseExact($p, 'yyyy-MM-dd', $script:Invariant, [System.Globalization.DateTimeStyles]::None, [ref]$dt)) {
+                $r.Error = "$VarName='$Text' is malformed: bad token '$item' ($format)"; return $r
+            }
+            $parsed.Add($dt.Date)
+        }
+        if ($parsed.Count -gt 2 -or ($parsed.Count -eq 2 -and $parsed[1] -lt $parsed[0])) {
+            $r.Error = "$VarName='$Text' is malformed: bad token '$item' ($format; a range must not run backwards)"; return $r
+        }
+        $list.Add(@($parsed[0], $parsed[$parsed.Count - 1]))
+    }
+    return $r
+}
+
+# { Peak ($true | $false | $null); Schedule; Source ('env'|'none'); Variable; Local;
+#   Detail; Error }. -Spec / -Except replace the environment (tests).
+function Get-PeakStatus {
+    param([string]$Provider, [datetime]$UtcNow = [datetime]::UtcNow, [string]$Spec = $null, [string]$Except = $null)
+    $st = [pscustomobject]@{ Peak = $null; Schedule = ''; Source = 'none'; Variable = ''; Local = ''; Detail = 'no schedule'; Error = '' }
+    if (-not $Provider) { $st.Detail = 'provider unknown'; return $st }
+    $var = Get-PeakVariableName $Provider
+    $st.Variable = $var
+    if (-not $PSBoundParameters.ContainsKey('Spec')) { $Spec = [Environment]::GetEnvironmentVariable($var) }
+    if (-not $PSBoundParameters.ContainsKey('Except')) { $Except = [Environment]::GetEnvironmentVariable($var + '_EXCEPT') }
+    if (-not $Spec -or -not $Spec.Trim()) { return $st }
+    $parsed = ConvertFrom-PeakSpec -Spec $Spec -VarName $var
+    if ($parsed.Error) { $st.Error = $parsed.Error; return $st }
+    $exceptions = $null
+    if ($Except -and $Except.Trim()) {
+        $exceptions = ConvertFrom-PeakExceptions -Text $Except -VarName ($var + '_EXCEPT')
+        if ($exceptions.Error) { $st.Error = $exceptions.Error; return $st }
+    }
+    $st.Source = 'env'
+    $st.Schedule = $Spec.Trim()
+    if ($exceptions) { $st.Schedule += "; except $($Except.Trim())" }
+    $utc = $UtcNow
+    if ($utc.Kind -eq [DateTimeKind]::Local) { $utc = $utc.ToUniversalTime() }
+    $local = $utc.Add($parsed.Offset)
+    $sign = if ($parsed.Offset -lt [TimeSpan]::Zero) { '-' } else { '+' }
+    $st.Local = $local.ToString('yyyy-MM-dd HH:mm ddd', $script:Invariant) + " $sign" + $parsed.Offset.Duration().ToString('hh\:mm', $script:Invariant)
+    $tod = $local.TimeOfDay.TotalMinutes
+    $dow = [int]$local.DayOfWeek
+    $prev = ($dow + 6) % 7
+    if ($parsed.Start -lt $parsed.End) {
+        $inside = ($parsed.Days[$dow] -and $tod -ge $parsed.Start -and $tod -lt $parsed.End)
+    } else {
+        $inside = (($parsed.Days[$dow] -and $tod -ge $parsed.Start) -or ($parsed.Days[$prev] -and $tod -lt $parsed.End))
+    }
+    $dateKey = $local.ToString('yyyy-MM-dd', $script:Invariant)
+    $exceptionHit = $false
+    if ($exceptions) {
+        foreach ($iv in $exceptions.Intervals) { if ($local.Date -ge $iv[0] -and $local.Date -le $iv[1]) { $exceptionHit = $true; break } }
+    }
+    if ($exceptionHit) {
+        $st.Peak = $false
+        $st.Detail = "exception date $dateKey (off-peak all day)"
+    } elseif ($inside) {
+        $st.Peak = $true
+        $st.Detail = 'inside the peak window'
+    } else {
+        $st.Peak = $false
+        $st.Detail = 'outside the peak window'
+    }
+    return $st
+}
+
+# ----------------------------------------------------------------------------- provider availability
+#
+# Is a provider usable at all - are its credentials present? Decided locally, never over
+# the network:
+#   openai (built in), or a table with requires_openai_auth = true
+#                 `<codex> login status` (Codex reads its own stored login; timeout
+#                 15 s): exit 0 and a "Logged in" line -> ok; anything else -> missing
+#   other tables  env_key names an environment variable that is set and non-empty, or
+#                 the table carries experimental_bearer_token -> ok; else missing
+# A provider that needs no credentials at all (a local endpoint without env_key) reads as
+# missing: pass -SkipPreflight for it, or declare it in the reviewer roster with
+# "auth": "none" (-Anonymous: ok, "declared anonymous in the roster" - only for a table
+# without env_key and bearer token; a table WITH env_key still needs the variable).
+# What credentials cannot show - revoked keys,
+# exhausted plans - comes from the ledgers: failures are classified (auth, quota,
+# capability, transport, unknown) and read back per ENDPOINT (Get-EndpointHealth).
+
+function Resolve-CodexLauncher {
+    param([string]$Explicit)
+    # An explicit launcher (-CodexExe, then CODEX_CONSULT_EXE) that does not resolve is an
+    # error, never a silent fall-through to whatever `codex` is on PATH.
+    $explicitSources = @(@{ value = $Explicit; label = '-CodexExe' }, @{ value = $env:CODEX_CONSULT_EXE; label = 'CODEX_CONSULT_EXE' })
+    foreach ($source in $explicitSources) {
+        $candidate = [string]$source.value
+        if ($candidate) {
+            if (Test-Path -LiteralPath $candidate) { return (Resolve-Path -LiteralPath $candidate).Path }
+            $cmd = Get-Command $candidate -CommandType Application -ErrorAction SilentlyContinue
+            if ($cmd) { return $cmd.Source }
+            Stop-WithError "$($source.label) '$candidate' is not a file and not an application on PATH."
+        }
+    }
+    # On Windows, Get-Command 'codex' resolves to codex.ps1 (the npm shim), which
+    # Start-Process cannot launch; ask for the native exe / cmd shim first.
+    $names = if ($script:OnWindows) { @('codex.exe', 'codex.cmd', 'codex.bat', 'codex') } else { @('codex') }
+    foreach ($name in $names) {
+        $cmd = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue
+        if ($cmd) { return $cmd.Source }
+    }
+    return $null
+}
+
+function New-CredentialResult {
+    param([string]$State, [string]$Reason)
+    $prefix = @{ ok = 'ok: '; missing = 'missing: '; unknown = 'unknown: ' }[$State]
+    return [pscustomobject]@{ State = $State; Reason = $Reason; Detail = ($prefix + $Reason) }
+}
+
+# `<launcher> login status` with a timeout; stdout and stderr are both read (the status
+# line may come on either) and decoded as UTF-8 (the Codex CLI writes UTF-8; the default
+# would be the console code page). { State ok|missing|unknown; Reason; Detail }.
+function Get-CodexLoginStatus {
+    param([string]$Launcher, [int]$TimeoutSec = 15)
+    if (-not $Launcher) { return (New-CredentialResult 'unknown' 'codex CLI not found, `codex login status` could not run') }
+    $p = $null
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $Launcher
+        $psi.Arguments = 'login status'
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardInput = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.StandardOutputEncoding = $script:Utf8NoBom
+        $psi.StandardErrorEncoding = $script:Utf8NoBom
+        $p = [System.Diagnostics.Process]::Start($psi)
+    } catch {
+        return (New-CredentialResult 'unknown' "``codex login status`` could not be started ($(ConvertTo-OneLine $_.Exception.Message))")
+    }
+    try {
+        try { $p.StandardInput.Close() } catch { }
+        $outTask = $p.StandardOutput.ReadToEndAsync()
+        $errTask = $p.StandardError.ReadToEndAsync()
+        if (-not $p.WaitForExit($TimeoutSec * 1000)) {
+            $null = Stop-ProcessTree -Process $p
+            return (New-CredentialResult 'unknown' "``codex login status`` did not finish within $TimeoutSec s")
+        }
+        $p.WaitForExit()
+        $null = $outTask.Wait(5000)
+        $null = $errTask.Wait(5000)
+        $lines = @((([string]$outTask.Result) + "`n" + ([string]$errTask.Result)) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        $loggedIn = @($lines | Where-Object { $_ -cmatch 'Logged in' }) | Select-Object -First 1
+        if ($p.ExitCode -eq 0 -and $loggedIn) { return (New-CredentialResult 'ok' $loggedIn) }
+        $first = if ($lines.Count -gt 0) { $lines[0] } else { "exit $($p.ExitCode)" }
+        return (New-CredentialResult 'missing' $first)
+    } finally {
+        $p.Dispose()
+    }
+}
+
+# Credentials of a provider: $Table is its [model_providers.<name>] table object ($null for
+# the built-in openai without one). $LoginCache (a hashtable) avoids running
+# `login status` twice in one listing. -Anonymous: the reviewer roster declares the endpoint
+# credential-free ("auth": "none").
+function Get-ProviderCredential {
+    param([string]$Name, $Table, [string]$Launcher, [hashtable]$LoginCache = $null, [int]$TimeoutSec = 15, [switch]$Anonymous)
+    $openaiAuth = ($Name -ceq 'openai')
+    if (-not $openaiAuth -and $Table) {
+        $ro = $Table.Entries['requires_openai_auth']
+        if ($Table.Entries.ContainsKey('requires_openai_auth') -and $ro.Supported -and $ro.Kind -eq 'boolean' -and $ro.Value -ceq 'true') { $openaiAuth = $true }
+    }
+    if ($openaiAuth) {
+        if ($LoginCache -and $LoginCache.ContainsKey('login')) { return $LoginCache['login'] }
+        $r = Get-CodexLoginStatus -Launcher $Launcher -TimeoutSec $TimeoutSec
+        if ($LoginCache) { $LoginCache['login'] = $r }
+        return $r
+    }
+    if (-not $Table) { return (New-CredentialResult 'unknown' "no [model_providers.$Name] table") }
+    $ek = Get-TomlString -Table $Table -Key 'env_key'
+    $bt = Get-TomlString -Table $Table -Key 'experimental_bearer_token'
+    $envName = ''
+    if ($ek.Present -and -not $ek.Reason) { $envName = $ek.Value.Trim() }
+    if ($envName) {
+        $v = [Environment]::GetEnvironmentVariable($envName)
+        if ($v -and $v.Trim()) { return (New-CredentialResult 'ok' "env $envName set") }
+    }
+    if ($bt.Present -and -not $bt.Reason -and $bt.Value) { return (New-CredentialResult 'ok' 'bearer token in config') }
+    if ($envName) { return (New-CredentialResult 'missing' "env $envName not set") }
+    if ($Anonymous) { return (New-CredentialResult 'ok' 'declared anonymous in the roster') }
+    return (New-CredentialResult 'missing' 'no env_key/bearer token in the table')
+}
+
+# Classes of a provider failure, tried in this order (case-insensitive). capability comes
+# first: "Your token plan does not support response_format" is a capability rejection,
+# not a quota one. auth matches whole words only ("text authored by" is not auth).
+# transport stays last.
+$script:FailureClassPatterns = [ordered]@{
+    'capability' = '(?i)not supported|unsupported|does(?: not|n[''\u2019]t) support|do not support|feature_not_supported|json_schema'
+    'auth'       = '(?i)\b40[13]\b|unauthori[sz]ed|forbidden|invalid[ _]api[ _]key|\bauthentication\b|\bauth\b|\bapi key\b'
+    'quota'      = '(?i)usage[ _]limit|quota|rate[ _]limit|\b429\b|insufficient balance|too many requests|credits? exhausted|credit balance|payment required|\b402\b|token plan|plan exhausted|billing'
+    'transport'  = '(?i)timeout|timed out|connection|econn|enotfound|\bdns\b|\btls\b|certificate|\b50[234]\b|network'
+}
+$script:BuiltinOpenAiFingerprint = Get-Sha256Hex ($script:Utf8NoBom.GetBytes('cc-provider-v1|builtin:openai'))
+
+# auth | quota | capability | transport | unknown
+function Get-ProviderFailureClass {
+    param([string]$Message)
+    foreach ($k in $script:FailureClassPatterns.Keys) {
+        if ($Message -match $script:FailureClassPatterns[$k]) { return $k }
+    }
+    return 'unknown'
+}
+
+# The provider's own error inside a failure text: an SSE payload `data:{"error":{...}}`
+# (MiMo sends its rejections that way) or a bare `{"error":{...}}` -> error.message and
+# error.code; otherwise the text itself. { Code; Message }.
+function ConvertFrom-ProviderErrorText {
+    param([string]$Text)
+    $r = [pscustomobject]@{ Code = ''; Message = (ConvertTo-OneLine $Text) }
+    if (-not $Text) { return $r }
+    $candidates = New-Object System.Collections.Generic.List[string]
+    foreach ($m in [regex]::Matches($Text, '(?m)data:\s*(\{.*\})\s*$')) { $candidates.Add($m.Groups[1].Value) }
+    $at = $Text.IndexOf('{"error"')
+    if ($at -ge 0) { $candidates.Add($Text.Substring($at).Trim()) }
+    foreach ($json in $candidates) {
+        $o = $null
+        try { $o = ConvertFrom-Json -InputObject $json } catch { continue }
+        $e = Get-PropertyValue $o 'error' $null
+        if ($null -eq $e) { continue }
+        if ($e -is [string]) { $r.Message = ConvertTo-OneLine $e; return $r }
+        $msg = [string](Get-PropertyValue $e 'message' '')
+        if ($msg) { $r.Message = ConvertTo-OneLine $msg }
+        $r.Code = [string](Get-PropertyValue $e 'code' '')
+        if (-not $r.Code) { $r.Code = [string](Get-PropertyValue $e 'type' '') }
+        return $r
+    }
+    return $r
+}
+
+# When a provider says its limit resets - read from its failure message, never guessed.
+# Recognised (case-insensitive; a straight or a curly apostrophe makes no difference):
+#   1. Codex's wording "try again at Sep 28th, 2026 8:35 PM." (also "resets at",
+#      "available at", "until" before the same form; full or 3-letter month names; the
+#      ordinal suffix, the comma, the year and AM/PM are optional - no AM/PM = a 24-hour
+#      clock; no year = the reference's year, or the next one when that date lies more
+#      than a day before the reference). Codex prints a WALL-CLOCK time of the machine it
+#      runs on (ConvertFrom-WallClock).
+#   2. an ISO-8601 timestamp after try again / retry / reset / until / available: with an
+#      offset it is an instant; without one it is a wall-clock time like 1.
+#   3. a duration: "retry after 30" / "Retry-After: 30s" (no unit = seconds), "retry after
+#      1 week", "try again in 5 minutes", "resets in 2 days", "try again in 3 days 1 hour
+#      7 minutes" (units w, d, h, m, s; the parts are summed) -> $Reference + it.
+# Which offset (F15-1):
+#   write time (New-ProviderFailure, on the machine that saw the failure): a wall-clock
+#     time is read with the rules of -TimeZone (default [TimeZoneInfo]::Local), so a reset
+#     on the far side of a daylight-saving change gets the offset valid THEN (Berlin: a
+#     failure at 2026-10-25T01:00+02:00 saying "Oct 26th, 2026 8:35 PM" ->
+#     2026-10-26T20:35:00+01:00). A time that does not exist (the spring gap) takes the
+#     offset after the transition, an ambiguous one (the autumn overlap) the offset before
+#     it. Instants are shown in that zone.
+#   read time (-ReferenceOffset: a ledger entry recorded without retry_after): the reader's
+#     zone may not be the recorder's, so the offset of $Reference (the failure's `when`) is
+#     used for a wall-clock time and for display.
+# DateTimeOffset, or $null when the message names no reset time.
+$script:MonthNumbers = @{ 'jan' = 1; 'feb' = 2; 'mar' = 3; 'apr' = 4; 'may' = 5; 'jun' = 6; 'jul' = 7; 'aug' = 8; 'sep' = 9; 'oct' = 10; 'nov' = 11; 'dec' = 12 }
+$script:DurationUnit = '(?:weeks?|wks?|w|days?|d|hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)\b'
+$script:RetryAfterRe = @{
+    Codex = [regex]('(?i)(?:try\s+again\s+(?:at|on|after)|resets?\s+(?:at|on)|available\s+(?:again\s+)?(?:at|on|after)|until)\s+' +
+        '(?<mon>jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+' +
+        '(?<day>[0-9]{1,2})(?:st|nd|rd|th)?\b,?\s*(?:(?<year>[0-9]{4})\b,?\s*)?(?:at\s+)?' +
+        '(?<hour>[0-9]{1,2}):(?<min>[0-9]{2})(?::(?<sec>[0-9]{2}))?(?:\s*(?<ampm>[ap])\.?\s?m\b\.?)?')
+    Iso   = [regex]'(?i)(?:try\s+again|retry|resets?|until|available)[^0-9\r\n]{0,24}?(?<date>[0-9]{4}-[0-9]{2}-[0-9]{2})[T ](?<time>[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\.[0-9]+)?)?)(?<tz>Z|[+-][0-9]{2}:?[0-9]{2})?'
+    After = [regex]('(?i)retry[- ]after[:\s]\s*(?<n>[0-9]+)(?![0-9:.\-])(?:\s*(?<u>' + $script:DurationUnit + '))?')
+    In    = [regex]('(?i)(?:try\s+again|resets?)\s+in\s+(?<parts>[0-9]+\s*' + $script:DurationUnit + '(?:(?:\s*,\s*|\s+and\s+|\s+)[0-9]+\s*' + $script:DurationUnit + ')*)')
+    Part  = [regex]('(?i)(?<n>[0-9]+)\s*(?<u>' + $script:DurationUnit + ')')
+}
+function ConvertTo-DurationSeconds {
+    param([long]$N, [string]$Unit)
+    $u = ([string]$Unit).ToLowerInvariant()
+    if ($u.StartsWith('w')) { return $N * 604800 }
+    if ($u.StartsWith('d')) { return $N * 86400 }
+    if ($u.StartsWith('h')) { return $N * 3600 }
+    if ($u.StartsWith('m')) { return $N * 60 }
+    return $N
+}
+# A wall-clock time -> DateTimeOffset (see Get-RetryAfter): the offset of $TimeZone at that
+# time (a nonexistent time: the offset after the transition; an ambiguous one: the offset
+# before it), or with -ReferenceOffset (or no zone) the offset of $Reference.
+function ConvertFrom-WallClock {
+    param([datetime]$Wall, [DateTimeOffset]$Reference, [TimeZoneInfo]$TimeZone = $null, [switch]$ReferenceOffset)
+    $w = [datetime]::SpecifyKind($Wall, [DateTimeKind]::Unspecified)
+    if ($ReferenceOffset -or $null -eq $TimeZone) { return (New-Object DateTimeOffset -ArgumentList $w, $Reference.Offset) }
+    if ($TimeZone.IsInvalidTime($w)) { $offset = $TimeZone.GetUtcOffset($w.AddDays(1)) }
+    elseif ($TimeZone.IsAmbiguousTime($w)) { $offset = $TimeZone.GetUtcOffset($w.AddDays(-1)) }
+    else { $offset = $TimeZone.GetUtcOffset($w) }
+    return (New-Object DateTimeOffset -ArgumentList $w, $offset)
+}
+
+# An instant shown in $TimeZone (or, with -ReferenceOffset / no zone, in $Reference's offset).
+function ConvertTo-ZoneTime {
+    param([DateTimeOffset]$At, [DateTimeOffset]$Reference, [TimeZoneInfo]$TimeZone = $null, [switch]$ReferenceOffset)
+    if ($ReferenceOffset -or $null -eq $TimeZone) { return $At.ToOffset($Reference.Offset) }
+    return [TimeZoneInfo]::ConvertTime($At, $TimeZone)
+}
+
+function Get-RetryAfter {
+    param([string]$Message, [DateTimeOffset]$Reference, [TimeZoneInfo]$TimeZone = [TimeZoneInfo]::Local, [switch]$ReferenceOffset)
+    if (-not $Message) { return $null }
+    $text = $Message -replace '[\u2018\u2019]', "'"
+    $m = $script:RetryAfterRe.Codex.Match($text)
+    if ($m.Success) {
+        try {
+            $month = $script:MonthNumbers[$m.Groups['mon'].Value.Substring(0, 3).ToLowerInvariant()]
+            $day = [int]$m.Groups['day'].Value
+            $hour = [int]$m.Groups['hour'].Value
+            $minute = [int]$m.Groups['min'].Value
+            $second = 0
+            if ($m.Groups['sec'].Success) { $second = [int]$m.Groups['sec'].Value }
+            $ok = $true
+            if ($m.Groups['ampm'].Success) {
+                if ($hour -lt 1 -or $hour -gt 12) { $ok = $false }
+                $pm = ($m.Groups['ampm'].Value -ieq 'p')
+                if ($hour -eq 12) { $hour = 0 }
+                if ($pm) { $hour += 12 }
+            }
+            if ($ok) {
+                if ($m.Groups['year'].Success) {
+                    $wall = New-Object DateTime -ArgumentList ([int]$m.Groups['year'].Value), $month, $day, $hour, $minute, $second
+                    return (ConvertFrom-WallClock -Wall $wall -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset)
+                }
+                $at = ConvertFrom-WallClock -Wall (New-Object DateTime -ArgumentList $Reference.Year, $month, $day, $hour, $minute, $second) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset
+                if ($at -lt $Reference.AddDays(-1)) {
+                    $at = ConvertFrom-WallClock -Wall (New-Object DateTime -ArgumentList ($Reference.Year + 1), $month, $day, $hour, $minute, $second) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset
+                }
+                return $at
+            }
+        } catch { }
+    }
+    $m = $script:RetryAfterRe.Iso.Match($text)
+    if ($m.Success) {
+        $stamp = $m.Groups['date'].Value + 'T' + $m.Groups['time'].Value
+        $tz = $m.Groups['tz'].Value
+        if ($tz -and $tz -ne 'Z' -and $tz -ne 'z' -and $tz.Length -eq 5) { $tz = $tz.Substring(0, 3) + ':' + $tz.Substring(3) }
+        $dto = [DateTimeOffset]::MinValue
+        if ($tz) {
+            if ([DateTimeOffset]::TryParse($stamp + $tz.ToUpperInvariant(), $script:Invariant, [System.Globalization.DateTimeStyles]::None, [ref]$dto)) {
+                return (ConvertTo-ZoneTime -At $dto -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset)
+            }
+        } else {
+            $dt = [datetime]::MinValue
+            if ([datetime]::TryParse($stamp, $script:Invariant, [System.Globalization.DateTimeStyles]::None, [ref]$dt)) {
+                try { return (ConvertFrom-WallClock -Wall $dt -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset) } catch { }
+            }
+        }
+    }
+    $m = $script:RetryAfterRe.After.Match($text)
+    if ($m.Success) {
+        $unit = if ($m.Groups['u'].Success) { $m.Groups['u'].Value } else { 's' }
+        $at = $Reference.AddSeconds((ConvertTo-DurationSeconds -N ([long]$m.Groups['n'].Value) -Unit $unit))
+        return (ConvertTo-ZoneTime -At $at -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset)
+    }
+    $m = $script:RetryAfterRe.In.Match($text)
+    if ($m.Success) {
+        $total = [long]0
+        foreach ($part in $script:RetryAfterRe.Part.Matches($m.Groups['parts'].Value)) {
+            $total += (ConvertTo-DurationSeconds -N ([long]$part.Groups['n'].Value) -Unit $part.Groups['u'].Value)
+        }
+        return (ConvertTo-ZoneTime -At ($Reference.AddSeconds($total)) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset)
+    }
+    return $null
+}
+
+function Format-OffsetIso {
+    param($Value)
+    if ($null -eq $Value) { return '' }
+    return ([DateTimeOffset]$Value).ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant)
+}
+
+# The ledger's provider_failure of a failed run: { class; code; message (<= 200); when;
+# retry_after }. $Texts: the evidence in order of preference (the event-stream error,
+# stderr, the bridge outcome); the first that holds a provider error payload wins, else the
+# first non-empty. retry_after: the reset time the chosen message names (Get-RetryAfter,
+# read from the FULL message before it is cut to 200 characters), ISO with offset, or $null.
+function New-ProviderFailure {
+    param([string[]]$Texts)
+    $chosen = $null
+    foreach ($t in @($Texts | Where-Object { $_ -and $_.Trim() })) {
+        $p = ConvertFrom-ProviderErrorText -Text $t
+        if ($p.Code -or ($t.IndexOf('{"error"') -ge 0)) { $chosen = $p; break }
+        if (-not $chosen) { $chosen = $p }
+    }
+    if (-not $chosen) { $chosen = [pscustomobject]@{ Code = ''; Message = '' } }
+    $msg = [string]$chosen.Message
+    $now = Get-Date
+    $retryAfter = Get-RetryAfter -Message $msg -Reference ([DateTimeOffset]$now)
+    if ($msg.Length -gt 200) { $msg = $msg.Substring(0, 200) }
+    return [pscustomobject]@{
+        class       = (Get-ProviderFailureClass "$($chosen.Code) $($chosen.Message)")
+        code        = [string]$chosen.Code
+        message     = $msg
+        when        = (Get-IsoTimestamp $now)
+        retry_after = $(if ($null -ne $retryAfter) { Format-OffsetIso $retryAfter } else { $null })
+    }
+}
+
+# Every consultation of every task ledger under $CollabRoot, read tolerantly (a store that
+# does not parse is skipped here; codex-consult.ps1 refuses it when that task is used).
+function Read-AllTaskConsults {
+    param([string]$CollabRoot)
+    $all = New-Object System.Collections.Generic.List[object]
+    if (-not $CollabRoot -or -not (Test-Path -LiteralPath $CollabRoot -PathType Container)) { return , $all.ToArray() }
+    foreach ($dir in @(Get-ChildItem -LiteralPath $CollabRoot -Directory -ErrorAction SilentlyContinue)) {
+        $f = Join-Path $dir.FullName 'sessions.json'
+        if (-not (Test-Path -LiteralPath $f -PathType Leaf)) { continue }
+        try {
+            $data = ConvertFrom-JsonKeepOffset -Text (Read-SharedText -Path $f)
+            foreach ($c in @(Get-PropertyValue (Get-PropertyValue $data 'codex' $null) 'consults' @())) { if ($null -ne $c) { $all.Add($c) } }
+        } catch { }
+    }
+    return , $all.ToArray()
+}
+
+function ConvertTo-WhenOffset {
+    param($Value)
+    if ($Value -is [DateTimeOffset]) { return $Value }
+    if ($Value -is [datetime]) { return [DateTimeOffset]$Value }
+    $at = [DateTimeOffset]::MinValue
+    if ([DateTimeOffset]::TryParse([string]$Value, $script:Invariant, [System.Globalization.DateTimeStyles]::None, [ref]$at)) { return $at }
+    return $null
+}
+
+# Health of one ENDPOINT (provider_fingerprint - never the alias) from the ledgers of all
+# tasks. Entries recorded before 0.3.0 count as the built-in openai endpoint; entries with
+# an unresolved identity (empty fingerprint) are ignored. A failure's class comes from its
+# provider_failure, else (older entries) from its bridge_outcome. Newest wins: a later
+# successful run clears an earlier auth or quota failure. $UtcNow: the consult clock
+# (Get-ConsultClock -Peek), so a test can freeze time.
+#   Auth         the newest of {success, auth failure} is an auth failure <= 24 h old
+#   Quota        the newest of {success, quota failure} is a quota failure that still
+#                blocks: its RetryAfter lies in the future, or it has no RetryAfter and is
+#                <= 60 min old (a RetryAfter in the past clears it)
+#   QuotaKnown   [bool] Quota is set and names its reset time (RetryAfter)
+#   LastLimit    the newest quota failure <= 24 h old (informational)
+#   LastFailure  the newest failure of any class <= 24 h old (informational)
+# Each record is $null or { Class; Code; Message; When; AgeMinutes (a `when` in the future
+# counts as now: 0); RetryAfter (DateTimeOffset or $null: provider_failure.retry_after, else
+# Get-RetryAfter -ReferenceOffset on the recorded message with the failure's `when` as
+# reference); RetryAfterIso ('' when none); RetryAfterBasis ('ledger' | 'message (reference
+# offset)' | ''); Until (RetryAfter, else When + 60 min) }.
+function Get-EndpointHealth {
+    param([object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow)
+    $h = [pscustomobject]@{ Auth = $null; Quota = $null; QuotaKnown = $false; LastLimit = $null; LastFailure = $null }
+    if (-not $Fingerprint) { return $h }
+    $records = New-Object System.Collections.Generic.List[object]
+    foreach ($c in @($Consults | Where-Object { $null -ne $_ })) {
+        $rev = Get-PropertyValue $c 'reviewer' $null
+        $fp = if ($null -eq $rev) { $script:BuiltinOpenAiFingerprint } else { [string](Get-PropertyValue $rev 'provider_fingerprint' '') }
+        if (-not $fp -or $fp -ne $Fingerprint) { continue }
+        $outcome = [string](Get-PropertyValue $c 'bridge_outcome' '')
+        if (-not $outcome) { continue }
+        $at = ConvertTo-WhenOffset (Get-PropertyValue $c 'when' '')
+        if ($null -eq $at) { continue }
+        # A failure stamped in the future (clock skew, a mislabelled zone) counts as now:
+        # its age is clamped to 0, it is never skipped (F15-4).
+        $age = [Math]::Max(0, ($UtcNow - $at.UtcDateTime).TotalMinutes)
+        $rec = [pscustomobject]@{ At = $at; Ok = ($outcome -eq 'usable reply'); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Until = $at.AddMinutes(60) }
+        if (-not $rec.Ok) {
+            $reference = $at
+            $pf = Get-PropertyValue $c 'provider_failure' $null
+            if ($null -ne $pf) {
+                $rec.Class = [string](Get-PropertyValue $pf 'class' 'unknown')
+                $rec.Code = [string](Get-PropertyValue $pf 'code' '')
+                $rec.Message = [string](Get-PropertyValue $pf 'message' '')
+                $pfWhen = ConvertTo-WhenOffset (Get-PropertyValue $pf 'when' '')
+                if ($null -ne $pfWhen) { $reference = $pfWhen }
+                $recorded = Get-PropertyValue $pf 'retry_after' $null
+                if ($null -ne $recorded -and "$recorded") { $rec.RetryAfter = ConvertTo-WhenOffset $recorded }
+            } else {
+                # older entry: classify its bridge_outcome, lifting an SSE/JSON error payload
+                $parsedOutcome = ConvertFrom-ProviderErrorText -Text $outcome
+                $rec.Class = Get-ProviderFailureClass "$($parsedOutcome.Code) $outcome"
+                $rec.Code = $parsedOutcome.Code
+                $rec.Message = $parsedOutcome.Message
+            }
+            # an entry recorded without retry_after: read the reset time from its message now
+            if ($null -ne $rec.RetryAfter) { $rec.RetryAfterBasis = 'ledger' }
+            else {
+                $rec.RetryAfter = Get-RetryAfter -Message $rec.Message -Reference $reference -ReferenceOffset
+                if ($null -ne $rec.RetryAfter) { $rec.RetryAfterBasis = 'message (reference offset)' }
+            }
+            if ($null -ne $rec.RetryAfter) {
+                $rec.RetryAfterIso = Format-OffsetIso $rec.RetryAfter
+                $rec.Until = $rec.RetryAfter
+            }
+            if ($rec.Message.Length -gt 100) { $rec.Message = $rec.Message.Substring(0, 100) }
+        }
+        $records.Add($rec)
+    }
+    $sorted = @($records | Sort-Object -Property At -Descending)
+    $auth = @($sorted | Where-Object { $_.Ok -or $_.Class -eq 'auth' }) | Select-Object -First 1
+    if ($auth -and -not $auth.Ok -and $auth.AgeMinutes -le 24 * 60) { $h.Auth = $auth }
+    $quota = @($sorted | Where-Object { $_.Ok -or $_.Class -eq 'quota' }) | Select-Object -First 1
+    if ($quota -and -not $quota.Ok) {
+        if ($null -ne $quota.RetryAfter) {
+            if ($quota.RetryAfter.UtcDateTime -gt $UtcNow) { $h.Quota = $quota }
+        } elseif ($quota.AgeMinutes -le 60) {
+            $h.Quota = $quota
+        }
+    }
+    $h.QuotaKnown = [bool]($h.Quota -and $null -ne $h.Quota.RetryAfter)
+    $h.LastLimit = @($sorted | Where-Object { -not $_.Ok -and $_.Class -eq 'quota' -and $_.AgeMinutes -le 24 * 60 }) | Select-Object -First 1
+    $h.LastFailure = @($sorted | Where-Object { -not $_.Ok -and $_.AgeMinutes -le 24 * 60 }) | Select-Object -First 1
+    return $h
+}
+
+# ----------------------------------------------------------------------------- reviewer roster
+#
+# The reviewer roster is an ordered list of reviewers the operator is willing to use, first
+# choice first. A JSON file (never created by the bridge):
+#   CODEX_CONSULT_ROSTER=<path>   that file; it MUST exist (a roster that is asked for and
+#                                 missing refuses the run - it is never skipped silently)
+#   CODEX_CONSULT_ROSTER=none     no roster at all, the default file is ignored too
+#   unset                         <codex home>/codex-consult-roster.json when it exists;
+#                                 absent = no roster: everything behaves as without one
+#
+#   { "roster_version": 1,
+#     "reviewers": [ { "provider": "openai", "model": "gpt-5.1" },
+#                    { "provider": "ZAI", "model": "glm-5.3" },
+#                    { "provider": "local", "model": "m", "auth": "none",
+#                      "codex_config": ["model_catalog_json=~/.codex/catalog.json"] } ] }
+#
+#   provider      required: a [model_providers.<name>] table of the Codex config
+#                 (case-sensitive) or openai
+#   model         optional: absent = the model resolves as without a roster (the Codex
+#                 config's top-level model)
+#   codex_config  optional: key=value items with exactly the -CodexConfig rules
+#                 (ConvertFrom-CodexConfigItems)
+#   auth          optional, only "none": the endpoint needs no credential (a table without
+#                 env_key/bearer token then passes the credential check; a table WITH
+#                 env_key still needs the variable)
+#   panel         optional, "always" (the default) or "weighty": with -Panel a weighty
+#                 reviewer joins only on the weighty purposes (framing, decision,
+#                 core-contract, acceptance, stuck) or with -PanelAll. The single-reviewer
+#                 walk ignores it.
+# Anything else - an unknown key, roster_version other than 1, reviewers not an array or
+# empty, the same (provider, model) twice, a file that does not parse - makes the roster
+# unusable, and the bridge refuses to run (fail-closed: an existing roster is never
+# ignored).
+#
+# Selection (codex-consult.ps1; codex-providers.ps1 shows the same walk):
+#   -Provider given   the roster does not select; the first entry of that provider (by
+#                     -Model too when several entries name it) supplies its model when
+#                     -Model is empty and its codex_config when -CodexConfig is empty
+#   -Thread given     the thread's ledger entry fixes the reviewer; its roster entry
+#                     supplies codex_config
+#   otherwise         the roster is walked in order and the first entry whose preflight is
+#                     available is used (Select-RosterReviewer); every skipped entry is
+#                     recorded with its reason. None available: refused.
+#   -Panel            every available entry (Select-PanelMembers) runs the same brief, one
+#                     after another, each as a consultation of its own.
+
+# Where the roster comes from: { Path ('' when none); FromEnv (CODEX_CONSULT_ROSTER named
+# it: it must exist); Disabled (CODEX_CONSULT_ROSTER=none) }.
+function Get-RosterPath {
+    $p = ([string]$env:CODEX_CONSULT_ROSTER).Trim()
+    if ($p -ieq 'none') { return [pscustomobject]@{ Path = ''; FromEnv = $true; Disabled = $true } }
+    if ($p) {
+        if (-not [IO.Path]::IsPathRooted($p)) { $p = Join-Path (Get-Location).Path $p }
+        return [pscustomobject]@{ Path = $p; FromEnv = $true; Disabled = $false }
+    }
+    $codexHome = Get-CodexHome
+    $default = ''
+    if ($codexHome) { $default = Join-Path $codexHome 'codex-consult-roster.json' }
+    return [pscustomobject]@{ Path = $default; FromEnv = $false; Disabled = $false }
+}
+
+# { Exists; Path; Disabled (CODEX_CONSULT_ROSTER=none); Entries ({ Position; Provider; Model
+# ('' = not given); CodexConfig (string[], already expanded and quoted); Auth ('' | 'none');
+# Panel ('always' | 'weighty') }); Error }. Error is the whole refusal message; the caller
+# stops on it. $Location: Get-RosterPath (the default).
+function Read-ReviewerRoster {
+    param($Location = $null)
+    if ($null -eq $Location) { $Location = Get-RosterPath }
+    $Path = [string]$Location.Path
+    $r = [pscustomobject]@{ Exists = $false; Path = $Path; Disabled = [bool]$Location.Disabled; Entries = [object[]]@(); Error = '' }
+    if ($r.Disabled) { return $r }
+    if ($Path -and $Location.FromEnv -and -not (Test-Path -LiteralPath $Path)) {
+        $r.Error = "the reviewer roster '$Path' named by CODEX_CONSULT_ROSTER does not exist; unset CODEX_CONSULT_ROSTER to use <codex home>/codex-consult-roster.json when it exists, or set it to none for no roster."
+        return $r
+    }
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return $r }
+    $r.Exists = $true
+    $why = ''
+    $data = $null
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        $why = 'it is not a file'
+    } else {
+        $text = Read-SharedText -Path $Path
+        if (-not $text.Trim()) { $why = 'it is empty or could not be read' }
+        else {
+            try { $data = ConvertFrom-Json -InputObject $text } catch { $why = "it does not parse: $(ConvertTo-OneLine $_.Exception.Message)" }
+            if (-not $why -and -not (Test-IsJsonObject $data)) { $why = 'the top level is not a JSON object' }
+        }
+    }
+    $entries = New-Object System.Collections.Generic.List[object]
+    if (-not $why) {
+        foreach ($prop in $data.PSObject.Properties) {
+            if (@('roster_version', 'reviewers') -cnotcontains $prop.Name) { $why = "unknown key '$($prop.Name)' at the top level (allowed: roster_version, reviewers)"; break }
+        }
+    }
+    if (-not $why) {
+        if (-not $data.PSObject.Properties['roster_version']) { $why = 'roster_version is missing (expected 1)' }
+        elseif (-not (Test-IsJsonInteger $data.roster_version) -or [long]$data.roster_version -ne 1) { $why = "roster_version must be 1 (got $(ConvertTo-Json -InputObject $data.roster_version -Compress))" }
+    }
+    if (-not $why) {
+        if (-not $data.PSObject.Properties['reviewers']) { $why = 'reviewers is missing' }
+        elseif (-not (Test-IsJsonArray $data.reviewers)) { $why = 'reviewers is not an array' }
+        elseif (@($data.reviewers).Count -eq 0) { $why = 'reviewers is empty' }
+    }
+    if (-not $why) {
+        $pos = 0
+        foreach ($item in @($data.reviewers)) {
+            $pos++
+            $at = "entry $pos"
+            if (-not (Test-IsJsonObject $item)) { $why = "$at is not an object"; break }
+            foreach ($prop in $item.PSObject.Properties) {
+                if (@('provider', 'model', 'codex_config', 'auth', 'panel') -cnotcontains $prop.Name) { $why = "$at has an unknown key '$($prop.Name)' (allowed: provider, model, codex_config, auth, panel)"; break }
+            }
+            if ($why) { break }
+            $provider = $null
+            if ($item.PSObject.Properties['provider']) { $provider = $item.provider }
+            if (-not ($provider -is [string]) -or -not $provider.Trim() -or $provider -cne $provider.Trim()) { $why = "$at needs a provider: a non-empty string without surrounding blanks"; break }
+            $model = ''
+            if ($item.PSObject.Properties['model']) {
+                $mv = $item.model
+                if (-not ($mv -is [string]) -or -not $mv.Trim() -or $mv -cne $mv.Trim()) { $why = "${at}: model must be a non-empty string without surrounding blanks (omit it to use the Codex config's model)"; break }
+                $model = $mv
+            }
+            $cfgItems = [string[]]@()
+            if ($item.PSObject.Properties['codex_config']) {
+                $cv = $item.codex_config
+                $allStrings = (Test-IsJsonArray $cv)
+                if ($allStrings) { foreach ($x in @($cv)) { if (-not ($x -is [string])) { $allStrings = $false } } }
+                if (-not $allStrings) { $why = "${at}: codex_config must be an array of key=value strings"; break }
+                $parsed = ConvertFrom-CodexConfigItems -Values ([string[]]@($cv)) -Label 'codex_config'
+                if ($parsed.Error) { $why = "${at}: $($parsed.Error.TrimEnd([char]'.'))"; break }
+                $cfgItems = $parsed.Items
+            }
+            $auth = ''
+            if ($item.PSObject.Properties['auth']) {
+                if (-not ($item.auth -is [string]) -or $item.auth -cne 'none') { $why = "${at}: auth may only be ""none"" (an endpoint that needs no credential; omit it otherwise)"; break }
+                $auth = 'none'
+            }
+            $panelWeight = 'always'
+            if ($item.PSObject.Properties['panel']) {
+                if (-not ($item.panel -is [string]) -or @('always', 'weighty') -cnotcontains $item.panel) { $why = "${at}: panel must be ""always"" or ""weighty"" (got $(ConvertTo-Json -InputObject $item.panel -Compress))"; break }
+                $panelWeight = $item.panel
+            }
+            $dup = @($entries | Where-Object { $_.Provider -ceq $provider -and $_.Model -ceq $model }) | Select-Object -First 1
+            if ($dup) {
+                $label = if ($model) { Format-Lineage -Provider $provider -Model $model } else { "$provider (no model)" }
+                $why = "entries $($dup.Position) and $pos are the same reviewer $label"; break
+            }
+            $entries.Add([pscustomobject]@{ Position = $pos; Provider = $provider; Model = $model; CodexConfig = $cfgItems; Auth = $auth; Panel = $panelWeight })
+        }
+    }
+    if ($why) {
+        $r.Error = "the reviewer roster '$Path' is not usable: $why. Fix it or move it aside - an existing roster is never ignored (CODEX_CONSULT_ROSTER names another file)."
+        return $r
+    }
+    $r.Entries = [object[]]$entries.ToArray()
+    return $r
+}
+
+# The roster entry of a provider (-Provider, or a thread's reviewer): the first entry that
+# names it; when several do and $Model is given, the first whose model equals $Model. $null
+# when none names it.
+function Find-RosterEntry {
+    param($Roster, [string]$Provider, [string]$Model = '')
+    if (-not $Roster -or -not $Roster.Exists) { return $null }
+    $byProvider = @($Roster.Entries | Where-Object { $_.Provider -ceq $Provider })
+    if ($byProvider.Count -eq 0) { return $null }
+    if ($Model -and $byProvider.Count -gt 1) {
+        $exact = @($byProvider | Where-Object { $_.Model -ceq $Model }) | Select-Object -First 1
+        if ($exact) { return $exact }
+    }
+    return $byProvider[0]
+}
+
+# The preflight decision for one identity, local checks only (credentials, then the
+# endpoint's recorded health): { State available|unavailable|unknown; Preflight (the
+# ledger's preflight text); Reason (one phrase: why a roster walk skips it); Refusal (the
+# refusal message of a real run); Label (the dry-run line) }.
+#   unresolved identity          unknown
+#   credentials missing/unknown  unavailable / unknown (Get-ProviderCredential)
+#   auth failure <= 24 h         unavailable
+#   usage limit with a known     unavailable: usage limit until <iso>
+#   reset in the future
+#   usage limit without a reset  -RosterWalk: unavailable (a later roster entry exists to
+#   time, <= 60 min old          fall back to); otherwise available - Format-QuotaWarning
+#                                warns about it
+# $Health: Get-EndpointHealth of the identity's endpoint ($null: none known).
+function Get-PreflightVerdict {
+    param($Identity, $Config, [string]$Launcher, $Health, [hashtable]$LoginCache = $null, [switch]$Anonymous, [switch]$RosterWalk)
+    $v = [pscustomobject]@{ State = 'available'; Preflight = ''; Reason = ''; Refusal = ''; Label = '' }
+    $p = [string]$Identity.Provider
+    if ($Identity.Error) {
+        $v.State = 'unavailable'
+        $v.Reason = $Identity.Error
+        $v.Preflight = "unavailable: $($Identity.Error)"
+        $v.Refusal = $Identity.Error
+        $v.Label = "unavailable ($($Identity.Error)) - a real run is refused"
+        return $v
+    }
+    if (-not $Identity.Resolved) {
+        $reason = "reviewer identity unresolved: $($Identity.Note)"
+        $v.State = 'unknown'
+        $v.Preflight = "unknown: $reason"
+        $v.Reason = $v.Preflight
+        $v.Refusal = "provider $($p): availability could not be established ($reason); pass -SkipPreflight to launch anyway, or fix the check"
+        $v.Label = "unknown ($reason) - a real run is refused: $($v.Refusal)"
+        return $v
+    }
+    $table = $null
+    if ($Config -and $Config.Exists -and $Config.Ok) {
+        $pt = Get-ProviderTable -Config $Config -Name $p
+        if ($pt.Found) { $table = $pt.Table }
+    }
+    $cred = Get-ProviderCredential -Name $p -Table $table -Launcher $Launcher -LoginCache $LoginCache -Anonymous:$Anonymous
+    $v.Preflight = $cred.Detail
+    $v.Reason = $cred.Detail
+    if ($cred.State -eq 'missing') {
+        $v.State = 'unavailable'
+        $v.Refusal = "provider $p is not usable: $($cred.Reason); nothing was started (run codex-providers.ps1 for the full picture)"
+        $v.Label = "unavailable ($($cred.Reason)) - a real run is refused: $($v.Refusal)"
+    } elseif ($cred.State -eq 'unknown') {
+        $v.State = 'unknown'
+        $v.Refusal = "provider $($p): availability could not be established ($($cred.Reason)); pass -SkipPreflight to launch anyway, or fix the check"
+        $v.Label = "unknown ($($cred.Reason)) - a real run is refused: $($v.Refusal)"
+    } elseif ($Health -and $Health.Auth) {
+        $v.State = 'unavailable'
+        $v.Reason = "auth failed $($Health.Auth.When): $($Health.Auth.Message)"
+        $v.Preflight = "unavailable: $($v.Reason)"
+        $v.Refusal = "provider $p is not usable: the last run on this endpoint was rejected as unauthenticated at $($Health.Auth.When) ($($Health.Auth.Message)); if you rotated the credential, pass -SkipPreflight once"
+        $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
+    } elseif ($Health -and $Health.Quota -and $Health.QuotaKnown) {
+        $v.State = 'unavailable'
+        $v.Reason = "usage limit until $($Health.Quota.RetryAfterIso)"
+        $v.Preflight = "unavailable: $($v.Reason)"
+        $v.Refusal = "provider $p is not usable: its usage limit (hit at $($Health.Quota.When): $($Health.Quota.Message)) lasts until $($Health.Quota.RetryAfterIso); nothing was started (pass -SkipPreflight to launch anyway)"
+        $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
+    } elseif ($RosterWalk -and $Health -and $Health.Quota) {
+        $v.State = 'unavailable'
+        $v.Reason = "usage limit $($Health.Quota.AgeMinutes) min ago, no reset time given"
+        $v.Preflight = "unavailable: $($v.Reason)"
+        $v.Refusal = "provider $p is not usable: it hit a usage limit $($Health.Quota.AgeMinutes) min ago ($($Health.Quota.Message)) and named no reset time; nothing was started"
+        $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
+    } else {
+        $v.Label = "available ($($cred.Detail))"
+    }
+    return $v
+}
+
+# The warning of a usage limit that does not refuse the run: one without a known reset time
+# (<= 60 min old), or - with -SkipPreflight - one whose reset time lies ahead. '' otherwise.
+function Format-QuotaWarning {
+    param($Identity, $Health, [switch]$SkipPreflight)
+    if (-not $Health -or -not $Health.Quota) { return '' }
+    $q = $Health.Quota
+    if ($Health.QuotaKnown) {
+        if (-not $SkipPreflight) { return '' }
+        return "provider $($Identity.Provider) hit a usage limit $($q.AgeMinutes) min ago that lasts until $($q.RetryAfterIso): $($q.Message)"
+    }
+    return "provider $($Identity.Provider) hit a usage limit $($q.AgeMinutes) min ago: $($q.Message)"
+}
+
+# The roster walk: the first entry whose preflight verdict (Get-PreflightVerdict
+# -RosterWalk) is available. $Model (an explicit -Model without -Provider) restricts the walk
+# to the entries that resolve to that model. -SkipPreflight takes the first entry unchecked.
+# { Entry; Identity; Verdict; Skipped (object[] of { provider; model; reason }, in roster
+# order - never a List: @() over a List property fails on Windows PowerShell 5.1);
+# Considered (entries walked); Error ('' or the refusal: none available / no entry for
+# $Model / the first entry's identity error under -SkipPreflight) }.
+function Select-RosterReviewer {
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [switch]$SkipPreflight)
+    $skipped = New-Object System.Collections.Generic.List[object]
+    $r = [pscustomobject]@{ Entry = $null; Identity = $null; Verdict = $null; Skipped = [object[]]@(); Considered = 0; Error = '' }
+    $listing = New-Object System.Collections.Generic.List[string]
+    foreach ($e in @($Roster.Entries)) {
+        $id = Resolve-ReviewerIdentity -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl
+        if ($Model -and $id.Model -cne $Model) { continue }
+        $r.Considered++
+        if ($SkipPreflight) {
+            if ($id.Error) { $r.Error = $id.Error; return $r }
+            $r.Entry = $e; $r.Identity = $id
+            return $r
+        }
+        $health = $null
+        if ($id.Resolved) { $health = Get-EndpointHealth -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
+        $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $Launcher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk
+        if ($verdict.State -eq 'available') {
+            $r.Entry = $e; $r.Identity = $id; $r.Verdict = $verdict
+            $r.Skipped = [object[]]$skipped.ToArray()
+            return $r
+        }
+        $skipped.Add([pscustomobject]@{ provider = $e.Provider; model = $id.Model; reason = $verdict.Reason })
+        $listing.Add("#$($e.Position) $($id.Lineage) ($($verdict.Reason))")
+    }
+    if ($r.Considered -eq 0) {
+        $all = (@($Roster.Entries) | ForEach-Object { "#$($_.Position) $(if ($_.Model) { Format-Lineage -Provider $_.Provider -Model $_.Model } else { "$($_.Provider) (config model)" })" }) -join ', '
+        $r.Error = "-Model $($Model): no entry of the reviewer roster '$($Roster.Path)' resolves to that model ($all); pass -Provider <name> -Model $Model to choose a reviewer outside the roster"
+        return $r
+    }
+    $r.Skipped = [object[]]$skipped.ToArray()
+    $r.Error = "no reviewer of the roster '$($Roster.Path)' is available; nothing was started: $($listing.ToArray() -join '; ') (run codex-providers.ps1 for the full picture)"
+    return $r
+}
+
+# The purposes on which a "weighty" roster entry joins a panel.
+$script:WeightyPurposes = @('framing', 'decision', 'core-contract', 'acceptance', 'stuck')
+
+# The members of a review panel (-Panel): the roster walked like Select-RosterReviewer
+# without stopping at the first available entry. Every entry whose preflight verdict is
+# available (with -SkipPreflight: every entry) runs, unless it is "weighty" and $Purpose is
+# light (not in $script:WeightyPurposes) and -All (-PanelAll) is not given. $Model: as for
+# the walk. { Members (object[], roster order, of { Entry; Identity; State 'run'|'skipped';
+# Reason ('' when it runs) }); Error ('' or the refusal: nobody runs / no entry for $Model) }.
+function Select-PanelMembers {
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight)
+    $members = New-Object System.Collections.Generic.List[object]
+    $r = [pscustomobject]@{ Members = [object[]]@(); Error = '' }
+    $listing = New-Object System.Collections.Generic.List[string]
+    $purposeLabel = if ($Purpose) { $Purpose } else { 'none' }
+    foreach ($e in @($Roster.Entries)) {
+        $id = Resolve-ReviewerIdentity -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl
+        if ($Model -and $id.Model -cne $Model) { continue }
+        $state = 'run'
+        $reason = ''
+        if (-not $SkipPreflight) {
+            $health = $null
+            if ($id.Resolved) { $health = Get-EndpointHealth -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
+            $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $Launcher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk
+            if ($verdict.State -ne 'available') { $state = 'skipped'; $reason = $verdict.Reason }
+        }
+        if ($state -eq 'run' -and $e.Panel -eq 'weighty' -and -not $All -and $script:WeightyPurposes -notcontains $Purpose) {
+            $state = 'skipped'
+            $reason = "weighty reviewer; purpose $purposeLabel is light (use -PanelAll)"
+        }
+        $members.Add([pscustomobject]@{ Entry = $e; Identity = $id; State = $state; Reason = $reason })
+        $listing.Add("#$($e.Position) $($id.Lineage) ($(if ($state -eq 'run') { 'runs' } else { $reason }))")
+    }
+    $r.Members = [object[]]$members.ToArray()
+    if ($members.Count -eq 0) {
+        $all = (@($Roster.Entries) | ForEach-Object { "#$($_.Position) $(if ($_.Model) { Format-Lineage -Provider $_.Provider -Model $_.Model } else { "$($_.Provider) (config model)" })" }) -join ', '
+        $r.Error = "-Model $($Model): no entry of the reviewer roster '$($Roster.Path)' resolves to that model ($all); pass -Provider <name> -Model $Model to choose a reviewer outside the roster"
+    } elseif (@($members | Where-Object { $_.State -eq 'run' }).Count -eq 0) {
+        $r.Error = "no reviewer of the roster '$($Roster.Path)' is available; nothing was started: $($listing.ToArray() -join '; ') (run codex-providers.ps1 for the full picture)"
+    }
+    return $r
+}
+
+# "openai :: gpt-5.1 (usage limit until ...), ZAI :: glm-5.3 (missing: env ZAI_KEY not set)"
+function Format-RosterSkips {
+    param([object[]]$Skipped)
+    return ((@($Skipped | Where-Object { $_ }) | ForEach-Object { "$(Format-Lineage -Provider $_.provider -Model $_.model) ($($_.reason))" }) -join ', ')
+}
+
+# ----------------------------------------------------------------------------- parent thread (lineage)
+#
+# A thread belongs to one reviewer - reviewer.provider AND reviewer.model, compared field
+# by field with ordinal equality (the display string 'lineage' = '<provider> :: <model>'
+# is never compared) - on one endpoint (provider_fingerprint). Only a ledger entry written by 0.3.0 or later (it has a
+# `reviewer`) whose identity was resolved (non-empty provider_fingerprint) and whose
+# `thread` was verified (from the events, or a rollout that contains the consultation
+# id) can be a parent - automatically (the newest of this run's lineage) or through
+# -Thread. Entries recorded before 0.3.0 have UNKNOWN provenance: never a parent. A
+# rollout candidate (thread_candidate) is diagnostic only: never a parent.
+
+function Get-EntryFingerprint {
+    param($Entry)
+    $rev = Get-PropertyValue $Entry 'reviewer' $null
+    if ($null -eq $rev) { return '' }
+    return [string](Get-PropertyValue $rev 'provider_fingerprint' '')
+}
+
+# { Provider; Model; Display } of a 0.3.0+ entry's reviewer ($null for a legacy entry).
+function Get-EntryReviewer {
+    param($Entry)
+    $rev = Get-PropertyValue $Entry 'reviewer' $null
+    if ($null -eq $rev) { return $null }
+    $p = [string](Get-PropertyValue $rev 'provider' '')
+    $m = [string](Get-PropertyValue $rev 'model' '')
+    return [pscustomobject]@{ Provider = $p; Model = $m; Display = (Format-Lineage -Provider $p -Model $m) }
+}
+
+# Same reviewer: provider and model equal, ordinal (case-sensitive), each on its own.
+function Test-SameReviewer {
+    param($EntryReviewer, $Identity)
+    return ($null -ne $EntryReviewer -and [string]::Equals($EntryReviewer.Provider, [string]$Identity.Provider, [StringComparison]::Ordinal) -and [string]::Equals($EntryReviewer.Model, [string]$Identity.Model, [StringComparison]::Ordinal))
+}
+
+function Format-ShortHash {
+    param([string]$Hash)
+    if ($Hash.Length -ge 12) { return $Hash.Substring(0, 12) }
+    return $Hash
+}
+
+# The ledger entry that recorded thread $Thread (the newest one) if it can be a parent at
+# all: recorded by 0.3.0 or later (it has a `reviewer`) with a resolved identity (a
+# provider_fingerprint). { Entry; N; Error }. Used by Select-ParentThread and by the roster
+# rule "-Thread fixes the reviewer" (codex-consult.ps1).
+function Find-ThreadEntry {
+    param([object[]]$Consults, [string]$Thread)
+    $r = [pscustomobject]@{ Entry = $null; N = $null; Error = '' }
+    $entries = @($Consults | Where-Object { $null -ne $_ })
+    $thread = ([string]$Thread).Trim()
+    $match = $null
+    for ($i = $entries.Count - 1; $i -ge 0; $i--) {
+        if ([string](Get-PropertyValue $entries[$i] 'thread' '') -eq $thread) { $match = $entries[$i]; break }
+    }
+    if (-not $match) {
+        $cand = $null
+        for ($i = $entries.Count - 1; $i -ge 0; $i--) {
+            if ([string](Get-PropertyValue $entries[$i] 'thread_candidate' '') -eq $thread) { $cand = $entries[$i]; break }
+        }
+        if ($cand) { $r.Error = "thread $thread has unknown provenance: it is only an unverified rollout candidate of consult n=$(Get-PropertyValue $cand 'n' '?') (that rollout did not contain the run's consultation id); use -Mode new" }
+        else { $r.Error = "thread $thread has unknown provenance: it is not in this task's ledger; use -Mode new" }
+        return $r
+    }
+    $n = Get-PropertyValue $match 'n' '?'
+    if ($null -eq (Get-PropertyValue $match 'reviewer' $null)) {
+        $r.Error = "thread $thread has unknown provenance (recorded before 0.3.0); use -Mode new"; return $r
+    }
+    if (-not (Get-EntryFingerprint $match)) {
+        $r.Error = "thread $thread has unknown provenance: consult n=$n ran with an unresolved reviewer identity ($((Get-EntryReviewer $match).Display)); use -Mode new"; return $r
+    }
+    $r.Entry = $match
+    $r.N = $n
+    return $r
+}
+
+# { Mode; Parent; ParentN; Note; Error }. $Mode '' = automatic.
+function Select-ParentThread {
+    param([object[]]$Consults, $Identity, [string]$Mode, [string]$Thread)
+    $r = [pscustomobject]@{ Mode = $Mode; Parent = ''; ParentN = $null; Note = ''; Error = '' }
+    $entries = @($Consults | Where-Object { $null -ne $_ })
+    $lineage = $Identity.Lineage
+    $unresolvedMsg = "provider identity could not be resolved ($($Identity.Note)); pass -Provider and -Model explicitly, or use -Mode new"
+    $driftMsg = { param($t, $n, $fp) "endpoint or protocol of provider $($Identity.Provider) changed since thread $t (consult n=$n recorded provider fingerprint $(Format-ShortHash $fp), now $(Format-ShortHash $Identity.Fingerprint)); start a new thread with -Mode new" }
+    $thread = ([string]$Thread).Trim()
+    if ($thread) {
+        if ($Mode -eq 'new') { $r.Error = '-Thread needs -Mode fork or resume (-Mode new always starts a fresh thread).'; return $r }
+        if (-not $Identity.Resolved) { $r.Error = $unresolvedMsg; return $r }
+        $found = Find-ThreadEntry -Consults $entries -Thread $thread
+        if ($found.Error) { $r.Error = $found.Error; return $r }
+        $match = $found.Entry
+        $n = $found.N
+        $fp = Get-EntryFingerprint $match
+        $theirRev = Get-EntryReviewer $match
+        $theirs = $theirRev.Display
+        if (-not (Test-SameReviewer $theirRev $Identity)) {
+            $r.Error = "thread $thread belongs to lineage $theirs (consult n=$n); this run is $lineage. A thread never changes provider or model: use -Mode new, or run as $theirs"; return $r
+        }
+        if ($fp -ne $Identity.Fingerprint) { $r.Error = (& $driftMsg $thread $n $fp); return $r }
+        if (-not $r.Mode) { $r.Mode = 'fork' }
+        $r.Parent = $thread
+        $r.ParentN = $n
+        $r.Note = "-Thread, lineage $lineage (consult n=$n)"
+        return $r
+    }
+    if (-not $Identity.Resolved) {
+        if ($Mode -eq 'fork' -or $Mode -eq 'resume') { $r.Error = $unresolvedMsg; return $r }
+        $r.Mode = 'new'
+        $r.Note = "reviewer identity unresolved, automatic fork/resume is off ($($Identity.Note))"
+        return $r
+    }
+    $parent = $null
+    $legacy = 0; $unresolved = 0; $candidates = 0
+    $others = New-Object System.Collections.Generic.List[string]
+    for ($i = $entries.Count - 1; $i -ge 0; $i--) {
+        $c = $entries[$i]
+        $t = [string](Get-PropertyValue $c 'thread' '')
+        if (-not $t) {
+            if ([string](Get-PropertyValue $c 'thread_candidate' '')) { $candidates++ }
+            continue
+        }
+        if ($null -eq (Get-PropertyValue $c 'reviewer' $null)) { $legacy++; continue }
+        if (-not (Get-EntryFingerprint $c)) { $unresolved++; continue }
+        $cr = Get-EntryReviewer $c
+        if (-not (Test-SameReviewer $cr $Identity)) { if (-not $others.Contains($cr.Display)) { $others.Add($cr.Display) }; continue }
+        if (-not $parent) { $parent = $c }
+    }
+    if ($parent) {
+        if ($Mode -eq 'new') { return $r }
+        $pt = [string]$parent.thread
+        $n = Get-PropertyValue $parent 'n' '?'
+        $fp = Get-EntryFingerprint $parent
+        if ($fp -ne $Identity.Fingerprint) { $r.Error = (& $driftMsg $pt $n $fp); return $r }
+        if (-not $r.Mode) { $r.Mode = 'fork' }
+        $r.Parent = $pt
+        $r.ParentN = $n
+        $r.Note = "newest thread of lineage $lineage (consult n=$n)"
+        return $r
+    }
+    $why = New-Object System.Collections.Generic.List[string]
+    if ($legacy -gt 0) { $why.Add("$legacy thread(s) recorded before 0.3.0 have unknown provenance and are never automatic parents") }
+    if ($others.Count -gt 0) { $why.Add("other lineage(s): $($others -join ', ')") }
+    if ($unresolved -gt 0) { $why.Add("$unresolved thread(s) of runs with an unresolved reviewer identity are never parents") }
+    if ($candidates -gt 0) { $why.Add("$candidates unverified rollout candidate(s) are never parents") }
+    $note = "no thread of lineage $lineage in this task's ledger"
+    if ($why.Count -gt 0) { $note += '; ' + ($why.ToArray() -join '; ') }
+    if ($Mode -eq 'fork' -or $Mode -eq 'resume') {
+        $r.Error = "-Mode $Mode needs a parent thread: $note. Pass -Thread <uuid> of lineage $lineage, or use -Mode new"
+        return $r
+    }
+    $r.Mode = 'new'
+    if ($entries.Count -gt 0) { $r.Note = $note }
+    return $r
+}
+
 # ----------------------------------------------------------------------------- task lock + pending record
 #
 # OWNERSHIP and RECOVERY METADATA are two different files:
@@ -1600,13 +3665,16 @@ function Read-PendingFile {
     return [pscustomobject]@{ Exists = $true; Record = $obj; Error = '' }
 }
 
+# consult_id (0.3.0): the run's consultation id - the last line of its prompt - so an
+# interrupted run's rollout file can be identified later. Informational only.
 function New-PendingRecord {
-    param([string]$State, $N, [string]$Nn, [string]$Reply, [string]$Started, [string]$Launcher = '')
+    param([string]$State, $N, [string]$Nn, [string]$Reply, [string]$Started, [string]$Launcher = '', [string]$ConsultId = '')
     return [pscustomobject]@{
         state            = $State
         n                = $N
         nn               = $Nn
         reply            = $Reply
+        consult_id       = $ConsultId
         started          = $Started
         pid              = $PID
         host             = [Environment]::MachineName
@@ -1933,6 +4001,10 @@ function Get-DescendantPids {
 # node in front of the real codex binary). Windows: taskkill /T /F; elsewhere: the
 # pgrep -P tree. Best effort; returns the pids (root included) still alive after it,
 # as an [int[]] (empty when the whole tree is gone).
+# A kill returns before the OS has torn the process down: the killed pids are polled
+# (100 ms steps, up to 3 s) and only those still alive after that wait are survivors.
+# A process merely still exiting must not be recorded as a survivor - that would keep
+# .consult.pending.json in state 'survivors' and block the task until a later run.
 function Stop-ProcessTree {
     param($Process)
     if ($null -eq $Process) { return , ([int[]]@()) }
@@ -1954,12 +4026,18 @@ function Stop-ProcessTree {
     } finally {
         $ErrorActionPreference = $previous
     }
-    $alive = New-Object System.Collections.Generic.List[int]
-    $rootGone = $true
-    try { $rootGone = $Process.HasExited } catch { $rootGone = $true }
-    if (-not $rootGone) { $alive.Add($rootId) }
-    foreach ($d in $descendants) {
-        if (Get-Process -Id $d -ErrorAction SilentlyContinue) { $alive.Add($d) }
+    # Get-Process by pid is the liveness probe on every platform (kill -0 semantics).
+    $deadline = [DateTime]::UtcNow.AddSeconds(3)
+    while ($true) {
+        $alive = New-Object System.Collections.Generic.List[int]
+        $rootGone = $true
+        try { $rootGone = $Process.HasExited } catch { $rootGone = $true }
+        if (-not $rootGone) { $alive.Add($rootId) }
+        foreach ($d in $descendants) {
+            if (Get-Process -Id $d -ErrorAction SilentlyContinue) { $alive.Add($d) }
+        }
+        if ($alive.Count -eq 0 -or [DateTime]::UtcNow -ge $deadline) { break }
+        Start-Sleep -Milliseconds 100
     }
     return , ([int[]]$alive.ToArray())
 }

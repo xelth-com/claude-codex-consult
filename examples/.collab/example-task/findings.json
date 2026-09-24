@@ -80,5 +80,18 @@
       ],
       "reviewer_checks": []
     }
+  ],
+  "ratings": [
+    {
+      "n": 3,
+      "consult_id": "c8b3f6a0-1d4e-4c7a-9f2b-0a6d3e8c5b17",
+      "lineage": "openai :: gpt-5.1",
+      "provider": "openai",
+      "model": "gpt-5.1",
+      "purpose": "decision",
+      "useful": "yes",
+      "note": "",
+      "when": "2026-09-22T11:30:12+02:00"
+    }
   ]
 }

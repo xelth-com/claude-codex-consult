@@ -6,7 +6,8 @@
     A thin, dependency-free bridge. You write a Markdown brief; this script runs
 
         codex exec --sandbox <s> --color never --json [-m <model>] \
-                   -c model_reasoning_effort="<e>" -o <tmp> \
+                   -c model_reasoning_effort="<e>" [-c model_provider="<p>"] \
+                   -o <tmp> \
                    [--output-schema <plugin>/schemas/consult-reply.schema.json] \
                    [fork|resume <thread>] -
 
@@ -21,12 +22,90 @@
     <CollabDir>/<task>/findings.json (statuses are moved by codex-findings.ps1).
     -Raw is the 0.1 plain-text consultation without any of that.
 
+    Reviewer identity and lineage (0.3.0): the provider and the model are what Codex
+    will use - -Provider / -Model, else the top-level model_provider (Codex's
+    default: the built-in openai) and model of <codex home>/config.toml, read by a
+    constrained scanner (codex-consult-common.ps1). Whatever is resolved is pinned
+    on the command line (-m, -c model_provider=...). The ledger records
+    reviewer{...} and lineage '<provider> :: <model>' (display only); a run forks
+    or resumes only a thread of the same reviewer.provider AND reviewer.model
+    (compared separately) on the same endpoint (provider_fingerprint =
+    base_url + wire_api). Threads recorded before 0.3.0 have unknown provenance and
+    are never parents. An unresolved identity (unreadable config, a selected
+    profile, an unknown model) records 'unknown' and allows only -Mode new. The
+    prompt's last line is "Consultation id: <guid>" (ledger consult_id): a thread
+    taken from a rollout file instead of the event stream is accepted only when
+    that rollout contains it. -Effort is mapped through the endpoint's effort
+    vocabulary DECLARED for it (capability table caps-v1; -NativeEffort sends a value
+    verbatim). CODEX_CONSULT_PEAK_<PROVIDER> declares a peak window: a warning, or
+    a refusal with -OffPeakOnly. Codex profiles (-p) are not supported.
+    Preflight (fails CLOSED): before anything is locked or started, the resolved
+    provider's credentials must be present (openai: `codex login status`; other
+    providers: their env_key variable or a bearer token), its availability must
+    be establishable (a resolved identity, a `login status` that answers), and its
+    ENDPOINT must not have been rejected as unauthenticated in the last 24 h in
+    any task of this repository (unless a later run there succeeded), nor be at a
+    usage limit whose reset time the provider named (provider_failure.retry_after,
+    read from e.g. "try again at Sep 28th, 2026 8:35 PM." with the rules of the
+    recording machine's time zone, daylight saving included - refused until then) -
+    otherwise the run is refused; -SkipPreflight bypasses it. A usage-limit failure
+    WITHOUT a reset time within the last hour only warns. Failed runs record a
+    classified provider_failure (auth | quota | capability | transport | unknown,
+    plus retry_after; a failure stamped in the future counts as now). The endpoint
+    health is read at the consult clock
+    (CODEX_CONSULT_NOW, a test hook). codex-providers.ps1 lists every provider with
+    that verdict. No network call is made for any of it. Codex's stderr, its event
+    stream, its last message and `codex login status` are decoded as UTF-8.
+    -CodexConfig key=value[,key=value] adds per-run `-c` overrides (e.g. a
+    provider's model_catalog_json) after the bridge's own; keys that would change
+    the recorded identity or effort are refused. -SchemaTransport output-schema |
+    prompt-only overrides how caps-v1 sends the reply schema for this run (ledger
+    schema_transport_source). -Purpose chore is a plain-text reply like -Raw (effort
+    low, 400 words, a bounded search or extraction task).
+
+    Reviewer roster (optional; see codex-consult-common.ps1): an ordered list of
+    reviewers {provider, model?, codex_config?, auth?: "none", panel?:
+    "always"|"weighty"} in the JSON file CODEX_CONSULT_ROSTER names (it must exist -
+    a missing one refuses every run), else <codex home>/codex-consult-roster.json
+    (absent = no roster, everything as without one). CODEX_CONSULT_ROSTER=none: no
+    roster at all, the default file is ignored too. An existing file that is not a
+    valid roster refuses every run (-DryRun too). With a roster:
+      * -Provider: the roster does not select, but that provider's entry supplies
+        the model (when -Model is empty) and codex_config (when -CodexConfig is
+        empty); ledger model_source / extra_config_source "roster"
+      * -Thread: the thread's ledger entry fixes the reviewer (provider_source and
+        model_source "-Thread"); its roster entry supplies codex_config. If that
+        reviewer is unavailable the refusal names what the roster would select for
+        a new thread (-Mode new)
+      * otherwise the roster is walked in order and the first entry whose preflight
+        is available runs (a usage limit without a reset time <= 60 min old is
+        skipped here); every skipped entry is recorded with its reason; none
+        available = refused, nothing started. -Model without -Provider restricts the
+        walk to the entries of that model; -SkipPreflight takes the first entry. The
+        parent thread is then chosen for the SELECTED lineage as always.
+    Ledger: roster {path, position, skipped[{provider, model, reason}], applied[]}
+    after preflight_warning ($null without a roster); one line "Roster: ..." on the
+    console, in the dry run and in the handoff header.
+    -Panel (-PanelAll: "weighty" entries too, whatever the purpose) sends the same
+    brief to EVERY available roster entry, one after another, each a consultation
+    of its own (own preflight, lock, pending record, parent thread, consultation id,
+    handoffs/NN-codex-<ReplyName>-<provider>.md and ledger entry with
+    panel {id, position, of, members[{provider, model, state run|skipped, reason}]}).
+    A "weighty" entry joins only on framing, decision, core-contract, acceptance and
+    stuck. Every member is shown the findings open when the panel started. A failing
+    member does not stop the others - except when it leaves surviving processes,
+    which hold the task's reservation (.consult.pending.json): the remaining members
+    are then not started (summary: "skipped  not started: ..."). A summary block
+    closes the run; exit 0 only when every member produced a usable reply. Not with
+    -Provider, -Thread or -Mode resume. TEST HOOK: CODEX_CONSULT_TEST_SURVIVORS=<pid>
+    makes a timeout kill report that live pid as a survivor.
+
     Invariants:
       * read-only sandbox by default; danger-full-access is refused outright
       * every exec-level option must precede the fork|resume subcommand
       * the prompt travels on stdin ('-'), never as an argument
-      * the model is whatever you pass with -Model; with no -Model, Codex uses
-        the model from the user's ~/.codex/config.toml
+      * the model and the provider are the resolved ones and are passed
+        explicitly (-m, -c model_provider=...) whenever they are known
       * one consultation per task directory at a time: <task>/.consult.lock is a
         permanent file held open while a run lasts (never delete it to "unlock";
         closing the process releases it). <task>/.consult.pending.json exists
@@ -45,6 +124,16 @@
 .EXAMPLE
     pwsh -NoProfile -File codex-consult.ps1 -Task cache-rewrite -DryRun `
         -Prompt "Sanity-check the plan."
+
+.EXAMPLE
+    powershell -NoProfile -ExecutionPolicy Bypass -File codex-consult.ps1 `
+        -Task cache-rewrite -Provider ZAI -Model glm-5.3 -Purpose diff-review `
+        -Brief .collab/cache-rewrite/handoffs/05-claude-diff.md -OffPeakOnly
+
+.EXAMPLE
+    powershell -NoProfile -ExecutionPolicy Bypass -File codex-consult.ps1 `
+        -Task cache-rewrite -Panel -Purpose acceptance -ReplyName acceptance `
+        -Brief .collab/cache-rewrite/handoffs/07-claude-acceptance.md
 #>
 [CmdletBinding()]
 param(
@@ -55,10 +144,13 @@ param(
     # Where consultations are stored. Relative paths resolve against the git repo root.
     [string]$CollabDir = '.collab',
 
-    # new | resume | fork. Default: fork when a thread is known, otherwise new.
+    # new | resume | fork. Default: fork when a thread of this run's lineage is known,
+    # otherwise new.
     [string]$Mode = '',
 
-    # Thread (session) uuid for resume/fork. Default: the newest thread in the ledger.
+    # Thread (session) uuid for resume/fork: a thread of THIS task's ledger recorded by
+    # 0.3.0 or later with the same lineage and endpoint. Default: the newest such thread.
+    # With a reviewer roster and no -Provider, the thread's reviewer is used.
     [string]$Thread = '',
 
     # Path to an existing Markdown brief. This script never writes briefs.
@@ -67,11 +159,14 @@ param(
     # Short one-line ask, prepended to the prompt.
     [string]$Prompt = '',
 
-    # Codex model. Empty (the default) means: do not pass -m, let Codex use its own config.
+    # Codex model. Empty (the default): the model of the roster entry used, else the
+    # top-level model of the Codex config (passed as -m when it can be read). Without
+    # -Provider and with a roster: only the roster entries of this model are walked.
     [string]$Model = '',
 
-    # framing | decision | checkpoint | core-contract | acceptance | diff-review | stuck.
-    # Sets the default effort and word cap and adds a purpose paragraph to the prompt.
+    # framing | decision | checkpoint | core-contract | acceptance | diff-review | stuck |
+    # chore. Sets the default effort and word cap and adds a purpose paragraph to the prompt.
+    # chore (a bounded search or extraction task) is a plain-text reply like -Raw.
     [string]$Purpose = '',
 
     # low | medium | high | xhigh. Empty (the default): the purpose preset.
@@ -101,6 +196,54 @@ param(
     # Explicit path to the codex launcher. Env override: CODEX_CONSULT_EXE.
     [string]$CodexExe = '',
 
+    # A [model_providers.<name>] table of the Codex config (case-sensitive; 'openai' is
+    # built in). Empty (the default): the first available entry of the reviewer roster when
+    # one exists, else the config's model_provider, else openai. Needs -Model (unless the
+    # roster entry of that provider names a model).
+    [string]$Provider = '',
+
+    # Reasoning effort sent verbatim as -c model_reasoning_effort="<value>" (no effort
+    # vocabulary applied; ledger effort_mapping 'native'). Excludes -Effort.
+    [string]$NativeEffort = '',
+
+    # Refuse to start inside the provider's peak window (CODEX_CONSULT_PEAK_<PROVIDER>),
+    # and when no schedule is known. Without it a peak window only warns.
+    [switch]$OffPeakOnly,
+
+    # Skip the credential preflight (codex login status / the provider's env_key); the
+    # ledger records preflight "skipped". For endpoints that need no credentials. With a
+    # roster: its first entry is taken unchecked (-Panel: every entry).
+    [switch]$SkipPreflight,
+
+    # Extra Codex config overrides for this run only, each key=value (repeatable, or one
+    # comma-separated string): passed as `-c key=value` after the bridge's own -c options.
+    # E.g. -CodexConfig model_catalog_json=~/.codex/model-catalogs.json. A value that is
+    # not a TOML literal is wrapped in double quotes. Keys that would change what the
+    # ledger records (model, model_provider, profile, model_reasoning_effort,
+    # model_providers.*) are refused.
+    [string[]]$CodexConfig = @(),
+
+    # How the reply schema reaches the endpoint for this run: output-schema (passed as
+    # --output-schema) or prompt-only (the schema travels in the prompt, the reply is
+    # validated locally). Empty (the default): what capability table caps-v1 declares for
+    # the endpoint. Not with -Raw. Ledger schema_transport_source '-SchemaTransport'.
+    [string]$SchemaTransport = '',
+
+    # Review panel: the same brief goes to EVERY available reviewer of the roster, one after
+    # another, each as a consultation of its own (own preflight, lock, pending record,
+    # parent thread, handoff files handoffs/NN-codex-<ReplyName>-<provider>.md and ledger
+    # entry with a `panel` record). Needs a roster; not with -Provider, -Thread or -Mode
+    # resume. A "weighty" roster entry joins only on framing, decision, core-contract,
+    # acceptance and stuck. Exit 0 only when every member produced a usable reply.
+    [switch]$Panel,
+
+    # -Panel with every available entry, "weighty" ones included whatever the purpose.
+    [switch]$PanelAll,
+
+    # INTERNAL: set by -Panel for each member run (the member and the panel's parameters,
+    # base64 of UTF-8 JSON). Never pass it yourself.
+    [string]$PanelSpec = '',
+
     # Print the plan (argv, prompt, paths, ledger entry) without calling codex and
     # without writing anything.
     [switch]$DryRun
@@ -112,44 +255,17 @@ $ErrorActionPreference = 'Stop'
 
 # ----------------------------------------------------------------------------- codex helpers
 
-function Resolve-CodexLauncher {
-    param([string]$Explicit)
-    # An explicit launcher (-CodexExe, then CODEX_CONSULT_EXE) that does not resolve is an
-    # error, never a silent fall-through to whatever `codex` is on PATH.
-    $explicitSources = @(@{ value = $Explicit; label = '-CodexExe' }, @{ value = $env:CODEX_CONSULT_EXE; label = 'CODEX_CONSULT_EXE' })
-    foreach ($source in $explicitSources) {
-        $candidate = [string]$source.value
-        if ($candidate) {
-            if (Test-Path -LiteralPath $candidate) { return (Resolve-Path -LiteralPath $candidate).Path }
-            $cmd = Get-Command $candidate -CommandType Application -ErrorAction SilentlyContinue
-            if ($cmd) { return $cmd.Source }
-            Stop-WithError "$($source.label) '$candidate' is not a file and not an application on PATH."
-        }
-    }
-    # On Windows, Get-Command 'codex' resolves to codex.ps1 (the npm shim), which
-    # Start-Process cannot launch; ask for the native exe / cmd shim first.
-    $names = if ($script:OnWindows) { @('codex.exe', 'codex.cmd', 'codex.bat', 'codex') } else { @('codex') }
-    foreach ($name in $names) {
-        $cmd = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue
-        if ($cmd) { return $cmd.Source }
-    }
-    return $null
-}
-
-function Get-CodexHome {
-    if ($env:CODEX_HOME) { return $env:CODEX_HOME }
-    $home_ = $HOME
-    if (-not $home_) { $home_ = $env:USERPROFILE }
-    if (-not $home_) { return '' }
-    return (Join-Path $home_ '.codex')
-}
-
 # Thread id from the `codex exec --json` event stream.
 # Ground truth (codex-cli 0.155.x): the FIRST JSONL line of every run - new, resume
 # and fork alike - is
 #   {"type":"thread.started","thread_id":"01a0c86d-4d77-7c01-98b1-f682bf63c677"}
 # i.e. the event named "thread.started" carries the resulting thread in its
-# top-level "thread_id" field. The other shapes below are version-drift safety nets.
+# top-level "thread_id" field. The other shapes below are version-drift safety nets,
+# and they only look at SESSION-START events (type thread.started, session.started or
+# session_configured, top-level or msg-wrapped): any other event may carry some other
+# id (a parent thread, a sub-session) and is ignored for thread purposes. No thread
+# here -> the caller falls back to the rollout rule.
+$script:SessionStartEvents = @('thread.started', 'session.started', 'session_configured')
 function Get-ThreadIdFromEvents {
     param([string]$Path)
     $text = Read-SharedText -Path $Path
@@ -161,24 +277,28 @@ function Get-ThreadIdFromEvents {
         if (-not $trimmed.StartsWith('{')) { continue }
         $obj = $null
         try { $obj = $trimmed | ConvertFrom-Json } catch { continue }
+        $type = ''
+        if ($obj.PSObject.Properties['type']) { $type = [string]$obj.type }
         # primary: the "thread.started" event
-        if ($obj.PSObject.Properties['type'] -and $obj.type -eq 'thread.started') {
-            if ($obj.PSObject.Properties['thread_id'] -and $obj.thread_id -match $uuidRe) {
-                return [string]$obj.thread_id
+        if ($type -ceq 'thread.started' -and $obj.PSObject.Properties['thread_id'] -and $obj.thread_id -match $uuidRe) {
+            return [string]$obj.thread_id
+        }
+        # drift net 1: a top-level session-start event with a thread/session/conversation id
+        if ($script:SessionStartEvents -ccontains $type) {
+            foreach ($field in @('thread_id', 'session_id', 'conversation_id')) {
+                if ($obj.PSObject.Properties[$field] -and $obj.$field -match $uuidRe) {
+                    return [string]$obj.$field
+                }
             }
         }
-        # drift net 1: any top-level thread/session/conversation id
-        foreach ($field in @('thread_id', 'session_id', 'conversation_id')) {
-            if ($obj.PSObject.Properties[$field] -and $obj.$field -match $uuidRe) {
-                return [string]$obj.$field
-            }
-        }
-        # drift net 2: the older msg-wrapped shape (session_configured)
-        if ($obj.PSObject.Properties['msg']) {
+        # drift net 2: the older msg-wrapped shape ({"msg":{"type":"session_configured",...}})
+        if ($obj.PSObject.Properties['msg'] -and $obj.msg -and $obj.msg.PSObject.Properties['type']) {
             $msg = $obj.msg
-            foreach ($field in @('session_id', 'thread_id')) {
-                if ($msg -and $msg.PSObject.Properties[$field] -and $msg.$field -match $uuidRe) {
-                    return [string]$msg.$field
+            if ($script:SessionStartEvents -ccontains [string]$msg.type) {
+                foreach ($field in @('session_id', 'thread_id', 'conversation_id')) {
+                    if ($msg.PSObject.Properties[$field] -and $msg.$field -match $uuidRe) {
+                        return [string]$msg.$field
+                    }
                 }
             }
         }
@@ -243,14 +363,19 @@ function Get-UsageFromEvents {
     return $usage
 }
 
-# Fallback: newest <codex home>/sessions/<yyyy>/<mm>/<dd>/rollout-*-<uuid>.jsonl
-# created after the run started.
-function Get-ThreadIdFromRollout {
-    param([datetime]$StartedAt)
+# Fallback when the event stream names no thread: the rollout files written since the
+# run started, <codex home>/sessions/<yyyy>/<mm>/<dd>/rollout-*-<uuid>.jsonl, newest
+# first. Another task or an interactive Codex session may have written one too, so a
+# rollout counts as THIS run's thread only when it contains this run's consultation id
+# (the prompt's last line). { Thread (verified, or ''); Candidate (the newest unverified
+# uuid - diagnostic only, never used as a thread or a parent) }.
+function Find-ThreadInRollouts {
+    param([datetime]$StartedAt, [string]$ConsultId)
+    $found = [pscustomobject]@{ Thread = ''; Candidate = '' }
     $codexHome = Get-CodexHome
-    if (-not $codexHome) { return '' }
+    if (-not $codexHome) { return $found }
     $root = Join-Path $codexHome 'sessions'
-    if (-not (Test-Path -LiteralPath $root)) { return '' }
+    if (-not (Test-Path -LiteralPath $root)) { return $found }
     $days = @($StartedAt, (Get-Date)) | ForEach-Object {
         Join-Path (Join-Path (Join-Path $root ('{0:yyyy}' -f $_)) ('{0:MM}' -f $_)) ('{0:dd}' -f $_)
     } | Select-Object -Unique
@@ -260,15 +385,20 @@ function Get-ThreadIdFromRollout {
             $candidates += Get-ChildItem -LiteralPath $day -Filter 'rollout-*.jsonl' -File -ErrorAction SilentlyContinue
         }
     }
-    $newest = $candidates |
-        Where-Object { $_.LastWriteTime -ge $StartedAt.AddSeconds(-5) } |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First 1
-    if (-not $newest) { return '' }
-    if ($newest.Name -match '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})') {
-        return $Matches[1]
+    $recent = @($candidates |
+            Where-Object { $_.LastWriteTime -ge $StartedAt.AddSeconds(-5) } |
+            Sort-Object LastWriteTime -Descending)
+    foreach ($file in $recent) {
+        if ($file.Name -notmatch '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})') { continue }
+        $uuid = $Matches[1]
+        if (-not $found.Candidate) { $found.Candidate = $uuid }
+        if ($ConsultId -and (Read-SharedText -Path $file.FullName).IndexOf($ConsultId, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            $found.Thread = $uuid
+            $found.Candidate = ''
+            return $found
+        }
     }
-    return ''
+    return $found
 }
 
 function Format-Usage {
@@ -284,7 +414,7 @@ function Format-Usage {
 
 # ----------------------------------------------------------------------------- presets + prompt text
 
-$validPurposes = @('framing', 'decision', 'checkpoint', 'core-contract', 'acceptance', 'diff-review', 'stuck')
+$validPurposes = @('framing', 'decision', 'checkpoint', 'core-contract', 'acceptance', 'diff-review', 'stuck', 'chore')
 $presetEffort = @{
     ''              = 'high'
     'framing'       = 'high'
@@ -294,6 +424,7 @@ $presetEffort = @{
     'acceptance'    = 'high'
     'diff-review'   = 'high'
     'stuck'         = 'xhigh'
+    'chore'         = 'low'
 }
 $presetWords = @{
     ''              = 700
@@ -304,6 +435,7 @@ $presetWords = @{
     'acceptance'    = 900
     'diff-review'   = 700
     'stuck'         = 700
+    'chore'         = 400
 }
 $purposeText = @{
     'framing'       = 'Surface the options the brief does not list and challenge the framing itself before answering inside it. Say what you would need to know to choose between the options.'
@@ -313,7 +445,48 @@ $purposeText = @{
     'acceptance'    = 'Decide whether the result can be accepted. The verdict, the blockers, the unproven scenarios and an OBSERVABLE first-run checklist (what must be seen in logs or output on the first real run before an exit code 0 is believed) are mandatory.'
     'diff-review'   = 'Read the change adversarially: what breaks, what it does not cover, what the tests do not prove.'
     'stuck'         = 'The coordinator is stuck. Look for the angle they are missing and question their assumptions before proposing fixes.'
+    'chore'         = 'This is a chore: a bounded search or extraction task. Report facts with file paths and line numbers, quote what you found, say what you did not find. No verdict, no findings, no recommendations beyond the ask.'
 }
+
+# ----------------------------------------------------------------------------- panel member (internal)
+
+# A -Panel run starts one child run of this script per member with only -Task and
+# -PanelSpec: the spec (base64 of UTF-8 JSON) carries the member's roster entry, the panel
+# record and every other parameter of the -Panel call, so no brief, prompt or path travels
+# through command-line quoting. Everything below then runs as for any consultation.
+$panelMember = $null
+if ($PanelSpec) {
+    if ($Panel -or $PanelAll) { Stop-WithError "-PanelSpec is internal to -Panel; never combine them." }
+    try {
+        $panelMember = ConvertFrom-Json -InputObject ($script:Utf8NoBom.GetString([Convert]::FromBase64String($PanelSpec)))
+    } catch {
+        Stop-WithError "-PanelSpec is internal to -Panel and could not be read ($(ConvertTo-OneLine $_.Exception.Message))."
+    }
+    $pa = $panelMember.args
+    $CollabDir = [string]$pa.collab_dir
+    $Mode = [string]$pa.mode
+    $Brief = [string]$pa.brief
+    $Prompt = [string]$pa.prompt
+    $Purpose = [string]$pa.purpose
+    $Effort = [string]$pa.effort
+    $Sandbox = [string]$pa.sandbox
+    $MaxWords = [int]$pa.max_words
+    $TimeoutSec = [int]$pa.timeout_sec
+    $ReplyName = [string]$pa.reply_name
+    $Artifact = [string[]]@(@($pa.artifact) | Where-Object { $_ })
+    $Raw = [bool]$pa.raw
+    $CodexExe = [string]$pa.codex_exe
+    $NativeEffort = [string]$pa.native_effort
+    $OffPeakOnly = [bool]$pa.off_peak_only
+    $SkipPreflight = [bool]$pa.skip_preflight
+    $CodexConfig = [string[]]@(@($pa.codex_config) | Where-Object { $_ })
+    $SchemaTransport = [string]$pa.schema_transport
+    $DryRun = [bool]$pa.dry_run
+    # This member's output reaches the -Panel run through a pipe: write it as UTF-8 (the
+    # panel run reads it so).
+    try { [Console]::OutputEncoding = $script:Utf8NoBom } catch { }
+}
+$panelRun = [bool]($Panel -or $PanelAll)
 
 # ----------------------------------------------------------------------------- validation
 
@@ -328,6 +501,9 @@ $Purpose = $Purpose.Trim().ToLowerInvariant()
 if ($Purpose -and $validPurposes -notcontains $Purpose) {
     Stop-WithError "-Purpose must be one of: $($validPurposes -join ', ') (got '$Purpose')."
 }
+# A chore is a plain-text consultation, exactly like -Raw: no --output-schema, no schema in
+# the prompt, no findings bookkeeping (ledger structured false, schema '', schema_transport '').
+if ($Purpose -eq 'chore') { $Raw = $true }
 if ($PSBoundParameters.ContainsKey('MaxWords') -and $MaxWords -le 0) {
     Stop-WithError "-MaxWords must be greater than 0 (got $MaxWords)."
 }
@@ -354,6 +530,62 @@ if ($ReplyName -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
 if ($Task -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
     Stop-WithError "-Task must be a slug (letters, digits, dot, dash, underscore)."
 }
+$Provider = $Provider.Trim()
+$Model = $Model.Trim()
+$Thread = $Thread.Trim()
+$NativeEffort = $NativeEffort.Trim()
+if ($NativeEffort) {
+    if ($Effort) {
+        Stop-WithError "-Effort and -NativeEffort exclude each other: -Effort is mapped through the endpoint's effort vocabulary, -NativeEffort is sent verbatim."
+    }
+    if ($NativeEffort -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+        Stop-WithError "-NativeEffort must be a plain token (letters, digits, dot, dash, underscore; got '$NativeEffort')."
+    }
+}
+if ($Thread -and $Mode -eq 'new') {
+    Stop-WithError "-Thread needs -Mode fork or resume (-Mode new always starts a fresh thread)."
+}
+# -CodexConfig: one comma-separated string (powershell -File) is split only at a comma
+# that starts the next key=, so a value like [1,2] stays whole; ~ is expanded and bare
+# values are quoted (ConvertFrom-CodexConfigItems - a roster entry's codex_config follows
+# the same rules). The expanded items are what goes to codex and to the ledger.
+$extraConfig = New-Object System.Collections.Generic.List[string]
+$cfgParse = ConvertFrom-CodexConfigItems -Values $CodexConfig -Label '-CodexConfig'
+if ($cfgParse.Error) { Stop-WithError $cfgParse.Error }
+foreach ($ci in $cfgParse.Items) { $extraConfig.Add($ci) }
+$extraConfigSource = ''
+if ($extraConfig.Count -gt 0) { $extraConfigSource = '-CodexConfig' }
+
+# (NB: never $schemaTransport for this - PowerShell names are case-insensitive, that is the
+# resolved transport below and would silently clobber the parameter)
+$transportOverride = $SchemaTransport.Trim().ToLowerInvariant()
+if ($transportOverride) {
+    if (@('output-schema', 'prompt-only') -notcontains $transportOverride) {
+        Stop-WithError "-SchemaTransport must be output-schema or prompt-only (got '$transportOverride'); omit it to use what caps-v1 declares for the endpoint."
+    }
+    if ($Raw) { Stop-WithError "-SchemaTransport does not apply to -Raw$(if ($Purpose -eq 'chore') { ' (-Purpose chore is a plain-text consultation)' }) (a raw consultation sends no reply schema)." }
+}
+
+# The reviewer roster (CODEX_CONSULT_ROSTER - it must exist; none = no roster - else
+# <codex home>/codex-consult-roster.json). No default file: no roster, everything as before. A file that is not a usable roster refuses the
+# run, -DryRun included (fail-closed: an existing roster is never ignored).
+$roster = Read-ReviewerRoster
+if ($roster.Error) { Stop-WithError $roster.Error }
+if ($panelRun) {
+    if ($roster.Disabled) { Stop-WithError "-Panel needs a reviewer roster, and CODEX_CONSULT_ROSTER=none switches it off." }
+    if (-not $roster.Exists) { Stop-WithError "-Panel needs a reviewer roster: '$($roster.Path)' does not exist (CODEX_CONSULT_ROSTER, else <codex home>/codex-consult-roster.json)." }
+    if ($Provider) { Stop-WithError "-Panel runs every available reviewer of the roster and does not take -Provider (for one reviewer, drop -Panel)." }
+    if ($Thread) { Stop-WithError "-Panel does not take -Thread: each member forks the newest thread of its own lineage (or starts one)." }
+    if ($Mode -eq 'resume') { Stop-WithError "-Panel does not take -Mode resume: each member forks the newest thread of its own lineage (or starts one); -Mode new starts fresh threads for all." }
+}
+if ($panelMember -and -not $roster.Exists) { Stop-WithError "the reviewer roster '$($roster.Path)' is gone; this panel member was not started." }
+if ($Provider -and -not $Model) {
+    # The roster entry of that provider may supply the model.
+    $providerEntry = Find-RosterEntry -Roster $roster -Provider $Provider
+    if (-not ($providerEntry -and $providerEntry.Model)) {
+        Stop-WithError "-Provider needs -Model: the bridge cannot know which model a provider serves by default (e.g. -Provider $Provider -Model <model>)."
+    }
+}
 
 # Explicit -Effort / -MaxWords win over the purpose preset.
 $effortResolved = $presetEffort[$Purpose]
@@ -362,8 +594,6 @@ $maxWordsResolved = $presetWords[$Purpose]
 if ($MaxWords -gt 0) { $maxWordsResolved = $MaxWords }
 $purposeLabel = if ($Purpose) { $Purpose } else { 'none' }
 $verdictRule = if (@('acceptance', 'diff-review') -contains $Purpose) { 'ACCEPT, HOLD or REJECT' } else { 'ADVISE' }
-
-$modelLabel = if ($Model) { $Model } else { 'config default' }
 
 # ----------------------------------------------------------------------------- repo + task
 
@@ -390,6 +620,485 @@ if ($codexExePath) {
 }
 # "codex-cli 0.155.1" -> "0.155.1" for the prose header; sessions.json keeps the full string.
 $codexVersionShort = $codexVersion -replace '^codex-cli\s+', ''
+$harness = if ($codexVersion -match '^codex-cli\s') { $codexVersion } else { "codex-cli $codexVersion" }
+
+# ----------------------------------------------------------------------------- review panel (-Panel)
+#
+# The roster is walked like the single-reviewer walk, without stopping at the first available
+# entry (Select-PanelMembers). Each member then runs as a complete consultation of its own -
+# a child run of this script (-PanelSpec), strictly one after another: own preflight, own
+# task lock and recovery record, own parent thread (the newest of its lineage, or a new one;
+# -Mode new: new for all), own consultation id, handoff files
+# handoffs/NN-codex-<ReplyName>-<provider>.md and ledger entry with the `panel` record. A
+# member that fails or is refused does not stop the others - unless it leaves surviving
+# processes: they hold the task's reservation, so the remaining members are not started
+# (recorded in the summary as skipped, exit 1). This run itself takes no lock
+# and writes nothing; it prints a summary and exits 0 only when every member produced a
+# usable reply (-DryRun: when every member's plan could be made).
+
+# The ledger entry a panel member recorded (the task's sessions.json, read tolerantly).
+function Find-PanelEntry {
+    param([string]$Path, [string]$PanelId, [int]$Position)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
+    $data = $null
+    try { $data = ConvertFrom-Json -InputObject (Read-SharedText -Path $Path) } catch { return $null }
+    $found = $null
+    foreach ($c in @(Get-PropertyValue (Get-PropertyValue $data 'codex' $null) 'consults' @())) {
+        $pr = Get-PropertyValue $c 'panel' $null
+        if ($null -ne $pr -and [string](Get-PropertyValue $pr 'id' '') -eq $PanelId -and [string](Get-PropertyValue $pr 'position' '') -eq [string]$Position) { $found = $c }
+    }
+    return $found
+}
+
+function Format-PriorCounts {
+    param($Entry)
+    $prior = @(Get-PropertyValue $Entry 'prior_findings' @() | Where-Object { $_ })
+    if ($prior.Count -eq 0) { return 'prior: none' }
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($st in $script:PriorStatuses) {
+        $n = @($prior | Where-Object { [string](Get-PropertyValue $_ 'status' '') -eq $st }).Count
+        if ($n -gt 0) { $parts.Add("$n $st") }
+    }
+    return 'prior: ' + ($parts.ToArray() -join ', ')
+}
+
+if ($panelRun) {
+    # What would make every member fail the same way is refused once, up front.
+    if ($Brief) {
+        $briefProbe = $Brief
+        if (-not [IO.Path]::IsPathRooted($briefProbe)) {
+            foreach ($base in @($callerCwd, $repoRoot)) {
+                if (Test-Path -LiteralPath (Join-Path $base $briefProbe) -PathType Leaf) { $briefProbe = Join-Path $base $briefProbe; break }
+            }
+        }
+        if (-not (Test-Path -LiteralPath $briefProbe -PathType Leaf)) {
+            Stop-WithError "brief '$Brief' not found (this script never writes briefs; write it first)."
+        }
+    }
+    if (-not $DryRun -and -not $codexExePath) {
+        Stop-WithError "codex CLI not found on PATH (set -CodexExe <path> or the CODEX_CONSULT_EXE environment variable)."
+    }
+    $panelConfig = Read-CodexConfigSubset -Path (Get-CodexConfigPath)
+    $panelClock = Get-ConsultClock -Peek
+    if ($panelClock.Error) { Stop-WithError $panelClock.Error }
+    $panelSelection = Select-PanelMembers -Roster $roster -Config $panelConfig -Consults (Read-AllTaskConsults -CollabRoot $collabRoot) -Launcher ([string]$codexExePath) -LoginCache @{} -UtcNow $panelClock.Now.UtcDateTime -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Model $Model -Purpose $Purpose -All:$PanelAll -SkipPreflight:$SkipPreflight
+    if ($panelSelection.Error) { Stop-WithError $panelSelection.Error }
+    $panelEntries = @($panelSelection.Members)
+    $panelRunners = @($panelEntries | Where-Object { $_.State -eq 'run' })
+    $panelId = [guid]::NewGuid().ToString()
+    $panelShort = $panelId.Substring(0, 8)
+    $panelMembersRecord = [object[]]@($panelEntries | ForEach-Object { [pscustomobject]@{ provider = $_.Entry.Provider; model = $_.Identity.Model; state = $_.State; reason = $_.Reason } })
+    $panelSkippedRecord = [object[]]@($panelEntries | Where-Object { $_.State -ne 'run' } | ForEach-Object { [pscustomobject]@{ provider = $_.Entry.Provider; model = $_.Identity.Model; reason = $_.Reason } })
+    # The findings every member is shown: those open when the panel starts.
+    $panelListed = @()
+    if (-not $Raw -and (Test-Path -LiteralPath $findingsPath -PathType Leaf)) {
+        $panelStore = Read-FindingsFile -Path $findingsPath -Task $Task
+        $panelListed = @(@($panelStore.findings) | Where-Object { $_ -and $script:OpenStatuses -contains [string](Get-PropertyValue $_ 'status' '') } | ForEach-Object { [string]$_.id })
+    }
+    $panelVerb = if ($DryRun) { 'would run' } else { 'run' }
+    Write-Host "Panel $panelShort$(if ($DryRun) { ' (dry run - nothing is executed or written)' }): $($panelRunners.Count) of $($panelEntries.Count) roster entries $panelVerb, one after another (roster $($roster.Path); panel id $panelId)"
+    foreach ($pm in $panelEntries) {
+        Write-Host ("  #{0} {1} - {2}" -f $pm.Entry.Position, $pm.Identity.Lineage, $(if ($pm.State -eq 'run') { 'member' } else { "skipped: $($pm.Reason)" }))
+    }
+    $psHost = (Get-Process -Id $PID).Path
+    $panelResults = @{}
+    $k = 0
+    $panelStarted = 0
+    $panelBlocked = ''
+    $previousLineage = ''
+    foreach ($pm in $panelRunners) {
+        $k++
+        # One consultation per task at a time: a member that left surviving processes
+        # holds the task's reservation (.consult.pending.json), and every later member
+        # would be refused. They are not started; the summary says why (F15-3).
+        if (-not $DryRun -and -not $panelBlocked) {
+            $pendingNow = Read-PendingFile -Path $pendingPath
+            if ($pendingNow.Error) {
+                $panelBlocked = "not started: the task's recovery record cannot be used ($(ConvertTo-OneLine $pendingNow.Error))"
+            } elseif ($pendingNow.Exists) {
+                $activeNow = Test-PendingActive -Record $pendingNow.Record -Path $pendingPath
+                if ($activeNow.Active) {
+                    $stateNow = [string](Get-PropertyValue $pendingNow.Record 'state' '')
+                    if ($previousLineage) { $panelBlocked = "not started: the previous member ($previousLineage) left surviving processes (.consult.pending.json state $stateNow); recover the task first" }
+                    else { $panelBlocked = "not started: an earlier consultation of this task is still active (.consult.pending.json state $stateNow); recover the task first" }
+                }
+            }
+        }
+        if ($panelBlocked) {
+            $panelResults[[int]$pm.Entry.Position] = [pscustomobject]@{ Exit = $null; Entry = $null; Refusal = ''; NotStarted = $panelBlocked }
+            continue
+        }
+        $panelStarted++
+        $previousLineage = $pm.Identity.Lineage
+        $slug = ($pm.Entry.Provider.ToLowerInvariant() -replace '[^a-z0-9._-]', '-').Trim('-')
+        if (-not $slug) { $slug = 'reviewer' }
+        $spec = [pscustomobject]@{
+            id              = $panelId
+            position        = $k
+            of              = $panelRunners.Count
+            members         = $panelMembersRecord
+            roster_position = $pm.Entry.Position
+            provider        = $pm.Entry.Provider
+            model           = $pm.Entry.Model
+            skipped         = $panelSkippedRecord
+            listed_ids      = [object[]]$panelListed
+            args            = [pscustomobject]@{
+                collab_dir       = $CollabDir
+                mode             = $Mode
+                brief            = $Brief
+                prompt           = $Prompt
+                purpose          = $Purpose
+                effort           = $Effort
+                sandbox          = $Sandbox
+                max_words        = $MaxWords
+                timeout_sec      = $TimeoutSec
+                reply_name       = "$ReplyName-$slug"
+                artifact         = [object[]]@($Artifact)
+                raw              = [bool]$Raw
+                codex_exe        = $CodexExe
+                native_effort    = $NativeEffort
+                off_peak_only    = [bool]$OffPeakOnly
+                skip_preflight   = [bool]$SkipPreflight
+                codex_config     = [object[]]@($CodexConfig)
+                schema_transport = $transportOverride
+                dry_run          = [bool]$DryRun
+            }
+        }
+        $specB64 = [Convert]::ToBase64String($script:Utf8NoBom.GetBytes((ConvertTo-Json -InputObject $spec -Depth 8 -Compress)))
+        Write-Host ""
+        Write-Host "=== panel $panelShort member $k of $($panelRunners.Count): $($pm.Identity.Lineage) (roster #$($pm.Entry.Position)) ==="
+        $captured = New-Object System.Collections.Generic.List[string]
+        $eapBefore = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $encBefore = $null
+        try { $encBefore = [Console]::OutputEncoding; [Console]::OutputEncoding = $script:Utf8NoBom } catch { }
+        & $psHost -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -Task $Task -PanelSpec $specB64 2>&1 | ForEach-Object { $lineText = "$_"; $captured.Add($lineText); Write-Host $lineText }
+        $childExit = $LASTEXITCODE
+        if ($encBefore) { try { [Console]::OutputEncoding = $encBefore } catch { } }
+        $ErrorActionPreference = $eapBefore
+        $memberEntry = $null
+        if (-not $DryRun) { $memberEntry = Find-PanelEntry -Path $sessionsPath -PanelId $panelId -Position $k }
+        $refusal = @($captured | Where-Object { $_ -match '^codex-consult: ' }) | Select-Object -Last 1
+        $panelResults[[int]$pm.Entry.Position] = [pscustomobject]@{ Exit = $childExit; Entry = $memberEntry; Refusal = $(if ($refusal) { $refusal -replace '^codex-consult: ', '' } else { "exit $childExit" }); NotStarted = '' }
+    }
+
+    # ------------------------------------------------------------------------- summary
+    $rows = New-Object System.Collections.Generic.List[object]
+    $allUsable = ($panelRunners.Count -gt 0)
+    foreach ($pm in $panelEntries) {
+        $row = [pscustomobject]@{ Lineage = $pm.Identity.Lineage; Status = ''; Counts = ''; Prior = ''; Tail = ''; Wide = $false }
+        if ($pm.State -ne 'run') {
+            $row.Status = 'skipped'
+            $row.Counts = $pm.Reason
+            $row.Wide = $true
+        } else {
+            $res = $panelResults[[int]$pm.Entry.Position]
+            if ($res.NotStarted) {
+                $row.Status = 'skipped'
+                $row.Counts = $res.NotStarted
+                $row.Wide = $true
+                $allUsable = $false
+            } elseif ($DryRun) {
+                if ($res.Exit -eq 0) { $row.Status = 'planned' } else { $row.Status = "refused: $(ConvertTo-OneLine $res.Refusal)"; $row.Wide = $true; $allUsable = $false }
+            } elseif ($null -eq $res.Entry) {
+                $row.Status = "failed: $(ConvertTo-OneLine $res.Refusal)"
+                $row.Wide = $true
+                $allUsable = $false
+            } else {
+                $me = $res.Entry
+                $outcome = [string](Get-PropertyValue $me 'bridge_outcome' '')
+                $tail = "$(Get-PropertyValue $me 'wall_seconds' '?') s  $(Get-PropertyValue $me 'reply' '')"
+                if ($outcome -ne 'usable reply') {
+                    $short = $outcome -replace '^failed:\s*', ''
+                    if ($short.Length -gt 90) { $short = $short.Substring(0, 90) + '...' }
+                    $row.Status = "failed: $short"
+                    $row.Tail = $tail
+                    $row.Wide = $true
+                    $allUsable = $false
+                } else {
+                    $verdictText = [string](Get-PropertyValue $me 'verdict' '')
+                    if ($verdictText -and (Get-PropertyValue $me 'structured' $false) -eq $true) {
+                        $row.Status = $verdictText
+                        $fc = Get-PropertyValue $me 'findings' $null
+                        $row.Counts = "$(Get-PropertyValue $fc 'blocker' 0) blocker, $(Get-PropertyValue $fc 'major' 0) major, $(Get-PropertyValue $fc 'minor' 0) minor"
+                        if ([int](Get-PropertyValue $fc 'note' 0) -gt 0) { $row.Counts += ", $(Get-PropertyValue $fc 'note' 0) note" }
+                        $row.Prior = Format-PriorCounts $me
+                    } else {
+                        $row.Status = 'prose (no verdict)'
+                    }
+                    $row.Tail = $tail
+                }
+            }
+        }
+        $rows.Add($row)
+    }
+    $wLineage = (@($rows | ForEach-Object { $_.Lineage.Length }) | Measure-Object -Maximum).Maximum
+    $narrow = @($rows | Where-Object { -not $_.Wide })
+    $wStatus = 7
+    $wCounts = 0
+    $wPrior = 0
+    if ($narrow.Count -gt 0) {
+        $wStatus = [Math]::Max(7, (@($narrow | ForEach-Object { $_.Status.Length }) | Measure-Object -Maximum).Maximum)
+        $wCounts = (@($narrow | ForEach-Object { $_.Counts.Length }) | Measure-Object -Maximum).Maximum
+        $wPrior = (@($narrow | ForEach-Object { $_.Prior.Length }) | Measure-Object -Maximum).Maximum
+    }
+    Write-Host ""
+    Write-Host "Panel $($panelShort): $(if ($DryRun) { "$($panelRunners.Count) of $($panelEntries.Count) entries would run (dry run)" } else { "$panelStarted of $($panelEntries.Count) entries ran" })"
+    foreach ($row in $rows) {
+        $parts = New-Object System.Collections.Generic.List[string]
+        $parts.Add($row.Lineage.PadRight($wLineage))
+        if ($row.Wide) {
+            $parts.Add($row.Status.PadRight($(if ($row.Status -eq 'skipped') { $wStatus } else { 0 })))
+            if ($row.Counts) { $parts.Add($row.Counts) }
+        } else {
+            $parts.Add($row.Status.PadRight($wStatus))
+            if ($wCounts -gt 0) { $parts.Add($row.Counts.PadRight($wCounts)) }
+            if ($wPrior -gt 0) { $parts.Add($row.Prior.PadRight($wPrior)) }
+        }
+        if ($row.Tail) { $parts.Add($row.Tail) }
+        Write-Host ('  ' + (($parts.ToArray() -join '  ').TrimEnd()))
+    }
+    if ($allUsable) { exit 0 }
+    exit 1
+}
+
+# ----------------------------------------------------------------------------- reviewer, effort, peak
+
+# All decided BEFORE the task lock is taken (a refusal here touches nothing).
+# Resolve-ReviewerIdentity: what Codex will use, read from its config (never assumed).
+$codexConfigScan = Read-CodexConfigSubset -Path (Get-CodexConfigPath)
+$openAiBaseUrl = [string]$env:OPENAI_BASE_URL
+# The endpoint health of every task ledger of this repository, read at the consult clock
+# (CODEX_CONSULT_NOW freezes it in tests; -Peek leaves the peak evaluations their values).
+$healthClock = Get-ConsultClock -Peek
+if ($healthClock.Error) { Stop-WithError $healthClock.Error }
+$healthNow = $healthClock.Now.UtcDateTime
+$allConsults = Read-AllTaskConsults -CollabRoot $collabRoot
+$loginCache = @{}
+
+# Which reviewer (Read-ReviewerRoster, Select-RosterReviewer):
+#   no roster      -Provider / -Model, else the Codex config (as always)
+#   -Provider      the roster does not select; its entry for that provider supplies the
+#                  model (when -Model is empty) and codex_config (when -CodexConfig is empty)
+#   -Thread        the thread's ledger entry fixes the provider and the model; the roster
+#                  entry supplies codex_config
+#   otherwise      the first roster entry whose preflight is available (-Model: only the
+#                  entries that resolve to that model); skipped entries are recorded
+$rosterRule = ''
+$rosterEntry = $null
+$rosterSkipped = @()
+$rosterApplied = New-Object System.Collections.Generic.List[string]
+$identityProvider = $Provider
+$identityModel = $Model
+$providerSourceOverride = ''
+$modelSourceOverride = ''
+if ($roster.Exists) {
+    if ($panelMember) {
+        # A member of a -Panel run: the roster entry the panel run selected for it.
+        $rosterRule = 'panel'
+        $memberPosition = [int]$panelMember.roster_position
+        $rosterEntry = @($roster.Entries | Where-Object { $_.Position -eq $memberPosition }) | Select-Object -First 1
+        if (-not $rosterEntry -or $rosterEntry.Provider -cne [string]$panelMember.provider -or $rosterEntry.Model -cne [string]$panelMember.model) {
+            Stop-WithError "the reviewer roster '$($roster.Path)' changed while the panel ran (entry $memberPosition is no longer $([string]$panelMember.provider) $([string]$panelMember.model)); this panel member was not started."
+        }
+        $rosterSkipped = @($panelMember.skipped | Where-Object { $_ })
+        $identityProvider = $rosterEntry.Provider
+        $providerSourceOverride = 'roster'
+        if ($rosterEntry.Model -and -not $Model) {
+            $identityModel = $rosterEntry.Model
+            $modelSourceOverride = 'roster'
+            $rosterApplied.Add('model')
+        }
+    } elseif ($Provider) {
+        $rosterRule = 'provider'
+        $rosterEntry = Find-RosterEntry -Roster $roster -Provider $Provider -Model $Model
+        if ($rosterEntry -and -not $Model -and $rosterEntry.Model) {
+            $identityModel = $rosterEntry.Model
+            $modelSourceOverride = 'roster'
+            $rosterApplied.Add('model')
+        }
+    } elseif ($Thread) {
+        $rosterRule = 'thread'
+        # This task's ledger, read before the lock (Select-ParentThread checks the thread
+        # again under it). A store that does not parse is refused here already.
+        $threadStore = Read-JsonStore -Path $sessionsPath
+        $threadConsults = @()
+        if ($null -ne $threadStore) { $threadConsults = @(Get-PropertyValue (Get-PropertyValue $threadStore 'codex' $null) 'consults' @()) }
+        $threadFound = Find-ThreadEntry -Consults $threadConsults -Thread $Thread
+        if ($threadFound.Error) { Stop-WithError $threadFound.Error }
+        $threadReviewer = Get-EntryReviewer $threadFound.Entry
+        $identityProvider = $threadReviewer.Provider
+        $providerSourceOverride = '-Thread'
+        if (-not $Model) {
+            $identityModel = $threadReviewer.Model
+            $modelSourceOverride = '-Thread'
+        }
+        $rosterEntry = Find-RosterEntry -Roster $roster -Provider $identityProvider -Model $identityModel
+    } else {
+        $rosterRule = 'walk'
+        $walk = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -Model $Model -SkipPreflight:$SkipPreflight
+        if ($walk.Error) { Stop-WithError $walk.Error }
+        $rosterEntry = $walk.Entry
+        $rosterSkipped = @($walk.Skipped)
+        $identityProvider = $rosterEntry.Provider
+        $providerSourceOverride = 'roster'
+        if ($rosterEntry.Model -and -not $Model) {
+            $identityModel = $rosterEntry.Model
+            $modelSourceOverride = 'roster'
+            $rosterApplied.Add('model')
+        }
+    }
+    if ($rosterEntry -and $extraConfig.Count -eq 0 -and @($rosterEntry.CodexConfig).Count -gt 0) {
+        foreach ($ci in @($rosterEntry.CodexConfig)) { $extraConfig.Add($ci) }
+        $extraConfigSource = 'roster'
+        $rosterApplied.Add('codex_config')
+    }
+}
+$anonymous = [bool]($rosterEntry -and $rosterEntry.Auth -eq 'none')
+
+$identity = Resolve-ReviewerIdentity -Config $codexConfigScan -Provider $identityProvider -Model $identityModel -OpenAiBaseUrl $openAiBaseUrl
+if ($identity.Error) { Stop-WithError $identity.Error }
+if ($providerSourceOverride) { $identity.ProviderSource = $providerSourceOverride }
+if ($modelSourceOverride) { $identity.ModelSource = $modelSourceOverride }
+$reviewerRecord = New-ReviewerRecord -Identity $identity -Harness $harness
+$lineage = $identity.Lineage
+$modelLabel = $identity.Model
+$reviewerLine = "Reviewer: $lineage (provider from $($reviewerRecord.provider_source), model from $($identity.ModelSource); $($identity.Display)"
+if ($identity.Resolved) {
+    $reviewerLine += "; provider fingerprint $(Format-ShortHash $identity.Fingerprint)"
+    if ($identity.Note) { $reviewerLine += "; $($identity.Note)" }
+    $reviewerLine += "; harness $harness)."
+} else {
+    $reviewerLine += "; identity UNRESOLVED - never a parent thread: $($identity.Note); harness $harness)."
+}
+
+# Effort: requested (preset or -Effort) -> sent, through the endpoint's vocabulary.
+$effortPlan = Resolve-EffortPlan -Identity $identity -Requested $effortResolved -Native $NativeEffort
+if ($effortPlan.Error) { Stop-WithError $effortPlan.Error }
+$effortSent = $effortPlan.Sent
+
+# How the reply schema reaches the endpoint (caps-v1): 'output-schema' passes
+# --output-schema; 'prompt-only' (an endpoint that rejects a json_schema response format,
+# or one caps-v1 does not declare) puts the schema in the prompt and relies on the local
+# validation alone. -SchemaTransport overrides it for this run. -Raw uses neither.
+$schemaTransport = ''
+$schemaTransportBasis = ''
+$schemaTransportSource = ''
+if (-not $Raw) {
+    $st = Get-SchemaTransport -Identity $identity
+    if ($transportOverride) {
+        $schemaTransport = $transportOverride
+        $schemaTransportBasis = "-SchemaTransport; $($st.Basis) would use $($st.Transport)"
+        $schemaTransportSource = '-SchemaTransport'
+    } else {
+        $schemaTransport = $st.Transport
+        $schemaTransportBasis = $st.Basis
+        $schemaTransportSource = $script:EffortCapsVersion
+    }
+}
+
+# Preflight: is the resolved provider usable? Local checks only, no network (see
+# Get-ProviderCredential), then the endpoint's recorded health in ALL task ledgers of this
+# repository (Get-EndpointHealth, keyed by provider_fingerprint). It fails CLOSED
+# (Get-PreflightVerdict): missing credentials, an availability that cannot be established
+# (an unresolved identity, a `codex login status` that cannot run or times out), a recent
+# authentication failure on this endpoint and a usage limit whose reset time lies ahead all
+# refuse the run - no ledger entry, nothing started - unless -SkipPreflight. A usage limit
+# without a reset time within the last hour only warns (a roster walk skips it instead).
+# -DryRun reports and never refuses.
+$preflight = 'skipped'
+$preflightLabel = 'skipped (-SkipPreflight)'
+$preflightWarning = ''
+$preflightRefusal = ''
+$health = $null
+if ($identity.Resolved) {
+    $health = Get-EndpointHealth -Consults $allConsults -Fingerprint $identity.Fingerprint -UtcNow $healthNow
+    $preflightWarning = Format-QuotaWarning -Identity $identity -Health $health -SkipPreflight:$SkipPreflight
+}
+if (-not $SkipPreflight) {
+    $preflightVerdict = Get-PreflightVerdict -Identity $identity -Config $codexConfigScan -Launcher ([string]$codexExePath) -Health $health -LoginCache $loginCache -Anonymous:$anonymous
+    $preflight = $preflightVerdict.Preflight
+    $preflightLabel = $preflightVerdict.Label
+    $preflightRefusal = $preflightVerdict.Refusal
+    if ($preflightVerdict.State -ne 'available' -and $rosterRule -eq 'thread') {
+        # The thread cannot continue: say which reviewer a new thread would get.
+        $alternative = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl
+        $hint = if ($alternative.Entry) { "; to continue with another reviewer, start a new thread: -Mode new; the roster would select $($alternative.Identity.Lineage)" } else { '; the roster has no available reviewer for a new thread either' }
+        $preflightRefusal += $hint
+        $preflightLabel += $hint
+    }
+    if ($preflightRefusal -and -not $DryRun) { Stop-WithError $preflightRefusal }
+}
+
+# One line on the roster decision (console, dry run, handoff header) and the ledger's
+# `roster` object ($null without a roster file).
+$rosterLine = ''
+$rosterRecord = $null
+if ($roster.Exists) {
+    $rosterCount = @($roster.Entries).Count
+    $rosterPosition = $null
+    if ($rosterEntry) { $rosterPosition = [int]$rosterEntry.Position }
+    $appliedText = if ($rosterApplied.Count -gt 0) { "$($rosterApplied.ToArray() -join ', ') applied" } else { 'nothing applied' }
+    if ($rosterRule -eq 'walk') {
+        $rosterLine = "Roster: $($roster.Path) - position $rosterPosition of $rosterCount"
+        if ($SkipPreflight) { $rosterLine += ' (-SkipPreflight: taken unchecked)' }
+        if ($rosterSkipped.Count -gt 0) { $rosterLine += "; skipped $(Format-RosterSkips $rosterSkipped)" }
+    } elseif ($rosterRule -eq 'panel') {
+        $rosterLine = "Roster: $($roster.Path) - position $rosterPosition of $rosterCount, panel $(([string]$panelMember.id).Substring(0, 8)) member $([int]$panelMember.position) of $([int]$panelMember.of)"
+        if ($rosterSkipped.Count -gt 0) { $rosterLine += "; skipped $(Format-RosterSkips $rosterSkipped)" }
+    } elseif ($rosterRule -eq 'provider') {
+        if ($rosterEntry) { $rosterLine = "Roster: $($roster.Path) - entry $rosterPosition of $rosterCount for -Provider $Provider ($appliedText)" }
+        else { $rosterLine = "Roster: $($roster.Path) - no entry for -Provider $Provider (nothing applied)" }
+    } else {
+        if ($rosterEntry) { $rosterLine = "Roster: $($roster.Path) - entry $rosterPosition of $rosterCount for -Thread $Thread, $lineage ($appliedText)" }
+        else { $rosterLine = "Roster: $($roster.Path) - no entry for -Thread $Thread, $lineage (nothing applied)" }
+    }
+    $rosterRecord = [pscustomobject]@{
+        path     = $roster.Path
+        position = $rosterPosition
+        skipped  = [object[]]@($rosterSkipped | ForEach-Object { [pscustomobject]@{ provider = $_.provider; model = $_.model; reason = $_.reason } })
+        applied  = [object[]]$rosterApplied.ToArray()
+    }
+}
+# The ledger's `panel` record of a -Panel member ($null otherwise): the same members list in
+# every member's entry.
+$panelRecord = $null
+if ($panelMember) {
+    $panelRecord = [pscustomobject]@{
+        id       = [string]$panelMember.id
+        position = [int]$panelMember.position
+        of       = [int]$panelMember.of
+        members  = [object[]]@(@($panelMember.members) | Where-Object { $_ } | ForEach-Object { [pscustomobject]@{ provider = [string]$_.provider; model = [string]$_.model; state = [string]$_.state; reason = [string]$_.reason } })
+    }
+}
+if ($rosterLine -and -not $DryRun) { Write-Host $rosterLine }
+if ($preflightWarning -and -not $DryRun) { Write-Host "WARNING: $preflightWarning" -ForegroundColor Yellow }
+
+# Peak window of the provider (evaluated once, now).
+$peakProvider = ''
+if ($identity.ProviderSource) { $peakProvider = $identity.Provider }
+# Early check (malformed schedules, -OffPeakOnly with no schedule or already inside the
+# window, the dry-run preview). The status that counts is evaluated again right before
+# launch - preparation (hashing, fingerprints) may cross a window boundary.
+$peak = Get-PeakStatusNow -Provider $peakProvider
+if ($peak.Error) { Stop-WithError $peak.Error }
+if ($OffPeakOnly) {
+    if (-not $peakProvider) {
+        Stop-WithError "no schedule for provider unknown (the reviewer identity is unresolved: $($identity.Note)); -OffPeakOnly needs a known provider and its CODEX_CONSULT_PEAK_<PROVIDER>."
+    }
+    if ($null -eq $peak.Peak) {
+        Stop-WithError "no schedule for provider $peakProvider; -OffPeakOnly needs $($peak.Variable)."
+    }
+    if ($peak.Peak) {
+        Stop-WithError "-OffPeakOnly: $peakProvider is inside its peak window ($($peak.Schedule); now $($peak.Local)); nothing was started."
+    }
+}
+$peakWarning = ''
+if ($peak.Peak -eq $true) { $peakWarning = "WARNING: $peakProvider peak window ($($peak.Schedule)) - this consultation runs at peak tariff." }
+$peakLabel = if ($null -eq $peak.Peak) { "unknown ($(if ($peak.Variable) { "$($peak.Variable) not set" } else { 'provider unknown' }))" } elseif ($peak.Peak) { "PEAK ($($peak.Schedule); now $($peak.Local))" } else { "off-peak ($($peak.Schedule); now $($peak.Local); $($peak.Detail))" }
+
+# The prompt's last line; a rollout file is attributed to this run only if it holds it.
+$consultId = [guid]::NewGuid().ToString()
 
 # ----------------------------------------------------------------------------- brief, artifacts, schema
 
@@ -457,12 +1166,6 @@ $lastMsgPath = Join-Path $tmpRoot "codex-consult-last-$tmpId.md"
 $promptPath = Join-Path $tmpRoot "codex-consult-prompt-$tmpId.txt"
 $stderrPath = Join-Path $tmpRoot "codex-consult-stderr-$tmpId.txt"
 
-function Format-ShortHash {
-    param([string]$Hash)
-    if ($Hash.Length -ge 12) { return $Hash.Substring(0, 12) }
-    return $Hash
-}
-
 # ----------------------------------------------------------------------------- lock + run
 #
 # Everything from here to the end runs while <task>/.consult.lock is HELD OPEN (not in
@@ -474,7 +1177,8 @@ function Format-ShortHash {
 # Recovery record <task>/.consult.pending.json (atomic replace, only under the lock):
 #   1. read it first: unusable -> refuse; a live codex process of an interrupted run
 #      -> refuse; otherwise its reservation is consumed (numbering skips past it)
-#   2. {state: reserved, n, nn, reply}  after allocation - replaces the old record
+#   2. {state: reserved, n, nn, reply, consult_id}
+#                                       after allocation - replaces the old record
 #   3. {state: launching}               right before Start-Process (a failed write
 #                                       aborts the run before codex exists)
 #   4. {state: running, child_pid}      right after Start-Process; if this write fails
@@ -551,6 +1255,12 @@ try {
     $openFindings = @()
     if (-not $Raw) {
         $openFindings = @($findingsStore.findings | Where-Object { $script:OpenStatuses -contains [string](Get-PropertyValue $_ 'status' '') })
+        # A panel member lists only what was open when the panel started: the prompt is the
+        # same for every member, and a member never sees an earlier member's findings.
+        if ($panelMember -and $panelMember.PSObject.Properties['listed_ids']) {
+            $panelBaseline = @(@($panelMember.listed_ids) | Where-Object { $_ } | ForEach-Object { [string]$_ })
+            $openFindings = @($openFindings | Where-Object { $panelBaseline -contains [string]$_.id })
+        }
     }
     $listedIds = [string[]]@($openFindings | ForEach-Object { [string]$_.id })
     # { id; severity; status } of the listed prior findings, for verdict validation.
@@ -560,27 +1270,16 @@ try {
 
     # ------------------------------------------------------------------------- mode + thread
 
-    # Older ledger entries (0.1: `outcome`, no `purpose`, ...) are left untouched; only
-    # `thread` is read from them.
+    # Older ledger entries (0.1/0.2: no `reviewer`) are left untouched; their threads
+    # have unknown provenance and are never parents. The parent is lineage-scoped
+    # (Select-ParentThread): the newest verified thread of this run's lineage on the
+    # same endpoint, or -Thread when it is one.
     $consults = @($sessions.codex.consults | Where-Object { $_ })
-    $knownThread = ''
-    if ($Thread) {
-        $knownThread = $Thread.Trim()
-    } else {
-        for ($i = $consults.Count - 1; $i -ge 0; $i--) {
-            $c = $consults[$i]
-            if ($c.PSObject.Properties['thread'] -and $c.thread) { $knownThread = [string]$c.thread; break }
-        }
-    }
-
-    if (-not $Mode) {
-        if ($knownThread) { $Mode = 'fork' } else { $Mode = 'new' }
-    }
-    if ($Mode -ne 'new' -and -not $knownThread) {
-        Stop-WithError "-Mode $Mode needs a thread: pass -Thread <uuid>, or make sure '$sessionsPath' has codex.consults[].thread."
-    }
-    $parentThread = ''
-    if ($Mode -ne 'new') { $parentThread = $knownThread }
+    $selection = Select-ParentThread -Consults $consults -Identity $identity -Mode $Mode -Thread $Thread
+    if ($selection.Error) { Stop-WithError $selection.Error }
+    $Mode = $selection.Mode
+    $parentThread = $selection.Parent
+    $parentNote = $selection.Note
 
     # ------------------------------------------------------------------------- numbering
 
@@ -621,7 +1320,7 @@ try {
     # fails the old record is left intact and nothing was started).
     $pendingRecord = $null
     if (-not $DryRun) {
-        $pendingRecord = New-PendingRecord -State 'reserved' -N $consultN -Nn $nn -Reply $replyRel -Started $runStarted -Launcher ([string]$codexExePath)
+        $pendingRecord = New-PendingRecord -State 'reserved' -N $consultN -Nn $nn -Reply $replyRel -Started $runStarted -Launcher ([string]$codexExePath) -ConsultId $consultId
         try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
             Stop-WithError "could not write the recovery record '$pendingPath': $(ConvertTo-OneLine $_.Exception.Message); nothing was started."
         }
@@ -636,6 +1335,8 @@ try {
         [void]$promptParts.Add("Read the brief at ``$briefRef`` (path relative to the repository root, which is your working directory) and answer every numbered question in it.")
     }
     if ($Raw) {
+        # (a plain -Raw consultation carries no purpose paragraph, as in 0.1; a chore does)
+        if ($Purpose -eq 'chore') { [void]$promptParts.Add("Review purpose: chore. $($purposeText['chore'])") }
         [void]$promptParts.Add("Constraints: write NO files and make no edits - this is a read-only consultation; answer in English; keep the answer under $maxWordsResolved words.")
     } else {
         if ($Purpose) {
@@ -660,8 +1361,9 @@ try {
             $priorLine = '- prior_findings: one entry {id, status, note} per id listed above; status fixed | still-open | not-checked | unknown-id.'
         }
         $schemaLines = @(
-            'Reply format: your final message must be exactly one JSON object matching the output schema you were given (schema_version "1"). Field meaning:',
+            $(if ($schemaTransport -eq 'prompt-only') { 'Reply format: your final message must be exactly one JSON object - no code fence, no text before or after it - that satisfies the JSON Schema given at the end of this section (schema_version "1"). Field meaning:' } else { 'Reply format: your final message must be exactly one JSON object matching the output schema you were given (schema_version "1"). Field meaning:' }),
             '- reply_markdown: your full answer in Markdown, answering every numbered question by number. This is what people read; write it exactly as you would a normal reply. The word limit below applies to reply_markdown only - never shorten, merge or drop findings to fit it.',
+            '  If you want evidence you cannot obtain read-only, end reply_markdown with a section `## Requested checks` listing at most 5 items `RC1`..`RCn`, each ONE runnable command or procedure with its working directory, the permission it needs (read-only / workspace-write), the observation that would settle it, and a budget (time or scope); refer to a finding by its position in your findings array (`finding #2`), by an earlier id (`F04-1`) or by the invariant name. "Investigate X" is not a check. Omit the section if you need nothing.',
             '- findings: one item per concrete defect or risk you assert; an empty array is a valid answer.',
             '  - severity: blocker (must be fixed before acceptance) | major | minor | note.',
             '  - locations: every place the finding concerns, each {path, line} with the path relative to the repository root and line null when no single line applies; an empty array when the finding is not tied to a place (e.g. a missing interface).',
@@ -677,8 +1379,15 @@ try {
             '- schema_version: always "1".'
         )
         [void]$promptParts.Add(($schemaLines -join $nl))
+        if ($schemaTransport -eq 'prompt-only') {
+            # The endpoint does not receive the schema: it travels here instead.
+            $schemaText = ([IO.File]::ReadAllText($schemaPath, $script:Utf8NoBom).Trim() -replace "`r`n", "`n") -replace "`n", $nl
+            [void]$promptParts.Add("JSON Schema of the reply:$nl$schemaText")
+        }
         [void]$promptParts.Add("Constraints: write NO files and make no edits - this is a read-only consultation; answer in English; keep reply_markdown under $maxWordsResolved words.")
     }
+    # Always the LAST line: it ties a rollout file to this run (Find-ThreadInRollouts).
+    [void]$promptParts.Add("Consultation id: $consultId")
     $promptText = [string]::Join("$nl$nl", $promptParts.ToArray())
 
     # ------------------------------------------------------------------------- argv
@@ -692,14 +1401,16 @@ try {
         '--color', 'never',
         '--json'
     )
-    if ($Model) { $argv += @('-m', $Model) }
-    $argv += @(
-        '-c', ('model_reasoning_effort="' + $effortResolved + '"'),
-        '-o', $lastMsgPath
-    )
-    if (-not $Raw) { $argv += @('--output-schema', $schemaPath) }
-    if ($Mode -eq 'fork') { $argv += @('fork', $knownThread) }
-    elseif ($Mode -eq 'resume') { $argv += @('resume', $knownThread) }
+    # The resolved model and provider are pinned whenever they are known, so the run
+    # cannot drift from what the ledger records (values are TOML strings for -c).
+    if ($identity.ModelSource -ne 'unknown') { $argv += @('-m', $identity.Model) }
+    $argv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $effortSent) + '"'))
+    if ($identity.ProviderSource) { $argv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
+    foreach ($ec in $extraConfig) { $argv += @('-c', $ec) }
+    $argv += @('-o', $lastMsgPath)
+    if (-not $Raw -and $schemaTransport -eq 'output-schema') { $argv += @('--output-schema', $schemaPath) }
+    if ($Mode -eq 'fork') { $argv += @('fork', $parentThread) }
+    elseif ($Mode -eq 'resume') { $argv += @('resume', $parentThread) }
     # The prompt is piped on stdin ('-'): a prompt passed as a positional argument
     # would travel through the npm codex.cmd shim on Windows, where cmd.exe still
     # expands %VAR% inside double quotes and would corrupt briefs that mention
@@ -729,9 +1440,17 @@ try {
             n                               = $consultN
             when                            = (Get-IsoTimestamp)
             purpose                         = $Purpose
+            consult_id                      = $consultId
+            reviewer                        = $reviewerRecord
+            lineage                         = $lineage
+            preflight                       = $preflight
+            preflight_warning               = $preflightWarning
+            roster                          = $rosterRecord
+            panel                           = $panelRecord
             parent_thread                   = $parentThread
             thread                          = '<filled from the event stream>'
-            thread_source                   = 'events|rollout|unknown'
+            thread_source                   = 'events|rollout (verified by consultation id)|unknown'
+            thread_candidate                = '<"" or an unverified rollout uuid>'
             mode                            = $Mode
             command                         = $commandStr
             brief                           = $briefRef
@@ -740,11 +1459,24 @@ try {
             reply_json                      = $replyJsonPlanned
             events                          = $eventsRel
             model                           = $modelLabel
-            effort                          = $effortResolved
+            effort                          = $effortSent
+            effort_requested                = $effortPlan.Requested
+            effort_sent                     = $effortSent
+            effort_mapping                  = $effortPlan.Mapping
+            effort_caps                     = $effortPlan.Caps
+            effort_confirmed                = $null
             max_words                       = $maxWordsResolved
             sandbox                         = $Sandbox
+            extra_config                    = [object[]]$extraConfig.ToArray()
+            extra_config_source             = $extraConfigSource
+            peak                            = $peak.Peak
+            peak_schedule                   = $peak.Schedule
+            peak_source                     = $peak.Source
+            peak_evaluated_at               = $peak.EvaluatedAt
             structured                      = $(if ($Raw) { $false } else { '<true when the reply validates>' })
             schema                          = $(if ($Raw) { '' } else { 'consult-reply v1' })
+            schema_transport                = $schemaTransport
+            schema_transport_source         = $schemaTransportSource
             validation_error                = $(if ($Raw) { '' } else { '<"" or the first validation error>' })
             base_commit                     = $revBefore.base_commit
             reviewed_revision               = $revBefore.reviewed_revision
@@ -759,6 +1491,7 @@ try {
             artifacts                       = [object[]]$previewArtifacts
             artifacts_changed_during_review = '<true|false>'
             bridge_outcome                  = '<usable reply | failed: ...>'
+            provider_failure                = '<null, or {class auth|quota|capability|transport|unknown, code, message, when} of a failed run>'
             verdict                         = $(if ($Raw) { '' } else { "<$($verdictRule -replace ', | or ', '|'), or '' when unavailable>" })
             verdict_reason                  = $(if ($Raw) { '' } else { '<one sentence>' })
             findings                        = $previewFindings
@@ -779,13 +1512,29 @@ try {
         if ($codexExePath) { Write-Host "launcher    : $codexExePath" }
         else { Write-Host "launcher    : (codex not found on PATH)" -ForegroundColor Yellow }
         Write-Host "codex       : $codexVersion"
+        Write-Host "config      : $($identity.ConfigPath)$(if (-not $codexConfigScan.Exists) { ' (not found)' })"
+        Write-Host "reviewer    : $($reviewerLine -replace '^Reviewer: ', '')"
+        Write-Host "lineage     : $lineage"
+        if ($preflightLabel -match 'a real run is refused') { Write-Host "preflight   : $preflightLabel" -ForegroundColor Yellow }
+        else { Write-Host "preflight   : $preflightLabel" }
+        if ($rosterLine) { Write-Host $rosterLine }
+        if ($preflightWarning) { Write-Host "WARNING: $preflightWarning" -ForegroundColor Yellow }
         Write-Host "model       : $modelLabel"
-        Write-Host "purpose     : $purposeLabel (effort $effortResolved, max words $maxWordsResolved)"
-        if ($Raw) { Write-Host "reply format: raw text (-Raw: no schema, no findings bookkeeping)" }
-        else { Write-Host "schema      : $schemaPath" }
+        Write-Host "purpose     : $purposeLabel (effort $effortSent, max words $maxWordsResolved)"
+        Write-Host "effort      : $effortSent sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis))"
+        if ($peakWarning) { Write-Host "peak        : $peakLabel" -ForegroundColor Yellow; Write-Host $peakWarning -ForegroundColor Yellow }
+        else { Write-Host "peak        : $peakLabel" }
+        if ($Raw) { Write-Host "reply format: raw text ($(if ($Purpose -eq 'chore') { '-Purpose chore' } else { '-Raw' }): no schema, no findings bookkeeping)" }
+        else {
+            Write-Host "schema      : $schemaPath"
+            if ($schemaTransport -eq 'output-schema') { Write-Host "transport   : output-schema ($schemaTransportBasis): passed as --output-schema" }
+            else { Write-Host "transport   : prompt-only ($schemaTransportBasis): --output-schema is NOT passed; the schema travels in the prompt, the reply is validated locally" }
+        }
         Write-Host "mode        : $Mode"
         if ($Mode -eq 'new') { Write-Host "thread      : (a new thread will be created)" }
-        else { Write-Host "thread      : $knownThread (parent for $Mode)" }
+        else { Write-Host "thread      : $parentThread (parent for $Mode)" }
+        if ($parentNote) { Write-Host "parent      : $parentNote" }
+        Write-Host "consult id  : $consultId (the prompt's last line)"
         Write-Host "handoff     : $nn (consult n = $consultN)"
         Write-Host "reviewed    : $($revBefore.reviewed_revision), base $($revBefore.base_commit), $($revBefore.changed_files) changed files"
         $treeShown = $revBefore.tree_sha256
@@ -816,6 +1565,24 @@ try {
     # ------------------------------------------------------------------------- run
 
     Write-Utf8NoBom -Path $promptPath -Text $promptText
+
+    # Peak status AT LAUNCH (the one the ledger records). Under -OffPeakOnly a window
+    # entered since the early check stops the run here: no child exists yet, this run's
+    # reservation is withdrawn (nothing was written under its numbers), no ledger entry.
+    $peak = Get-PeakStatusNow -Provider $peakProvider
+    if ($peak.Error) {
+        $null = Remove-PendingFile -Path $pendingPath
+        Stop-WithError $peak.Error
+    }
+    $peakWarning = ''
+    if ($peak.Peak -eq $true) { $peakWarning = "WARNING: $peakProvider peak window ($($peak.Schedule)) - this consultation runs at peak tariff." }
+    if ($OffPeakOnly -and $peak.Peak -ne $false) {
+        $rmError = Remove-PendingFile -Path $pendingPath
+        $tail = ''
+        if ($rmError) { $tail = " (the recovery record '$pendingPath' could not be removed: $rmError; the next run will find no codex and consume it)" }
+        Stop-WithError "-OffPeakOnly: $peakProvider entered its peak window before launch ($($peak.Schedule); now $($peak.Local)); nothing was started.$tail"
+    }
+    if ($peakWarning) { Write-Host $peakWarning -ForegroundColor Yellow }
 
     # (3) launching - from the next statement on, a crash may leave a codex process
     # whose pid is not recorded; the next run then scans for one (Test-PendingActive).
@@ -869,6 +1636,12 @@ try {
                 # The launcher is usually a shim (codex.cmd -> node -> codex.exe): kill
                 # the whole tree, or the real codex keeps running after we give up.
                 $survivors = Stop-ProcessTree -Process $proc   # [int[]]; never wrap in @(): that nests the array
+                # TEST HOOK: CODEX_CONSULT_TEST_SURVIVORS=<pid>[,<pid>] - these pids, when
+                # alive, are reported as survivors of this kill (no test can make a real
+                # process outlive a kill). Only ever adds survivors: a stricter outcome.
+                foreach ($hookPid in @(([string]$env:CODEX_CONSULT_TEST_SURVIVORS).Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[0-9]+$' })) {
+                    if ((Get-Process -Id ([int]$hookPid) -ErrorAction SilentlyContinue) -and ($survivors -notcontains [int]$hookPid)) { $survivors = [int[]]@($survivors + [int]$hookPid) }
+                }
                 $bridgeOutcome = "failed: timeout after $TimeoutSec s (process tree killed)"
                 if ($survivors.Count -gt 0) {
                     $bridgeOutcome = "failed: timeout after $TimeoutSec s (process tree killed; $($survivors.Count) processes survived: pid $($survivors -join ', '); the next run for this task is refused until they exit)"
@@ -908,20 +1681,26 @@ try {
     $stderrText = Read-SharedText -Path $stderrPath
     $rawReply = (Read-SharedText -Path $lastMsgPath).Trim()
 
-    # thread id - never let a parse/IO problem here swallow the sessions.json record
+    # thread id - never let a parse/IO problem here swallow the sessions.json record.
+    # A rollout file is this run's thread only when it contains the consultation id;
+    # otherwise the newest one is kept as thread_candidate (diagnostic, never a parent).
     $threadId = ''
     $threadSource = 'unknown'
+    $threadCandidate = ''
     try {
         $threadId = Get-ThreadIdFromEvents -Path $eventsPath
         if ($threadId) {
             $threadSource = 'events'
         } else {
-            $threadId = Get-ThreadIdFromRollout -StartedAt $startedAt
-            if ($threadId) { $threadSource = 'rollout' }
+            $fromRollout = Find-ThreadInRollouts -StartedAt $startedAt -ConsultId $consultId
+            $threadId = $fromRollout.Thread
+            $threadCandidate = $fromRollout.Candidate
+            if ($threadId) { $threadSource = 'rollout (verified by consultation id)' }
         }
     } catch {
         $threadId = ''
         $threadSource = 'unknown'
+        $threadCandidate = ''
     }
 
     $eventError = ''
@@ -1021,12 +1800,25 @@ try {
         }
     }
 
+    # Classified provider failure (null on success): what the endpoint said - an SSE
+    # `data:{"error":...}` line, the event-stream error, stderr - or the bridge's own reason.
+    # Later preflights read it back per endpoint (Get-EndpointHealth).
+    $providerFailure = $null
+    if ($bridgeOutcome -ne 'usable reply') {
+        $sseLines = @(($stderrText -split "`r?`n") | Where-Object { $_ -match '^\s*data:\s*\{' })
+        $stderrTail = (($stderrText.Trim() -split "`r?`n") | Select-Object -Last 1)
+        $providerFailure = New-ProviderFailure -Texts @(($sseLines | Select-Object -Last 1), $eventError, $stderrTail, ($bridgeOutcome -replace '^failed:\s*', ''))
+    }
+
     # ------------------------------------------------------------------------- 2. reply file
 
     $parentLine = 'Parent thread: (none - new thread).'
+    if ($parentNote -and -not $parentThread) { $parentLine = "Parent thread: (none - new thread; $parentNote)." }
     if ($parentThread) { $parentLine = "Parent thread: ``$parentThread``." }
     $resultThread = '(unknown)'
     if ($threadId) { $resultThread = "``$threadId``" }
+    $threadSourceText = $threadSource
+    if ($threadCandidate) { $threadSourceText += "; unverified rollout candidate ``$threadCandidate`` did not contain this run's consultation id - not used as a thread or a parent" }
     $briefLine = 'Brief: (none, prompt only).'
     if ($briefRef) { $briefLine = "Brief: ``$briefRef`` (sha256 $(Format-ShortHash $briefSha))." }
     $treeText = 'tree sha256 none (no git)'
@@ -1046,13 +1838,32 @@ try {
     $headerLines = New-Object System.Collections.Generic.List[string]
     $headerLines.Add("# Handoff $nn - Codex: $ReplyName")
     $headerLines.Add('')
-    $headerLines.Add("Date: $($startedAt.ToString('yyyy-MM-dd HH:mm', $script:Invariant)) local. Author: Codex (model $modelLabel, effort $effortResolved), Codex CLI $codexVersionShort.")
+    $headerLines.Add("Date: $($startedAt.ToString('yyyy-MM-dd HH:mm', $script:Invariant)) local. Author: Codex (model $modelLabel, effort $effortSent), Codex CLI $codexVersionShort.")
+    $headerLines.Add($reviewerLine)
+    $preflightLine = "Preflight: $preflight."
+    if ($preflightWarning) { $preflightLine += " WARNING: $preflightWarning." }
+    $headerLines.Add($preflightLine)
+    if ($rosterLine) { $headerLines.Add("$rosterLine.") }
+    $headerLines.Add("Effort: $effortSent sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis); not confirmed by the provider). Consultation id: $consultId.")
+    if ($peakWarning) { $headerLines.Add(($peakWarning -replace 'this consultation runs at', 'this consultation ran at')) }
     $headerLines.Add("Invocation: ``codex-consult.ps1`` (mode: $Mode, sandbox: $Sandbox, purpose: $purposeLabel). Argv: ``$commandStr`` (prompt on stdin).")
-    $headerLines.Add("$parentLine Result thread: $resultThread (source: $threadSource).")
+    $headerLines.Add("$parentLine Result thread: $resultThread (source: $threadSourceText).")
     $headerLines.Add("$briefLine $reviewedLine")
     foreach ($d in $driftLines) { $headerLines.Add($d) }
     $headerLines.Add("Bridge outcome: $bridgeOutcome. Wall time: $wallSeconds s. Tokens: $(Format-Usage $usage).")
-    if ($parse) { $headerLines.Add((Format-StructuredStatusLine -Parse $parse -Ingest $ingest -ReplyJsonRel $replyJsonRel)) }
+    if ($providerFailure) {
+        $codeText = ''
+        if ($providerFailure.code) { $codeText = " ($($providerFailure.code))" }
+        $headerLines.Add("Provider failure: $($providerFailure.class)$codeText - $($providerFailure.message).")
+    }
+    if ($parse) {
+        $statusLine = Format-StructuredStatusLine -Parse $parse -Ingest $ingest -ReplyJsonRel $replyJsonRel
+        if ($schemaTransport -eq 'prompt-only') {
+            if ($statusLine.Contains('Structured reply')) { $statusLine = $statusLine.Replace('Structured reply', 'Structured reply (prompt-only transport)') }
+            else { $statusLine += ' (prompt-only transport)' }
+        }
+        $headerLines.Add($statusLine)
+    }
     if ($verdictWarning) { $headerLines.Add($verdictWarning) }
     $headerLines.Add("Raw event stream: ``$eventsRel``.")
     $headerLines.Add('Verbatim reply follows.')
@@ -1087,13 +1898,23 @@ try {
 
     # ------------------------------------------------------------------------- 4. sessions.json
 
+    # `model` holds the resolved model and `effort` the value sent (= effort_sent): the
+    # 0.2 fields keep their meaning for older readers and codex-findings.ps1 -Stats.
     $entry = [pscustomobject]@{
         n                               = $consultN
         when                            = (Get-IsoTimestamp $startedAt)
         purpose                         = $Purpose
+        consult_id                      = $consultId
+        reviewer                        = $reviewerRecord
+        lineage                         = $lineage
+        preflight                       = $preflight
+        preflight_warning               = $preflightWarning
+        roster                          = $rosterRecord
+        panel                           = $panelRecord
         parent_thread                   = $parentThread
         thread                          = $threadId
         thread_source                   = $threadSource
+        thread_candidate                = $threadCandidate
         mode                            = $Mode
         command                         = $commandStr
         brief                           = $briefRef
@@ -1102,11 +1923,24 @@ try {
         reply_json                      = $replyJsonRel
         events                          = $eventsRel
         model                           = $modelLabel
-        effort                          = $effortResolved
+        effort                          = $effortSent
+        effort_requested                = $effortPlan.Requested
+        effort_sent                     = $effortSent
+        effort_mapping                  = $effortPlan.Mapping
+        effort_caps                     = $effortPlan.Caps
+        effort_confirmed                = $null
         max_words                       = $maxWordsResolved
         sandbox                         = $Sandbox
+        extra_config                    = [object[]]$extraConfig.ToArray()
+        extra_config_source             = $extraConfigSource
+        peak                            = $peak.Peak
+        peak_schedule                   = $peak.Schedule
+        peak_source                     = $peak.Source
+        peak_evaluated_at               = $peak.EvaluatedAt
         structured                      = $structured
         schema                          = $(if ($Raw) { '' } else { 'consult-reply v1' })
+        schema_transport                = $schemaTransport
+        schema_transport_source         = $schemaTransportSource
         validation_error                = $validationError
         base_commit                     = $revBefore.base_commit
         reviewed_revision               = $revBefore.reviewed_revision
@@ -1121,6 +1955,7 @@ try {
         artifacts                       = [object[]]$artifactsFinal
         artifacts_changed_during_review = $artifactsChanged
         bridge_outcome                  = $bridgeOutcome
+        provider_failure                = $providerFailure
         verdict                         = $verdict
         verdict_reason                  = $verdictReason
         findings                        = [pscustomobject]@{ blocker = $counts.blocker; major = $counts.major; minor = $counts.minor; note = $counts.note }
@@ -1163,7 +1998,10 @@ try {
         exit 1
     }
 
-    Write-Host "codex-consult: $bridgeOutcome - mode $Mode, thread $threadId (source: $threadSource), wall $wallSeconds s"
+    Write-Host "codex-consult: $bridgeOutcome - $lineage, mode $Mode, thread $threadId (source: $threadSource), wall $wallSeconds s"
+    if ($threadCandidate) { Write-Host "thread     : unknown - rollout candidate $threadCandidate did not contain consultation id $consultId (not used as a thread or a parent)" -ForegroundColor Yellow }
+    if (-not $identity.Resolved) { Write-Host "reviewer   : identity unresolved ($($identity.Note)); this thread is never a parent" -ForegroundColor Yellow }
+    if ($peakWarning) { Write-Host $peakWarning -ForegroundColor Yellow }
     if ($parse) {
         if ($structured) {
             if ($parse.VerdictInvalid) { Write-Host "verdict    : (invalid: $validationError)" -ForegroundColor Yellow }

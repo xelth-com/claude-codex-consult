@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"01a0d2d6-057f-7cf3-98d5-cc9650495292"}
+{"type":"turn.started"}
+{"type":"error","message":"data:{\"error\":{\"code\":\"responses_feature_not_supported\",\"message\":\"text.format type 'json_schema' is not supported, only 'text' and 'json_object' are allowed.\",\"param\":\"\",\"type\":\"unsupported_feature\"}}\n\n"}
+{"type":"turn.failed","error":{"message":"data:{\"error\":{\"code\":\"responses_feature_not_supported\",\"message\":\"text.format type 'json_schema' is not supported, only 'text' and 'json_object' are allowed.\",\"param\":\"\",\"type\":\"unsupported_feature\"}}\n\n"}}

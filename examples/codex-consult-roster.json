@@ -1,0 +1,13 @@
+{
+  "roster_version": 1,
+  "reviewers": [
+    { "provider": "openai", "model": "gpt-5.1", "panel": "weighty" },
+    { "provider": "ZAI", "model": "glm-5.3" },
+    {
+      "provider": "mimo",
+      "model": "mimo-v2.6-pro",
+      "codex_config": ["model_catalog_json=~/.codex/model-catalogs.json"],
+      "auth": "none"
+    }
+  ]
+}

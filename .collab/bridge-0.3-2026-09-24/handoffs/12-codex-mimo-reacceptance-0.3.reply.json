@@ -1,0 +1,132 @@
+{
+  "schema_version": "1",
+  "verdict": "ACCEPT",
+  "verdict_reason": "All nine prior defects are addressed by focused implementation and fixtures, with no remaining acceptance blocker; the residuals are non-blocking preflight ergonomics and classifier precision.",
+  "reply_markdown": "**Q1.**\n\n- **F06-1: fixed.** `Get-ProviderSetProblem` rejects hidden or unsupported declarations at `model_providers` and `model_providers.openai`; `Resolve-ReviewerIdentity` then leaves identity unresolved instead of claiming builtin provenance. The harness covers inline, dotted, multi-line and deep-dotted forms plus fork/resume refusal.\n- **F06-2: fixed.** `Test-SameReviewer` compares provider and model separately and parent selection also requires the endpoint fingerprint. The `a/b :: c` versus `a :: b/c` fixtures refuse both automatic and explicit cross-identity reuse.\n- **F06-3: fixed.** Peak status is recomputed immediately before `Start-Process`; `-OffPeakOnly` aborts at that point and removes the reservation. The controlled-clock boundary fixture proves no child or ledger entry is produced.\n- **F06-4: fixed.** Exception intervals are compared directly rather than iterated with a day guard. The 2026-01-01..2037-12-31 fixture evaluates correctly at 2037-01-01 and only reversed ranges fail.\n- **F02-4: fixed.** `caps-v1` keys capabilities by canonical endpoint host and exact declared model, not provider alias. ZAI/Z.ai aliases and all MiMo hosts have matching preset mapping fixtures; undeclared combinations refuse unless `-NativeEffort` is explicit.\n- **F09-1: fixed.** Unresolved identity and failed or timed-out `login status` now refuse before launch unless `-SkipPreflight`. Fixtures require no Codex child, pending file or ledger entry.\n- **F09-2: fixed.** Failed runs record `provider_failure`; endpoint health consumes it and a later dry run reports the endpoint unavailable after an auth failure. Credential rotation residual is finding #1, not the original missing-health-state claim.\n- **F09-3: fixed.** SSE `data:{\"error\":...}` payloads are parsed and failures are classified into auth/quota/capability/transport/unknown. Fixtures cover invalid keys, credit exhaustion and the real MiMo json_schema rejection.\n- **F09-4: fixed.** `Get-EndpointHealth` reads every task ledger and keys results by `provider_fingerprint`, so aliases share health. Cross-alias, cross-task auth/quota fixtures exercise refusal and warning behavior.\n\n**Q2.** A legitimate credential-free endpoint is blocked: for example `[model_providers.local] base_url = \"http://localhost:8080/v1\"` with neither `env_key` nor a bearer token. `Get-ProviderCredential` reports `missing: no env_key/bearer token in the table`. There is no `auth_mode=none` declaration or narrow anonymous-access option; the only documented route is `-SkipPreflight`, which bypasses all refusals. The same broad bypass is required after rotating a credential that previously failed authentication.\n\n**Q3.** Verdict: **ACCEPT**. Blockers: none. Finding #1 is a minor usability gap and finding #2 a minor classification risk; neither invalidates provenance, availability refusal or ledger integrity. Unproven: live subscription/plan validity; production error variants beyond the fixtures; independent rerun of the claimed PowerShell 5.1 and 7.6 suites; behavior when another task's ledger is corrupt and silently omitted from health.\n\n## Requested checks\n- RC1 (finding #1): repository root, workspace-write, 5 minutes: run a fixture provider with no credential declaration and confirm whether any non-`-SkipPreflight` route exists.\n- RC2 (acceptance invariant): repository root, workspace-write, 20 minutes: run `powershell -NoProfile -ExecutionPolicy Bypass -File tests\\run-all.ps1` and require every harness to report zero failures.",
+  "findings": [
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2424
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2526
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 574
+        },
+        {
+          "path": "README.md",
+          "line": 654
+        }
+      ],
+      "claim": "The fail-closed preflight has no narrow declaration for anonymous endpoints or one-time retry with a rotated credential; both legitimate cases require `-SkipPreflight`, which bypasses every refusal together.",
+      "trigger": "Use a local provider with no `env_key`/bearer token, or rotate an API key less than 24 hours after an auth failure on the same endpoint fingerprint.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2424-2526",
+          "observation": "A provider without credential material is classified missing; no anonymous-auth mode exists."
+        },
+        {
+          "kind": "read-code",
+          "reference": "README.md:649-657",
+          "observation": "Both credential-free endpoints and rotated credentials are documented as requiring `-SkipPreflight`."
+        }
+      ],
+      "verification": "Configure `base_url=http://localhost:8080/v1` with no credentials and search the CLI/config surface for any accepted authentication-mode declaration besides `-SkipPreflight`.",
+      "remedy": "Add a provider declaration such as `auth_mode=\"none\"` and a one-shot `-RetryCredential`/failure override that records why the old health state was bypassed.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2530
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2539
+        }
+      ],
+      "claim": "Failure classification checks broad quota/auth phrases before capability terms, so provider messages containing `token plan`, `billing`, or `auth` can be misclassified and create false warnings or auth refusals.",
+      "trigger": "A capability error says `Your token plan does not support response_format`, or unrelated text contains `authored`.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2529-2544",
+          "observation": "`quota` includes `token plan|billing` and is evaluated before `capability`; `auth` matches the unanchored fragment `auth`."
+        }
+      ],
+      "verification": "Pass both sample messages to `Get-ProviderFailureClass`; the first currently returns quota and the second auth rather than capability/unknown.",
+      "remedy": "Classify structured provider codes first, prioritize explicit capability phrases, and anchor sensitive auth/billing patterns.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F06-1",
+      "status": "fixed",
+      "note": "Unsupported provider-set declarations now force unresolved identity; fixtures cover both requested override forms and fork/resume refusal."
+    },
+    {
+      "id": "F06-2",
+      "status": "fixed",
+      "note": "Provider and model are compared separately with endpoint fingerprint; ambiguous-lineage cross-reuse fixtures pass."
+    },
+    {
+      "id": "F06-3",
+      "status": "fixed",
+      "note": "Peak is re-evaluated immediately before launch and the boundary fixture prevents OffPeakOnly launch."
+    },
+    {
+      "id": "F06-4",
+      "status": "fixed",
+      "note": "Long exception intervals are evaluated directly; the 2026-2037 and 8000-year fixtures cover the old truncation."
+    },
+    {
+      "id": "F02-4",
+      "status": "fixed",
+      "note": "caps-v1 maps by endpoint host and exact model; alias, preset and MiMo-host fixtures cover the prior claim."
+    },
+    {
+      "id": "F09-1",
+      "status": "fixed",
+      "note": "Unknown availability now refuses before launch; hang and unresolved-identity fixtures prove fail-closed behavior."
+    },
+    {
+      "id": "F09-2",
+      "status": "fixed",
+      "note": "Structured provider failures and endpoint health now persist and affect subsequent preflights."
+    },
+    {
+      "id": "F09-3",
+      "status": "fixed",
+      "note": "SSE and event/stderr failures are parsed and classified, including invalid-key and credit-exhaustion samples."
+    },
+    {
+      "id": "F09-4",
+      "status": "fixed",
+      "note": "Health is read across all task ledgers and keyed by endpoint fingerprint, covering alias and cross-task propagation."
+    }
+  ],
+  "unproven": [
+    "Actual subscription, expiry, revocation, billing and endpoint-region validity without network probes.",
+    "Provider error wording outside the representative fixtures, especially MiMo plan exhaustion variants.",
+    "Independent execution results for PowerShell 5.1 and PowerShell 7.6 harnesses.",
+    "Whether silently skipped corrupt task ledgers can hide a recent endpoint auth failure."
+  ],
+  "first_run_checklist": [
+    "Console and ledger show `preflight` available from `codex login status`, with any endpoint-health warning preserved.",
+    "The ledger records `mode=resume`, `parent_thread=01a0d28a-804b-7672-930f-92c70d35a165`, lineage `openai :: gpt-6-astra`, and the matching builtin provider fingerprint with no drift warning.",
+    "`effort_mapping` is `openai`, `effort_sent` is `high`, and `effort_confirmed` remains null.",
+    "`bridge_outcome` is `usable reply`, `provider_failure` is null, `schema_transport` is `output-schema`, `structured` is true, and `validation_error` is empty.",
+    "The parsed reply reports all nine prior ids F06-1..4, F02-4 and F09-1..4 with their final statuses, and any new finding is ingested.",
+    "`usage` is non-null and exit code 0 is observed only after JSON/schema validation and ledger persistence."
+  ]
+}

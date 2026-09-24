@@ -1,0 +1,179 @@
+{
+  "schema_version": "1",
+  "verdict": "HOLD",
+  "verdict_reason": "Unknown preflight states launch fail-open, and dead-credential outcomes are neither classified reliably nor carried into subsequent availability checks.",
+  "reply_markdown": "**Q1.** Locally the bridge can prove only credential-material presence and source: `codex login status` for OpenAI-style authentication, or a non-empty `env_key` variable/config bearer token. It cannot prove validity, expiry, remaining plan, revocation, or region. It can also infer negative health from prior local failures. The ledger should record provider fingerprint, model, credential source plus a salted credential hash, `preflight_state=present|missing|unknown`, and `observed_at`; request failures should add structured `provider_failure` records containing `class=auth|quota|capability|transport`, provider code, retry time, first/last seen, message hash and the event-log path. Preflight and `codex-providers.ps1` should surface that record. Today's free-text `preflight` and task-local regex warning do not prevent counting a dead credential twice.\n\n**Q2.** I do not know Xiaomi MiMo Token Plan's exact production wording. Likely invalid-key responses contain `401`, `Unauthorized`, `invalid API key`, or `authentication_error`; exhaustion may say `quota`, `429`, or `insufficient balance`, which match. `credits exhausted`, `credit balance depleted`, `payment required`, `402`, or `token plan exhausted` are not guaranteed to match; invalid-key errors do not match at all.\n\n**Q3.** The completed run writes a ledger entry whose `preflight` still says `ok: env MIMO_API_KEY set`; `bridge_outcome` becomes `failed: codex exit 1 - <last error message or last stderr line>`, `usage` is null, and `structured` is false. The pending record is removed. A later preflight warns only when that text matches the regex, is under one hour old, and has the exact provider name. An authentication rejection therefore produces no warning, so this is insufficient.\n\n**Q4.** Verdict: **HOLD**. Blockers: finding #1; major gaps: findings #2 and #3. Unproven: exact MiMo credit/key error strings; whether Codex emits parseable `error`/`turn.failed` messages or only SSE text on stderr; actual subscription/plan validity. First run must show the requested `preflight`, lineage, `mimo-v1`, catalog `extra_config`, non-null usage, `bridge_outcome=usable reply`, and successful JSON ingestion.\n\n## Requested checks\n- RC1 (finding #3): from the repository root, workspace-write, 10 minutes: extend the PREFLIGHT fixture with `FAKE_CODEX_FAIL='401 Unauthorized: invalid API key'`, run two consultations, and observe that the second has no warning.\n- RC2 (finding #1): from the repository root, workspace-write, 5 minutes: make fake `login status` fail to start or time out, run `codex-consult.ps1`, and observe whether Codex still launches.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 532
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 544
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2484
+        }
+      ],
+      "claim": "Preflight fails open when provider identity is unresolved or `codex login status` cannot run, so Codex can be called without proving that a credential exists.",
+      "trigger": "Use a config selecting a profile or an unsupported provider override, or make `codex login status` unavailable or time out.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:531-550",
+          "observation": "Only `missing` calls Stop-WithError; unresolved identity and `unknown` continue into launch."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2461-2493",
+          "observation": "Launcher/start failures and timeout return state `unknown` rather than unavailable."
+        }
+      ],
+      "verification": "Run the bridge with a fake launcher whose `login status` subcommand hangs past the timeout and assert that no Codex consultation process starts without `-SkipPreflight`.",
+      "remedy": "Fail closed on unknown unless `-SkipPreflight` is explicit; record the unknown reason before refusing.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2522
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2532
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 1361
+        }
+      ],
+      "claim": "`available` proves only that a non-empty credential variable exists; expired, revoked, wrong-region, and exhausted credentials remain reusable and later checks have no structured negative-health state.",
+      "trigger": "Set `MIMO_API_KEY` to a syntactically non-empty invalid value and run twice after the provider rejects it.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2502-2557",
+          "observation": "Custom credentials are accepted solely by variable/token presence; history is searched only through regexed `bridge_outcome` text."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:1354-1412",
+          "observation": "The ledger records `preflight` and `preflight_warning` but no credential identity or structured provider-health record."
+        }
+      ],
+      "verification": "Run once with `MIMO_API_KEY=invalid`, then run a dry run and confirm it still reports `available (env MIMO_API_KEY set)` with no durable failure state.",
+      "remedy": "Record credential source/hash and structured observed provider failures, and consume them in later preflights.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2427
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 230
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 1180
+        }
+      ],
+      "claim": "First-request authentication and MiMo credit failures are not reliably extracted or classified, so the next preflight may not warn.",
+      "trigger": "The provider returns `401 Unauthorized: invalid API key`, `credits exhausted`, or an SSE `data:{\"error\":...}` payload rather than the two event shapes recognized.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2427",
+          "observation": "The regex has no authentication, 401, credit, or payment terms."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:230-251",
+          "observation": "Only top-level `error.message` and `turn.failed.error.message` are lifted; other error shapes fall back to one stderr line."
+        },
+        {
+          "kind": "read-code",
+          "reference": ".collab/bridge-0.3-2026-09-24/handoffs/08-codex-mimo-preflight-review.md",
+          "observation": "The real MiMo failure arrived as raw SSE-like `data:{\"error\":...}` text in `bridge_outcome`."
+        }
+      ],
+      "verification": "Feed representative 401 and credit-exhaustion event/stderr fixtures through the failure path and require the next preflight to surface structured auth/credit warnings.",
+      "remedy": "Parse more error shapes and maintain explicit provider-failure classifiers rather than one prose regex.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2540
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 758
+        }
+      ],
+      "claim": "Availability history is keyed by exact provider alias and, for preflight warnings, only the current task, hiding failures of the same endpoint or shared credential.",
+      "trigger": "A quota failure occurs under provider alias `mimo-token-plan`; the next call uses alias `mimo`, or another task in the repository observes the failure.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2536-2542",
+          "observation": "Entries are filtered with case-sensitive equality on `reviewer.provider`."
+        }
+      ],
+      "verification": "Seed equivalent provider aliases with one failed ledger entry and verify that the other alias receives the warning.",
+      "remedy": "Key health by provider fingerprint plus credential hash, while retaining the alias as provenance.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F02-4",
+      "status": "fixed",
+      "note": "Effort caps now resolve by endpoint hostname and declared model; fixtures cover ZAI aliases and all MiMo hosts."
+    },
+    {
+      "id": "F06-1",
+      "status": "fixed",
+      "note": "Provider-set scan failures now prevent resolved builtin provenance; fixtures require unresolved identity and fork/resume refusal."
+    },
+    {
+      "id": "F06-2",
+      "status": "fixed",
+      "note": "Provider and model are compared separately; the a/b+c versus a+b/c fixtures refuse cross-identity reuse."
+    },
+    {
+      "id": "F06-3",
+      "status": "fixed",
+      "note": "Peak status is re-evaluated immediately before launch; the boundary fixture aborts without a child or ledger entry."
+    },
+    {
+      "id": "F06-4",
+      "status": "fixed",
+      "note": "The exception-range fixture covers 2026-01-01 through 2037-12-31 at 2037-01-01 and rejects only reversed ranges."
+    }
+  ],
+  "unproven": [
+    "Exact Xiaomi MiMo Token Plan wording for exhausted credits and invalid keys.",
+    "Whether every Codex/provider failure shape reaches `Get-ErrorFromEvents` in parseable form.",
+    "Actual subscription, expiry, revocation, and endpoint-region validity without a network probe."
+  ],
+  "first_run_checklist": [
+    "Ledger `preflight` is exactly `ok: env MIMO_API_KEY set` and lineage is `mimo :: mimo-v2.6-pro`.",
+    "`effort_mapping` is `mimo-v1` and `extra_config` contains `model_catalog_json=\"C:/Users/Dmytro/.codex/model-catalogs.json\"`.",
+    "`usage` is non-null with route token counts, not unknown.",
+    "`bridge_outcome` is `usable reply`, `structured` is true, and `validation_error` is empty.",
+    "The reply is ingested as one JSON object and the verdict is recorded."
+  ]
+}

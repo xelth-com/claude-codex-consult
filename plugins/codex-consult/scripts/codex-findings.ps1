@@ -20,7 +20,19 @@
     finding whose consultation has no ledger entry in sessions.json (a crash between
     the findings write and the ledger write) is flagged ORPHAN. -Stats prints one line
     per consultation: purpose, effort, wall time, output tokens, verdict and the
-    current status of its findings.
+    current status of its findings; then a per-reviewer scoreboard - one line per
+    lineage '<provider> :: <model>' (the reviewer of the ledger entry each finding was
+    ingested from; entries recorded before 0.3.0 and findings without a ledger entry
+    count as 'unknown provenance'): raised, verified, implemented, proposed, rejected,
+    wontfix, superseded, and the judge's usefulness marks yes / partly / no.
+
+    -Rate <n> -Useful yes|partly|no [-Note <why>] records the judge's mark for
+    consultation n of the task (n must be a ledger entry; -Note is required for no):
+    findings.json gets a top-level `ratings` array of { n, consult_id, lineage,
+    provider, model, purpose, useful, note, when } (lineage, provider, model and
+    purpose copied from that ledger entry; rating n again replaces its record). It
+    takes the task lock like a status change. codex-scoreboard.ps1 sums the marks per
+    reviewer and purpose across tasks.
 
     A status change takes the task lock (<task>/.consult.lock) around its
     read-modify-write, so it is refused while a consultation for the task runs,
@@ -34,6 +46,10 @@
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File codex-findings.ps1 -Task cache-rewrite `
         -Id F04-1 -Status verified -Evidence "cargo test cache::invalidation -> 14 passed (log: target/t.log)"
+
+.EXAMPLE
+    powershell -NoProfile -ExecutionPolicy Bypass -File codex-findings.ps1 -Task cache-rewrite `
+        -Rate 4 -Useful partly -Note "found the race, missed the retry path"
 #>
 [CmdletBinding()]
 param(
@@ -60,7 +76,14 @@ param(
     [string]$Note = '',
 
     # What was run / where the proof is (required for verified).
-    [string]$Evidence = ''
+    [string]$Evidence = '',
+
+    # Consultation n (a ledger entry of the task) to mark with -Useful.
+    [int]$Rate = 0,
+
+    # yes | partly | no - the judge's mark for the consultation -Rate names (-Note is
+    # required for no).
+    [string]$Useful = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,11 +97,22 @@ $actions = 0
 if ($List) { $actions++ }
 if ($Stats) { $actions++ }
 if ($Id -or $Status) { $actions++ }
+$rating = $PSBoundParameters.ContainsKey('Rate') -or [bool]$Useful
+if ($rating) { $actions++ }
 if ($actions -ne 1) {
-    Stop-WithError "choose exactly one of: -List [-All], -Stats, or -Id <F..> -Status <status>."
+    Stop-WithError "choose exactly one of: -List [-All], -Stats, -Id <F..> -Status <status>, or -Rate <n> -Useful yes|partly|no."
 }
 if ($All -and -not $List) { Stop-WithError "-All only goes with -List." }
-if (($Note -or $Evidence) -and -not $Id) { Stop-WithError "-Note and -Evidence only go with -Id/-Status." }
+if ($Evidence -and -not $Id) { Stop-WithError "-Evidence only goes with -Id/-Status." }
+if ($Note -and -not $Id -and -not $rating) { Stop-WithError "-Note only goes with -Id/-Status or -Rate." }
+if ($rating) {
+    if (-not $PSBoundParameters.ContainsKey('Rate')) { Stop-WithError "-Useful needs -Rate <consult n>." }
+    if ($Rate -le 0) { Stop-WithError "-Rate takes a consult number n greater than 0 (got $Rate)." }
+    $Useful = $Useful.Trim().ToLowerInvariant()
+    if (-not $Useful) { Stop-WithError "-Rate needs -Useful yes|partly|no." }
+    if (@('yes', 'partly', 'no') -notcontains $Useful) { Stop-WithError "-Useful must be yes, partly or no (got '$Useful')." }
+    if ($Useful -eq 'no' -and -not $Note.Trim()) { Stop-WithError "-Useful no needs -Note (why the consultation was not useful)." }
+}
 if ($Task -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
     Stop-WithError "-Task must be a slug (letters, digits, dot, dash, underscore)."
 }
@@ -209,7 +243,11 @@ if ($List) {
 if ($Stats) {
     $ledger = @(Read-Ledger)
     $findings = @()
-    if (Test-Path -LiteralPath $findingsPath) { $findings = @((Read-FindingsFile -Path $findingsPath -Task $Task).findings) }
+    $findingsStoreForBoard = $null
+    if (Test-Path -LiteralPath $findingsPath) {
+        $findingsStoreForBoard = Read-FindingsFile -Path $findingsPath -Task $Task
+        $findings = @($findingsStoreForBoard.findings)
+    }
     if ($ledger.Count -eq 0) {
         Write-Host "codex-findings: no consultations recorded for task '$Task' ($sessionsPath)."
         Write-PendingLine
@@ -248,6 +286,55 @@ if ($Stats) {
         if ($mine.Count -gt 0) { $findingsText += " ($($mine.Count) total)" }
         Write-Host ($fmt -f $label, $purpose, $effort, $wall, $tokens, $verdict, $findingsText)
     }
+    # Per-reviewer scoreboard: every finding counted for the lineage '<provider> :: <model>'
+    # of the ledger entry it was ingested from (its source.consult = the entry's n). An
+    # entry without a reviewer object (recorded before 0.3.0), or a finding whose consult
+    # has no ledger entry, is 'unknown provenance'. Lineages in ledger order, one line each
+    # (also a reviewer that raised nothing), unknown provenance last.
+    $lineageOf = @{}
+    $lineageOrder = New-Object System.Collections.Generic.List[string]
+    foreach ($c in $ledger) {
+        $v = 0
+        if (-not ($c.PSObject.Properties['n'] -and [int]::TryParse([string]$c.n, [ref]$v))) { continue }
+        $rev = Get-PropertyValue $c 'reviewer' $null
+        $label = 'unknown provenance'
+        if ($null -ne $rev) { $label = Format-Lineage -Provider ([string](Get-PropertyValue $rev 'provider' '')) -Model ([string](Get-PropertyValue $rev 'model' '')) }
+        $lineageOf[$v] = $label
+        if ($label -ne 'unknown provenance' -and -not $lineageOrder.Contains($label)) { $lineageOrder.Add($label) }
+    }
+    $board = @{}
+    foreach ($f in $findings) {
+        $fn = Get-FindingConsult $f
+        $label = 'unknown provenance'
+        if ($null -ne $fn -and $lineageOf.ContainsKey($fn)) { $label = $lineageOf[$fn] }
+        if (-not $board.ContainsKey($label)) { $board[$label] = New-Object System.Collections.Generic.List[object] }
+        $board[$label].Add($f)
+    }
+    if ($board.ContainsKey('unknown provenance')) { $lineageOrder.Add('unknown provenance') }
+    if ($lineageOrder.Count -gt 0) {
+        $wName = [Math]::Max(8, (@($lineageOrder | ForEach-Object { $_.Length }) | Measure-Object -Maximum).Maximum)
+        $boardFmt = '{0,-' + $wName + '}  {1,6}  {2,8}  {3,11}  {4,8}  {5,8}  {6,7}  {7,10}  {8,3}  {9,6}  {10,2}'
+        # The judge's marks (-Rate), counted for the lineage recorded with each mark.
+        $marks = @{}
+        foreach ($mk in @(Get-PropertyValue $findingsStoreForBoard 'ratings' @())) {
+            if ($null -eq $mk) { continue }
+            $ml = [string](Get-PropertyValue $mk 'lineage' 'unknown provenance')
+            if (-not $marks.ContainsKey($ml)) { $marks[$ml] = @{ yes = 0; partly = 0; no = 0 } }
+            $mu = [string](Get-PropertyValue $mk 'useful' '')
+            if ($marks[$ml].ContainsKey($mu)) { $marks[$ml][$mu]++ }
+        }
+        Write-Host ""
+        Write-Host "reviewers (findings by the lineage of the consultation that raised them; ratings = the judge's marks, -Rate):"
+        Write-Host ($boardFmt -f 'reviewer', 'raised', 'verified', 'implemented', 'proposed', 'rejected', 'wontfix', 'superseded', 'yes', 'partly', 'no')
+        foreach ($label in $lineageOrder) {
+            $mineB = @()
+            if ($board.ContainsKey($label)) { $mineB = @($board[$label].ToArray()) }
+            $cntB = @{}
+            foreach ($s in $script:FindingStatuses) { $cntB[$s] = @($mineB | Where-Object { [string](Get-PropertyValue $_ 'status' '') -eq $s }).Count }
+            $mkB = if ($marks.ContainsKey($label)) { $marks[$label] } else { @{ yes = 0; partly = 0; no = 0 } }
+            Write-Host ($boardFmt -f $label, $mineB.Count, $cntB['verified'], $cntB['implemented'], $cntB['proposed'], $cntB['rejected'], $cntB['wontfix'], $cntB['superseded'], $mkB['yes'], $mkB['partly'], $mkB['no'])
+        }
+    }
     $orphanCount = @($findings | Where-Object { $n = Get-FindingConsult $_; $null -eq $n -or -not $seen.ContainsKey($n) }).Count
     $orphanCheckCount = 0
     foreach ($f in $findings) { $orphanCheckCount += (Get-OrphanCheckConsults -Finding $f -LedgerNs $seen).Count }
@@ -257,6 +344,69 @@ if ($Stats) {
     }
     Write-PendingLine
     exit 0
+}
+
+# ----------------------------------------------------------------------------- -Rate
+
+if ($rating) {
+    if (-not (Test-Path -LiteralPath $sessionsPath -PathType Leaf)) {
+        Stop-WithError "no consultations recorded for task '$Task' ($sessionsPath does not exist); -Rate takes the n of a ledger entry."
+    }
+    $lock = Enter-TaskLock -TaskDir $taskDir -Task $Task
+    if (-not $lock.Acquired) { Stop-WithError $lock.Message }
+    try {
+        $entry = $null
+        foreach ($c in @(Read-Ledger)) {
+            $v = 0
+            if ($c.PSObject.Properties['n'] -and [int]::TryParse([string]$c.n, [ref]$v) -and $v -eq $Rate) { $entry = $c }
+        }
+        if (-not $entry) {
+            Stop-WithError "no consultation n=$Rate in $sessionsPath; -Rate takes the n of a ledger entry (see -Stats)."
+        }
+        $rev = Get-PropertyValue $entry 'reviewer' $null
+        $provider = ''
+        $model = [string](Get-PropertyValue $entry 'model' '')
+        $lineage = 'unknown provenance'
+        if ($null -ne $rev) {
+            $provider = [string](Get-PropertyValue $rev 'provider' '')
+            $model = [string](Get-PropertyValue $rev 'model' '')
+            $lineage = Format-Lineage -Provider $provider -Model $model
+        }
+        $mark = [pscustomobject]@{
+            n          = $Rate
+            consult_id = [string](Get-PropertyValue $entry 'consult_id' '')
+            lineage    = $lineage
+            provider   = $provider
+            model      = $model
+            purpose    = [string](Get-PropertyValue $entry 'purpose' '')
+            useful     = $Useful
+            note       = $Note.Trim()
+            when       = (Get-IsoTimestamp)
+        }
+        # (created on the first mark; a findings.json that exists but does not parse is refused)
+        $store = Read-FindingsFile -Path $findingsPath -Task $Task
+        $kept = New-Object System.Collections.Generic.List[object]
+        $previous = ''
+        $replaced = $false
+        foreach ($old in @(Get-PropertyValue $store 'ratings' @())) {
+            if ($null -eq $old) { continue }
+            if ([string](Get-PropertyValue $old 'n' '') -eq [string]$Rate) {
+                if (-not $replaced) { $kept.Add($mark); $replaced = $true; $previous = [string](Get-PropertyValue $old 'useful' '') }
+                continue
+            }
+            $kept.Add($old)
+        }
+        if (-not $replaced) { $kept.Add($mark) }
+        if ($store.PSObject.Properties['ratings']) { $store.ratings = [object[]]$kept.ToArray() }
+        else { $store | Add-Member -NotePropertyName 'ratings' -NotePropertyValue ([object[]]$kept.ToArray()) }
+        Write-FindingsFile -Path $findingsPath -Store $store
+        $purposeText = if ($mark.purpose) { $mark.purpose } else { 'no purpose' }
+        if ($replaced) { Write-Host "codex-findings: consult n=$Rate ($lineage, $purposeText) re-rated $Useful (was $previous)." }
+        else { Write-Host "codex-findings: consult n=$Rate ($lineage, $purposeText) rated $Useful." }
+        exit 0
+    } finally {
+        Exit-TaskLock -Lock $lock
+    }
 }
 
 # ----------------------------------------------------------------------------- -Id -Status

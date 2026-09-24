@@ -1,0 +1,301 @@
+{
+  "schema_version": "1",
+  "verdict": "ADVISE",
+  "verdict_reason": "The direction is sound, but reliable configuration identity, independent review inputs, and measurable outcomes need stronger contracts before implementation.",
+  "reply_markdown": "The framing combines three different capabilities: provider routing, evidence requests, and comparative evaluation. They need not ship together. Unlisted options are: ship R7 first with manual comparisons; use explicit bridge-owned reviewer profiles instead of interpreting arbitrary Codex configuration; or implement groups as immutable review manifests rather than consultation tags. R8’s roadmap explicitly starts with a convention. To choose, I need representative configurations, expected group frequency, completed requested-check examples, and whether R9 promises descriptive reports or defensible model comparisons.\n\n**Q1. Lineage.** Keep provider, model, endpoint/protocol identity, and harness provenance, but separate compatibility identity from audit metadata. A CLI patch upgrade should not automatically invalidate a thread; endpoint/protocol changes should refuse reuse. Canonicalize selected configuration values before hashing—comments and ordering should not matter; secret rotation should not split a lineage.\n\nThe proposed default is incorrect: omitting `-Provider` delegates routing to Codex, which may be configured for ZAI, while your ledger asserts `openai`. Resolve and pin the actual provider/model, or record unknown and forbid reuse. A partial TOML scanner must reject unsupported syntax rather than guess. Consider explicit profiles if full configuration resolution is too expensive.\n\nTreat legacy provenance as unknown. Also stop treating the baseline’s “newest rollout” fallback as verified provenance: an unrelated concurrent session can acquire the current run’s lineage label.\n\n**Q2. Effort.** The ZAI mappings are reasonable policy choices, not equivalent reasoning budgets. Make capabilities model-specific and independent of arbitrary provider aliases. Unknown providers should require a declared supported vocabulary or an explicit native-effort setting; automatic pass-through is unjustified. Record requested value, transmitted value, mapping version, and provider-confirmed value when available. “Effective” otherwise overstates what you observed.\n\n**Q3. Requested checks.** Start with the roadmap’s convention unless actual usage justifies v2. If shipping the field, give requests stable bridge-assigned IDs and store completion records separately; no elaborate scheduler is needed. `related` currently cannot reliably name a finding created in the same response because its ID is assigned afterward. Support a typed local finding index, existing finding ID, or invariant reference.\n\nA request needs shell/procedure context; completion needs request ID, tested revision, log reference/hash, exit status, observation, and completed/failed/skipped state. Permissions remain descriptive, never authorization to execute. Enforce the cap locally. Dispatch validation by explicit schema version; preserve that v1 did not support requests rather than interpreting absence as a considered empty list.\n\n**Q4. Groups.** Tags and links are insufficient. Freeze a group manifest containing brief hash, source/artifact fingerprints, purpose, shared instructions, baseline findings, and member attempts. Reject incompatible inputs and enforce fresh threads. The current prompt automatically includes all open findings: sequential member two would see member one’s results. Freeze the baseline and keep member outputs outside subsequent members’ readable review inputs, or label the comparison non-blind.\n\nAdd canonical issue membership, validity adjudication, verification minutes, and explicitly estimated avoided rework with rationale. Existing `verified` means a fix was verified, not that a report was a true positive. Record failed attempts and unmatched reports. Relations should be idempotent, validated, and atomically persisted. Agreement can share reproduction work; it cannot lower the evidence standard.\n\n**Q5. Peak hours.** Keep warning-only by default. Provider choice does not justify mandatory scheduling. Define boundary, overnight, missing/invalid schedule, and date-exception behavior; record the evaluated schedule/version and unknown separately from off-peak. `-OffPeakOnly` must refuse when eligibility cannot be established. A launch-time check cannot promise every request in a long consultation occurs off-peak; name that scope explicitly. Omitting credit estimates is an acceptable documented scope cut.\n\n**Q6. Acceptance gates.** I would HOLD until fixtures and live logs demonstrate correct configured-default identity; alias/model effort handling; harmless configuration edits preserving reuse; endpoint changes and unknown/cross-lineage parents refusing reuse; no adoption of unrelated rollouts; fenced v1/v2 validation and raw preservation; missing usage remaining unknown; stable check references and completion evidence; identical blind group inputs despite sequential execution; drift rejection; duplicate links without double-counting; recovery without lost relations; and schedule boundaries, invalid schedules, and exceptions. Include PS5.1/7 coverage. One successful GLM reply proves only the happy path.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 26
+        }
+      ],
+      "claim": "The default-provider design can record an OpenAI lineage for a run actually routed to another configured provider, undermining cross-provider fork/resume prevention.",
+      "trigger": "Codex configuration selects ZAI as model_provider and the bridge is invoked without -Provider.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md:25-28",
+          "observation": "The design leaves omitted-provider routing to Codex but explicitly records provider openai."
+        },
+        {
+          "kind": "inferred",
+          "reference": "R7 default routing and lineage comparison",
+          "observation": "The recorded identity need not match the executing provider, so later lineage comparisons can approve an incompatible parent."
+        }
+      ],
+      "verification": "Use a fixture configuration with model_provider=ZAI, invoke the no-Provider path, and compare the planned CLI routing with the recorded reviewer identity.",
+      "remedy": "Resolve and pin the actual provider and model used by the child process. If resolution cannot be established, record unknown provenance and disallow automatic fork/resume rather than assuming OpenAI.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 23
+        },
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 29
+        }
+      ],
+      "claim": "The proposed partial TOML scanner and table-text fingerprint do not establish a stable semantic provider identity: valid syntax may be misread, and formatting-only edits can unnecessarily invalidate parents.",
+      "trigger": "A provider uses quoted table keys or literal strings, or a user changes comments, whitespace, or key ordering without changing routing.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md:22-36",
+          "observation": "The design supports only headers and simple double-quoted values, hashes provider table text, and refuses changed fingerprints."
+        },
+        {
+          "kind": "inferred",
+          "reference": "R7 configuration scanning and fingerprint rules",
+          "observation": "Text equality differs from configuration-value equality, and the accepted parser subset is not a complete configuration-resolution contract."
+        }
+      ],
+      "verification": "Compare resolution and fingerprints for semantically equivalent provider configurations using reordered fields, comments, quoted keys, and literal strings.",
+      "remedy": "Use a real configuration resolver or explicitly constrained reviewer profiles; reject unsupported constructs. Hash a versioned canonical representation of compatibility-relevant nonsecret values, and record harness/configuration audit metadata separately.",
+      "supersedes": []
+    },
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 246
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 920
+        },
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 33
+        }
+      ],
+      "claim": "The inherited newest-rollout fallback can attach an unrelated thread to a consultation, after which ledger-based lineage checks would treat incorrect provenance as authoritative.",
+      "trigger": "The current run lacks a usable thread.started event while another task or interactive Codex session writes a newer rollout in the same Codex home.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:Get-ThreadIdFromRollout",
+          "observation": "The fallback selects the newest recently modified rollout and extracts its UUID without establishing association with this invocation."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:913-924",
+          "observation": "When event extraction fails, the fallback UUID becomes the recorded thread with thread_source=rollout."
+        },
+        {
+          "kind": "inferred",
+          "reference": "R7 parent provenance rules",
+          "observation": "Assigning the invocation's provider/model identity to that UUID would allow incorrect ledger provenance to satisfy subsequent parent checks."
+        }
+      ],
+      "verification": "Run a fixture missing thread.started while supplying a newer unrelated rollout, then confirm that its UUID is not eligible for automatic lineage reuse.",
+      "remedy": "Require invocation-correlated evidence before assigning reusable thread provenance. Retain heuristic candidates as diagnostic metadata only, or leave the thread unknown.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 37
+        }
+      ],
+      "claim": "Effort mapping keyed only to the provider name ZAI fails for aliases and assumes unsupported capabilities for other providers or models.",
+      "trigger": "The same Z.ai endpoint is configured under another name and a checkpoint transmits medium, or a different model under a known provider has another effort vocabulary.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md:16,37-39",
+          "observation": "The brief states that z.ai supports low/high/max, but mapping applies only to ZAI and all other provider names pass through."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Provider alias with checkpoint preset",
+          "observation": "An alias would transmit medium despite the stated target vocabulary."
+        }
+      ],
+      "verification": "Configure equivalent Z.ai endpoints under ZAI and another alias, request checkpoint and core-contract presets, and compare transmitted effort values.",
+      "remedy": "Associate provider/model profiles with declared capabilities and versioned mappings. Reject undeclared mappings or require an explicit native-effort option. Distinguish transmitted effort from provider-confirmed effort.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 48
+        },
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 52
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 1136
+        }
+      ],
+      "claim": "Requested checks lack an unambiguous reference to newly reported findings and a durable identity for associating later execution evidence with the original request.",
+      "trigger": "A response requests a check for one of its own new findings, or two consultations request the same command with different expected observations.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md:47-53",
+          "observation": "related is an untyped finding-ID-or-invariant string; checks have no IDs, and the completion template has no request ID or log reference."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:Add-ReplyFindings",
+          "observation": "Finding IDs are allocated by the bridge after receiving the response, using its handoff number and finding position."
+        }
+      ],
+      "verification": "Construct a reply with two new findings and two identical commands with different expected results, then attempt to link separate completion records without relying on prose interpretation.",
+      "remedy": "Give each request a stable bridge-assigned ID; support typed references to existing finding IDs, local finding indices, or invariants. Store completion status, request ID, shell/procedure context, tested revision, log reference/hash, exit status, and observation separately.",
+      "supersedes": []
+    },
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 61
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 550
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 644
+        }
+      ],
+      "claim": "Sequential group reviews are not independent under the inherited prompt construction: the second reviewer receives the first reviewer's newly opened findings.",
+      "trigger": "The first group member creates an open finding, then the second group member runs in the same task with structured mode enabled.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:550-555",
+          "observation": "Each consultation loads every currently open finding from the shared task store."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:644-656",
+          "observation": "The prompt embeds those findings' claims, triggers, and verification steps and asks the reviewer not to refile them."
+        },
+        {
+          "kind": "read-code",
+          "reference": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md:55-62",
+          "observation": "The design requires fresh threads and neither reviewer seeing the other's answer but specifies no group-specific baseline filtering or output isolation."
+        }
+      ],
+      "verification": "Capture both group members' generated prompts after member one produces a unique finding, and verify that member two's prompt and permitted review inputs contain no member-one result.",
+      "remedy": "Freeze shared baseline findings when creating the group, use that baseline for every member, enforce fresh threads, and isolate peer outputs from review inputs. If read isolation is not enforced, record the limitation and do not describe the comparison as verified blind.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 55
+        }
+      ],
+      "claim": "Group ID plus brief hash can classify reviews of different source states or instructions as one comparable review group.",
+      "trigger": "Source files or artifacts change between sequential members while the brief bytes remain unchanged, or members use different -Prompt/Purpose values or reused threads.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md:55-62",
+          "observation": "Group formation compares group ID and brief hash; identical revision-bound inputs and fresh threads are left to skill guidance."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:633-642",
+          "observation": "The effective prompt includes independent -Prompt text and purpose instructions in addition to the brief reference."
+        }
+      ],
+      "verification": "Reuse a group ID and unchanged brief after modifying a source file or -Prompt value, and confirm the comparison is rejected or explicitly marked incompatible.",
+      "remedy": "Create an immutable group manifest with source and artifact fingerprints, brief hash, common instructions, purpose, baseline findings, fresh-thread requirement, and member attempts. Validate every member against it and invalidate comparisons affected by review-time drift.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 55
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 209
+        },
+        {
+          "path": "README.md",
+          "line": 170
+        }
+      ],
+      "claim": "The proposed relations and side-by-side statistics cannot measure R9's unique verified defects, false positives, verification minutes, or avoided rework without additional adjudication and measurement records.",
+      "trigger": "Two reviewers report overlapping defects, one valid report is rejected as a duplicate, or verification work occurs without producing a status transition.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md:55-62",
+          "observation": "The proposed additions are a group tag and pairwise relations; no canonical issue assignment, validity disposition, verification duration, or rework estimate is specified."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-findings.ps1:209-247",
+          "observation": "Existing statistics count finding workflow statuses by originating consultation and print effort, latency, tokens, and verdict."
+        },
+        {
+          "kind": "read-code",
+          "reference": "README.md:Structured reply and findings",
+          "observation": "The documented lifecycle is proposed to implemented to verified, so verified concerns the completed fix rather than independent adjudication of the original report."
+        }
+      ],
+      "verification": "Create a small adjudicated group fixture containing one duplicate true defect, one false positive, and recorded verification work, then require statistics to reproduce known unique-defect, false-positive, and time totals.",
+      "remedy": "Add canonical issue membership and report-validity adjudication distinct from fix status, verification-time records, and nullable avoided-rework estimates with rationale. Include failed attempts, make relationship updates idempotent and atomic, and distinguish observed metrics from estimates.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md",
+          "line": 40
+        }
+      ],
+      "claim": "The peak-window design does not define enough state to enforce or audit OffPeakOnly when the schedule is absent, malformed, exceptional, or crossed during a consultation.",
+      "trigger": "OffPeakOnly is supplied without a valid schedule, a date-specific exception applies, an overnight window is configured, or a consultation starts off-peak and continues into peak hours.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/bridge-0.3-2026-09-24/handoffs/01-claude-design-0.3.md:40-43",
+          "observation": "The design defines one recurring window, a peak boolean, and refusal inside that window, but no unknown state, exceptions, boundary semantics, or enforcement interval."
+        },
+        {
+          "kind": "inferred",
+          "reference": "OffPeakOnly policy evaluation",
+          "observation": "A boolean result cannot distinguish established off-peak eligibility from an unavailable schedule, and a launch-time decision does not cover later model requests."
+        }
+      ],
+      "verification": "Exercise schedule fixtures for missing/invalid values, exact boundaries, overnight windows, an exception date, and a run spanning a peak transition.",
+      "remedy": "Keep warning-only defaults; define and validate schedule semantics, record schedule/version and unknown status, refuse unknown eligibility under OffPeakOnly, support explicit exceptions, and document whether enforcement applies only at launch.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [],
+  "unproven": [
+    "No 0.3.0 implementation or tests were run; this is a design review against the brief and the 0.2.0 code.",
+    "The supplied GLM smoke-test and fenced-JSON observations were accepted as brief evidence, not independently rerun.",
+    "Actual provider configuration resolution, model-specific effort acceptance, and provider-confirmed usage semantics remain untested.",
+    "Blind group input isolation, configuration migration, requested-check completion persistence, relationship recovery, and scheduling edge cases have not been demonstrated."
+  ],
+  "first_run_checklist": []
+}

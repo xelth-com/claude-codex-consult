@@ -74,12 +74,40 @@ optional participant whose "done" is never trusted and who never closes a findin
   hard-coded — it changes). Only supported-tool routes (Codex CLI, Claude Code) ever carry plan
   credentials; the bridge never makes a direct HTTP call. Until R7 exists, a second model is
   consulted through the Claude Code worker wire and its reply saved as a handoff by hand.
+  **Status (0.3.0): shipped**, after a design-review round
+  (`.collab/bridge-0.3-2026-09-24/`, findings `F02-1`..`F02-9`) that amended the design
+  before implementation: provider identity is read from the Codex config (or given
+  explicitly) rather than assumed `openai`, via a constrained TOML scanner that refuses
+  (naming the line) any construct it does not understand rather than guessing; the
+  compatibility identity gating `fork`/`resume` across a lineage is narrowed to
+  `base_url` + `wire_api` only (a canonicalised fingerprint), so comments, key order and
+  secret rotation never break a lineage while an endpoint or protocol change does; a
+  per-run `consult_id` in the prompt makes the rollout-file thread fallback verified
+  rather than a best guess (an unverified candidate is kept only as a diagnostic, never
+  as a parent); effort vocabularies are keyed by the provider's endpoint host (with
+  model prefix as fallback) instead of by alias, `-NativeEffort` as the escape hatch, and
+  `effort_requested`/`effort_sent`/`effort_mapping`/`effort_confirmed` (the last always
+  `null` — not observable) replace a single `-Effort` value; peak-hour handling got exact
+  semantics (fixed offset, inclusive start/exclusive end, overnight windows, exception
+  dates, launch-time only) and `-OffPeakOnly` refuses on an unknown schedule as well as
+  on peak. Legacy (pre-0.3.0) ledger entries are unknown provenance and are never
+  automatic parents — the first 0.3.0 consultation on an old task always starts a new
+  thread. Not adopted: per-consult credit estimates (the tariff calendar is not
+  hard-coded and estimating it well is its own project) and a provider allowlist beyond
+  "must be a table the scanner can read".
 - **R8 — Requested checks.** A reviewer may list `requested_checks[]`: one command or
   procedure + expected observation each, tied to a finding or invariant, capped per brief; the
   coordinator chooses the executor (a cheaper model or a worker) and records completion
   separately with revision, log, exit status and observed result. `unproven[]` keeps the
   uncertainty, `requested_checks[]` says how to resolve it. First a brief/reply convention,
   then a schema field once it has been used a few times.
+  **Status (0.3.0): shipped as a convention, not a schema field** — the structured-mode
+  prompt asks Codex to end `reply_markdown` with a `## Requested checks` section
+  (`RC1..RCn`, at most 5, each one command/procedure with cwd, permission, expected
+  observation and budget) when it has evidence it cannot obtain read-only; the schema
+  stays v1 and the bridge renders nothing extra. `templates/brief-review.md` gained a
+  "Requested checks run" table for the coordinator to fill in the next brief. A schema
+  field remains for later, once the convention has real usage to generalise from.
 - **R9 — Review groups for fan-out.** One revision-bound brief to two reviewers in fresh
   threads, neither seeing the other's answer first, at contract boundaries and acceptance only.
   Their findings keep separate ids; the coordinator links them to a canonical issue with
@@ -87,6 +115,28 @@ optional participant whose "done" is never trusted and who never closes a findin
   investigation and may lighten a spot-check; it never replaces verification. Measured by
   unique verified defects, false positives, coordinator verification minutes and avoided
   rework; routine fan-out stops when the margin is poor.
+  **Status: partially shipped in 0.3.0, the rest deferred to 0.4.0.** The reviewer
+  roster (`CODEX_CONSULT_ROSTER`, an ordered list of reviewers with credential/panel
+  metadata) and the review **panel** (`-Panel`/`-PanelAll`: the same brief sent to every
+  available roster entry, sequentially, each its own consultation in its own lineage,
+  own reply file and own ledger `panel` record) shipped, along with the per-reviewer
+  **scoreboard** (`codex-findings.ps1 -Stats`: raised/verified/implemented/proposed/
+  rejected/wontfix/superseded per lineage) — see the README's "Reviewer roster and
+  panel" section. What did NOT ship, and stays deferred to 0.4.0
+  (`.collab/bridge-0.3-2026-09-24/state.md`; findings `F02-6`/`F02-7`/`F02-8` recorded
+  `wontfix` in the 0.3.0 task with a pointer here): the panel is explicitly **NOT blind
+  between waves** — every member of one panel run sees the same open-findings snapshot
+  taken when the panel started, which is a real improvement over ad hoc sequential
+  fan-out, but a later panel on the same task still sees the earlier panel's findings,
+  so cross-wave independence still does not exist; there is still no `corroborates`/
+  `contradicts`/`duplicates` relation tooling (`-Link`), no canonical-issue id, and no
+  grouped stats beyond the per-lineage scoreboard. Before that ships it still needs: an
+  immutable group manifest (brief hash, source/artifact fingerprints, purpose, shared
+  instructions, frozen baseline findings, member attempts); genuine blind baseline
+  isolation across waves; canonical-issue membership and report-validity adjudication
+  kept distinct from fix status; verification-time records; nullable avoided-rework
+  estimates; idempotent atomic relations (`-Link` must not create duplicate or
+  asymmetric edges on a retry); and failed attempts recorded, not only successful ones.
 - **A fourth seat (e.g. MiMo-V2.6)** only after a capped project-local evaluation (seeded
   historical defects plus clean controls at a fixed budget) on an officially supported route;
   leaderboard rank is not that evidence. Consider replacing a role before adding a reviewer.

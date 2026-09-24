@@ -41,6 +41,16 @@ From `codex-findings.ps1 -Task <task> -List`:
 - **<F04-1>** <status> - `<location>` - <claim, first line>
 - <...> / _(none open)_
 
+## Requested checks run
+
+<From the previous reply's `## Requested checks` section (RC1..RCn), if any - fill one
+row per check before writing this brief; omit the table entirely when the previous
+reply had none.>
+
+| check (handoff-RCn) | command | revision (base + tree_sha256 first 12) | exit status | log path or hash | observation | state (completed/failed/skipped) |
+|---|---|---|---|---|---|---|
+| `<NN-RC1>` | `<command>` | `<sha> + <tree_sha256[:12]>` | `<0>` | `<path or hash>` | <what it showed> | completed |
+
 ## Evidence
 
 - `<path:line>` - <what it shows>

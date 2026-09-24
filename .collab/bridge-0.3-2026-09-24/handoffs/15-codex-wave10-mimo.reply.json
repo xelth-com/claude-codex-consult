@@ -1,0 +1,178 @@
+{
+  "schema_version": "1",
+  "verdict": "HOLD",
+  "verdict_reason": "Wave 10 is structurally sound, but reset-time parsing can authorize a still-limited reviewer across DST or cross-zone legacy data, and timeout survivors can prevent later panel members from running.",
+  "reply_markdown": "**Q1.** `Get-RetryAfter` handles no-year dates at lines 2689-2690 and AM/PM at 2679-2683. It treats an unspecified time as 24-hour by design (2634-2650): `try again at Sep 28th, 2026 8:35` becomes 08:35, twelve hours early if 20:35 was meant. The larger failure is DST: lines 2687 and 2689 attach `$Reference.Offset` to the reset wall time. A Berlin failure at `2026-10-25T01:00:00+02:00` saying `try again at Oct 26th, 2026 8:35 PM` is parsed as `20:35+02:00` (18:35Z), although post-transition CET means 19:35Z; the roster can launch one hour early. A recorded `retry_after` containing an offset is safe as an instant. Legacy messages without `retry_after` are not safe across machines: when PowerShell materializes `when` as `[datetime]`, line 2779 re-labels its wall time with the reader's offset. A `-05:00` failure read in `+08:00` shifts the reference and reset by thirteen hours (finding #2).\n\n**Q2.** Task A contains an old entry without `provider_failure.retry_after`, with `when=2026-09-24T12:54:23-05:00` and message `try again at Sep 28th, 2026 8:35 PM`; task B has no newer record for that endpoint. Read in `+08:00`, the failure becomes `12:54+08:00` and the reset `2026-09-28T20:35:00+08:00` (12:35Z), not 2026-09-29 01:35Z. At Sep 28 13:00Z the walk selects entry 1 although its quota is still active. A second mis-pick is line 2816: an auth failure timestamped six minutes in the future is ignored, so its roster entry is selected.\n\n**Q3.** Member 2's timeout is handled inside its child bridge: it records `bridge_outcome=\"failed: timeout ...\"` and normally removes `.consult.pending.json`, allowing member 3 to run; the panel still exits 1 and summarizes member 2 failed. If killed processes survive, lines 1602-1613 leave the pending record in state `survivors`. Member 3 then finds an active reservation at lines 1183-1188 and refuses before writing its ledger entry; `Find-PanelEntry` returns null and the summary marks it failed. The loop continues but later members are equally blocked, contradicting the claim that one member's failure does not stop the others.\n\n**Q4.** **HOLD.** Blockers: finding #1. Major: findings #2 and #3. F12-1 remains open for rotated credentials. Unproven: Codex's actual timezone convention for printed reset dates, cross-host JSON date behavior, and timeout/survivor behavior mid-panel. First run must show the openai roster entry skipped with exactly `usage limit until 2026-09-28T20:35:00+02:00`, this member's `panel.id`, position and members list, `provider_source=roster`, host-correct `schema_transport`, and a reply named `handoffs/14-codex-wave10-<provider>.md` or `15-...`.\n\n## Requested checks\n- RC1 (finding #1): repository root, workspace-write, 5 minutes: add the Berlin DST fixture and require reset `2026-10-26T19:35:00+01:00`.\n- RC2 (finding #2): repository root, workspace-write, 5 minutes: read the stated `-05:00` ledger fixture under `+08:00` and compare the resulting UTC reset.\n- RC3 (finding #3): repository root, workspace-write, 15 minutes: time out member 2 with surviving children and observe whether member 3 starts.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2687
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2689
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2852
+        }
+      ],
+      "claim": "Reset wall times are interpreted with the failure moment's fixed offset, so a reset after a DST transition has the wrong instant and the roster can select a reviewer whose tokens have not reset.",
+      "trigger": "A Berlin failure at 2026-10-25T01:00:00+02:00 reports `try again at Oct 26th, 2026 8:35 PM`; evaluation occurs between the computed and actual reset instants.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2685-2690",
+          "observation": "Both dated forms construct DateTimeOffset with `$Reference.Offset`, never the reset date's zone offset."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2849-2855",
+          "observation": "Health authorizes the endpoint as soon as the computed RetryAfter is past."
+        }
+      ],
+      "verification": "Run Get-RetryAfter with the stated Berlin input and require 2026-10-26T19:35:00+01:00 rather than 18:35Z.",
+      "remedy": "Parse local wall dates with the recording machine's IANA zone and DST rules, or require provider reset messages to carry an offset.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2776
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2837
+        }
+      ],
+      "claim": "Legacy failures lacking `retry_after` can be reinterpreted in the reading machine's zone, shifting their quota window by hours.",
+      "trigger": "Read a pre-wave-10 ledger written at offset -05:00 on a PowerShell host whose local offset is +08:00.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2776-2781",
+          "observation": "A DateTime value is converted with the reader's local offset; offset information is not reconstructed."
+        },
+        {
+          "kind": "read-code",
+          "reference": "tests/harness-roster.ps1:155-159",
+          "observation": "The harness itself notes that pwsh reads ISO ledger timestamps back as local DateTime."
+        }
+      ],
+      "verification": "Seed the stated cross-zone legacy entry, read it from +08:00, and compare `RetryAfter` UTC with the original recording-zone value.",
+      "remedy": "Preserve offset-bearing timestamps as strings/instants and record the producer's time zone for offset-less local reset text.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 1604
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 1613
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 748
+        }
+      ],
+      "claim": "A member timeout that leaves surviving processes blocks every later panel member through the shared pending reservation, despite the invariant that one member's failure does not stop the others.",
+      "trigger": "Member 2 exceeds `-TimeoutSec` and `Stop-ProcessTree` reports survivors, leaving `.consult.pending.json` in state `survivors`.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:1597-1615",
+          "observation": "The timeout path keeps a `survivors` pending record."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:743-750",
+          "observation": "The panel continues spawning members, but each later child encounters the shared active pending record and fails without an entry."
+        }
+      ],
+      "verification": "Make member 2 time out with a surviving child and assert that member 3 either runs after cleanup or the invariant is formally narrowed.",
+      "remedy": "Quarantine and terminate/recover the failed member's reservation before continuing, or make the panel contract explicitly stop on persistent survivors.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2816
+        }
+      ],
+      "claim": "Endpoint-health records dated more than five minutes in the future are silently ignored, allowing a roster walk to select a provider with a recent auth or quota failure.",
+      "trigger": "A ledger entry has `when` six minutes ahead because of clock skew or timezone reinterpretation.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2813-2817",
+          "observation": "`age < -5` skips the record entirely rather than treating it as current or unknown."
+        }
+      ],
+      "verification": "Seed a future auth failure six minutes ahead and verify the roster currently selects that endpoint.",
+      "remedy": "Clamp small future skew to age zero and treat larger future timestamps as unknown health, not absent health.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F02-4",
+      "status": "fixed",
+      "note": "caps-v1 remains endpoint-host and exact-model based, including aliases and MiMo hosts."
+    },
+    {
+      "id": "F06-1",
+      "status": "fixed",
+      "note": "Unsupported OpenAI provider-set declarations still force unresolved identity and refuse reuse."
+    },
+    {
+      "id": "F06-2",
+      "status": "fixed",
+      "note": "Provider and model remain separately compared with endpoint fingerprint."
+    },
+    {
+      "id": "F06-3",
+      "status": "fixed",
+      "note": "Peak status remains re-evaluated immediately before launch."
+    },
+    {
+      "id": "F06-4",
+      "status": "fixed",
+      "note": "Long exception ranges remain interval-based rather than loop-truncated."
+    },
+    {
+      "id": "F12-1",
+      "status": "still-open",
+      "note": "Anonymous endpoints now use roster `auth: none`, but retrying with a rotated credential still requires broad `-SkipPreflight`."
+    },
+    {
+      "id": "F12-2",
+      "status": "fixed",
+      "note": "Classifier order is now capability, auth, quota, transport and sensitive auth terms are word-anchored."
+    }
+  ],
+  "unproven": [
+    "Whether Codex formats reset wall times with the failure-moment offset or the reset-instant offset.",
+    "PowerShell 5.1 and 7 JSON materialization of offset-bearing ledger timestamps across time zones.",
+    "Panel continuation and recovery when a timed-out member leaves surviving processes.",
+    "Provider formats that omit AM/PM from otherwise twelve-hour reset times."
+  ],
+  "first_run_checklist": [
+    "The roster record lists openai as skipped with reason exactly `usage limit until 2026-09-28T20:35:00+02:00`.",
+    "`panel` contains one stable `id`, this member's position and of-count, and the complete members list.",
+    "`provider_source` is `roster`, with the roster entry's provider/model and separate lineage.",
+    "`schema_transport` matches this endpoint's caps-v1 host policy and its source is recorded.",
+    "The reply is persisted as `handoffs/14-codex-wave10-<provider>.md` or `handoffs/15-codex-wave10-<provider>.md`.",
+    "The panel summary reports every available member and exits 0 only if each produced a usable reply."
+  ]
+}
