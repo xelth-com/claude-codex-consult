@@ -1843,29 +1843,45 @@ function Test-PendingActive {
         if ($alive.Count -gt 0) {
             return (& $active "a previous consultation's codex process (pid $($alive -join ', ')) is still running ($what). Wait for it to exit or stop it, then retry; $Path keeps its record until then." "pid $($aliveHow -join ', ') alive")
         }
-        return (& $inactive "codex pid(s) $($gone -join ', ') no longer running")
+        # Every RECORDED pid is gone - but the record names the launcher (the npm shim on
+        # Windows) and the survivors the kill could see; the real codex may be a
+        # descendant that outlived them. A dead launcher is not proof of a dead tree:
+        # fall through to the descendant scan below (F04-10).
+        $recordedGone = "codex pid(s) $($gone -join ', ') no longer running"
+    } else {
+        $recordedGone = ''
     }
-    # launching (or running/survivors without any pid): the child may exist unregistered
+    # The child may exist unregistered (launching) or as a descendant of a dead recorded
+    # process (running/survivors). Scan for it; never trust a dead root or elapsed time.
     if ($otherHost) { return (& $inactive "state '$state' from host $recHost without pids: treated as dead") }
     $since = [datetime]::MinValue
     try { $since = [DateTimeOffset]::Parse((ConvertTo-JsonText (Get-PropertyValue $Record 'started' '')), $script:Invariant).LocalDateTime } catch { $since = [datetime]::MinValue }
+    # Parent pids whose (orphaned) children would be ours: the bridge that wrote the
+    # record and every recorded codex pid (the launcher shim, the survivors). On Windows
+    # an orphan keeps the ParentProcessId of its dead parent; elsewhere orphans are
+    # reparented and only the command-line rule below can find them.
+    $parentPids = New-Object System.Collections.Generic.List[int]
     $bridgePid = 0
-    [void][int]::TryParse([string](Get-PropertyValue $Record 'pid' ''), [ref]$bridgePid)
-    $scan = Find-CodexProcesses -Since $since -Launcher $launcher -BridgePid $bridgePid
-    # The parent-pid rule sees only DIRECT children of the dead bridge. On Windows the
-    # npm shim is that child (codex.cmd -> cmd.exe -> node), so if the shim died but its
-    # own child lives, the rule misses it. While the record is young (30 min), fall back
-    # to the "looks like codex" rule; its matches cannot be tied to this task and are
-    # labelled so. An older launching record with no direct child is treated as dead.
-    if (-not $scan.Failed -and @($scan.Found).Count -eq 0 -and $bridgePid -gt 0 -and $since -gt (Get-Date).AddMinutes(-30)) {
-        $fallback = Find-CodexProcesses -Since $since -Launcher $launcher -BridgePid 0
-        if ($fallback.Failed -or @($fallback.Found).Count -gt 0) {
-            $fallback.Check = "$($scan.Check): none found; then $($fallback.Check)"
-            $scan = $fallback
-        } else {
-            $scan.Check = "$($scan.Check): none found; then $($fallback.Check)"
-        }
+    if ([int]::TryParse([string](Get-PropertyValue $Record 'pid' ''), [ref]$bridgePid) -and $bridgePid -gt 0) { $parentPids.Add($bridgePid) }
+    foreach ($entry in $pids) { if ($entry.pid -gt 0 -and -not $parentPids.Contains([int]$entry.pid)) { $parentPids.Add([int]$entry.pid) } }
+    $scan = $null
+    $checks = New-Object System.Collections.Generic.List[string]
+    if ($recordedGone) { $checks.Add($recordedGone) }
+    foreach ($parent in $parentPids) {
+        $s = Find-CodexProcesses -Since $since -Launcher $launcher -BridgePid $parent
+        if ($s.Failed) { $scan = $s; break }
+        if (@($s.Found).Count -gt 0) { $scan = $s; break }
+        $checks.Add("$($s.Check): none found")
     }
+    # The parent-pid rule sees only DIRECT children of a dead parent. If the shim died
+    # but its own child lives, only the "looks like codex" rule can see it; its matches
+    # cannot be tied to this task and are labelled so. There is deliberately NO age
+    # cut-off: an old record with a live codex-looking process started after it refuses
+    # until that process exits or the operator deletes the record knowing it is unrelated.
+    if ($null -eq $scan -or (-not $scan.Failed -and @($scan.Found).Count -eq 0)) {
+        $scan = Find-CodexProcesses -Since $since -Launcher $launcher -BridgePid 0
+    }
+    if ($checks.Count -gt 0) { $scan.Check = (($checks -join '; ') + '; then ' + $scan.Check) }
     if ($scan.Failed) {
         return (& $active "an interrupted consultation ($what) may have left a codex process running, and the check failed: $($scan.Check). Make sure no such process runs, then delete $Path." $scan.Check)
     }

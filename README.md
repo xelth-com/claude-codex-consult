@@ -346,11 +346,18 @@ committed. It moves through `reserved` (written before Codex starts) → `launch
 could not stop the whole process tree). The **next** run reads and judges it before
 writing anything: unreadable or malformed is refused as corruption, naming the file;
 `running`/`survivors` naming a pid still alive on this host is refused
-("a previous consultation's codex process (pid N) is still running…"); `launching` is
-refused if a codex-looking process started at or after its `started` time is found (a
-process scan, not a stored pid — the message says what was checked); a record from
-another host naming pids is refused since they cannot be checked from here. Otherwise
-the interrupted run is dead: its reservation is consumed (console line
+("a previous consultation's codex process (pid N) is still running…"). A dead recorded
+pid is **not** proof of a dead tree — the recorded pid is usually the launcher shim, and
+the real `codex` may be its orphaned child — so when every recorded pid is gone, and for
+a `launching` record (which has no pid yet), the bridge scans for a process that is a
+child of the dead bridge or of a dead recorded pid (Windows keeps an orphan's parent
+id), and then for any codex-looking process (named `codex`, or carrying the launcher
+path or `@openai/codex` on its command line) started at or after the record's `started`
+time. The second rule cannot tell which task a process belongs to and says so ("task not
+verifiable"); there is deliberately no age cut-off. A refusal names the process and the
+record; delete `.consult.pending.json` only when you know that process is unrelated. A
+record from another host naming pids is refused since they cannot be checked from here.
+Otherwise the interrupted run is dead: its reservation is consumed (console line
 `recovered reservation n=…, nn=…`, or `cleared the recovery record of consult n=…` when
 that consult already reached the ledger) and only then is the file replaced. `-List`/
 `-Stats` print a `pending: state=…, n=…, nn=…` line when it exists but take no lock;
@@ -486,7 +493,7 @@ A thin wrapper around the documented `codex exec` CLI is the stable surface toda
 | PowerShell 7.6 (`pwsh`, Windows 11) | exercised on 2026-09-24 with the same fake-`codex` harnesses as 5.1 (structured parsing and validation, atomic stores, the lock and the recovery record, timeout tree kill, fingerprints): all green after one PS7-only fix — `ConvertFrom-Json` in pwsh turns ISO-8601 strings into `[datetime]`, which broke the start-time comparison used to recognise a live lock holder or codex child; the four affected reads now normalise through the library's JSON-text helper. Windows PowerShell 5.1 re-run afterwards, no regression |
 | Linux (WSL Ubuntu 24.04, PowerShell 7.6, native ext4) | exercised on 2026-09-24 with a bash fake `codex`: dry run, a full structured run, lock contention through the advisory `flock` (second consult and `-Status` refused, `-List` works, lock inode unchanged), timeout with the process tree killed and no survivors, recovery of `launching` and `survivors` records through the `ps` scan, `chmod +x` changing the fingerprint, `$HOME/.codex` resolution, atomic `findings.json` replacement. Three Linux-only defects were found and fixed: a process start time read by .NET on Linux can differ by under a second between readers, so the exact comparison declared a live codex child dead (now a one-second tolerance off Windows); the holder's own lock file could not be read back through a shared `FileStream` (the advisory lock blocked it — read via `cat` off Windows); the timeout kill stopped children before the root, leaving a window for the root to spawn more (root first now). Known and left: an atomic replace resets Unix permission bits of the store to the default; dates in messages render in an invariant format |
 | macOS | **not yet exercised** — the Linux run covers the same pwsh code paths, but no macOS machine was available |
-| 0.2.0 (Windows 11 + Windows PowerShell 5.1 + Codex CLI 0.155.1) | harness tests with a fake `codex` shim (structured parsing and validation, fingerprinting, the lock, findings bookkeeping, crash and timeout paths), re-run by a fresh-context verifier with its own fixtures; and the release's own consultations, live, in `.collab/bridge-0.2-2026-09-23/`: a framing `new` (0.1 bridge), an acceptance `fork` and a re-acceptance `resume` on the structured path (`--output-schema`, fenced-or-bare JSON parsing, findings ingestion, `prior_findings` fed back, the lock held with the codex child pid inside, before/after fingerprints, tree-drift warning). Both live acceptance runs delivered a HOLD from the reviewer, which is the bridge working as intended; the findings are tracked by id in that task's `findings.json`. A second model (GLM-5.3 through a Codex `model_providers` entry) was smoke-tested on the same wire: it works, but `--output-schema` is not enforced on that route and the reply came back as a fenced JSON block (`.collab/multi-model-2026-09-23/`) |
+| 0.2.0 (Windows 11 + Windows PowerShell 5.1 + Codex CLI 0.155.1) | harness tests with a fake `codex` shim (structured parsing and validation, fingerprinting, the lock, findings bookkeeping, crash and timeout paths), re-run by a fresh-context verifier with its own fixtures; and the release's own consultations, live, in `.collab/bridge-0.2-2026-09-23/`: a framing `new` (0.1 bridge), an acceptance `fork` and a re-acceptance `resume` on the structured path (`--output-schema`, fenced-or-bare JSON parsing, findings ingestion, `prior_findings` fed back, the lock held with the codex child pid inside, before/after fingerprints, tree-drift warning). The reviewer delivered three HOLDs (11, then 3, then 1 finding) and, after four fix waves, an ACCEPT on 2026-09-24; every finding is tracked by id in that task's `findings.json` (12 verified, 2 superseded, 1 accepted limitation), and `codex-findings.ps1 -Stats` shows the five consultations' cost and yield. A second model (GLM-5.3 through a Codex `model_providers` entry) was smoke-tested on the same wire: it works, but `--output-schema` is not enforced on that route and the reply came back as a fenced JSON block (`.collab/multi-model-2026-09-23/`) |
 
 Reports from a `pwsh` or macOS/Linux run are the single most useful contribution right now.
 

@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-09-23
+## [0.2.0] - 2026-09-24
 
 Implements ROADMAP R1–R6 and TECH_DEBT T1–T4, agreed between the Claude Code coordinator
 and the Codex reviewer on 2026-09-23 after a seven-wave task with three consultations,
@@ -15,9 +15,13 @@ HOLD on the first design and adopted the schema, locking and revision-binding co
 below before implementation started. The implementation itself then went through two
 live `-Purpose acceptance` rounds: the first came back **HOLD, 11 findings**, and the
 re-acceptance round that followed it raised four more (`F06-1`, `F06-2`, `F06-3`,
-`F04-10`) that led to the final ownership/recovery split described under T3. Every
-finding across both rounds was fixed and verified before this release. Full trail in
-`.collab/bridge-0.2-2026-09-23/` (see `handoffs/06-…` for the re-acceptance round).
+`F04-10`) that led to the final ownership/recovery split described under T3; a second
+re-acceptance narrowed the HOLD to `F04-10` alone (recovery must not trust a dead launcher
+or elapsed time), and the third re-acceptance on 2026-09-24 returned **ACCEPT** with one
+informational note (`F10-1`, the documented conservative-refusal trade-off). Every finding
+was fixed and verified, or recorded as an accepted limitation, before this release. Full
+trail in `.collab/bridge-0.2-2026-09-23/` (`handoffs/04`, `06`, `08`, `10` are the four
+acceptance replies; `state.md` is the record).
 
 ### Added
 
@@ -135,6 +139,14 @@ None.
   lock blocked it, so refusals named "a live process" instead of the pid (read via `cat`
   off Windows); the timeout kill stopped children before the root, leaving the root a
   window to spawn more (root first now).
+
+- Recovery no longer treats a dead launcher, or elapsed time, as proof that the codex
+  tree is gone (second re-acceptance, F04-10): when every pid a `running`/`survivors`
+  record names has exited, and for a `launching` record, the next run scans for children
+  of the dead bridge or of a dead recorded pid and then for any codex-looking process
+  started after the record; the earlier thirty-minute cut-off on that fallback is gone.
+  A refusal names the process and the record; deleting `.consult.pending.json` is the
+  deliberate way to clear a refusal you know is unrelated.
 
 ### Known limitations
 

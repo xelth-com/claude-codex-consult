@@ -178,10 +178,60 @@ Base commit: `6483ec4`. Coordinator: Claude Code. Reviewer: Codex (thread `01a0c
   parses on 5.1 and 7, and the Windows harnesses were re-run on 5.1 afterwards (see the commit that records
   this section).
 
-## Round 4 - second re-acceptance after waves 3 and 3b
+## Round 4 - second re-acceptance after waves 3, 3b and the platform fixes (2026-09-24 03:20)
 
-POSTPONED on 2026-09-24 (~02:00) by the operator: the reviewer is unavailable for now. Everything is ready:
-the brief `handoffs/07-claude-reacceptance-2-0.2.md` describes waves 3 and 3b; run
-`codex-consult.ps1 -Task bridge-0.2-2026-09-23 -Mode resume -Purpose acceptance -Brief <that brief>
--ReplyName reacceptance-2-0.2` (resume picks the HOLD thread `01a0d01e-...`; F06-1, F06-2, F06-3 and F04-10
-are fed back as prior findings). Until then 0.2.0 is complete but unaccepted and uncommitted.
+- Postponed at ~02:00 (reviewer unavailable), run at 03:20: `handoffs/07-claude-reacceptance-2-0.2.md` ->
+  `handoffs/08-codex-reacceptance-2-0.2.md`, `resume` of the HOLD thread, 207.7 s, source inspected at commit
+  `ca9decc`. **Verdict: HOLD, narrowed to F04-10.** F06-1, F06-2, F06-3 reported fixed; no new findings.
+- Bridge behaviour, checked against the reviewer's checklist: ledger n=4, resume, structured, no validation
+  error, four prior dispositions as `reviewer_checks` on consult 4, `finding_ids` empty, source and brief
+  fingerprints identical before and after, pending record removed after the ledger commit, permanent lock
+  file still present with its handle released. The live `.consult.pending.json` during the run showed
+  `state: running`, the reservation n=4/nn=08, the registered codex child and the launcher path.
+- Statuses: F06-1, F06-2, F06-3 -> `verified` (reviewer + verifier fixtures + harnesses on 5.1, 7 and Linux).
+  F04-10 stays `implemented`.
+- F04-10, what remained: a `running` record whose only recorded pid is the dead launcher (survivor
+  persistence failed, or the bridge crashed and the shim died) was judged inactive because the recorded
+  pid was gone, never checking descendants; and the `launching` command-line fallback stopped after thirty
+  minutes although a grandchild may live. The reviewer's rule: neither a dead root nor elapsed time proves
+  the tree ended; conservative false refusals are acceptable with a documented way to clear them.
+
+## Wave 4 (2026-09-24, F04-10 - coordinator)
+
+- `Test-PendingActive`: when every recorded pid is gone (running/survivors) - and for `launching` - the run
+  scans for children of the dead bridge AND of every dead recorded pid (the launcher shim, the survivors;
+  Windows keeps an orphan's parent id), then for any codex-looking process started at or after the record
+  (labelled "task not verifiable"); the thirty-minute cut-off is removed. A refusal names the process and
+  the record; deleting `.consult.pending.json` is the deliberate way to clear an unrelated match.
+- Harness `harness-3b.ps1` + 3 cases: a `running` record naming a dead launcher whose child lives -> active
+  by the descendant rule; a dead child with no descendants and nothing codex-like -> inactive; a 32-minute-old
+  `launching` record with a live launcher-path process -> active, task not verifiable. Full harness set re-run
+  on 5.1 (results in the commit that records this section). README lock section and CHANGELOG updated.
+
+## Round 5 - third re-acceptance after wave 4 (2026-09-24 03:35) - ACCEPT
+
+- `handoffs/09-claude-reacceptance-3-0.2.md` -> `handoffs/10-codex-reacceptance-3-0.2.md`, `resume` of the same
+  thread, 148.1 s, source fingerprint `9f3d93488b4a...` over `ca9decc`. **Verdict: ACCEPT** "within its
+  documented platform and recovery scope"; blockers none; F04-10 reported fixed (mocks: dead-launcher/live-
+  descendant running and survivors records, 32-minute launching with a live grandchild, no match ->
+  recovery, scan failure -> refusal); one informational note F10-1: the command-line fallback can refuse
+  indefinitely while an unrelated codex-looking process started after the record exists - accepted as the
+  documented availability trade-off, with the explicit instruction never to reintroduce an age-based expiry.
+- Bridge behaviour on this run, per the reviewer's checklist: ledger n=5, resume, structured, no validation
+  error, `verdict=ACCEPT`, findings 0/0/0/1 with `F10-1`, F04-10 `fixed` as a reviewer check on consult 5 with
+  the coordinator status untouched by the run, source and brief fingerprints identical before and after,
+  usage copied, pending record removed after the ledger commit, permanent lock present with the handle
+  released, no orphans.
+- Statuses (coordinator, after the run): F04-10 -> `verified` (evidence: the reviewer's round-5 disposition,
+  harness-3b cases c1-c3, the full harness set green on 5.1 after the change); F10-1 -> `wontfix` (accepted
+  limitation, documented in README "The lock" and CHANGELOG).
+- Final ledger: 15 findings - 12 verified, 2 superseded, 1 wontfix, 0 open. `-Stats` (the R5 measurement):
+  five consultations, 80.7 / 390.9 / 392.6 / 207.7 / 148.1 s, verdicts - / HOLD / HOLD / HOLD / ACCEPT.
+
+## Closed
+
+0.2.0 accepted on 2026-09-24 after one design review, one acceptance and three re-acceptances, four fix waves
+(the last by the coordinator), one fresh-context verification per wave, and first runs on PowerShell 7 and
+Linux. Unproven and left documented: a real timeout combining a failed survivor write with a surviving native
+descendant (mocked only); macOS; the atomic replace resetting Unix permission bits; the fallback's
+indefinite conservative refusal (F10-1). Tag `v0.2.0` on the commit that records this section.

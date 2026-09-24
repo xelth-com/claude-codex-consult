@@ -53,6 +53,16 @@ Follows: `handoffs/06-codex-reacceptance-0.2.md` (HOLD).
   name not active, dead-bridge child found by ppid, unrelated dead pid none, launcher-path process with a
   different ppid not attributed, no-bridge-pid fallback labelled.
 
+- **Platform runs after commit 9e2a970** (commit `ca9decc`): first execution on PowerShell 7.6 (Windows) and
+  on Linux (WSL Ubuntu 24.04, pwsh 7.6, native ext4, bash fake codex). Four fixes in the lock/recovery code:
+  pwsh's `ConvertFrom-Json` turns ISO strings into `[datetime]`, so recorded start times are normalised back
+  to JSON text before comparison; on Linux a process start time read through .NET differs by under a second
+  between readers, so the start-time match has a one-second tolerance off Windows (exact on Windows); the
+  holder's own lock file is read via `cat` off Windows (a shared FileStream read was blocked by the advisory
+  lock, so refusals could not name the pid); the timeout kill takes the root before its children. All
+  harnesses green on 5.1 and 7; the eight Linux scenarios pass; macOS unexercised. Known and left: the atomic
+  replace resets Unix permission bits of a store to the default.
+
 ## CURRENT invariants claimed
 
 - Everything from handoffs 03 and 05 still holds; the atomic-store, validation, fingerprint and raw-copy

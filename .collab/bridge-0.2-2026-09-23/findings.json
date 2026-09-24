@@ -810,7 +810,7 @@
                      },
                      {
                          "id":  "F04-10",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -886,6 +886,15 @@
                                              "evidence":  "",
                                              "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
                                              "tree_sha256":  "4600676160b1f5bde9b34a761223bc21d6eef1f53adb3738536d26c60bb06b0c"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T03:34:17+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: fixed in wave 4 (descendant scan, no age cut-off)",
+                                             "evidence":  "reviewer round 5 (handoffs/10, reviewer_checks consult 5: fixed, mocks for dead-launcher/live-descendant, survivors, 32-min launching, scan failure) + harness-3b.ps1 cases c1-c3 + full harness set green on PS 5.1 after the change (state.md wave 4)",
+                                             "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                             "tree_sha256":  "9f3d93488b4a742364ae499e7c507178e04a0c33f426a4ea9f05866b2206e581"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -896,6 +905,22 @@
                                                      "note":  "The normal survivor branch retains the lock record, but codex-consult.ps1:786 launches the child before registration at :796; a crash between them leaves a live child without a recorded identity. Child and survivor metadata write failures at :796 and :807 are swallowed. Persist a conservative launch/quarantine state before spawning and require successful registration or confirmed termination; test these exact boundaries.",
                                                      "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
                                                      "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-24T03:23:20+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Launch-before-registration is now covered by a durable launching state, and registration errors trigger termination. However, codex-consult.ps1:883-885 can fail to persist surviving descendants and leave a running record naming a dead launcher; codex-consult-common.ps1:1831-1846 then returns inactive without descendant recovery. The Windows launching fallback at :1860 also stops after thirty minutes despite a potentially surviving grandchild. Memory-only mocked process snapshots reproduced inactive recovery for both a dead-root running record and a 32-minute-old launch with a live Codex descendant; the equivalent 29-minute launch was active. Preserve unresolved quarantine or prove whole-tree termination. Verify with an isolated survivor-write-failure fixture and recovery beyond thirty minutes; both consultation and status update must refuse while the descendant lives.",
+                                                     "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                                     "tree_sha256":  "7820e2f92d5a9284c724720a9003eb0b4dfcef815605473325872daf9f532295"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-24T03:33:39+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Test-PendingActive now scans descendants after recorded PIDs disappear and always runs the broader fallback when needed, without the thirty-minute cutoff. Memory-only probes confirmed refusal for dead-launcher/live-descendant running and survivors records, refusal for a 32-minute-old launch with a live Codex grandchild, recovery when no matching processes remain, and refusal on scan failure. Both writers use this judgment under the lock. Real timeout plus failed survivor persistence was not executed in this read-only review.",
+                                                     "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                                     "tree_sha256":  "9f3d93488b4a742364ae499e7c507178e04a0c33f426a4ea9f05866b2206e581"
                                                  }
                                              ]
                      },
@@ -988,7 +1013,7 @@
                      },
                      {
                          "id":  "F06-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -1065,15 +1090,31 @@
                                              "evidence":  "",
                                              "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
                                              "tree_sha256":  "35f8a44d4d4d65e746269703c2f84209863041deed81104bb15d313be383fa1a"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T03:25:47+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: confirmed by reviewer, verifier and harness",
+                                             "evidence":  "reviewer round 4 (handoffs/08, reviewer_checks consult 4: fixed) + fresh-context verifier fixtures for wave 3 (state.md) + harness-pending.ps1 26/26 on PS 5.1 and pwsh 7.6 + Linux run (state.md platform section)",
+                                             "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                             "tree_sha256":  "612b8e26f2288595684285481f0337ecfed1f7c0a7a642eb7b1667d8e25344f9"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-24T03:23:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Ownership metadata is informational only. Read-PendingFile and Test-PendingActive run under the held lock before reservation replacement; Write-PendingFile uses atomic JSON replacement; numbering consumes the previous reservation first. Status updates inspect but do not modify pending metadata. The original destructive acquisition transition is removed. Incorrect child-liveness decisions remain tracked under F04-10.",
+                                                     "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                                     "tree_sha256":  "7820e2f92d5a9284c724720a9003eb0b4dfcef815605473325872daf9f532295"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F06-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -1132,15 +1173,31 @@
                                              "evidence":  "",
                                              "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
                                              "tree_sha256":  "35f8a44d4d4d65e746269703c2f84209863041deed81104bb15d313be383fa1a"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T03:25:49+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: confirmed by reviewer, verifier and harness",
+                                             "evidence":  "reviewer round 4 (handoffs/08, reviewer_checks consult 4: fixed) + fresh-context verifier fixtures for wave 3 (state.md) + harness-pending.ps1 26/26 on PS 5.1 and pwsh 7.6 + Linux run (state.md platform section)",
+                                             "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                             "tree_sha256":  "612b8e26f2288595684285481f0337ecfed1f7c0a7a642eb7b1667d8e25344f9"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-24T03:23:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Enter-TaskLock opens a permanent ownership file, and Exit-TaskLock only disposes its stream. No release-path unlink remains, removing the old-inode/new-pathname ownership split. Confirmed by source inspection; Linux execution evidence is reported in state.md rather than rerun here.",
+                                                     "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                                     "tree_sha256":  "7820e2f92d5a9284c724720a9003eb0b4dfcef815605473325872daf9f532295"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F06-3",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -1200,6 +1257,89 @@
                                              "evidence":  "",
                                              "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
                                              "tree_sha256":  "35f8a44d4d4d65e746269703c2f84209863041deed81104bb15d313be383fa1a"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T03:25:51+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: confirmed by reviewer, verifier and harness",
+                                             "evidence":  "reviewer round 4 (handoffs/08, reviewer_checks consult 4: fixed) + fresh-context verifier fixtures for wave 3 (state.md) + harness-pending.ps1 26/26 on PS 5.1 and pwsh 7.6 + Linux run (state.md platform section)",
+                                             "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                             "tree_sha256":  "612b8e26f2288595684285481f0337ecfed1f7c0a7a642eb7b1667d8e25344f9"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-24T03:23:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-ArtifactHashes carries full alongside the initial hash, and codex-consult.ps1:902-903 rehashes that exact full path. The case-insensitive lookup is gone. A memory-only probe retained distinct before/after targets for a.bin and A.bin.",
+                                                     "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                                     "tree_sha256":  "7820e2f92d5a9284c724720a9003eb0b4dfcef815605473325872daf9f532295"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F10-1",
+                         "status":  "wontfix",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1881
+                                           },
+                                           {
+                                               "path":  "README.md",
+                                               "line":  346
+                                           }
+                                       ],
+                         "claim":  "The intentional fallback can prevent automatic recovery indefinitely while unrelated matching Codex processes remain present; this is an accepted, documented availability tradeoff.",
+                         "trigger":  "An interrupted pending record exists and an unrelated long-lived or continuously overlapping Codex-looking process started after that record matches the fallback.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:1776-1782,1876-1890; README.md lock section",
+                                              "observation":  "Fallback matching does not establish task identity, has no age cutoff, and refuses while a match exists. The README documents the limitation and deliberate pending-record clearance."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Memory-only 32-minute launching-record probe",
+                                              "observation":  "A matching process without a recorded parent relationship produced Active=true and a refusal explicitly labelled \u0027task not verifiable\u0027."
+                                          }
+                                      ],
+                         "verification":  "In an isolated recovery fixture, confirm an unrelated matching process causes a labelled refusal and that recovery succeeds after the match disappears.",
+                         "remedy":  "Accept as the documented operational limitation; retain explicit manual clearance after process inspection with task writers stopped. No release-blocking code change is required.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/10-codex-reacceptance-3-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                        "tree_sha256":  "9f3d93488b4a742364ae499e7c507178e04a0c33f426a4ea9f05866b2206e581"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-24T03:33:39+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                             "tree_sha256":  "9f3d93488b4a742364ae499e7c507178e04a0c33f426a4ea9f05866b2206e581"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T03:34:18+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "accepted operational limitation, documented in README \u0027The lock\u0027 and CHANGELOG: the command-line fallback cannot tie a process to a task and has no age cut-off by design; manual clearance of .consult.pending.json after inspecting the named process",
+                                             "evidence":  "",
+                                             "base_commit":  "ca9decc508b805ff70a537c6a26db95574ad4f71",
+                                             "tree_sha256":  "9f3d93488b4a742364ae499e7c507178e04a0c33f426a4ea9f05866b2206e581"
                                          }
                                      ],
                          "reviewer_checks":  [
