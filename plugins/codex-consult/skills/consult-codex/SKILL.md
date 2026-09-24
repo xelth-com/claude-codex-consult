@@ -20,6 +20,10 @@ conversation: reuse the same id and the thread continues.
 - **Framing** — before committing to an approach, to surface options you did not list.
 - **Decision** — when weighing architectures, a fix order, or a trade-off with no obvious winner.
 - **Checkpoint** — at a meaningful milestone, to catch drift early rather than at the end.
+- **Core-contract checkpoint** — before dependent work builds on the core: once the
+  interfaces, recovery and persistence paths exist, but before anything is built on top
+  of them. Re-run it whenever recovery, persistence or an interface changes — a mechanical
+  wave downstream of the core does not need its own review, but a change to the core does.
 - **Acceptance** — before declaring a substantial result done.
 - **Diff review** — an adversarial read of a change before it lands.
 - **Stuck** — a different model often has the angle you are missing.
@@ -27,20 +31,29 @@ conversation: reuse the same id and the thread continues.
 Several of these can be merged into one brief when they coincide. Skip the consult
 for one-liners; the round trip costs more than the answer is worth.
 
+## 0. Before a review brief: reconcile
+
+Before a checkpoint, core-contract, acceptance or diff-review brief, run
+`powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-findings.ps1" -Task <task> -List`
+and read the current findings. Fix any drift
+between what your own summary claims and what the tool actually shows — a coordinator's
+"fixed" that has not been marked `verified`, a status that no longer matches the code —
+before you write the handoff. A brief built on a drifted summary makes the reviewer
+re-derive state that should already have been settled.
+
 ## 1. Write the brief
 
 Write it yourself, in English, to
 `.collab/<task>/handoffs/<NN>-claude-<slug>.md` — `<NN>` is the next free 2-digit
 prefix in that `handoffs/` directory (the script picks the next one for its reply).
-Create the directory if it does not exist. Keep it to **one page**:
-
-- **Question** — the decision or judgement you need, in one or two sentences.
-- **Task state** — base commit, what is done, what is open.
-- **Evidence** — the relevant diff and `file:line` references. Name the base commit;
-  do not commit or stash unrelated work just to produce a clean diff.
-- **Alternatives** — the options you already weighed, and your current preference.
-- **Numbered questions** — Q1, Q2, … Codex answers them by number.
-- **Word cap** — say how long the answer may be.
+Create the directory if it does not exist. Start from a template:
+`${CLAUDE_PLUGIN_ROOT}/templates/brief-framing.md` for framing, decision or stuck;
+`${CLAUDE_PLUGIN_ROOT}/templates/brief-review.md` for checkpoint, core-contract,
+acceptance or diff-review. Keep it to **one page**. When the thread is being resumed,
+write the brief as a **delta since the last review** plus pointers, not a retelling —
+but state the CURRENT invariants explicitly; history is not an authoritative
+current-state record, and a delta-only brief hides anything that was already true and
+still matters.
 
 Do not paste the brief body into the prompt: Codex reads the file from the
 repository; the prompt only points at it.
@@ -48,12 +61,26 @@ repository; the prompt only points at it.
 ## 2. Run one command
 
 ```
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" -Task <task> -Mode fork -Brief .collab/<task>/handoffs/<NN>-claude-<slug>.md -Prompt "<one-line ask>" -ReplyName <slug>
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" -Task <task> -Mode fork -Purpose <purpose> -Brief .collab/<task>/handoffs/<NN>-claude-<slug>.md -Prompt "<one-line ask>" -ReplyName <slug>
 ```
 
 On macOS and Linux (and on Windows with PowerShell 7 installed), use `pwsh -NoProfile -File` instead.
 
-Options:
+`-Purpose` selects the prompt paragraph Codex is asked to answer under, and its default
+effort and word cap:
+
+| `-Purpose` | Effort | Max words |
+|---|---|---|
+| *(none)* | high | 700 |
+| `framing` | high | 700 |
+| `decision` | high | 700 |
+| `checkpoint` | medium | 500 |
+| `core-contract` | xhigh | 900 |
+| `acceptance` | high | 900 |
+| `diff-review` | high | 700 |
+| `stuck` | xhigh | 700 |
+
+`-Effort` and `-MaxWords` override the preset when given. Options:
 
 - `-Mode new` — no thread to build on yet. This is the default for a fresh task id.
 - `-Mode fork` — branch from the last thread. The default once a thread exists, and
@@ -64,27 +91,77 @@ Options:
   `codex.consults[].thread` from `.collab/<task>/sessions.json`.
 - `-Model <name>` — omit it and Codex uses the model from the user's
   `~/.codex/config.toml`. Only pass it when the user asked for a specific model.
-- `-Effort low|medium|high|xhigh` (default `high`), `-MaxWords <n>` (default 700),
-  `-TimeoutSec <n>` (default 900), `-Sandbox read-only|workspace-write` (default `read-only`).
+- `-Purpose <purpose>` (see table above), `-Effort low|medium|high|xhigh`,
+  `-MaxWords <n>` (both override the preset), `-TimeoutSec <n>` (default 900),
+  `-Sandbox read-only|workspace-write` (default `read-only`).
+- `-Artifact <path>` — hash a built artifact (an executable, a bundle) into the ledger
+  so the review is bound to it, not just to the source tree. Repeatable, or one
+  comma-separated string (`-Artifact a.exe,b.dll`). A missing path refuses the run
+  rather than silently skipping the binding.
+- `-Raw` — 0.1-style plain-text reply: no structured schema, no findings bookkeeping.
+  Use it for a quick informal ask that is not going into the findings ledger.
 - `-CollabDir <path>` (default `.collab`), `-CodexExe <path>` if `codex` is not on `PATH`.
 - `-DryRun` — print the argv, the resolved paths and the planned ledger entry without
   calling Codex. Use it when a call fails and you need to see what would be sent.
 
-The script creates `handoffs/` and `sessions.json` when missing, writes
-`handoffs/<NN>-codex-<slug>.md` (header + verbatim reply) and
-`handoffs/<NN>-codex-<slug>.events.jsonl` (raw event stream), appends one entry to
-`codex.consults[]` with the parent and result thread ids, and prints the reply.
+The script creates `handoffs/` and `sessions.json` when missing, and writes:
+
+- `handoffs/<NN>-codex-<slug>.md` — header, the verbatim reply, and (unless `-Raw`)
+  the rendered findings/verdict/blockers/unproven/first-run-checklist sections;
+- `handoffs/<NN>-codex-<slug>.reply.json` — the raw structured reply, byte for byte
+  (structured mode only);
+- `handoffs/<NN>-codex-<slug>.events.jsonl` — the raw event stream;
+- `findings.json` — every finding from this reply, appended (structured mode only,
+  only when there is at least one finding);
+- `sessions.json` — one ledger entry appended, the commit point for this consult.
+
 It exits non-zero on failure and records the failure as an entry too, so the ledger
 is a complete history and not just a success log.
 
 ## 3. Read, verify, record
 
-Read the reply file. Then write down — in the task's own notes, a commit message, or
-`.collab/<task>/state.md` — what you adopted, what you rejected and why, and any open
-disagreement.
+Read the reply file. **Verify every finding yourself** before acting on it — open the
+cited location, run the build, run the test. Codex proposes; you verify and decide.
 
-**Never act on a Codex suggestion without verifying it yourself.** Open the cited
-`file:line`, run the build, run the test. Codex proposes; you verify and decide.
+Then record the outcome with the findings tool, not by paraphrasing it into a summary:
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-findings.ps1" -Task <task> -Id F04-1 -Status implemented|verified|rejected|wontfix|superseded -Note "<why>" -Evidence "<what you ran / where the proof is>"
+```
+
+`verified` requires `-Evidence` — what you ran and what it showed, not just that you
+believe it; `rejected` and a reopen (`-Status proposed` on a non-`proposed` finding)
+require `-Note`; `superseded` requires neither. A reviewer reporting a finding "fixed"
+in a later reply's `prior_findings` is evidence you can cite, never a status change by
+itself: the coordinator still moves the status. A **still-open prior blocker** Codex
+reports as `still-open` while itself answering `ACCEPT` invalidates that ACCEPT — the
+script drops the verdict and records the contradiction, so an ACCEPT on a task with a
+known open blocker is never quietly taken at face value. `powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-findings.ps1" -Task <task> -Stats` prints effort, wall time, tokens
+and finding counts per consultation — the R5 measurement of what each review purpose
+actually cost and produced.
+
+`-Id`/`-Status` holds the same task lock as a running consultation and is **refused**
+while one is in progress for that task (under the same live-process rules, without ever
+modifying the recovery record); `-List` (which flags `[ORPHAN]` findings — a crash
+between the findings write and the ledger write) and `-Stats` only read and never take
+the lock. `.consult.lock` is permanent and git-ignored — deleting it does nothing useful.
+`.consult.pending.json` means an interrupted run; the next consultation recovers it
+automatically unless a codex process from it is still alive, in which case it is
+refused and the message says which pid.
+
+## Role split
+
+When a fresh-context verifier of the same model family (Claude) is also reviewing,
+these are primary, not exclusive, responsibilities — either may challenge anything the
+other says:
+
+- **The verifier** is best used for mechanics: lint, interpreter/version compatibility,
+  build correctness, test wiring, whether the code does what a summary claims it does.
+- **Codex** is best used for protocol and state-machine correctness, and for naming
+  what the evidence does not show — the failure modes a mechanical read does not surface.
+
+On a real multi-wave task the two typically find mostly different defects; treat both
+as required coverage, not as a redundant second look.
 
 ## Invariants
 
@@ -106,3 +183,8 @@ disagreement.
    from another project's ledger, and never point a brief at files outside the
    repository — the read-only sandbox blocks writes, not reads, so the brief is what
    keeps projects apart.
+6. **One Codex thread belongs to one task directory.** Not enforced by the script —
+   resuming the same thread from two different task directories is on you to avoid.
+7. **A verdict is not an outcome.** `bridge_outcome` says the bridge worked — a reply
+   came back and was written to disk. `verdict` says what the reviewer decided. A
+   delivered HOLD is a success of the bridge: the run worked exactly as intended.

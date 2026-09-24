@@ -4,9 +4,11 @@
 > exact fields the script emits; the thread ids, timings and reply text are invented.
 
 Date: 2026-09-22 11:24 local. Author: Codex (model config default, effort high), Codex CLI 0.155.1.
-Invocation: `codex-consult.ps1` (mode: fork, sandbox: read-only). Argv: `codex exec --sandbox read-only --color never --json -c model_reasoning_effort="high" -o /tmp/codex-consult-last-0f3c.md fork 01a0c839-48ba-7182-8d15-fdc13dd17193 -` (prompt on stdin).
+Invocation: `codex-consult.ps1` (mode: fork, sandbox: read-only, purpose: decision). Argv: `codex exec --sandbox read-only --output-schema .../schemas/consult-reply.schema.json --color never --json -c model_reasoning_effort="high" -o /tmp/codex-consult-last-0f3c.md fork 01a0c839-48ba-7182-8d15-fdc13dd17193 -` (prompt on stdin).
 Parent thread: `01a0c839-48ba-7182-8d15-fdc13dd17193`. Result thread: `01a0c86e-5193-7d70-a644-63a5c3f224b3` (source: events).
-Brief: `.collab/example-task/handoffs/01-claude-cache-invalidation.md`. Reviewed revision: 4e9cc4f + uncommitted. Outcome: usable reply. Wall time: 41.3 s.
+Brief: `.collab/example-task/handoffs/01-claude-cache-invalidation.md`. Reviewed: 4e9cc4f + uncommitted, base 4e9cc4f0aa21bd4e13c8f0a6e5d9b2c7f1a34567, tree sha256 9c2ad3e1f700, 3 changed files.
+Bridge outcome: usable reply. Wall time: 41.3 s. Tokens: in 8300 (cached 2100), out 1450, reasoning 520.
+Verdict: ADVISE - invalidation strategy judged; this consult did not ask for an accept/reject decision. Findings: 0 blocker, 1 major, 1 minor, 1 note (F02-1..F02-3, tracked in `findings.json`). Structured reply: `handoffs/02-codex-cache-invalidation.reply.json`.
 Raw event stream: `handoffs/02-codex-cache-invalidation.events.jsonl`.
 Verbatim reply follows.
 
@@ -62,3 +64,55 @@ so the next reader of this code does not rediscover it.
 I would not start with option 1 as an optimisation for single-row paths. Two
 invalidation mechanisms in one cache is how you get a bug that only reproduces under
 load. Add it only if profiling says the stranded entries cost you something measurable.
+
+---
+
+### Findings
+
+- **F02-1** [major] (no location) - A process-local generation counter that resets to
+  0 on restart will serve entries from a stale generation once a shared cache backend
+  (e.g. Redis) replaces the in-process store. Trigger: the process restarts and a
+  surviving shared cache still holds entries written under a higher generation from
+  the previous process lifetime. Evidence: inferred: no persistence or non-zero seeding
+  of the counter was planned. Verify: before implementing, confirm the counter seed
+  strategy (wall-clock milliseconds at startup, or a persisted value) rather than a
+  restart-to-zero counter. Remedy: seed the counter from wall-clock milliseconds at
+  startup, or persist it across restarts.
+- **F02-2** [minor] `src/api/resource.rs:248` - The bulk import holds one write
+  transaction across the whole ~50k-row batch, so a generation bump placed inside it
+  is invisible to readers until the transaction commits - potentially minutes of
+  visible staleness. Trigger: a caller reads cached data during a large import, before
+  the import's single transaction commits. Evidence: read-code: the import path holds
+  the write transaction for the entire batch. Verify: measure the commit-to-visible gap
+  for a representative import in a load test. Remedy: chunk the import transaction if
+  the staleness window matters to a caller; otherwise document the assumption next to
+  the bump.
+- **F02-3** [note] (no location) - Adding direct per-key eviction (option 1) alongside
+  the generation counter later, as a single-row optimisation, risks a bug that only
+  reproduces under load. Trigger: a future change adds direct eviction on the
+  single-row write paths without removing the generation mechanism. Evidence: assumed:
+  not yet implemented; flagged as a risk rather than an observed defect. Verify: profile
+  before adding a second invalidation mechanism; add it only if stranded-entry cost is
+  measurable. Remedy: keep a single invalidation mechanism (the generation counter)
+  until profiling justifies a second.
+
+### Prior findings
+
+_(none)_
+
+## Verdict: ADVISE
+
+Invalidation strategy judged; this consult did not ask for an accept/reject decision.
+
+### Blockers
+
+_(none)_
+
+### Unproven scenarios
+
+- Whether moka's size-based eviction under pressure actually keeps the stranded-entry
+  cost bounded in this workload has not been measured.
+
+### First-run checklist (observable)
+
+_(none)_

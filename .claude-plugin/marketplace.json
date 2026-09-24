@@ -10,8 +10,8 @@
       "name": "codex-consult",
       "source": "./plugins/codex-consult",
       "displayName": "Codex Consult",
-      "description": "Consult OpenAI Codex from Claude Code over your ChatGPT subscription: one command per consultation, fork/resume thread continuity, read-only sandbox, and a brief/reply file pair plus a JSON ledger you can commit.",
-      "version": "0.1.1",
+      "description": "Consult OpenAI Codex from Claude Code over your ChatGPT subscription: one command per consultation, fork/resume thread continuity, read-only sandbox, a brief/reply file pair plus a JSON ledger you can commit, and structured findings tracked by id.",
+      "version": "0.2.0",
       "author": {
         "name": "xelth.com",
         "url": "https://xelth.com"

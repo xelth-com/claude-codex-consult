@@ -1,0 +1,1210 @@
+{
+    "task_id":  "bridge-0.2-2026-09-23",
+    "findings":  [
+                     {
+                         "id":  "F04-1",
+                         "status":  "verified",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  51
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  447
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  937
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  985
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  264
+                                           }
+                                       ],
+                         "claim":  "Updates overwrite sessions.json and findings.json in place, so interruption can destroy previously committed history; an empty findings file is subsequently treated as an empty new store.",
+                         "trigger":  "A process crash, termination, or I/O failure occurs after WriteAllText truncates an existing JSON store but before the complete replacement is written.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:49-59,443-465; codex-consult.ps1:934-985",
+                                              "observation":  "Write-JsonFile delegates directly to File.WriteAllText on the destination. There is no temporary-file replacement or backup. Read-FindingsFile returns New-FindingsStore when the existing file reads as empty."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Persistence interruption sequence",
+                                              "observation":  "Writing sessions last does not protect either file against interruption within its own overwrite, and orphan detection cannot reconstruct overwritten history."
+                                          }
+                                      ],
+                         "verification":  "In an isolated fixture with existing history, inject termination immediately after destination truncation during each store update, then restart and inspect whether all previously committed records remain recoverable.",
+                         "remedy":  "Serialize and flush to a temporary file in the same directory, replace the destination atomically using an appropriate platform primitive, and retain recovery data. Treat empty or unreadable existing stores as corruption rather than new state.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:14:59+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-1 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "50a2e9bf77da402a54fb890f957b3a864a687273493e15e0da0a077a7b415a7b"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:37:03+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: fix confirmed by three independent sources",
+                                             "evidence":  "reviewer re-review 2026-09-24 (handoffs/06, reviewer_checks consult 3: fixed) + fresh-context verifier fixtures on PS 5.1 (state.md fix-wave section) + implementer harness-fixes.ps1 46/46",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Write-JsonFile now uses flushed same-directory temporary files and atomic replacement; Read-JsonStore refuses empty or unparseable existing stores. Confirmed by code inspection; real crash injection was not repeated.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F04-2",
+                         "status":  "verified",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1153
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1170
+                                           }
+                                       ],
+                         "claim":  "Stale-lock reclamation can delete a newly acquired replacement lock because checking ownership and deleting the path are not atomic.",
+                         "trigger":  "Two processes inspect the same stale lock and both complete the final reread before either deletes it; one then replaces the stale lock before the other executes File.Delete.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:1115,1125,1151-1157,1168-1172",
+                                              "observation":  "CreateNew is atomic, but its handle is closed immediately. Reclamation compares text, closes the read handle, and subsequently deletes by path. Release likewise checks the nonce separately from deletion."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Two-contender stale-lock interleaving",
+                                              "observation":  "After both checks succeed, contender A can acquire its new lock before contender B deletes the path. B can then acquire another lock while A continues, defeating the single-writer guarantee."
+                                          }
+                                      ],
+                         "verification":  "Use barriers around the stale-lock reread and deletion in an isolated concurrency harness to force this interleaving; assert that at most one contender reaches ledger loading.",
+                         "remedy":  "Use an ownership mechanism held for the entire critical section with platform-appropriate exclusion, or serialize reclamation with a separate reliable guard. Do not rely on reread-then-delete as conditional deletion.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:15:05+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-2 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "50a2e9bf77da402a54fb890f957b3a864a687273493e15e0da0a077a7b415a7b"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:37:04+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: fix confirmed by three independent sources",
+                                             "evidence":  "reviewer re-review 2026-09-24 (handoffs/06, reviewer_checks consult 3: fixed) + fresh-context verifier fixtures on PS 5.1 (state.md fix-wave section) + implementer harness-fixes.ps1 46/46",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The original stale-record reread/delete takeover has been removed. Ownership is held through the stream for the critical section. A distinct Unix unlink/recreate release defect is reported as a new finding.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F04-3",
+                         "status":  "superseded",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  503
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  538
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  918
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  157
+                                           }
+                                       ],
+                         "claim":  "Recovery does not detect or reserve consultation numbers belonging only to persisted reviewer checks, allowing a later consultation to reuse a number and misattribute the earlier check; Raw mode also ignores orphan finding-source reservations.",
+                         "trigger":  "Consultation N adds reviewer_checks to existing findings without creating new findings, persists findings.json, and crashes before sessions.json is updated; the next consultation allocates N again.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult.ps1:503-509,538-552; codex-consult-common.ps1:918-943; codex-findings.ps1:133-164",
+                                              "observation":  "Number allocation examines ledger entries and finding source.consult only. Reviewer checks contain their own consult numbers but are not scanned. List determines orphan status from each finding\u0027s original source, and Raw mode does not read findings.json."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Checks-only interrupted consultation",
+                                              "observation":  "The original finding can still match its committed source entry, hiding the orphan check. A subsequent ledger entry using the same number makes the old check appear associated with a different consultation. Reply-only orphans are also outside List\u0027s scan."
+                                          }
+                                      ],
+                         "verification":  "Seed a committed finding, persist a checks-only consultation, interrupt before the sessions write, then run List and another consultation; verify orphan detection and that the consultation number is not reused, including a Raw rerun.",
+                         "remedy":  "Persist a consultation reservation or pending receipt before execution, detect incomplete consultations independently of new findings, and account for every audit reference when allocating numbers. Apply reservation rules in Raw mode too.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+                                               "F06-1"
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:15:11+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-3 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "50a2e9bf77da402a54fb890f957b3a864a687273493e15e0da0a077a7b415a7b"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:37:15+02:00",
+                                             "status":  "superseded",
+                                             "by":  "coordinator",
+                                             "note":  "superseded by F06-1 (reservation now lost during lock acquisition); the numbering part is fixed",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Reviewer-check scanning, orphan reporting, and Raw-mode numbering are corrected; a memory-only numbering probe passed. However, the new lock reservation is overwritten before safe recovery and can be erased by a second crash. The new recovery-metadata finding supersedes this claim.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F04-4",
+                         "status":  "verified",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  792
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  918
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1046
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  608
+                                           }
+                                       ],
+                         "claim":  "A response can be recorded as ACCEPT and rendered with no blockers while explicitly reporting a known prior blocker as still-open.",
+                         "trigger":  "An existing proposed blocker is returned in prior_findings with status still-open, while the response verdict is ACCEPT and findings is empty.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:792-799,912-925,1043-1055; codex-consult.ps1:608",
+                                              "observation":  "Contradiction detection and Blockers rendering consider only newly returned findings. Prior checks are stored without contextual verdict validation, while the prompt discourages refiling unchanged findings."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Delegated read-only PowerShell probe of ConvertFrom-StructuredReply, Add-ReplyFindings, and Format-StructuredSection",
+                                              "observation":  "An in-memory store with blocker F02-1 and an ACCEPT/still-open response produced Verdict ACCEPT, Contradiction false, a still-open reviewer check, and rendered Blockers \u0027(none)\u0027."
+                                          }
+                                      ],
+                         "verification":  "Return that response through the fake CLI against a seeded blocker and inspect the ledger verdict and rendered Blockers section.",
+                         "remedy":  "Validate acceptance against known prior findings and their reported dispositions. Invalidate ACCEPT when a prior blocker is explicitly still-open, and include retained blockers in the rendered section without creating duplicate findings.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:15:16+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-4 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "50a2e9bf77da402a54fb890f957b3a864a687273493e15e0da0a077a7b415a7b"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:37:05+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: fix confirmed by three independent sources",
+                                             "evidence":  "reviewer re-review 2026-09-24 (handoffs/06, reviewer_checks consult 3: fixed) + fresh-context verifier fixtures on PS 5.1 (state.md fix-wave section) + implementer harness-fixes.ps1 46/46",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Memory-only parsing and rendering confirmed that ACCEPT with a still-open prior blocker produces an empty verdict and validation error, renders the retained blocker, and changes neither its identity nor coordinator status.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F04-5",
+                         "status":  "verified",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  562
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  717
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  789
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  851
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1034
+                                           }
+                                       ],
+                         "claim":  "An integer-valued location outside Int64 range throws during normalization instead of producing recorded validation failure, and cleanup can delete the only original response.",
+                         "trigger":  "An otherwise valid structured response contains locations[].line equal to 1e30.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:556-562,715-717,774-789; codex-consult.ps1:851,918,926,1034-1035",
+                                              "observation":  "Validation accepts integer-valued floating numbers, normalization casts them to long outside the JSON parse catch, and parsing precedes durable response writes. Finally removes the temporary last message."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Delegated memory-only PowerShell normalization probe",
+                                              "observation":  "Parsing an otherwise valid response with line 1e30 threw a System.Int64 overflow conversion error rather than returning ValidationError."
+                                          }
+                                      ],
+                         "verification":  "Have the fake CLI return line 1e30 and confirm that the corrected bridge preserves the original response and records validation failure without ingesting findings.",
+                         "remedy":  "Align numeric bounds between schema, validation, and storage; catch normalization failures; and durably preserve the original response before fallible processing.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:15:21+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-5 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "5ee490c8b21e7e93290d09967772a40763d6e45f51bdd8c6cb458910fdf85a6f"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:37:06+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: fix confirmed by three independent sources",
+                                             "evidence":  "reviewer re-review 2026-09-24 (handoffs/06, reviewer_checks consult 3: fixed) + fresh-context verifier fixtures on PS 5.1 (state.md fix-wave section) + implementer harness-fixes.ps1 46/46",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The original line=1e30 probe now returns a bounded-line validation error without throwing. Validation and normalization are caught, and raw copying precedes parsing.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F04-6",
+                         "status":  "verified",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  595
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  752
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  851
+                                           }
+                                       ],
+                         "claim":  "The bridge records verdicts incompatible with the consultation purpose because purpose-specific restrictions are never validated locally.",
+                         "trigger":  "An acceptance or diff-review response returns ADVISE, or a non-acceptance purpose returns ACCEPT.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:595-596,752-753,799; codex-consult.ps1:626,851-857",
+                                              "observation":  "The parser accepts the global four-value enum and receives only Text. The caller records its verdict without checking the resolved purpose."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Delegated memory-only ADVISE parser probe",
+                                              "observation":  "ConvertFrom-StructuredReply returned Valid true and Verdict ADVISE; no subsequent caller check restricts acceptance verdicts."
+                                          }
+                                      ],
+                         "verification":  "Run the fake CLI with Purpose acceptance and a schema-shaped ADVISE response; inspect whether a verdict is recorded.",
+                         "remedy":  "Pass the resolved purpose into contextual semantic validation and suppress incompatible verdicts with an explicit validation error while retaining the response.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:15:26+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-6 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "5ee490c8b21e7e93290d09967772a40763d6e45f51bdd8c6cb458910fdf85a6f"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:37:08+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: fix confirmed by three independent sources",
+                                             "evidence":  "reviewer re-review 2026-09-24 (handoffs/06, reviewer_checks consult 3: fixed) + fresh-context verifier fixtures on PS 5.1 (state.md fix-wave section) + implementer harness-fixes.ps1 46/46",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The resolved purpose is supplied to semantic validation. Memory-only ADVISE/acceptance and ACCEPT/framing probes returned empty verdicts with purpose-specific validation errors.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F04-7",
+                         "status":  "verified",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  361
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  368
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  381
+                                           }
+                                       ],
+                         "claim":  "The revision fingerprint does not distinguish executable-mode changes when file content and porcelain status remain unchanged.",
+                         "trigger":  "On a filesystem with executable modes and Git mode tracking enabled, toggle the executable bit of an already content-modified tracked file; both states retain porcelain status \u0027 M\u0027 and the same content blob.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:351-381",
+                                              "observation":  "Manifest entries contain XY, path, rename source, and a content blob or directory/deletion sentinel. They do not contain the file mode."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Same-content, same-status executable-mode change",
+                                              "observation":  "Both states serialize to the same manifest despite differing execution behavior, defeating the design-review requirement to include types and modes."
+                                          }
+                                      ],
+                         "verification":  "In a disposable Unix repository with core.filemode=true, modify a tracked script, fingerprint it, toggle its executable bit without changing content, and compare fingerprints.",
+                         "remedy":  "Include the relevant file type and executable mode in each manifest entry, with explicit coverage rules for symlinks and platforms without mode tracking.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:15:32+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-7 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "5ee490c8b21e7e93290d09967772a40763d6e45f51bdd8c6cb458910fdf85a6f"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:37:09+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: fix confirmed by three independent sources",
+                                             "evidence":  "reviewer re-review 2026-09-24 (handoffs/06, reviewer_checks consult 3: fixed) + fresh-context verifier fixtures on PS 5.1 (state.md fix-wave section) + implementer harness-fixes.ps1 46/46",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Tracked manifest entries now incorporate modes from git diff --raw HEAD, addressing the original already-modified tracked-file trigger. Untracked and no-HEAD mode omissions are explicit; native Unix execution was not tested here.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F04-8",
+                         "status":  "verified",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  254
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  276
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  374
+                                           }
+                                       ],
+                         "claim":  "The blob lookup merges case-distinct paths, so the fingerprint can miss edits on a case-sensitive filesystem.",
+                         "trigger":  "Two changed files such as a.txt and A.txt coexist with different content; the later blob assignment overwrites the earlier case-insensitive dictionary key.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:252-286,372-374",
+                                              "observation":  "Get-GitBlobIds uses a PowerShell @{} hashtable for path keys and later retrieves each manifest blob through that map."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Memory-only Get-GitBlobIds probe with mocked Invoke-GitCapture",
+                                              "observation":  "Supplying paths a.txt and A.txt with distinct returned hashes produced key_count=1 and hash_upper for both lookups."
+                                          }
+                                      ],
+                         "verification":  "On a case-sensitive filesystem, fingerprint two already-modified case-distinct files, then change only the file whose hash is overwritten and confirm the fingerprint changes.",
+                         "remedy":  "Use an explicitly ordinal, case-sensitive path dictionary where the filesystem permits distinct names, or preserve blob results by entry position instead of a case-insensitive map.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:15:40+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-8 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "ce6759033c159a7e9a9956c178d9ea17b2b0fecf084175c51e43fee893fbbbca"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:37:11+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: fix confirmed by three independent sources",
+                                             "evidence":  "reviewer re-review 2026-09-24 (handoffs/06, reviewer_checks consult 3: fixed) + fresh-context verifier fixtures on PS 5.1 (state.md fix-wave section) + implementer harness-fixes.ps1 46/46",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Source fingerprint path maps use ordinal dictionaries. A memory-only probe retained a.txt and A.txt as two distinct keys with their respective values.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F04-9",
+                         "status":  "superseded",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  408
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  429
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  791
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  969
+                                           }
+                                       ],
+                         "claim":  "Brief and artifact bindings can describe bytes different from those reviewed because these inputs are hashed only once and are not checked after the consultation.",
+                         "trigger":  "The brief under the excluded collaboration directory, or an ignored/external artifact, changes after its initial hash and before or during the model\u0027s read.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult.ps1:408,429,469,791-792,969-971; codex-consult-common.ps1:357-359,395",
+                                              "observation":  "Brief and artifact hashes are computed before acquiring the task lock. The after-review comparison recomputes only the source-tree fingerprint, which excludes collaboration and ignored files."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Excluded-input mutation",
+                                              "observation":  "The model can consume changed brief or artifact bytes while the ledger retains the earlier hash and tree_changed_during_review remains false."
+                                          }
+                                      ],
+                         "verification":  "Use a delayed fake review, modify the excluded brief or artifact after launch, and check that the run reports binding drift rather than retaining an apparently stable binding.",
+                         "remedy":  "Hash these inputs under the acquired lock and rehash them after the review, recording drift independently of source-tree drift; immutable input copies would provide stronger binding.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+                                               "F06-3"
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:15:46+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-9 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "ce6759033c159a7e9a9956c178d9ea17b2b0fecf084175c51e43fee893fbbbca"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:37:17+02:00",
+                                             "status":  "superseded",
+                                             "by":  "coordinator",
+                                             "note":  "superseded by F06-3 (case-insensitive artifact lookup); the before/after hashing part is fixed",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Brief and artifact hashes are now collected under the lock and repeated afterward, fixing ordinary single-path drift. Case-distinct artifact lookup still rehashes the wrong file; the new artifact-binding finding supersedes this claim.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F04-10",
+                         "status":  "implemented",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  779
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1037
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1145
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1238
+                                           }
+                                       ],
+                         "claim":  "Task ownership can be released or reclaimed while the prior Codex process is still running.",
+                         "trigger":  "Timeout termination reports surviving descendants, or the bridge process dies while its separately launched Codex child survives.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult.ps1:779-781,999,1033-1037; codex-consult-common.ps1:1103,1143-1146,1238-1242",
+                                              "observation":  "Known survivors change only the failure message; finally still releases the lock. Stale ownership is decided solely from the bridge PID and start time, without proving its child tree has stopped."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Surviving-child ownership sequence",
+                                              "observation":  "A subsequent invocation can resume the same thread or mutate task state while the earlier Codex invocation remains active."
+                                          }
+                                      ],
+                         "verification":  "In an isolated harness, force termination failure for one descendant and separately terminate only the bridge parent; verify that a second consultation cannot acquire ownership while the old child remains active.",
+                         "remedy":  "Supervise the child tree with an appropriate job/process-group lifetime mechanism. Preserve a recovery/quarantine state when termination cannot be confirmed, rather than unconditionally unlocking or treating the parent\u0027s death as sufficient.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:15:52+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-10 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "6c5e07be88d2afd5c85af9067c8cd1c28887b216fc154a94da8fc9e45fcaf275"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T01:16:59+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 3 2026-09-24: ownership lock separated from .consult.pending.json recovery record; harness-pending.ps1 26/26; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "4600676160b1f5bde9b34a761223bc21d6eef1f53adb3738536d26c60bb06b0c"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "The normal survivor branch retains the lock record, but codex-consult.ps1:786 launches the child before registration at :796; a crash between them leaves a live child without a recorded identity. Child and survivor metadata write failures at :796 and :807 are swallowed. Persist a conservative launch/quarantine state before spawning and require successful registration or confirmed termination; test these exact boundaries.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F04-11",
+                         "status":  "verified",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  928
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1032
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1034
+                                           }
+                                       ],
+                         "claim":  "Failure to save the required raw response companion still permits successful delivery bookkeeping and deletes the temporary original.",
+                         "trigger":  "All File.Copy attempts for the .reply.json destination fail while Markdown and ledger writes remain possible.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult.ps1:923-931,954,972,989-1035",
+                                              "observation":  "Copy failure prints a warning and clears replyJsonRel but leaves bridgeOutcome as usable reply. The script can exit 0, and finally deletes lastMsgPath."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Raw-companion write failure",
+                                              "observation":  "The required byte-preserved evidence is lost, while the Markdown header was already constructed with its planned companion reference and structured findings may still be committed."
+                                          }
+                                      ],
+                         "verification":  "Inject a copy failure only for the raw companion in a fake consultation and inspect exit status, ledger outcome, header links, and retention of the original response.",
+                         "remedy":  "Treat failure to preserve the mandatory response artifact as a persistence failure, retain a recoverable original, and publish consistent file references only after preservation succeeds.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/04-codex-acceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-23T23:20:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "77898e4cee67e085b7c78e8f945786ffbba10258d9ed83eeb4941f41cdb5ebb1"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:15:59+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "fix wave 2026-09-24 by the implementer worker; harness-fixes.ps1 assertion for F04-11 green; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "6c5e07be88d2afd5c85af9067c8cd1c28887b216fc154a94da8fc9e45fcaf275"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T00:37:13+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "coordinator: fix confirmed by three independent sources",
+                                             "evidence":  "reviewer re-review 2026-09-24 (handoffs/06, reviewer_checks consult 3: fixed) + fresh-context verifier fixtures on PS 5.1 (state.md fix-wave section) + implementer harness-fixes.ps1 46/46",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-24T00:36:02+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Copy failure now sets keepLastMsg, changes bridge_outcome to failure, prevents ingestion, and leads to exit 1 while retaining the original. Confirmed by inspection; filesystem copy-failure injection was not repeated.",
+                                                     "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                                     "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F06-1",
+                         "status":  "implemented",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1447
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1542
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1547
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  256
+                                           }
+                                       ],
+                         "claim":  "Lock acquisition destructively replaces the previous recovery record before validating or durably transferring its reservation and child information, so another crash can erase a reserved consultation number or a surviving-child quarantine.",
+                         "trigger":  "A previous run leaves a reservation or live-child record; a consultation or status updater acquires the handle and crashes after Write-LockRecord replaces that record but before the old record is consumed or restored. Interruption during the in-place truncation is another loss window.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:1485-1497,1524-1578",
+                                              "observation":  "The new record initializes n and child_pid to null, nn to empty, and survivors to an empty array. Enter-TaskLock writes it at line 1542 before parsing the previous text or checking previous children. The old information exists only in memory during that interval."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:1443-1450; codex-findings.ps1:251-256,290",
+                                              "observation":  "Write-LockRecord truncates the held file before rewriting it. The status updater restores a previous reservation only on normal finally execution."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Memory-only Write-LockRecord probe using a stream adapter",
+                                              "observation":  "Replacing a record containing n=9, nn=20, child_pid=12345 and survivors with the acquisition record produced null reservation/child fields and an empty survivors array. No filesystem writes were performed."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Crash between replacement and previous-record validation",
+                                              "observation":  "After that crash, the next invocation cannot recover the erased reservation or detect the previously recorded live child. Correct scanning of persisted reviewer checks does not recover a reservation that had no other durable reference."
+                                          }
+                                      ],
+                         "verification":  "In an isolated fixture, seed an uncommitted reservation and a live-child quarantine separately, pause acquisition immediately after the replacement write, kill the acquiring process, and verify that the next invocation still preserves the reservation and refuses the live child.",
+                         "remedy":  "Separate the permanent ownership lock from atomically persisted recovery metadata. Validate the previous record before changing it, transfer reservations durably, preserve quarantine until child termination is established, and refuse corrupt recovery metadata rather than treating it as absent.",
+                         "supersedes":  [
+                                            "F04-3"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/06-codex-reacceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-24T00:36:02+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T01:16:53+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 3 2026-09-24: ownership lock separated from .consult.pending.json recovery record; harness-pending.ps1 26/26; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "35f8a44d4d4d65e746269703c2f84209863041deed81104bb15d313be383fa1a"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F06-2",
+                         "status":  "implemented",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1501
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1627
+                                           }
+                                       ],
+                         "claim":  "The Unix release path can split task ownership across an unlinked lock inode and a newly created lock file because it deletes the pathname used for descriptor-based exclusion.",
+                         "trigger":  "A contender opens the existing lock inode and pauses before acquiring its advisory lock; the owner unlinks and closes it; that contender then acquires the old inode while another invocation creates and locks the pathname\u0027s replacement.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1:1454-1462,1501,1626-1628",
+                                              "observation":  "The documented Unix mechanism is advisory flock through FileShare.None. Acquisition opens the pathname, while release unlinks that pathname before disposing the held stream."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Open-before-lock, unlink, and recreate interleaving",
+                                              "observation":  "A descriptor already referring to the old inode is not redirected to the replacement pathname. Under the stated descriptor-locking mechanism, the two contenders can therefore lock different files for the same task."
+                                          }
+                                      ],
+                         "verification":  "On a supported Unix runtime, use an instrumented opener or syscall barriers to pause a contender between opening the old lock file and acquiring its lock, release the owner, start another contender, and assert that simultaneous ownership is impossible.",
+                         "remedy":  "Keep the ownership lock file permanently at a stable pathname and inode; release ownership by closing the handle rather than unlinking it. Store recoverable run metadata separately.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/06-codex-reacceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-24T00:36:02+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T01:16:55+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 3 2026-09-24: ownership lock separated from .consult.pending.json recovery record; harness-pending.ps1 26/26; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "35f8a44d4d4d65e746269703c2f84209863041deed81104bb15d313be383fa1a"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F06-3",
+                         "status":  "implemented",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  826
+                                           }
+                                       ],
+                         "claim":  "Artifact after-hashing selects paths case-insensitively, so case-distinct artifacts can be bound to the wrong after-review bytes and an actual artifact change can go undetected.",
+                         "trigger":  "Both a.bin and A.bin are supplied on a case-sensitive filesystem. They initially have identical bytes, and only A.bin changes during the review. The after-hash lookup selects a.bin for both entries.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult.ps1:824-830",
+                                              "observation":  "For every initial artifact hash, the code resolves its full path using Where-Object with PowerShell\u0027s case-insensitive -eq and Select-Object -First 1."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Memory-only reproduction of the artifactItems lookup",
+                                              "observation":  "With a.bin mapped to lower and A.bin mapped to upper, the exact lookup selected lower as the rehash target for both artifacts."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Initially equal artifact hashes followed by an uppercase-path-only edit",
+                                              "observation":  "Both after hashes can still equal the initial hash because the unchanged lowercase file is read twice, leaving artifacts_changed_during_review false."
+                                          }
+                                      ],
+                         "verification":  "In a case-sensitive fixture, supply two case-distinct artifacts with identical initial contents, modify only the second during a delayed review, and verify its own sha256_after changes and artifact drift is reported.",
+                         "remedy":  "Carry each artifact\u0027s resolved full path alongside its initial hash and rehash that exact object, or use an ordinal case-sensitive lookup without selecting the first case-insensitive match.",
+                         "supersedes":  [
+                                            "F04-9"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/06-codex-reacceptance-0.2.md",
+                                        "thread":  "01a0d01e-242c-7220-acb8-c5ce6ee72fc4",
+                                        "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                        "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-24T00:36:02+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "a5d2c8522c7366c4ccbdd10324aaf1fb04513f528028217e1c50a452b369a666"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T01:16:56+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 3 2026-09-24: ownership lock separated from .consult.pending.json recovery record; harness-pending.ps1 26/26; independent verification pending",
+                                             "evidence":  "",
+                                             "base_commit":  "6483ec4a4bf67587be1d98b0cdc98c595ab3454d",
+                                             "tree_sha256":  "35f8a44d4d4d65e746269703c2f84209863041deed81104bb15d313be383fa1a"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     }
+                 ]
+}

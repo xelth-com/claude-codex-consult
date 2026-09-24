@@ -1,0 +1,309 @@
+{
+  "schema_version": "1",
+  "verdict": "HOLD",
+  "verdict_reason": "The release still permits destructive ledger writes, concurrent lock ownership, misattributed recovery records, and acceptance despite an explicitly unresolved prior blocker.",
+  "reply_markdown": "**Q1. The claimed invariants do not all hold.** Presets, templates, coordinator-owned statuses, normal structured ingestion, and the placement of the four final review blocks are implemented. All three scripts parsed successfully on the installed PowerShell 5.1.\n\nThe remaining defects are detailed individually below:\n\n- JSON persistence overwrites the existing stores directly; interrupted writes can destroy previously committed history.\n- Stale-lock reclamation checks and deletes in separate operations, allowing two contenders to acquire ownership.\n- Timeout handling releases the lock even when descendants survive; a dead bridge PID also does not establish that its Codex child stopped.\n- The fingerprint omits file modes, and its blob lookup conflates case-distinct paths on case-sensitive filesystems.\n- Briefs and artifacts are hashed only before the run; changes to these excluded inputs can escape the after-review check.\n- Failure to preserve the raw JSON companion merely prints a warning, then permits success and deletes the temporary original.\n\n**Q2. Validation has three concrete gaps.** First, a reply can say `ACCEPT`, introduce no new findings, and report an existing blocker as `still-open`. The bridge records ACCEPT and renders “Blockers: none.” This is especially consequential because the prompt correctly discourages refiling unchanged findings. Contextual validation must join prior IDs to their existing severities.\n\nSecond, `locations[].line: 1e30` passes integer validation but overflows during normalization. The exception occurs before durable reply preservation, and cleanup deletes the temporary response. This must become recorded validation failure, not lost evidence.\n\nThird, purpose-specific verdict restrictions exist only in the prompt: acceptance can record `ADVISE`. Validate the verdict against the resolved purpose.\n\nMemory-only probes reproduced the prior-blocker contradiction and overflow. Normal omitted IDs become `not-checked`, unknown IDs create no findings, and reviewer checks do not automatically change coordinator status.\n\n**Q3. Write order is insufficient recovery.** Three concrete sequences remain:\n\n1. Kill the process after `WriteAllText` truncates either JSON store. Historical records are lost or the file becomes unparseable; an empty findings file is silently treated as a new store.\n2. Two contenders both finish checking the same stale lock. One deletes it and creates its own lock; the second then deletes that replacement and creates another. Both proceed from independently loaded state, risking overwritten replies and lost ledger updates.\n3. A consultation writes only reviewer checks, then crashes before writing sessions. `-List` checks each finding’s original `source.consult`, so it reports no orphan. Number allocation also ignores `reviewer_checks[].consult`, allowing the next consultation to reuse that number and misattribute the old check. Raw mode additionally ignores finding-source reservations.\n\nAtomic replacement is needed for each store, plus explicit recovery accounting for every consultation and audit reference. A full database is unnecessary, but these guarantees cannot be replaced by filename numbering.\n\n**Q4. HOLD.** The four blockers are destructive persistence, stale-lock concurrency, incomplete recovery accounting, and ACCEPT bypassing prior blockers. The other findings identify additional release defects.\n\n**Unproven scenarios:** I did not run a writing harness, crash injection, or process termination tests. PowerShell 7 and non-Windows behavior remain unverified. This consultation’s final persistence cannot be observed before this response returns. Two read-only fingerprint samples differed (`29b6d98552e55…` and `1ab7ab749142…`), so this review also lacks a stable source snapshot.\n\n**Observable first-run checklist:** After this consultation finishes, verify the three `04-codex-acceptance-0.2` artifacts, the final event and thread identity, and the appended ledger entry. It must record `structured=true`, empty `validation_error`, `verdict=HOLD`, four blockers, seven majors, and eleven finding IDs `F04-1` through `F04-11`, matching eleven proposed records and their evidence. Confirm the Markdown ends with Verdict, Blockers, Unproven scenarios, and First-run checklist; verify revision/brief hashes, drift reporting, usage, and lock removal. Exit code 0 would establish successful delivery of HOLD, not release acceptance.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 51},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 447},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 937},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 985},
+        {"path": "plugins/codex-consult/scripts/codex-findings.ps1", "line": 264}
+      ],
+      "claim": "Updates overwrite sessions.json and findings.json in place, so interruption can destroy previously committed history; an empty findings file is subsequently treated as an empty new store.",
+      "trigger": "A process crash, termination, or I/O failure occurs after WriteAllText truncates an existing JSON store but before the complete replacement is written.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult-common.ps1:49-59,443-465; codex-consult.ps1:934-985",
+          "observation": "Write-JsonFile delegates directly to File.WriteAllText on the destination. There is no temporary-file replacement or backup. Read-FindingsFile returns New-FindingsStore when the existing file reads as empty."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Persistence interruption sequence",
+          "observation": "Writing sessions last does not protect either file against interruption within its own overwrite, and orphan detection cannot reconstruct overwritten history."
+        }
+      ],
+      "verification": "In an isolated fixture with existing history, inject termination immediately after destination truncation during each store update, then restart and inspect whether all previously committed records remain recoverable.",
+      "remedy": "Serialize and flush to a temporary file in the same directory, replace the destination atomically using an appropriate platform primitive, and retain recovery data. Treat empty or unreadable existing stores as corruption rather than new state.",
+      "supersedes": []
+    },
+    {
+      "severity": "blocker",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 1153},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 1170}
+      ],
+      "claim": "Stale-lock reclamation can delete a newly acquired replacement lock because checking ownership and deleting the path are not atomic.",
+      "trigger": "Two processes inspect the same stale lock and both complete the final reread before either deletes it; one then replaces the stale lock before the other executes File.Delete.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult-common.ps1:1115,1125,1151-1157,1168-1172",
+          "observation": "CreateNew is atomic, but its handle is closed immediately. Reclamation compares text, closes the read handle, and subsequently deletes by path. Release likewise checks the nonce separately from deletion."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Two-contender stale-lock interleaving",
+          "observation": "After both checks succeed, contender A can acquire its new lock before contender B deletes the path. B can then acquire another lock while A continues, defeating the single-writer guarantee."
+        }
+      ],
+      "verification": "Use barriers around the stale-lock reread and deletion in an isolated concurrency harness to force this interleaving; assert that at most one contender reaches ledger loading.",
+      "remedy": "Use an ownership mechanism held for the entire critical section with platform-appropriate exclusion, or serialize reclamation with a separate reliable guard. Do not rely on reread-then-delete as conditional deletion.",
+      "supersedes": []
+    },
+    {
+      "severity": "blocker",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 503},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 538},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 918},
+        {"path": "plugins/codex-consult/scripts/codex-findings.ps1", "line": 157}
+      ],
+      "claim": "Recovery does not detect or reserve consultation numbers belonging only to persisted reviewer checks, allowing a later consultation to reuse a number and misattribute the earlier check; Raw mode also ignores orphan finding-source reservations.",
+      "trigger": "Consultation N adds reviewer_checks to existing findings without creating new findings, persists findings.json, and crashes before sessions.json is updated; the next consultation allocates N again.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult.ps1:503-509,538-552; codex-consult-common.ps1:918-943; codex-findings.ps1:133-164",
+          "observation": "Number allocation examines ledger entries and finding source.consult only. Reviewer checks contain their own consult numbers but are not scanned. List determines orphan status from each finding's original source, and Raw mode does not read findings.json."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Checks-only interrupted consultation",
+          "observation": "The original finding can still match its committed source entry, hiding the orphan check. A subsequent ledger entry using the same number makes the old check appear associated with a different consultation. Reply-only orphans are also outside List's scan."
+        }
+      ],
+      "verification": "Seed a committed finding, persist a checks-only consultation, interrupt before the sessions write, then run List and another consultation; verify orphan detection and that the consultation number is not reused, including a Raw rerun.",
+      "remedy": "Persist a consultation reservation or pending receipt before execution, detect incomplete consultations independently of new findings, and account for every audit reference when allocating numbers. Apply reservation rules in Raw mode too.",
+      "supersedes": []
+    },
+    {
+      "severity": "blocker",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 792},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 918},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 1046},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 608}
+      ],
+      "claim": "A response can be recorded as ACCEPT and rendered with no blockers while explicitly reporting a known prior blocker as still-open.",
+      "trigger": "An existing proposed blocker is returned in prior_findings with status still-open, while the response verdict is ACCEPT and findings is empty.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult-common.ps1:792-799,912-925,1043-1055; codex-consult.ps1:608",
+          "observation": "Contradiction detection and Blockers rendering consider only newly returned findings. Prior checks are stored without contextual verdict validation, while the prompt discourages refiling unchanged findings."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Delegated read-only PowerShell probe of ConvertFrom-StructuredReply, Add-ReplyFindings, and Format-StructuredSection",
+          "observation": "An in-memory store with blocker F02-1 and an ACCEPT/still-open response produced Verdict ACCEPT, Contradiction false, a still-open reviewer check, and rendered Blockers '(none)'."
+        }
+      ],
+      "verification": "Return that response through the fake CLI against a seeded blocker and inspect the ledger verdict and rendered Blockers section.",
+      "remedy": "Validate acceptance against known prior findings and their reported dispositions. Invalidate ACCEPT when a prior blocker is explicitly still-open, and include retained blockers in the rendered section without creating duplicate findings.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 562},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 717},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 789},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 851},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 1034}
+      ],
+      "claim": "An integer-valued location outside Int64 range throws during normalization instead of producing recorded validation failure, and cleanup can delete the only original response.",
+      "trigger": "An otherwise valid structured response contains locations[].line equal to 1e30.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult-common.ps1:556-562,715-717,774-789; codex-consult.ps1:851,918,926,1034-1035",
+          "observation": "Validation accepts integer-valued floating numbers, normalization casts them to long outside the JSON parse catch, and parsing precedes durable response writes. Finally removes the temporary last message."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Delegated memory-only PowerShell normalization probe",
+          "observation": "Parsing an otherwise valid response with line 1e30 threw a System.Int64 overflow conversion error rather than returning ValidationError."
+        }
+      ],
+      "verification": "Have the fake CLI return line 1e30 and confirm that the corrected bridge preserves the original response and records validation failure without ingesting findings.",
+      "remedy": "Align numeric bounds between schema, validation, and storage; catch normalization failures; and durably preserve the original response before fallible processing.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 595},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 752},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 851}
+      ],
+      "claim": "The bridge records verdicts incompatible with the consultation purpose because purpose-specific restrictions are never validated locally.",
+      "trigger": "An acceptance or diff-review response returns ADVISE, or a non-acceptance purpose returns ACCEPT.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult-common.ps1:595-596,752-753,799; codex-consult.ps1:626,851-857",
+          "observation": "The parser accepts the global four-value enum and receives only Text. The caller records its verdict without checking the resolved purpose."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Delegated memory-only ADVISE parser probe",
+          "observation": "ConvertFrom-StructuredReply returned Valid true and Verdict ADVISE; no subsequent caller check restricts acceptance verdicts."
+        }
+      ],
+      "verification": "Run the fake CLI with Purpose acceptance and a schema-shaped ADVISE response; inspect whether a verdict is recorded.",
+      "remedy": "Pass the resolved purpose into contextual semantic validation and suppress incompatible verdicts with an explicit validation error while retaining the response.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 361},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 368},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 381}
+      ],
+      "claim": "The revision fingerprint does not distinguish executable-mode changes when file content and porcelain status remain unchanged.",
+      "trigger": "On a filesystem with executable modes and Git mode tracking enabled, toggle the executable bit of an already content-modified tracked file; both states retain porcelain status ' M' and the same content blob.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult-common.ps1:351-381",
+          "observation": "Manifest entries contain XY, path, rename source, and a content blob or directory/deletion sentinel. They do not contain the file mode."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Same-content, same-status executable-mode change",
+          "observation": "Both states serialize to the same manifest despite differing execution behavior, defeating the design-review requirement to include types and modes."
+        }
+      ],
+      "verification": "In a disposable Unix repository with core.filemode=true, modify a tracked script, fingerprint it, toggle its executable bit without changing content, and compare fingerprints.",
+      "remedy": "Include the relevant file type and executable mode in each manifest entry, with explicit coverage rules for symlinks and platforms without mode tracking.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 254},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 276},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 374}
+      ],
+      "claim": "The blob lookup merges case-distinct paths, so the fingerprint can miss edits on a case-sensitive filesystem.",
+      "trigger": "Two changed files such as a.txt and A.txt coexist with different content; the later blob assignment overwrites the earlier case-insensitive dictionary key.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult-common.ps1:252-286,372-374",
+          "observation": "Get-GitBlobIds uses a PowerShell @{} hashtable for path keys and later retrieves each manifest blob through that map."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Memory-only Get-GitBlobIds probe with mocked Invoke-GitCapture",
+          "observation": "Supplying paths a.txt and A.txt with distinct returned hashes produced key_count=1 and hash_upper for both lookups."
+        }
+      ],
+      "verification": "On a case-sensitive filesystem, fingerprint two already-modified case-distinct files, then change only the file whose hash is overwritten and confirm the fingerprint changes.",
+      "remedy": "Use an explicitly ordinal, case-sensitive path dictionary where the filesystem permits distinct names, or preserve blob results by entry position instead of a case-insensitive map.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 408},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 429},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 791},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 969}
+      ],
+      "claim": "Brief and artifact bindings can describe bytes different from those reviewed because these inputs are hashed only once and are not checked after the consultation.",
+      "trigger": "The brief under the excluded collaboration directory, or an ignored/external artifact, changes after its initial hash and before or during the model's read.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult.ps1:408,429,469,791-792,969-971; codex-consult-common.ps1:357-359,395",
+          "observation": "Brief and artifact hashes are computed before acquiring the task lock. The after-review comparison recomputes only the source-tree fingerprint, which excludes collaboration and ignored files."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Excluded-input mutation",
+          "observation": "The model can consume changed brief or artifact bytes while the ledger retains the earlier hash and tree_changed_during_review remains false."
+        }
+      ],
+      "verification": "Use a delayed fake review, modify the excluded brief or artifact after launch, and check that the run reports binding drift rather than retaining an apparently stable binding.",
+      "remedy": "Hash these inputs under the acquired lock and rehash them after the review, recording drift independently of source-tree drift; immutable input copies would provide stronger binding.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 779},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 1037},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 1145},
+        {"path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 1238}
+      ],
+      "claim": "Task ownership can be released or reclaimed while the prior Codex process is still running.",
+      "trigger": "Timeout termination reports surviving descendants, or the bridge process dies while its separately launched Codex child survives.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult.ps1:779-781,999,1033-1037; codex-consult-common.ps1:1103,1143-1146,1238-1242",
+          "observation": "Known survivors change only the failure message; finally still releases the lock. Stale ownership is decided solely from the bridge PID and start time, without proving its child tree has stopped."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Surviving-child ownership sequence",
+          "observation": "A subsequent invocation can resume the same thread or mutate task state while the earlier Codex invocation remains active."
+        }
+      ],
+      "verification": "In an isolated harness, force termination failure for one descendant and separately terminate only the bridge parent; verify that a second consultation cannot acquire ownership while the old child remains active.",
+      "remedy": "Supervise the child tree with an appropriate job/process-group lifetime mechanism. Preserve a recovery/quarantine state when termination cannot be confirmed, rather than unconditionally unlocking or treating the parent's death as sufficient.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 928},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 1032},
+        {"path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 1034}
+      ],
+      "claim": "Failure to save the required raw response companion still permits successful delivery bookkeeping and deletes the temporary original.",
+      "trigger": "All File.Copy attempts for the .reply.json destination fail while Markdown and ledger writes remain possible.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "codex-consult.ps1:923-931,954,972,989-1035",
+          "observation": "Copy failure prints a warning and clears replyJsonRel but leaves bridgeOutcome as usable reply. The script can exit 0, and finally deletes lastMsgPath."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Raw-companion write failure",
+          "observation": "The required byte-preserved evidence is lost, while the Markdown header was already constructed with its planned companion reference and structured findings may still be committed."
+        }
+      ],
+      "verification": "Inject a copy failure only for the raw companion in a fake consultation and inspect exit status, ledger outcome, header links, and retention of the original response.",
+      "remedy": "Treat failure to preserve the mandatory response artifact as a persistence failure, retain a recoverable original, and publish consistent file references only after preservation succeeds.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [],
+  "unproven": [
+    "The implementer's reported writing harness was not rerun; this review used source inspection, PowerShell parsing, and memory-only probes.",
+    "Actual crash recovery, concurrent stale-lock reclamation, and failed process-tree termination require isolated fault-injection tests.",
+    "PowerShell 7, case-sensitive filesystems, executable-mode handling, and live structured new/resume behavior were not exercised.",
+    "This consultation's final response files, findings ingestion, ledger commit, and lock release occur after this answer and cannot yet be verified.",
+    "Two source fingerprint samples differed during the review: 29b6d98552e55eb3f25b185609494b52a3785510729f440246d4be281772dffa and 1ab7ab74914246f882fa2169db0703f8d91d6859da6f97ca61f732944866bb64; acceptance must be repeated against a stable final revision."
+  ],
+  "first_run_checklist": [
+    "Observe handoffs/04-codex-acceptance-0.2.md, its .reply.json companion, and its .events.jsonl file. Confirm the raw companion preserves the final response and parses as schema version 1.",
+    "Observe thread.started and successful turn completion in the events. The ledger must record mode fork, parent_thread 01a0cff8-4583-7110-8730-5fda5333d388, and the resulting thread from that event with thread_source events.",
+    "Observe the appended consultation entry, expected n=2 from the inspected ledger, with purpose acceptance, structured=true, empty validation_error, bridge_outcome usable reply, verdict HOLD, four blockers, and seven majors. Preserve the earlier consultation entry.",
+    "Observe exactly eleven proposed findings F04-1 through F04-11, in response order, with preserved claims, locations, evidence, verification, remedy, and source references matching this consultation. The ledger finding_ids must match them exactly.",
+    "Observe that the Markdown's final review sections are Verdict, Blockers, Unproven scenarios, and First-run checklist, and that all four blocker IDs are rendered.",
+    "Check the full base commit, source fingerprints before and after, brief SHA-256, changed-file count, and fingerprint exclusions. Any observed drift must be reported and must prevent treating this run as acceptance of a stable release revision.",
+    "Compare ledger usage with turn.completed usage; unavailable counters must remain unknown. Confirm wall_seconds, effort, schema, and artifact paths agree with the invocation.",
+    "After the bridge exits, confirm its lock is removed and List -All reports the expected findings with no orphan entries. Exit code 0 establishes delivery of HOLD, not release approval.",
+    "Before release acceptance, demonstrate recovery and concurrency fixes with interrupted-write, checks-only orphan, two-contender stale-lock, prior-blocker ACCEPT, normalization-overflow, and raw-companion failure fixtures."
+  ]
+}

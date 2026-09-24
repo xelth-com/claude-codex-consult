@@ -1,0 +1,28 @@
+{
+    "task_id":  "multi-model-2026-09-23",
+    "cwd":  "C:\\Users\\Dmytro\\claude-codex-consult",
+    "codex":  {
+                  "tool":  "codex-cli 0.155.1",
+                  "consults":  [
+                                   {
+                                       "n":  1,
+                                       "when":  "2026-09-23T22:52:04+02:00",
+                                       "parent_thread":  "01a0cff8-4583-7110-8730-5fda5333d388",
+                                       "thread":  "01a0d00a-392b-7fe1-9f46-e89d96ecfdde",
+                                       "thread_source":  "events",
+                                       "mode":  "fork",
+                                       "command":  "codex exec --sandbox read-only --color never --json -c model_reasoning_effort=\"high\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-d6ae61850ada424489d03005fd0f5d4f.md fork 01a0cff8-4583-7110-8730-5fda5333d388 -",
+                                       "brief":  ".collab/multi-model-2026-09-23/handoffs/01-claude-third-model.md",
+                                       "prompt_chars":  491,
+                                       "reply":  "handoffs/02-codex-third-model.md",
+                                       "events":  "handoffs/02-codex-third-model.events.jsonl",
+                                       "model":  "config default",
+                                       "effort":  "high",
+                                       "sandbox":  "read-only",
+                                       "reviewed_revision":  "6483ec4 + uncommitted",
+                                       "outcome":  "usable reply",
+                                       "wall_seconds":  84.1
+                                   }
+                               ]
+              }
+}

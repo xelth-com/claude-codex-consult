@@ -12,3 +12,9 @@ Thumbs.db
 ehthumbs.db
 desktop.ini
 *~
+
+# Bridge runtime files inside a task directory. .consult.lock is a permanent,
+# informational ownership file (never delete it); .consult.pending.json exists
+# only during or after an interrupted consultation. Neither belongs in history.
+.consult.lock
+.consult.pending.json

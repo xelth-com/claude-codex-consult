@@ -1,0 +1,49 @@
+{
+  "schema_version": "1",
+  "verdict": "ADVISE",
+  "verdict_reason": "Invalidation strategy judged; this consult did not ask for an accept/reject decision.",
+  "reply_markdown": "**Q1 — Generation counter, yes, but not for the reason you gave.** The 50k evictions are\nnot the strongest argument: `moka`'s invalidate is cheap and you could batch them after\nthe transaction commits. The stronger argument is correctness under concurrency. With\ndirect eviction you have a read-repopulate window: a reader that misses, reads the old\nrow, then loses the race to your eviction, writes a stale entry that now lives for the\nfull TTL. A generation bump closes that window because the reader's key becomes\nunreachable regardless of when it writes. Take option 2.\n\nThe stranded-entry cost is real but bounded and self-correcting: `moka` evicts by size\nunder pressure before the TTL matters, so the worst case is not \"two working sets\" but\n\"one working set plus whatever fits\". Set an explicit max capacity if you have not.\n\n**Q2 — Put the generation in the key, not a side table.** A side table means every read\nbecomes two lookups, and when this moves to Redis that is two round trips instead of\none, which is exactly the cost you are trying to avoid by caching. In the key, the\ngeneration is free on read: you already have `(tenant_id, resource_kind)` in hand at\nlookup time, so you fetch the generation from a small in-process map (one entry per\ntenant/kind pair, not per resource) and concatenate.\n\nFor the Redis move, that same generation map is the only thing that needs to become\nshared state, and it is small and monotonic — which is the easiest possible thing to\nput in Redis. Compare that to migrating a side table of per-key versions.\n\n**Q3 — Yes: the rollback case you named, and one you did not.** Bumping the generation\nbefore the transaction commits is safe if the transaction rolls back (you lose cache\nentries, you do not serve stale data). Bumping it *after* commit is the dangerous\nordering: between commit and bump, readers populate the cache from the new row under the\n*old* generation, and those entries survive the bump only if... they do not, actually —\nthey are unreachable too. So post-commit bump is also safe against staleness, it just\nstrands more. Bump before commit; treat the generation as a lower bound on freshness,\nnever an exact version.\n\nThe failure mode you did not name is generation overflow-by-restart: if the counter\nlives in process memory and resets to 0 on restart, a surviving external cache (once you\nmove to Redis) will serve entries written under a *higher* generation from the previous\nprocess lifetime. Seed the counter from wall-clock milliseconds at startup rather than\nfrom 0, or persist it. Cheap now, painful later.\n\n**Q4 — One thing.** `src/api/resource.rs:248` holds the write transaction across the\nwhole 50k-row import, which means the generation bump — whenever you place it — is\ninvisible to readers until that transaction commits, i.e. potentially for minutes. For\nthe duration, readers serve pre-import data from cache *and* from the database\nconsistently, so this is not a correctness bug, but it does mean \"invalidation happened\"\nand \"readers see new data\" are minutes apart for imports. If that matters to a caller,\nchunk the import transaction; if it does not, write the assumption down next to the bump\nso the next reader of this code does not rediscover it.\n\nI would not start with option 1 as an optimisation for single-row paths. Two\ninvalidation mechanisms in one cache is how you get a bug that only reproduces under\nload. Add it only if profiling says the stranded entries cost you something measurable.",
+  "findings": [
+    {
+      "severity": "major",
+      "locations": [],
+      "claim": "A process-local generation counter that resets to 0 on restart will serve entries from a stale generation once a shared cache backend (e.g. Redis) replaces the in-process store.",
+      "trigger": "the process restarts and a surviving shared cache still holds entries written under a higher generation from the previous process lifetime",
+      "evidence": [
+        { "kind": "inferred", "reference": "design as described in the brief (generation counter not yet implemented)", "observation": "no persistence or non-zero seeding of the counter was planned" }
+      ],
+      "verification": "before implementing, confirm the counter seed strategy (wall-clock milliseconds at startup, or a persisted value) rather than a restart-to-zero counter",
+      "remedy": "seed the counter from wall-clock milliseconds at startup, or persist it across restarts",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [ { "path": "src/api/resource.rs", "line": 248 } ],
+      "claim": "The bulk import holds one write transaction across the whole ~50k-row batch, so a generation bump placed inside it is invisible to readers until the transaction commits — potentially minutes of visible staleness.",
+      "trigger": "a caller reads cached data during a large import, before the import's single transaction commits",
+      "evidence": [
+        { "kind": "read-code", "reference": "src/api/resource.rs:248", "observation": "the import path holds the write transaction for the entire batch" }
+      ],
+      "verification": "measure the commit-to-visible gap for a representative import in a load test",
+      "remedy": "chunk the import transaction if the staleness window matters to a caller; otherwise document the assumption next to the bump",
+      "supersedes": []
+    },
+    {
+      "severity": "note",
+      "locations": [],
+      "claim": "Adding direct per-key eviction (option 1) alongside the generation counter later, as a single-row optimisation, risks a bug that only reproduces under load.",
+      "trigger": "a future change adds direct eviction on the single-row write paths without removing the generation mechanism",
+      "evidence": [
+        { "kind": "assumed", "reference": "", "observation": "not yet implemented; flagged as a risk rather than an observed defect" }
+      ],
+      "verification": "profile before adding a second invalidation mechanism; add it only if stranded-entry cost is measurable",
+      "remedy": "keep a single invalidation mechanism (the generation counter) until profiling justifies a second",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [],
+  "unproven": [
+    "Whether moka's size-based eviction under pressure actually keeps the stranded-entry cost bounded in this workload has not been measured."
+  ],
+  "first_run_checklist": []
+}

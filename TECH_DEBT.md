@@ -11,10 +11,22 @@ seven-wave task with three consultations. Ordered by the damage they did.
   next review caught. Fix: give every finding a stable id and track it through
   proposed → implemented → verified, with the trigger, the source evidence and the regression
   result, in the ledger (`sessions.json` or a `findings.json` beside it).
+  **Status (0.2.0): shipped** — `findings.json`, ids `F<NN>-<k>`, `codex-findings.ps1` with a
+  full status lifecycle (`proposed → implemented → verified`, plus `rejected`/`wontfix`/
+  `superseded` and an explicit reopen) and an audit-trail `history[]` per finding. `verified`
+  requires `-Evidence`, not just a note, per the design-review amendment.
 - **T2 — Reviews are not bound to what was reviewed.** The ledger records "commit + uncommitted",
   which cannot distinguish two successive reviewed trees. Fix: record the base commit, a hash
   of the diff or of the reviewed files, and the hash of any built artifact, for every review
   and every test result quoted in a brief.
+  **Status (0.2.0): shipped**, revised from a diff hash to a manifest hash (`tree_sha256`) after
+  the design review: a diff hash cannot represent a rename, a tree manifest (status + blob hash
+  + path per `git status -uall`) can, and it is taken before and after the run to catch a tree
+  that changed mid-review. `-Artifact` binds built artifacts. Deferred: binding a quoted test
+  result to its own tested revision has no dedicated field yet — the coordinator names the
+  tested revision in `codex-findings.ps1 -Evidence`, and the status-change record still carries
+  the fingerprint of the moment it was made. An immutable snapshot of the reviewed tree was
+  also deferred; the before/after fingerprint flags drift instead of preventing it.
 - **T3 — Execution outcome and review verdict are conflated; state can drift.** "usable reply"
   in the ledger means the bridge worked, not that the work was approved; a delivered HOLD looks
   like any other entry. Coordinator-written summaries also drifted from the reply they
@@ -23,7 +35,17 @@ seven-wave task with three consultations. Ordered by the damage they did.
   verbatim rather than paraphrasing; reconcile the task state before every handoff; record
   task/thread parentage; add an active-session guard so two coordinators cannot resume the
   same thread concurrently.
+  **Status (0.2.0): shipped** — `bridge_outcome` and `verdict` are separate ledger fields;
+  the skill's step 0 requires reconciling `codex-findings.ps1 -List` before a review brief;
+  `.consult.lock` (atomic create, pid + start-time + nonce, process-tree timeout kill) blocks
+  concurrent consultations on one task from the same host. Deferred: cross-host lock takeover
+  is cut entirely (a foreign-host lock is always refused, removed by hand once its owner is
+  confirmed dead), and thread-scoped exclusion (one thread, one task directory) is documented
+  as a constraint rather than enforced by the script.
 - **T4 — Briefs repeat what the resumed thread already holds.** A `resume` carries the
   history, yet briefs re-told it at 500–1000 words. Fix: with R2's template, a checkpoint
   brief is the delta plus pointers. History is not an authoritative current-state record,
   though, so the delta must state the CURRENT invariants, not only what changed.
+  **Status (0.2.0): shipped** — `templates/brief-review.md` has a dedicated "Delta since the
+  last review" section and a separate "CURRENT invariants claimed" section, so a checkpoint
+  brief cannot collapse into a changelog.

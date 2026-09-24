@@ -1,0 +1,84 @@
+{
+  "_comment": "FABRICATED EXAMPLE - ids, hashes and timings are invented. The real file has no _comment field.",
+  "task_id": "example-task",
+  "findings": [
+    {
+      "id": "F02-1",
+      "status": "proposed",
+      "severity": "major",
+      "locations": [],
+      "claim": "A process-local generation counter that resets to 0 on restart will serve entries from a stale generation once a shared cache backend (e.g. Redis) replaces the in-process store.",
+      "trigger": "the process restarts and a surviving shared cache still holds entries written under a higher generation from the previous process lifetime",
+      "evidence": [
+        { "kind": "inferred", "reference": "design as described in the brief (generation counter not yet implemented)", "observation": "no persistence or non-zero seeding of the counter was planned" }
+      ],
+      "verification": "before implementing, confirm the counter seed strategy (wall-clock milliseconds at startup, or a persisted value) rather than a restart-to-zero counter",
+      "remedy": "seed the counter from wall-clock milliseconds at startup, or persist it across restarts",
+      "supersedes": [],
+      "superseded_by": [],
+      "source": {
+        "consult": 3,
+        "reply": "handoffs/02-codex-cache-invalidation.md",
+        "thread": "01a0c86e-5193-7d70-a644-63a5c3f224b3",
+        "base_commit": "4e9cc4f0aa21bd4e13c8f0a6e5d9b2c7f1a34567",
+        "tree_sha256": "9c2ad3e1f7006b4a8d2c5e0f3b6a9c1d4e7f0a3b6c9d2e5f8a1b4c7d0e3f6a9"
+      },
+      "history": [
+        { "when": "2026-09-22T11:24:27+02:00", "status": "proposed", "by": "codex-consult", "note": "", "evidence": "", "base_commit": "4e9cc4f0aa21bd4e13c8f0a6e5d9b2c7f1a34567", "tree_sha256": "9c2ad3e1f7006b4a8d2c5e0f3b6a9c1d4e7f0a3b6c9d2e5f8a1b4c7d0e3f6a9" }
+      ],
+      "reviewer_checks": []
+    },
+    {
+      "id": "F02-2",
+      "status": "proposed",
+      "severity": "minor",
+      "locations": [ { "path": "src/api/resource.rs", "line": 248 } ],
+      "claim": "The bulk import holds one write transaction across the whole ~50k-row batch, so a generation bump placed inside it is invisible to readers until the transaction commits - potentially minutes of visible staleness.",
+      "trigger": "a caller reads cached data during a large import, before the import's single transaction commits",
+      "evidence": [
+        { "kind": "read-code", "reference": "src/api/resource.rs:248", "observation": "the import path holds the write transaction for the entire batch" }
+      ],
+      "verification": "measure the commit-to-visible gap for a representative import in a load test",
+      "remedy": "chunk the import transaction if the staleness window matters to a caller; otherwise document the assumption next to the bump",
+      "supersedes": [],
+      "superseded_by": [],
+      "source": {
+        "consult": 3,
+        "reply": "handoffs/02-codex-cache-invalidation.md",
+        "thread": "01a0c86e-5193-7d70-a644-63a5c3f224b3",
+        "base_commit": "4e9cc4f0aa21bd4e13c8f0a6e5d9b2c7f1a34567",
+        "tree_sha256": "9c2ad3e1f7006b4a8d2c5e0f3b6a9c1d4e7f0a3b6c9d2e5f8a1b4c7d0e3f6a9"
+      },
+      "history": [
+        { "when": "2026-09-22T11:24:27+02:00", "status": "proposed", "by": "codex-consult", "note": "", "evidence": "", "base_commit": "4e9cc4f0aa21bd4e13c8f0a6e5d9b2c7f1a34567", "tree_sha256": "9c2ad3e1f7006b4a8d2c5e0f3b6a9c1d4e7f0a3b6c9d2e5f8a1b4c7d0e3f6a9" }
+      ],
+      "reviewer_checks": []
+    },
+    {
+      "id": "F02-3",
+      "status": "proposed",
+      "severity": "note",
+      "locations": [],
+      "claim": "Adding direct per-key eviction (option 1) alongside the generation counter later, as a single-row optimisation, risks a bug that only reproduces under load.",
+      "trigger": "a future change adds direct eviction on the single-row write paths without removing the generation mechanism",
+      "evidence": [
+        { "kind": "assumed", "reference": "", "observation": "not yet implemented; flagged as a risk rather than an observed defect" }
+      ],
+      "verification": "profile before adding a second invalidation mechanism; add it only if stranded-entry cost is measurable",
+      "remedy": "keep a single invalidation mechanism (the generation counter) until profiling justifies a second",
+      "supersedes": [],
+      "superseded_by": [],
+      "source": {
+        "consult": 3,
+        "reply": "handoffs/02-codex-cache-invalidation.md",
+        "thread": "01a0c86e-5193-7d70-a644-63a5c3f224b3",
+        "base_commit": "4e9cc4f0aa21bd4e13c8f0a6e5d9b2c7f1a34567",
+        "tree_sha256": "9c2ad3e1f7006b4a8d2c5e0f3b6a9c1d4e7f0a3b6c9d2e5f8a1b4c7d0e3f6a9"
+      },
+      "history": [
+        { "when": "2026-09-22T11:24:27+02:00", "status": "proposed", "by": "codex-consult", "note": "", "evidence": "", "base_commit": "4e9cc4f0aa21bd4e13c8f0a6e5d9b2c7f1a34567", "tree_sha256": "9c2ad3e1f7006b4a8d2c5e0f3b6a9c1d4e7f0a3b6c9d2e5f8a1b4c7d0e3f6a9" }
+      ],
+      "reviewer_checks": []
+    }
+  ]
+}
