@@ -159,6 +159,25 @@ Base commit: `6483ec4`. Coordinator: Claude Code. Reviewer: Codex (thread `01a0c
   defect of the sequential runs.
 - No status change: F06-1/2/3 and F04-10 stay `implemented` until round 4.
 
+## Platform verification (2026-09-24, after commit 9e2a970)
+
+- **PowerShell 7.6 on Windows** (installed via winget): all four harnesses green under pwsh (3b 9/9, fixes 45/45,
+  pending 26/26, lock2 10/10) after one PS7-only fix - pwsh's `ConvertFrom-Json` turns ISO-8601 strings into
+  `[datetime]`, so a recorded start time no longer compared equal to the live one and a live lock holder was
+  reported as "a live process" instead of by pid; four reads in the common library now normalise through the
+  JSON-text helper. 5.1 re-run: no regression.
+- **Linux (WSL Ubuntu 24.04, pwsh 7.6, native ext4, bash fake codex)**: dry run, full structured run, flock
+  contention (second consult and `-Status` refused, `-List` works, lock inode unchanged), timeout with the tree
+  killed and no survivors, `launching`/`survivors` recovery through the `ps` scan, `chmod +x` changing the
+  fingerprint, `$HOME/.codex`, atomic findings replacement - all pass after three Linux-only fixes: start-time
+  comparison with a one-second tolerance off Windows (a live codex child was being declared a reused pid and a
+  second consultation started beside it), the holder's own lock file read via `cat` off Windows (the advisory
+  lock blocked a shared FileStream read), and the timeout kill taking the root before the children. Left as
+  known: atomic replace resets Unix permission bits; invariant date format in messages. macOS not exercised.
+- Both fix sets landed in `codex-consult-common.ps1` concurrently in different functions; the merged file
+  parses on 5.1 and 7, and the Windows harnesses were re-run on 5.1 afterwards (see the commit that records
+  this section).
+
 ## Round 4 - second re-acceptance after waves 3 and 3b
 
 POSTPONED on 2026-09-24 (~02:00) by the operator: the reviewer is unavailable for now. Everything is ready:

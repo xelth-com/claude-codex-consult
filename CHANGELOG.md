@@ -119,6 +119,23 @@ finding across both rounds was fixed and verified before this release. Full trai
 
 None.
 
+### Fixed
+
+- PowerShell 7 only: `ConvertFrom-Json` in pwsh converts ISO-8601 strings to `[datetime]`,
+  so the recorded start time of a lock holder or codex child no longer compared equal to
+  the live process's start time and a live holder was reported as "a live process" instead
+  of by pid (and, in the recovery check, could be mistaken for a reused pid). The four
+  affected reads now normalise the value back to JSON text. Found by the first pwsh run
+  of the harnesses (2026-09-24); Windows PowerShell 5.1 was never affected.
+- Linux only (first run on WSL Ubuntu 24.04 with pwsh 7.6, 2026-09-24): a process start
+  time read through .NET on Linux can differ by under a second between readers, so the
+  exact comparison declared a live codex child a reused pid and let a second consultation
+  start beside it (now a one-second tolerance off Windows, exact on Windows); the holder's
+  own lock file could not be read back through a shared `FileStream` because the advisory
+  lock blocked it, so refusals named "a live process" instead of the pid (read via `cat`
+  off Windows); the timeout kill stopped children before the root, leaving the root a
+  window to spawn more (root first now).
+
 ### Known limitations
 
 - Cross-host lock takeover is not implemented — a lock left by another host that names
@@ -130,10 +147,11 @@ None.
 - No immutable snapshot of the reviewed tree; the before/after fingerprint (now also
   taken for the brief and every artifact) flags a changed input instead of preventing
   the race.
-- The Unix branch of the recovery check (the `flock`-based lock share mode, and the
-  `ps` scan `Find-CodexProcesses` falls back to for a `launching`-state record) is
-  unexercised: the development machine has no `pwsh` install to run it on. Windows
-  (`Win32_Process`) is exercised.
+- macOS is not exercised; the Linux run (WSL Ubuntu, pwsh 7.6) covers the same pwsh
+  code paths (`flock` share mode, `ps` scan, `pgrep` tree kill), but no macOS machine
+  was available.
+- On Unix the atomic replace of a store resets its permission bits to the default;
+  messages render dates in an invariant format on every platform.
 
 ## [0.1.1] - 2026-09-23
 

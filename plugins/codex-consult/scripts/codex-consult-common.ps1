@@ -1459,6 +1459,24 @@ function Get-ProcessStartIso {
     try { return $p.StartTime.ToUniversalTime().ToString('o', $script:Invariant) } catch { return '' }
 }
 
+# Do two start times (UTC round-trip strings from Get-ProcessStartIso) name the same
+# process start? Windows reports a process's start time exactly. .NET on Linux derives
+# Process.StartTime from a boot time that every process computes for itself
+# (CLOCK_REALTIME_COARSE - CLOCK_BOOTTIME), so two processes reading the SAME pid get
+# values a few milliseconds apart. Outside Windows, less than one second apart counts
+# as the same start (a pid is not handed out again that fast).
+function Test-SameStartTime {
+    param([string]$A, [string]$B)
+    if ($A -eq $B) { return $true }
+    if ($script:OnWindows) { return $false }
+    $ta = [DateTimeOffset]::MinValue
+    $tb = [DateTimeOffset]::MinValue
+    $styles = [System.Globalization.DateTimeStyles]::AssumeUniversal
+    if (-not [DateTimeOffset]::TryParse($A, $script:Invariant, $styles, [ref]$ta)) { return $false }
+    if (-not [DateTimeOffset]::TryParse($B, $script:Invariant, $styles, [ref]$tb)) { return $false }
+    return ([math]::Abs($ta.UtcTicks - $tb.UtcTicks) -lt [TimeSpan]::TicksPerSecond)
+}
+
 # A pid counts as alive when a process with that id exists and - if a start time was
 # recorded for it - still has that start time (otherwise the pid was reused).
 function Test-PidAlive {
@@ -1466,7 +1484,7 @@ function Test-PidAlive {
     if ($ProcessId -le 0) { return $false }
     $live = Get-ProcessStartIso -ProcessId $ProcessId
     if ($null -eq $live) { return $false }
-    if ($StartTime -and $live -and $live -ne $StartTime) { return $false }
+    if ($StartTime -and $live -and -not (Test-SameStartTime -A $live -B $StartTime)) { return $false }
     return $true
 }
 
@@ -1476,19 +1494,27 @@ function New-LockRefusal {
 }
 
 # Content of a lock file without taking it (for messages): the parsed record, or
-# $null when the file is absent, held exclusively, empty or unparseable.
+# $null when the file is absent, held exclusively, empty or unparseable. Outside
+# Windows, every FileStream .NET opens takes an advisory flock (LOCK_SH for a shared
+# open), which the holder's LOCK_EX refuses: there `cat` reads it (it takes no lock).
 function Read-LockContent {
     param([string]$Path)
     if (-not [IO.File]::Exists($Path)) { return $null }
     $text = ''
-    try {
-        $fs = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+    if ($script:OnWindows) {
         try {
-            $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $true)
-            $text = $sr.ReadToEnd()
-        } finally { $fs.Dispose() }
-    } catch { return $null }
-    if (-not $text.Trim()) { return $null }
+            $fs = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+            try {
+                $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $true)
+                $text = $sr.ReadToEnd()
+            } finally { $fs.Dispose() }
+        } catch { return $null }
+    } else {
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try { $text = ((@(& cat -- $Path 2>$null)) -join "`n") } catch { $text = '' } finally { $ErrorActionPreference = $previous }
+    }
+    if (-not $text -or -not $text.Trim()) { return $null }
     $obj = $null
     try { $obj = ConvertFrom-Json -InputObject $text } catch { return $null }
     if (Test-IsJsonObject $obj) { return $obj }
@@ -1519,7 +1545,7 @@ function Enter-TaskLock {
             $candidate = Read-LockContent -Path $path
             $cpid = 0
             if ($candidate -and [int]::TryParse([string](Get-PropertyValue $candidate 'pid' ''), [ref]$cpid) -and
-                (Test-PidAlive -ProcessId $cpid -StartTime ([string](Get-PropertyValue $candidate 'start_time' '')))) { $holder = $candidate; break }
+                (Test-PidAlive -ProcessId $cpid -StartTime (ConvertTo-JsonText (Get-PropertyValue $candidate 'start_time' '')))) { $holder = $candidate; break }
             Start-Sleep -Milliseconds 125
         }
         $who = 'a live process'
@@ -1673,7 +1699,7 @@ function Test-RecordedProcess {
     $info = Get-ProcessInfo -ProcessId $ProcessId
     if (-not $info) { return [pscustomobject]@{ Alive = $false; How = 'gone' } }
     if ($StartTime -and $info.start) {
-        if ($info.start -ne $StartTime) { return [pscustomobject]@{ Alive = $false; How = 'pid reused (start time differs)' } }
+        if (-not (Test-SameStartTime -A $info.start -B $StartTime)) { return [pscustomobject]@{ Alive = $false; How = 'pid reused (start time differs)' } }
         if ($Name -and -not $info.name.Equals($Name, [StringComparison]::OrdinalIgnoreCase)) { return [pscustomobject]@{ Alive = $false; How = "pid reused (now $($info.name))" } }
         return [pscustomobject]@{ Alive = $true; How = 'pid + start time' }
     }
@@ -1781,7 +1807,7 @@ function Test-PendingActive {
     $pids = New-Object System.Collections.Generic.List[object]
     $cp = 0
     if ([int]::TryParse([string](Get-PropertyValue $Record 'child_pid' ''), [ref]$cp) -and $cp -gt 0) {
-        $pids.Add([pscustomobject]@{ pid = $cp; start = [string](Get-PropertyValue $Record 'child_start_time' ''); name = '' })
+        $pids.Add([pscustomobject]@{ pid = $cp; start = (ConvertTo-JsonText (Get-PropertyValue $Record 'child_start_time' '')); name = '' })
     }
     # survivors: { pid, start_time, name } entries; a bare pid (older record) has no
     # start time and is judged by the "looks like codex" rule, never by pid alone.
@@ -1791,7 +1817,7 @@ function Test-PendingActive {
         $sName = ''
         if ($null -ne $s -and $s -is [psobject] -and $s.PSObject.Properties['pid']) {
             [void][int]::TryParse([string]$s.pid, [ref]$sp)
-            $sStart = [string](Get-PropertyValue $s 'start_time' '')
+            $sStart = ConvertTo-JsonText (Get-PropertyValue $s 'start_time' '')
             $sName = [string](Get-PropertyValue $s 'name' '')
         } else {
             [void][int]::TryParse([string]$s, [ref]$sp)
@@ -1822,7 +1848,7 @@ function Test-PendingActive {
     # launching (or running/survivors without any pid): the child may exist unregistered
     if ($otherHost) { return (& $inactive "state '$state' from host $recHost without pids: treated as dead") }
     $since = [datetime]::MinValue
-    try { $since = [DateTimeOffset]::Parse([string](Get-PropertyValue $Record 'started' ''), $script:Invariant).LocalDateTime } catch { $since = [datetime]::MinValue }
+    try { $since = [DateTimeOffset]::Parse((ConvertTo-JsonText (Get-PropertyValue $Record 'started' '')), $script:Invariant).LocalDateTime } catch { $since = [datetime]::MinValue }
     $bridgePid = 0
     [void][int]::TryParse([string](Get-PropertyValue $Record 'pid' ''), [ref]$bridgePid)
     $scan = Find-CodexProcesses -Since $since -Launcher $launcher -BridgePid $bridgePid
@@ -1902,10 +1928,12 @@ function Stop-ProcessTree {
         if ($script:OnWindows) {
             try { & taskkill.exe /PID $rootId /T /F 2>$null | Out-Null } catch { }
         }
+        # The root before its descendants: a root that outlives its children reacts to
+        # their death (a shell or node shim carries on and may start new processes).
+        try { if (-not $Process.HasExited) { $Process.Kill() } } catch { }
         foreach ($d in $descendants) {
             try { Stop-Process -Id $d -Force -ErrorAction SilentlyContinue } catch { }
         }
-        try { if (-not $Process.HasExited) { $Process.Kill() } } catch { }
         try { $null = $Process.WaitForExit(10000) } catch { }
     } finally {
         $ErrorActionPreference = $previous
