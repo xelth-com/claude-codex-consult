@@ -211,6 +211,26 @@ optional participant whose "done" is never trusted and who never closes a findin
   hooks a host already runs (a SessionStart/Stop hook may print "panel <id> finished").
   Measured by the coordinator's blocked time per consultation (from the panel's wall clock
   to seconds) with unchanged ledger, findings and recovery semantics.
+- **R13 — Host invariance: the same bridge for a Codex-first (or any) coordinator (planned
+  for 0.5).** The bridge scripts already run from any coordinator - a Codex CLI session, Cursor,
+  a shell - and a reviewer needs no ChatGPT plan (a provider table with an `env_key`
+  authenticates on its own; the preflight checks `codex login status` only for `openai`).
+  What is Claude-Code-specific is the packaging: the `.claude-plugin` manifest, `hooks.json`,
+  `claude plugin eval`, the `${CLAUDE_PLUGIN_ROOT}` paths inside the two skills, and wording
+  that names Claude as the judge. R13 makes the host a parameter: (a) the skills reference
+  the bridge through one documented root variable with a plain-path fallback, so the same
+  SKILL.md files (they already follow the open Agent Skills format) install into
+  `~/.codex/skills`, Cursor or any host that reads SKILL.md; (b) an `install.ps1` that copies
+  the skills and prints the host-specific lines (Claude Code: enable the plugin; Codex: an
+  AGENTS.md snippet with the one command and the process; others: the SKILL.md path); (c)
+  the council text says "the coordinator" where it says "Claude" - the judge is whoever runs
+  the bridge, and the roster must then avoid consulting the coordinator's own model as a
+  reviewer (a lineage equal to the coordinator's model is a warning); (d) the SessionStart
+  availability line for hosts without hooks becomes a documented one-liner
+  (`codex-consult-hook.ps1`) the coordinator runs at the start of a session. Non-goals: a
+  second packaging format per host, a rename of the plugin or marketplace ids (installed
+  copies key on them); the short name **CCC** (Claude Codex Consult) is used in the docs.
+  Measured by one fresh Codex-CLI-coordinated consultation from the README alone.
 - **A fourth seat (e.g. MiMo-V2.6)** only after a capped project-local evaluation (seeded
   historical defects plus clean controls at a fixed budget) on an officially supported route;
   leaderboard rank is not that evidence. Consider replacing a role before adding a reviewer.

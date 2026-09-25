@@ -1,7 +1,11 @@
-# claude-codex-consult
+# claude-codex-consult (CCC)
 
 A Claude Code plugin (`codex-consult`, version 0.4.0). This README is written for the AI
 coding agent that installs, wires and uses the plugin; humans can follow the same steps.
+The bridge itself is host-neutral: the scripts run from any coordinator (a Codex CLI
+session, Cursor, a shell), and a reviewer reached through a provider table needs no ChatGPT
+plan - only the Claude Code packaging (manifest, hooks, evals, skill paths) is Claude's;
+making that packaging a parameter is ROADMAP R13.
 
 ## For the agent installing this
 
