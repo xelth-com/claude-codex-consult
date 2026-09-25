@@ -1,0 +1,197 @@
+{
+  "schema_version": "1",
+  "verdict": "ADVISE",
+  "verdict_reason": "The design is implementable and the options it lists are not wrong, but it leaves R11's own required change (activity judged by the recorded pid + start time only) untouched, which turns the panel into a source of false refusals and real numbering collisions, so the framing should be re-decided before acceptance.",
+  "reply_markdown": "**Verified (HEAD 3bd8a83, read-only).** Panel loop and member spec (`codex-consult.ps1:835-1010`), single-run critical section: lock, pending, numbering (1495-1620), commit order (2451 ingest -> 2585 reply -> 2590 findings -> 2669 sessions), `Get-NextNumbers` (common:750), `Add-ReplyFindings` (1284), `Test-PendingActive` (4721), `Find-CodexProcesses` (4624), `Get-CollabSnapshot`/`Compare-DirectorySnapshot` (624/654), `Get-EndpointHealth` (3661), `Select-ParentThread` (4208), `codex-findings.ps1` (360-433), fakes (`tests/fake-codex.ps1:26`). **Inferred, not executed:** wall clock, provider quota correlation, concurrent agy sign-in, `Start-Process` redirect encoding.\n\n**Framing.** The brief answers *how do N members share one task's mutable state* and never asks whether they must. Design points 2, 4, 5, 6, 7 exist only because members write the two stores and `handoffs/` themselves. Options it does not list: (a) per-member staging files plus one ordered commit by the parent, which is already the sole lock holder - this deletes the new write lock, the lost-update class and the Q2 residual; (b) name that staging directory `.consult.panel-<id>/`, because `Get-CollabSnapshot` already skips `.consult.*` (common:639), so an agy member's collab check needs *no* exemption at all - stricter than ROADMAP R11:193 asks; (c) members as sibling task directories under `.consult.panel-<id>/`, each running today's code untouched; (d) an append-only store (one file per consult) that needs no lock. To choose I would need to know: do provider quotas bind per account window (then all-at-once loses whole panels); does R12 `-Detach` land before this design (it wants the reserving process to return at once - incompatible with lock-holder = waiter/committer unless the holder is a nanny); and is R11's acceptance target only *wall clock = max*, or *max with no new failure modes*.\n\n**Q1** Sound for additive deltas (ids are deterministic from NN, common:1319; checks append; ledger insert by n), but not free: the design's own kill guard and 60 s give-up widen the window between findings.json and sessions.json, and the handoff is written *before* the commit from the stale ingest (2451 -> 2585), so its rendered section can contradict what the fresh store commits (supersedes resolution, retained blockers, prior statuses). Staging plus one ordered parent commit is safer: single writer, no write lock, and the parent already prints the summary. Its cost - a process that must outlive the panel - is one R12 will impose anyway.\n\n**Q2** The residual is self-inflicted. With staging, nothing a member writes is inside the monitored tree, so the stores stay monitored for free and no sibling prefixes are exempted. If members stay writers, at least keep the exemption to the ROADMAP minimum: the siblings' handoff files only.\n\n**Q3** No. Activity is judged by the *reviewer* process: the recorded bridge pid is used only as a parent for the descendant scan (common:4790), and once the reviewer exits nothing codex-like is alive, so a member still committing reads INACTIVE - a new run may then start (parent dead means no lock), find no ledger entry, handoff or finding for that NN, re-assign the same NN and write the same reply paths (finding #1). R11:187-188 already demands the survivor scan use the recorded pid + start time only; the design never touches `Test-PendingActive`. Do that, add the member's own bridge pid + start to its record, and an orphan member becomes safe to let finish.\n\n**Q4** Neither all-at-once nor 1: the knob is a count, but the constraint is a key. Default to one member per endpoint fingerprint, endpoints in parallel - two members of one plan fail together (finding #4).\n\n**Q5** One real assumption: `Select-ParentThread` walks the array backwards and takes the first lineage match (common:4245), so newest thread = last entry; with n-ordered insertion that becomes the highest-n member, which in a wave may have finished first (finding #9). `Get-NextNumbers:753` uses `@($Consults).Count` only as a floor; `Read-AllTaskConsults` flattens; `Get-EndpointHealth` sorts by `when` (order-independent, but `when` is the run start - finding #3); the scoreboard sorts by name/lineage/purpose; `codex-findings.ps1` builds `LedgerNs` from the entries, so ORPHAN detection is order-independent.\n\n## Requested checks\nRC1 (scratch clone, workspace-write, ~15 min): in a pane run the design's own case parent-killed-mid-panel, letting member 1's reviewer exit but delaying its commit, then kill the parent; in a second pane run `-Panel -DryRun` and read the n/NN it prints and the n the next real run takes. If a live orphan member's NN is re-assigned, finding #1 is confirmed.\nRC2 (scratch clone, workspace-write, ~5 min): leave a member record in state `running` with a dead child while a second fake codex sleeps 30 s, then run `codex-findings.ps1 -Task <t> -Id F01-1 -Status implemented`. A refusal naming that sleeping process confirms finding #2.\nRC3 (read-only, 2 min, any shell with the scripts): dot-source `codex-consult-common.ps1` and call `Get-EndpointHealth -Consults @(<entry A: fingerprint F, when t0, quota failure>, <entry B: fingerprint F, when t0+1s, usable reply>) -Fingerprint F < -UtcNow t0+5m >`. An empty `Quota` confirms finding #3.\nRC4 (scratch clone, workspace-write, ~5 min): run one panel member with stdout redirected to a file as the design proposes, then compare the file's bytes with the same member run through a pipe. Any change in the captured text settles the unproven encoding item.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 4721 },
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 4790 },
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 4807 },
+        { "path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 2590 },
+        { "path": "ROADMAP.md", "line": 187 }
+      ],
+      "claim": "Test-PendingActive decides 'active' from the reviewer/child processes only: the record's own bridge pid (`pid`) is never tested for liveness, it is only added to `parentPids` as a parent for the descendant scan. After the reviewer process has exited - i.e. for the whole commit phase, from the ingest at codex-consult.ps1:2451 to the ledger write at 2669 - nothing codex-like is alive, so a member that is still committing (or an orphan member whose parent died) reads INACTIVE. A new run may therefore start, and because no ledger entry, handoff file or finding id exists yet for that member's n/NN, Get-NextNumbers assigns the very same NN: two runs write `handoffs/<NN>-...` and `F<NN>-k` ids.",
+      "trigger": "A panel member is between its reviewer's exit and its ledger commit (seconds to the 60 s write-lock give-up) while the task lock is free - guaranteed by the design's own parent-death case (step 3 of the brief's questions) and by the parent's kill guard (step 8).",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4755-4810", "observation": "`reserved` returns inactive at 4755; the running/survivors branch tests only the recorded child/survivor pids (4756-4771) and then scans for descendants; the bridge pid from the record is used only as a scan parent (4790). No branch ever asks whether `pid` itself is alive." },
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult.ps1:2451, 2585, 2590, 2669", "observation": "The commit writes the reply file (2585) and findings.json (2590) before sessions.json (2669); during that window the only live process is the member's own PowerShell bridge, whose command line is `pwsh -File .../codex-consult.ps1` and does not match Get-CodexRule's codex patterns (common:4617-4623)." },
+        { "kind": "read-code", "reference": "ROADMAP.md:187-188", "observation": "R11 itself already requires 'the survivor scan by the recorded pid + start time only'; the design brief lists no change to Test-PendingActive or Find-CodexProcesses." }
+      ],
+      "verification": "RC1: run the design's parent-killed-mid-panel case with the member's commit delayed, then start a new run and compare the NN it takes with the orphan member's NN.",
+      "remedy": "Record the member's own bridge pid + start time in each per-member record and treat a live bridge (pid + matching start time) as active; restrict the fallback scan to recorded pids and their descendants for panel members instead of the machine-wide name rule.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 4807 },
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 4617 }
+      ],
+      "claim": "The fallback scan `Find-CodexProcesses -BridgePid 0` matches any codex/agy-looking process started at or after the record's `started`, explicitly 'task not verifiable' (common:4617-4623). During a concurrent panel a dead member's kept record (state survivors or running with dead pids) therefore reads ACTIVE because its live siblings match, and the refusal text tells the operator that a codex process is still running and to stop it - which would kill a healthy member. This is the exact failure R11 was written to remove (ROADMAP:184-188).",
+      "trigger": "Member 1 times out and keeps its record (state survivors) while members 2..N still run; any later Test-PendingActive over that record - a new run, or codex-findings.ps1 -Status - reports it active.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4805-4812", "observation": "After the recorded-pid checks fail it scans with BridgePid 0 and reports `a previous consultation's <cli> process ... is still running` with the matched pids." },
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4617-4623", "observation": "The function's own comment: the name rule 'cannot tell which task a consultation belongs to - such matches are labelled task not verifiable'." }
+      ],
+      "verification": "RC2: leave a dead member record and run a codex-findings.ps1 status change while a second fake codex sleeps.",
+      "remedy": "For panel member records never use the name rule: an OS-recorded pid + start time, and the panel id in the record, are the only evidence of liveness to accept.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 3661 },
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 3710 },
+        { "path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 2599 }
+      ],
+      "claim": "Get-EndpointHealth picks the newest record by `when`, and `when` is the run's START (`$startedAt = Get-Date` at 1943, recorded at 2599). Sequentially, start order equals finish order, so 'a later successful run clears an earlier failure' is sound. Concurrently it is not: of two members on one endpoint, the one that started later can succeed while the one that started earlier is still quota-failing; sorting by start then erases a genuine quota exhaustion, so the next run's preflight sees the endpoint as healthy.",
+      "trigger": "Two panel members share one provider fingerprint; member A starts first and fails with a quota limit observed after member B's success.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:3661-3725", "observation": "Records are built with `At = when`, sorted `Sort-Object -Property At -Descending` (3710), and the first non-ok quota record decides $h.Quota." },
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult.ps1:1943, 2599", "observation": "`when = (Get-IsoTimestamp $startedAt)` and `$startedAt = Get-Date` is taken immediately before the reviewer process starts, i.e. it is a start timestamp, never a completion one." }
+      ],
+      "verification": "RC3: call Get-EndpointHealth with a quota-failing entry (when t0) and a usable entry (when t0+1s) on the same fingerprint and inspect $h.Quota.",
+      "remedy": "Record a completion timestamp (or order by `when` + wall_seconds / finished_at) and let health use it; at minimum document that a concurrent panel can mask a quota failure.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        { "path": ".collab/parallel-panel-2026-09-25/handoffs/01-claude-r11-design.md", "line": null },
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 4119 }
+      ],
+      "claim": "`-PanelConcurrency <n>` is a count, but the constraint the design actually needs is a key: never two members on one endpoint. With the proposed default (0 = all at once) a roster whose entries share a provider plan (allowed - same label, different models, and the same (provider, model) is refused) fires N concurrent preflights and N concurrent turns against one account window; the failures are correlated, so a panel loses all its evidence at once, and per finding #3 the ledger then hides the cause. The wall clock is bounded by the slowest member anyway, so all-at-once only pays when the roster mixes endpoints.",
+      "trigger": "Default `-Panel` on a roster with two or more entries of one provider (e.g. two agy Gemini models, or two models on one plan).",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult.ps1:865-900, 920-1010", "observation": "Select-PanelMembers + per-member preflight/launch today; every member is refused or launched independently with no per-endpoint arbitration." },
+        { "kind": "inferred", "reference": "ROADMAP.md:176-181 (wall clock today = SUM, two-member framing panel 8-12 minutes)", "observation": "The measured gain is max instead of sum; a per-endpoint cap keeps nearly all of that gain for mixed rosters while removing the correlated-failure mode." }
+      ],
+      "verification": "Run a three-member panel whose members share one provider and compare per-member bridge_outcome and $h.Quota with the same panel at one member per endpoint.",
+      "remedy": "Make the knob a policy (per-endpoint cap, endpoints in parallel), with -PanelConcurrency kept as an explicit override; document the default's failure mode.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 4411 },
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 4444 }
+      ],
+      "claim": "Two new synchronisation points are specified by behaviour only, and both are hazardous under the panel's own kill semantics. (a) `.consult.write.lock` must be an OS-held handle exactly like Enter-TaskLock (open handle, release = close), because the panel deliberately kills members (design step 8) and a killed member inside its commit section would otherwise leave a stale ownership marker that blocks every later member for the full 60 s and converts a correct run into a recorded bridge failure. (b) The member's parent-proof (design step 5) rests on the lock file's informational record, whose write is deliberately best-effort (`try { ... } catch { }`, 4441-4448) and which today carries no `panel` field - a failed or stale record write makes the whole panel refuse with a misleading message.",
+      "trigger": "The parent kills a member during its commit (timeout + slack), or the parent's lock-record write fails / the file still holds a previous holder's record.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4376-4452", "observation": "The lock section comment states ownership is the OS handle and the content is 'informational only ... overwriting it destroys nothing recoverable'; the record write is wrapped in `catch { }`." },
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult.ps1:1495-1500", "observation": "The single-run path treats the lock as authority for the whole critical section, so any new lock must match these semantics." }
+      ],
+      "verification": "Kill a member with Stop-ProcessTree exactly while it holds the write lock; observe whether the next member commits immediately or stalls for 60 s and records a failure.",
+      "remedy": "Specify the write lock as an OS-held exclusive handle with a derived path (like Enter-TaskLock), and make the member's parent-proof fail-open only in a way that cannot refuse a whole panel (e.g. the member reads the record the parent wrote before launching it, or the panel id is passed in the spec and checked against the record's panel field with a clear refusal).",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 2451 },
+        { "path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 2585 },
+        { "path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 2590 }
+      ],
+      "claim": "Design step 6 re-applies the delta to a freshly read store but keeps the write order reply.json -> handoff .md -> findings.json -> sessions.json. The ingest the handoff renders (Format-StructuredSection) is the one computed from the store read at run start (2451) and is written at 2585, before the re-read; so the rendered section can contradict the committed store - resolved supersedes, retained blockers, prior statuses - while the design's id assertion only covers the new ids.",
+      "trigger": "A panel member whose reply names an id in supersedes or prior_findings that a sibling's commit created or changed after this member's start.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult.ps1:2451-2610", "observation": "Add-ReplyFindings runs on the start-of-run store, its result is rendered into $replyText and written at 2585, and findings.json is written later (2590)." },
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:1284-1418", "observation": "Add-ReplyFindings' outcome depends on the store passed in (unknown supersedes, unknown prior ids, retained blockers), so the same reply yields a different section on a fresh store." }
+      ],
+      "verification": "Force two panel members whose replies touch the same prior finding, then diff the handoff's rendered section against the committed findings.json.",
+      "remedy": "Recompute the ingest inside the commit section (under the write lock) and render the handoff from that result, or move the reply/handoff write after the store commit.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 750 },
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 4518 }
+      ],
+      "claim": "Design step 2 says numbering skips past every `.consult.pending*.json`, but Get-NextNumbers takes a single `$Leftover` record, and no one owns the recovery records of members the parent never launched (the parent writes all reserved records up front, step 4; only a member removes its own). A refused or skipped member leaves a `reserved` record for ever: it is never active, so nothing forces its consumption, and a later run that is not handed it re-takes that NN - after which the stale record's `reply` field names another run's file.",
+      "trigger": "A panel where a member is refused/skipped (own preflight, or the -PanelConcurrency 1 F15-3 rule) and the task is consulted again later.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:750-806, 4518-4543", "observation": "Get-NextNumbers has one `$Leftover` parameter (750) and derives the NN floor from handoff names, finding ids and that one record; Remove-PendingFile removes exactly one path." },
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult.ps1:1613-1620, 2684-2685", "observation": "A run writes its own reserved record and removes it only on its own success path." }
+      ],
+      "verification": "Run a -Panel where one member is skipped, list `.consult.pending-*.json`, then run a single consultation and compare its NN with the leftover record's nn.",
+      "remedy": "Give the parent responsibility for removing the records of members it never launched (at summary time), and let numbering consume a set of records rather than one (pass them all to Get-NextNumbers).",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 1495 },
+        { "path": "plugins/codex-consult/scripts/codex-findings.ps1", "line": 423 }
+      ],
+      "claim": "Holding the task lock for the whole panel (design step 1) is an availability regression: `codex-findings.ps1` status changes and every other run of the task are refused for the panel's entire wall clock, where today they are refused only per member. The design also couples 'who holds the lock' to 'who waits and commits', which R12 (-Detach) explicitly wants to break; deciding that coupling now avoids doing it twice.",
+      "trigger": "Any panel run of more than a few minutes on a task whose findings the coordinator wants to mark while the panel runs.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-findings.ps1:423-433", "observation": "A status change takes the task lock and refuses when it cannot; the same lock the panel parent would hold." },
+        { "kind": "read-code", "reference": "ROADMAP.md:197-210 (R12)", "observation": "R12 plans '-Detach' that 'validates, locks and launches exactly as today but returns immediately', i.e. it needs the lock owner and the waiter to be separable." }
+      ],
+      "verification": "Start a panel with two slow members and run codex-findings.ps1 -Status from another shell at one third and two thirds of the panel; both should be refused under the design.",
+      "remedy": "Decide explicitly whether the lock-holder is the nanny (parent) or the committer; if a committer model is chosen, the panel can release the lock per member as today.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 4245 }
+      ],
+      "claim": "Select-ParentThread assumes array position is recency: it walks consults backwards and takes the first entry whose lineage matches. Under n-ordered insertion the 'newest thread' becomes the highest-n entry, i.e. the last roster member, which in a wave may have finished first; the next run of that lineage then forks from a thread that is not the most recently used one. Sequential panels hide this because n order equals finish order.",
+      "trigger": "After a concurrent panel, a follow-up single run (or a later panel) with no -Thread for a lineage that appears in the panel.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4240-4260", "observation": "The backwards loop assigns `$parent` to the first matching entry and the note says 'newest thread of lineage ... (consult n=<n>)' - newest is positional." },
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult.ps1:2650-2670", "observation": "The ledger entry is appended to the array; under the design it is inserted by n." }
+      ],
+      "verification": "Run a panel where the highest-n member finishes first, then a single consultation on that lineage and check the recorded parent_thread against the members' threads ordered by finish time.",
+      "remedy": "Order parent selection by the recorded `when`/completion time instead of array position (or record finished_at and use it), so 'newest' survives an out-of-order insert.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        { "path": "tests/fake-codex.ps1", "line": 26 },
+        { "path": "tests/fake-agy.ps1", "line": 96 }
+      ],
+      "claim": "The tests the brief proposes cannot run on today's fakes: fake-codex.ps1 supports one whole-run `FAKE_CODEX_SLEEP` in seconds, and fake-agy.ps1 only hang modes - there is no per-model delay keyed by the `-m` model, so the overlap, roster-order and timeout cases need new fake behaviour (and the fakess' argument parsing extended to read the model).",
+      "trigger": "Writing the concurrency cases of the design's test list.",
+      "evidence": [
+        { "kind": "read-code", "reference": "tests/fake-codex.ps1:11,26; tests/fake-agy.ps1:37-58,96,150", "observation": "Only FAKE_CODEX_SLEEP, FAKE_CODEX_LOGIN=hang and FAKE_AGY_HANG* exist; none is model-keyed." }
+      ],
+      "verification": "Grep the fakes for a model-keyed delay env var; there is none.",
+      "remedy": "Extend the fakes with a per-model delay map (e.g. FAKE_CODEX_DELAY_MS as a JSON map by model) and a per-model reply, before writing the panel cases.",
+      "supersedes": []
+    },
+    {
+      "severity": "note",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 2590 },
+        { "path": "plugins/codex-consult/scripts/codex-findings.ps1", "line": 223 }
+      ],
+      "claim": "The two-store commit is not one transaction, so a member killed between findings.json and sessions.json leaves findings and reviewer checks whose consult has no ledger entry (ORPHAN). The window exists at HEAD for crashes, but the design makes it a designed event (the parent's kill guard and the kill-on-timeout path) and the brief's test list only covers 'a member timing out keeps its record while the others commit'.",
+      "trigger": "Parent kills a member after its findings.json write and before its sessions.json write.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult.ps1:2587-2670", "observation": "findings.json and sessions.json are separate atomic replaces, minutes apart only in the normal case." },
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-findings.ps1:214-241", "observation": "-List flags such findings and reviewer checks as ORPHAN." }
+      ],
+      "verification": "Kill a member exactly between the two writes and run codex-findings.ps1 -List -All; count the ORPHAN lines.",
+      "remedy": "Add a harness case for the killed-mid-commit member and state in the design that ORPHAN findings are the accepted cost (numbering never reuses their ids).",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [],
+  "unproven": [
+    "Whether provider quotas bind per account window: the correlated-failure argument for findings #3/#4 is inferred from the code, not measured.",
+    "Whether two concurrent agy members on one sign-in are safe (one CLI, one session store) - nothing in the repo constrains it.",
+    "Whether Start-Process with redirected stdout reproduces the members' output byte-for-byte as the pipe does today (the member sets [Console]::OutputEncoding; the parent must read the files with the same encoding).",
+    "The real wall-clock gain of a panel in this repository: no concurrency harness case exists yet, so the max-instead-of-sum claim is untested.",
+    "Whether the agy engine's own collab tree check tolerates a sibling's handoff files for reasons beyond the snapshot comparison (e.g. per-file reads)."
+  ],
+  "first_run_checklist": []
+}
