@@ -158,6 +158,42 @@ official headless client (the plan terms allow only the official clients; no
    bridge waits up to 45 s, and skips the call when the repository's ledgers hold a usable
    agy reply from the last 60 minutes (`ok: signed in (usable reply <m> min ago)`).
 
+## 3c. BytePlus ModelArk Coding Plan (a Codex provider)
+
+The international ModelArk Coding Plan (BytePlus, region ap-southeast-1; Lite 10 USD / month)
+bundles Dola-Seed (Doubao), GLM, DeepSeek, Kimi and gpt-oss behind one subscription quota
+and speaks the Responses API on its Codex base URL, so it is an ordinary provider table:
+
+```toml
+[model_providers.byteplus]
+name = "BytePlus ModelArk Coding Plan (ap-southeast-1)"
+base_url = "https://ark.ap-southeast.bytepluses.com/api/coding/v3"
+env_key = "BYTEPLUS_API_KEY"
+wire_api = "responses"
+```
+
+- The base URL MUST end in `/api/coding/v3`: the plain `/api/v3` is pay-as-you-go billing
+  and does not touch the plan quota. The plan's own rule: its key and base URL are for the
+  supported coding tools (Codex CLI is one) - other uses may be treated as abuse.
+- The user creates the API key in the ModelArk console ("API keys") and sets the variable
+  themselves (`setx BYTEPLUS_API_KEY <value>`, then a NEW terminal). You never handle it.
+- caps-v1 declares this host: vocabulary `low | medium | high` (`xhigh` -> `high`, mapping
+  `ark-v1`), 12 exact model names (`dola-seed-2.0-pro`, `dola-seed-2.0-lite`,
+  `dola-seed-2.0-code`, `bytedance-seed-code`, `glm-5.3-flash`, `glm-5.2`, `glm-5.1`,
+  `kimi-k2.5`, `gpt-oss-120b`, `deepseek-v4.1-flash`, `deepseek-v4-flash`, `deepseek-v4-pro`),
+  schema transport `prompt-only`. Any other model on that host is refused unless
+  `-NativeEffort` is passed. The plan's docs enable reasoning with the Codex option
+  `model_supports_reasoning_summaries = true`: pass it per entry as `"codex_config":
+  ["model_supports_reasoning_summaries=true"]` (some Kimi code models reject it - check the
+  first run's ledger).
+- Quota (Lite, the docs' estimate on `dola-seed-2.0-lite` in Claude Code): about 1,200
+  requests per sliding 5 hours, 9,000 per week, 18,000 per subscription month; Pro five
+  times that. One quota for every model and tool. No refunds; the subscription authorises
+  the vendor to use inputs and outputs for training.
+- Roster entries are ordinary codex entries: `{ "provider": "byteplus", "model": "kimi-k2.5",
+  "codex_config": ["model_supports_reasoning_summaries=true"] }`; the same label may carry
+  several models (one entry per model), each a lineage of its own.
+
 ## 4. Write the roster
 
 `<codex home>/codex-consult-roster.json`, first choice first:

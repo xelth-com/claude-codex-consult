@@ -194,6 +194,23 @@ optional participant whose "done" is never trusted and who never closes a findin
   single run beside a panel on one task are still refused by the lock), and any change to
   what a member sees. Measured by the panel's wall clock (max of the members instead of
   their sum) and by an unchanged per-member result set against the sequential harness cases.
+- **R12 — Non-blocking consultation (planned for 0.4.x, with or after R11).** Today a
+  consultation or a panel holds the coordinator's turn until the last reply is in (a
+  two-member framing panel: 8-12 minutes; three members: 20+). The coordinator should be
+  able to put a question to the panel, go on with other work, and come back to THAT question
+  when the panel has finished. Pieces: a `-Detach` switch that validates, locks and
+  launches exactly as today but returns immediately with the panel id and the path of a
+  status file (`<task>/.panel-<id>.status.json`: members, state per member, the summary
+  once written) instead of waiting; a `codex-panel.ps1 -Status <id>` (or
+  `codex-findings.ps1 -List`) that prints the state and, when done, the same summary block a
+  blocking run prints; the reservation and recovery record unchanged, so a detached run that
+  dies is recovered like any other; a note in the consult-codex skill telling the coordinator
+  how to park the question (the brief's path and the panel id in `state.md`) and when to
+  revisit it (never before every member is `usable` or `failed`). Non-goals: a daemon, a
+  queue of consultations, notifications through anything but the status file and the
+  hooks a host already runs (a SessionStart/Stop hook may print "panel <id> finished").
+  Measured by the coordinator's blocked time per consultation (from the panel's wall clock
+  to seconds) with unchanged ledger, findings and recovery semantics.
 - **A fourth seat (e.g. MiMo-V2.6)** only after a capped project-local evaluation (seeded
   historical defects plus clean controls at a fixed budget) on an officially supported route;
   leaderboard rank is not that evidence. Consider replacing a role before adding a reviewer.

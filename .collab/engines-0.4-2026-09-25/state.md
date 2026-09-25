@@ -96,3 +96,21 @@ saved by hand as handoff 04 and rated here, not in findings.json).
 - Next: commit + push as the 0.4.0 candidate; update the installed plugin; add the two gemini
   entries to the user's roster (only after the update - the installed 0.3.0 would refuse the
   `engine` field).
+
+## Round 4 - BytePlus ModelArk Coding Plan as a Codex provider (2026-09-25 18:00-19:15)
+
+- The user subscribed to the international ModelArk Coding Plan (BytePlus, Lite). Its Codex base URL
+  `https://ark.ap-southeast.bytepluses.com/api/coding/v3` speaks the Responses API, so it is a plain
+  provider table `[model_providers.byteplus]` (env `BYTEPLUS_API_KEY`, set by the user). Wave 19
+  declares the host in caps-v1 (vocabulary `ark`: low | medium | high, 12 exact model names,
+  prompt-only); harness-0.3 227 / roster 113 / engines 95 with the change; README, CHANGELOG,
+  setup-providers 3c updated; ROADMAP gains R12 (non-blocking consultation) next to R11.
+- Live: n=9 `kimi-k3` with a wrong key -> 401 (class auth), the next three runs refused by the
+  preflight as designed; with the corrected key and `-SkipPreflight` once: n=10 `kimi-k2.5` usable,
+  structured, 25.5 s; n=11 `kimi-k3` -> 404 "does not support the coding plan feature" (class
+  capability: K3 is on the Chinese Volcengine plan only); n=12 `deepseek-v4.1-flash` usable, 13.2 s,
+  effort high accepted; n=13 `dola-seed-2.0-pro` usable, 36.3 s. Codex logs a harmless
+  "failed to decode models response: missing field `models`" on this endpoint (its /models shape).
+- Roster (after the installed plugin carries wave 19): `byteplus :: deepseek-v4.1-flash` always;
+  `byteplus :: dola-seed-2.0-pro` and `byteplus :: kimi-k2.5` weighty (the coder leaderboard the
+  user pasted puts deepseek-v4.1-flash-max at 1620 and kimi-k2.5 at 1436); GLM stays on z.ai.

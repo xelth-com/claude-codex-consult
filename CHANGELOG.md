@@ -110,6 +110,21 @@ amendments A1-A20 and the facts F11/F12).
     the F11 path did not fire live; the denial retry stays verified by the harness and by
     the round-1 manual turn (handoff 04).
 
+- **Wave 19 — BytePlus ModelArk Coding Plan declared in caps-v1.** The host
+  `ark.ap-southeast.bytepluses.com` (the plan's Codex base URL `/api/coding/v3`) gets the
+  vocabulary `ark` (`low | medium | high`, `xhigh` -> `high`, mapping `ark-v1`; the plan's
+  Codex doc names those three values for `model_reasoning_effort`), the 12 model names of
+  its quick-start guide (exact) and schema transport `prompt-only`, so plan entries can be
+  roster and panel members without `-NativeEffort`. `setup-providers` gains the recipe
+  (section 3c: table, key set by the user, `/api/coding/v3` vs `/api/v3`, quota, the
+  training-data term); README's caps-v1 and provider tables gain the rows.
+  Live (task `engines-0.4-2026-09-25`, the user's Lite plan): `kimi-k2.5` n=10 (25 s), `deepseek-v4.1-flash`
+  n=12 (13 s, effort high) and `dola-seed-2.0-pro` n=13 (36 s) each returned the JSON object on the
+  first turn under prompt-only transport (~55k input tokens per checkpoint run); `kimi-k3` n=11 is
+  refused by the plan (`404 The requested model does not support the coding plan feature`, class
+  capability); a wrong key n=9 was `401 The API key format is incorrect` (class auth) and the
+  fail-closed preflight refused the next runs until `-SkipPreflight` with the corrected key.
+
 ### Changed
 
 - Ledger: `reviewer.engine` (written as `codex` for codex runs; an absent field reads as

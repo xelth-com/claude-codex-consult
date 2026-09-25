@@ -1470,6 +1470,30 @@
                                                      "note":  "Tree check blind spots for ignored files and external paths remain open.",
                                                      "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
                                                      "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-25T19:08:34+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Matches referenced code locations; no fix observed",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T19:09:13+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "No file access permitted this run; tree-check blind spots not re-verified.",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T19:09:52+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "No code read in this consultation",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
                                                  }
                                              ]
                      },
@@ -1555,6 +1579,30 @@
                                                      "note":  "Ledger omits denial-retry and format-repair event files.",
                                                      "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
                                                      "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-25T19:08:34+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Matches referenced code locations; no fix observed",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T19:09:13+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Ledger provenance fields not inspected.",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T19:09:52+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "No code read in this consultation",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
                                                  }
                                              ]
                      },
@@ -1637,6 +1685,30 @@
                                                      "note":  "Attribution of tree changes during concurrent handoff preparation remains open.",
                                                      "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
                                                      "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-25T19:08:34+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Matches referenced code locations; no fix observed",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T19:09:13+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Tree-failure attribution text not inspected.",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T19:09:52+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "No code read in this consultation",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
                                                  }
                                              ]
                      },
@@ -1724,6 +1796,30 @@
                                                      "note":  "Tree check scope limitations outside handoffs remain open.",
                                                      "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
                                                      "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-25T19:08:34+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Matches referenced code locations; no fix observed",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T19:09:13+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Read-only enforcement scope not re-verified.",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T19:09:52+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "No code read in this consultation",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
                                                  }
                                              ]
                      },
@@ -1802,6 +1898,30 @@
                                                      "note":  "Read-AgyEvents malformed stream exemption on final line remains open.",
                                                      "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
                                                      "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-25T19:08:34+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Matches referenced code locations; no fix observed",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T19:09:13+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Read-AgyEvents trailing-line handling not re-verified.",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T19:09:52+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "No code read in this consultation",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
                                                  }
                                              ]
                      },
@@ -1884,6 +2004,30 @@
                                                      "note":  "Provider label selection without model selects first tier silently.",
                                                      "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
                                                      "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-25T19:08:34+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Matches referenced code locations; no fix observed",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T19:09:13+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Provider-label roster selection not re-verified.",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T19:09:52+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "No code read in this consultation",
+                                                     "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                                     "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
                                                  }
                                              ]
                      }
@@ -1976,6 +2120,39 @@
                         "useful":  "partly",
                         "note":  "operational check: asked to run a command; the tools line held, the command became RC1, F11 did not fire live",
                         "when":  "2026-09-25T14:28:10+02:00"
+                    },
+                    {
+                        "n":  10,
+                        "consult_id":  "1035e4e4-4fb6-462e-a241-dd03e584b66a",
+                        "lineage":  "byteplus :: kimi-k2.5",
+                        "provider":  "byteplus",
+                        "model":  "kimi-k2.5",
+                        "purpose":  "checkpoint",
+                        "useful":  "partly",
+                        "note":  "operational check: first live run of the BytePlus plan route (kimi-k2.5), structured first turn",
+                        "when":  "2026-09-25T19:10:37+02:00"
+                    },
+                    {
+                        "n":  12,
+                        "consult_id":  "52e56c01-5c9e-4e97-b47f-38f93949fdac",
+                        "lineage":  "byteplus :: deepseek-v4.1-flash",
+                        "provider":  "byteplus",
+                        "model":  "deepseek-v4.1-flash",
+                        "purpose":  "checkpoint",
+                        "useful":  "partly",
+                        "note":  "operational check: deepseek-v4.1-flash on the BytePlus plan, structured first turn, effort high accepted",
+                        "when":  "2026-09-25T19:10:38+02:00"
+                    },
+                    {
+                        "n":  13,
+                        "consult_id":  "82b41da1-794a-4059-93ac-519974b6d414",
+                        "lineage":  "byteplus :: dola-seed-2.0-pro",
+                        "provider":  "byteplus",
+                        "model":  "dola-seed-2.0-pro",
+                        "purpose":  "checkpoint",
+                        "useful":  "partly",
+                        "note":  "operational check: dola-seed-2.0-pro on the BytePlus plan, structured first turn",
+                        "when":  "2026-09-25T19:10:39+02:00"
                     }
                 ]
 }

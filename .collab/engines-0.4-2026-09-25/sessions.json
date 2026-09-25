@@ -1365,6 +1365,597 @@
                                                      "total_tokens":  41896
                                                  },
                                        "wall_seconds":  131.2
+                                   },
+                                   {
+                                       "n":  9,
+                                       "when":  "2026-09-25T18:53:13+02:00",
+                                       "purpose":  "checkpoint",
+                                       "consult_id":  "07808d69-94aa-45db-a5ab-0d2a2c818d11",
+                                       "reviewer":  {
+                                                        "provider":  "byteplus",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "kimi-k3",
+                                                        "model_source":  "-Model",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "ed61f9eb93fef103f009265828cef252fb67d7640b59f08bc7af99c0ca9a801e",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+                                                                                "name":  "BytePlus ModelArk Coding Plan (ap-southeast-1)",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "byteplus :: kimi-k3",
+                                       "preflight":  "ok: env BYTEPLUS_API_KEY set",
+                                       "preflight_warning":  "",
+                                       "roster":  null,
+                                       "panel":  null,
+                                       "parent_thread":  "",
+                                       "thread":  "01a0d97c-4423-7061-a68e-19c2bef73a14",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "new",
+                                       "command":  "codex exec --sandbox read-only --color never --json -m kimi-k3 -c model_reasoning_effort=\"medium\" -c model_provider=\"byteplus\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-b105904daecc4080980af4a6fd4da792.md -",
+                                       "brief":  "",
+                                       "prompt_chars":  10707,
+                                       "reply":  "handoffs/15-codex-k3-probe.md",
+                                       "reply_json":  "",
+                                       "events":  "handoffs/15-codex-k3-probe.events.jsonl",
+                                       "model":  "kimi-k3",
+                                       "effort":  "medium",
+                                       "effort_requested":  "medium",
+                                       "effort_sent":  "medium",
+                                       "effort_mapping":  "native",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  80,
+                                       "sandbox":  "read-only",
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-09-25T18:53:13+02:00",
+                                       "structured":  false,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                       "reviewed_revision":  "4e2016f + uncommitted",
+                                       "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9",
+                                       "tree_sha256_after":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9",
+                                       "tree_changed_during_review":  false,
+                                       "changed_files":  6,
+                                       "brief_sha256":  "",
+                                       "brief_sha256_after":  "",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (0 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "bridge_outcome":  "failed: codex exit 1 - unexpected status 401 Unauthorized: The API key format is incorrect. Request id: 0217903552230390eb6750cc7dc4c5e11333efa00d940ee3d369b, url: https://ark.ap-southeast.bytepluses.com/api/coding/v3/responses, request id: 0217903552230390eb6750cc7dc4c5e11333efa00d940ee3d369b",
+                                       "provider_failure":  {
+                                                                "class":  "auth",
+                                                                "code":  "",
+                                                                "message":  "unexpected status 401 Unauthorized: The API key format is incorrect. Request id: 0217903552230390eb6750cc7dc4c5e11333efa00d940ee3d369b, url: https://ark.ap-southeast.bytepluses.com/api/coding/v3/respo",
+                                                                "when":  "2026-09-25T18:53:43+02:00",
+                                                                "retry_after":  null
+                                                            },
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "",
+                                       "verdict_reason":  "",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  0,
+                                                        "minor":  0,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+
+                                                       ],
+                                       "prior_findings":  [
+
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  null,
+                                       "wall_seconds":  28.8
+                                   },
+                                   {
+                                       "n":  10,
+                                       "when":  "2026-09-25T19:08:08+02:00",
+                                       "purpose":  "checkpoint",
+                                       "consult_id":  "1035e4e4-4fb6-462e-a241-dd03e584b66a",
+                                       "reviewer":  {
+                                                        "provider":  "byteplus",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "kimi-k2.5",
+                                                        "model_source":  "-Model",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "ed61f9eb93fef103f009265828cef252fb67d7640b59f08bc7af99c0ca9a801e",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+                                                                                "name":  "BytePlus ModelArk Coding Plan (ap-southeast-1)",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "byteplus :: kimi-k2.5",
+                                       "preflight":  "skipped",
+                                       "preflight_warning":  "",
+                                       "roster":  null,
+                                       "panel":  null,
+                                       "parent_thread":  "",
+                                       "thread":  "01a0d989-ec48-77a0-8ca4-4e0a12ea850e",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "new",
+                                       "command":  "codex exec --sandbox read-only --color never --json -m kimi-k2.5 -c model_reasoning_effort=\"medium\" -c model_provider=\"byteplus\" -c model_supports_reasoning_summaries=true -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-cd2aadd71c4c4d73b14f2ee5f138de73.md -",
+                                       "brief":  "",
+                                       "prompt_chars":  10830,
+                                       "reply":  "handoffs/16-codex-kimi-smoke.md",
+                                       "reply_json":  "handoffs/16-codex-kimi-smoke.reply.json",
+                                       "events":  "handoffs/16-codex-kimi-smoke.events.jsonl",
+                                       "model":  "kimi-k2.5",
+                                       "effort":  "medium",
+                                       "effort_requested":  "medium",
+                                       "effort_sent":  "medium",
+                                       "effort_mapping":  "ark-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  120,
+                                       "sandbox":  "read-only",
+                                       "extra_config":  [
+                                                            "model_supports_reasoning_summaries=true"
+                                                        ],
+                                       "extra_config_source":  "-CodexConfig",
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-09-25T19:08:08+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                       "reviewed_revision":  "4e2016f + uncommitted",
+                                       "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9",
+                                       "tree_sha256_after":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9",
+                                       "tree_changed_during_review":  false,
+                                       "changed_files":  6,
+                                       "brief_sha256":  "",
+                                       "brief_sha256_after":  "",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (3 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ADVISE",
+                                       "verdict_reason":  "Checkpoint review completed; all listed prior findings remain open as currently implemented.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  0,
+                                                        "minor":  0,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F09-1",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F09-2",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F09-3",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F10-1",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F10-2",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F10-3",
+                                                                  "status":  "still-open"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  55137,
+                                                     "cached_input_tokens":  0,
+                                                     "output_tokens":  398,
+                                                     "reasoning_output_tokens":  132
+                                                 },
+                                       "wall_seconds":  25.5
+                                   },
+                                   {
+                                       "n":  11,
+                                       "when":  "2026-09-25T19:08:37+02:00",
+                                       "purpose":  "checkpoint",
+                                       "consult_id":  "ff4318e5-836e-412d-86b4-2fd528423dc8",
+                                       "reviewer":  {
+                                                        "provider":  "byteplus",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "kimi-k3",
+                                                        "model_source":  "-Model",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "ed61f9eb93fef103f009265828cef252fb67d7640b59f08bc7af99c0ca9a801e",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+                                                                                "name":  "BytePlus ModelArk Coding Plan (ap-southeast-1)",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "byteplus :: kimi-k3",
+                                       "preflight":  "ok: env BYTEPLUS_API_KEY set",
+                                       "preflight_warning":  "",
+                                       "roster":  null,
+                                       "panel":  null,
+                                       "parent_thread":  "01a0d97c-4423-7061-a68e-19c2bef73a14",
+                                       "thread":  "01a0d98a-5caf-7911-989c-65c8357fcc6b",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "fork",
+                                       "command":  "codex exec --sandbox read-only --color never --json -m kimi-k3 -c model_reasoning_effort=\"medium\" -c model_provider=\"byteplus\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-a70c18cdf8604b42963148e2f1c7f326.md fork 01a0d97c-4423-7061-a68e-19c2bef73a14 -",
+                                       "brief":  "",
+                                       "prompt_chars":  10707,
+                                       "reply":  "handoffs/17-codex-k3-probe.md",
+                                       "reply_json":  "",
+                                       "events":  "handoffs/17-codex-k3-probe.events.jsonl",
+                                       "model":  "kimi-k3",
+                                       "effort":  "medium",
+                                       "effort_requested":  "medium",
+                                       "effort_sent":  "medium",
+                                       "effort_mapping":  "native",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  80,
+                                       "sandbox":  "read-only",
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-09-25T19:08:37+02:00",
+                                       "structured":  false,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                       "reviewed_revision":  "4e2016f + uncommitted",
+                                       "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9",
+                                       "tree_sha256_after":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9",
+                                       "tree_changed_during_review":  false,
+                                       "changed_files":  6,
+                                       "brief_sha256":  "",
+                                       "brief_sha256_after":  "",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (7 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "bridge_outcome":  "failed: codex exit 1 - unexpected status 404 Not Found: The requested model does not support the coding plan feature. Please refer to the documentation at https://docs.byteplus.com/en/docs/ModelArk/1925114 to select a compatible model. Request id: 021790356135926e9db803be2da2d1fb0370cddd09ba5d6c03de9, url: https://ark.ap-southeast.bytepluses.com/api/coding/v3/responses, request id: 021790356135926e9db803be2da2d1fb0370cddd09ba5d6c03de9",
+                                       "provider_failure":  {
+                                                                "class":  "capability",
+                                                                "code":  "",
+                                                                "message":  "unexpected status 404 Not Found: The requested model does not support the coding plan feature. Please refer to the documentation at https://docs.byteplus.com/en/docs/ModelArk/1925114 to select a compa",
+                                                                "when":  "2026-09-25T19:08:56+02:00",
+                                                                "retry_after":  null
+                                                            },
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "",
+                                       "verdict_reason":  "",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  0,
+                                                        "minor":  0,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+
+                                                       ],
+                                       "prior_findings":  [
+
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  null,
+                                       "wall_seconds":  18.7
+                                   },
+                                   {
+                                       "n":  12,
+                                       "when":  "2026-09-25T19:08:59+02:00",
+                                       "purpose":  "checkpoint",
+                                       "consult_id":  "52e56c01-5c9e-4e97-b47f-38f93949fdac",
+                                       "reviewer":  {
+                                                        "provider":  "byteplus",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "deepseek-v4.1-flash",
+                                                        "model_source":  "-Model",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "ed61f9eb93fef103f009265828cef252fb67d7640b59f08bc7af99c0ca9a801e",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+                                                                                "name":  "BytePlus ModelArk Coding Plan (ap-southeast-1)",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "byteplus :: deepseek-v4.1-flash",
+                                       "preflight":  "skipped",
+                                       "preflight_warning":  "",
+                                       "roster":  null,
+                                       "panel":  null,
+                                       "parent_thread":  "",
+                                       "thread":  "01a0d98a-b231-7892-a637-2e751a55bd1c",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "new",
+                                       "command":  "codex exec --sandbox read-only --color never --json -m deepseek-v4.1-flash -c model_reasoning_effort=\"high\" -c model_provider=\"byteplus\" -c model_supports_reasoning_summaries=true -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-ff36ab8aa7c645eeab685c6c0766e078.md -",
+                                       "brief":  "",
+                                       "prompt_chars":  10790,
+                                       "reply":  "handoffs/18-codex-deepseek-smoke.md",
+                                       "reply_json":  "handoffs/18-codex-deepseek-smoke.reply.json",
+                                       "events":  "handoffs/18-codex-deepseek-smoke.events.jsonl",
+                                       "model":  "deepseek-v4.1-flash",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "ark-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  120,
+                                       "sandbox":  "read-only",
+                                       "extra_config":  [
+                                                            "model_supports_reasoning_summaries=true"
+                                                        ],
+                                       "extra_config_source":  "-CodexConfig",
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-09-25T19:08:59+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                       "reviewed_revision":  "4e2016f + uncommitted",
+                                       "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9",
+                                       "tree_sha256_after":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9",
+                                       "tree_changed_during_review":  false,
+                                       "changed_files":  6,
+                                       "brief_sha256":  "",
+                                       "brief_sha256_after":  "",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (9 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ADVISE",
+                                       "verdict_reason":  "Checkpoint only: the prompt forbade reading files or running commands, so no invariant could be re-verified and no drift is asserted.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  0,
+                                                        "minor":  0,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F09-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F09-2",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F09-3",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F10-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F10-2",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F10-3",
+                                                                  "status":  "not-checked"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  55525,
+                                                     "cached_input_tokens":  4096,
+                                                     "output_tokens":  1391,
+                                                     "reasoning_output_tokens":  891
+                                                 },
+                                       "wall_seconds":  13.2
+                                   },
+                                   {
+                                       "n":  13,
+                                       "when":  "2026-09-25T19:09:16+02:00",
+                                       "purpose":  "checkpoint",
+                                       "consult_id":  "82b41da1-794a-4059-93ac-519974b6d414",
+                                       "reviewer":  {
+                                                        "provider":  "byteplus",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "dola-seed-2.0-pro",
+                                                        "model_source":  "-Model",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "ed61f9eb93fef103f009265828cef252fb67d7640b59f08bc7af99c0ca9a801e",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+                                                                                "name":  "BytePlus ModelArk Coding Plan (ap-southeast-1)",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "byteplus :: dola-seed-2.0-pro",
+                                       "preflight":  "skipped",
+                                       "preflight_warning":  "",
+                                       "roster":  null,
+                                       "panel":  null,
+                                       "parent_thread":  "",
+                                       "thread":  "01a0d98a-f325-7770-b65a-48a01bfe242f",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "new",
+                                       "command":  "codex exec --sandbox read-only --color never --json -m dola-seed-2.0-pro -c model_reasoning_effort=\"high\" -c model_provider=\"byteplus\" -c model_supports_reasoning_summaries=true -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-7c1c3653cf824e03915195ec1393a850.md -",
+                                       "brief":  "",
+                                       "prompt_chars":  10790,
+                                       "reply":  "handoffs/19-codex-seed-smoke.md",
+                                       "reply_json":  "handoffs/19-codex-seed-smoke.reply.json",
+                                       "events":  "handoffs/19-codex-seed-smoke.events.jsonl",
+                                       "model":  "dola-seed-2.0-pro",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "ark-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  120,
+                                       "sandbox":  "read-only",
+                                       "extra_config":  [
+                                                            "model_supports_reasoning_summaries=true"
+                                                        ],
+                                       "extra_config_source":  "-CodexConfig",
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-09-25T19:09:16+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
+                                       "reviewed_revision":  "4e2016f + uncommitted",
+                                       "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9",
+                                       "tree_sha256_after":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9",
+                                       "tree_changed_during_review":  false,
+                                       "changed_files":  6,
+                                       "brief_sha256":  "",
+                                       "brief_sha256_after":  "",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (12 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ADVISE",
+                                       "verdict_reason":  "Read-only checkpoint consultation answering specified questions.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  0,
+                                                        "minor":  0,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F09-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F09-2",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F09-3",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F10-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F10-2",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F10-3",
+                                                                  "status":  "not-checked"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  52716,
+                                                     "cached_input_tokens":  52536,
+                                                     "output_tokens":  446,
+                                                     "reasoning_output_tokens":  229
+                                                 },
+                                       "wall_seconds":  36.3
                                    }
                                ]
               }

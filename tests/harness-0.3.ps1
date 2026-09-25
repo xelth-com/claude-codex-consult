@@ -498,7 +498,7 @@ if (Want 'F02-4') {
         Check 'F02-4' "$($cs.N) -> sent $($cs.Sent), mapping $($cs.Map)" ($d.Code -eq 0 -and $p.effort_sent -eq $cs.Sent -and $p.effort -eq $cs.Sent -and $p.effort_mapping -eq $cs.Map -and $p.effort_requested -eq $cs.Req -and $null -eq $p.effort_confirmed -and $p.command -match ('model_reasoning_effort="' + $cs.Sent + '"')) "code=$($d.Code) requested=$($p.effort_requested) sent=$($p.effort_sent) mapping=$($p.effort_mapping) $(Line $d.Out 'effort')"
     }
     $u = Consult $r $h @('-DryRun', '-Prompt', 'x', '-Provider', 'local', '-Model', 'mistral-large')
-    Check 'F02-4' 'undeclared host -> refused' ($u.Code -eq 1 -and $u.First -eq 'codex-consult: no effort vocabulary declared for localhost (caps-v1 declares api.xiaomimimo.com, api.z.ai, builtin:openai, open.bigmodel.cn, token-plan-ams.xiaomimimo.com, token-plan-cn.xiaomimimo.com); pass -NativeEffort <value> to send a value verbatim') $u.First
+    Check 'F02-4' 'undeclared host -> refused' ($u.Code -eq 1 -and $u.First -eq 'codex-consult: no effort vocabulary declared for localhost (caps-v1 declares api.xiaomimimo.com, api.z.ai, ark.ap-southeast.bytepluses.com, builtin:openai, open.bigmodel.cn, token-plan-ams.xiaomimimo.com, token-plan-cn.xiaomimimo.com); pass -NativeEffort <value> to send a value verbatim') $u.First
     $ug = Consult $r $h @('-DryRun', '-Prompt', 'x', '-Provider', 'local', '-Model', 'glm-unknown')
     Check 'F02-4' 'glm-unknown on an unknown host -> refused (no model-prefix inference any more)' ($ug.Code -eq 1 -and $ug.First -match 'no effort vocabulary declared for localhost') $ug.First
     $uz = Consult $r $h @('-DryRun', '-Prompt', 'x', '-Provider', 'ZAI', '-Model', 'glm-unlisted-9')
