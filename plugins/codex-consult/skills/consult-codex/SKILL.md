@@ -57,6 +57,11 @@ would select ...` line show which entry a plain consultation would pick right no
 which ones the walk would skip and why — see the README's "Reviewer roster and panel"
 section for the file's shape and the selection rules.
 
+**If a provider you need is missing** (no `[model_providers.<name>]` row, `missing: env
+... not set`, no roster), follow the `setup-providers` skill
+(`${CLAUDE_PLUGIN_ROOT}/skills/setup-providers/SKILL.md`) before planning work on it; never
+handle the key yourself.
+
 ## 1. Write the brief
 
 Write it yourself, in English, to
@@ -102,23 +107,29 @@ schema, no findings bookkeeping), meant for grunt work (searching a big file, ex
 facts) that should not cost a weighty reviewer's tokens; hand it to a cheap roster
 member. `-Effort` and `-MaxWords` override the preset when given. Options:
 
-- `-Mode new` — no thread to build on yet. This is the default for a fresh task id.
-- `-Mode fork` — branch from the last thread. The default once a thread exists, and
-  the right choice whenever another client (Codex CLI, the desktop app) might still
-  be appending to that thread.
+- `-Mode new` — no thread to build on yet. This is the default when no thread of this
+  run's reviewer lineage is known.
+- `-Mode fork` — branch from the last thread of this lineage. The default once one
+  exists, and the right choice whenever another client (Codex CLI, the desktop app)
+  might still be appending to that thread.
 - `-Mode resume` — sequential continuation of one thread, when nothing else writes to it.
 - `-Thread <uuid>` — pick a specific parent. Omitted, the script takes the newest
-  `codex.consults[].thread` from `.collab/<task>/sessions.json`.
-- `-Model <name>` — omit it and Codex uses the model from the user's
-  `~/.codex/config.toml`. Only pass it when the user asked for a specific model.
-- `-Provider <name>` — a `[model_providers.<name>]` entry from the Codex config, for
-  consulting a second model (e.g. GLM through a z.ai provider entry). Requires
-  `-Model` alongside it. **A second model is consulted in its own lineage; never
+  verified thread of the SAME lineage (provider, model and endpoint) in
+  `.collab/<task>/sessions.json`, never the task's newest thread overall. With a roster,
+  the thread's own ledger entry decides the reviewer.
+- `-Model <name>` — omit it and the model comes from the roster entry used, else the top
+  level of the user's `~/.codex/config.toml`; the resolved model is always pinned with
+  `-m`. Only pass it when the user asked for a specific model.
+- `-Provider <name>` — a `[model_providers.<name>]` entry from the Codex config
+  (case-sensitive), for consulting one specific reviewer (e.g. GLM through a z.ai
+  provider entry). Needs `-Model` alongside it unless that provider's roster entry names
+  a model. **A second model is consulted in its own lineage; never
   fork/resume across providers** — the bridge enforces this by refusing a `-Thread`
   or automatic parent whose lineage does not match the current `-Provider`/`-Model`,
-  but do not try to work around that by hand either. See the README section "A second
-  reviewer through the same bridge" for how the provider is resolved, the effort
-  vocabulary per endpoint, and peak-hour handling. A ledger entry from a 0.1/0.2 task
+  but do not try to work around that by hand either. See the README sections "Reviewer
+  identity and lineage", "Effort vocabularies (caps-v1)" and "Peak-hour windows" for how
+  the provider is resolved, the effort vocabulary per endpoint, and peak-hour handling.
+  A ledger entry from a 0.1/0.2 task
   carries no reviewer identity, so its provenance is unknown: the first 0.3.0
   consultation on such a task always starts a new thread, whatever provider or model
   you use.
@@ -127,9 +138,12 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   to use this instead).
 - `-OffPeakOnly` — refuse the run instead of just warning when the provider's peak-hour
   window (`CODEX_CONSULT_PEAK_<PROVIDER>`) is active, or when no schedule is set for it.
-- `-SkipPreflight` — bypass the automatic credential preflight (the bridge otherwise
-  refuses, before the lock, a provider whose credentials are missing). Only for an
-  endpoint that genuinely needs none — do not use it to push past a real refusal.
+- `-SkipPreflight` — bypass the automatic preflight (the bridge otherwise refuses,
+  before the lock, a provider whose credentials are missing, whose availability cannot
+  be established, whose endpoint was rejected as unauthenticated in the last 24 h, or
+  whose usage limit resets in the future; with a roster, the first entry is then taken
+  unchecked). Only for an endpoint that genuinely needs no credential, or once after the
+  user rotated a credential — do not use it to push past a real refusal.
 - `-CodexConfig key=value[,…]` — pass extra `-c` overrides straight through to `codex
   exec`. The bridge refuses any key it already owns (`model`, `model_provider`,
   `model_reasoning_effort`, `profile`, `model_providers(.*)`). Example: a
@@ -141,8 +155,9 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   `-MaxWords <n>` (both override the preset), `-TimeoutSec <n>` (default 900),
   `-Sandbox read-only|workspace-write` (default `read-only`).
 - `-Artifact <path>` — hash a built artifact (an executable, a bundle) into the ledger
-  so the review is bound to it, not just to the source tree. Repeatable, or one
-  comma-separated string (`-Artifact a.exe,b.dll`). A missing path refuses the run
+  so the review is bound to it, not just to the source tree. Several paths go in ONE
+  comma-separated string (`-Artifact a.exe,b.dll`); the parameter cannot be repeated
+  (PowerShell refuses a parameter given twice). A missing path refuses the run
   rather than silently skipping the binding.
 - `-Raw` — 0.1-style plain-text reply: no structured schema, no findings bookkeeping.
   Use it for a quick informal ask that is not going into the findings ledger.
@@ -164,20 +179,27 @@ The script creates `handoffs/` and `sessions.json` when missing, and writes:
 - `handoffs/<NN>-codex-<slug>.reply.json` — the raw structured reply, byte for byte
   (structured mode only);
 - `handoffs/<NN>-codex-<slug>.events.jsonl` — the raw event stream;
+- `handoffs/<NN>-codex-<slug>.original.md` — the first-turn prose, only after a format
+  repair (see step 3);
 - `findings.json` — every finding from this reply, appended (structured mode only,
   only when there is at least one finding);
 - `sessions.json` — one ledger entry appended, the commit point for this consult.
 
-It exits non-zero on failure and records the failure as an entry too, so the ledger
-is a complete history and not just a success log.
+A launched run that fails exits non-zero and is still recorded as an entry, so the ledger
+is a complete history and not just a success log. A refusal (bad arguments, an unusable
+roster, a preflight refusal, a live previous run, `-OffPeakOnly`) exits non-zero with a
+`codex-consult: <message>` line and writes nothing.
 
 ## 3. Read, verify, record
 
 Read the reply file. **Verify every finding yourself** before acting on it — open the
 cited location, run the build, run the test. Codex proposes; you verify and decide.
-On a `prompt-only` schema-transport route (a provider that rejects `--output-schema`,
-e.g. MiMo), the reviewer may answer in plain prose instead of the requested JSON object
-— that reply is kept with no verdict and no findings, not a bridge failure; re-ask once,
+A reviewer may answer in plain prose instead of the requested JSON object (most often on
+a route that does not enforce the schema: z.ai, or a `prompt-only` route such as MiMo).
+With `-FormatRetry 1` (the default) the bridge then spends ONE recorded repair turn on
+the same thread when the prose is substantive; when the repair was not attempted
+(`format_retry` is `null` and `validation_error` says why) or failed, the prose is kept
+with no verdict and no findings, which is not a bridge failure. Only then re-ask once,
 explicitly asking it to "return the JSON object", if you need this consultation's
 findings tracked.
 
@@ -260,7 +282,7 @@ Treat every reviewer in play — Claude (this coordinator), Codex, and any roste
   until evidence settles who was right; `codex-findings.ps1 -Stats`'s per-reviewer
   scoreboard shows, over time, who actually finds what.
 - **Before picking a panel or a judge for a hard question, check the scoreboard.** Run
-  `codex-scoreboard.ps1` (see the README's "Usefulness telemetry") to see which
+  `codex-scoreboard.ps1` (see the README's "Usefulness telemetry: codex-scoreboard.ps1") to see which
   reviewer has actually been useful on that purpose so far, not just who is cheapest or
   fastest.
 - **Chores go to cheap members.** Hand bounded search/extraction work to a cheap roster
@@ -315,8 +337,8 @@ it, a `"weighty"` entry only joins on the weighty purposes.
 
 Without `-Panel`, `-Provider` still lets you consult one specific reviewer on the same
 wire (e.g. a specific roster member, or any `[model_providers.<name>]` entry) — see the
-README's "A second reviewer through the same bridge" for how identity, lineage and
-effort are resolved for a single-reviewer run.
+README's "Reviewer identity and lineage" and "Effort vocabularies (caps-v1)" for how
+identity, lineage and effort are resolved for a single-reviewer run.
 
 ## Invariants
 

@@ -235,7 +235,7 @@ param(
     # roster: its first entry is taken unchecked (-Panel: every entry).
     [switch]$SkipPreflight,
 
-    # Extra Codex config overrides for this run only, each key=value (repeatable, or one
+    # Extra Codex config overrides for this run only, each key=value (ONE comma-separated string; the parameter cannot be repeated - powershell -File binds it once, or one
     # comma-separated string): passed as `-c key=value` after the bridge's own -c options.
     # E.g. -CodexConfig model_catalog_json=~/.codex/model-catalogs.json. A value that is
     # not a TOML literal is wrapped in double quotes. Keys that would change what the

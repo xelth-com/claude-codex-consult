@@ -37,10 +37,11 @@ seven-wave task with three consultations. Ordered by the damage they did.
   same thread concurrently.
   **Status (0.2.0): shipped** — `bridge_outcome` and `verdict` are separate ledger fields;
   the skill's step 0 requires reconciling `codex-findings.ps1 -List` before a review brief;
-  `.consult.lock` (atomic create, pid + start-time + nonce, process-tree timeout kill) blocks
-  concurrent consultations on one task from the same host. Deferred: cross-host lock takeover
-  is cut entirely (a foreign-host lock is always refused, removed by hand once its owner is
-  confirmed dead), and thread-scoped exclusion (one thread, one task directory) is documented
+  `.consult.lock` (a permanent file held OPEN for the whole run - the OS releases it when the
+  process ends, so it is never deleted or "unlocked" by hand) plus `.consult.pending.json`
+  (the recovery record: pid, start time, state, judged by a descendant scan before it is
+  replaced) block concurrent consultations on one task from the same host. Deferred:
+  cross-host lock takeover is cut entirely (a foreign-host holder is always refused), and thread-scoped exclusion (one thread, one task directory) is documented
   as a constraint rather than enforced by the script.
 - **T4 — Briefs repeat what the resumed thread already holds.** A `resume` carries the
   history, yet briefs re-told it at 500–1000 words. Fix: with R2's template, a checkpoint

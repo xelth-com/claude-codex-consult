@@ -1,217 +1,318 @@
 # claude-codex-consult
 
-Claude Code coordinates; **Codex is a standing reasoning partner you can call mid-task**.
-This plugin adds one skill and one small PowerShell bridge so Claude can hand Codex a
-one-page brief and get a judgement back — over your existing ChatGPT subscription, with
-no API key. The same `<task-id>` keeps the Codex thread alive across consultations
-(`fork` to branch, `resume` to continue), Codex runs in a **read-only sandbox** by
-default, and every consultation lands on disk as a file pair — your brief and Codex's
-verbatim reply — plus a JSON ledger entry. Consultations become reviewable history you
-can commit next to the code they were about, instead of chat you lose. By default the
-reply is structured — a verdict plus a list of findings with severity, location and
-evidence — and every finding gets a stable id you track from proposed through verified.
+A Claude Code plugin (`codex-consult`, version 0.3.0). This README is written for the AI
+coding agent that installs, wires and uses the plugin; humans can follow the same steps.
 
-Any Codex model works. Leave the model unset and Codex uses whatever is in your
-`~/.codex/config.toml`; pass `-Model <name>` when you want a specific one.
+## For the agent installing this
+
+- **What it is:** a dependency-free PowerShell bridge that runs `codex exec` for a review, records the consultation as files (brief, verbatim reply, JSON ledger), and manages reviewer identity, availability, a roster/panel and structured findings.
+- **Prerequisites.** Check each with the command; do not assume:
+  - [ ] Windows PowerShell 5.1 or PowerShell 7: `powershell -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` or `pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` → `5.1.…` or `7.…`
+  - [ ] git: `git --version` → `git version …`
+  - [ ] Codex CLI on PATH: `codex --version` → `codex-cli 0.148` or newer (tested with `codex-cli 0.155.1`)
+  - [ ] a reviewer: `codex login status` → `Logged in using ChatGPT`, **or** a `[model_providers.<name>]` table whose `env_key` variable the USER has set. Never create, print or paste an API key.
+- **Install** (at the Claude Code prompt): `/plugin marketplace add xelth-com/claude-codex-consult`, then `/plugin install codex-consult@claude-codex-consult`.
+- **Verify:** `codex-providers.ps1` → at least one row `available`; then a `-DryRun` consultation → first line `DRY RUN - nothing was executed and no file was written.` and a line `preflight   : available (…)`. Exact commands: "Setup on a new machine", steps 0 and 9.
+- **First consultation:** `/codex-consult:consult-codex <task-id> <question>`, or the command under "Usage".
+- **More reviewers** (z.ai GLM, Xiaomi MiMo, any Responses-API provider): follow the `setup-providers` skill.
 
 ---
 
-## Install
+## Setup on a new machine
+
+Run each step, compare with the expected output, and stop and tell the user at the first
+mismatch you cannot fix without them. `<codex home>` is `$CODEX_HOME` when set, else
+`~/.codex`. Commands are shown for Windows PowerShell
+(`powershell -NoProfile -ExecutionPolicy Bypass -File …`); on macOS/Linux run
+`pwsh -NoProfile -File …` with the same arguments.
+
+**0. Locate the scripts.** Inside this plugin's skills, `${CLAUDE_PLUGIN_ROOT}` is the
+plugin directory. From a plain shell:
+
+```powershell
+$P = (Get-ChildItem "$HOME/.claude/plugins/cache/claude-codex-consult/codex-consult" -Directory |
+      Sort-Object { [version]$_.Name } | Select-Object -Last 1).FullName
+Test-Path "$P/scripts/codex-consult.ps1"        # expect: True
+```
+
+Bash: `P=$(ls -d ~/.claude/plugins/cache/claude-codex-consult/codex-consult/*/ | sort -V | tail -1)`.
+
+**1. Shell and git.** Run the two prerequisite commands above. Without git the bridge still
+runs, but the project root is the current directory and nothing binds the review to a
+revision (`base_commit: "unknown"`, `fingerprint_note: "no git"`). On macOS/Linux without
+`pwsh`, ask the user to install PowerShell 7.
+
+**2. Codex CLI.** `codex --version` → `codex-cli 0.155.1` (≥ 0.148 has `codex exec fork`).
+Missing: ask the user to install it (https://github.com/openai/codex). A launcher that is
+not on PATH: pass `-CodexExe <path>` or set `CODEX_CONSULT_EXE`.
+
+**3. The built-in OpenAI reviewer (ChatGPT plan).** `codex login status` →
+`Logged in using ChatGPT`. Anything else: ask the user to run `codex login` in their own
+terminal (it opens a browser). The built-in `openai` provider needs no config table.
+
+**4. Check the top level of the Codex config** (`<codex home>/config.toml`). Print only the
+lines the bridge cares about, never the whole file (it may hold a bearer token):
+
+```powershell
+$cfg = Join-Path $(if ($env:CODEX_HOME) { $env:CODEX_HOME } else { "$HOME/.codex" }) 'config.toml'
+Select-String -Path $cfg -Pattern '^\s*(model|model_provider|profile|model_catalog_json)\s*=', '^\s*\['
+```
+
+Expect:
+- a top-level `model = "<model>"`. A run without `-Model` and without a roster uses it; if it
+  is missing, that run's reviewer identity is unresolved (only `-Mode new`, never a parent
+  thread). A roster entry with a `model` also avoids this.
+- `model_provider` absent (Codex's default is the built-in `openai`) or naming a table.
+- **no** top-level `profile = …`: a profile can change the provider, model and effort
+  behind the bridge, so its presence leaves every run's identity unresolved (no
+  `fork`/`resume`), even with `-Provider` and `-Model`. Ask the user before removing it.
+- **no** top-level `model_catalog_json`: a global catalog replaces Codex's own and was
+  observed to degrade the default `openai` model on an unrelated run ("Model metadata not
+  found, fallback"). Ask the user before removing it; pass catalogs per run (step 6).
+
+**5. Add a third-party provider (optional).** One table per provider. Take `base_url` and
+`wire_api` from the provider's official Codex page; never invent an endpoint:
+
+| Provider | Official Codex page | `base_url` on that page (read 2026-09-25) |
+|---|---|---|
+| z.ai GLM Coding Plan | https://docs.z.ai/devpack/tool/codex | `https://api.z.ai/api/v1` |
+| Xiaomi MiMo Token Plan | https://mimo.mi.com/docs/en-US/tokenplan/integration/codex-configuration | `https://token-plan-cn.xiaomimimo.com/v1`; the user's plan console names their region (`token-plan-ams.xiaomimimo.com` exists too); pay-as-you-go: `https://api.xiaomimimo.com/v1` |
+
+Both pages put the key into the file as `experimental_bearer_token = "<key>"`. Do not copy
+that line; use `env_key`, so the key only lives in the user's environment:
+
+```toml
+[model_providers.ZAI]
+name = "Z.ai GLM Coding Plan"
+base_url = "https://api.z.ai/api/v1"
+env_key = "ZAI_API_KEY"
+wire_api = "responses"
+
+[model_providers.mimo]
+name = "Xiaomi MiMo Token Plan"
+base_url = "https://token-plan-ams.xiaomimimo.com/v1"
+env_key = "MIMO_API_KEY"
+wire_api = "responses"
+```
+
+- The table name is the provider name everywhere: `-Provider ZAI`, roster
+  `"provider": "ZAI"`, `CODEX_CONSULT_PEAK_ZAI`. It is case-sensitive; keep it short and
+  ASCII.
+- Plain single-line values only. An array, inline table, multi-line string, dotted key or
+  sub-table inside a provider table makes that table unusable to the bridge's scanner
+  (see "Reviewer identity and lineage").
+- Set `wire_api` explicitly. `base_url` and `wire_api` define the endpoint fingerprint:
+  changing either later (adding a `wire_api` to a table that had none counts) ends
+  `fork`/`resume` onto that reviewer's older threads. `name`, comments, key order and a
+  rotated key never do.
+- Then ask the USER to set the variable in their own terminal and restart Claude Code (a
+  running Claude Code does not see a variable set after it started): Windows
+  `setx ZAI_API_KEY "<key>"`; macOS/Linux `export ZAI_API_KEY="<key>"` in `~/.bashrc`,
+  `~/.zshrc` or `~/.profile`.
+- Verify without reading the value:
+  `powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-providers.ps1" -Provider ZAI`
+  → one row starting `available` with `ok: env ZAI_API_KEY set`, exit code `0` (`2`
+  unavailable, `3` unknown, `1` no such provider).
+- Use a model that caps-v1 declares for the host (see "Effort vocabularies (caps-v1)"): z.ai
+  `glm-5.3`, MiMo `mimo-v2.6-pro`, and so on. Any other model there needs `-NativeEffort`
+  on every run, which a roster entry cannot supply.
+
+**6. Per-run model catalogs (MiMo-style providers).** Codex has no built-in catalog for
+MiMo models. Save the catalog file that the MiMo Codex page links to as
+`<codex home>/model-catalogs.json` (ask the user to download it, or download it with their
+consent) and pass it per run, never globally: in the roster entry,
+`"codex_config": ["model_catalog_json=~/.codex/model-catalogs.json"]`, or on one command,
+`-CodexConfig model_catalog_json=~/.codex/model-catalogs.json`. z.ai's page also suggests
+a global `~/.codex/models.json`; the z.ai route has been used live without one, and if one
+is needed it goes per run the same way. The MiMo endpoint rejects `--output-schema`;
+caps-v1 already sends the schema in the prompt for those hosts, so there is nothing to
+configure for that.
+
+**7. Write the reviewer roster** at `<codex home>/codex-consult-roster.json`, first choice
+first, with the expensive reviewer marked `weighty`:
+
+```json
+{
+  "roster_version": 1,
+  "reviewers": [
+    { "provider": "openai", "model": "<the ChatGPT-plan model>", "panel": "weighty" },
+    { "provider": "ZAI", "model": "glm-5.3" },
+    {
+      "provider": "mimo",
+      "model": "mimo-v2.6-pro",
+      "codex_config": ["model_catalog_json=~/.codex/model-catalogs.json"]
+    }
+  ]
+}
+```
+
+A `weighty` entry joins a `-Panel` run only on the weighty purposes. `"auth": "none"` is
+only for a table with neither `env_key` nor a bearer token (a local endpoint); it does
+nothing for a table that names an `env_key`. Every field and rule: "Reviewer roster and
+panel". An invalid roster refuses **every** run, dry runs included, so validate it at
+once: `codex-providers.ps1` must not exit `1`. To use another file, the user sets
+`CODEX_CONSULT_ROSTER=<path>` (the file must exist); `CODEX_CONSULT_ROSTER=none` switches
+the roster off.
+
+**8. Peak windows (optional).** If a plan bills more at peak hours, the user sets
+`CODEX_CONSULT_PEAK_<PROVIDER>`, e.g. `setx CODEX_CONSULT_PEAK_ZAI "Mon-Fri 14:00-18:00 +08:00"`,
+with the schedule taken from the plan's own page (never guess one). Format and
+`-OffPeakOnly`: "Peak-hour windows".
+
+**9. Verify.**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-providers.ps1"
+```
+
+Expect this shape, exit `0`:
 
 ```
-/plugin marketplace add xelth-com/claude-codex-consult
-/plugin install codex-consult@claude-codex-consult
+codex config: C:\Users\<you>\.codex\config.toml
+VERDICT    PROVIDER  ROSTER  KIND     ENDPOINT                                  CREDENTIALS                  EFFORT                    LAST FAILURE (24 h)
+available  openai    1       builtin  builtin:openai                            ok: Logged in using ChatGPT  openai (any model)        -
+available  ZAI       2       custom   https://api.z.ai/api/v1                   ok: env ZAI_API_KEY set      zai (11 declared models)  -
+available  mimo      3       custom   https://token-plan-ams.xiaomimimo.com/v1  ok: env MIMO_API_KEY set     mimo (5 declared models)  -
+roster: C:\Users\<you>\.codex\codex-consult-roster.json -> would select openai :: <model>
 ```
 
-Then just ask Claude to consult Codex, or invoke the skill directly:
+`missing: env MIMO_API_KEY not set` means the variable is not visible to this process (not
+set, or Claude Code was not restarted). Health (the `LAST FAILURE` column, usage limits)
+comes from the ledgers of the repository you run in, so a fresh repository shows none.
+Then, inside a git repository:
 
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps1" `
+    -Task setup-check -Prompt "Reply with one sentence." -DryRun
 ```
-/codex-consult:consult-codex my-task should we cache at the edge or in the worker?
+
+Expect exit `0` and, among other lines: `DRY RUN - nothing was executed and no file was
+written.`, `reviewer    : <provider> :: <model> (provider from …, model from …; …)`,
+`preflight   : available (ok: …)`, `Roster: <path> - position 1 of 3`,
+`transport   : output-schema (…)` or `prompt-only (…)`,
+`format retry : 1 attempt if the reply is not valid JSON`, `mode        : new`. Repeat
+with `-Provider ZAI -Model glm-5.3` (and each other provider) to check every reviewer.
+
+**10. First live consultation.** It spends a little of the reviewer's quota, so ask the
+user first:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps1" `
+    -Task setup-check -Purpose chore -ReplyName smoke `
+    -Prompt "List the top-level files of this repository, one line each."
 ```
 
-### Requirements
+Expect `codex-consult: usable reply - <provider> :: <model>, mode new, thread <uuid>
+(source: events), wall <n> s`, exit `0`, and the files
+`.collab/setup-check/handoffs/01-codex-smoke.md` and `.collab/setup-check/sessions.json`.
 
-| | |
+**11. Record the setup** in the project's `state.md` (or whatever notes file the project
+keeps): the providers wired and their models, the roster path, order and panel weights,
+the env variable NAMES (never values), the peak variables, the `codex-providers.ps1`
+verdicts with the date, and anything left unavailable and why.
+
+**Ask the user / never do.**
+
+| Ask the user to… | Never… |
 |---|---|
-| Claude Code | any recent version with plugin support |
-| [Codex CLI](https://github.com/openai/codex) | **≥ 0.148** — `codex exec fork` landed there. Developed against 0.155.1 |
-| Codex auth | signed in with your ChatGPT account (`codex login`). No API key needed |
-| Shell | Windows PowerShell 5.1 (preinstalled on Windows) **or** PowerShell 7 (`pwsh`) on macOS/Linux/Windows |
-| git | optional — used to locate the project root and stamp the reviewed revision |
+| install Codex CLI or PowerShell 7 | create, print, echo, log, commit or paste an API key, or read one back from the environment |
+| run `codex login` | put a key into `config.toml` (`experimental_bearer_token`), the roster, a brief, `state.md` or a commit |
+| set `<NAME>_API_KEY` (`setx` or the shell profile), then restart Claude Code | set `model_catalog_json` or `profile` at the top level of `config.toml` |
+| confirm the plan's region, models and peak schedule | invent a base URL, a model name or a peak schedule |
+| agree before the first live consultation | pass `-SkipPreflight` to get past a real refusal; `fork`/`resume` a thread under another provider or model; delete `.consult.lock` |
+
+---
+
+## Skills in this plugin
+
+| Skill | Use it for |
+|---|---|
+| `consult-codex` (`/codex-consult:consult-codex <task-id> <ask>`) | the consultation process: when to consult, reconciling findings, the brief, the one command, verifying and recording findings, rating the consultation, the panel and the council rules |
+| `setup-providers` (`/codex-consult:setup-providers [provider]`) | wiring reviewers on a machine: Codex login, `[model_providers.*]` tables with `env_key`, per-run catalogs, the roster, peak windows, verification |
+
+Per-provider alias skills a user may keep in `~/.claude/skills/` (say, one that maps "ask
+GLM" to `-Provider ZAI -Model glm-5.3`) are optional personal conventions, not part of
+the plugin; nothing here needs or installs them.
 
 ---
 
 ## Usage
 
-**1. Claude writes a brief** to `.collab/<task>/handoffs/<NN>-claude-<slug>.md`, starting
-from `templates/brief-framing.md` or `templates/brief-review.md`. One page: question,
-task state (or delta since the last review, plus the CURRENT invariants — history is not
-an authoritative current-state record), evidence with `file:line`, alternatives weighed,
-numbered questions Q1…Qn, a word cap.
+Three steps per consultation: write a brief, run one command, read and record. The
+`consult-codex` skill is the procedure; this section and the ones below are the reference.
+`$P` is the plugin directory (setup step 0); inside the plugin's skills the same commands
+use `${CLAUDE_PLUGIN_ROOT}`. On macOS/Linux replace `powershell -NoProfile
+-ExecutionPolicy Bypass -File` with `pwsh -NoProfile -File`.
 
-**2. One command** (Claude runs this for you):
+**1. Write the brief** to `.collab/<task>/handoffs/<NN>-claude-<slug>.md`. `<NN>` is the next
+free two-digit prefix; you and the bridge share one sequence, so the directory reads as a
+conversation. Start from `templates/brief-framing.md` (framing, decision, stuck) or
+`templates/brief-review.md` (checkpoint, core-contract, acceptance, diff-review). One page:
+the question, the task state (on a continued thread, the delta since the last review plus
+the CURRENT invariants, because history is not an authoritative current-state record),
+evidence with `file:line`, alternatives weighed, numbered questions Q1…Qn, a word cap. The
+bridge never writes briefs. `-Prompt` is a one-line ask; do not paste the brief into it.
+
+**2. Run one command** from inside the project:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" `
-    -Task my-task -Mode fork -Purpose diff-review `
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps1" `
+    -Task my-task -Purpose diff-review `
     -Brief .collab/my-task/handoffs/03-claude-invalidation.md `
     -Prompt "Judge the invalidation strategy." -ReplyName invalidation
 ```
 
-On macOS/Linux, `pwsh -NoProfile -File …` with the same arguments. `-Purpose` picks the
-prompt paragraph and the default effort/word cap (see "Review purposes" below).
+- `-Task` and `-ReplyName` are slugs (letters, digits, `.`, `-`, `_`).
+- Leave `-Mode` out. It defaults to `fork` when a thread of this run's reviewer lineage is
+  known, else `new`. `fork` is also right when another client (Codex CLI, the desktop app)
+  may still append to that thread; use `-Mode resume` only when nothing else writes to it.
+  `-Thread <uuid>` picks a specific parent of the same lineage.
+- One specific reviewer: `-Provider <name> -Model <model>`. Every available roster
+  reviewer: `-Panel`.
+- When a call misbehaves, rerun it with `-DryRun` first: it prints the argv, the resolved
+  launcher, reviewer, preflight, roster pick, transport, the prompt that would go on stdin,
+  every path and the planned ledger entry, and writes nothing.
 
-**3. The reply** is written to `.collab/<task>/handoffs/<NN>-codex-<slug>.md` — a header
-(date, model, effort, Codex version, mode, purpose, parent thread, result thread, argv,
-bridge outcome, verdict, findings summary, wall time) then `---` then the reply
-**verbatim**, nothing paraphrased, then (unless `-Raw`) the rendered findings, prior
-findings, verdict, blockers, unproven scenarios and first-run checklist. Next to it:
-`<NN>-codex-<slug>.reply.json` (the raw structured reply) and
-`<NN>-codex-<slug>.events.jsonl` (the raw event stream). See "Structured reply and
-findings" below.
+Expect on success (exit `0`):
 
-### The ledger
-
-`.collab/<task>/sessions.json` records every call, including the ones that failed —
-so the file is a history, not a success log. As of 0.2.0 the entry separates the
-**bridge outcome** (did a usable reply come back) from the **verdict** (what Codex
-decided), and carries the revision fingerprint and the findings summary:
-
-```json
-{
-  "task_id": "my-task",
-  "cwd": "/home/you/project",
-  "codex": {
-    "tool": "codex-cli 0.155.1",
-    "consults": [
-      {
-        "n": 4,
-        "when": "2026-09-22T11:24:27+02:00",
-        "purpose": "diff-review",
-        "consult_id": "8f6a1e2d-...",
-        "reviewer": {
-          "provider": "ZAI",
-          "provider_source": "-Provider",
-          "model": "glm-5.3",
-          "model_source": "-Model",
-          "harness": "codex-cli 0.155.1",
-          "provider_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85",
-          "provider_config": { "base_url": "https://api.z.ai/...", "wire_api": "responses" },
-          "identity_note": ""
-        },
-        "lineage": "ZAI :: glm-5.3",
-        "preflight": "ok: env ZAI_API_KEY set",
-        "preflight_warning": "",
-        "parent_thread": "01a0c839-48ba-7182-8d15-fdc13dd17193",
-        "thread": "01a0c86e-5193-7d70-a644-63a5c3f224b3",
-        "thread_source": "events",
-        "thread_candidate": "",
-        "mode": "fork",
-        "command": "codex exec --sandbox read-only --output-schema … --color never --json …",
-        "brief": ".collab/my-task/handoffs/03-claude-invalidation.md",
-        "prompt_chars": 212,
-        "reply": "handoffs/04-codex-invalidation.md",
-        "reply_json": "handoffs/04-codex-invalidation.reply.json",
-        "events": "handoffs/04-codex-invalidation.events.jsonl",
-        "model": "glm-5.3",
-        "effort": "max",
-        "effort_requested": "xhigh",
-        "effort_sent": "max",
-        "effort_mapping": "zai-v1",
-        "effort_caps": "caps-v1",
-        "effort_confirmed": null,
-        "max_words": 700,
-        "sandbox": "read-only",
-        "extra_config": [],
-        "peak": false,
-        "peak_schedule": "Mon-Fri 14:00-18:00 +08:00",
-        "peak_source": "env",
-        "peak_evaluated_at": "2026-09-22T11:24:27+08:00",
-        "structured": true,
-        "schema": "consult-reply v1",
-        "schema_transport": "output-schema",
-        "validation_error": "",
-        "base_commit": "4e9cc4f0…",
-        "reviewed_revision": "4e9cc4f + uncommitted",
-        "tree_sha256": "9c2a…",
-        "tree_sha256_after": "9c2a…",
-        "tree_changed_during_review": false,
-        "changed_files": 3,
-        "brief_sha256": "7b31…",
-        "brief_sha256_after": "7b31…",
-        "brief_changed_during_review": false,
-        "fingerprint_note": "collab dir '.collab' excluded (2 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
-        "artifacts": [],
-        "artifacts_changed_during_review": false,
-        "bridge_outcome": "usable reply",
-        "provider_failure": null,
-        "verdict": "HOLD",
-        "verdict_reason": "one blocker in the invalidation path",
-        "findings": { "blocker": 1, "major": 2, "minor": 0, "note": 1 },
-        "finding_ids": ["F04-1", "F04-2", "F04-3", "F04-4"],
-        "prior_findings": [{ "id": "F02-3", "status": "fixed" }],
-        "unchecked_prior_blockers": [],
-        "usage": { "input_tokens": 18400, "cached_input_tokens": 12000, "output_tokens": 900, "reasoning_output_tokens": 400 },
-        "wall_seconds": 11.1
-      }
-    ]
-  }
-}
+```
+codex-consult: usable reply - ZAI :: glm-5.3, mode fork, thread <uuid> (source: events), wall 41.2 s
+verdict    : HOLD - <verdict_reason>
+findings   : 1 blocker, 2 major, 0 minor, 1 note -> F04-1..F04-4 in findings.json
+reply file : <repo>\.collab\my-task\handoffs\04-codex-invalidation.md
 ```
 
-`thread_source` tells you where the thread id came from: `events`, `rollout (verified by
-consultation id)`, or `unknown` (as of 0.3.0 a rollout candidate is never trusted without
-that verification — see "A second reviewer through the same bridge"). `bridge_outcome`
-is either `usable reply` or `failed: …` and
-says only that the bridge worked; `verdict` (`ACCEPT`/`HOLD`/`REJECT`/`ADVISE`, empty
-when unavailable) is what the reviewer decided — see "Role split" for why the two are
-kept apart. `outcome` was renamed to `bridge_outcome` in 0.2.0; older entries with
-`outcome` are left as written and only their `thread` field is read back.
+Exit `1` with `codex-consult: <message>` and nothing written is a **refusal** (bad
+arguments, an unusable roster or config table, a preflight refusal, a live previous run,
+`-OffPeakOnly`). Exit `1` with `codex-consult: failed: … (wall <n> s)` is a **bridge
+failure**: the run was launched and its reply file (with the stderr tail) and ledger entry
+were still written.
 
-As of 0.3.0, `consult_id`, `reviewer{…}` and `lineage` identify which model actually
-answered (see "A second reviewer through the same bridge"). Inside `reviewer`,
-`provider_source` is one of `-Provider`/`config`/`codex default`/`unknown` (how the
-provider was decided) and `identity_note` carries the reason identity was left
-unresolved (a `profile` key, an unreadable config, an unusable table, …) — empty when
-identity resolved cleanly. `lineage` is a DISPLAY string (`<provider> :: <model>`) —
-parent-thread matching compares `reviewer.provider` and `reviewer.model` separately,
-never this string; an older ledger's `lineage: "ZAI/glm-5.3"` (the pre-wave-7 slash
-form) still matches correctly for that reason. `preflight` (`ok: <detail>` |
-`unknown: <reason>` | `skipped`) and `preflight_warning` (a recent usage-limit hit on
-this provider, or empty) record the credential preflight (see "A second reviewer...").
-`thread_candidate` is the diagnostic rollout uuid kept when it could not be verified
-against `consult_id`; `effort_requested`/`effort_sent`/`effort_mapping`/`effort_caps`/
-`effort_confirmed` replace the old single-stage view of `-Effort` (`effort` is kept,
-equal to `effort_sent`, for readers of 0.2 ledgers and for `-Stats`; `effort_caps`
-records which version of the bridge's declared-capability table decided the mapping);
-`extra_config` lists any `-CodexConfig` overrides, expanded, in the form sent to argv,
-and `extra_config_source` says where it came from: `''` (given directly), `-CodexConfig`,
-or `roster` (a `-Provider` or `-Thread` run whose roster entry supplied it because
-`-CodexConfig` was empty); `peak`/`peak_schedule`/`peak_source`
-(`env`/`env (CODEX_CONSULT_NOW)`/`none`)/`peak_evaluated_at` record the tariff-window
-check made immediately before launch; `schema_transport` (`output-schema`|`prompt-only`)
-records how the reply schema reached this endpoint, and `schema_transport_source`
-records why (`caps-v1`, or `-SchemaTransport` when that flag overrode it for this run;
-`''` under `-Raw`, which uses neither) — see "Structured reply and findings". `roster`
-(`null` without a reviewer roster) and `panel` (`null` outside a `-Panel` run) sit right
-after `preflight_warning` — see "Reviewer roster and panel" below. Ledgers written
-before 0.3.0 have none of these fields — that absence IS the "unknown
-provenance" signal described above.
+**3. Read, verify, record.** The bridge writes, per consultation:
 
-The brief and every `-Artifact` are hashed under the lock **before and after** the run,
-just like the tree (see "Binding a review to a revision"): `brief_sha256_after` and
-`brief_changed_during_review`, and each `artifacts[]` entry's `sha256_after` plus the
-overall `artifacts_changed_during_review`, catch a brief or artifact edited out from
-under a long-running consult, independently of tree drift. `unchecked_prior_blockers`
-lists the ids of open prior blockers Codex did not check while still answering ACCEPT
-(see "Structured reply and findings").
+| File | Content |
+|---|---|
+| `handoffs/<NN>-codex-<slug>.md` | header lines (`Date`/author, `Reviewer:`, `Preflight`, `Roster:`, `Effort:`, peak warning, `Recovery record:`, `Invocation:` with the argv, parent and result thread, brief and reviewed revision, drift warnings, `Bridge outcome:`/wall/tokens, `Provider failure:`, `Structured reply:`, verdict warning, `Format repair:`, `Raw event stream:`), `---`, the reply **verbatim**, then (structured runs) the rendered findings, prior findings, verdict, blockers, unproven scenarios and first-run checklist; after a format repair, the original prose |
+| `handoffs/<NN>-codex-<slug>.reply.json` | the reviewer's last message, byte for byte (structured runs) |
+| `handoffs/<NN>-codex-<slug>.events.jsonl` | the raw event stream |
+| `handoffs/<NN>-codex-<slug>.original.md` | the first-turn prose, only after a format repair |
+| `findings.json` | the findings tracked by id, and the `ratings` (only written once there is something to record) |
+| `sessions.json` | the ledger; one entry appended per consultation |
 
-### Review purposes
+Verify every finding yourself (open the location, run the build or test) before acting
+on it, then move its status with `codex-findings.ps1` and rate the consultation with
+`-Rate` (see "Findings: ids, status, ratings"). Commit the whole `.collab/` tree next to
+the code; `.gitignore` excludes only `.consult.lock` and `.consult.pending.json`. A
+fabricated example of the layout is in `examples/`.
 
-`-Purpose` selects the prompt paragraph Codex answers under, and the default effort and
-word cap (`-Effort`/`-MaxWords` override either):
+---
 
-| `-Purpose` | Effort | Max words | Asks Codex to… |
+## Review purposes
+
+`-Purpose` selects the prompt paragraph and the default effort and word cap; `-Effort` and
+`-MaxWords` override either.
+
+| `-Purpose` | Effort | Max words | Asks the reviewer to… |
 |---|---|---|---|
 | *(none)* | high | 700 | answer the brief with no preset framing |
 | `framing` | high | 700 | surface options the brief did not list; challenge the framing |
@@ -221,453 +322,493 @@ word cap (`-Effort`/`-MaxWords` override either):
 | `acceptance` | high | 900 | decide ACCEPT/HOLD/REJECT, with blockers, unproven scenarios and an observable first-run checklist |
 | `diff-review` | high | 700 | an adversarial read: what breaks, what is not covered, what the tests do not prove |
 | `stuck` | xhigh | 700 | find the angle the coordinator is missing; question assumptions before proposing fixes |
-| `chore` | low | 400 | a bounded search or extraction task — report facts with file paths and line numbers, quote what was found, say what was not; no verdict, no findings |
+| `chore` | low | 400 | a bounded search or extraction task: facts with file paths and line numbers, quotes of what was found, what was not; no verdict, no findings |
 
-`acceptance` and `diff-review` ask for a verdict of `ACCEPT`/`HOLD`/`REJECT`; every
-other purpose except `chore` (and no purpose) asks for `ADVISE`. `chore` is a plain-text
-reply like `-Raw` — no schema, no findings bookkeeping — meant for grunt work (searching
-a big file, extracting facts) that should not cost a weighty reviewer's tokens. The word
-cap applies to the prose (`reply_markdown`) only — findings are never truncated to fit
-it.
+`acceptance` and `diff-review` take a verdict of `ACCEPT`/`HOLD`/`REJECT`; every other
+purpose, and no purpose, takes `ADVISE`. `chore` is a plain-text reply like `-Raw` (no
+schema, no findings bookkeeping, no format repair): give grunt work to a cheap reviewer
+with it. The word cap applies to the prose (`reply_markdown`) only; findings are never cut
+to fit it. The weighty purposes (`framing`, `decision`, `core-contract`, `acceptance`,
+`stuck`) decide which roster entries join a panel.
 
-### Structured reply and findings
+---
 
-By default (unless `-Raw`) the script asks Codex for one JSON object per the schema in
-`schemas/consult-reply.schema.json` (schema v1) — but HOW that schema reaches the
-endpoint depends on the resolved provider, per caps-v1's declared `schema_transport`:
-`output-schema` passes `--output-schema` on the codex CLI invocation (the built-in
-`openai` route enforces it server-side, so the reply comes back as bare JSON; the z.ai
-hosts accept the flag WITHOUT enforcing it, so a fenced JSON block or, in principle,
-plain Markdown can still come back); `prompt-only` never passes `--output-schema` at
-all — the MiMo hosts, and any endpoint caps-v1 does not declare, reject the flag outright
-(`responses_feature_not_supported: text.format type 'json_schema' is not supported,
-only 'text' and 'json_object' are allowed` was the exact failure on the first live MiMo
-run) — instead the format instruction reads "exactly one JSON object - no code fence,
-no text before or after it - that satisfies the JSON Schema given at the end of this
-section", and the schema file itself is appended to the prompt as a final
-`JSON Schema of the reply:` section (about 2 KB); on `output-schema` hosts the prompt is
-unchanged from 0.2.0. The reply is then parsed LENIENTLY (bare or fenced) and validated
-locally, exactly as for any other reply. On a `prompt-only` route a reviewer that
-ignores the instruction and answers in plain prose is kept as an ordinary Markdown reply
-with no verdict and no findings — the same outcome as an INVALID structured reply on
-any other route, not a bridge failure. Ledger `schema_transport`
-(`output-schema`|`prompt-only`) records which was used, also reported per provider by
-`codex-providers.ps1 -Json`; the reply header's `Structured reply:` line gets
-`(prompt-only transport)` appended when applicable, and `-DryRun` prints a `transport   :`
-line (e.g. `prompt-only (caps-v1: token-plan-ams.xiaomimimo.com): --output-schema is NOT
-passed; the schema travels in the prompt, the reply is validated locally`), so a
-plain-prose reply on that route is not mistaken for a validation bug.
+## The ledger
 
-**Contract-first prompt and format repair (0.3.0, wave 14).** A `prompt-only` route
-that never enforces `--output-schema` server-side can still answer in prose even with
-the schema attached, especially when the output-contract instruction sits after the
-schema section instead of before it. Every structured prompt now OPENS with the
-following paragraph, before the ask and the brief:
+`.collab/<task>/sessions.json` holds `task_id`, `cwd` (the repository root) and
+`codex: {tool, consults[]}`. Every run that got past the refusals appends one entry,
+failed runs included, so the ledger is a history and not a success log. A refusal (see
+"Usage") writes nothing. A full entry, fields in the order the bridge writes them:
+
+```json
+{
+  "n": 4,
+  "when": "2026-09-22T11:24:27+02:00",
+  "purpose": "diff-review",
+  "consult_id": "8f6a1e2d-…",
+  "reviewer": {
+    "provider": "ZAI",
+    "provider_source": "-Provider",
+    "model": "glm-5.3",
+    "model_source": "-Model",
+    "harness": "codex-cli 0.155.1",
+    "provider_fingerprint": "e3b0c44298fc…",
+    "provider_config": { "base_url": "https://api.z.ai/api/v1", "wire_api": "responses" },
+    "identity_note": ""
+  },
+  "lineage": "ZAI :: glm-5.3",
+  "preflight": "ok: env ZAI_API_KEY set",
+  "preflight_warning": "",
+  "roster": null,
+  "panel": null,
+  "parent_thread": "01a0c839-48ba-7182-8d15-fdc13dd17193",
+  "thread": "01a0c86e-5193-7d70-a644-63a5c3f224b3",
+  "thread_source": "events",
+  "thread_candidate": "",
+  "mode": "fork",
+  "command": "codex exec --sandbox read-only --color never --json -m glm-5.3 -c model_reasoning_effort=\"max\" -c model_provider=\"ZAI\" -o <temp> --output-schema <schema> fork 01a0c839-… -",
+  "brief": ".collab/my-task/handoffs/03-claude-invalidation.md",
+  "prompt_chars": 3412,
+  "reply": "handoffs/04-codex-invalidation.md",
+  "reply_json": "handoffs/04-codex-invalidation.reply.json",
+  "events": "handoffs/04-codex-invalidation.events.jsonl",
+  "model": "glm-5.3",
+  "effort": "max",
+  "effort_requested": "xhigh",
+  "effort_sent": "max",
+  "effort_mapping": "zai-v1",
+  "effort_caps": "caps-v1",
+  "effort_confirmed": null,
+  "max_words": 700,
+  "sandbox": "read-only",
+  "extra_config": [],
+  "extra_config_source": "",
+  "peak": false,
+  "peak_schedule": "Mon-Fri 14:00-18:00 +08:00",
+  "peak_source": "env",
+  "peak_evaluated_at": "2026-09-22T11:24:27+02:00",
+  "structured": true,
+  "schema": "consult-reply v1",
+  "schema_transport": "output-schema",
+  "schema_transport_source": "caps-v1",
+  "validation_error": "",
+  "format_retry": null,
+  "base_commit": "4e9cc4f0…",
+  "reviewed_revision": "4e9cc4f + uncommitted",
+  "tree_sha256": "9c2a…",
+  "tree_sha256_after": "9c2a…",
+  "tree_changed_during_review": false,
+  "changed_files": 3,
+  "brief_sha256": "7b31…",
+  "brief_sha256_after": "7b31…",
+  "brief_changed_during_review": false,
+  "fingerprint_note": "collab dir '.collab' excluded (2 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+  "artifacts": [],
+  "artifacts_changed_during_review": false,
+  "bridge_outcome": "usable reply",
+  "provider_failure": null,
+  "verdict": "HOLD",
+  "verdict_reason": "one blocker in the invalidation path",
+  "findings": { "blocker": 1, "major": 2, "minor": 0, "note": 1 },
+  "finding_ids": ["F04-1", "F04-2", "F04-3", "F04-4"],
+  "prior_findings": [{ "id": "F02-3", "status": "fixed" }],
+  "unchecked_prior_blockers": [],
+  "usage": { "input_tokens": 18400, "cached_input_tokens": 12000, "output_tokens": 900, "reasoning_output_tokens": 400 },
+  "wall_seconds": 11.1
+}
+```
+
+This is the only place field meanings are listed; other sections refer to them by name.
+
+| Field | Values and meaning |
+|---|---|
+| `n` | consultation number in this task; never reused (allocation: "Write order and atomic stores") |
+| `when` | local start time, ISO 8601 with offset |
+| `purpose` | the `-Purpose`, `""` without one |
+| `consult_id` | a fresh guid per run; also the prompt's last line `Consultation id: <guid>` and the key that verifies a rollout-file thread id |
+| `reviewer.provider` / `reviewer.provider_source` | the provider that answered; how it was decided: `-Provider`, `config`, `codex default`, `roster`, `-Thread` or `unknown` |
+| `reviewer.model` / `reviewer.model_source` | the model that answered (`unknown` when unresolvable); `-Model`, `config`, `roster`, `-Thread` or `unknown` |
+| `reviewer.harness` | `codex-cli <version>`; audit only, never compared |
+| `reviewer.provider_fingerprint` / `reviewer.provider_config` | SHA-256 of the canonical endpoint (`""` when identity is unresolved); `{base_url, wire_api}` of the table (no `wire_api` key when the table has none), or `{builtin: "openai"}` |
+| `reviewer.identity_note` | why identity is unresolved, or how it was derived (e.g. a user-defined `[model_providers.openai]` table); `""` otherwise |
+| `lineage` | `<provider> :: <model>`, display only; matching never compares this string |
+| `preflight` | `ok: <credential detail>` or `skipped` (`-SkipPreflight`); any other verdict refuses the run |
+| `preflight_warning` | a recent usage limit that did not refuse the run, else `""` |
+| `roster` | `null` without a roster; else `{path, position, skipped: [{provider, model, reason}], applied: []}`, `applied` naming what the roster entry supplied (`model`, `codex_config`) |
+| `panel` | `null` outside a panel; else `{id, position, of, members: [{provider, model, state: "run"\|"skipped", reason}]}` |
+| `parent_thread` / `thread` | the thread forked or resumed (`""` for `new`); the resulting thread (`""` when not verified) |
+| `thread_source` | `events`, `rollout (verified by consultation id)` or `unknown` |
+| `thread_candidate` | an unverified rollout uuid kept for diagnosis only; never a parent |
+| `mode` / `command` | `new`, `fork` or `resume`; the full argv as one string (prompt on stdin) |
+| `brief` / `prompt_chars` | the brief path (`""` without one); the prompt length |
+| `reply` / `reply_json` / `events` | handoff paths relative to the task directory (`reply_json` is `""` for plain-text runs) |
+| `model` / `effort` | kept for 0.2 readers and `-Stats`: the resolved model; `effort` equals `effort_sent` |
+| `effort_requested` / `effort_sent` / `effort_mapping` / `effort_caps` / `effort_confirmed` | the preset, `-Effort` or `-NativeEffort` value; the value put into argv; `openai`, `zai-v1`, `mimo-v1` or `native`; the capability-table version (`caps-v1`); always `null` (Codex does not report the effort it used) |
+| `max_words` / `sandbox` | the resolved word cap; `read-only` or `workspace-write` |
+| `extra_config` / `extra_config_source` | the `-CodexConfig` or roster `codex_config` items as sent (expanded); `""` (none), `-CodexConfig` or `roster` |
+| `peak` / `peak_schedule` / `peak_source` / `peak_evaluated_at` | `true`, `false` or `null` (no schedule) at launch; the schedule; `env`, `env (CODEX_CONSULT_NOW)` or `none`; when that decisive check ran |
+| `structured` / `schema` | whether a valid structured reply was ingested; `consult-reply v1`, or `""` for `-Raw` |
+| `schema_transport` / `schema_transport_source` | `output-schema` or `prompt-only`; `caps-v1` or `-SchemaTransport` (`""` for plain-text runs) |
+| `validation_error` | `""`, or every validation message joined with `; `, plus a format-repair note |
+| `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original}` |
+| `base_commit` … `fingerprint_note` | revision binding: see "Binding a review to a revision" |
+| `artifacts` / `artifacts_changed_during_review` | `[{path, sha256, sha256_after}]` per `-Artifact`; whether any changed during the run |
+| `bridge_outcome` | `usable reply` or `failed: <why>`: only whether the bridge worked |
+| `provider_failure` | `null` on success, else `{class, code, message, when, retry_after}` (see "Preflight and endpoint health") |
+| `verdict` / `verdict_reason` | `ACCEPT`, `HOLD`, `REJECT`, `ADVISE`, or `""` (unavailable or invalid); one sentence |
+| `findings` / `finding_ids` | severity counts of the new findings; their ids |
+| `prior_findings` | the reviewer's reports on earlier ids: `{id, status}` with `fixed`, `still-open`, `not-checked` or `unknown-id` |
+| `unchecked_prior_blockers` | open prior blockers the reviewer did not check while answering `ACCEPT` |
+| `usage` / `wall_seconds` | token counts from the event stream; wall time |
+
+`bridge_outcome` and `verdict` are separate on purpose: a delivered `HOLD` is a success of
+the bridge. Legacy entries: the pre-0.2.0 field `outcome` (now `bridge_outcome`) is left
+as written and only its `thread` is read; entries written before 0.3.0 have no `reviewer`,
+`lineage` or later fields, and that absence marks them as unknown provenance (see
+"Reviewer identity and lineage"); a pre-wave-7 `lineage` in the slash form
+(`ZAI/glm-5.3`) still matches, since matching compares `reviewer.provider` and
+`reviewer.model`.
+
+---
+
+## Structured reply, findings and format repair
+
+Unless `-Raw` or `-Purpose chore`, the bridge asks the reviewer for one JSON object per
+`schemas/consult-reply.schema.json` (schema v1) and validates it locally.
+
+**Reply fields.** `schema_version` (`"1"`), `verdict`, `verdict_reason`, `reply_markdown`
+(the full prose answer), `findings[]`, `prior_findings[]`, `unproven[]`,
+`first_run_checklist[]`. Each finding: `severity` (`blocker`/`major`/`minor`/`note`),
+`locations[]` (`{path, line}`, empty when not tied to a place), `claim`, `trigger`,
+`evidence[]` (`{kind, reference, observation}`, what the reviewer already checked; `kind`
+is `read-code`/`ran-command`/`inferred`/`assumed`), `verification` (what you run next to
+confirm it), `remedy`, `supersedes[]` (ids of earlier findings it replaces).
+
+**Output contract.** Every structured prompt OPENS with this paragraph, before the ask and
+the brief:
 
 > FINAL OUTPUT CONTRACT: your ENTIRE final message must be exactly one bare JSON
 > object (schema_version "1") - no code fence, no text before or after it. The
 > Markdown answer lives only inside its reply_markdown string; each defect goes in
 > findings[]. A prose final message cannot be ingested, however good the answer is.
 
-When the reviewer still answers in prose, `-FormatRetry 1` (the default; `0` turns it
-off) fires ONE recorded repair turn, but only when all of the following hold: the run
-is structured (not `-Raw`, not `chore`); the bridge got a usable reply (exit 0, no
-timeout, no provider failure); the reply fails to parse or validate as the schema (a
-valid object with a verdict you merely disagree with is never retried); the thread is
-verified (from the event stream or a verified rollout); and the prose is substantive
-(wave 15's gate: ≥25 words with two numbered answers, ≥40 with one, ≥120 otherwise —
-numbered answers in the styles `**Q1.**`, `Q1.`, `Q1:`, `1.`, `1)`, `**1.**`, `### Q1`
-at a line start; a reply that opens with, or is dominated by, refusal phrasing and
-carries no numbered answer, finding id, `RC` id or verdict is NOT repaired). When the
-gate says no, `format_retry` stays `null` and `validation_error` gets ` (format repair
-not attempted: reply looks like a refusal)` or ` (... reply too short (<n> words))`.
-The repair turn is
-`codex exec ... resume <thread> -`, read-only sandbox, the route's lowest effort, the
-same `-CodexConfig` items, no `--output-schema`, and a prompt asking to convert the
-previous message verbatim into the JSON object (the schema and the consultation id are
-given; never the brief) — within `min(-TimeoutSec, 300)` s, under the same lock and
-recovery record.
+**Schema transport** (per host, declared by caps-v1; see "Effort vocabularies (caps-v1)"):
+- `output-schema`: `--output-schema <schema>` is passed. The built-in `openai` route
+  enforces it server-side (bare JSON comes back); the z.ai hosts accept the flag without
+  enforcing it (a fenced JSON block or plain Markdown can come back).
+- `prompt-only`: the flag is never passed. The MiMo hosts reject it outright
+  (`responses_feature_not_supported: text.format type 'json_schema' is not supported, only
+  'text' and 'json_object' are allowed`), and an undeclared host might. The schema file
+  (about 2 KB) is appended as a final `JSON Schema of the reply:` section, with an
+  instruction for exactly one JSON object, no fence.
+- Either way the reply is parsed leniently (bare or fenced) and validated locally. Ledger
+  `schema_transport`/`schema_transport_source`; `codex-providers.ps1 -Json` reports
+  `schema_transport` per provider; the reply header's `Structured reply:` line gets
+  `(prompt-only transport)` appended; `-DryRun` prints e.g. `transport   : prompt-only
+  (caps-v1: token-plan-ams.xiaomimimo.com): --output-schema is NOT passed; the schema
+  travels in the prompt, the reply is validated locally`. `-SchemaTransport
+  output-schema|prompt-only` overrides the declared transport for one run (not with
+  `-Raw`); use it only when the declared transport is known to be wrong for the endpoint.
 
-On success, the repaired object is ingested as the reply (findings and verdict
-included; `.reply.json` holds the repaired object), and the original prose is kept
-byte for byte as `handoffs/NN-codex-<slug>.original.md`, rendered after the structured
-section under `## Original reply (prose, before format repair)`. On failure, today's
-0.2.0/0.3.0 behaviour is unchanged — the prose is kept, `structured` stays `false` —
-except that `validation_error` gets ` (format repair failed: <why>)` appended. Either
-way the entry keeps its original `thread`; if the repair turn resumes a *different*
-thread id, that id goes only to `format_retry.thread`, with a drift note. Drift notes
-(warnings, never refusals) also cover: differing requested checks, a differing numbered
-answer, a finding id named in the prose but missing from the object, a differing
-verdict, and prose sentences not carried into `reply_markdown` (every sentence of ≥60
-characters, the 40 longest at most — a replaced remedy or a softened severity stated in
-one short sentence is caught by containment, not by parsing severities). Drift notes are
-warnings: the original prose stays the evidence of record. Ledger `format_retry`,
-right after `validation_error`: `null` when repair was not attempted or is off,
-otherwise `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original}`.
-Console: `format repair: <succeeded|failed> in <s> s; drift: <n> note(s)`, one `  drift:`
-line per note; `-DryRun` prints `format retry : 1 attempt if the reply is not valid
-JSON` or `format retry : 0 (off)`. Panel members inherit `-FormatRetry` from the main
-run.
+**Validation.** The parsed reply must match the schema exactly: every required field, legal
+enum values, `additionalProperties: false`, `line` either `null` or an integer in
+`1..2147483647` (anything else is a validation error, never a crash). A structural error
+(not valid JSON, an unknown field, a bad enum, a `null` where an array is required, …)
+means no verdict and no findings ingestion; the raw text is kept as the reply body and the
+header reads `Structured reply: INVALID (…) — raw text kept; no findings recorded.` A JSON
+parse error's `(…)` is the .NET exception message, in the machine's UI language. The one
+exception is the format-repair turn below. A bridge-side bug while parsing or ingesting a
+valid reply is reported separately as `bridge could not process the reply: …`, also with
+no ingestion. Three semantic rules also apply (messages joined with `; ` in
+`validation_error`); none of them is a bridge failure (`bridge_outcome` stays
+`usable reply` whenever the text is non-empty):
 
-A bridge killed DURING the repair turn cannot lose the usable first answer silently:
-before the repair process starts, the recovery record (`.consult.pending.json`) is
-rewritten with `original` (the repo-relative path of the `.original.md` copy, already
-on disk) and `first_reply: "usable prose (format repair in progress)"`; every message
-built from that record — the refusal while the repair process may still run, the
-`recovered reservation ...` note when the next run consumes it, the dry run's `pending`
-line, `codex-findings.ps1 -List` — then adds `a usable prose reply of that run exists
-at <path>; no ledger entry was written for it`. The two fields are cleared as soon as
-the ledger entry is written, so the note never describes a recorded run. Every run
-that consumed or cleared a record now carries a `Recovery record:` line in its handoff
-header.
-
-Three files record the reply per consult: the raw `.reply.json` (Codex's last message
-copied byte for byte, never re-serialized), the rendered `.md`, and
-`<task>/findings.json` (only written when at least one finding exists). Copying the raw
-reply happens FIRST, before it is even parsed: if that copy fails, it is a bridge
-failure in its own right — `bridge_outcome = "failed: could not preserve the raw reply
-(<error>); original kept at <temp path>"` — the run exits non-zero with no verdict and
-no findings ingested, but the ledger entry is still appended so the failure itself is on
-record.
-
-Reply fields: `verdict`, `verdict_reason`, `reply_markdown` (the full prose answer),
-`findings[]`, `prior_findings[]`, `unproven[]`, `first_run_checklist[]`. Each finding
-carries `severity` (`blocker`/`major`/`minor`/`note`), `locations[]` (`{path, line}`,
-empty when not tied to a place), `claim`, `trigger`, `evidence[]` (`{kind, reference,
-observation}` — what Codex already checked; `kind` is `read-code`/`ran-command`/
-`inferred`/`assumed`), `verification` (what you run next to confirm it), `remedy`, and
-`supersedes[]` (ids of earlier findings this one replaces).
-
-**Validation.** The script checks the parsed reply's exact shape against the schema:
-every required field, legal enum values, `additionalProperties: false`, and `line`
-either `null` or an integer in `1..2147483647` (an out-of-range or fractional value is a
-validation error, never a crash). A structural error (not valid JSON, an unknown field,
-a bad enum, a `null` where an array is required, a `line` out of range, …) means no
-verdict and **no findings ingestion** — the raw text is kept as the reply body.
-`Structured reply: INVALID (…) — raw text kept; no findings recorded.` is the header
-line for that case; a JSON parse failure's `(…)` is the underlying .NET exception
-message verbatim, so its wording follows the machine's UI language. A bridge-side bug
-while parsing or ingesting an otherwise-valid reply (not the reviewer's fault) is
-reported separately as `bridge could not process the reply: …`, also with no ingestion.
-
-On top of shape, three semantic rules apply, and their messages are joined with `; ` in
-`validation_error` when more than one fires:
-
-- **the verdict must fit the purpose** — `ACCEPT`/`HOLD`/`REJECT` for `acceptance` and
-  `diff-review`, `ADVISE` for every other purpose (and for no purpose). A mismatch is a
-  validation error and the verdict is dropped (`''`), but findings are still ingested.
-- **`ACCEPT` next to a new `blocker` finding is a contradiction** — findings are still
-  ingested (a blocker is real evidence even when the reviewer's own verdict disagrees),
-  verdict becomes `''`, `validation_error = "verdict ACCEPT contradicts N blocker
+- **The verdict must fit the purpose** (see "Review purposes"). A mismatch drops the
+  verdict (`""`); findings are still ingested.
+- **`ACCEPT` next to a new `blocker` finding** is a contradiction: findings are ingested,
+  the verdict becomes `""`, `validation_error = "verdict ACCEPT contradicts N blocker
   finding(s)"`, header `Verdict: (invalid: ACCEPT contradicts N blocker)`.
-- **`ACCEPT` next to a prior open blocker Codex reports `still-open`** is the same kind
-  of contradiction — `validation_error` includes `"verdict ACCEPT contradicts still-open
-  prior blocker F02-1"` and the verdict is dropped. But `ACCEPT` next to a prior open
-  blocker reported `not-checked`, `unknown-id`, or simply not mentioned at all, is
-  **not** a validation error — the verdict is kept, a `WARNING: ACCEPT with N unchecked
-  prior blocker(s) (F02-1, …).` line is printed, and those ids are recorded in the
-  ledger's `unchecked_prior_blockers`.
+- **`ACCEPT` next to a prior open blocker reported `still-open`** is the same
+  contradiction (`"verdict ACCEPT contradicts still-open prior blocker F02-1"`). A prior
+  open blocker reported `not-checked` or `unknown-id`, or not mentioned, is **not** an
+  error: the verdict is kept, `WARNING: ACCEPT with N unchecked prior blocker(s) (F02-1,
+  …).` is printed and the ids go to `unchecked_prior_blockers`.
 
-None of the three is a bridge failure by itself; `bridge_outcome` stays `usable reply`
-whenever the text is non-empty. The rendered `### Blockers` section lists both new
-blocker findings and retained prior blockers — the latter marked `(prior, still-open)`
-or `(prior, not-checked)` — for every verdict, without creating a duplicate finding
-record for a prior one.
+The rendered `### Blockers` section lists new blocker findings and retained prior
+blockers, the latter marked `(prior, still-open)` or `(prior, not-checked)`, for every
+verdict, without duplicating the prior finding's record.
 
-**Finding ids and status.** Each finding gets `F<NN>-<k>` — `NN` the two-digit (or more)
-handoff number of the reply that raised it, `k` its 1-based position in that reply's
-`findings[]`. The stored record carries `id`, `status`, `severity`, `locations[]`,
-`claim`, `trigger`, `evidence[]`, `verification`, `remedy`, `supersedes[]`,
-`superseded_by[]` (filled on the OLD finding when a later one names it — bookkeeping,
-not a status change), `source` (`{consult, reply, thread, base_commit, tree_sha256}`),
-`history[]` (one entry per status change: `{when, status, by, note, evidence,
-base_commit, tree_sha256}`), and `reviewer_checks[]` (one entry per later reply that
-reported on it: `{consult, when, status, note, base_commit, tree_sha256}` — `status`
-here is the reviewer's own `fixed`/`still-open`/`not-checked`, never the coordinator's
-tracked status). Track it with `codex-findings.ps1`:
+**Format repair (`-FormatRetry`, default `1`; `0` turns it off).** When a structured run
+comes back as prose, the bridge spends ONE recorded repair turn, only if all of these
+hold: the run is structured (not `-Raw`, not `chore`); the bridge got a usable reply (exit
+0, no timeout, no provider failure); the reply fails to parse or validate (a valid object
+with a verdict you disagree with is never retried); the thread is verified (events or a
+verified rollout); and the prose is substantive: ≥ 25 words with two numbered answers, ≥ 40
+with one, ≥ 120 otherwise (numbered answers at a line start: `**Q1.**`, `Q1.`, `Q1:`,
+`1.`, `1)`, `**1.**`, `### Q1`), and not a refusal (a reply that opens with, or is
+dominated by, refusal phrasing and has no numbered answer, finding id, `RC` id or
+verdict). When the gate says no, `format_retry` stays `null` and `validation_error` ends
+with ` (format repair not attempted: reply looks like a refusal)` or
+` (format repair not attempted: reply too short (<n> words))`.
 
+- The turn: `codex exec ... resume <thread> -`, read-only sandbox, the route's lowest
+  effort, the same `-CodexConfig` items, no `--output-schema`, a prompt that asks to
+  convert the previous message verbatim into the object (schema and consultation id
+  given, never the brief), within `min(-TimeoutSec, 300)` s, under the same lock and
+  recovery record.
+- Success: the repaired object is ingested (findings and verdict; `.reply.json` holds it);
+  the original prose is kept byte for byte as `handoffs/<NN>-codex-<slug>.original.md` and
+  rendered after the structured section under `## Original reply (prose, before format
+  repair)`. Failure: the prose is kept, `structured` stays `false`, and `validation_error`
+  gets ` (format repair failed: <why>)`.
+- The entry keeps its original `thread`; a repair turn that resumed a different thread id
+  records it only in `format_retry.thread`, with a drift note.
+- Drift notes are warnings, never refusals: differing requested checks, a differing
+  numbered answer, a finding id named in the prose but missing from the object, a
+  differing verdict, and prose sentences not carried into `reply_markdown` (every
+  sentence of ≥ 60 characters, at most the 40 longest). When a drift note disagrees with
+  the object, the original prose is the evidence of record.
+- Console: `format repair: <succeeded|failed> in <s> s; drift: <n> note(s)` plus one
+  `  drift:` line per note; `-DryRun`: `format retry : 1 attempt if the reply is not valid
+  JSON` or `format retry : 0 (off)`. Panel members inherit `-FormatRetry`.
+- A bridge killed during the repair turn does not lose the first answer: before the repair
+  starts, the recovery record gets `original` (the `.original.md` path, already on disk)
+  and `first_reply: "usable prose (format repair in progress)"`, and every message built
+  from that record (the refusal while the repair may still run, the `recovered
+  reservation ...` note, the dry run's `pending` line, `codex-findings.ps1 -List`) adds `a
+  usable prose reply of that run exists at <path>; no ledger entry was written for it`.
+  Both fields are cleared once the ledger entry is written; a run that consumed or cleared
+  a record has a `Recovery record:` header line.
+
+**Requested checks (a convention, not a schema field).** Every purpose's prompt asks the
+reviewer to end `reply_markdown`, when it needs evidence it cannot get read-only, with a
+`## Requested checks` section: at most 5 items `RC1..RCn`, each ONE runnable command or
+procedure, its working directory, the permission it needs (read-only/workspace-write),
+the observation that would settle it and a budget, referring to a finding by position
+(`finding #2`), an earlier id (`F04-1`) or an invariant name. The schema stays v1 and the
+bridge renders nothing extra. Run the checks (or hand them to a worker) and record them in
+the next brief's `## Requested checks run` table (`templates/brief-review.md`).
+
+### Findings: ids, status, ratings
+
+Each finding gets `F<NN>-<k>`: `NN` the handoff number of the reply that raised it (two
+digits or more), `k` its 1-based position in that reply's `findings[]`. The stored record
+in `findings.json` carries `id`, `status`, `severity`, `locations[]`, `claim`, `trigger`,
+`evidence[]`, `verification`, `remedy`, `supersedes[]`, `superseded_by[]` (filled on the
+OLD finding when a later one names it; bookkeeping, not a status change), `source`
+(`{consult, reply, thread, base_commit, tree_sha256}`), `history[]` (one entry per status
+change: `{when, status, by, note, evidence, base_commit, tree_sha256}`) and
+`reviewer_checks[]` (one entry per later reply that reported on it:
+`{consult, when, status, note, base_commit, tree_sha256}`, with the reviewer's own
+`fixed`/`still-open`/`not-checked`, never the tracked status).
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.ps1" -Task <task> -List [-All]
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.ps1" -Task <task> -Stats
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.ps1" -Task <task> -Id F04-1 -Status verified -Evidence "<what you ran and what it showed>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.ps1" -Task <task> -Id F04-2 -Status rejected -Note "<why>"
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.ps1" -Task <task> -Rate 4 -Useful partly -Note "<why; required for no>"
 ```
-codex-findings.ps1 -Task <task> -List [-All]
-codex-findings.ps1 -Task <task> -Stats
-codex-findings.ps1 -Task <task> -Id F04-1 -Status implemented|verified|rejected|wontfix|superseded|proposed -Note "…" -Evidence "…"
-```
 
-`-List` shows open findings (`proposed`/`implemented`) by default, `-All` includes the
-rest, and flags `[ORPHAN]` on a finding whose `source.consult` has no entry in
-`sessions.json` or whose entry's `reply` file does not match, AND on a finding whose
-`reviewer_checks[]` names a `consult` with no ledger entry — either is the signature of
-a crash between a findings write and the ledger write (see "write order" below). A
-closed finding that carries an orphan reviewer check is shown even without `-All`, since
-the orphan itself is still open business. `-Stats` prints one line per consultation —
-purpose, effort, wall time, output tokens, verdict, and a proposed/implemented/verified/
-rejected count — the R5 measurement of what each review purpose costs and produces, then
-a **per-reviewer scoreboard**: one line per lineage (`<provider> :: <model>`, the
-reviewer of the ledger entry each finding was ingested from) with raised, verified,
-implemented, proposed, rejected, wontfix and superseded counts — a finding whose
-consultation predates 0.3.0, or has no ledger entry, counts as `unknown provenance`. This
-is what shows, over consultations, which reviewer actually finds what. Since wave 12 the
-same scoreboard also carries the judge's usefulness marks — see `-Rate` below.
+- **Statuses:** `proposed → implemented → verified`, with `rejected`, `wontfix` and
+  `superseded` as alternatives; any status may follow any other, and `history[]` is the
+  audit trail (appended, never overwritten, with the revision fingerprint of that moment).
+  `verified` requires `-Evidence` (what you ran, not that you believe it); `rejected` and a
+  reopen (`-Status proposed` on a non-`proposed` finding) require `-Note`; `superseded`
+  requires neither. A later reply reporting a finding `fixed` is evidence to cite, never a
+  status change: the coordinator moves the status. All flags: `-CollabDir` (default
+  `.collab`), `-List`, `-All`, `-Stats`, `-Id`, `-Status`, `-Note`, `-Evidence`, `-Rate`,
+  `-Useful`.
+- **`-List`** shows open findings (`proposed`/`implemented`), `-All` every finding. It flags
+  `[ORPHAN]` on a finding whose `source.consult` has no ledger entry or whose entry's
+  `reply` does not match, and on a finding whose `reviewer_checks[]` names a consult with
+  no ledger entry (the signature of a crash between the findings write and the ledger
+  write); a closed finding with an orphan check is shown even without `-All`. It prints a
+  `pending: state=…, n=…, nn=…` line when an interrupted run left a recovery record.
+- **`-Stats`** prints one line per consultation (purpose, effort, wall time, output
+  tokens, verdict, and proposed/implemented/verified/rejected counts), then a per-reviewer
+  scoreboard: one line per lineage with raised, verified, implemented, proposed, rejected,
+  wontfix and superseded counts and the yes/partly/no marks. A finding whose consultation
+  predates 0.3.0, or has no ledger entry, counts as `unknown provenance`.
+- **`-Rate <n>`** records the judge's usefulness mark for consultation `n` (a ledger entry
+  number, not a finding id) in the top-level `ratings` array of `findings.json`:
+  `{n, consult_id, lineage, provider, model, purpose, useful, note, when}`, copied from
+  that ledger entry so the row survives pruning; rating `n` again replaces it. Rate
+  **every** consultation, plain-prose ones included, or the telemetry only counts
+  structured reviewers.
+- **Locking:** a status change and `-Rate` take the task lock and are refused while a
+  consultation of the task runs (or an interrupted one's codex process may still run);
+  `-List` and `-Stats` only read and never lock.
 
-**`codex-findings.ps1 -Task <task> -Rate <n> -Useful yes|partly|no [-Note "<why>"]`**
-records the judge's own mark of consultation `n` (a ledger entry number, not a finding
-id) — was it useful, on this kind of question, or not. `findings.json` gets a top-level
-`ratings` array of `{n, consult_id, lineage, provider, model, purpose, useful, note,
-when}` (`lineage`/`provider`/`model`/`purpose` copied from that ledger entry so the row
-survives even if the entry is later pruned); rating the same `n` again replaces its
-record. `-Note` is required for `-Useful no` (why it missed), optional otherwise. It
-takes the task lock exactly like a status change, so it is refused while a consultation
-for the task is running. Rate **every** consultation, including a plain-prose reply that
-raised no findings — otherwise the telemetry only ever counts structured reviewers.
-`-List` and `-Stats` only read and never take the lock; a status change (`-Id`/
-`-Status`) does, so it is **refused** while a consultation for the same task is running
-(see "The lock").
+### Write order and atomic stores
 
-Status moves `proposed → implemented → verified`, with `rejected`, `wontfix` and
-`superseded` as terminal-ish alternatives and `-Status proposed` on a non-`proposed`
-finding as an explicit reopen — any status may follow any other, the history is the
-audit trail. `verified` requires `-Evidence` (what you ran, not just that you believe
-it); `rejected` and a reopen require `-Note`; `superseded` requires neither. A later
-reply's `prior_findings` entry saying a finding is "fixed" is evidence you cite with
-`-Evidence`, never a status change by itself — the coordinator moves the status. Every
-status change is appended to the finding's `history[]`, never overwritten, with the
-revision fingerprint of the moment it was made.
+Per consultation: `.reply.json` first (the byte-for-byte copy, before anything parses it),
+then the rendered `.md`, then `findings.json`, then `sessions.json` last (the commit
+point). If the raw copy fails, that is a bridge failure in its own right:
+`bridge_outcome = "failed: could not preserve the raw reply (<error>); original kept at
+<temp path>"`, exit non-zero, no verdict, no ingestion, ledger entry still appended. A
+rerun's next consult number and handoff number are allocated past every ledger `n`,
+every `source.consult` and `reviewer_checks[].consult`, every `F<NN>` id and any
+reservation in `.consult.pending.json`, in `-Raw` mode too, so nothing written or reserved
+is overwritten.
 
-**Requested checks (convention, not a schema field).** As of 0.3.0 the prompt also asks
-Codex, in every purpose, to end `reply_markdown` with a `## Requested checks` section
-when there is evidence it cannot obtain read-only: at most 5 items `RC1..RCn`, each ONE
-runnable command or procedure, its working directory, the permission it needs
-(read-only/workspace-write), the observation that would settle it, and a budget —
-referring to a finding by its position in the reply (`finding #2`), an earlier id
-(`F04-1`), or an invariant name. This is prose, not structure: the schema stays v1, the
-bridge renders nothing extra for it (it is part of the verbatim reply), and
-`.reply.json` and `findings.json` are untouched by it. The coordinator runs the listed
-checks and records them in the next brief's `## Requested checks run` table (see
-`templates/brief-review.md`), which is how they get "closed" — through the same
-handoff/brief cycle as everything else, not through new tooling.
+`sessions.json` and `findings.json` are written to a temp file in the same directory,
+flushed, and moved over the store in ONE rename that replaces it (`MoveFileEx` with
+`MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH` via P/Invoke on Windows PowerShell
+5.1, `File.Move(tmp, dst, overwrite)` on PowerShell 7, `rename(2)` on Unix). A kill
+mid-write leaves at worst a stray `.<name>.<guid>.tmp`, never a truncated or missing
+store. An existing store that is empty, unparseable, not a JSON object, or (for
+`findings.json`) missing its `findings` array is corruption: every mode, `-DryRun` and
+`-List` included, refuses and names the file; it is never replaced with an empty store.
 
-Write order per consult: `.reply.json` FIRST (the byte-for-byte copy, before the reply
-is even parsed — see above), then the rendered `.md`, then `findings.json`, then
-`sessions.json` last (the commit point). A crash between the findings write and the
-ledger write leaves an orphan that `-List` flags rather than silently losing. A rerun's
-next consult number and next handoff number are allocated past every existing ledger
-`n`, every finding's `source.consult` and every `reviewer_checks[].consult`, every
-existing `F<NN>` id, and any reservation left in `.consult.pending.json` by an
-interrupted run (see "The lock") — in `-Raw` mode too — so nothing already written or
-reserved is ever overwritten.
+---
 
-Both `sessions.json` and `findings.json` are written to a temp file in the same
-directory, flushed, and moved over the store in ONE rename that replaces the target
-(`MoveFileEx` with `MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH` on Windows
-PowerShell 5.1 through a small P/Invoke, `File.Move(tmp, dst, overwrite)` on PowerShell 7,
-`rename(2)` on Unix), so a kill mid-write leaves at worst a stray `.<name>.<guid>.tmp`
-beside the store, never a truncated or missing one. (0.2.0 used `File.Replace` on
-Windows, which is not a single step: a hard kill inside it could leave the store gone —
-caught once by the hard-kill harness and fixed in 0.3.0.) An *existing* store that
-is empty, unparseable, not a JSON object, or (for `findings.json`) missing its
-`findings` array, is treated as corruption and the run refuses — in every mode,
-including `-DryRun` and `-List` — naming the file; it is never silently replaced with a
-fresh, empty store, which would drop history.
+## Binding a review to a revision
 
-### Binding a review to a revision
-
-Every consult records `base_commit` (full SHA, or `unknown` without git),
-`reviewed_revision` (short SHA, `+ uncommitted` when the tree is dirty — for humans),
-and `tree_sha256`: the SHA-256 of a deterministic manifest built from
-`git status --porcelain=v1 -uall -z` — one line per changed/untracked entry,
+Every entry records `base_commit` (full SHA, or `unknown` without git or commits),
+`reviewed_revision` (short SHA, `+ uncommitted` when the tree is dirty; for humans),
+`changed_files`, and `tree_sha256`: the SHA-256 of a manifest built from
+`git status --porcelain=v1 -uall -z`, one line per changed or untracked entry,
 `<XY> <mode> <blob|deleted|dir> <path>[<TAB><rename source>]`, sorted by path (ordinal,
-case-sensitive — `a.txt` and `A.txt` are distinct entries even on a case-insensitive
-filesystem), so a rename changes the fingerprint and so does editing tracked content,
-and so now does a file-mode change. `<mode>` comes from `git diff --raw HEAD`: `=` when
-a tracked path's worktree content matches HEAD, `100644`/`100755`-style values (e.g.
-`100644>100755`, `000000>100644` for a path new since HEAD) when it differs, and `u` for
-an untracked entry, since git does not report a mode for those (`fingerprint_note` says
-`untracked file modes not recorded`). **Values of `tree_sha256` computed before this
-mode field was added are not comparable with values computed after** — treat a manifest
-change across that boundary as expected, not as drift.
+case-sensitive). A rename, a content edit and a file-mode change all move it. `<mode>`
+comes from `git diff --raw HEAD`: `=` when the worktree matches HEAD, values such as
+`100644>100755` or `000000>100644` when it differs, `u` for an untracked entry (git reports
+no mode for those). `tree_sha256` values computed before this mode field existed are not
+comparable with later ones.
 
-Paths under `<CollabDir>` are excluded from the manifest entirely — not just from the
-hash, but from `changed_files` and from whether the tree counts as dirty at all, so a
-tree whose only changes are under `.collab/` reads as clean and gets no `+ uncommitted`
-suffix; the consultation's own output must not move the fingerprint of what it reviewed.
-Submodule contents are not recursed (recorded as a `dir` entry). Every exclusion is
-spelled out in `fingerprint_note`, e.g. `collab dir '.collab' excluded (2 entries);
-ignored files excluded; untracked file modes not recorded; submodules not recursed` —
-emitted whenever git is present, even on a fully clean tree; with no git at all,
+Paths under `<CollabDir>` are excluded entirely (from the hash, `changed_files` and the
+dirty check), so the consultation's own files never move the fingerprint; submodules are
+recorded as a `dir` entry, not recursed. `fingerprint_note` spells out every exclusion
+whenever git is present, e.g. `collab dir '.collab' excluded (2 entries); ignored files
+excluded; untracked file modes not recorded; submodules not recursed`; with no git,
 `tree_sha256` is `""` and `fingerprint_note` is `"no git"`.
 
-The brief and every `-Artifact` are hashed the same way, independently of the tree:
-`brief_sha256` / each `artifacts[]` entry's `sha256` are taken **before** the run,
-`brief_sha256_after` / `sha256_after` **after** it, all three under the same lock as the
-tree fingerprint. A difference sets `brief_changed_during_review` or
-`artifacts_changed_during_review` and prints its own header `WARNING: …` line,
-independently of `tree_changed_during_review` — a brief or artifact edited out from
-under a long-running consult is caught even when the rest of the tree never moved.
+The tree, the brief and every `-Artifact` are hashed under the lock before and after the
+run: `tree_sha256_after`/`tree_changed_during_review`, `brief_sha256`/
+`brief_sha256_after`/`brief_changed_during_review`, and each `artifacts[]` entry's
+`sha256`/`sha256_after` with `artifacts_changed_during_review`. Each difference prints its
+own `WARNING: …` header line, independently of the others.
 
-`-Artifact <path>` (repeatable, or one comma-separated string — `-Artifact a.exe,b.dll`
-works the same as passing it twice, since `powershell -File` collapses a repeated
-argument into a single string) hashes a built artifact into the ledger's `artifacts[]`
-(`{path, sha256, sha256_after}`), so a review can be bound to what was actually built
-and tested, not just to the source tree. A missing artifact path refuses the run rather
-than silently reviewing without it.
+`-Artifact <path>` binds a built artifact (a binary, a bundle) to the review. Pass several
+as ONE comma-separated string (`-Artifact a.exe,b.dll`); the parameter cannot be repeated
+(PowerShell refuses a parameter given twice). Paths resolve against the current directory,
+then the repository root; a missing path refuses the run.
 
-### The lock
+---
 
-Ownership and recovery are two separate files, so ownership never needs deleting and
-recovery never depends on a pid/start-time heuristic.
+## The lock and recovery
 
-`<task>/.consult.lock` is a **permanent** file: created the first time a task is used
-and never deleted afterwards. Owning it means holding it **open** — `codex-consult.ps1`
-and `codex-findings.ps1 -Id/-Status` open it exclusively (Windows: `FileShare.Read`, so a
-refused contender can still read who holds it; elsewhere: `FileShare.None`, which .NET
-turns into an advisory `flock`) for the whole run, and release is just closing the
-handle. Its content — `{pid, start_time, host, task, started}` — is informational only,
-for the message a refused contender sees; nothing recoverable lives in it, so deleting
-this file never "unlocks" anything and is pointless. `-List`/`-Stats` never open it. A
-task directory always ends up with a `.consult.lock`; it is git-ignored.
+The rule: one consultation per task at a time; an interrupted run leaves
+`.consult.pending.json` and the next consultation recovers it automatically unless a codex
+process from it is still alive; never delete `.consult.lock`.
 
-`<task>/.consult.pending.json` is the recovery record, and exists only during a run or
-after one that was interrupted — a clean run deletes it once its ledger entry is
-committed. It moves through `reserved` (written before Codex starts) → `launching` →
-`running` (once the child process is registered) → `survivors` (if a `-TimeoutSec` kill
-could not stop the whole process tree). The **next** run reads and judges it before
-writing anything: unreadable or malformed is refused as corruption, naming the file;
-`running`/`survivors` naming a pid still alive on this host is refused
-("a previous consultation's codex process (pid N) is still running…"). A dead recorded
-pid is **not** proof of a dead tree — the recorded pid is usually the launcher shim, and
-the real `codex` may be its orphaned child — so when every recorded pid is gone, and for
-a `launching` record (which has no pid yet), the bridge scans for a process that is a
-child of the dead bridge or of a dead recorded pid (Windows keeps an orphan's parent
-id), and then for any codex-looking process (named `codex`, or carrying the launcher
-path or `@openai/codex` on its command line) started at or after the record's `started`
-time. The second rule cannot tell which task a process belongs to and says so ("task not
-verifiable"); there is deliberately no age cut-off. A refusal names the process and the
-record; delete `.consult.pending.json` only when you know that process is unrelated. A
-record from another host naming pids is refused since they cannot be checked from here.
-Otherwise the interrupted run is dead: its reservation is consumed (console line
-`recovered reservation n=…, nn=…`, or `cleared the recovery record of consult n=…` when
-that consult already reached the ledger) and only then is the file replaced. `-List`/
-`-Stats` print a `pending: state=…, n=…, nn=…` line when it exists but take no lock;
-`-DryRun` reports what the next run would recover, or that it would be refused and why.
-This file is also git-ignored.
+- **`<task>/.consult.lock`** is permanent: created on first use, never deleted. Owning it
+  means holding it OPEN for the whole run (Windows: `FileShare.Read`, so a refused
+  contender can read who holds it; elsewhere `FileShare.None`, an advisory `flock`);
+  closing the handle releases it. Its content (`{pid, start_time, host, task, started}`)
+  is informational only; deleting the file unlocks nothing. `codex-consult.ps1`,
+  `codex-findings.ps1 -Id/-Status` and `-Rate` take it; `-List`/`-Stats` never do.
+- **`<task>/.consult.pending.json`** is the recovery record. It exists only during a run
+  or after an interrupted one (a clean run deletes it after the ledger write) and moves
+  through `reserved` (before Codex starts) → `launching` → `running` (child registered) →
+  `survivors` (a `-TimeoutSec` kill could not stop the whole process tree).
+- **The next run judges it before writing anything.** Unreadable or malformed: refused as
+  corruption, naming the file. `running`/`survivors` with a recorded pid alive on this
+  host: refused (`a previous consultation's codex process (pid N) is still running…`).
+  A dead recorded pid is not proof of a dead tree (it is usually the launcher shim), so
+  when every recorded pid is gone, and for a `launching` record, the bridge scans for a
+  child of the dead bridge or of a dead recorded pid (Windows keeps an orphan's parent
+  id), then for any codex-looking process (named `codex`, or with the launcher path or
+  `@openai/codex` on its command line) started at or after the record's `started` time.
+  That second rule cannot tell tasks apart and says so ("task not verifiable"); there is
+  no age cut-off. A record from another host naming pids is refused. Otherwise the
+  reservation is consumed (`recovered reservation n=…, nn=…`, or `cleared the recovery
+  record of consult n=…` when that consult already reached the ledger).
+- Delete `.consult.pending.json` only when you know the named process is unrelated.
+  `-List`/`-Stats` print its `pending:` line without locking; `-DryRun` reports what the
+  next run would recover, or that it would be refused and why. Both files are git-ignored.
+- Not enforced: one Codex thread belongs to one task directory. Never resume the same
+  thread from two task directories.
 
-The user-facing rule is short: one consultation runs per task at a time; an interrupted
-run leaves `.consult.pending.json` and the next consultation recovers it automatically
-unless a codex process from it is still alive; never delete `.consult.lock` — it does
-nothing useful and is not a recovery mechanism.
+---
 
-Documented but not enforced: one Codex thread belongs to one task directory — resuming
-the same thread from two different task directories is on you to avoid.
+## Reviewer identity and lineage
 
-### A second reviewer through the same bridge
+Every run records which reviewer answered (`reviewer`, `lineage`) and continues only that
+reviewer's own threads. A thread never changes provider or model.
 
-`-Provider <name>` names a `[model_providers.<name>]` table in the user's Codex config;
-it requires `-Model <name>` alongside it (refused otherwise) — the model is never
-implied by the provider table, and the bridge never assumes one. Omit both and the
-bridge resolves what Codex will actually use: it reads `$env:CODEX_HOME/config.toml`
-(else `~/.codex/config.toml`) with a constrained scanner (below) for the top-level
-`model_provider` (Codex's own default is `openai` when the key is absent) and `model`.
-The provider is never assumed to be `openai` — it is read from the config or given
-explicitly. A top-level `profile = "..."` key leaves identity UNRESOLVED even when
-`-Provider` and `-Model` are both given: a profile can override the provider and the
-effort behind the bridge's back, so its mere presence disables automatic `fork`/`resume`
-regardless of what else was passed on the command line.
+**Resolution.** The provider comes from, in order: `-Provider`; with a roster, the
+thread's own ledger entry under `-Thread`, else the roster walk (see "Reviewer roster and
+panel"); the config's top-level `model_provider`; Codex's default, the built-in `openai`.
+The model: `-Model`; the thread's entry or the roster entry; the config's top-level
+`model`. Without a roster, a `-Thread` must match the lineage resolved this way. The config is
+`$env:CODEX_HOME/config.toml`, else `~/.codex/config.toml`. `-Provider` names a
+`[model_providers.<name>]` table (case-sensitive; `openai` is built in) and needs `-Model`
+unless that provider's roster entry names a model (`-Provider needs -Model: the bridge
+cannot know which model a provider serves by default`). Whatever is resolved is pinned on
+the command line (`-m <model>`, `-c model_provider="<provider>"`). A top-level
+`profile = "…"` key leaves identity UNRESOLVED even when `-Provider` and `-Model` are both
+given (a profile can override the provider and effort behind the bridge); Codex profiles
+(`-p`) are never passed.
 
-The scanner (`Read-CodexConfigSubset`) understands blank lines, `#` comments, table
-headers `[a.b]` / `[a."quoted key"]`, and key/value lines with bare or quoted keys and
-single-line string/bool/number/date values. Three tiers of "not understood", each with a
-different blast radius:
-- an array, an inline table, or a multi-line string as a VALUE makes only the KEY that
-  holds it (and the table that key would define, e.g. `x = {...}` defining `x`)
-  unusable — everything else in the file, including sibling keys in the same table,
-  stays readable;
-- a dotted key in key position, an array-of-tables (`[[a]]`), a sub-table, or a table/key
-  defined twice makes the TABLE it writes into unusable;
-- anything the scanner cannot tokenize at all — an unterminated string or array, a line
-  it cannot parse as either a header or a key/value — is FATAL: the whole file is
-  unusable, because the scanner can no longer tell which table the rest of the lines
-  belong to.
+**The config scanner** (`Read-CodexConfigSubset`) understands blank lines, `#` comments,
+table headers `[a.b]` and `[a."quoted key"]`, and key/value lines with bare (ASCII) or
+quoted keys and single-line string, bool, number or date values. What it does not
+understand has three blast radii:
+- an array, inline table or multi-line string as a VALUE makes only that KEY unusable (and
+  the table the key would define, e.g. `x = {...}` defining `x`);
+- a dotted key, an array-of-tables (`[[a]]`), a sub-table, or a table/key defined twice
+  makes the TABLE it writes into unusable;
+- a line it cannot tokenize at all (an unterminated string or array, a line that is
+  neither header nor key/value) makes the whole FILE unusable.
 
-Callers decide what an unusable table means: the top level is usable while
-`model_provider`, `model` and `profile` are plain; a provider table is usable only when
-every key in it is plain. Nothing is guessed. When the config cannot be read, or the
-table this run needs is itself unusable, provider identity is `unknown`: `-Mode`
-defaults to `new` and `fork`/`resume` are refused ("provider identity could not be
-resolved (...); pass -Provider and -Model explicitly, or use -Mode new") — unless
-`-Provider` and `-Model` are both given AND that provider's own table parses (and no
-`profile` key is set), in which case identity is known even when the rest of the config
-is not.
+The top level is usable while `model_provider`, `model` and `profile` are plain; a
+provider table is usable only when every key in it is plain. When the config or the table
+this run needs is unusable, identity is unresolved, unless `-Provider` and `-Model` are
+both given, that provider's own table parses and no `profile` is set. A TOML 1.1 unicode
+bare key makes the file unusable; quote it.
 
-**Lineage** displays as `<provider> :: <model>` (e.g. `ZAI :: glm-5.3`) — but this string
-is DISPLAY ONLY. What actually decides whether a thread belongs to this run's reviewer
-is `reviewer.provider` and `reviewer.model` compared separately, field by field,
-ordinal, plus the fingerprint below — never a string comparison of `lineage`. A ledger
-entry from before this change, whose `lineage` still reads `ZAI/glm-5.3` (the old
-slash form), still matches correctly: the comparison never looks at the display string.
-What must MATCH for a `fork`/`resume` across consultations is narrower still: for a
-provider defined by a `[model_providers.<name>]` table,
-the *compatibility fingerprint* is the SHA-256 of its `base_url` (canonicalised:
-lowercase scheme+host, path as-is, no trailing slash) and `wire_api` ONLY. An ABSENT
-`wire_api` is canonicalised as `wire_api=default` — no protocol is asserted, it is
-simply "whatever Codex defaults to" — and `provider_config` then carries no `wire_api`
-key at all; a header or console `wire_api:` field shows `(default)`. A present but
-EMPTY `wire_api = ""` is a distinct, different value from absent. Consequently, adding
-an explicit `wire_api` value to a table that previously had none counts as an endpoint
-change, exactly like changing `base_url` does — both are drift, both refuse `fork`/
-`resume` (below). Comments, key ordering, a rotated `env_key`/`api_key`/secret, and the
-table's `name` never change the fingerprint — reformatting the file or rotating a secret
-never breaks a lineage.
+**Unresolved identity** is recorded as `unknown`: `-Mode` defaults to `new`, `fork` and
+`resume` are refused (`provider identity could not be resolved (...); pass -Provider and
+-Model explicitly, or use -Mode new`), the entry is never a parent, and the preflight
+refuses the run unless `-SkipPreflight` (see "Preflight and endpoint health").
 
-`fork`/`resume` onto a parent whose recorded fingerprint differs is **always REFUSED,
-never silently switched to a new thread** — you decide, with `-Mode new`, that a new
-thread is what you want:
+**Endpoint fingerprint.** For a `[model_providers.<name>]` table, `provider_fingerprint` is
+the SHA-256 of its `base_url` (lowercase scheme and host, path as is, no trailing slash)
+and `wire_api` only. An absent `wire_api` is canonicalised as `wire_api=default`
+(`provider_config` then has no `wire_api` key; headers show `wire_api: (default)`); an
+empty `wire_api = ""` is a different value. Changing `base_url` or `wire_api` (including
+adding one) is endpoint drift; comments, key order, a rotated `env_key`/secret and the
+table's `name` never are. `fork`/`resume` onto a parent with a different fingerprint is
+always REFUSED, never silently switched to a new thread:
 
 ```
 endpoint or protocol of provider ZAI changed since thread <uuid> (consult n=3 recorded
 provider fingerprint <hash12>, now <hash12>); start a new thread with -Mode new
 ```
 
-`-Mode new` is unaffected by drift. The harness version (`reviewer.harness = codex-cli
-<version>`) is recorded as audit metadata only and never compared.
+**The built-in `openai` provider:**
+- no `[model_providers.openai]` table (the usual case): identity `builtin:openai`; a set
+  `OPENAI_BASE_URL` is folded into it (`cc-provider-v1|builtin:openai|base_url=<canonical>`),
+  so a proxy change is drift too.
+- a usable `[model_providers.openai]` table DEFINES the identity (its `base_url`/`wire_api`),
+  `identity_note` says `user-defined [model_providers.openai] table used for the identity`,
+  and `OPENAI_BASE_URL` is ignored. Whether Codex merges such a table over its built-in
+  default is not verified against the Codex source; the table is the conservative claim.
+- an unusable one leaves an implicitly reached `openai` unresolved; an explicit
+  `-Provider openai` naming it is refused outright.
+- the built-in identity is used only when the scanner can ESTABLISH that no
+  `[model_providers.openai]` declaration exists. A construct at `model_providers` itself
+  (an inline table, an array, a dotted key from the top level, a table defined twice), an
+  `openai` entry written inline inside `[model_providers]`, or an unusable
+  `[model_providers.openai]` table leaves identity unresolved with `Codex's default
+  provider openai: the providers in <path> could not be established, so
+  [model_providers.openai] may be declared there - <reason>`. An unusable table under
+  another provider never affects `openai`.
+- `openai`'s auth mode (API key or ChatGPT sign-in) is not part of the fingerprint. Other
+  built-in Codex providers (`oss`, `ollama`, `lmstudio`, …) are not recognised.
 
-The built-in `openai` provider is more nuanced now that a config can also define a
-`[model_providers.openai]` table of its own:
-- **No such table** (the common case): identity is `builtin:openai`, and when the
-  `OPENAI_BASE_URL` environment variable is set, that URL is folded into the SAME
-  identity (`cc-provider-v1|builtin:openai|base_url=<canonicalised>`) — the built-in
-  provider is not exempt from endpoint drift just because it needs no config table.
-- **A usable `[model_providers.openai]` table** DEFINES the identity instead: its own
-  `base_url`/`wire_api` become the fingerprint, `identity_note` records "user-defined
-  [model_providers.openai] table used for the identity" (whether Codex itself actually
-  merges a user table over its built-in default is not verified against the Codex
-  source — the table is the more conservative claim either way), and `OPENAI_BASE_URL`
-  is then IGNORED for the identity (the table wins).
-- **An unusable `[model_providers.openai]` table** (an array, a dotted key, …) leaves
-  the default openai identity UNRESOLVED when openai was reached implicitly (from the
-  config or Codex's own default) — `fork`/`resume` are then off, `-Mode new` still
-  works; an EXPLICIT `-Provider openai` naming that same unusable table is refused
-  outright, since there is then no fallback identity left to fall back to.
-
-The built-in identity is used only when the scanner can actually ESTABLISH that no
-`[model_providers.openai]` declaration exists at all — not just that it did not find
-one at the expected spot. Three things can hide such a declaration from a naive lookup:
-a construct at `model_providers` itself (an inline table, an array, a dotted key from
-the top level, a table defined twice — anything that is not a plain table of provider
-names); an entry named `openai` written directly inside `[model_providers]` that is not
-itself a sub-table header (an inline table, a dotted key, a plain value); or the
-`[model_providers.openai]` table existing but being unusable for the usual reasons. Any
-of the three leaves identity unresolved with a note naming the file:
-
-```
-Codex's default provider openai: the providers in <path> could not be established, so
-[model_providers.openai] may be declared there - <reason>
-```
-
-`fork`/`resume` are then off, `-Mode new` still works. An unsupported construct under
-some OTHER provider (`[model_providers.zai]` being unusable, say) never affects the
-openai identity — only a construct that could itself hide an `openai` declaration does.
-
-The reply header's `Reviewer:` line spells out where each piece of the identity came
-from, in one line:
+**The `Reviewer:` header line** says where each piece came from:
 
 ```
 Reviewer: <lineage> (provider from <provider_source>, model from <model_source>;
@@ -675,192 +816,141 @@ endpoint <url>|builtin:openai[ via OPENAI_BASE_URL <url>][, wire_api: <v>|(defau
 provider fingerprint <12 hex>[; <note>]; harness <h>).
 ```
 
-The `wire_api:` clause only appears when the identity came from a `[model_providers.*]`
-table (any non-openai provider, or a user-defined openai table) — the plain built-in
-`openai` identity with no table has no protocol to name. `<note>` is `identity_note`
-when non-empty (e.g. the user-defined-openai-table note above, or why identity is
-unresolved).
+The `wire_api:` clause appears only for an identity taken from a table; `<note>` is
+`identity_note` when non-empty.
 
-Within a lineage, the parent for `fork`/`resume` is the newest ledger entry with a
-non-empty `thread` and the SAME lineage — never the task's newest thread overall.
-`-Thread <uuid>` must name a thread belonging to an entry of the CURRENT run's lineage,
-or the run is refused, verbatim:
+**Parent threads.** The parent for `fork`/`resume` is the newest ledger entry of THIS task
+with a verified `thread`, a resolved identity, the same `reviewer.provider` AND
+`reviewer.model` (compared separately, ordinal) and the same fingerprint; never the task's
+newest thread overall. `-Thread <uuid>` must name such a thread:
 
 ```
 thread <uuid> belongs to lineage a/b :: c (consult n=1); this run is a :: b/c. A thread
 never changes provider or model: use -Mode new, or run as a/b :: c
 ```
 
-An unknown uuid is refused as "unknown provenance"; `-Thread` together with `-Mode new`
-is refused ("-Thread needs -Mode fork or resume").
+An unknown uuid is refused as unknown provenance; `-Thread` with `-Mode new` is refused
+(`-Thread needs -Mode fork or resume`). Entries written before 0.3.0 have unknown
+provenance: never an automatic parent, and `-Thread` naming one is refused (`unknown
+provenance (recorded before 0.3.0); use -Mode new`). So the first 0.3.0 consultation on an
+older task always starts a new thread.
 
-Ledger entries written before 0.3.0 carry no `reviewer`/`lineage` field — their
-provenance is UNKNOWN, full stop: they are never chosen as an automatic parent, and
-`-Thread` naming one of their threads is refused ("unknown provenance (recorded before
-0.3.0); use -Mode new"), even when the model looks like a match and the provider is
-presumably `openai`. Practical consequence: the FIRST 0.3.0 consultation on a task whose
-ledger predates 0.3.0 always starts a new thread, whatever provider or model it uses —
-a one-time migration cost, not a bug.
+**Where the thread id comes from.** Only the `thread.started` event and the session-start
+events `session.started`/`session_configured` (top-level or msg-wrapped) are read; any
+other line, notably a `turn.started` carrying a foreign `session_id`, is ignored. When the
+stream names no thread (including a resumed thread whose rollout file lives in an OLDER
+day directory), the bridge scans the rollout files written since the run started, newest
+first, and accepts one only if it contains this run's `Consultation id:` line
+(`thread_source = "rollout (verified by consultation id)"`). Otherwise `thread` stays
+empty, `thread_source = "unknown"`, and the newest candidate is kept as
+`thread_candidate`, never used as a parent.
 
-Reading the thread id from the event stream is itself narrower than "any JSON line
-mentioning a thread": only the primary `thread.started` event and the SESSION-START
-events `session.started` / `session_configured` (top-level or msg-wrapped, for older
-Codex versions) are consulted; any other event line — notably a `turn.started`, which
-can carry a foreign `session_id` belonging to a different conversation — is ignored for
-thread purposes. This closes a case where a foreign session id on such a line could
-otherwise have been recorded as this run's thread.
+---
 
-The prompt's final line is `Consultation id: <guid>`, a fresh id per run (also written
-to the ledger as `consult_id` and to `.consult.pending.json`). It exists because the
-thread-id fallback — used when the event stream names no thread, including a *resumed*
-thread whose `thread.started` event goes missing, whose rollout file then lives in an
-OLDER day directory than the run's own start date — cannot otherwise tell whether a
-rollout file is really this run's: the fallback scans the rollout files written since
-the run started, newest first, and opens each candidate to check for this run's
-consultation id. Found -> `thread` is set and `thread_source = 'rollout (verified by
-consultation id)'`. Not found in any candidate -> `thread` stays empty, `thread_source =
-'unknown'`, and the newest candidate's uuid is kept only as a diagnostic
-`thread_candidate` — never used as a parent by a later run, whether by automatic
-selection or by `-Thread`.
+## Preflight and endpoint health
 
-**Before anything is locked or started, the bridge preflights the provider — and it
-fails CLOSED.** This uses the same local checks as `codex-providers.ps1` (see below):
-for `openai` (or any table with `requires_openai_auth = true`), `codex login status`;
-for any other provider, `env_key`/`experimental_bearer_token` in its table; plus this
-ENDPOINT's own recorded health across every task ledger in the repository (below).
-Missing credentials, an availability that could not even be ESTABLISHED (an unresolved
-identity, or `codex login status` failing to run at all, or timing out after 15 s), and
-a recent authentication failure on this same endpoint all refuse the run outright,
-before the lock, with no ledger entry — a check that comes back UNKNOWN is no longer
-treated as harmless:
+Before anything is locked or started, the bridge checks the resolved provider locally
+(the same check as `codex-providers.ps1`; no network call) and fails CLOSED:
 
+| Check | Refusal |
+|---|---|
+| credentials: `openai` or a table with `requires_openai_auth = true` → `codex login status` (15 s timeout, UTF-8); any other table → its `env_key` variable is set, or it has an `experimental_bearer_token`, or the roster entry says `"auth": "none"` and the table names neither | `provider ZAI is not usable: env ZAI_API_KEY not set; nothing was started (run codex-providers.ps1 for the full picture)` |
+| availability can be established (a resolved identity; `codex login status` runs and finishes) | `provider ZAI: availability could not be established (…); pass -SkipPreflight to launch anyway, or fix the check` |
+| no `auth` failure on this ENDPOINT in the last 24 h (unless a later run there succeeded) | `provider ZAI is not usable: the last run on this endpoint was rejected as unauthenticated at <when> (<message>); if you rotated the credential, pass -SkipPreflight once` |
+| no usage limit whose named reset time lies ahead | `provider ZAI is not usable: its usage limit (hit at <when>: <message>) lasts until <iso>; nothing was started (pass -SkipPreflight to launch anyway)` |
+
+A usage limit with NO reset time from the last 60 minutes only warns on an explicit
+`-Provider` run (console `WARNING:`, ledger `preflight_warning`); a roster walk skips it
+(`usage limit <n> min ago, no reset time given`). `-SkipPreflight` bypasses every refusal
+above (ledger `preflight: "skipped"`; with a roster, the first entry is taken unchecked,
+under `-Panel` every entry). Use it only for an endpoint that genuinely needs no
+credential and has no roster entry saying so, or once, after the user rotated a
+credential inside the 24-hour auth window. `-DryRun` only prints the verdict and never
+refuses on it. The credential check sees only what is local (a variable set, a token in the
+config, a login); it cannot see live quota. A credential's validity is learned only from a
+failed run.
+
+**Failure classes.** A failed run records `provider_failure = {class, code, message
+(<= 200 chars), when, retry_after}` (and a `Provider failure:` header line). The class
+comes from word-bounded keywords, tried in this order: `capability` (not
+supported/unsupported/"does not support"/feature_not_supported/json_schema), `auth`
+(401/403/unauthorized/forbidden/invalid api key/authentication), `quota` (usage limit/
+quota/rate limit/`rate_limit`/`usage_limit`/429/insufficient balance/too many requests/
+credits exhausted/credit balance/payment required/402/token plan/billing), `transport`
+(timeout/connection/dns/tls/certificate/502-504/network; a bridge-side timeout kill is
+`transport`), else `unknown`. An SSE-style `data:{"error":{...}}` payload on stderr (how
+the MiMo endpoint reports rejections) is parsed for `error.message`/`error.code` first.
+Codex reports quota, auth and turn failures on the JSON event stream, not on stderr; the
+bridge lifts the message from there. MiMo's exact wording for exhausted credits is not
+confirmed; its keywords are a best guess.
+
+**`retry_after`** is a quota failure's reset time, parsed from the message and never
+guessed: Codex's wording (`try again at Sep 28th, 2026 8:35 PM.`), a bare ISO-8601
+timestamp, or a duration (`retry after 30`, `resets in 2 days`, `try again in 3 days 1 hour
+7 minutes`). A wall-clock time is interpreted with the recording machine's time-zone rules
+at write time, DST included (a spring-forward gap takes the post-transition offset, a
+fall-back overlap the pre-transition one), and stored as an instant with its offset. An
+entry written before that fix has no `retry_after`; reading it reparses the message with
+the failure's own `when` offset, which can be off by a zone difference when read on a
+machine in another zone.
+
+**Endpoint health** is read from ALL task ledgers of the current repository, keyed by
+the endpoint fingerprint (never the alias, so two names for one endpoint share one
+record); the newest entry wins, so a later success clears an earlier failure. A fresh
+repository therefore has no health history. `capability`/`transport`/`unknown` failures
+are informational only. The health check runs even under `-SkipPreflight` (only the
+refusal is bypassed). Pre-0.3.0 entries count as the built-in `openai` endpoint; an entry
+with an unresolved identity is ignored. A record dated in the future counts as now. On
+pwsh ≥ 7.5, ledgers are parsed with `ConvertFrom-Json -DateKind Offset` so timestamps
+keep their recorded offset; Windows PowerShell 5.1 reads them as plain strings.
+
+### codex-providers.ps1
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-providers.ps1" [-Provider <name>] [-Json] [-CollabDir <path>] [-CodexExe <path>]
 ```
-provider ZAI is not usable: env ZAI_API_KEY not set; nothing was started (run
-codex-providers.ps1 for the full picture)
 
-provider ZAI: availability could not be established (`codex login status` did not
-finish within 15 s); pass -SkipPreflight to launch anyway, or fix the check
+It answers "what can I consult right now?" and writes nothing, takes no lock and makes no
+network call. First line: `codex config: <path>`. Then one row per provider (the built-in
+`openai` and every `[model_providers.*]` table): `VERDICT` (`available`,
+`unavailable (<reason>)` including `unavailable (usage limit until <iso>)`, or
+`unknown (<reason>)` when `codex login status` could not run or the config cannot be
+scanned), `PROVIDER`, `ROSTER` (roster positions, or `-`), `KIND` (`builtin`/`custom`),
+`ENDPOINT` (canonical `base_url`, or `builtin:openai[+OPENAI_BASE_URL <url>]`),
+`CREDENTIALS` (`ok: Logged in using ChatGPT`, `ok: env NAME set`, `ok: bearer token in
+config`, `ok: declared anonymous in the roster`, `missing: env NAME not set`, `missing: no
+env_key/bearer token in the table`, `missing: <first line of login status>`), `EFFORT`
+(`openai (any model)`, `zai (11 declared models)`, `mimo (5 declared models)` or
+`unknown (needs -NativeEffort)`) and `LAST FAILURE (24 h)` (`<class>: <when> - <message>`,
+or `quota until <iso>: …`). With a roster, a final line `roster: <path> -> would select
+<provider> :: <model> (skipped: …)` or `roster: <path> -> no entry is available (skipped:
+…)`. `-Json` returns objects with `name`, `kind`, `endpoint`, `wire_api`, `table`
+(`built in`/`usable`/`unusable: <reason>`), `credentials`, `effort_vocabulary`,
+`effort_models`, `schema_transport`, `last_limit` (the newest quota failure),
+`last_failure` (`{class, code, when, message, retry_after}`), `roster_position` (first
+position or `null`), `roster_selected` and `verdict`. Exit codes with `-Provider`: `0`
+available, `2` unavailable, `3` unknown, `1` no such provider or a usage error (an
+unusable roster, a `CODEX_CONSULT_ROSTER` file that does not exist). Without `-Provider`:
+`0` unless the roster is unusable. Plan against this output: a provider reported
+unavailable does not become available by retrying the bridge.
 
-provider ZAI is not usable: the last run on this endpoint was rejected as
-unauthenticated at <when> (<message>); if you rotated the credential, pass
--SkipPreflight once
-```
+---
 
-`-SkipPreflight` bypasses all three refusals (ledger `preflight: "skipped"`) — for an
-endpoint that genuinely needs no credentials, or once you know a flagged failure no
-longer applies, this is required, since the bridge cannot otherwise tell "no credentials
-needed" from "credentials missing", or "fixed since" from "still broken". `-DryRun`
-only PRINTS the verdict and never refuses on it, on any of the three checks. Ledger:
-`preflight` = `ok: <detail>` | `unknown: <reason>` | `unavailable: auth failed <when>:
-<message>` | `skipped`.
+## Effort vocabularies (caps-v1)
 
-**Every failed consultation is classified and recorded**, so this endpoint health check
-has something to read: `provider_failure` (right after `bridge_outcome`) is `null` on
-success, else `{class, code, message (<=200 chars), when, retry_after}`. `class` is
-decided by word-bounded keywords in the error text, tried in this order —
-**`capability` first**, so "your token plan does not support response_format" is not
-mistaken for a quota rejection: `capability` (not supported/unsupported/"does not
-support"/feature_not_supported/json_schema); `auth` (401/403/unauthorized/forbidden/
-invalid api key/authentication — matched on WORD BOUNDARIES, so "text authored by" never
-counts); `quota` (usage limit/quota/rate limit or `rate_limit`/`usage_limit`/429/
-insufficient balance/too many requests/credits exhausted/credit balance/payment
-required/402/token plan/billing); `transport` (timeout/connection/dns/tls/certificate/
-502-504/network — a bridge-internal failure like a timeout kill is `transport` too);
-otherwise `unknown`. The bridge also parses the SSE-style payload some endpoints put on
-stderr, `data:{"error":{...}}` (this is how the MiMo endpoint reported its schema
-rejection), lifting `error.message`/`error.code` before classifying; `codex login
-status`, Codex's stderr and its event stream are all decoded as UTF-8. The reply header
-gets a `Provider failure:` line when there was one.
+Effort vocabularies and schema transports are DECLARED per endpoint in a table the bridge
+ships (`caps-v1`, ledger `effort_caps`), never inferred from a host or model prefix:
 
-**`retry_after`** is when a `quota` failure said it resets, parsed from the message —
-never guessed: Codex's own wording ("try again at Sep 28th, 2026 8:35 PM."), a bare
-ISO-8601 timestamp, or a duration ("retry after 30", "resets in 2 days", "try again in
-3 days 1 hour 7 minutes" — weeks/days/hours/minutes/seconds, summed). A quota failure
-whose reset time lies in the future makes that endpoint `unavailable: usage limit until
-<iso>` — refused before the lock (unless `-SkipPreflight`), and skipped outright in a
-roster walk. A quota failure with **no** reset time still only warns for 60 minutes with
-an explicit `-Provider`, exactly as before 0.3.0, but a roster walk skips it with reason
-`"usage limit <n> min ago, no reset time given"`.
-
-A wall-clock reset message names no time zone, so it is interpreted with the
-**recording machine's** zone rules (`[TimeZoneInfo]::Local`) **at write time** — DST
-included: an hour that a spring-forward transition makes invalid takes the
-post-transition offset, an hour a fall-back transition makes ambiguous takes the
-pre-transition one — and stored as an instant, `provider_failure.retry_after`, carrying
-that offset (found live by the first panel run, F15-1). A ledger entry written before
-this fix has no `retry_after` at all; reading it now falls back to reparsing its
-message with the failure's own `when` offset as the reference zone, and that
-reparse is labelled internally `RetryAfterBasis "message (reference offset)"` (a fresh
-write's is `"ledger"`) — the residual: a legacy entry read on a machine in a different
-zone than the one that recorded it can be off by the zone difference, since no zone was
-ever stored for it. Every `retry_after` written from now on is a true instant and
-carries no such residual.
-
-**Endpoint health** is computed from ALL task ledgers in the repository (not just the
-current task's), keyed by the ENDPOINT fingerprint — never the alias, so two provider
-names pointing at the same endpoint share one health record — with the newest entry
-winning: a later success clears an earlier failure. An `auth` failure within the last
-24 hours refuses the run (message above); a `quota` failure without a reset time within
-the last 60 minutes only warns (console `WARNING:` plus ledger `preflight_warning`, same
-as before); a `quota` failure with a reset time in the future refuses (`retry_after`,
-above); `capability`/`transport`/`unknown` failures are informational only, shown by
-`codex-providers.ps1` but never refused on. This health check runs even under
-`-SkipPreflight` — only the REFUSAL is bypassed, the information is still there to read.
-Ledger entries from before 0.3.0 count as the built-in `openai` endpoint; an entry with
-an unresolved identity (empty fingerprint) is ignored, since it names no endpoint
-reliably.
-
-`codex-providers.ps1 [-Provider <name>] [-Json] [-CollabDir <path>] [-CodexExe <path>]`
-answers "what can I actually consult right now?" without touching anything: it writes
-nothing, takes no task lock, makes no network call. It lists the built-in `openai` and
-every `[model_providers.*]` table with a verdict (`available` /
-`unavailable (<reason>)` — including `unavailable (usage limit until <iso>)` for a quota
-failure with a known reset time still ahead — / `unknown (<reason>)`), kind
-(`builtin`/`custom`), endpoint, credentials (the same preflight check above, spelled out:
-`ok: Logged in using ChatGPT`, `missing: env ZAI_API_KEY not set`, or, with `"auth":
-"none"` in the roster, `ok: declared anonymous in the roster`), the declared effort
-vocabulary (`openai (any model)`, `zai (11 declared models)`, `mimo (5 declared
-models)`, or `unknown (needs -NativeEffort)`), and a `LAST FAILURE (24 h)` column
-(`<class>: <when> - <message>`, or `quota until <iso>: <message>` when the provider named
-its reset time, from the same endpoint-health lookup above — an `auth` failure here is
-exactly what makes the provider `unavailable`, a `quota`/`capability`/`transport`/
-`unknown` one is shown for information). With a reviewer roster present, a `ROSTER`
-column shows the provider's roster position(s) (`-` otherwise), and a final line reports
-the walk: `roster: <path> -> would select ZAI :: glm-5.3 (skipped: ...)` or
-`roster: <path> -> no entry is available (skipped: ...)`. `-Json` gives the same as
-`last_failure {class, code, when, message, retry_after}`, `last_limit` (the newest quota
-failure specifically, same shape, or `null`), `roster_position` (the first roster
-position naming this provider, or `null`) and `roster_selected` (whether a consultation
-without `-Provider`/`-Thread` would pick it right now). With `-Provider`, the exit code
-IS the verdict: `0` available, `2` unavailable, `3` unknown, `1` no such provider name
-(unchanged by the roster). Plan a second-reviewer run against this output, not against
-hope — a provider `codex-providers.ps1` reports unavailable is not going to become
-available by retrying the bridge.
-
-An endpoint-health record dated in the **future** (a skewed clock somewhere, a
-mislabelled zone) is no longer ignored — its age clamps to zero, "counts as now", so it
-can never hide a fresh `auth`/`quota` failure behind an apparently ancient timestamp
-(F15-4, found by the first live panel). On pwsh >= 7.5, ledgers are now parsed with
-`ConvertFrom-Json -DateKind Offset` where available, so a `when`/`retry_after` value
-keeps the offset it was recorded with instead of being silently converted to a local
-`[datetime]` (F15-2); Windows PowerShell 5.1, which has no such parameter, keeps reading
-them as plain strings, unchanged.
-
-**Effort vocabularies are DECLARED, never inferred** — no host-wide or model-prefix
-guess, only a capability table the bridge ships (`caps-v1`, recorded in the ledger as
-`effort_caps`):
-
-| Endpoint | Vocabulary | Declared models | Mapping from `-Effort` | Schema |
+| Endpoint | Vocabulary | Declared models | Mapping from `-Effort` | Schema transport |
 |---|---|---|---|---|
-| built-in `openai` (no user table, no `OPENAI_BASE_URL`) | `low\|medium\|high\|xhigh` | any model | identity | `output-schema` (enforced server-side: bare JSON comes back) |
-| `api.z.ai`, `open.bigmodel.cn` | `low\|high\|max` | `glm-5.3`, `glm-5.3-flash`, `glm-5.3-flashx`, `glm-5.2`, `glm-5.1`, `glm-5`, `glm-5-turbo`, `glm-4.7`, `glm-4.6`, `glm-4.5`, `glm-4.5-air` (11, exact) | `medium`->`high`, `xhigh`->`max`; `low`->`low`, `high`->`high`; mapping `zai-v1` | `output-schema` (passed, NOT enforced: fenced JSON or plain Markdown may come back) |
-| `token-plan-ams.xiaomimimo.com`, `token-plan-cn.xiaomimimo.com`, `api.xiaomimimo.com` | `none\|low\|medium\|high` | `mimo-v2.6-pro`, `mimo-v2.6-flash`, `mimo-v2.6-pro-ultraspeed`, `mimo-v2.5-pro`, `mimo-v2.5` (5, exact) | `xhigh`->`high`; the rest as is; mapping `mimo-v1` | `prompt-only` (the bridge does not pass `--output-schema`; the prompt still asks for the JSON object, parsed leniently) |
-| any UNKNOWN host | — (needs `-NativeEffort`) | — | — | `prompt-only` (the safe default — an undeclared endpoint's `--output-schema` support is unknown, so the bridge never risks the flag) |
+| built-in `openai` (no user table, no `OPENAI_BASE_URL`) | `low\|medium\|high\|xhigh` | any model | identity (`openai`) | `output-schema`, enforced |
+| `api.z.ai`, `open.bigmodel.cn` | `low\|high\|max` | `glm-5.3`, `glm-5.3-flash`, `glm-5.3-flashx`, `glm-5.2`, `glm-5.1`, `glm-5`, `glm-5-turbo`, `glm-4.7`, `glm-4.6`, `glm-4.5`, `glm-4.5-air` (11, exact) | `medium`→`high`, `xhigh`→`max`, `low`/`high` as is (`zai-v1`) | `output-schema`, not enforced |
+| `token-plan-ams.xiaomimimo.com`, `token-plan-cn.xiaomimimo.com`, `api.xiaomimimo.com` | `none\|low\|medium\|high` | `mimo-v2.6-pro`, `mimo-v2.6-flash`, `mimo-v2.6-pro-ultraspeed`, `mimo-v2.5-pro`, `mimo-v2.5` (5, exact) | `xhigh`→`high`, the rest as is (`mimo-v1`) | `prompt-only` |
+| any other host | none (needs `-NativeEffort`) | — | — | `prompt-only` (safe default) |
 
-Everything else — an undeclared model on a known host, any model on an unrecognised
-host, an `openai` proxy reached via `OPENAI_BASE_URL`, or a user-defined
-`[model_providers.openai]` table — has no declared vocabulary: the run is refused,
-naming what IS declared:
+Anything undeclared (another model on a known host, any model on an unknown host, an
+`openai` proxy via `OPENAI_BASE_URL`, a user-defined `[model_providers.openai]` table) is
+refused, naming what IS declared:
 
 ```
 no effort vocabulary declared for model 'glm-6' on api.z.ai (caps-v1 declares:
@@ -868,468 +958,359 @@ glm-4.5, glm-4.5-air, glm-4.6, glm-4.7, glm-5, glm-5-turbo, glm-5.1, glm-5.2, gl
 glm-5.3-flash, glm-5.3-flashx); pass -NativeEffort <value> to send a value verbatim
 ```
 
-There is no model-prefix fallback any more — a host with no declared models, or a model
-not on its declared list, always needs `-NativeEffort`. `-NativeEffort <value>` sends
-that value to `-c model_reasoning_effort="..."` verbatim, mapping recorded as `native`
-— but **`-Effort` and `-NativeEffort` exclude each other** ("-Effort and -NativeEffort
-exclude each other: -Effort is mapped through the endpoint's effort vocabulary,
--NativeEffort is sent verbatim."). The ledger records `effort_requested` (what
-`-Effort`/the preset, or `-NativeEffort`, asked for), `effort_sent` (what actually went
-into argv), `effort_mapping` (`openai`|`zai-v1`|`mimo-v1`|`native`), `effort_caps`
-(`caps-v1`, so a later change to the table is visible in old entries), and
-`effort_confirmed` — always `null`, because Codex's event stream does not report the
-effort it actually used. The console line spells out the requested/sent/mapping triple
-in one place:
+`-NativeEffort <value>` (a plain token) is sent as `-c model_reasoning_effort="<value>"`
+verbatim, mapping `native`. `-Effort` and `-NativeEffort` exclude each other. The console
+shows the triple in one line, e.g.
+`effort      : max sent (requested xhigh, mapping zai-v1, by host api.z.ai)`.
 
-```
-effort      : max sent (requested xhigh, mapping zai-v1, by host api.z.ai)
-```
+---
 
-**Peak-hour tariffs**: `CODEX_CONSULT_PEAK_<PROVIDER-UPPERCASED>` =
-`"<days> <HH:MM>-<HH:MM> <+HH:MM|-HH:MM>"` (days: a range `Mon-Fri`, a list `Mon,Wed`,
-or `*`); an optional `CODEX_CONSULT_PEAK_<PROVIDER>_EXCEPT` = comma-separated dates or
-`YYYY-MM-DD..YYYY-MM-DD` ranges marks all-day exceptions as off-peak — a range is
-evaluated as an interval of any length; the only thing refused is `end < start`. Start
-inclusive, end exclusive; a window where start > end spans midnight and the day check
-uses the day the window STARTED; `*` matches every day.
+## Peak-hour windows
 
-The window is now checked TWICE: once early (so a malformed schedule, or `-OffPeakOnly`
-already inside the window, is caught before any file hashing starts), and once again
-IMMEDIATELY BEFORE LAUNCH, since hashing the tree and the brief takes real time and can
-itself cross a window boundary. The launch-time result is what the ledger records:
-`peak` (`true`/`false`/`null`), `peak_schedule`, `peak_source` (`env`,
-`env (CODEX_CONSULT_NOW)`, or `none`), and `peak_evaluated_at` (an ISO timestamp with offset — when the decisive
-check ran). Under `-OffPeakOnly`, a launch-time result that turns out to be peak
-withdraws the run at that late point — the reservation is released, nothing is started,
-NO ledger entry is written (there is nothing yet worth recording — the run never
-reached the point of doing anything):
+`CODEX_CONSULT_PEAK_<PROVIDER>` (provider uppercased, non-alphanumerics → `_`) =
+`"<days> <HH:MM>-<HH:MM> <+HH:MM|-HH:MM>"`; days are a range (`Mon-Fri`), a list
+(`Mon,Wed`) or `*`. Start inclusive, end exclusive; a window whose start is after its end
+spans midnight and is keyed to the day it started. Optional
+`CODEX_CONSULT_PEAK_<PROVIDER>_EXCEPT` = comma-separated `YYYY-MM-DD` dates or
+`YYYY-MM-DD..YYYY-MM-DD` ranges of any length, all-day off-peak (only `end < start` is
+refused). A malformed spec is refused, naming the variable and the token.
+
+The window is checked twice: early (a malformed schedule or `-OffPeakOnly` already inside
+the window is caught before any hashing) and again immediately before launch; the
+launch-time result is recorded (`peak`, `peak_schedule`, `peak_source`,
+`peak_evaluated_at`). A long consultation can still run into a window after launch; there
+is no mid-run check. Inside the window a run warns
+(`WARNING: ZAI peak window (…) - this consultation runs at peak tariff.`); with
+`-OffPeakOnly` it is refused, both when peak and when no schedule is set (`no schedule for
+provider ZAI; -OffPeakOnly needs CODEX_CONSULT_PEAK_ZAI`). A run that enters the window
+during preparation is withdrawn at launch with nothing started and no ledger entry:
 
 ```
 -OffPeakOnly: ZAI entered its peak window before launch (Mon-Fri 14:00-18:00 +08:00; now
 2026-09-24 14:00 Mon +08:00); nothing was started.
 ```
 
-Outside the window -> `peak: false`; the env var unset -> `peak: null` (unknown),
-`peak_schedule: ''`, `peak_source: 'none'`; `-OffPeakOnly` refuses whenever the
-(launch-time) result is `true` OR unknown ("no schedule for provider X; -OffPeakOnly
-needs CODEX_CONSULT_PEAK_X" for the unknown case). A malformed spec is refused, naming
-the variable and the bad token. When nothing is set, the console line reads:
+No schedule: `peak: null`, `peak_schedule: ""`, `peak_source: "none"`, console
+`peak        : unknown (CODEX_CONSULT_PEAK_ZAI not set)`. `CODEX_CONSULT_NOW` (ISO
+timestamps, consumed one per evaluation, the last repeating; `peak_source` then reads
+`env (CODEX_CONSULT_NOW)`) is a test hook; never set it in normal use.
 
-```
-peak        : unknown (CODEX_CONSULT_PEAK_ZAI not set)
-```
+---
 
-`CODEX_CONSULT_NOW` is a TEST HOOK, not a user-facing feature: a comma-separated list of
-ISO timestamps with an offset, consumed in order by successive peak evaluations within
-one run (the last one repeats), so a test can put the early check off-peak and the
-launch-time check inside the window. It should never be set in normal use;
-`peak_source` becomes `env (CODEX_CONSULT_NOW)` when it was.
+## Per-run Codex overrides (-CodexConfig)
 
-A note on z.ai specifically: `--output-schema` is **not enforced** on that route — the
-reply comes back as a fenced JSON block rather than a schema-constrained response,
-which the bridge's parser already accepts and validates locally, the same as any other
-reply. And a plan's credentials are used only ever through the Codex CLI itself: the
-bridge makes no direct HTTP call to any provider, on this route or any other — it
-always shells out to `codex exec`.
+`-CodexConfig key=value[,key=value]` passes extra `-c` overrides to `codex exec` verbatim,
+after the bridge's own `-c` options and before `-o`. Pass one comma-separated string; the
+parameter cannot be repeated. The string is split only at a comma that starts the next
+`key=`, so a value like `[1,2]` stays whole. A value starting with `~/` or `~\` is
+expanded to the home directory with forward slashes (Codex on Windows does not expand `~`:
+`os error 123`); a value that is not already quoted, bracketed, `true`/`false` or numeric
+is double-quoted. Refused keys (they are part of the recorded identity or effort):
+`model`, `model_provider`, `model_reasoning_effort`, `profile`, `model_providers` and any
+`model_providers.*`. Ledger `extra_config` (expanded, as sent) and `extra_config_source`.
+A roster entry's `codex_config` follows the same rules and applies when `-CodexConfig` is
+empty. The main use: a per-run `model_catalog_json`, because a global one replaces Codex's
+own catalog (setup step 6).
 
-**`-CodexConfig key=value[,key=value]`** passes extra `-c` overrides straight through to
-`codex exec`, verbatim, right after the bridge's own `-c` options and before `-o` — one
-comma-separated string, or a PowerShell array (the parameter itself cannot be repeated).
-A value beginning with `~/` or `~\` is expanded to the home directory with forward
-slashes, since Codex on Windows does not expand `~` itself (verified: it fails with
-`os error 123`); a non-literal value (not already quoted, bracketed, `true`/`false`, or
-numeric) is double-quoted so Codex's own TOML parsing of the value never trips on a bare
-path. Refused keys — anything the bridge already owns as part of the reviewer identity
-or the effort it records: `model`, `model_provider`, `model_reasoning_effort`,
-`profile`, `model_providers` and any `model_providers.*` key. Recorded in the ledger as
-`extra_config` (the expanded items, ready to compare against the argv). The motivating
-case is a provider whose model catalog needs pointing at a file: a GLOBAL
-`model_catalog_json` replaces Codex's OWN catalog outright and can silently degrade an
-unrelated model, so it has to be passed per run, not left in the user's Codex config —
-see the MiMo example below.
+---
 
-### Third example: Xiaomi MiMo
+## Reviewer roster and panel
 
-A third provider fits the same shape as z.ai: `[model_providers.mimo]` with
-`base_url = "https://token-plan-ams.xiaomimimo.com/v1"` (the Token Plan endpoint — a
-region-specific variant, `token-plan-cn.xiaomimimo.com`, and a direct `api.xiaomimimo.com`
-also exist), `env_key = "MIMO_API_KEY"`, `wire_api = "responses"`. Its declared models
-(`mimo-v2.6-pro`, `mimo-v2.6-flash`, `mimo-v2.6-pro-ultraspeed`, `mimo-v2.5-pro`,
-`mimo-v2.5`) use the `mimo` effort vocabulary (`none|low|medium|high`, `xhigh`->`high`,
-mapping `mimo-v1`) — see the caps-v1 table above. MiMo's model catalog is not built into
-Codex, so it has to be supplied per run with `-CodexConfig
-model_catalog_json=~/.codex/model-catalogs.json` (not set globally in the user's Codex
-config — a global `model_catalog_json` replaces Codex's own catalog outright and was
-observed, live, to degrade the DEFAULT `openai` model on an unrelated run: it answered
-with "Model metadata not found, fallback"). Unlike z.ai, this route does not merely fail
-to enforce the schema — the first live MiMo consultation through the bridge failed
-outright at the first request, because the endpoint REJECTS `--output-schema` entirely
-(`responses_feature_not_supported: text.format type 'json_schema' is not supported,
-only 'text' and 'json_object' are allowed`). caps-v1 therefore declares MiMo's
-`schema_transport` as `prompt-only`: the bridge never passes `--output-schema` to this
-endpoint, asks for the JSON object in the prompt instead, and parses the reply leniently
-(bare or fenced). More generally: a third-party route may ignore or refuse the schema —
-the bridge chooses the transport per host, and a plain-Markdown reply on a
-`prompt-only` route is kept with no verdict and no findings, the same as an invalid
-structured reply anywhere else. No account details are needed to use this: the shape is
-generic to any `[model_providers.*]` entry with its own model catalog.
+**The roster** is an ordered JSON file of the reviewers the user is willing to use, first
+choice first: `CODEX_CONSULT_ROSTER` (that file must exist, or every run is refused), else
+`<codex home>/codex-consult-roster.json` when it exists (absent = no roster).
+`CODEX_CONSULT_ROSTER=none` disables it, the default file included. Example: setup step 7;
+a fabricated one is `examples/codex-consult-roster.json`.
 
-### Reviewer roster and panel
+| Key | Meaning |
+|---|---|
+| `roster_version` | must be `1` |
+| `reviewers[].provider` | required: `openai` or a `[model_providers.<name>]` table |
+| `reviewers[].model` | optional: omit it to use the config's top-level `model` |
+| `reviewers[].codex_config` | optional array of `key=value` strings, `-CodexConfig` rules |
+| `reviewers[].auth` | optional `"none"`: the endpoint needs no credential, so a table with no `env_key` and no bearer token passes the check. No effect on a table that names an `env_key`, nor on `openai`/`requires_openai_auth` providers (always `codex login status`) |
+| `reviewers[].panel` | `"always"` (default) or `"weighty"`: joins a `-Panel` run only on `framing`, `decision`, `core-contract`, `acceptance` and `stuck`, or under `-PanelAll` |
 
-A **reviewer roster** is an ordered JSON file naming the reviewers you are willing to
-use, first choice first — `CODEX_CONSULT_ROSTER` (else `<codex home>/codex-consult-
-roster.json`; `CODEX_CONSULT_ROSTER=none` turns it off, the default file included):
+An unusable roster (an unknown key, `roster_version` other than 1, an empty or non-array
+`reviewers`, the same `(provider, model)` twice, anything that does not parse) **refuses
+every run, `-DryRun` included, naming the path**; an existing roster is never ignored.
 
-```json
-{
-  "roster_version": 1,
-  "reviewers": [
-    { "provider": "openai", "model": "gpt-5.1", "panel": "weighty" },
-    { "provider": "ZAI", "model": "glm-5.3" },
-    {
-      "provider": "mimo",
-      "model": "mimo-v2.6-pro",
-      "codex_config": ["model_catalog_json=~/.codex/model-catalogs.json"],
-      "auth": "none"
-    }
-  ]
-}
-```
+**Selection.**
+- `-Provider <name>`: the roster does not choose, but that provider's entry supplies the
+  model (when `-Model` is empty) and `codex_config` (when `-CodexConfig` is empty); ledger
+  `model_source`/`extra_config_source` `roster`.
+- `-Thread <uuid>`: the thread's own ledger entry fixes the reviewer (`provider_source`/
+  `model_source` `-Thread`); its roster entry supplies `codex_config`. If that reviewer is
+  unavailable, the refusal names what the roster would select for a new thread
+  (`-Mode new`).
+- Otherwise the bridge walks the roster in order and runs the first entry that passes the
+  preflight (a usage limit with a future reset time, or one without a reset time from the
+  last 60 minutes, is skipped). Every skipped entry is recorded with its reason; when none
+  is available the run is refused, naming each entry and why, with nothing started.
+  `-Model` without `-Provider` restricts the walk to entries of that model. The parent
+  thread is then chosen within the selected lineage.
+- The pick is printed and put in the handoff header, e.g. `Roster: <path> - position 2 of 3;
+  skipped openai :: <model> (usage limit until <iso>)`; ledger `roster`.
 
-Per entry: `provider` (required, a `[model_providers.<name>]` table or `openai`);
-`model` (optional — omit it to use the Codex config's top-level model, as without a
-roster); `codex_config` (optional, the same `-CodexConfig` rules); `auth: "none"`
-(optional — declares an endpoint that needs no credential at all, so a table with no
-`env_key`/bearer token still passes the check; ignored for `openai`/`requires_openai_auth`
-providers, which are always checked through `codex login status`); `panel: "always"`
-(the default) or `"weighty"` (this entry joins a `-Panel` run only on the weighty
-purposes — `framing`, `decision`, `core-contract`, `acceptance`, `stuck` — or under
-`-PanelAll`). An unusable roster file — an unknown key, `roster_version` other than 1,
-an empty or non-array `reviewers`, the same `(provider, model)` twice, anything that does
-not parse — **refuses every run naming the path**, including `-DryRun`: an existing
-roster is never silently ignored.
+**The panel.** `-Panel` sends the same brief to every available roster entry, one after
+another, each as a complete, independent consultation: its own preflight, lock and
+recovery record, parent thread (the newest of its own lineage, or a new one; `-Mode new`
+starts fresh threads for all), consultation id, reply file
+`handoffs/<NN>-codex-<ReplyName>-<provider lowercased>.md` and ledger entry (`panel`).
+Every member sees the findings that were open when the panel started, not a later
+member's answer; a later panel on the same task does see this panel's findings (members are
+not blind across waves). `-PanelAll` includes `weighty` entries whatever the purpose.
+`-Panel`/`-PanelAll` need a roster and are refused with `-Provider`, `-Thread` or
+`-Mode resume`. A failing member does not stop the others, **except** when it leaves
+surviving processes (the task's `.consult.pending.json` stays in `survivors`): the
+remaining members are then not started and are recorded `skipped` with `not started: the
+previous member (<lineage>) left surviving processes (.consult.pending.json state
+survivors); recover the task first`. A summary block (one line per member: lineage,
+verdict or failure, finding counts, or the skip reason) closes the run; exit `0` only
+when every member produced a usable reply. Members run as child bridge processes through
+the internal `-PanelSpec` parameter; never pass it yourself. There is no tooling yet for
+linking corroborating or contradicting findings across members (ROADMAP R9): compare the
+replies yourself.
 
-**Selection.** `-Provider <name>` still names the reviewer directly; the roster does not
-choose in that case, but that provider's roster entry supplies the model (when `-Model`
-is empty) and `codex_config` (when `-CodexConfig` is empty) — ledger `model_source`/
-`extra_config_source` `"roster"`. `-Thread <uuid>` still fixes the reviewer from the
-thread's own ledger entry (`provider_source`/`model_source` `"-Thread"`); its roster
-entry, if any, supplies `codex_config`. Otherwise the bridge walks the roster **in
-order** and runs the first entry whose credentials are present and whose endpoint health
-allows a run right now (a usage limit with a known reset time in the future, or one
-without a reset time seen in the last 60 minutes, is skipped) — every skipped entry is
-recorded with its reason, and when none is available the run is refused, naming every
-entry and why, with nothing started. `-Model` without `-Provider` narrows the walk to
-entries naming that model. Ledger `roster` = `{path, position, skipped: [{provider,
-model, reason}], applied: []}`, right after `preflight_warning`; a console/handoff line
-spells out the pick, e.g.:
+**Council rules** (the `consult-codex` skill has the full list): the coordinator is an
+equal participant and the judge by default; a hard question can hand the judge role to
+one reviewer explicitly with a `-Purpose decision` consultation that points at the other
+members' reply files, recorded in `state.md`. A provider without a credential or tokens is
+simply not used, and a fallback reviewer's reply is never presented as the primary's.
+Disagreement is the signal: record it in `state.md` until evidence settles it. Give
+bounded search/extraction work to cheap members with `-Purpose chore` and put extracts,
+not raw files, into a weighty brief. Acceptance authority for a release stays with the
+reviewer who raised the findings.
 
-```
-Roster: <path> - position 2 of 3; skipped openai :: gpt-5.1 (usage limit until <iso>)
+---
+
+## Usefulness telemetry: codex-scoreboard.ps1
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-scoreboard.ps1" [-Task <task>] [-Json] [-CollabDir <path>]
 ```
 
-`codex-providers.ps1` shows the same walk without running anything: a `ROSTER` column
-(the provider's roster position(s), or `-`), a closing line
-`roster: <path> -> would select ZAI :: glm-5.3 (skipped: ...)` (or
-`-> no entry is available (skipped: ...)`), and `-Json` fields `roster_position` (the
-first position, or `null`) and `roster_selected` (whether this run's walk would pick that
-provider right now).
-
-**Panel.** `-Panel` sends the **same brief to every available roster entry**,
-sequentially, each as a complete, independent consultation: its own preflight, its own
-lock/pending record, its own parent thread (within its own lineage), its own
-consultation id, its own reply file
-(`handoffs/NN-codex-<ReplyName>-<provider lowercased>.md`) and its own ledger entry. Every
-member sees only the findings that were open when the panel started — not a later
-member's answer. A `"weighty"` roster entry joins only on the weighty purposes
-(`framing`, `decision`, `core-contract`, `acceptance`, `stuck`); `-PanelAll` includes
-every available entry regardless of purpose. `-Panel`/`-PanelAll` need a roster and are
-refused together with `-Provider`, `-Thread`, or `-Mode resume` (each member forks the
-newest thread of its own lineage, or starts one). Ledger `panel` = `{id, position, of,
-members: [{provider, model, state: "run"|"skipped", reason}]}`. A failing member does
-not stop the others — **except** when its failure leaves surviving processes behind
-(the task's `.consult.pending.json` reservation stays active): the one-consultation-
-per-task rule is absolute, so the remaining members are then not started at all and are
-recorded `skipped` with reason `not started: the previous member (<lineage>) left
-surviving processes (.consult.pending.json state survivors); recover the task first`
-(narrowed from "never stops the others" after the first live panel found the gap,
-F15-3); the summary shows `skipped  not started: ...` for them. A summary block closes
-the run (one line per member: lineage, verdict or failure, finding counts, or the
-`skipped` reason above); the run exits `0` only when every member produced a usable
-reply, `1` otherwise. (Internally, each member runs as a child bridge process via
-`-PanelSpec`, base64-encoded and never exposed as a documented option — it is not for
-users.)
-
-**`-SchemaTransport output-schema|prompt-only`** overrides caps-v1's declared transport
-for one run (not with `-Raw`) — ledger `schema_transport_source` becomes
-`-SchemaTransport` instead of `caps-v1`.
-
-The council model this plugin encodes: the coordinator (Claude) is an equal participant,
-not a rubber stamp waiting on Codex, and is the judge by default; a hard question can
-hand the judge role to one reviewer explicitly (a `-Purpose decision` consultation whose
-brief points at the other members' reply files and asks for a verdict — record that
-verdict in `state.md` as the decision; the coordinator still executes and verifies). A
-provider without a credential or without tokens left is simply not used — the roster
-skips it and records why — and a fallback reviewer's reply is never presented as the
-primary's. Disagreement between reviewers is the signal, not noise: record it in
-`state.md` as an open item until evidence settles it; `codex-findings.ps1 -Stats`'s
-scoreboard (below) shows over time who finds what. Hand bounded search/extraction work
-to cheap roster members with `-Purpose chore`, and pre-digest large inputs before a
-weighty brief — put the extract in the brief, not the raw file. Acceptance authority for
-a release stays with the reviewer who raised the findings; a stand-in's ACCEPT is
-recorded, but the tag waits for the one who raised them.
-
-### Usefulness telemetry: codex-scoreboard.ps1
-
-Wave 12 answers a plain operator question — *which reviewer has actually been useful,
-on which kind of question* — across every task in the repository, not just one:
-
-```
-powershell -NoProfile -ExecutionPolicy Bypass -File plugins/codex-consult/scripts/codex-scoreboard.ps1 [-Task <task>] [-Json]
-```
-
-It reads every task's `sessions.json` (ledger) and `findings.json` (findings + the
-`-Rate` marks above) under `<CollabDir>`, or one task's with `-Task`; it writes nothing,
-takes no lock, and makes no network call. One row per `(reviewer lineage, purpose)`,
-plus a `(total)` row per lineage and a grand `(all) (total)` row; a lineage that is
-`unknown provenance` (an entry predating 0.3.0, or a finding with no ledger entry) sorts
-last. Columns:
+Answers "which reviewer has been useful on which kind of question" across every task of
+the repository (or one task with `-Task`), from each `sessions.json` and `findings.json`
+(including the `-Rate` marks). It writes nothing, takes no lock, makes no network call and
+exits `0`; a store it cannot read is reported and left out. One row per
+`(reviewer lineage, purpose)`, a `(total)` row per lineage and a grand `(all) (total)` row;
+`unknown provenance` (pre-0.3.0 entries, findings without a ledger entry) sorts last.
 
 | Column | Meaning |
 |---|---|
-| `REVIEWER` | `<provider> :: <model>` of the ledger entries in this row, or `unknown provenance` |
-| `PURPOSE` | the consultation's `-Purpose`, `(none)` without one, `(total)`/`(all) (total)` on a summary row |
-| `CONSULTS` | ledger entries |
-| `USABLE` | `bridge_outcome` = "usable reply" |
-| `PROSE` | usable but not a valid structured reply (`-Raw`, `chore`, or invalid JSON) |
-| `FAILED` | every other outcome |
-| `RAISED` | findings raised by these consultations (joined by `source.consult`, the same join `-Stats` uses) |
-| `VERIFIED` / `REJECTED` / `WONTFIX` / `SUPERSEDED` | current status of those findings |
-| `OPEN` | `proposed` + `implemented` |
-| `HIT%` | `verified / (verified + rejected)`, rounded percent; `-` when both are 0 |
-| `A/H/R/D` | verdict counts: ACCEPT / HOLD / REJECT / ADVISE |
-| `Y/P/N` | the judge's `-Rate` marks: yes / partly / no |
+| `REVIEWER` | `<provider> :: <model>`, or `unknown provenance` |
+| `PURPOSE` | the `-Purpose`, `(none)`, or `(total)`/`(all) (total)` on summary rows |
+| `CONSULTS` / `USABLE` / `PROSE` / `FAILED` | ledger entries; `bridge_outcome` = `usable reply`; usable but not a valid structured reply (`-Raw`, `chore`, invalid JSON); every other outcome |
+| `RAISED` | findings raised by these consultations (joined by `source.consult`, as in `-Stats`) |
+| `VERIFIED` / `REJECTED` / `WONTFIX` / `SUPERSEDED` / `OPEN` | current status of those findings; `OPEN` = `proposed` + `implemented` |
+| `HIT%` | `verified / (verified + rejected)`, rounded; `-` when both are 0 |
+| `A/H/R/D` | verdicts ACCEPT / HOLD / REJECT / ADVISE |
+| `Y/P/N` | the `-Rate` marks yes / partly / no |
 | `MEDIAN_S` | median `wall_seconds`; `-` when none |
-| `TOKENS` | uncached input tokens / output tokens, summed |
+| `TOKENS` | uncached input tokens / output tokens |
 
-`-Json` prints the same rows as an array with numeric fields (`hit_rate` a number or
-`null`, `median_wall_seconds` a number or `null`) plus `kind`: `purpose` | `lineage` |
-`total`. A fabricated example row (openai gpt-5.1, purpose `decision`, three
-consultations, two verified findings, one rejected, all three judged useful):
+`-Json` returns the same rows with numeric fields (`hit_rate` and `median_wall_seconds` a
+number or `null`) plus `kind`: `purpose`, `lineage` or `total`. Run it before choosing a
+panel or a judge for a hard question.
 
-```
-REVIEWER          PURPOSE   CONSULTS USABLE PROSE FAILED RAISED VERIFIED REJECTED WONTFIX SUPERSEDED OPEN HIT%  A H R D Y P N MEDIAN_S TOKENS
-openai :: gpt-5.1 decision  3        3      0     0      3      2        1        0       0          0    67%   1 1 1 0 3 0 0 41.2     6300/1840
-```
+---
 
-Before choosing a panel or a judge for a hard question, run this (or `-Task <task>` for
-just that task's history) to see who has actually been useful on that purpose so far —
-not just who is cheapest or fastest. Every consultation should be rated
-(`codex-findings.ps1 -Rate`, above) so this view stays complete rather than sampling
-only the reviews someone remembered to grade.
+## Project isolation
 
-### Role split
+One user-scope install serves every project without mixing them: the ledger and handoffs
+live under `<repo>/<CollabDir>/<task>/` (`<repo>` = `git rev-parse --show-toplevel` of the
+current directory, else the directory itself), parent threads come only from that
+repository's `sessions.json`, endpoint health only from that repository's ledgers, and
+`codex` runs with the repository root as its working directory. The read-only sandbox
+blocks writes, not reads, so keep briefs inside the repository and never pass a `-Thread`
+taken from another project's ledger. Codex's own `memories` feature (`codex features
+list`), if enabled, is a Codex-side channel across all threads; the bridge neither reads
+nor writes it.
 
-When a fresh-context verifier of the same model family is also reviewing, treat the
-two as primary, not exclusive, responsibilities — either may challenge anything the
-other says. The verifier is best used for mechanics: lint, interpreter/version
-compatibility, build correctness, test wiring. Codex is best used for protocol and
-state-machine correctness, and for naming what the evidence does not show. On a real
-multi-wave task the two typically find mostly different defects. A second model
-consulted through `-Provider` fits the same split as a measured, optional participant
-in its own lineage: its "done" (and its ACCEPT) is never trusted any more than the
-primary reviewer's, and it never closes a finding by itself.
+---
 
-### Project isolation
+## Options
 
-One user-scope install serves every project on the machine without mixing them,
-because everything the bridge touches is scoped to the git repository it runs from:
+`codex-consult.ps1`:
 
-- the ledger and every brief/reply pair live under `<repo>/<CollabDir>/<task>/`,
-  where `<repo>` is `git rev-parse --show-toplevel` of the current directory (the
-  current directory itself when it is not a git checkout);
-- the parent thread for `fork`/`resume` is taken only from **that** repository's
-  `sessions.json` — a repository with no ledger starts a fresh Codex thread;
-- `codex` runs with the repository root as its working directory.
-
-Verified 2026-09-23 with a throwaway repository: a `-Mode new` call produced a thread
-with no parent, and Codex reported no context from any other project.
-
-What the bridge cannot enforce: Codex's read-only sandbox blocks *writes*, not
-*reads*, so a brief that cites a path outside the repository will be read. Keep briefs
-inside the repository and never pass a `-Thread` id taken from another project's
-ledger. Codex's own `memories` feature (see `codex features list`), if you enable it,
-is a Codex-side channel across all your threads; the bridge neither reads nor writes it.
-
-### Options
-
-| Option | Default | |
+| Option | Default | Notes |
 |---|---|---|
-| `-Task <id>` | *required* | Groups one conversation under `<CollabDir>/<id>/` |
-| `-Mode new\|resume\|fork` | `fork` if a thread is known, else `new` | `fork` branches, `resume` appends |
-| `-Thread <uuid>` | newest thread in the ledger | Pick a specific parent |
-| `-Brief <path>` / `-Prompt <text>` | — | At least one is required |
-| `-Model <name>` | *none* → your `config.toml` | Only passes `-m` when given |
-| `-Provider <name>` | *none* → config's `model_provider` | Requires `-Model`; validated against `[model_providers.<name>]` in the Codex config |
-| `-Purpose <purpose>` | *(none)* | Selects the prompt paragraph and the preset effort/words — see "Review purposes" |
-| `-Effort low\|medium\|high\|xhigh` | preset default (`high` with no purpose) | Overrides the purpose's preset; mapped per the resolved provider's vocabulary |
-| `-NativeEffort <value>` | *none* | Sends the value verbatim to `-c model_reasoning_effort=…`; required when no vocabulary is known for the endpoint/model |
-| `-OffPeakOnly` | off | Refuses when `CODEX_CONSULT_PEAK_<PROVIDER>` says peak now, or is unset (unknown) |
-| `-SkipPreflight` | off | Bypasses all three preflight refusals (missing credentials, unresolved availability, a recent auth failure on this endpoint); ledger `preflight: "skipped"`. Endpoint health is still recorded either way |
-| `-CodexConfig key=value[,…]` | — | Extra `-c` overrides passed verbatim; refuses `model`/`model_provider`/`model_reasoning_effort`/`profile`/`model_providers(.*)` |
-| `-Sandbox read-only\|workspace-write` | `read-only` | `danger-full-access` is refused |
-| `-MaxWords <n>` | preset default (`700` with no purpose) | Overrides the purpose's preset; applies to prose only |
-| `-Artifact <path>` | — | Repeatable; hashes a built artifact into the ledger. Missing path refuses the run |
-| `-Raw` | off | 0.1-style plain-text reply: no schema, no findings bookkeeping |
-| `-FormatRetry 0\|1` | `1` | One recorded repair turn when a structured reply comes back as prose (see "Contract-first prompt and format repair"); `0` turns it off. Ignored with `-Raw`/`chore`. Any other value refuses the run |
-| `-Panel` / `-PanelAll` | off | Sends the brief to every available reviewer roster entry, sequentially, each its own consultation — see "Reviewer roster and panel". Needs a roster; refused with `-Provider`/`-Thread`/`-Mode resume` |
-| `-SchemaTransport output-schema\|prompt-only` | caps-v1's declared transport | Overrides the reply-schema transport for this run; not with `-Raw`; ledger `schema_transport_source` |
-| `-TimeoutSec <n>` | `900` | The process TREE is killed past this |
-| `-CollabDir <path>` | `.collab` | Relative to the git repo root |
-| `-ReplyName <slug>` | `reply` | Names the reply file |
-| `-CodexExe <path>` | auto | Env override: `CODEX_CONSULT_EXE` |
-| `-DryRun` | | Print argv, paths and the planned ledger entry; call nothing |
+| `-Task <id>` | *required* | slug; groups one conversation under `<CollabDir>/<id>/` |
+| `-Brief <path>` / `-Prompt <text>` | — | at least one; the brief must exist (resolved against the current directory, then the repo root) |
+| `-Purpose <purpose>` | *(none)* | prompt paragraph, preset effort and word cap: "Review purposes" |
+| `-Mode new\|fork\|resume` | `fork` when a thread of this run's lineage is known, else `new` | `fork` branches, `resume` appends |
+| `-Thread <uuid>` | the newest verified thread of this lineage in this task | needs `fork`/`resume`; must belong to this lineage |
+| `-Provider <name>` | first available roster entry; without a roster, the config's `model_provider`, else `openai` | case-sensitive table name; needs `-Model` unless its roster entry names one |
+| `-Model <name>` | the roster entry's model, else the config's top-level `model` | the resolved model is always passed as `-m`; without `-Provider` it restricts the roster walk |
+| `-Effort low\|medium\|high\|xhigh` | the purpose preset (`high` without one) | mapped through the endpoint's caps-v1 vocabulary |
+| `-NativeEffort <token>` | — | sent verbatim; excludes `-Effort`; required where caps-v1 declares nothing |
+| `-MaxWords <n>` | the purpose preset (`700` without one) | prose only |
+| `-Sandbox read-only\|workspace-write` | `read-only` | `danger-full-access` is refused, with no flag to force it |
+| `-TimeoutSec <n>` | `900` | the codex process TREE is killed past it |
+| `-ReplyName <slug>` | `reply` | names `handoffs/<NN>-codex-<slug>.*` |
+| `-Artifact <path>[,<path>…]` | — | one comma-separated string; hashes built artifacts into the ledger; a missing path refuses the run |
+| `-Raw` | off | 0.1-style plain-text reply: no schema, no findings, no format repair |
+| `-FormatRetry 0\|1` | `1` | one recorded repair turn for a substantive prose reply; any other value refuses |
+| `-SchemaTransport output-schema\|prompt-only` | caps-v1's declared transport | one run only; not with `-Raw` |
+| `-CodexConfig key=value[,…]` | — (roster `codex_config` when empty) | one comma-separated string; refused keys: "Per-run Codex overrides (-CodexConfig)" |
+| `-OffPeakOnly` | off | refuses at peak and when no schedule is set |
+| `-SkipPreflight` | off | bypasses every preflight refusal; ledger `preflight: "skipped"` |
+| `-Panel` / `-PanelAll` | off | every available roster entry, sequentially; needs a roster; not with `-Provider`/`-Thread`/`-Mode resume` |
+| `-CollabDir <path>` | `.collab` | relative to the git repo root |
+| `-CodexExe <path>` | the launcher on PATH | env override `CODEX_CONSULT_EXE` |
+| `-DryRun` | off | prints the plan (argv, prompt, paths, preflight, roster pick, ledger entry); calls nothing, writes nothing |
 
-`-DryRun` is the first thing to reach for when a call misbehaves — it shows the exact
-argv, the resolved launcher, the prompt that would go on stdin, and where every file
-would land.
+Environment variables:
+
+| Variable | Set by | Effect |
+|---|---|---|
+| `CODEX_HOME` | user | Codex home: `config.toml`, `sessions/` (rollout files), the default roster; default `~/.codex` |
+| a table's `env_key` (e.g. `ZAI_API_KEY`) | the user only | the provider credential; the bridge only checks that it is set |
+| `OPENAI_BASE_URL` | user | folded into the built-in `openai` identity (drift when it changes) |
+| `CODEX_CONSULT_ROSTER` | user | roster file path (must exist), or `none` |
+| `CODEX_CONSULT_PEAK_<PROVIDER>`, `CODEX_CONSULT_PEAK_<PROVIDER>_EXCEPT` | user | peak windows |
+| `CODEX_CONSULT_EXE` | user | codex launcher path |
+| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS` | tests only | test hooks; never set them in normal use |
 
 ---
 
 ## How it works
 
-Four things took real trial and error to get right. They are the substance of this
-plugin; the rest is bookkeeping.
+The bridge shells out to the documented `codex exec` CLI and makes no HTTP call to any
+provider; a plan's credentials are only ever used by the Codex CLI itself. Four invocation
+rules are load-bearing; keep them if you change the command:
 
-**1. Exec options must precede the subcommand.** `codex exec fork --help` has no
-`--sandbox` or `--color`: those are options of `exec`, not of `fork`. The working form
-is `codex exec --sandbox read-only --json -o <file> fork <thread> -`. Put `--sandbox`
-after `fork` and Codex fails with *unexpected argument*.
+1. **Exec options precede the subcommand:**
+   `codex exec --sandbox read-only --color never --json [-m <model>] -c model_reasoning_effort="<e>" [-c model_provider="<p>"] [-c <CodexConfig>…] -o <file> [--output-schema <schema>] [fork|resume <thread>] -`.
+   `codex exec fork --help` has no `--sandbox` or `--color`; placed after `fork` they fail
+   with *unexpected argument*.
+2. **The prompt travels on stdin (`-`), never as an argument.** On Windows `codex` is an npm
+   shim (`codex.cmd`) and `cmd.exe` expands `%VAR%` inside quoted arguments, which would
+   silently rewrite a brief that mentions `%APPDATA%`.
+3. **The thread id comes from the event stream.** Every run (`new`, `resume`, `fork`) emits
+   `{"type":"thread.started","thread_id":"…"}` first, and that id is the RESULTING thread,
+   the one to continue later. The fallback is a rollout file under
+   `$CODEX_HOME/sessions/<y>/<m>/<d>/` verified by the consultation id ("Reviewer identity
+   and lineage").
+4. **Two `Start-Process` traps on Windows PowerShell 5.1:** `-PassThru` returns an empty
+   `.ExitCode` unless `.Handle` is touched before the child exits, and the redirection
+   files stay locked briefly after exit ("the process cannot access the file"). The script
+   caches the handle and reads with `FileShare.ReadWrite` plus a short retry.
 
-**2. The prompt travels on stdin, never as an argument.** On Windows, `codex` is an npm
-shim (`codex.cmd`), and `cmd.exe` still expands `%VAR%` inside double-quoted arguments.
-A brief that mentions `%APPDATA%` would be silently rewritten. Passing the final `-`
-and piping the prompt in avoids the shim's expansion entirely.
-
-**3. The thread id comes from the first `--json` event.** Every run — `new`, `resume`
-and `fork` alike — emits `{"type":"thread.started","thread_id":"…"}` as its first JSONL
-line, and that id is the *resulting* thread, which is what you must record to continue
-later. If the parse ever fails (version drift), the script falls back to the newest
-`rollout-*-<uuid>.jsonl` under `$CODEX_HOME/sessions/<y>/<m>/<d>/` created after the run
-started, and says so via `thread_source`.
-
-**4. Two `Start-Process` traps on Windows PowerShell 5.1.** `-PassThru` returns an empty
-`.ExitCode` unless you touch `.Handle` before the child exits, and the redirection
-handles stay locked briefly after it exits, so reading the captured stdout right away
-throws *the process cannot access the file*. The script caches the handle and reads with
-`FileShare.ReadWrite` plus a short retry.
-
-Everything else follows from those: failed runs are recorded as ledger entries too,
-`danger-full-access` is refused with no flag to force it, and the reply file is written
-even when the run failed (with the stderr tail as its body), so a failure is as
-inspectable as a success.
+A launched run that fails still writes its reply file (the stderr tail as its body) and a
+ledger entry, so a failure is as inspectable as a success.
 
 ---
 
-## Why not X
+## Alternatives
 
-Prior art exists. None of it was shaped like a *standing advisor thread with
-fork + resume, a read-only sandbox, a committed file trail, and Windows support*, which
-is why this plugin exists. All of these are worth a look if your shape is different.
+| Project | Shape | Trade-off against this plugin |
+|---|---|---|
+| [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) (official) | Claude Code plugin: `/codex:review`, `/codex:adversarial-review`, `/codex:rescue`, session hooks | review/rescue shaped; resumes only its own latest thread, no chosen thread, no fork; open Windows sandbox issue [#349](https://github.com/openai/codex-plugin-cc/issues/349) (sandbox modes fail, reviews come back empty) |
+| [parisbs/codex-subagent-mcp](https://github.com/parisbs/codex-subagent-mcp) | MCP server: `codex_delegate`, `codex_follow_up`, background jobs | `resume` only; no brief/reply file trail |
+| [newtro/mcp-codex-bridge](https://github.com/newtro/mcp-codex-bridge) | MCP server: `codex_ask`, `codex_review`, `codex_implement` | no thread continuity |
+| [xihuai18/codex-mcp](https://github.com/xihuai18/codex-mcp) | MCP server: `codex_session` with fork, `codex_reply` | has fork, but unmaintained while the Codex app-server protocol moved |
+| [j-token/codex-mcp](https://github.com/j-token/codex-mcp) | MCP server over the Codex SDK | resume, no fork; needs Bun |
+| [masuP9/agent-dialectics](https://github.com/masuP9/agent-dialectics) | Claude Code plugin: strong-inference / devil's-advocate skills | a fresh thread every time, by design |
 
-| Project | Shape | Continuity | Why not here |
-|---|---|---|---|
-| [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) (official) | Claude Code plugin: `/codex:review`, `/codex:adversarial-review`, `/codex:rescue` + session hooks | resumes only its own latest thread; no chosen thread, no fork | Review/rescue shaped rather than an advisor you brief. Open Windows sandbox issue [#349](https://github.com/openai/codex-plugin-cc/issues/349) (sandbox modes fail, reviews come back empty) |
-| [parisbs/codex-subagent-mcp](https://github.com/parisbs/codex-subagent-mcp) | MCP server: `codex_delegate`, `codex_follow_up`, background jobs | `resume` only, no `fork` | Closest fit, and the background-job model is genuinely nice. Delegation verified on macOS; no brief/reply file trail |
-| [newtro/mcp-codex-bridge](https://github.com/newtro/mcp-codex-bridge) | MCP server: `codex_ask`, `codex_review`, `codex_implement` | none | No thread continuity at all — every call starts cold |
-| [xihuai18/codex-mcp](https://github.com/xihuai18/codex-mcp) | MCP server: `codex_session` (with fork) + `codex_reply` | fork + reply | The only one with fork, but unmaintained for months while the Codex app-server protocol moved |
-| [j-token/codex-mcp](https://github.com/j-token/codex-mcp) | MCP server over the Codex SDK | resume, no fork | Requires Bun; lightly maintained |
-| [masuP9/agent-dialectics](https://github.com/masuP9/agent-dialectics) | Claude Code plugin: strong-inference / devil's-advocate skills | deliberately none — a fresh thread each time | A different and defensible philosophy; the opposite of a continuing thread |
-
-Note: `codex mcp-server` was removed in Codex 0.154, and `codex app-server` is an
-experimental JSON-RPC surface — which is part of why several MCP wrappers above drifted.
-A thin wrapper around the documented `codex exec` CLI is the stable surface today.
+`codex mcp-server` was removed in Codex 0.154 and `codex app-server` is an experimental
+JSON-RPC surface; a thin wrapper around `codex exec` is the stable surface.
 
 ---
 
 ## Tested on
 
-| | |
+| Platform | What ran |
 |---|---|
-| Windows 11 + Windows PowerShell 5.1 + Codex CLI 0.155.1 | dry-runs for `new` / `resume` / `fork`, every refusal path, brief resolution, and one live `new` consultation. The live call reached Codex and was rejected by the account's usage limit, which exercised the whole failure path: the thread id was still parsed from the live `thread.started` event, the error message was lifted from the event stream, the reply file and the ledger entry were written, and the script exited non-zero |
-| PowerShell 7.6 (`pwsh`, Windows 11) | exercised on 2026-09-24 with the same fake-`codex` harnesses as 5.1 (structured parsing and validation, atomic stores, the lock and the recovery record, timeout tree kill, fingerprints): all green after one PS7-only fix — `ConvertFrom-Json` in pwsh turns ISO-8601 strings into `[datetime]`, which broke the start-time comparison used to recognise a live lock holder or codex child; the four affected reads now normalise through the library's JSON-text helper. Windows PowerShell 5.1 re-run afterwards, no regression |
-| Linux (WSL Ubuntu 24.04, PowerShell 7.6, native ext4) | exercised on 2026-09-24 with a bash fake `codex`: dry run, a full structured run, lock contention through the advisory `flock` (second consult and `-Status` refused, `-List` works, lock inode unchanged), timeout with the process tree killed and no survivors, recovery of `launching` and `survivors` records through the `ps` scan, `chmod +x` changing the fingerprint, `$HOME/.codex` resolution, atomic `findings.json` replacement. Three Linux-only defects were found and fixed: a process start time read by .NET on Linux can differ by under a second between readers, so the exact comparison declared a live codex child dead (now a one-second tolerance off Windows); the holder's own lock file could not be read back through a shared `FileStream` (the advisory lock blocked it — read via `cat` off Windows); the timeout kill stopped children before the root, leaving a window for the root to spawn more (root first now). Known and left: an atomic replace resets Unix permission bits of the store to the default; dates in messages render in an invariant format |
-| macOS | **not yet exercised** — the Linux run covers the same pwsh code paths, but no macOS machine was available |
-| 0.3.0 (Windows 11, Windows PowerShell 5.1 and pwsh 7.6, Codex CLI 0.155.1) | `tests/run-all.ps1` on 5.1: harness-0.3 227/227, harness-roster 113/113, harness-format 37/37, harness-pending 26/26, harness-fixes 45/45, harness-lock2 11/11, harness-3b 12/12; harness-0.3 227/227, harness-roster 113/113 and harness-format 37/37 on pwsh 7.6 (fake `codex` shims: config resolution, scanner, fingerprints, lineage-scoped parents, rollout correlation, caps-v1, peak windows, preflight, failure classes, endpoint health, schema transport, `-CodexConfig`, plus wave 10's roster file validation, the three selection rules, usage limits with a known reset time, the F12-2 classifier order, UTF-8 capture, `-SchemaTransport`, the review panel and the `codex-findings.ps1 -Stats` scoreboard, plus waves 11-12's reset times across daylight-saving changes, timestamps keeping their offset on pwsh, future-stamped failures, a panel stopped by a member's surviving processes, the judge's marks (`-Rate`) and `codex-scoreboard.ps1`, plus wave 14's contract-first prompt and format-repair retry; exact case counts as of waves 11-14 are tracked in `tests/README.md`). Live, in `.collab/bridge-0.3-2026-09-24/`: the design review and two acceptance rounds on the openai lineage (a `new` thread, then the first `resume` under the provenance rules); the second reviewer (GLM-5.3, z.ai) through `-Provider ZAI` - its plain-Markdown reply kept with no verdict; the third reviewer (Xiaomi MiMo, `-Provider mimo` with a per-run model catalog) - first attempt refused by the endpoint (`--output-schema` unsupported; the failure was lifted into the ledger), then, with `prompt-only` transport, a bare-JSON structured HOLD ingested as F09-1..4 while reporting five earlier ids fixed; the first live review PANEL (`-PanelAll`, real roster) found F15-1..4 (wave 11) independently through both remaining members (GLM-5.3 and MiMo) after the weighty member was itself skipped on a known reset time; with the schema in the prompt but the output contract buried mid-prompt, the z.ai route answered in prose on two consultations, and a third consultation on the same route, after wave 14's contract-first fix, returned bare JSON - two independently-consulted cheap reviewers each diagnosed the same root cause (the contract buried past the schema, and the old "write it exactly as you would a normal reply" wording licensing prose), and wave 14 implements their recommendation. `codex-providers.ps1` on the real config: openai (`Logged in using ChatGPT`), ZAI and mimo (env keys) all available. macOS unexercised |
-| 0.2.0 (Windows 11 + Windows PowerShell 5.1 + Codex CLI 0.155.1) | harness tests with a fake `codex` shim (structured parsing and validation, fingerprinting, the lock, findings bookkeeping, crash and timeout paths), re-run by a fresh-context verifier with its own fixtures; and the release's own consultations, live, in `.collab/bridge-0.2-2026-09-23/`: a framing `new` (0.1 bridge), an acceptance `fork` and a re-acceptance `resume` on the structured path (`--output-schema`, fenced-or-bare JSON parsing, findings ingestion, `prior_findings` fed back, the lock held with the codex child pid inside, before/after fingerprints, tree-drift warning). The reviewer delivered three HOLDs (11, then 3, then 1 finding) and, after four fix waves, an ACCEPT on 2026-09-24; every finding is tracked by id in that task's `findings.json` (12 verified, 2 superseded, 1 accepted limitation), and `codex-findings.ps1 -Stats` shows the five consultations' cost and yield. A second model (GLM-5.3 through a Codex `model_providers` entry) was smoke-tested on the same wire: it works, but `--output-schema` is not enforced on that route and the reply came back as a fenced JSON block (`.collab/multi-model-2026-09-23/`) |
+| Windows 11, Windows PowerShell 5.1, Codex CLI 0.155.1 | all seven harnesses (see "Tests"; last full run 2026-09-25, all green). Live: the 0.2.0 release review (`.collab/bridge-0.2-2026-09-23/`: framing `new`, acceptance `fork`, re-acceptance `resume`; three HOLDs with 11, 3 and 1 findings, then ACCEPT on 2026-09-24 after four fix waves; 12 findings verified, 2 superseded, 1 accepted limitation) and the 0.3.0 rounds below. The first live call hit the account's usage limit, which exercised the whole failure path (thread id still parsed from `thread.started`, the message lifted from the event stream, reply file and ledger entry written, non-zero exit) |
+| PowerShell 7.6 on Windows 11 | `harness-0.3`, `harness-roster`, `harness-format` green. One pwsh-only defect fixed in 0.2.0: `ConvertFrom-Json` turns ISO-8601 strings into `[datetime]`, which broke the start-time comparison that recognises a live lock holder or codex child; those reads now normalise through a JSON-text helper |
+| Linux (WSL Ubuntu 24.04, PowerShell 7.6, ext4), 2026-09-24 | with a bash fake `codex`: dry run, full structured run, lock contention through the advisory `flock` (second consultation and `-Status` refused, `-List` works, lock inode unchanged), timeout with the tree killed and no survivors, recovery of `launching` and `survivors` records through the `ps` scan, `chmod +x` changing the fingerprint, `$HOME/.codex` resolution, atomic `findings.json` replacement. Three Linux-only defects fixed: start times read by .NET can differ by under a second between readers (one-second tolerance off Windows); the holder's lock file could not be read back through a shared `FileStream` (read via `cat` off Windows); the timeout kill stopped children before the root (root first now). Known and left: an atomic replace resets the store's Unix permission bits; dates in messages render in an invariant format |
+| macOS | **not exercised**; the Linux run covers the same pwsh code paths |
+| 0.3.0 live (`.collab/bridge-0.3-2026-09-24/`) | design review and two acceptance rounds on the `openai` lineage (a `new` thread, then the first `resume` under the provenance rules); GLM-5.3 through `-Provider ZAI` (plain-Markdown reply kept with no verdict); MiMo through `-Provider mimo` with a per-run catalog (first attempt refused by the endpoint, `--output-schema` unsupported, lifted into the ledger; then, `prompt-only`, a bare-JSON HOLD ingested as F09-1..4 while reporting five earlier ids fixed); the first live panel (`-PanelAll`, real roster) found F15-1..4 through GLM-5.3 and MiMo after the weighty member was skipped on a known reset time; with the output contract buried after the schema the z.ai route answered in prose twice, and after the contract-first prompt it returned bare JSON (two cheap reviewers had independently diagnosed that cause). `codex-providers.ps1` on the real config: `openai` (`Logged in using ChatGPT`), `ZAI` and `mimo` (env keys) available. An earlier 0.2.0 smoke test of GLM-5.3 is in `.collab/multi-model-2026-09-23/` |
 
-Reports from a `pwsh` or macOS/Linux run are the single most useful contribution right now.
+A report from a macOS run is the most useful contribution right now.
 
-### Troubleshooting
+---
 
-A failing consultation is still a written record: read `.collab/<task>/handoffs/<NN>-codex-<slug>.md`
-and the `outcome` field of the ledger entry. Codex reports quota, auth and turn failures
-on the **JSON event stream**, not on stderr, so the script lifts the message from there —
-e.g. `failed: codex exit 1 - You've hit your usage limit. … try again at 12:21 PM.`
-For anything else, rerun with `-DryRun` and compare the argv.
+## Troubleshooting
+
+A failed consultation is still a record: read the reply file's header (`Bridge outcome:`,
+`Provider failure:`) and the ledger entry's `bridge_outcome` and `provider_failure`, e.g.
+`failed: codex exit 1 - You've hit your usage limit. … try again at 12:21 PM.` For
+anything not listed, rerun with `-DryRun` and compare the argv.
+
+| Message or symptom | Do this |
+|---|---|
+| `provider X is not usable: env X_API_KEY not set` | ask the user to set the variable and restart Claude Code; check with `codex-providers.ps1 -Provider X` |
+| `provider X: availability could not be established (…)` | run `codex login status` by hand; check for a top-level `profile` key or an unusable table (`codex-providers.ps1` names it) |
+| `… rejected as unauthenticated at <when> …` | the user rotates or fixes the credential; then pass `-SkipPreflight` once (the 24-hour window cannot tell "fixed" from "still broken") |
+| `… usage limit … lasts until <iso>` / `unavailable (usage limit until <iso>)` | wait, or consult another reviewer (`-Provider`, or let the roster walk pick the next entry) |
+| `no effort vocabulary declared for model …` | use a model caps-v1 declares, or pass `-NativeEffort <value>` |
+| `endpoint or protocol of provider X changed since thread …` | the table's `base_url`/`wire_api` changed: `-Mode new` |
+| `thread <uuid> belongs to lineage …` / `unknown provenance …` | `-Mode new`, or run as that thread's lineage |
+| `-Provider needs -Model …` | add `-Model`, or give that provider's roster entry a `model` |
+| `the reviewer roster '<path>' …` | fix the file (see "Reviewer roster and panel") or set `CODEX_CONSULT_ROSTER=none` |
+| `a previous consultation's codex process (pid N) is still running…` | wait for it or stop it; delete `.consult.pending.json` only when that process is unrelated |
+| `Structured reply: INVALID (…)` / a prose reply | check `format_retry` in the ledger; if the repair was not attempted or failed, the prose is kept; re-ask once, explicitly for the JSON object, if you need the findings tracked |
+| `codex CLI not found on PATH …` | `-CodexExe <path>` or `CODEX_CONSULT_EXE` |
+| `-OffPeakOnly: X is inside its peak window …` | wait, or drop `-OffPeakOnly` if the user accepts the peak tariff |
 
 ---
 
 ## Roadmap / help wanted
 
-`ROADMAP.md`'s review-workflow features R1–R6 and `TECH_DEBT.md`'s T1–T4 shipped in
-0.2.0 — see [ROADMAP.md](ROADMAP.md) and [TECH_DEBT.md](TECH_DEBT.md) for the per-item
-**Status (0.2.0)** lines, including what is partial or deferred and why. Still open, on
-the earlier bridge-features help-wanted list: a bash port, a `UserPromptSubmit` hook
-injector, the reverse direction (a Codex-side tool that consults Claude), an MCP server
-variant with background jobs, and tests on macOS/Linux and PowerShell 7 generally.
-(`--output-schema` support, also on that list, shipped in 0.2.0 as the substrate of R3.)
-R7 (provider support with reviewer lineages, effort mapping, peak-hour handling) and R8
-(requested checks, shipped as a prompt/template convention rather than a schema change)
-shipped in 0.3.0 — see "A second reviewer through the same bridge" above and
-[ROADMAP.md](ROADMAP.md) for the full status lines. Of R9 (review groups), the reviewer
-roster and the sequential review **panel** (`-Panel`/`-PanelAll`) and the per-reviewer
-**scoreboard** (`codex-findings.ps1 -Stats`) shipped in 0.3.0 too — see "Reviewer roster
-and panel" above; the corroboration/contradiction tooling (`-Link`, blind baseline
-isolation, canonical-issue relations, grouped stats) is **deferred to 0.4.0**;
-ROADMAP.md records the design-review requirements it must meet. Next after that is
-R10 (**engines**, planned for 0.4.0): a roster field `engine` so a reviewer can be reached
-through the CLI its provider officially supports — Claude Code headless
-(`claude -p --json-schema`) or Google's Antigravity CLI (`agy -p --json-schema`) — where
-the same models return native structured output on the first turn; verified live before
-the design was written down, see ROADMAP.md. Issues and PRs
-welcome for any of these, and for the earlier bridge-features list (a bash port, a
-`UserPromptSubmit` hook injector, the reverse direction, an MCP server variant,
-macOS testing).
+- Shipped: `ROADMAP.md` R1–R6 and `TECH_DEBT.md` T1–T4 in 0.2.0; R7 (providers with reviewer
+  lineages, effort mapping, peak windows), R8 (requested checks, as a prompt/template
+  convention) and part of R9 (the roster, the panel, the per-reviewer scoreboard and
+  usefulness telemetry) in 0.3.0. Per-item status lines: [ROADMAP.md](ROADMAP.md),
+  [TECH_DEBT.md](TECH_DEBT.md).
+- Planned for 0.4.0: the rest of R9 (corroboration/contradiction links `-Link`, blind
+  baseline isolation across waves, canonical issues, grouped stats), and R10 **engines**:
+  a roster field `engine` so a reviewer can be reached through the CLI its provider
+  supports, Claude Code headless (`claude -p --json-schema`) or Google's Antigravity CLI
+  (`agy -p --json-schema`), where the same models return native structured output on the
+  first turn (verified live before the design was written down).
+- Open tech debt: T5 (a credential rotated inside the 24-hour auth window still needs
+  `-SkipPreflight` once), T6 (a legacy entry without `retry_after` can be off by a time-zone
+  difference).
+- Help wanted: runs on macOS; a bash port; a `UserPromptSubmit` hook injector; the reverse
+  direction (a Codex-side tool that consults Claude); an MCP server variant with
+  background jobs.
 
 ---
 
 ## Tests
 
-`tests/run-all.ps1` runs the seven scripted harnesses one at a time against a FAKE
-`codex` shim — no real `codex`, no quota spent, your own `~/.codex/config.toml` never
-touched. Windows PowerShell 5.1 runs everything; `harness-0.3.ps1`, `harness-roster.ps1`
-and `harness-format.ps1` also run under PowerShell 7 (`pwsh`). As of 0.3.0: `harness-0.3`
-227 assertions, `harness-roster` 113 (roster, panel, reset times across
-daylight-saving changes, `-Rate` and `codex-scoreboard.ps1`), `harness-format` 37
-(wave 14's contract-first prompt and format-repair retry, including the cases that must
-NOT repair), `harness-pending` 26, `harness-fixes` 45, `harness-lock2` 11, `harness-3b`
-12. Logs land under
-`%TEMP%\codex-consult-tests\`. `tests/` is not part of the installed plugin package —
-see `tests/README.md` for what each harness covers and how to run one directly.
+`tests/run-all.ps1` runs the seven harnesses one at a time against a FAKE `codex` shim: no
+real `codex`, no quota spent, your own `~/.codex/config.toml` never changed (`harness-0.3`
+points `CODEX_HOME` at scratch directories and compares your config's hash before and
+after; every harness sets `CODEX_CONSULT_ROSTER` to a scratch file or `none`). The fake
+codex is a `.cmd` shim, so the suite needs Windows and `git` on PATH. Never run two
+harnesses in parallel; the recovery checks would see each other's fake codex. A full run
+takes about ten minutes.
 
-```
+```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1
+pwsh -NoProfile -File tests/run-all.ps1 -Only harness-roster,harness-0.3
 ```
+
+Assertions per harness (Windows PowerShell 5.1, 2026-09-25): `harness-0.3` 227,
+`harness-roster` 113, `harness-format` 37, `harness-pending` 26, `harness-fixes` 45,
+`harness-lock2` 11, `harness-3b` 12. `harness-0.3`, `harness-roster` and `harness-format`
+also run under pwsh. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
+prints one summary line per harness, exits `1` when anything failed, and keeps full logs
+in `$env:TEMP\codex-consult-tests\run-all-<timestamp>\`. `tests/` is not part of the
+installed plugin; `tests/README.md` lists what each harness covers.
 
 ---
 
 ## Contributing
 
-Keep the script dependency-free and dual-shell (5.1 and 7). If you change the `codex`
-invocation, re-check the four gotchas above — they are load-bearing. Please include the
-`-DryRun` output for any argv change, and say which shells and platforms you exercised.
-Run `tests/run-all.ps1` before a PR and include its summary line.
+Keep the scripts dependency-free, ASCII, and dual-shell (5.1 and 7). If you change the
+`codex` invocation, re-check the four rules under "How it works". Include the `-DryRun`
+output for any argv change, say which shells and platforms you exercised, and paste the
+`tests/run-all.ps1` summary lines into the PR.
 
 ## License
 

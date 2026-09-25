@@ -85,11 +85,11 @@ optional participant whose "done" is never trusted and who never closes a findin
   per-run `consult_id` in the prompt makes the rollout-file thread fallback verified
   rather than a best guess (an unverified candidate is kept only as a diagnostic, never
   as a parent); effort vocabularies are keyed by the provider's endpoint host (with
-  model prefix as fallback) instead of by alias, `-NativeEffort` as the escape hatch, and
+  no model-prefix fallback since F02-4: only models declared for the host) instead of by alias, `-NativeEffort` as the escape hatch, and
   `effort_requested`/`effort_sent`/`effort_mapping`/`effort_confirmed` (the last always
   `null` — not observable) replace a single `-Effort` value; peak-hour handling got exact
   semantics (fixed offset, inclusive start/exclusive end, overnight windows, exception
-  dates, launch-time only) and `-OffPeakOnly` refuses on an unknown schedule as well as
+  dates; checked early and again immediately before launch - the launch-time result governs) and `-OffPeakOnly` refuses on an unknown schedule as well as
   on peak. Legacy (pre-0.3.0) ledger entries are unknown provenance and are never
   automatic parents — the first 0.3.0 consultation on an old task always starts a new
   thread. Not adopted: per-consult credit estimates (the tariff calendar is not
@@ -169,7 +169,7 @@ optional participant whose "done" is never trusted and who never closes a findin
   so a synchronous consult does not fit: inject stored context or fire detached.
 - **The reverse direction**: a Codex-side tool that consults Claude.
 - **An MCP server variant** with background jobs, so a long consult does not block the turn.
-- **Tests on macOS and Linux**, and on PowerShell 7 generally.
+- **Tests on macOS** (Linux via WSL and PowerShell 7 are exercised by `tests/run-all.ps1`; macOS is not).
 - ~~**`--output-schema` support** (the substrate for R3).~~ **Shipped in 0.2.0** as the
   substrate of R3 (structured findings).
 

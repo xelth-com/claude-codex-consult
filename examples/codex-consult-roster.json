@@ -6,8 +6,7 @@
     {
       "provider": "mimo",
       "model": "mimo-v2.6-pro",
-      "codex_config": ["model_catalog_json=~/.codex/model-catalogs.json"],
-      "auth": "none"
+      "codex_config": ["model_catalog_json=~/.codex/model-catalogs.json"]
     }
   ]
 }

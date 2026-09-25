@@ -92,7 +92,7 @@ ROADMAP.md.
     `model_catalog_json` replaces Codex's own catalog and was observed, live, to
     degrade the default `openai` model on an unrelated run ("Model metadata not found,
     fallback").
-  - README "Third example: Xiaomi MiMo" documenting the `mimo` provider shape
+  - README "Setup on a new machine" (the MiMo-style provider step) documenting the `mimo` provider shape
     generically (Token Plan endpoint, `env_key`, per-run catalog, `mimo` effort
     vocabulary).
   - **Per-host schema transport.** caps-v1 now also declares, per host, whether
@@ -133,7 +133,7 @@ ROADMAP.md.
   change — schema stays v1, the bridge renders nothing extra, `.reply.json` and
   `findings.json` are untouched. `templates/brief-review.md` gains a
   "## Requested checks run" table for the coordinator to fill and cite in the next brief.
-- README section "A second reviewer through the same bridge"; SKILL.md options and a
+- README sections "Reviewer identity and lineage" and "Preflight and endpoint health"; SKILL.md options and a
   manual fan-out note for the second reviewer until R9 exists.
 - `tests/`: scripted harnesses (`run-all.ps1` plus `harness-0.3`, `harness-pending`,
   `harness-fixes`, `harness-lock2`, `harness-3b`) that run against a fake `codex` shim —
@@ -261,7 +261,7 @@ ROADMAP.md.
     drift: <n> note(s)`, one `  drift:` line per note; `-DryRun` prints `format retry :
     1 attempt if the reply is not valid JSON` or `format retry : 0 (off)`. Panel members
     inherit `-FormatRetry` from the main run.
-  - `tests/harness-format.ps1` (37 cases) added: the contract-first prompt, the repair
+  - `tests/harness-format.ps1` (23 cases) added: the contract-first prompt, the repair
     turn's command and prompt, success and failure ingestion, drift detection, and the
     cases that must NOT trigger a repair (a wrong-but-valid verdict, `-Raw`, `chore`, an
     unverified thread, non-substantive prose). Runs under Windows PowerShell 5.1 and

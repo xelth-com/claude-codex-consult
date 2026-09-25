@@ -5,24 +5,26 @@
 > hand to show the layout the tool produces. Do not cite the reply as a real
 > Codex opinion.
 
-`.collab/example-task/` mirrors exactly what appears in your own project after one
-structured (0.3.0-style) consultation. As of 0.3.0 every ledger entry also records
-`reviewer{provider, model, model_source, harness, provider_fingerprint,
-provider_config}` and a `lineage` (`<provider>/<model>`, here `openai/gpt-5.1` for all
-three consults, since they share one thread) — the parent thread for `fork`/`resume` is
-chosen from the newest entry of the SAME lineage, never the task's newest thread
-overall. See the README section "A second reviewer through the same bridge" for what
-changes when a second provider (e.g. z.ai/GLM) is used instead. None of these three
-consults used a reviewer roster or `-Panel`, so their `roster` and `panel` ledger fields
-are `null` — see below and the README's "Reviewer roster and panel" section for what
-those fields look like when a roster is in play.
+`.collab/example-task/` mirrors exactly what appears in your own project after three
+structured (0.3.0-style) consultations on one thread. Every 0.3.0 ledger entry records
+`reviewer{provider, provider_source, model, model_source, harness,
+provider_fingerprint, provider_config, identity_note}` and a `lineage`
+(`<provider> :: <model>`, display only; here `openai :: gpt-5.1` for all three consults,
+since they share one thread). The parent thread for `fork`/`resume` is chosen from the
+newest entry of the SAME reviewer (provider and model compared separately, same
+endpoint), never the task's newest thread overall. See the README section "Reviewer
+identity and lineage" for what changes when a second provider (e.g. z.ai/GLM) is used
+instead. None of these three consults used a reviewer roster or `-Panel`, so their
+`roster` and `panel` ledger fields are `null`; the README's "The ledger" and "Reviewer
+roster and panel" sections show those fields when a roster is in play.
 
 `codex-consult-roster.json` in this directory is a FABRICATED example roster
 (`CODEX_CONSULT_ROSTER`, else `<codex home>/codex-consult-roster.json`): three generic
 reviewers — a built-in `openai` model marked `"panel": "weighty"` (joins a `-Panel` run
-only on the weighty purposes), a z.ai-shaped GLM entry, and a third entry showing
-`codex_config` (a per-run model catalog override) and `"auth": "none"` (an endpoint
-that needs no credential) together on one entry.
+only on the weighty purposes), a z.ai-shaped GLM entry, and a MiMo-shaped entry whose
+`codex_config` supplies a per-run model catalog. (`"auth": "none"` is for a table with
+neither `env_key` nor a bearer token, such as a local endpoint; it has no effect on a
+provider like these, whose tables name an `env_key`.)
 
 ```
 .collab/
@@ -60,8 +62,8 @@ Each entry's `validation_error` is followed by `format_retry` (wave 14): `null` 
 since none of these three FABRICATED consults triggered a format-repair turn. A
 non-`null` value (`{attempted, reason, succeeded, thread, wall_seconds, usage, drift,
 original}`) means a structured reply that first came back as prose was converted by one
-recorded repair turn — see the README's "Contract-first prompt and format repair" for
-when it fires and how to read its drift notes.
+recorded repair turn — see the README's "Structured reply, findings and format repair"
+for when it fires and how to read its drift notes.
 
 `findings.json` also carries a top-level `ratings` array (wave 12): one entry per
 consultation the judge marked with `codex-findings.ps1 -Task <task> -Rate <n> -Useful
