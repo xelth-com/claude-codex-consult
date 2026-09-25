@@ -18,3 +18,6 @@ desktop.ini
 # only during or after an interrupted consultation. Neither belongs in history.
 .consult.lock
 .consult.pending.json
+
+# Local eval runs (claude plugin eval) - reports and transcripts, never committed.
+evals/results/

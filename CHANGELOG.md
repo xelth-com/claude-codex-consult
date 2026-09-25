@@ -342,6 +342,24 @@ ROADMAP.md.
   could not be established (...); pass -SkipPreflight to launch anyway, or fix the
   check"). `-DryRun` still only prints the verdict on all three checks.
 
+- **Wave 16 — the plugin as an installable unit.** README rewritten for the AI agent
+  that installs, wires and uses the plugin (prerequisites as commands with expected
+  output, install, verification, first consultation, a numbered setup procedure, then
+  one-fact-in-one-place reference sections; fifteen stale claims fixed — among them the
+  false "repeatable `-Artifact`/`-CodexConfig`": one comma-separated string only). New
+  skill `setup-providers`: the agent-facing procedure to wire third-party plans
+  (config table, `env_key` set by the user only, per-run model catalog, roster,
+  verification, invariants). New `SessionStart` hook (`hooks/hooks.json` →
+  `scripts/codex-consult-hook.ps1`): one context line per session naming which reviewers
+  are usable and what the roster would pick (local checks only, exit 0 always, 30 s
+  timeout). New `evals/` suite for `claude plugin eval`: `dry-run-consultation` and
+  `providers-listing` as the install test (`tool_used`, `regex`, `file_exists`, `llm`
+  graders) plus the read-only `command-plan` case (no shell grant, runs on every platform);
+  the two shell cases need `--allow-tools Bash` AND a sandbox backend, which Windows does not
+  have yet (the runner refuses to run a shell unconfined), so on Windows only `command-plan`
+  runs; `evals/results/` ignored. Manifest descriptions made agent-facing;
+  `claude plugin validate` passes; `claude plugin details` lists 2 skills and 1 hook.
+
 ### Deferred
 
 - **R9 — review groups and relations** (`-Group`, `codex-findings.ps1 -Link`,

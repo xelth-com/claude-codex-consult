@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v pwsh >/dev/null 2>&1; then pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult-hook.ps1\"; else powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult-hook.ps1\"; fi",
+            "timeout": 30,
+            "statusMessage": "codex-consult: checking which reviewers are usable"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.282",
+  "startedAt": "2026-09-25T07:09:14.549Z",
+  "durationSeconds": 81,
+  "costUsd": 0.41476779999999996,
+  "partial": false,
+  "suite": {
+    "root": "C:\\Users\\Dmytro\\claude-codex-consult\\plugins\\codex-consult",
+    "ablation": "none",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "codex-consult",
+        "version": "0.3.0",
+        "path": "C:\\Users\\Dmytro\\claude-codex-consult\\plugins\\codex-consult"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "dry-run-consultation",
+      "dir": "evals\\dry-run-consultation",
+      "source": "prose",
+      "promptMarkdown": "Check that the codex-consult plugin works on this machine. Do a DRY RUN consultation\n(no real call to any reviewer, nothing written) for the task id `eval-smoke` with the\nask \"Is the bridge installed correctly?\". Then tell me, in a few lines: the first line\nthe bridge printed, the `preflight` line, the `reviewer` line, and whether any file was\nwritten. Do not attempt a real consultation and do not create or set any API key.",
+      "runsPerCase": 1,
+      "timeoutSeconds": 300,
+      "maxTurns": 12,
+      "graders": [
+        {
+          "name": "dry-run-ran",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "trace",
+            "pattern": "DRY RUN - nothing was executed and no file was written\\.",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "nothing-written",
+          "type": "file_exists",
+          "weight": 2,
+          "config": {
+            "path": ".collab/eval-smoke/**",
+            "exists": false
+          }
+        },
+        {
+          "name": "report",
+          "type": "llm",
+          "weight": 1,
+          "graderMarkdown": "PASS if the final message reports, from the bridge's own dry-run output: the fixed first line\n(\"DRY RUN - nothing was executed and no file was written.\"), a preflight verdict for the\nresolved reviewer (available / unavailable / unknown, or skipped, with its reason), the\nreviewer line (provider and model, or that the identity is unresolved), and states that nothing\nwas written. A preflight of \"unavailable\" or \"unknown\" is still a PASS when it is reported\nhonestly - the machine may have no reviewer credentials.\n\nFAIL if the message invents output the bridge did not print, claims a real consultation ran,\nmentions creating or setting an API key, or omits the preflight verdict.",
+          "config": {
+            "criteria": "PASS if the final message reports, from the bridge's own dry-run output: the fixed first line\n(\"DRY RUN - nothing was executed and no file was written.\"), a preflight verdict for the\nresolved reviewer (available / unavailable / unknown, or skipped, with its reason), the\nreviewer line (provider and model, or that the identity is unresolved), and states that nothing\nwas written. A preflight of \"unavailable\" or \"unknown\" is still a PASS when it is reported\nhonestly - the machine may have no reviewer credentials.\n\nFAIL if the message invents output the bridge did not print, claims a real consultation ran,\nmentions creating or setting an API key, or omits the preflight verdict.",
+            "focus": "last_message"
+          }
+        },
+        {
+          "name": "skill-invoked",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "consult-codex",
+            "min": 1
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0.5,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.2637912,
+            "judgeCostUsd": 0.00195,
+            "durationSeconds": 47,
+            "startedAt": "2026-09-25T07:09:14.648Z",
+            "error": null,
+            "tracePath": "C:\\Users\\Dmytro\\AppData\\Local\\Temp\\claude-eval-627338\\out\\trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "dry-run-ran",
+                "passed": false,
+                "weight": 2,
+                "explanation": "pattern not found in trace",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "nothing-written",
+                "passed": true,
+                "weight": 2,
+                "explanation": ".collab/eval-smoke/** absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "report",
+                "passed": false,
+                "weight": 1,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "I couldn't run the dry run, so I can't report the bridge's first line, the `preflight` line or the `reviewer` line. This session has no shell tool: I only have file search/read, agents and skills, and ToolSearch found no Bash or PowerShell. The subagent I sent had the same limits and didn't run it either.\n\n- **What I could confirm:** the plugin is installed and its SessionStart hook ran. It reported \"reviewers - openai available\", but that's the hook's message, not the dry-run output you asked for. The bridge script is at `C:/Users/Dmytro/claude-codex-consult/plugins/codex-consult/scripts/codex-consult.ps1`, and it accepts `-Prompt` without a brief, so the dry run needs no files written first.\n- **Files written:** none. I created no brief, key or environment variable, and nothing called a reviewer. A file search found nothing under `.collab/eval-smoke` in the working directory; an empty folder there wouldn't show up in that search.\n\nTo get the three lines, run this from the working directory in a session that has a shell (or type it with a leading `!` here):\n\n```\npowershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/Dmytro/claude-codex-consult/plugins/codex-consult/scripts/codex-consult.ps1\" -Task eval-smoke -Prompt \"Is the bridge installed correctly?\" -DryRun\n```\n\nPaste the output back and I'll pull out the first line, `preflight` and `reviewer`, and check that nothing was written."
+              },
+              {
+                "name": "skill-invoked",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.5,
+        "passRate": 0
+      }
+    },
+    {
+      "name": "providers-listing",
+      "dir": "evals\\providers-listing",
+      "source": "prose",
+      "promptMarkdown": "Which reviewers can the codex-consult plugin use on this machine right now? Use the\nplugin's own availability check (it makes no network call and writes nothing) and give me\none line per provider with its verdict and reason, plus the roster's pick if a roster\nexists. Do not create, print or set any API key.",
+      "runsPerCase": 1,
+      "timeoutSeconds": 240,
+      "maxTurns": 10,
+      "graders": [
+        {
+          "name": "providers-ran",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "trace",
+            "pattern": "codex-providers\\.ps1",
+            "flags": "",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "report",
+          "type": "llm",
+          "weight": 1,
+          "graderMarkdown": "PASS if the final message lists at least the built-in `openai` provider with a verdict\n(available / unavailable / unknown) and the reason the script printed (for example\n\"Logged in using ChatGPT\", \"missing: env X not set\", \"codex CLI not found\"), lists every\nother provider the script printed the same way, and says whether a roster exists and what\nit would pick. A machine with no usable reviewer is still a PASS when reported as such.\n\nFAIL if a verdict is invented, a provider printed by the script is dropped, the message\nclaims a network check happened, or it mentions creating or setting an API key.",
+          "config": {
+            "criteria": "PASS if the final message lists at least the built-in `openai` provider with a verdict\n(available / unavailable / unknown) and the reason the script printed (for example\n\"Logged in using ChatGPT\", \"missing: env X not set\", \"codex CLI not found\"), lists every\nother provider the script printed the same way, and says whether a roster exists and what\nit would pick. A machine with no usable reviewer is still a PASS when reported as such.\n\nFAIL if a verdict is invented, a provider printed by the script is dropped, the message\nclaims a network check happened, or it mentions creating or setting an API key.",
+            "focus": "last_message"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0.6666666666666666,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.15097659999999996,
+            "judgeCostUsd": 0.0022069999999999993,
+            "durationSeconds": 35,
+            "startedAt": "2026-09-25T07:10:01.244Z",
+            "error": null,
+            "tracePath": "C:\\Users\\Dmytro\\AppData\\Local\\Temp\\claude-eval-6DfOfV\\out\\trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "providers-ran",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched codex-providers\\.ps1",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "report",
+                "passed": false,
+                "weight": 1,
+                "explanation": "judge votes: FAIL FAIL FAIL",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  false,
+                  false,
+                  false
+                ],
+                "evidence": "I couldn't run the plugin's availability check, so I have no per-provider verdicts or roster pick to give you.\n\n**Why:** this session has no shell tool. I tried to delegate the command to a subagent, but it has the same tools I do and couldn't run it either. It ran nothing and read or set no key.\n\n**The only related signal:** when the session started, a codex-consult hook printed `reviewers - openai available`. That's a summary from startup, not the check's output. It doesn't give the reason, list any other providers, or show the roster pick, so don't treat it as the answer.\n\n**To get the answer**, run this yourself in a terminal (it writes nothing and makes no network call):\n\n```\npowershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/Dmytro/claude-codex-consult/plugins/codex-consult/scripts/codex-providers.ps1\"\n```\n\nThe output starts with a `codex config: <path>` line. After that comes one row per provider with its verdict and reason, e.g. `available … ok: Logged in using ChatGPT`, `unavailable (missing: env <NAME> not set)` or `unknown (<reason>)`. If a roster exists, the last line is `roster: <path> -> would select <provider> :: <model>`. Exit code 1 means the roster can't be used. Paste the output here and I'll put it in the one-line-per-provider format. Or allow a Bash/PowerShell tool for this session and I'll run it myself."
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0.6666666666666666,
+        "passRate": 0
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 2,
+    "casesPassed": 0,
+    "overallScore": 0.5833333333333333,
+    "overallPassRate": 0
+  }
+}

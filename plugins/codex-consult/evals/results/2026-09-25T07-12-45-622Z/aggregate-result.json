@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.282",
+  "startedAt": "2026-09-25T07:12:45.622Z",
+  "durationSeconds": 42,
+  "costUsd": 0.21934500000000004,
+  "partial": false,
+  "suite": {
+    "root": "C:\\Users\\Dmytro\\claude-codex-consult\\plugins\\codex-consult",
+    "ablation": "none",
+    "caseFilter": "command-plan",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "codex-consult",
+        "version": "0.3.0",
+        "path": "C:\\Users\\Dmytro\\claude-codex-consult\\plugins\\codex-consult"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "command-plan",
+      "dir": "evals\\command-plan",
+      "source": "prose",
+      "promptMarkdown": "Without running anything: using the codex-consult plugin's skill, tell me the exact\ncommand you would run for a DRY RUN consultation of task id `eval-smoke` with the ask\n\"Is the bridge installed correctly?\" on this machine, and list the files a REAL (non-dry)\nstructured consultation of that task would create or update, with their paths relative to\nthe repository root. Do not execute the command, do not create files, and do not create\nor set any API key.",
+      "runsPerCase": 1,
+      "timeoutSeconds": 180,
+      "maxTurns": 8,
+      "graders": [
+        {
+          "name": "command-shape",
+          "type": "regex",
+          "weight": 2,
+          "config": {
+            "target": "last_message",
+            "pattern": "codex-consult\\.ps1[^\\n]*-Task\\s+eval-smoke[^\\n]*-DryRun|codex-consult\\.ps1[^\\n]*-DryRun[^\\n]*-Task\\s+eval-smoke",
+            "flags": "i",
+            "match": "contains"
+          }
+        },
+        {
+          "name": "files-listed",
+          "type": "llm",
+          "weight": 1,
+          "graderMarkdown": "PASS if the final message (a) shows one bridge command with `-Task eval-smoke`, `-DryRun` and a\n`-Prompt` (or a brief) for the ask, invoked through `powershell -NoProfile -ExecutionPolicy Bypass\n-File` or `pwsh -NoProfile -File` with a path ending in `scripts/codex-consult.ps1`, and (b) lists,\nfor a real structured run of that task, at least: `.collab/eval-smoke/sessions.json` (the ledger),\na reply file `handoffs/NN-codex-<slug>.md` under `.collab/eval-smoke/`, its raw `.reply.json`, the\nevents `.events.jsonl`, and `.collab/eval-smoke/findings.json` when findings exist; mentioning the\nruntime files `.consult.lock` / `.consult.pending.json` is a bonus, not required.\n\nFAIL if the command lacks `-DryRun` or `-Task eval-smoke`, if the message claims to have run it,\nif files are invented that the plugin does not write, or if it mentions creating or setting an\nAPI key.",
+          "config": {
+            "criteria": "PASS if the final message (a) shows one bridge command with `-Task eval-smoke`, `-DryRun` and a\n`-Prompt` (or a brief) for the ask, invoked through `powershell -NoProfile -ExecutionPolicy Bypass\n-File` or `pwsh -NoProfile -File` with a path ending in `scripts/codex-consult.ps1`, and (b) lists,\nfor a real structured run of that task, at least: `.collab/eval-smoke/sessions.json` (the ledger),\na reply file `handoffs/NN-codex-<slug>.md` under `.collab/eval-smoke/`, its raw `.reply.json`, the\nevents `.events.jsonl`, and `.collab/eval-smoke/findings.json` when findings exist; mentioning the\nruntime files `.consult.lock` / `.consult.pending.json` is a bonus, not required.\n\nFAIL if the command lacks `-DryRun` or `-Task eval-smoke`, if the message claims to have run it,\nif files are invented that the plugin does not write, or if it mentions creating or setting an\nAPI key.",
+            "focus": "last_message"
+          }
+        },
+        {
+          "name": "nothing-written",
+          "type": "file_exists",
+          "weight": 1,
+          "config": {
+            "path": ".collab/**",
+            "exists": false
+          }
+        },
+        {
+          "name": "skill-invoked",
+          "type": "tool_used",
+          "weight": 1,
+          "config": {
+            "tool": "Skill",
+            "input_match": "consult-codex",
+            "min": 1
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 9,
+            "costUsd": 0.21934500000000004,
+            "judgeCostUsd": 0.003342,
+            "durationSeconds": 42,
+            "startedAt": "2026-09-25T07:12:45.683Z",
+            "error": null,
+            "tracePath": "C:\\Users\\Dmytro\\AppData\\Local\\Temp\\claude-eval-RiZLmP\\out\\trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "command-shape",
+                "passed": true,
+                "weight": 2,
+                "explanation": "matched codex-consult\\.ps1[^\\n]*-Task\\s+eval-smoke[^\\n]*-DryRun|codex-consult\\.ps1[^\\n]*-DryRun[^\\n]*-Task\\s+eval-smoke",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "files-listed",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "Nothing was executed and no files were created. I only read the skill and parts of `codex-consult.ps1`.\n\n## Dry-run command\n\n```\npowershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/Dmytro/claude-codex-consult/plugins/codex-consult/scripts/codex-consult.ps1\" -Task eval-smoke -Prompt \"Is the bridge installed correctly?\" -DryRun\n```\n\n- **No `-Brief`:** the script needs either `-Brief` or `-Prompt` (line 551). If you pass `-Brief`, that file must already exist or the script stops (lines 707/1151). You asked for no files, so this is a prompt-only dry run.\n- **No `-Mode` or `-Purpose`:** there is no `.collab/` in this repo yet, so there is no earlier thread and the mode defaults to `new`. With no purpose, the default is high effort and a 700-word cap. `-ReplyName` defaults to `reply`.\n- **Provider:** nothing is pinned. The run uses the roster or config default, and the startup hook reports `openai` as available.\n- **Shell:** this is Windows PowerShell. With PowerShell 7 you would use `pwsh -NoProfile -File ...` instead.\n\n## Files a real (non-dry) structured run would create or update\n\nAll paths are relative to the repo root. `NN` is `01` because `.collab/eval-smoke/handoffs/` doesn't exist yet. If you first wrote a brief as `01-claude-<slug>.md`, the reply would move to `02`.\n\n| Path | Action |\n|---|---|\n| `.collab/eval-smoke/handoffs/01-codex-reply.md` | created: header, the reply word for word, and the findings/verdict/blockers/unproven/checklist sections |\n| `.collab/eval-smoke/handoffs/01-codex-reply.reply.json` | created: the raw structured reply, byte for byte |\n| `.collab/eval-smoke/handoffs/01-codex-reply.events.jsonl` | created: the raw event stream |\n| `.collab/eval-smoke/handoffs/01-codex-reply.original.md` | created **only if** a format repair turn happens |\n| `.collab/eval-smoke/findings.json` | created or appended **only if** the reply has at least one finding |\n| `.collab/eval-smoke/sessions.json` | created, then one ledger entry appended (this is the commit point) |\n| `.collab/eval-smoke/.consult.lock` | created. It stays on disk permanently and is git-ignored |\n| `.collab/eval-smoke/.consult.pending.json` | a temporary recovery record while the run is in progress. It is only left behind if the run is interrupted |\n\nThe `.collab/eval-smoke/` and `handoffs/` directories are created too. If the run is launched but fails, it still exits non-zero and still writes a `sessions.json` entry. A refusal (bad arguments, failed preflight) writes nothing."
+              },
+              {
+                "name": "nothing-written",
+                "passed": true,
+                "weight": 1,
+                "explanation": ".collab/** absent as expected",
+                "withOnly": false,
+                "scored": true
+              },
+              {
+                "name": "skill-invoked",
+                "passed": true,
+                "weight": 1,
+                "explanation": "Skill called 1x (expected 1..∞)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 1,
+    "casesPassed": 1,
+    "overallScore": 1,
+    "overallPassRate": 1
+  }
+}

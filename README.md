@@ -223,12 +223,18 @@ verdicts with the date, and anything left unavailable and why.
 
 ---
 
-## Skills in this plugin
+## Components in this plugin
 
-| Skill | Use it for |
+| Component | What it does |
 |---|---|
-| `consult-codex` (`/codex-consult:consult-codex <task-id> <ask>`) | the consultation process: when to consult, reconciling findings, the brief, the one command, verifying and recording findings, rating the consultation, the panel and the council rules |
-| `setup-providers` (`/codex-consult:setup-providers [provider]`) | wiring reviewers on a machine: Codex login, `[model_providers.*]` tables with `env_key`, per-run catalogs, the roster, peak windows, verification |
+| skill `consult-codex` (`/codex-consult:consult-codex <task-id> <ask>`) | the consultation process: when to consult, reconciling findings, the brief, the one command, verifying and recording findings, rating the consultation, the panel and the council rules |
+| skill `setup-providers` (`/codex-consult:setup-providers [provider]`) | wiring reviewers on a machine: Codex login, `[model_providers.*]` tables with `env_key`, per-run catalogs, the roster, peak windows, verification |
+| hook `SessionStart` (`hooks/hooks.json` → `scripts/codex-consult-hook.ps1`) | at every session start (`startup`, `resume`) in a project where the plugin is enabled, adds ONE line to the agent's context: `codex-consult: reviewers - openai available \| ZAI available \| mimo unavailable (missing: env MIMO_API_KEY not set); roster -> would select openai` — the same local check as `codex-providers.ps1` (credentials, table usability, endpoint health from THIS repository's ledgers, the roster walk); `codex-consult: codex CLI not found on PATH - follow the setup-providers skill ...` when Codex is missing. No network call, nothing written, exit code always 0, about one second (`codex login status`), timeout 30 s; `pwsh` when present, else `powershell`. Disable it with the plugin (`/plugin disable codex-consult`) — hooks have no per-plugin switch |
+| evals `evals/` (`claude plugin eval <plugin dir> --ablation none --allow-tools Bash` — the `--allow-tools Bash` operator grant is REQUIRED for the two cases that run the bridge; they are silently downgraded without it) | the install test: two cases a fresh agent must pass with only this plugin loaded — `dry-run-consultation` (reach the bridge through the `consult-codex` skill, run `-DryRun` for task `eval-smoke`, report the fixed first line, the preflight and reviewer lines, write nothing) and `providers-listing` (use `codex-providers.ps1`, one verdict per provider, no invented verdict). Graders: `tool_used`, `regex` on the trace, `file_exists: false`, an `llm` rubric. A machine with no usable reviewer still passes when reported honestly. The third case `command-plan` (tag `readonly`) needs no shell grant and runs everywhere: the agent must produce the exact dry-run command and the files a real run writes, from the skill, without executing anything. Shell-granted cases need a sandbox backend: Linux/macOS have one; on Windows the eval runner refuses to run a shell tool unconfined (`sandbox required but unavailable`), so there run `--case command-plan` only. Results land in `evals/results/` (ignored by git) |
+
+Per-provider alias skills a user may keep in `~/.claude/skills/` (say, one that maps "ask
+GLM" to `-Provider ZAI -Model glm-5.3`) are optional personal conventions, not part of
+the plugin; nothing here needs or installs them.
 
 Per-provider alias skills a user may keep in `~/.claude/skills/` (say, one that maps "ask
 GLM" to `-Provider ZAI -Model glm-5.3`) are optional personal conventions, not part of
