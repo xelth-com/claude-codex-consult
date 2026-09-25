@@ -1,0 +1,5 @@
+Let's check `Get-EndpointHealth` to verify completion time ordering.
+
+```powershell
+Select-String -Path "plugins/codex-consult/scripts/codex-consult-common.ps1" -Pattern "function Get-EndpointHealth" -Context 0,50
+```

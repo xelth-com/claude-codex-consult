@@ -3,7 +3,7 @@
     "findings":  [
                      {
                          "id":  "F02-1",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -66,15 +66,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:52:46+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Parent holds task lock through commit; write lock is OS-held",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Writer pid+start_time liveness makes a member record active through its whole life (common.ps1:5140-5154; member rewrite codex-consult.ps1:858-893); PARENT harness case proves a new run is refused while orphaned members commit (harness-panel.ps1:460-478).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D1+D2: the record\u0027s writer (pid+start) is liveness-tested (common.ps1:5146-5152) and the commit re-reads both stores under the write lock (4716-4748, 2894-3127); the PARENT case proves the refusal after parent death (harness:473).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-2",
-                         "status":  "proposed",
+                         "status":  "wontfix",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -124,15 +156,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:52:47+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "accepted limitation per D7 (handoffs/05-claude-r11-decisions.md), documented in README; ruled still-open-as-accepted by deepseek-v4.1-flash and dola-seed-2.0-pro in panel 46393649 (wave 21, 2de15e9)",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Accepted limitation per D7; documented residual",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accepted limitation per D7: whole-collab scope stays; documented README:1205, CHANGELOG:229-230.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "ACCEPTED LIMITATION per D7: the collab-root scope stays, so a run on another task committing during an agy member\u0027s run still fails that member; documented as a residual at README.md:1200-1207. Not a blocker by decision.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-3",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -186,15 +250,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:52:49+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-NextNumbers takes array of leftovers; all readers enumerate all pending records",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-NextNumbers takes a leftover array with per-record Recovered (common.ps1:758-818); every reader enumerates records (4793-4824).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D5: Get-NextNumbers takes [object[]]$Leftovers and returns per-record Items (common.ps1:758-816); the BLOCKED case consumes two committing records and numbers past both (harness:547).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-4",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
 
@@ -237,15 +333,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:52:50+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Give-up never touches stores; record kept in committing state",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D3 give-up path touches no store, keeps the `committing` record naming the reply files (codex-consult.ps1:2869-2893); BLOCKED harness case.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D3: give-up never touches the stores, keeps the record in state committing with reply_json and note, exits 1 (codex-consult.ps1:2874-2892); -List names each kept reply and the next run\u0027s Get-PendingOriginalNote flow reports it (harness:543,547).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-5",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -291,15 +419,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:52:52+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-EndpointHealth sorts by finished_at, ties by n",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Health orders by finished_at with ties by n (common.ps1:3703-3748); unit case harness-panel.ps1:256-259.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D9: ordering by finished_at, else when+wall_seconds, ties by n (common.ps1:3703-3715, sort at 3748); finished_at written at codex-consult.ps1:3101.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-1",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -366,15 +526,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:52:53+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Test-PendingActive checks writer pid liveness; new committing state",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Same mechanism as F02-1; additionally every reader skips past member records\u0027 n/NN, so no NN reuse.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D1: the writer check precedes the state checks (common.ps1:5146-5156), so a member in its commit window reads ACTIVE; the member\u0027s own rewrite makes it active from its first act (codex-consult.ps1:884-886).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-2",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -424,15 +616,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:52:55+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Panel records never use machine-wide name scan",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Panel records never use the machine-wide name scan (common.ps1:5184-5212); unit case 270-277.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Panel records never reach the machine-wide scan (common.ps1:5207-5212), so a live sibling can no longer keep a dead member\u0027s record active. The name rule survives only for non-member records (5213-5219), which cannot be a sibling of a member.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-3",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -486,15 +710,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:52:57+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-EndpointHealth uses completion time, not start time",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D9 finished_at (codex-consult.ps1:3101; common.ps1:3703-3748); the hA/hB/hC unit case is exactly this scenario.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D9: finished_at (3101) with the when+wall_seconds fallback and tie by n makes the newest-by-completion rule deterministic under concurrency (3703-3715).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-4",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -544,15 +800,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:52:59+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-PanelPlan implements endpoint-aware concurrency groups",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-PanelPlan endpoint groups, merged fingerprints, roster `parallel`, -PanelConcurrency cap (common.ps1:4187-4249, 3945-3956); ENDPOINT harness case.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D8: Get-PanelPlan merges labels sharing a fingerprint or the agy sign-in and serialises a group by default; the group limit is enforced at launch (codex-consult.ps1:1276, common.ps1:4187-4248) and -PanelConcurrency only caps (4245).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-5",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -602,15 +890,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:02+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Write lock is OS-held; member proof uses per-member records",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "(a) Enter-WriteLock is an OS-held handle, killed holder releases it (common.ps1:4654-4705, unit case 294-310); (b) member proof is the per-member record, not the lock file (codex-consult.ps1:858-893).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "(a) the write lock is an OS-held handle released by process death (common.ps1:4654-4705); (b) the member\u0027s parent proof comes from its own per-member record written before launch, not from the lock file\u0027s best-effort contents (codex-consult.ps1:858-891; harness:511-529).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-6",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -664,15 +984,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:05+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Ingest and handoff rendered inside write lock",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Ingest and render both happen inside the lock on the fresh store (codex-consult.ps1:2894-2919, 3013-3018).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D4: Add-ReplyFindings runs on the store re-read under the lock and the handoff section is rendered from that same ingest before findings.json is written (codex-consult.ps1:2894-2900, 3014-3023).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-7",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -722,15 +1074,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:07+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Parent removes unused reserved records at summary",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Parent cleanup removes never-launched/`reserved` records (codex-consult.ps1:1296-1310); all readers enumerate them, so NNs are never retaken.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D5: the parent writes every member\u0027s record up front (1193-1209) and removes the records of members it never launched and of launched members still reserved (1299-1310); numbering skips every leftover (1140).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-8",
-                         "status":  "proposed",
+                         "status":  "wontfix",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -780,15 +1164,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:09+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "accepted limitation per D12 (handoffs/05-claude-r11-decisions.md), documented in README; ruled still-open-as-accepted by deepseek-v4.1-flash and dola-seed-2.0-pro in panel 46393649 (wave 21, 2de15e9)",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Accepted limitation per D12; documented",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accepted limitation per D12; documented README:1168, CHANGELOG:152.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "ACCEPTED LIMITATION per D12: the panel holds .consult.lock for its whole wall clock, so codex-findings status changes and other runs are refused meanwhile (README.md:1168; asserted by INFLIGHT, harness:402). D2 is stated to make relaxing this safe later (R12).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-9",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -834,15 +1250,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:10+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Ledger kept sorted by n regardless of finish order",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D10: consults sorted by n via Add-LedgerEntry (common.ps1:4762-4775), Select-ParentThread unchanged, documented and harness-asserted (harness-panel.ps1:366).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D10: consults stays sorted by n via Add-LedgerEntry (common.ps1:4762-4775) and Select-ParentThread is unchanged, so \u0027highest n of a lineage = newest thread\u0027 holds; asserted by the RUN case (harness:366). Depends on the sort-by-n invariant, which no consumer may violate.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-10",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -887,15 +1335,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:12+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "tests/harness-panel.ps1 with 48 assertions exists",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Per-model delay/reply maps in fake-codex3, delay map in fake-agy, shared-file write retries.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D13: per-model delay and reply maps keyed by -m (fake-codex3.ps1:25-36, 96, 126) and a delay for fake-agy (fake-agy.ps1:48-51, 104-114); used by RUN, NOLOSS, AGY and the concurrency cases.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F03-11",
-                         "status":  "proposed",
+                         "status":  "wontfix",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -945,15 +1425,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:14+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "accepted limitation per D4 (handoffs/05-claude-r11-decisions.md), documented in README; ruled still-open-as-accepted by deepseek-v4.1-flash and dola-seed-2.0-pro in panel 46393649 (wave 21, 2de15e9)",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Accepted and documented; harness case added",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accepted per D4; ORPHAN harness case kills inside the commit and asserts the flag, the kept record and the released write lock (harness-panel.ps1:562-576).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "ACCEPTED RESIDUAL per D4: the two-store commit is not one transaction, so a kill between findings.json and sessions.json leaves ORPHAN findings/checks; reported by codex-findings -List -All and asserted for a single run (harness:563-576) - see finding #2 for the missing panel-member case. Not a blocker by decision.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F04-1",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -1020,15 +1532,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:16+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-PanelIgnorePrefixes includes temp file patterns",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-PanelIgnorePrefixes covers the dot-prefixed temp variants of stores and sibling handoffs (common.ps1:4257-4264).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D7: Get-PanelIgnorePrefixes adds each ignored path\u0027s atomic-temp variant (common.ps1:4257-4265) and the member passes its sibling NNs (codex-consult.ps1:2308); exercised by the AGY case (harness:451-457).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F04-2",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -1078,15 +1622,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:18+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Give-up path never attempts to write stores",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Same as F02-4.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D3: the give-up path writes nothing to findings.json or sessions.json and keeps the record plus the reply files (codex-consult.ps1:2874-2892); the BLOCKED case asserts both stores and the handoff .md stay absent (harness:543).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F04-3",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -1144,15 +1720,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:19+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Single store commit routine used by all writers",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Enter-StoreCommit is the one writer path for members, single runs and codex-findings -Status/-Rate (common.ps1:4716-4756; codex-findings.ps1:369-377, 442-460).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "One commit routine is used everywhere: members and single runs (2873-3145), codex-findings -Status (findings.ps1:453) and -Rate (373), all re-reading under the lock; no un-locked store writer remains. -Rate\u0027s missing pending-record read is finding #4.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F04-4",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -1210,15 +1818,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:21+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Parent holds task lock; writer pid checked for liveness",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Both windows closed: record rewrite with own pid (858-893), writer liveness (common.ps1:5140-5154), pre-launch parent re-check (codex-consult.ps1:2321-2326).",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D1: (a) the member rewrites its record with its own pid + start_time as its first act (884-886), so the pre-launch phase is protected; (b) the commit window is protected for the same reason (5146-5152) and the PARENT case asserts the refusal (harness:473). The pre-check/pre-rewrite sliver is finding #6.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F04-5",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -1268,15 +1908,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:23+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Panel records never use fallback name scan",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Panel records: recorded pids + descendants of the writer only (common.ps1:5184-5212); non-panel records intentionally keep the old rules.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed for member records, which are never judged by the machine-wide name scan (common.ps1:5207-5212). For non-member (single-run) records the name rule is kept deliberately, with the rationale documented at 5213-5217 - that part of ROADMAP.md:188\u0027s plan is not implemented, by the implementer\u0027s explicit argument.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F04-6",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -1330,15 +2002,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:25+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Guard calculation includes all phases plus slack",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Guard computed from the member\u0027s own budgets incl. 60 s write lock + 120 s slack (codex-consult.ps1:1157-1163); GUARD harness case.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D11: guard = timeout + one format-repair turn + (agy) one denial-retry turn + 60 s write lock + 120 s slack (codex-consult.ps1:1157-1163); a kill mid-commit would be recoverable but the arithmetic now covers the phases. No test for the mid-commit guard kill - finding #2.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F04-7",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -1388,15 +2092,47 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:27+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Entries inserted by n preserving order invariant",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Sort-by-n mandated and implemented (common.ps1:4762-4775, 1417-1431); harness asserts order with out-of-order finishing.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D10: consults is kept sorted by n (common.ps1:4762-4775) and the RUN case asserts roster-order n with the slowest member finishing last (harness:366), so no consumer may reorder by finish time.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F04-8",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -1446,6 +2182,463 @@
                                              "evidence":  "",
                                              "base_commit":  "3bd8a8313f8c6fc0eef67c7ebb0b4026139233ac",
                                              "tree_sha256":  "d2633a26f80717db63510d62266b0d729e49e593463293174b66f8d41299c154"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T00:53:29+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 (2de15e9): ruled fixed by the acceptance panel 46393649 - glm-5.3, deepseek-v4.1-flash, dola-seed-2.0-pro (handoffs/07, 11, 12); harness-panel 48/48, full suite green",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T00:26:57+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Sequential execution per endpoint avoids correlated quota failures",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T00:39:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D8 endpoint groups serialize same-plan members (common.ps1:4187-4249); later members\u0027 preflights see earlier members\u0027 committed failures.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T00:47:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D8: members of one label (one endpoint or the shared agy sign-in) run one after another by default, so a later member\u0027s preflight sees the earlier member\u0027s recorded failure and is spared; all-at-once happens only across endpoints or when the roster explicitly raises a label\u0027s limit.",
+                                                     "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                                     "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F07-1",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  881
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  888
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5146
+                                           }
+                                       ],
+                         "claim":  "Residual TOCTOU (declared by the implementer, not named in D1-D13): if the panel parent dies in the window between a member\u0027s parent-liveness check (881-883) and its record rewrite (888-891), the record still names the dead parent as writer and reads inactive, so a new run may consume it and start while the member is still in preflight; the member then recreates the record and runs beside the new run with distinct n/NN. Stores remain consistent (both commit via the re-read+re-apply write lock), and the member still refuses to launch anything if the parent is gone (codex-consult.ps1:2321-2326), so nothing is started twice and no numbers collide.",
+                         "trigger":  "Parent is killed exactly between the member\u0027s Test-PidAlive check and its Write-PendingFile rewrite; a new single run starts in that window.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:858-893",
+                                              "observation":  "The proof (record match + parent alive) and the rewrite are two steps; nothing holds a lock between them (members take no task lock)."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5140-5154",
+                                              "observation":  "Activity by writer pid+start time only applies once the record names the member; before the rewrite the writer is the (dead) parent."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/parallel-panel-2026-09-25/handoffs/06-claude-wave21-acceptance.md",
+                                              "observation":  "The implementer declared this exact residual under \u0027Residuals\u0027."
+                                          }
+                                      ],
+                         "verification":  "Kill the parent between the member\u0027s check and rewrite (instrument the gap with a delay in a fork), start a single run, and confirm both runs commit with distinct n/NN and neither store loses an entry.",
+                         "remedy":  "Accept and document it in README alongside the other residuals (it is data-safe and self-limiting); optionally have the member re-verify the record still names itself as writer right before writing `launching`, refusing if a new run consumed it.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-wave21-accept-zai.md",
+                                        "thread":  "01a0daa6-fbb6-7490-a496-2ec2985476aa",
+                                        "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                        "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T00:39:47+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F11-1",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5087
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5096
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5146
+                                           }
+                                       ],
+                         "claim":  "The comment block of Test-PendingActive still documents `reserved` as \u0027never active (codex was not started)\u0027 and says running/survivors/committing are active \u0027while child_pid ... is alive\u0027, while the implemented rule (and D1) makes ANY state, `reserved` included, ACTIVE as soon as the record\u0027s writer pid + start_time is a live process; the code is right and the comment mis-describes the rule for the next reader, but the comment is the only stated contract for a reviewer who does not read the branches.",
+                         "trigger":  "Reading the function or reasoning about a panel\u0027s reserved member records while the panel parent is alive - the comment predicts inactive, the code returns active.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5086-5156",
+                                              "observation":  "The doc block at 5087 says reserved is never active; 5146-5152 returns ACTIVE on a live writer before the state test at 5156 is reached; D1 in handoffs/05-claude-r11-decisions.md states \u0027a live writer (pid + matching start time) makes a record ACTIVE in every state, reserved included\u0027."
+                                          }
+                                      ],
+                         "verification":  "Run `Select-String -Path plugins/codex-consult/scripts/codex-consult-common.ps1 -Pattern \u0027never active\u0027` and compare with lines 5146-5156; or run `tests/harness-panel.ps1 -Only INFLIGHT` and watch the -List output of the live panel\u0027s reserved/running records.",
+                         "remedy":  "Rewrite the header comment to D1\u0027s rule: a live writer makes the record active in every state, reserved included; panel records are additionally never judged by the machine-wide name rule.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  8,
+                                        "reply":  "handoffs/11-codex-wave21-accept-byteplus.md",
+                                        "thread":  "01a0daa7-087a-7061-89f3-5a6874dedf9a",
+                                        "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                        "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T00:47:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F11-2",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "tests/harness-panel.ps1",
+                                               "line":  563
+                                           },
+                                           {
+                                               "path":  "tests/harness-panel.ps1",
+                                               "line":  565
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1245
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  3028
+                                           }
+                                       ],
+                         "claim":  "The design\u0027s in-commit kill (accepted residual D4/F03-11) and the parent\u0027s guard kill mid-commit (D11, 1245-1249) have no regression test on a panel member: the ORPHAN case drives a single run (\u0027-Provider mimo\u0027, harness:565) and the GUARD case kills a member whose reviewer hangs, not one inside its commit (3025-3028). A regression that made a killed member\u0027s `committing` record refuse the task (e.g. reintroducing a name-rule fallback for that state) or that broke sibling commits after such a kill would pass the current suite.",
+                         "trigger":  "A member is killed between its findings.json write and its sessions.json write while a second panel member is still committing.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-panel.ps1:562-576",
+                                              "observation":  "Start-Consult with \u0027-Provider mimo\u0027 (a single run) plus CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=30000; Stop-Process kills the bridge; assertions cover the single run\u0027s record and the next single run only."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-panel.ps1:578-588",
+                                              "observation":  "The GUARD case kills a member whose fake reviewer hangs (FAKE_CODEX_HANG_ON) - the kill lands in the reviewer wait, not between the two store writes."
+                                          }
+                                      ],
+                         "verification":  "Add and run a panel case with FAKE_CODEX_DELAY_MS=mimo-v2.6-pro=2000, CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=30000 and CODEX_CONSULT_TEST_PANEL_GUARD_SEC=8: assert the sibling commits, the killed member\u0027s record keeps state committing, exit 1, and the next run consumes the record and names the kept reply.",
+                         "remedy":  "Add that panel-member ORPHAN/GUARD-mid-commit case to tests/harness-panel.ps1 so the accepted D4/D11 residual is covered by a member, not only by a single run.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  8,
+                                        "reply":  "handoffs/11-codex-wave21-accept-byteplus.md",
+                                        "thread":  "01a0daa7-087a-7061-89f3-5a6874dedf9a",
+                                        "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                        "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T00:47:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F11-3",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "tests/harness-panel.ps1",
+                                               "line":  384
+                                           },
+                                           {
+                                               "path":  "tests/harness-panel.ps1",
+                                               "line":  389
+                                           }
+                                       ],
+                         "claim":  "NOLOSS forces a commit window (CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=1500, three members, equal 3 s delays) but asserts only outcomes (all findings, three reviewer checks, ledger sorted, orphans 0). If a regression serialized the commits - e.g. taking the write lock before the reviewer runs, or a per-member task lock - every NOLOSS assertion would still pass, so the property D2 exists for (concurrent commits serialized only by the store lock) is untested.",
+                         "trigger":  "Any change that moves the write-lock acquisition earlier or makes members wait for each other before committing.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-panel.ps1:379-391",
+                                              "observation":  "The case\u0027s two Check calls assert stored contents and ordering only; neither the ledger nor the console records the write lock\u0027s wait time (Enter-WriteLock.Waited, common.ps1:4704, is not persisted)."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4716-4738",
+                                              "observation":  "Enter-StoreCommit exposes Waited but no caller writes it to the ledger or the console."
+                                          }
+                                      ],
+                         "verification":  "Assert overlap directly: have each member\u0027s commit print its write-lock wait (or write Waited into the ledger entry) and check that at least two members waited \u003e 0 s in the NOLOSS run.",
+                         "remedy":  "Record the commit\u0027s write-lock wait (Waited) in the ledger entry or the member\u0027s console line and assert contention in NOLOSS; alternatively assert the panel\u0027s wall clock stays below (or near) one commit pause rather than three.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  8,
+                                        "reply":  "handoffs/11-codex-wave21-accept-byteplus.md",
+                                        "thread":  "01a0daa7-087a-7061-89f3-5a6874dedf9a",
+                                        "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                        "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T00:47:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F11-4",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  373
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  447
+                                           }
+                                       ],
+                         "claim":  "Only -Status judges the task\u0027s recovery records (447-449); -Rate goes straight to the store commit (373) and never enumerates them, although D5 says every reader enumerates `.consult.pending*.json`. The write lock still prevents any interleaving inside a member\u0027s commit, so the asymmetry costs only a clear refusal message: a -Rate issued while a member is in its commit window blocks on the write lock for up to 60 s and then reports \u0027not acquired ... nothing was changed\u0027 instead of the \u0027a consultation of this task is still running\u0027 refusal.",
+                         "trigger":  "A coordinator runs codex-findings.ps1 -Rate while a panel member is committing (allowed after parent death, when the task lock is free).",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-findings.ps1:371-374, 443-453",
+                                              "observation":  "-Rate calls Enter-StoreCommit directly after taking its lock; -Status calls Read-TaskPendingRecords and refuses on Active before the commit; $pendingPath (line 146) is used only by Write-PendingLine."
+                                          }
+                                      ],
+                         "verification":  "Hold `.consult.write.lock` from a helper for 70 s, then run `codex-findings.ps1 -Task t -Rate 1 -Useful yes` and observe the wait plus the \u0027not acquired within 60 s\u0027 message while `-Status` would have refused immediately.",
+                         "remedy":  "Have -Rate call Read-TaskPendingRecords and refuse like -Status (D5\u0027s \u0027every reader enumerates them\u0027), or document the deliberate asymmetry.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  8,
+                                        "reply":  "handoffs/11-codex-wave21-accept-byteplus.md",
+                                        "thread":  "01a0daa7-087a-7061-89f3-5a6874dedf9a",
+                                        "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                        "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T00:47:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F11-5",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4259
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4263
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  986
+                                           }
+                                       ],
+                         "claim":  "A member\u0027s agy ignore list is built from every other slot\u0027s NN whenever the plan\u0027s effective concurrency exceeds 1 (codex-consult.ps1:986), not from the members that can actually overlap with it, so the D7 relaxation is wider than \u0027the siblings write meanwhile\u0027. Today this cannot mask a real violation (a file that changes during the window proves overlap, and no change means no false pass), but it means the tree check weakens as soon as any group has a limit above 1, including members that the scheduler will run strictly after this one.",
+                         "trigger":  "A panel whose plan allows more than one member at a time (roster `parallel`, or several groups), with an agy member\u0027s ignore list seeded with non-overlapping siblings\u0027 NNs.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:985-986, 2302-2310",
+                                              "observation":  "$siblings = all slots with K -ne this slot when Effective -gt 1, regardless of group or of whether the two can be running together; Get-PanelIgnorePrefixes then ignores each one\u0027s handoff prefix and temp variant."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4257-4265",
+                                              "observation":  "The prefixes are derived purely from the passed NNs; no overlap analysis exists."
+                                          }
+                                      ],
+                         "verification":  "Print the member\u0027s sibling_nns for a panel of three labels with two groups (e.g. rosterMixed plus a third codex label) and compare with the slots that were ever in state running at the same time.",
+                         "remedy":  "Compute sibling_nns from the plan\u0027s groups and the scheduler\u0027s reachable overlap (same group, or any group that can be running concurrently at that point), or state in the comment that the list is deliberately the union of all slots.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  8,
+                                        "reply":  "handoffs/11-codex-wave21-accept-byteplus.md",
+                                        "thread":  "01a0daa7-087a-7061-89f3-5a6874dedf9a",
+                                        "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                        "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T00:47:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F11-6",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  861
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  884
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5156
+                                           }
+                                       ],
+                         "claim":  "The declared residual is real and narrower than the brief suggests: a member\u0027s record names its parent\u0027s pid + start_time until the member\u0027s own rewrite (884-886), and the parent\u0027s liveness is checked before that rewrite (881). If the parent dies inside that window, a new run reads the record as `reserved` with a dead writer, consumes it, and can run beside the still-live member. The consequences are bounded as declared (the member\u0027s n/NN are already reserved in the consumed record, so numbering cannot collide; both writers serialise on the write lock and re-read under it), so this is a documented behaviour, not a defect - but it is the one path where two consultations of one task run at once.",
+                         "trigger":  "The panel parent is killed between a member\u0027s parent-liveness check (881) and its record rewrite (884-890); a new run of the task starts in that window.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5143-5156",
+                                              "observation":  "The writer check needs the record\u0027s own pid + start_time; a parent-written reserved record therefore reads inactive once the parent is gone, and 5156 returns inactive without consulting the machine-wide rule for non-panel records."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-panel.ps1:519-529",
+                                              "observation":  "The SPEC case covers the neighbouring window (parent dies during the member\u0027s preflight, before launching) and asserts the member stops; the pre-check/pre-rewrite window itself is not covered."
+                                          }
+                                      ],
+                         "verification":  "Extend the SPEC case: kill the parent between the member\u0027s Test-PidAlive and the rewrite (e.g. a test-hook delay before line 884), then start a single run and observe whether it is refused (writer check) or starts beside the member.",
+                         "remedy":  "Either accept and document it in README\u0027s panel residuals next to the agy one, or close it by having the member write its own record before the parent check (accepting the parent\u0027s record only as a hint) so the window has no \u0027inactive but live\u0027 state.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  8,
+                                        "reply":  "handoffs/11-codex-wave21-accept-byteplus.md",
+                                        "thread":  "01a0daa7-087a-7061-89f3-5a6874dedf9a",
+                                        "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                        "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T00:47:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
+                                             "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
                                          }
                                      ],
                          "reviewer_checks":  [

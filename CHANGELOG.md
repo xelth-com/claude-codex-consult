@@ -183,6 +183,14 @@ amendments A1-A20 and the facts F11/F12).
     sharing violation. Test hooks `CODEX_CONSULT_TEST_WRITE_LOCK_SEC`,
     `CODEX_CONSULT_TEST_COMMIT_PAUSE_MS`, `CODEX_CONSULT_TEST_PANEL_GUARD_SEC`.
   - `tests/harness-panel.ps1` (new; `run-all.ps1` runs it), see "Tests" in the README.
+  - Live evidence (panel 46393649, 2026-09-26, reviewing this wave at 2de15e9): 8 of 9 roster
+    entries (openai skipped on its usage limit), at most 7 at a time with three BytePlus models
+    at once; wall clock 1823 s against about 6430 s summed. glm-5.3, deepseek-v4.1-flash and
+    dola-seed-2.0-pro: ACCEPT with 0 blockers and 0 majors; kimi-k2.5 answered in prose; k3 and
+    gemini-3.1-pro-high stopped on plan quotas, gemini-3.8-flash-high on an API error, mimo on
+    the 1800 s timeout - each with a ledger entry of its own. Afterwards the ledger held n 1..11
+    in order with `finished_at` and the panel plan on every entry, findings stayed in id order and
+    no recovery record was left.
 
 ### Changed
 

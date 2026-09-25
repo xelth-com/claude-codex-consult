@@ -173,8 +173,8 @@ optional participant whose "done" is never trusted and who never closes a findin
   engine is the next row of the same table (argv, stdin, event parser, turn rules,
   credential) without touching the run block again. Open: TECH_DEBT T7 (an agy lineage binds
   engine + label + model, not the signed-in account).
-- **R11 — Parallel panel (0.4.x wave 21 - implemented in the 0.4.0 candidate, not yet run
-  live).** A `-Panel` run consults its
+- **R11 — Parallel panel (0.4.x wave 21 - implemented in the 0.4.0 candidate; first live run
+  2026-09-26: 8 members, at most 7 at a time, 30 min wall clock against about 107 min summed).** A `-Panel` run consults its
   members one after another (README, "Reviewer roster and panel"), so its wall clock is the
   SUM of the members' times (a two-member framing panel today: 8-12 minutes). The members are
   already independent — each gets the same brief and the same snapshot of the findings that
@@ -242,6 +242,38 @@ optional participant whose "done" is never trusted and who never closes a findin
   certain protocol droid that translates between parties and never stops advising) - the
   plugin and marketplace ids change only then, with a migration note for installed copies.
   Measured by one fresh Codex-CLI-coordinated consultation from the README alone.
+- **R14 — Adaptive companions: panel size and diversity follow the stakes (planned for 0.5).**
+  The coordinator never takes a non-trivial step alone, and a panel grows with the stakes instead of
+  always taking every available reviewer. This project's own evidence: in the R11 design review
+  (`.collab/parallel-panel-2026-09-25/`, three reviewers from three labs) the most serious hole - a
+  member's recovery record reading inactive while it commits - was found independently by all three,
+  and each of them also found something the other two missed (atomic-write temp files; endpoint
+  health ordering and per-endpoint concurrency; commits of other tasks failing an agy member).
+  Pieces: (a) a default panel size per purpose (checkpoint 1; framing and decision 2-3;
+  core-contract and acceptance 3-5; stuck: every available reviewer), overridable with
+  `-PanelSize <n>`; (b) diversity first: members from different labs before a second model of one
+  lab (an optional roster field `lab`, defaulting to the provider label); (c) a floor of one
+  companion on framing and decision, so a design is never reviewed only by its author - the
+  consult-codex skill states it as a rule; (d) diminishing returns documented: past about five
+  diverse members, extra reviewers mostly repeat findings while costing quota and wall clock.
+  Non-goals: majority voting on verdicts (the coordinator weighs evidence, not votes) and members
+  seeing each other inside a wave (blindness stays). When every model shares a blind spot a
+  unanimous panel is confidently wrong; the remedy is evidence - findings say what was verified in
+  code and what was inferred, and the coordinator checks them (R9) - not more votes.
+- **R15 — Telemetry routing: companions chosen by their track record, with exploration (planned
+  for 0.5, after R14).** The scoreboard (`codex-scoreboard.ps1`, the `-Rate` usefulness marks,
+  reviewer x purpose) becomes the router's input. Selection is a weighted draw, not a fixed order: a
+  reviewer's weight grows with its rated usefulness on this purpose - and on topic tags a brief
+  carries (`-Topic concurrency,powershell`) - while a small exploration share keeps less-used or
+  newly updated models in rotation (a new model id starts with a neutral prior; old marks decay).
+  Availability comes first: the draw is only among entries the preflight, quota and peak rules
+  allow. Pieces: `-Topic`, a routing record in the ledger (weights, the draw, why each member was
+  picked), `codex-scoreboard.ps1 -By topic`. Measured by the share of findings the coordinator rates
+  useful per consultation, before and after.
+- **R16 — Companion roles (idea).** Besides a general review a companion can take one narrow role:
+  edge-case hunter, security reviewer, test designer who proposes failing tests as text, docs
+  checker. Expressed as brief templates and purpose presets; members stay read-only and the
+  coordinator applies what survives verification.
 - **A fourth seat (e.g. MiMo-V2.6)** only after a capped project-local evaluation (seeded
   historical defects plus clean controls at a fixed budget) on an officially supported route;
   leaderboard rank is not that evidence. Consider replacing a role before adding a reviewer.

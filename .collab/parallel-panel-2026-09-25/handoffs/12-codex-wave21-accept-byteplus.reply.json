@@ -1,0 +1,45 @@
+{
+  "schema_version": "1",
+  "verdict": "ACCEPT",
+  "verdict_reason": "All blocker and major findings are fixed; remaining items are accepted documented limitations per the binding decisions.",
+  "reply_markdown": "## Wave 21 R11 Acceptance Review\n\nAll blocker and major findings from the earlier consultation have been addressed in commit 2de15e9. The implementation matches the design and binding decisions D1-D13.\n\n### Prior findings status\n\n- ✅ **F02-1**: Fixed. Parent holds task lock until all members exit; write lock is OS-held, released on process death.\n- ⚠️ **F02-2**: Accepted limitation (D7). Cross-task concurrency failure mode documented as residual.\n- ✅ **F02-3**: Fixed. `Get-NextNumbers` accepts array of leftovers; all readers enumerate all pending records.\n- ✅ **F02-4**: Fixed (D3). Write lock give-up keeps the member record, no store writes attempted.\n- ✅ **F02-5**: Fixed (D9). Health sorted by `finished_at`, ties broken by `n`.\n- ✅ **F03-1**: Fixed. `Test-PendingActive` now checks writer pid liveness directly; new `committing` state.\n- ✅ **F03-2**: Fixed (D1). Panel records never use the machine-wide name scan.\n- ✅ **F03-3**: Fixed (D9). Health uses completion time, not start time.\n- ✅ **F03-4**: Fixed (D8). Endpoint-aware concurrency groups labels by provider fingerprint.\n- ✅ **F03-5**: Fixed. Write lock is OS-held (D2); member proof uses per-member records (D6).\n- ✅ **F03-6**: Fixed (D4). Ingest and handoff rendered inside the write lock after re-read.\n- ✅ **F03-7**: Fixed (D5). Parent cleans up unused reserved records at summary.\n- ⚠️ **F03-8**: Accepted limitation (D12). Task lock held for whole panel duration; documented.\n- ✅ **F03-9**: Fixed (D10). Ledger entries sorted by `n`, not finish time.\n- ✅ **F03-10**: Fixed. `tests/harness-panel.ps1` exists with 48 assertions including concurrency cases.\n- ⚠️ **F03-11**: Accepted and documented. Kill inside commit may leave ORPHAN findings; harness case added.\n- ✅ **F04-1**: Fixed (D7). Ignore prefixes include temp file patterns for atomic writes.\n- ✅ **F04-2**: Fixed (D3). Give-up path never touches stores; record kept for recovery.\n- ✅ **F04-3**: Fixed (D2). Single store commit routine used by members, single runs and `codex-findings.ps1`.\n- ✅ **F04-4**: Fixed. Parent holds task lock; writer pid liveness check covers commit window.\n- ✅ **F04-5**: Fixed (D1). Panel records never use fallback name scan.\n- ✅ **F04-6**: Fixed (D11). Guard calculation includes all phases plus slack.\n- ✅ **F04-7**: Fixed (D10). Entries inserted by `n`, preserving order invariant.\n- ✅ **F04-8**: Fixed (D8). Sequential execution per provider endpoint avoids correlated failures.\n\n### Unproven scenarios\n- Parent death between member parent check and record rewrite (declared residual)\n- Orphaned reviewer detection outside Windows (declared residual)\n- Short-lived orphan child processes keeping records active briefly (declared residual)\n\n### First run checklist\n1.  Panel summary shows correct concurrency limits per provider\n2.  All members report \"bridge acquired write lock after X s\" in logs\n3.  No member reports \"collab directory changed\" when siblings commit\n4.  `codex-findings.ps1 -Status` runs without error immediately after panel exit\n5.  Ledger entries appear in roster order regardless of finish order",
+  "findings": [],
+  "prior_findings": [
+    {"id": "F02-1", "status": "fixed", "note": "Parent holds task lock through commit; write lock is OS-held"},
+    {"id": "F02-2", "status": "still-open", "note": "Accepted limitation per D7; documented residual"},
+    {"id": "F02-3", "status": "fixed", "note": "Get-NextNumbers takes array of leftovers; all readers enumerate all pending records"},
+    {"id": "F02-4", "status": "fixed", "note": "Give-up never touches stores; record kept in committing state"},
+    {"id": "F02-5", "status": "fixed", "note": "Get-EndpointHealth sorts by finished_at, ties by n"},
+    {"id": "F03-1", "status": "fixed", "note": "Test-PendingActive checks writer pid liveness; new committing state"},
+    {"id": "F03-2", "status": "fixed", "note": "Panel records never use machine-wide name scan"},
+    {"id": "F03-3", "status": "fixed", "note": "Get-EndpointHealth uses completion time, not start time"},
+    {"id": "F03-4", "status": "fixed", "note": "Get-PanelPlan implements endpoint-aware concurrency groups"},
+    {"id": "F03-5", "status": "fixed", "note": "Write lock is OS-held; member proof uses per-member records"},
+    {"id": "F03-6", "status": "fixed", "note": "Ingest and handoff rendered inside write lock"},
+    {"id": "F03-7", "status": "fixed", "note": "Parent removes unused reserved records at summary"},
+    {"id": "F03-8", "status": "still-open", "note": "Accepted limitation per D12; documented"},
+    {"id": "F03-9", "status": "fixed", "note": "Ledger kept sorted by n regardless of finish order"},
+    {"id": "F03-10", "status": "fixed", "note": "tests/harness-panel.ps1 with 48 assertions exists"},
+    {"id": "F03-11", "status": "still-open", "note": "Accepted and documented; harness case added"},
+    {"id": "F04-1", "status": "fixed", "note": "Get-PanelIgnorePrefixes includes temp file patterns"},
+    {"id": "F04-2", "status": "fixed", "note": "Give-up path never attempts to write stores"},
+    {"id": "F04-3", "status": "fixed", "note": "Single store commit routine used by all writers"},
+    {"id": "F04-4", "status": "fixed", "note": "Parent holds task lock; writer pid checked for liveness"},
+    {"id": "F04-5", "status": "fixed", "note": "Panel records never use fallback name scan"},
+    {"id": "F04-6", "status": "fixed", "note": "Guard calculation includes all phases plus slack"},
+    {"id": "F04-7", "status": "fixed", "note": "Entries inserted by n preserving order invariant"},
+    {"id": "F04-8", "status": "fixed", "note": "Sequential execution per endpoint avoids correlated quota failures"}
+  ],
+  "unproven": [
+    "Parent death between member parent check and record rewrite",
+    "Orphaned reviewer detection outside Windows",
+    "Short-lived orphan child processes keeping records active briefly"
+  ],
+  "first_run_checklist": [
+    "Panel summary shows correct concurrency limits per provider",
+    "All members report 'bridge acquired write lock after X s' in logs",
+    "No member reports 'collab directory changed' when siblings commit",
+    "codex-findings.ps1 -Status runs without error immediately after panel exit",
+    "Ledger entries appear in roster order regardless of finish order"
+  ]
+}
