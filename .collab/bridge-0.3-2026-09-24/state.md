@@ -350,3 +350,10 @@ model, credit estimates, Codex-internal delegation, cross-host anything.
 - Verdict on the disagreement (ACCEPT vs HOLD on the same facts): the judge sides with HOLD for the orphaned
   original - a usable answer the coordinator is never told about violates "nothing already written is
   silently lost" - and treats the other two as minor. Checkpoint commit before wave 15.
+
+- Wave 15 done (2026-09-25 02:30): drift check 5 over every prose sentence >= 60 chars (40 longest); the
+  recovery record is rewritten before the repair process starts with `original` + `first_reply`, every
+  refusal/recovery/-List message names the orphaned prose, fields cleared once the ledger entry exists,
+  `Recovery record:` header line; `Get-ProseGate` (refusal detection, all numbered styles, floors 25/40/120,
+  reason recorded in `validation_error`). harness-format 37; run-all 5.1: 227/113/37/26/45/11/12; pwsh
+  227/37. F20-1..3 and F21-1..3 -> implemented; their authors' confirmation comes with the next panel.

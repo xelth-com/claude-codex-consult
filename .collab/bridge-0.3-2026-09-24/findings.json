@@ -2339,7 +2339,7 @@
                      },
                      {
                          "id":  "F20-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -2380,6 +2380,15 @@
                                              "evidence":  "",
                                              "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
                                              "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T08:04:23+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 15 (2026-09-25): drift check 5 over every long sentence; recovery record names the orphaned original; prose gate with refusal detection - tests/harness-format.ps1 (37)",
+                                             "evidence":  "",
+                                             "base_commit":  "3239c287460e6c92248c74d47fb6b1e74c02197f",
+                                             "tree_sha256":  "19d6daf3b2d872679b418b4fe1d2da57312ef8b718afa436c1bce9d53fb3faa4"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2388,7 +2397,7 @@
                      },
                      {
                          "id":  "F20-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -2438,6 +2447,15 @@
                                              "evidence":  "",
                                              "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
                                              "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T08:04:25+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 15 (2026-09-25): drift check 5 over every long sentence; recovery record names the orphaned original; prose gate with refusal detection - tests/harness-format.ps1 (37)",
+                                             "evidence":  "",
+                                             "base_commit":  "3239c287460e6c92248c74d47fb6b1e74c02197f",
+                                             "tree_sha256":  "19d6daf3b2d872679b418b4fe1d2da57312ef8b718afa436c1bce9d53fb3faa4"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2446,7 +2464,7 @@
                      },
                      {
                          "id":  "F20-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -2487,6 +2505,15 @@
                                              "evidence":  "",
                                              "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
                                              "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T08:04:26+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 15 (2026-09-25): drift check 5 over every long sentence; recovery record names the orphaned original; prose gate with refusal detection - tests/harness-format.ps1 (37)",
+                                             "evidence":  "",
+                                             "base_commit":  "3239c287460e6c92248c74d47fb6b1e74c02197f",
+                                             "tree_sha256":  "19d6daf3b2d872679b418b4fe1d2da57312ef8b718afa436c1bce9d53fb3faa4"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2495,7 +2522,7 @@
                      },
                      {
                          "id":  "F21-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2540,6 +2567,15 @@
                                              "evidence":  "",
                                              "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
                                              "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T08:04:27+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 15 (2026-09-25): drift check 5 over every long sentence; recovery record names the orphaned original; prose gate with refusal detection - tests/harness-format.ps1 (37)",
+                                             "evidence":  "",
+                                             "base_commit":  "3239c287460e6c92248c74d47fb6b1e74c02197f",
+                                             "tree_sha256":  "19d6daf3b2d872679b418b4fe1d2da57312ef8b718afa436c1bce9d53fb3faa4"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2548,7 +2584,7 @@
                      },
                      {
                          "id":  "F21-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2611,6 +2647,15 @@
                                              "evidence":  "",
                                              "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
                                              "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T08:04:28+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 15 (2026-09-25): drift check 5 over every long sentence; recovery record names the orphaned original; prose gate with refusal detection - tests/harness-format.ps1 (37)",
+                                             "evidence":  "",
+                                             "base_commit":  "3239c287460e6c92248c74d47fb6b1e74c02197f",
+                                             "tree_sha256":  "19d6daf3b2d872679b418b4fe1d2da57312ef8b718afa436c1bce9d53fb3faa4"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2619,7 +2664,7 @@
                      },
                      {
                          "id":  "F21-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -2660,6 +2705,15 @@
                                              "evidence":  "",
                                              "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
                                              "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T08:04:30+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 15 (2026-09-25): drift check 5 over every long sentence; recovery record names the orphaned original; prose gate with refusal detection - tests/harness-format.ps1 (37)",
+                                             "evidence":  "",
+                                             "base_commit":  "3239c287460e6c92248c74d47fb6b1e74c02197f",
+                                             "tree_sha256":  "19d6daf3b2d872679b418b4fe1d2da57312ef8b718afa436c1bce9d53fb3faa4"
                                          }
                                      ],
                          "reviewer_checks":  [

@@ -261,11 +261,29 @@ ROADMAP.md.
     drift: <n> note(s)`, one `  drift:` line per note; `-DryRun` prints `format retry :
     1 attempt if the reply is not valid JSON` or `format retry : 0 (off)`. Panel members
     inherit `-FormatRetry` from the main run.
-  - `tests/harness-format.ps1` (23 cases) added: the contract-first prompt, the repair
+  - `tests/harness-format.ps1` (37 cases) added: the contract-first prompt, the repair
     turn's command and prompt, success and failure ingestion, drift detection, and the
     cases that must NOT trigger a repair (a wrong-but-valid verdict, `-Raw`, `chore`, an
     unverified thread, non-substantive prose). Runs under Windows PowerShell 5.1 and
     pwsh 7.6.
+- **Wave 15 — the repair path under review (F20-1..3 / F21-1..3, from the first panel
+  that answered the contract-first prompt structured on the first turn on both cheap
+  routes).** Drift check 5 now compares EVERY prose sentence of ≥60 characters (the 40
+  longest at most) with `reply_markdown`, not the five longest, so a remedy replaced or a
+  severity softened in one short sentence is caught. A bridge killed during the repair
+  turn no longer leaves the usable first-turn prose as an unnamed orphan: the recovery
+  record is rewritten BEFORE the repair process starts with `original` (the
+  `.original.md` path) and `first_reply`, every refusal/recovery/`-List` message built
+  from it adds `a usable prose reply of that run exists at <path>; no ledger entry was
+  written for it`, the fields are cleared once the ledger entry exists, and every run
+  that consumed or cleared a record gets a `Recovery record:` header line. The
+  substantive-prose gate (`Get-ProseGate`) refuses to spend a repair turn on a refusal
+  (leading or dominant "I cannot / I'm sorry / I am unable / As an AI ..." with no
+  numbered answer, finding id, `RC` id or verdict), accepts the numbered-answer styles
+  `**Q1.**`, `Q1.`, `Q1:`, `1.`, `1)`, `**1.**`, `### Q1`, and uses the floors ≥25 words
+  with two answers / ≥40 with one / ≥120 otherwise; a declined repair is recorded in
+  `validation_error` as ` (format repair not attempted: <reason>)`. `harness-format`
+  grows to 37 cases (GATE, DRIFT5, ORPHAN sections).
 - The 0.2.0 contract "a structural error means no verdict and no automatic retry — the
   raw text is kept as the reply body" now has one exception: with `-FormatRetry 1` (the
   default) a substantive prose reply on a verified thread gets exactly one recorded

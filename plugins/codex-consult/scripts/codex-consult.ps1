@@ -23,17 +23,22 @@
     <CollabDir>/<task>/findings.json (statuses are moved by codex-findings.ps1).
     -Raw is the 0.1 plain-text consultation without any of that.
     Format repair (-FormatRetry 1, the default; 0 = off; never with -Raw or chore): a
-    usable reply that is not a valid object, is substantive prose (>= 120 words, or
-    >= 40 with a numbered answer) and came on a verified thread (codex exit 0, no
-    timeout, no provider failure) gets ONE repair turn - `codex exec ... resume <thread>`
+    usable reply that is not a valid object, is substantive prose (Get-ProseGate: not
+    a refusal; >= 25 words with two numbered answers, >= 40 with one, >= 120
+    otherwise - else validation_error ends "(format repair not attempted: reply looks
+    like a refusal | reply too short (<n> words))") and came on a verified thread
+    (codex exit 0, no timeout, no provider failure) gets ONE repair turn - `codex exec ... resume <thread>`
     with --sandbox read-only, the lowest effort of the route, the same -CodexConfig
     items, NO --output-schema and a prompt that asks to convert the previous message
     unchanged into the object (the schema and the consultation id; never the brief),
-    within min(-TimeoutSec, 300) s under the same lock and recovery record. A valid
+    within min(-TimeoutSec, 300) s under the same lock and recovery record (which names
+    the saved prose as `original` while the repair runs, so a run stopped then leaves
+    "a usable prose reply of that run exists at <path>; no ledger entry was written for
+    it" in every message about its reservation). A valid
     result is ingested as the reply (.reply.json = the repaired object; the prose is
     kept as handoffs/NN-codex-<slug>.original.md and after the structured section);
-    drift notes compare the two (RC ids, numbered answers, finding ids, verdict, the
-    longest sentences). Ledger format_retry {attempted, reason, succeeded, thread,
+    drift notes compare the two (RC ids, numbered answers, finding ids, verdict, every
+    prose sentence of >= 60 characters, at most the 40 longest). Ledger format_retry {attempted, reason, succeeded, thread,
     wall_seconds, usage, drift[], original} after validation_error (null otherwise);
     console "format repair: <succeeded|failed> in <s> s; drift: <n> note(s)".
 
@@ -1836,9 +1841,16 @@ try {
     $repairedOk = $false
     $originalProse = ''
     $repairConsole = ''
-    if ($repairEnabled -and $parse -and -not $parse.Valid -and -not $bridgeBug -and $bridgeOutcome -eq 'usable reply' -and
-        $threadId -and ($threadSource -eq 'events' -or $threadSource -eq 'rollout (verified by consultation id)') -and
-        (Test-SubstantiveProse -Text $rawReply)) {
+    $repairEligible = [bool]($repairEnabled -and $parse -and -not $parse.Valid -and -not $bridgeBug -and $bridgeOutcome -eq 'usable reply' -and
+        $threadId -and ($threadSource -eq 'events' -or $threadSource -eq 'rollout (verified by consultation id)'))
+    # The prose itself must be worth converting (Get-ProseGate: not a refusal, above the
+    # word floors); when it is not, validation_error says why no repair turn ran.
+    $proseGate = $null
+    if ($repairEligible) {
+        $proseGate = Get-ProseGate -Text $rawReply
+        if (-not $proseGate.Substantive) { $validationError = "$validationError (format repair not attempted: $($proseGate.Reason))" }
+    }
+    if ($repairEligible -and $proseGate.Substantive) {
         $originalProse = $rawReply
         $repairReason = [string]$validationError
         if ($repairReason.Length -gt 200) { $repairReason = $repairReason.Substring(0, 200) }
@@ -1862,7 +1874,19 @@ try {
         $repairExit = -1
         $repairProblem = ''
         $repairProc = $null
-        try {
+        # The recovery record names the saved prose BEFORE the repair process exists: if
+        # this run is stopped now, the next run (and codex-findings -List) points at it
+        # (Get-PendingOriginalNote). State launching until the repair pid is registered.
+        $originalRepoRel = Get-RepoRelativePath -Root $repoRoot -Path $originalFull
+        if (-not $originalRepoRel) { $originalRepoRel = $originalFull }
+        $pendingRecord | Add-Member -NotePropertyName 'original' -NotePropertyValue $originalRepoRel -Force
+        $pendingRecord | Add-Member -NotePropertyName 'first_reply' -NotePropertyValue 'usable prose (format repair in progress)' -Force
+        $pendingRecord.state = 'launching'
+        $pendingRecord.note = 'format repair turn being started; its pid is not recorded yet'
+        try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
+            $repairProblem = "could not write the recovery record ($(ConvertTo-OneLine $_.Exception.Message)); the repair turn was not started"
+        }
+        if (-not $repairProblem) { try {
             $repairProc = Start-Process -FilePath $codexExePath -ArgumentList ((($repairArgv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')) `
                 -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
                 -RedirectStandardOutput $repairEventsPath `
@@ -1870,7 +1894,7 @@ try {
                 -RedirectStandardInput $repairPromptPath
         } catch {
             $repairProblem = "could not start codex - $(ConvertTo-OneLine $_.Exception.Message)"
-        }
+        } }
         if ($repairProc) {
             if ($script:LegacyPS) { try { $null = $repairProc.Handle } catch { } }
             $repairRegistered = $true
@@ -2018,6 +2042,7 @@ try {
     if ($rosterLine) { $headerLines.Add("$rosterLine.") }
     $headerLines.Add("Effort: $effortSent sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis); not confirmed by the provider). Consultation id: $consultId.")
     if ($peakWarning) { $headerLines.Add(($peakWarning -replace 'this consultation runs at', 'this consultation ran at')) }
+    if ($recoveredLine) { $headerLines.Add("Recovery record: $recoveredLine") }
     $headerLines.Add("Invocation: ``codex-consult.ps1`` (mode: $Mode, sandbox: $Sandbox, purpose: $purposeLabel). Argv: ``$commandStr`` (prompt on stdin).")
     $headerLines.Add("$parentLine Result thread: $resultThread (source: $threadSourceText).")
     $headerLines.Add("$briefLine $reviewedLine")
@@ -2158,6 +2183,12 @@ try {
     # registration ('launching') or with timeout survivors.
     $pendingNote = ''
     if ($keepPending) {
+        # The ledger now holds this run's entry: the saved prose is no longer orphaned.
+        if ($pendingRecord -and $pendingRecord.PSObject.Properties['original'] -and $pendingRecord.original) {
+            $pendingRecord.original = ''
+            $pendingRecord.first_reply = ''
+            try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
+        }
         $pendingNote = "recovery record kept: $pendingPath (state '$($pendingRecord.state)')"
     } else {
         $rmError = Remove-PendingFile -Path $pendingPath

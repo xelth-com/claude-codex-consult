@@ -147,8 +147,12 @@ function Write-PendingLine {
     if (-not $p.Exists) { return }
     if ($p.Error) { Write-Host "pending: $($p.Error)" -ForegroundColor Yellow; return }
     $r = $p.Record
-    Write-Host ("pending: state={0}, n={1}, nn={2}, reply={3}, started {4} - an interrupted consultation; the next consultation consumes it ({5})" -f `
-            (Get-PropertyValue $r 'state' '?'), (Get-PropertyValue $r 'n' '?'), (Get-PropertyValue $r 'nn' '?'), (Get-PropertyValue $r 'reply' '?'), (Get-PropertyValue $r 'started' '?'), $pendingPath) -ForegroundColor Yellow
+    $line = ("pending: state={0}, n={1}, nn={2}, reply={3}, started {4} - an interrupted consultation; the next consultation consumes it ({5})" -f `
+            (Get-PropertyValue $r 'state' '?'), (Get-PropertyValue $r 'n' '?'), (Get-PropertyValue $r 'nn' '?'), (Get-PropertyValue $r 'reply' '?'), (Get-PropertyValue $r 'started' '?'), $pendingPath)
+    # stopped during a format-repair turn: the prose it had saved
+    $originalNote = Get-PendingOriginalNote $r
+    if ($originalNote) { $line += "; $originalNote" }
+    Write-Host $line -ForegroundColor Yellow
 }
 
 function Read-Ledger {

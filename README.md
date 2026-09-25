@@ -275,7 +275,13 @@ is structured (not `-Raw`, not `chore`); the bridge got a usable reply (exit 0, 
 timeout, no provider failure); the reply fails to parse or validate as the schema (a
 valid object with a verdict you merely disagree with is never retried); the thread is
 verified (from the event stream or a verified rollout); and the prose is substantive
-(≥120 words, or ≥40 words with a numbered answer at a line start). The repair turn is
+(wave 15's gate: ≥25 words with two numbered answers, ≥40 with one, ≥120 otherwise —
+numbered answers in the styles `**Q1.**`, `Q1.`, `Q1:`, `1.`, `1)`, `**1.**`, `### Q1`
+at a line start; a reply that opens with, or is dominated by, refusal phrasing and
+carries no numbered answer, finding id, `RC` id or verdict is NOT repaired). When the
+gate says no, `format_retry` stays `null` and `validation_error` gets ` (format repair
+not attempted: reply looks like a refusal)` or ` (... reply too short (<n> words))`.
+The repair turn is
 `codex exec ... resume <thread> -`, read-only sandbox, the route's lowest effort, the
 same `-CodexConfig` items, no `--output-schema`, and a prompt asking to convert the
 previous message verbatim into the JSON object (the schema and the consultation id are
@@ -292,13 +298,28 @@ way the entry keeps its original `thread`; if the repair turn resumes a *differe
 thread id, that id goes only to `format_retry.thread`, with a drift note. Drift notes
 (warnings, never refusals) also cover: differing requested checks, a differing numbered
 answer, a finding id named in the prose but missing from the object, a differing
-verdict, and prose sentences not carried into `reply_markdown`. Ledger `format_retry`,
+verdict, and prose sentences not carried into `reply_markdown` (every sentence of ≥60
+characters, the 40 longest at most — a replaced remedy or a softened severity stated in
+one short sentence is caught by containment, not by parsing severities). Drift notes are
+warnings: the original prose stays the evidence of record. Ledger `format_retry`,
 right after `validation_error`: `null` when repair was not attempted or is off,
 otherwise `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original}`.
 Console: `format repair: <succeeded|failed> in <s> s; drift: <n> note(s)`, one `  drift:`
 line per note; `-DryRun` prints `format retry : 1 attempt if the reply is not valid
 JSON` or `format retry : 0 (off)`. Panel members inherit `-FormatRetry` from the main
 run.
+
+A bridge killed DURING the repair turn cannot lose the usable first answer silently:
+before the repair process starts, the recovery record (`.consult.pending.json`) is
+rewritten with `original` (the repo-relative path of the `.original.md` copy, already
+on disk) and `first_reply: "usable prose (format repair in progress)"`; every message
+built from that record — the refusal while the repair process may still run, the
+`recovered reservation ...` note when the next run consumes it, the dry run's `pending`
+line, `codex-findings.ps1 -List` — then adds `a usable prose reply of that run exists
+at <path>; no ledger entry was written for it`. The two fields are cleared as soon as
+the ledger entry is written, so the note never describes a recorded run. Every run
+that consumed or cleared a record now carries a `Recovery record:` line in its handoff
+header.
 
 Three files record the reply per consult: the raw `.reply.json` (Codex's last message
 copied byte for byte, never re-serialized), the rendered `.md`, and
@@ -1239,7 +1260,7 @@ A thin wrapper around the documented `codex exec` CLI is the stable surface toda
 | PowerShell 7.6 (`pwsh`, Windows 11) | exercised on 2026-09-24 with the same fake-`codex` harnesses as 5.1 (structured parsing and validation, atomic stores, the lock and the recovery record, timeout tree kill, fingerprints): all green after one PS7-only fix — `ConvertFrom-Json` in pwsh turns ISO-8601 strings into `[datetime]`, which broke the start-time comparison used to recognise a live lock holder or codex child; the four affected reads now normalise through the library's JSON-text helper. Windows PowerShell 5.1 re-run afterwards, no regression |
 | Linux (WSL Ubuntu 24.04, PowerShell 7.6, native ext4) | exercised on 2026-09-24 with a bash fake `codex`: dry run, a full structured run, lock contention through the advisory `flock` (second consult and `-Status` refused, `-List` works, lock inode unchanged), timeout with the process tree killed and no survivors, recovery of `launching` and `survivors` records through the `ps` scan, `chmod +x` changing the fingerprint, `$HOME/.codex` resolution, atomic `findings.json` replacement. Three Linux-only defects were found and fixed: a process start time read by .NET on Linux can differ by under a second between readers, so the exact comparison declared a live codex child dead (now a one-second tolerance off Windows); the holder's own lock file could not be read back through a shared `FileStream` (the advisory lock blocked it — read via `cat` off Windows); the timeout kill stopped children before the root, leaving a window for the root to spawn more (root first now). Known and left: an atomic replace resets Unix permission bits of the store to the default; dates in messages render in an invariant format |
 | macOS | **not yet exercised** — the Linux run covers the same pwsh code paths, but no macOS machine was available |
-| 0.3.0 (Windows 11, Windows PowerShell 5.1 and pwsh 7.6, Codex CLI 0.155.1) | `tests/run-all.ps1` on 5.1: harness-0.3 227/227, harness-roster 113/113, harness-format 23/23, harness-pending 26/26, harness-fixes 45/45, harness-lock2 11/11, harness-3b 12/12; harness-0.3 227/227, harness-roster 113/113 and harness-format 23/23 on pwsh 7.6 (fake `codex` shims: config resolution, scanner, fingerprints, lineage-scoped parents, rollout correlation, caps-v1, peak windows, preflight, failure classes, endpoint health, schema transport, `-CodexConfig`, plus wave 10's roster file validation, the three selection rules, usage limits with a known reset time, the F12-2 classifier order, UTF-8 capture, `-SchemaTransport`, the review panel and the `codex-findings.ps1 -Stats` scoreboard, plus waves 11-12's reset times across daylight-saving changes, timestamps keeping their offset on pwsh, future-stamped failures, a panel stopped by a member's surviving processes, the judge's marks (`-Rate`) and `codex-scoreboard.ps1`, plus wave 14's contract-first prompt and format-repair retry; exact case counts as of waves 11-14 are tracked in `tests/README.md`). Live, in `.collab/bridge-0.3-2026-09-24/`: the design review and two acceptance rounds on the openai lineage (a `new` thread, then the first `resume` under the provenance rules); the second reviewer (GLM-5.3, z.ai) through `-Provider ZAI` - its plain-Markdown reply kept with no verdict; the third reviewer (Xiaomi MiMo, `-Provider mimo` with a per-run model catalog) - first attempt refused by the endpoint (`--output-schema` unsupported; the failure was lifted into the ledger), then, with `prompt-only` transport, a bare-JSON structured HOLD ingested as F09-1..4 while reporting five earlier ids fixed; the first live review PANEL (`-PanelAll`, real roster) found F15-1..4 (wave 11) independently through both remaining members (GLM-5.3 and MiMo) after the weighty member was itself skipped on a known reset time; with the schema in the prompt but the output contract buried mid-prompt, the z.ai route answered in prose on two consultations, and a third consultation on the same route, after wave 14's contract-first fix, returned bare JSON - two independently-consulted cheap reviewers each diagnosed the same root cause (the contract buried past the schema, and the old "write it exactly as you would a normal reply" wording licensing prose), and wave 14 implements their recommendation. `codex-providers.ps1` on the real config: openai (`Logged in using ChatGPT`), ZAI and mimo (env keys) all available. macOS unexercised |
+| 0.3.0 (Windows 11, Windows PowerShell 5.1 and pwsh 7.6, Codex CLI 0.155.1) | `tests/run-all.ps1` on 5.1: harness-0.3 227/227, harness-roster 113/113, harness-format 37/37, harness-pending 26/26, harness-fixes 45/45, harness-lock2 11/11, harness-3b 12/12; harness-0.3 227/227, harness-roster 113/113 and harness-format 37/37 on pwsh 7.6 (fake `codex` shims: config resolution, scanner, fingerprints, lineage-scoped parents, rollout correlation, caps-v1, peak windows, preflight, failure classes, endpoint health, schema transport, `-CodexConfig`, plus wave 10's roster file validation, the three selection rules, usage limits with a known reset time, the F12-2 classifier order, UTF-8 capture, `-SchemaTransport`, the review panel and the `codex-findings.ps1 -Stats` scoreboard, plus waves 11-12's reset times across daylight-saving changes, timestamps keeping their offset on pwsh, future-stamped failures, a panel stopped by a member's surviving processes, the judge's marks (`-Rate`) and `codex-scoreboard.ps1`, plus wave 14's contract-first prompt and format-repair retry; exact case counts as of waves 11-14 are tracked in `tests/README.md`). Live, in `.collab/bridge-0.3-2026-09-24/`: the design review and two acceptance rounds on the openai lineage (a `new` thread, then the first `resume` under the provenance rules); the second reviewer (GLM-5.3, z.ai) through `-Provider ZAI` - its plain-Markdown reply kept with no verdict; the third reviewer (Xiaomi MiMo, `-Provider mimo` with a per-run model catalog) - first attempt refused by the endpoint (`--output-schema` unsupported; the failure was lifted into the ledger), then, with `prompt-only` transport, a bare-JSON structured HOLD ingested as F09-1..4 while reporting five earlier ids fixed; the first live review PANEL (`-PanelAll`, real roster) found F15-1..4 (wave 11) independently through both remaining members (GLM-5.3 and MiMo) after the weighty member was itself skipped on a known reset time; with the schema in the prompt but the output contract buried mid-prompt, the z.ai route answered in prose on two consultations, and a third consultation on the same route, after wave 14's contract-first fix, returned bare JSON - two independently-consulted cheap reviewers each diagnosed the same root cause (the contract buried past the schema, and the old "write it exactly as you would a normal reply" wording licensing prose), and wave 14 implements their recommendation. `codex-providers.ps1` on the real config: openai (`Logged in using ChatGPT`), ZAI and mimo (env keys) all available. macOS unexercised |
 | 0.2.0 (Windows 11 + Windows PowerShell 5.1 + Codex CLI 0.155.1) | harness tests with a fake `codex` shim (structured parsing and validation, fingerprinting, the lock, findings bookkeeping, crash and timeout paths), re-run by a fresh-context verifier with its own fixtures; and the release's own consultations, live, in `.collab/bridge-0.2-2026-09-23/`: a framing `new` (0.1 bridge), an acceptance `fork` and a re-acceptance `resume` on the structured path (`--output-schema`, fenced-or-bare JSON parsing, findings ingestion, `prior_findings` fed back, the lock held with the codex child pid inside, before/after fingerprints, tree-drift warning). The reviewer delivered three HOLDs (11, then 3, then 1 finding) and, after four fix waves, an ACCEPT on 2026-09-24; every finding is tracked by id in that task's `findings.json` (12 verified, 2 superseded, 1 accepted limitation), and `codex-findings.ps1 -Stats` shows the five consultations' cost and yield. A second model (GLM-5.3 through a Codex `model_providers` entry) was smoke-tested on the same wire: it works, but `--output-schema` is not enforced on that route and the reply came back as a fenced JSON block (`.collab/multi-model-2026-09-23/`) |
 
 Reports from a `pwsh` or macOS/Linux run are the single most useful contribution right now.
@@ -1290,7 +1311,7 @@ macOS testing).
 touched. Windows PowerShell 5.1 runs everything; `harness-0.3.ps1`, `harness-roster.ps1`
 and `harness-format.ps1` also run under PowerShell 7 (`pwsh`). As of 0.3.0: `harness-0.3`
 227 assertions, `harness-roster` 113 (roster, panel, reset times across
-daylight-saving changes, `-Rate` and `codex-scoreboard.ps1`), `harness-format` 23
+daylight-saving changes, `-Rate` and `codex-scoreboard.ps1`), `harness-format` 37
 (wave 14's contract-first prompt and format-repair retry, including the cases that must
 NOT repair), `harness-pending` 26, `harness-fixes` 45, `harness-lock2` 11, `harness-3b`
 12. Logs land under

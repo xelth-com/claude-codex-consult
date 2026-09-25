@@ -1477,13 +1477,42 @@ function Format-StructuredSection {
 # whether the prose is worth converting, which effort the repair turn uses, and what the
 # conversion may have changed (drift notes - warnings only).
 
-# Substantive prose: >= 120 words, or >= 40 words with at least one numbered answer at a
-# line start (**Q1.**, Q1., 1.).
+# Is a prose reply worth a repair turn? { Substantive; Reason ('' | 'reply looks like a
+# refusal' | 'reply too short (<n> words)'); Words; Numbered }.
+#   refusal   the first 200 characters (trimmed, case-insensitive; curly apostrophes read as
+#             straight ones) START with refusal phrasing (I cannot, I can't, I'm sorry,
+#             I am sorry, I am unable, I'm unable, "Sorry, ", As an AI, I won't) or hold
+#             two such phrases, AND the whole text has no numbered answer and no
+#             finding-like marker (F<NN>-<k>, RC<n>, Verdict): not substantive
+#   numbered  answers at a line start in any of these styles: **Q<n>.**, Q<n>., Q<n>:,
+#             <n>., <n>), **<n>.**, ### Q<n> (any heading level)
+#   floors    >= 25 words with at least two numbered answers, >= 40 words with one,
+#             >= 120 words otherwise
+$script:RefusalPhrases = @("i cannot", "i can't", "i'm sorry", 'i am sorry', 'i am unable', "i'm unable", 'sorry, ', 'as an ai', "i won't")
+$script:NumberedAnswerRe = [regex]'(?m)^[ \t]*(?:\*\*Q[0-9]+[.:]\*\*|Q[0-9]+[.:]|\*\*[0-9]+\.\*\*|[0-9]+[.)]|#{1,6}[ \t]*Q[0-9]+\b)'
+function Get-ProseGate {
+    param([string]$Text)
+    $t = [string]$Text
+    $words = @(($t -split '\s+') | Where-Object { $_ }).Count
+    $numbered = $script:NumberedAnswerRe.Matches($t).Count
+    $r = [pscustomobject]@{ Substantive = $false; Reason = ''; Words = $words; Numbered = $numbered }
+    $head = ($t.Trim() -replace '[\u2018\u2019]', "'")
+    if ($head.Length -gt 200) { $head = $head.Substring(0, 200) }
+    $head = $head.ToLowerInvariant()
+    $lead = $head -replace '^[\s*#>_`-]+', ''
+    $startsRefusal = @($script:RefusalPhrases | Where-Object { $lead.StartsWith($_) }).Count -gt 0
+    $hits = 0
+    foreach ($ph in $script:RefusalPhrases) { $hits += ([regex]::Matches($head, [regex]::Escape($ph))).Count }
+    $markers = ($numbered -gt 0) -or ($t -match '\bF[0-9]{2,}-[0-9]+\b') -or ($t -match '\bRC[0-9]+\b') -or ($t -match '(?i)\bverdict\b')
+    if (($startsRefusal -or $hits -ge 2) -and -not $markers) { $r.Reason = 'reply looks like a refusal'; return $r }
+    if (($numbered -ge 2 -and $words -ge 25) -or ($numbered -ge 1 -and $words -ge 40) -or $words -ge 120) { $r.Substantive = $true; return $r }
+    $r.Reason = "reply too short ($words words)"
+    return $r
+}
+
 function Test-SubstantiveProse {
     param([string]$Text)
-    $words = @(([string]$Text -split '\s+') | Where-Object { $_ }).Count
-    if ($words -ge 120) { return $true }
-    return ($words -ge 40 -and $Text -match '(?m)^\s*(\*\*Q[0-9]+\.\*\*|Q[0-9]+\.|[0-9]+\.)')
+    return (Get-ProseGate -Text $Text).Substantive
 }
 
 # The effort of the repair turn: the lowest value of the route's effort vocabulary (the
@@ -1512,8 +1541,9 @@ function ConvertTo-DriftText {
 #   3 every F<NN>-<k> id the prose names appears in prior_findings or findings
 #   4 a verdict token the prose states (ACCEPT|HOLD|REJECT|ADVISE, after "Verdict" if
 #     there is one) equals the JSON verdict
-#   5 the five longest prose sentences (>= 60 characters, whitespace-normalised) each
-#     appear in reply_markdown (normalised, case-insensitive)
+#   5 every prose sentence of >= 60 characters (whitespace-normalised; the 40 longest at
+#     most, to bound the cost) appears in reply_markdown (normalised, case-insensitive) -
+#     a changed remedy in a short sentence counts as much as one in a long one
 function Get-FormatRepairDrift {
     param([string]$Prose, $Reply)
     $notes = New-Object System.Collections.Generic.List[string]
@@ -1545,14 +1575,14 @@ function Get-FormatRepairDrift {
     if ($vm.Success -and $vm.Groups[1].Value -cne $jsonVerdict) {
         $notes.Add("verdict differs: prose $($vm.Groups[1].Value), JSON $(if ($jsonVerdict) { $jsonVerdict } else { '(none)' })")
     }
-    $sentences = @(([string]$Prose -split '(?<=[.!?])\s+|\r?\n') | ForEach-Object { ConvertTo-DriftText $_ } | Where-Object { $_.Length -ge 60 } | Sort-Object -Unique | Sort-Object -Property Length -Descending | Select-Object -First 5)
+    $sentences = @(([string]$Prose -split '(?<=[.!?])\s+|\r?\n') | ForEach-Object { ConvertTo-DriftText $_ } | Where-Object { $_.Length -ge 60 } | Sort-Object -Unique | Sort-Object -Property Length -Descending | Select-Object -First 40)
     if ($sentences.Count -gt 0) {
         $mdNorm = ConvertTo-DriftText $md
         $lost = @($sentences | Where-Object { -not $mdNorm.Contains($_) })
         if ($lost.Count -gt 0) {
             $first = $lost[0]
             if ($first.Length -gt 60) { $first = $first.Substring(0, 60) + '...' }
-            $notes.Add("$($lost.Count) of the $($sentences.Count) longest prose sentences are not in reply_markdown (first: '$first')")
+            $notes.Add("$($lost.Count) of the $($sentences.Count) prose sentences (>= 60 chars) are not in reply_markdown (first: '$first')")
         }
     }
     return , ([string[]]$notes.ToArray())
@@ -3945,6 +3975,16 @@ function Find-CodexProcesses {
     }
 }
 
+# A reservation whose run was stopped during its format-repair turn names the prose reply
+# it had already saved (`original`, set when the repair turn starts): every message that
+# reports or consumes such a record says so. '' when the record has no `original`.
+function Get-PendingOriginalNote {
+    param($Record)
+    $o = [string](Get-PropertyValue $Record 'original' '')
+    if (-not $o) { return '' }
+    return "a usable prose reply of that run exists at $o; no ledger entry was written for it"
+}
+
 # Decides whether a pending record (from Read-PendingFile) still belongs to a live
 # consultation. Returns { Active; Message; Check }:
 #   reserved             never active (codex was not started);
@@ -3982,8 +4022,9 @@ function Test-PendingActive {
         }
         if ($sp -gt 0) { $pids.Add([pscustomobject]@{ pid = $sp; start = $sStart; name = $sName }) }
     }
-    $inactive = { param($c) [pscustomobject]@{ Active = $false; Message = ''; Check = $c } }
-    $active = { param($m, $c) [pscustomobject]@{ Active = $true; Message = $m; Check = $c } }
+    $originalNote = Get-PendingOriginalNote $Record
+    $inactive = { param($c) [pscustomobject]@{ Active = $false; Message = ''; Check = $(if ($originalNote) { "$c; $originalNote" } else { $c }) } }
+    $active = { param($m, $c) [pscustomobject]@{ Active = $true; Message = $(if ($originalNote) { $m.TrimEnd([char]'.') + "; $originalNote." } else { $m }); Check = $c } }
 
     if ($state -eq 'reserved') { return (& $inactive 'reserved: codex was never started') }
     if ($pids.Count -gt 0 -and $state -ne 'launching') {
