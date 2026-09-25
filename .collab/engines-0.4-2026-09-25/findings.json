@@ -1,0 +1,758 @@
+{
+    "task_id":  "engines-0.4-2026-09-25",
+    "findings":  [
+                     {
+                         "id":  "F02-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  77
+                                           },
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  84
+                                           }
+                                       ],
+                         "claim":  "D3\u0027s rule that any `warning:` or soft-denial stderr notice \u0027becomes a ledger warning, never a refusal\u0027 contradicts D4\u0027s fail-closed resume-mismatch rule: the F6 conversation-not-found signal arrives exactly as a `warning:` line, so any path that does not compare conversation ids (a result without one, or the D7 repair turn) would downgrade a lineage break to a warning and could ingest a reply from a brand-new conversation as if it continued the parent thread.",
+                         "trigger":  "A resume-mode agy run whose stored conversation was expired server-side: agy prints the not-found warning, answers from a fresh conversation, and the result\u0027s conversation_id differs from the parent.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "handoff D3 (lines 77-78) and D4 (lines 83-87), plus F6 (line 38)",
+                                              "observation":  "D3 mandates warning-never-refusal for stderr `warning:` lines; D4 fails the run only on the conversation_id comparison; F6 shows the not-found case is reported as a stderr warning and still exits 0."
+                                          }
+                                      ],
+                         "verification":  "With a fake agy that emits the not-found warning but a result whose conversation_id equals the parent, confirm the implementation still hard-fails (i.e. the warning, not only the id, gates resume runs).",
+                         "remedy":  "In resume mode, hard-fail on the conversation-not-found warning, on a missing result conversation_id, and on any id mismatch; keep other warnings as ledger warnings.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-engine-design-zai.md",
+                                        "thread":  "01a0d7c3-343a-7510-801c-e5a7912799a5",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:00:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  98
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-hook.ps1",
+                                               "line":  16
+                                           }
+                                       ],
+                         "claim":  "D6 puts an `agy models` network round-trip (up to the proposed 15 s timeout) into codex-providers.ps1, which the SessionStart hook runs at every session start; this breaks the hook\u0027s documented 0.3.0 contract \u0027No network call, no lock, nothing written ... about one second\u0027 and can stall session startup when the network is slow.",
+                         "trigger":  "The plugin hook enabled and a roster entry with engine agy present, on a machine where api.googleapis.com is slow or blocked.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-hook.ps1 lines 9-17",
+                                              "observation":  "The hook\u0027s header promises no network call and ~1 s cost, and it shells out to codex-providers.ps1 -Json, which D9 extends with agy credential rows."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "handoff D6/D9 (lines 94-100, 108-112)",
+                                              "observation":  "D6 plans `agy models` with a 15 s timeout inside the providers listing, and D9 makes the hook list agy rows like any provider."
+                                          }
+                                      ],
+                         "verification":  "Time the hook with an agy roster entry and a blocked network (e.g. firewall rule); observe the session-start line arriving only after the timeout.",
+                         "remedy":  "Run `agy models` only in the consultation preflight; the hook and providers listing print \u0027gemini: not checked\u0027 (or a short-TTL cached result) for engine rows.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-engine-design-zai.md",
+                                        "thread":  "01a0d7c3-343a-7510-801c-e5a7912799a5",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:00:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  69
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2028
+                                           }
+                                       ],
+                         "claim":  "D2 asserts \u0027reviews are read-only\u0027 under agy `--sandbox`, but F8 verified only that reads still work; agy\u0027s sandbox is documented as terminal restrictions, and in 0.3.0 a working-tree change during a review is only a drift WARNING, so an agy reviewer that writes files would still produce a \u0027usable reply\u0027 — the read-only guarantee degrades from enforcement to detection.",
+                         "trigger":  "An agy reviewer whose tools write a file during a consultation (e.g. a \u0027helpful\u0027 fix) while --sandbox permits writes.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "handoff F8 (lines 43-45) and D2 (line 69)",
+                                              "observation":  "Only file reads under --sandbox were verified; write behaviour is untested."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1 lines 1715, 2028",
+                                              "observation":  "tree_changed_during_review only adds a WARNING drift line; it does not fail the run."
+                                          }
+                                      ],
+                         "verification":  "RC1 in reply_markdown: run agy under --sandbox with a prompt asking it to create probe.txt in a scratch directory and observe whether the file appears.",
+                         "remedy":  "Verify and document write behaviour; if writes are not blocked, fail agy runs whose tree fingerprint changed (or record sandbox:\u0027unverified\u0027 and keep the drift warning explicit in the handoff header).",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-engine-design-zai.md",
+                                        "thread":  "01a0d7c3-343a-7510-801c-e5a7912799a5",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:00:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-4",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  81
+                                           },
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/04-agy-engine-design.events.jsonl",
+                                               "line":  1
+                                           }
+                                       ],
+                         "claim":  "D4/D3 do not specify which event supplies the conversation_id or how to parse agy\u0027s inconsistent placement: in a real run the id sits at the top level of the init event but nested inside step_update, and a killed run has no result event at all, so the parser needs fixed rules and should salvage the init id as a never-parent diagnostic.",
+                         "trigger":  "A timeout-killed agy run: the events file contains init/step_update but no result, and recovery wants to name which conversation was live.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-Content .collab/engines-0.4-2026-09-25/handoffs/04-agy-engine-design.events.jsonl",
+                                              "observation":  "Line 1 is {\"event\":\"init\",\"conversation_id\":\"fdc21ce2-...\",\"init\":{...}} while step_update nests conversation_id under step_update; the file has no result event."
+                                          }
+                                      ],
+                         "verification":  "Feed the real events file to the new parser; assert the thread is captured from init for diagnostics and that the run is failed for the missing result.",
+                         "remedy":  "Specify: result.conversation_id is authoritative for the thread; init.conversation_id must equal it (mismatch = failure); on a missing result, record the init id as thread_candidate, never a parent.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-engine-design-zai.md",
+                                        "thread":  "01a0d7c3-343a-7510-801c-e5a7912799a5",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:00:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-5",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2762
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2833
+                                           },
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  76
+                                           }
+                                       ],
+                         "claim":  "The current failure-class regexes match none of Google\u0027s SCREAMING_SNAKE codes (RESOURCE_EXHAUSTED, UNAUTHENTICATED, PERMISSION_DENIED, INVALID_ARGUMENT), \u0027not signed in\u0027, or \u0027invalid model selection\u0027, so those failures land in \u0027unknown\u0027; and Get-RetryAfter\u0027s wordings miss \u0027retry in 32s\u0027 (it knows \u0027retry after N\u0027 and \u0027try again/resets in N\u0027) and gRPC retryDelay {\"seconds\":N} payloads.",
+                         "trigger":  "An agy quota rejection phrased \u0027RESOURCE_EXHAUSTED: Retry in 32s\u0027 — classified unknown with no retry_after, so endpoint health never records the reset window.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult-common.ps1 lines 2760-2768 (FailureClassPatterns) and 2828-2838 (RetryAfterRe)",
+                                              "observation":  "capability/auth/quota/transport patterns contain none of the Google codes; the After regex requires \u0027retry[- ]after\u0027, the In regex requires \u0027try again|resets\u0027 before \u0027in\u0027."
+                                          }
+                                      ],
+                         "verification":  "Unit-test Get-ProviderFailureClass and Get-RetryAfter with the Google wordings from Q6; all must classify and the retry ones must yield a reset time.",
+                         "remedy":  "Add the Google codes and wordings to the class patterns and a \u0027retry in \u003cdur\u003e\u0027 / retryDelay branch to Get-RetryAfter, per the Q6 list.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-engine-design-zai.md",
+                                        "thread":  "01a0d7c3-343a-7510-801c-e5a7912799a5",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:00:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-6",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1858
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2035
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1463
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3838
+                                           }
+                                       ],
+                         "claim":  "Beyond the D3/D8 file-naming list, several code paths hardcode \u0027codex\u0027: the format-repair original is always handoffs/NN-codex-\u003cslug\u003e.original.md, the handoff header reads \u0027# Handoff NN - Codex:\u0027, $commandStr is prefixed \u0027codex \u0027, pending-record notes say \u0027codex is being started\u0027, and Get-CodexRule\u0027s name rule (^codex(\\.exe)?$) will not match agy.exe, so recovery of an interrupted agy run depends solely on the launcher-in-command-line rule.",
+                         "trigger":  "An agy run that is interrupted between the \u0027launching\u0027 and \u0027running\u0027 pending states: the next run\u0027s descendant scan finds nothing named codex and must fall back to the recorded launcher path.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult.ps1 lines 1463, 1635, 1858-1859, 2035; codex-consult-common.ps1 lines 3836-3841",
+                                              "observation":  "All four sites embed the literal engine string \u0027codex\u0027; Get-CodexRule matches only the process name codex/codex.exe, the recorded launcher substring, or @openai/codex."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-findings.ps1 lines 200-225",
+                                              "observation":  "-List/-Stats resolve replies through the ledger entry\u0027s reply path, and the scoreboard keys by lineage — these are engine-neutral and safe."
+                                          }
+                                      ],
+                         "verification":  "Grep the scripts for the literal \u0027codex\u0027 in composed strings (filenames, headers, command prefix, pending notes, process rules) and run the interrupted-launching recovery test with fake agy.",
+                         "remedy":  "Parameterize the engine token in every composed name/message; extend the process rule to agy.exe (or match the recorded launcher generically) and always record the resolved launcher in the pending record.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-engine-design-zai.md",
+                                        "thread":  "01a0d7c3-343a-7510-801c-e5a7912799a5",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:00:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-7",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  104
+                                           }
+                                       ],
+                         "claim":  "D7\u0027s format-repair turn rides `--conversation \u003cthread\u003e`, but by F6 an expired conversation makes agy silently start a NEW conversation whose only context is the repair prompt — there is no \u0027last message\u0027 to convert, so the model will fabricate an object from the schema alone and the repair can \u0027succeed\u0027 with invented content.",
+                         "trigger":  "A resume-mode agy reply that needs format repair after the stored conversation expired server-side.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "handoff D7 (line 104) and F6 (lines 38-39)",
+                                              "observation":  "The repair prompt asks the model to convert \u0027your last message\u0027; F6 shows a not-found conversation silently starts a new one with exit 0."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "codex-consult.ps1 repair-turn block (lines 1846-1900)",
+                                              "observation":  "The codex repair path is only eligible on a VERIFIED thread; the agy variant must add the same id verification after the repair result."
+                                          }
+                                      ],
+                         "verification":  "Fake an agy repair turn that returns a new conversation_id; assert the repaired object is rejected and recorded as a failed repair, not ingested.",
+                         "remedy":  "After the repair turn, require result.conversation_id == the repaired thread and no not-found warning; otherwise fail the repair and keep the prose original only.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-engine-design-zai.md",
+                                        "thread":  "01a0d7c3-343a-7510-801c-e5a7912799a5",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:00:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F05-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  61
+                                           },
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  69
+                                           },
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  77
+                                           }
+                                       ],
+                         "claim":  "D2\u0027s `--sandbox` does not establish the 0.3.0 read-only review guarantee, and D3 turns potentially content-affecting soft-denials into warnings.",
+                         "trigger":  "An agy run attempts an approval-required tool or workspace write while producing a schema-valid answer.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md F8",
+                                              "observation":  "`--sandbox` permits workspace reads and soft-denies approval-required tools while exiting 0."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "agy --help",
+                                              "observation":  "Help describes `--sandbox` only as terminal restrictions; no read-only sandbox value is shown."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1445",
+                                              "observation":  "The codex route sends sandbox `read-only`, so agy would weaken an existing review guarantee."
+                                          }
+                                      ],
+                         "verification":  "Run agy with the design argv and a prompt requesting a workspace write; inspect stderr and compare repository hashes before and after.",
+                         "remedy":  "Combine plan mode with sandbox, reject write-capable modes, hash the workspace, and fail any soft-denial that affects evidence.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/05-codex-engine-design-mimo.md",
+                                        "thread":  "01a0d7cc-107c-7172-80e7-1a20119c4305",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:10:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F05-2",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  70
+                                           },
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  101
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1776
+                                           }
+                                       ],
+                         "claim":  "D3/D7 do not specify artifact-first preservation, so a crash can leave a usable agy reply only inside events output while the recovery record names a nonexistent reply file, breaking the nothing-lost invariant.",
+                         "trigger":  "The bridge crashes after agy writes a result but before reply extraction and the ledger commit.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md D3/D4/D7",
+                                              "observation":  "Only stdout events are guaranteed saved; byte-for-byte reply preservation is specified only for the resume-mismatch case."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1776-1800",
+                                              "observation":  "Current code copies the raw reply before parsing and names it in the ledger."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1857-1888",
+                                              "observation":  "Current repair flow saves the original prose and updates the recovery record before starting repair."
+                                          }
+                                      ],
+                         "verification":  "Kill the bridge immediately after a fake agy result, then inspect `.consult.pending.json` and every referenced handoff path.",
+                         "remedy":  "Extract `structured_output` or response to atomic reply artifacts first, update the recovery record with their real paths, then parse, repair, and commit the ledger.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/05-codex-engine-design-mimo.md",
+                                        "thread":  "01a0d7cc-107c-7172-80e7-1a20119c4305",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:10:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F05-3",
+                         "status":  "wontfix",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  88
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2298
+                                           }
+                                       ],
+                         "claim":  "A constant `sha256(\"cc-engine-v1|agy\")` fingerprint proves only the engine; it does not bind the Google account, credential, or launcher, so the one-reviewer/one-endpoint invariant is not enforced across account changes.",
+                         "trigger":  "The same roster label and model resume a thread after the keyring credential or launcher identity changes.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md D5/F9",
+                                              "observation":  "The fingerprint is constant for all agy entries while credentials live in the OS keyring."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:2298-2304",
+                                              "observation":  "Lineage display omits engine and identity matching relies on provider, model, and fingerprint."
+                                          }
+                                      ],
+                         "verification":  "Create a parent under one agy account, switch accounts, and run resume; acceptance would demonstrate mixed endpoint history.",
+                         "remedy":  "Include a stable auth subject or credential fingerprint when observable; otherwise bind launcher/version and refuse resume when identity evidence changes.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/05-codex-engine-design-mimo.md",
+                                        "thread":  "01a0d7cc-107c-7172-80e7-1a20119c4305",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:10:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T11:13:05+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "nothing local exposes the signed-in Google account (no keyring target, no field in the init event); binding the launcher path would split lineages across machines; recorded as TECH_DEBT T7",
+                                             "evidence":  "cmdkey /list shows no agy target; agy init event carries model/cwd/tools/permission_mode only",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "49726f1cae68cb938bd2a213680dfc4eff20bd3cd50a00616a94f75b1c67e51f"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F05-4",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  81
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3536
+                                           }
+                                       ],
+                         "claim":  "Defaulting agy to `resume` makes repeated consultations context-dependent and non-independent, unlike the current fresh-thread default.",
+                         "trigger":  "Two consultations of one lineage cover different briefs or purposes.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md D4",
+                                              "observation":  "Resume is automatic whenever a lineage thread exists."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3536-3582",
+                                              "observation":  "Current automatic selection starts `new` unless fork/resume is requested and a verified parent exists."
+                                          }
+                                      ],
+                         "verification":  "Compare two agy consultations on the same lineage and inspect whether the second prompt/history contains the first consultation.",
+                         "remedy":  "Default to `new`; make resume explicit and optionally purpose-scoped for deliberate follow-ups.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/05-codex-engine-design-mimo.md",
+                                        "thread":  "01a0d7cc-107c-7172-80e7-1a20119c4305",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:10:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F05-5",
+                         "status":  "wontfix",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  66
+                                           },
+                                           {
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md",
+                                               "line":  105
+                                           },
+                                           {
+                                               "path":  "README.md",
+                                               "line":  1038
+                                           }
+                                       ],
+                         "claim":  "`panel: weighty` controls panel membership only and cannot route weighty reviews to a high-tier Gemini model.",
+                         "trigger":  "A weighty roster entry names `gemini-3.8-flash-low` for a framing or acceptance panel.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "README.md:1038",
+                                              "observation":  "The roster `panel` field only decides always versus weighty-purpose participation."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md D2/D8",
+                                              "observation":  "Model remains the full tier-bearing id and no purpose-to-model routing is proposed."
+                                          }
+                                      ],
+                         "verification":  "Dry-run a weighty panel and confirm the planned argv still names the low-tier model.",
+                         "remedy":  "Add a validated `weighty_model` or purpose-to-model mapping and reject incompatible effort/model combinations before launch.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/05-codex-engine-design-mimo.md",
+                                        "thread":  "01a0d7cc-107c-7172-80e7-1a20119c4305",
+                                        "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                        "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T11:10:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T11:13:06+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "no new roster field: a second entry with the same label and the pro model, panel weighty, joins weighty panels; a solo run names it with -Model (Find-RosterEntry exact-model rule); documented in the README agy section",
+                                             "evidence":  "Read-ReviewerRoster duplicate rule is provider+model; Find-RosterEntry picks the exact model when -Model is given",
+                                             "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
+                                             "tree_sha256":  "49726f1cae68cb938bd2a213680dfc4eff20bd3cd50a00616a94f75b1c67e51f"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     }
+                 ],
+    "ratings":  [
+                    {
+                        "n":  1,
+                        "consult_id":  "6ccd8be1-af20-4c4a-b3e1-fc0125efa323",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "purpose":  "framing",
+                        "useful":  "yes",
+                        "note":  "7 findings, 6 adopted (resume/repair id rules, hook no-network, parser rules, Google error codes, hardcoded codex sites); its RC1 exposed F12 (agy --sandbox does not block writes)",
+                        "when":  "2026-09-25T11:13:03+02:00"
+                    },
+                    {
+                        "n":  2,
+                        "consult_id":  "be01fdc4-473f-4a3c-9e66-bb9c2bdf4580",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "purpose":  "framing",
+                        "useful":  "yes",
+                        "note":  "F05-1 (read-only not enforced) and F05-2 (name the raw artifact in the recovery record) adopted; F05-4 confirmed default new; F05-3/F05-5 wontfix; the blocker verdict overstated",
+                        "when":  "2026-09-25T11:13:04+02:00"
+                    }
+                ]
+}

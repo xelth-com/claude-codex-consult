@@ -157,6 +157,26 @@ optional participant whose "done" is never trusted and who never closes a findin
   Codex and a provider, and mixing engines inside one lineage (a thread belongs to one
   engine as it belongs to one provider). Measured by first-turn structured rate per route
   and by the scoreboard's hit rate per (engine, provider, purpose).
+- **R11 — Parallel panel (planned for 0.4.x, after R10).** A `-Panel` run consults its
+  members one after another (README, "Reviewer roster and panel"), so its wall clock is the
+  SUM of the members' times (a two-member framing panel today: 8-12 minutes). The members are
+  already independent — each gets the same brief and the same snapshot of the findings that
+  were open when the panel started, never another member's reply — so nothing in the review
+  itself needs the order; what forces it is the machinery: one task lock (`.consult.lock`)
+  and one recovery record per task, the ledger appended under that lock, handoff numbers
+  taken at each member's start, and a survivor scan that looks for codex-like processes by
+  NAME and would take a sibling member's process for an orphan. R11 runs the members
+  concurrently: a panel-level lock that owns the task for the whole panel, `n` and `NN`
+  assigned to every member when the panel starts (so the files and ledger entries keep the
+  roster order whatever finishes first), one recovery record per member (`.consult.pending-
+  <member>.json`, the recovery path checks all of them), the survivor scan by the recorded
+  pid + start time only, and one summary written after the last member. Invariants kept: the
+  members stay blind to each other inside a wave; the same open-findings snapshot; exit 0
+  only when every member produced a usable reply; nothing already written is lost when one
+  member dies. Non-goals: concurrent consultations OUTSIDE a panel (two `-Panel` runs or a
+  single run beside a panel on one task are still refused by the lock), and any change to
+  what a member sees. Measured by the panel's wall clock (max of the members instead of
+  their sum) and by an unchanged per-member result set against the sequential harness cases.
 - **A fourth seat (e.g. MiMo-V2.6)** only after a capped project-local evaluation (seeded
   historical defects plus clean controls at a fixed budget) on an officially supported route;
   leaderboard rank is not that evidence. Consider replacing a role before adding a reviewer.

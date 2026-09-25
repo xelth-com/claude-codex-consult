@@ -1,0 +1,137 @@
+{
+    "findings":  [
+                     {
+                         "claim":  "D3 treats soft-denial as a warning, which breaks invariant 4 when F11 occurs.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "observation":  "F11 causes an empty response with SUCCESS",
+                                              "reference":  "F11"
+                                          }
+                                      ],
+                         "locations":  [
+                                           {
+                                               "line":  78,
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md"
+                                           }
+                                       ],
+                         "remedy":  "Fail the run if stderr contains soft-denial notices.",
+                         "severity":  "blocker",
+                         "supersedes":  [
+
+                                        ],
+                         "trigger":  "agy prints \u0027jetski: no output produced\u0027 on soft-denial",
+                         "verification":  "Check bridge output when agy stderr contains jetski: no output produced."
+                     },
+                     {
+                         "claim":  "Hook script degrades shell performance due to network call.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "observation":  "D9 says hook runs `agy models`",
+                                              "reference":  "D9"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "observation":  "D6 says this takes 2s",
+                                              "reference":  "D6"
+                                          }
+                                      ],
+                         "locations":  [
+                                           {
+                                               "line":  109,
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md"
+                                           }
+                                       ],
+                         "remedy":  "Check local credentials (e.g. Windows Credential Manager) instead of network.",
+                         "severity":  "major",
+                         "supersedes":  [
+
+                                        ],
+                         "trigger":  "codex-providers.ps1 runs `agy models`",
+                         "verification":  "Time the shell startup with the new hook."
+                     },
+                     {
+                         "claim":  "Default mode \u0027resume\u0027 leads to context exhaustion.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "observation":  "D4 defaults to resume when a thread exists",
+                                              "reference":  "D4"
+                                          }
+                                      ],
+                         "locations":  [
+                                           {
+                                               "line":  83,
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md"
+                                           }
+                                       ],
+                         "remedy":  "Make \u0027new\u0027 the default mode.",
+                         "severity":  "major",
+                         "supersedes":  [
+
+                                        ],
+                         "trigger":  "Bridge invokes agy without -Mode new",
+                         "verification":  "Run multiple consultations and check conversation growth."
+                     },
+                     {
+                         "claim":  "Stats/Scoreboard parsers may fail on new naming scheme.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "observation":  "D3/D8 proposes new prefix",
+                                              "reference":  "D8"
+                                          }
+                                      ],
+                         "locations":  [
+                                           {
+                                               "line":  107,
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md"
+                                           }
+                                       ],
+                         "remedy":  "Update regexes to match `(codex|agy)` instead of just `codex`.",
+                         "severity":  "major",
+                         "supersedes":  [
+
+                                        ],
+                         "trigger":  "Handoff files are named NN-agy-\u003cslug\u003e",
+                         "verification":  "Run scoreboard generation with an agy engine."
+                     },
+                     {
+                         "claim":  "cmd shim cannot reliably test quoting.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "observation":  "D10 uses fake-agy.cmd",
+                                              "reference":  "D10"
+                                          }
+                                      ],
+                         "locations":  [
+                                           {
+                                               "line":  114,
+                                               "path":  ".collab/engines-0.4-2026-09-25/handoffs/01-claude-engine-agy-design.md"
+                                           }
+                                       ],
+                         "remedy":  "Use a powershell or python shim.",
+                         "severity":  "minor",
+                         "supersedes":  [
+
+                                        ],
+                         "trigger":  "test suite runs FAKE_AGY_*",
+                         "verification":  "Run test suite with complex prompt."
+                     }
+                 ],
+    "first_run_checklist":  [
+
+                            ],
+    "prior_findings":  [
+
+                       ],
+    "reply_markdown":  "# Review of agy engine design (ROADMAP R10)\n\n**Q1.** stdin stream-json vs argv: Argv is immune to complex NDJSON quoting on stdin and buffer flushes. A risk of the stream path (D2) is that `agy` might bypass the schema validation for stream mode or expect specific EOF signals, resulting in a missing `structured_output` event.\n\n**Q2.** Effort: D2\u0027s \"record requested, send nothing\" is correct because `agy` ties the reasoning tier strictly to the model ID (F5). Mapping effort dynamically would break the invariant that a thread belongs to one reviewer (model ID). The roster\u0027s `weighty` panel flag routes correctly if the roster uses the `-high` model ID.\n\n**Q3.** Resume mismatch: Failing closed (D4) is correct. Ingesting the reply as a new conversation hides the fact that the model answered without the requested parent context, leading to hallucinations.\n\n**Q4.** Default mode `resume`: `new` is a much better default. Defaulting to `resume` would cause the conversation to grow with every unrelated consultation, leading to context window exhaustion and severe topic drift. The cost to the judge of `new` is explicitly passing `-Mode resume` when continuity is truly needed.\n\n**Q5.** Credential check: A 2s network call in the preflight is acceptable, but doing it in the hook (D9) is a blocker because it degrades the shell\u0027s listing performance. Local evidence (e.g., checking Windows Credential Manager or local tokens) should be used instead.\n\n**Q6.** Failure classification: \n- **Quota**: `RESOURCE_EXHAUSTED`, `quota`, `429`\n- **Auth**: `PERMISSION_DENIED`, `UNAUTHENTICATED`, `not signed in`\n- **Capability/Permission**: `jetski: no output produced` (F11), `invalid model selection`\n- **Retry**: `Get-RetryAfter` must parse `retry in X{s,m,h}`.\n\n**Q7.** Verification: The proposed conditions (exit 0 + SUCCESS + `structured_output` + UUID) are insufficient. Stderr notices like \"soft-denial\" (F8), \"partial output\" (F7), or \"jetski: no output produced\" (F11) must FAIL the run, because they indicate the model was blocked and failed to complete the task.\n\n**Q8.** Handoff naming: Changing the prefix to `NN-agy-\u003cslug\u003e` and the command to `agy ` (D3/D8) risks breaking `-Stats`, `-List`, and scoreboard parsers that hardcode `codex` in regexes.\n\n**Q9.** Tests: I would add the F11 soft-denial case first. To test quoting in a Windows shim, I would avoid `.cmd` entirely and use a `fake-agy.ps1` called directly, or a minimal script to dump `sys.argv`.\n\n**Q10.** D3 breaks Invariant 4 (\"exit 0 only when every member produced a usable reply\"). D3 treats a soft-denial (F8) as a mere warning. However, per F11, a soft-denial ends the run with SUCCESS but an empty response. If D3 warns instead of failing, the bridge accepts a blank reply, breaking the invariant.\n\n### Fact F11 (The Denied Tool Call)\nWhen a tool is auto-denied (F11), `agy` prints `jetski: no output produced` to stderr and returns SUCCESS with an empty response. The bridge must classify this as a `capability` or `permission` failure. ONE repair turn on the same conversation is exactly the right remedy: it preserves the context while appending a system prompt to answer without using the denied tool.",
+    "schema_version":  "1",
+    "unproven":  [
+                     "Scoreboard parser breakage (needs verify of parser code)"
+                 ],
+    "verdict":  "ADVISE",
+    "verdict_reason":  "The design correctly integrates agy but has critical flaws in error handling (F11/soft-denials) and hook performance."
+}
