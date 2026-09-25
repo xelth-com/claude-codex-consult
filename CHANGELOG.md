@@ -223,6 +223,54 @@ ROADMAP.md.
     `codex-scoreboard.ps1` for choosing a panel or a judge on a hard question.
 - `tests/harness-roster.ps1` (113 cases) added, covering all of the above; runs under
   Windows PowerShell 5.1 and pwsh 7.6 like `harness-0.3.ps1`.
+- **Wave 14 — contract-first prompt and format-repair retry.** Live use on a
+  `prompt-only` route surfaced reviewers answering in prose even with the schema in the
+  prompt, because the output-contract instruction sat mid-prompt, after the schema, and
+  the older wording ("write it exactly as you would a normal reply") implicitly licensed
+  prose. Two independently-consulted cheap reviewers converged on the same diagnosis and
+  the same fix.
+  - **Contract-first prompt.** Every structured prompt now OPENS with the "FINAL OUTPUT
+    CONTRACT" paragraph, before the ask and the brief, replacing the 0.2.0/0.3.0
+    contract text that could be buried past the schema section on a `prompt-only` route.
+  - **`-FormatRetry 0|1`** (default `1`; refused for any other value): when the run is
+    structured (not `-Raw`, not `chore`), the bridge got a usable reply (exit 0, no
+    timeout, no provider failure) that fails to parse or validate as the schema, the
+    thread is verified (from the event stream or a verified rollout), and the prose is
+    substantive (≥120 words, or ≥40 with a numbered answer at a line start) — the bridge
+    fires ONE repair turn: `codex exec ... resume <thread> -`, read-only, the route's
+    lowest effort, no `--output-schema`, a prompt asking to convert the previous message
+    verbatim into the one JSON object (schema and consultation id in the prompt, never
+    the brief), within `min(-TimeoutSec, 300)` s, under the same lock and recovery
+    record. A wrong-but-valid verdict is never retried — only a reply that fails to
+    parse or validate at all.
+  - On success the repaired object is ingested as the reply (`.reply.json` holds it,
+    findings and verdict included); the original prose is kept byte for byte as
+    `handoffs/NN-codex-<slug>.original.md` and rendered after the structured section
+    under `## Original reply (prose, before format repair)`. On failure the prose is
+    kept as before (`structured: false`) and `validation_error` gets ` (format repair
+    failed: <why>)` appended.
+  - **Drift notes** (warnings, never refusals) compare the repaired object against the
+    original prose: differing requested checks, differing numbered answers, a finding id
+    named in prose but missing from the object, a differing verdict, the longest prose
+    sentences not carried into `reply_markdown`, and a repair turn that resumed a
+    different thread (recorded in `format_retry.thread`, with the entry's own `thread`
+    left unchanged).
+  - Ledger `format_retry`, right after `validation_error`: `null` when repair was not
+    attempted or is off, otherwise `{attempted, reason, succeeded, thread, wall_seconds,
+    usage, drift, original}`. Console: `format repair: <succeeded|failed> in <s> s;
+    drift: <n> note(s)`, one `  drift:` line per note; `-DryRun` prints `format retry :
+    1 attempt if the reply is not valid JSON` or `format retry : 0 (off)`. Panel members
+    inherit `-FormatRetry` from the main run.
+  - `tests/harness-format.ps1` (23 cases) added: the contract-first prompt, the repair
+    turn's command and prompt, success and failure ingestion, drift detection, and the
+    cases that must NOT trigger a repair (a wrong-but-valid verdict, `-Raw`, `chore`, an
+    unverified thread, non-substantive prose). Runs under Windows PowerShell 5.1 and
+    pwsh 7.6.
+- The 0.2.0 contract "a structural error means no verdict and no automatic retry — the
+  raw text is kept as the reply body" now has one exception: with `-FormatRetry 1` (the
+  default) a substantive prose reply on a verified thread gets exactly one recorded
+  repair turn, as above; the original prose is always kept alongside the outcome, win or
+  lose.
 
 ### Changed
 

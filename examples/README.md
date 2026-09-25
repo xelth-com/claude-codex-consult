@@ -56,6 +56,13 @@ verdict/blockers/unproven/first-run-checklist blocks), and tracked by id in
 own project you move them along with
 `codex-findings.ps1 -Task <task> -Id F02-1 -Status implemented|verified|rejected|wontfix|superseded -Note … -Evidence …`.
 
+Each entry's `validation_error` is followed by `format_retry` (wave 14): `null` here,
+since none of these three FABRICATED consults triggered a format-repair turn. A
+non-`null` value (`{attempted, reason, succeeded, thread, wall_seconds, usage, drift,
+original}`) means a structured reply that first came back as prose was converted by one
+recorded repair turn — see the README's "Contract-first prompt and format repair" for
+when it fires and how to read its drift notes.
+
 `findings.json` also carries a top-level `ratings` array (wave 12): one entry per
 consultation the judge marked with `codex-findings.ps1 -Task <task> -Rate <n> -Useful
 yes|partly|no [-Note "<why>"]` — `{n, consult_id, lineage, provider, model, purpose,

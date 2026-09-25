@@ -181,6 +181,14 @@ e.g. MiMo), the reviewer may answer in plain prose instead of the requested JSON
 explicitly asking it to "return the JSON object", if you need this consultation's
 findings tracked.
 
+When `format_retry.succeeded` is `true` in the ledger entry, the ingested findings and
+verdict came from a repair turn that converted a prose reply after the fact — **read the
+drift notes (`format_retry.drift[]`) before trusting them**. If a drift note disagrees
+with what the structured reply says (a different verdict, a numbered answer that does
+not match, a finding named in the prose but missing from the object), the original prose
+— kept byte for byte as `handoffs/NN-codex-<slug>.original.md` — is the evidence of
+record, not the repaired object.
+
 If the reply ends with a `## Requested checks` section (`RC1..RCn`, at most 5 — a
 convention, not a schema field), run each one yourself or hand it to a worker,
 then fill the `## Requested checks run` table in the next brief

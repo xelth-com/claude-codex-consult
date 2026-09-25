@@ -1,0 +1,166 @@
+{
+  "schema_version": "1",
+  "verdict": "HOLD",
+  "verdict_reason": "Wave 14 implements the contract and repair path, but repair crashes can orphan evidence and drift checks can miss semantic changes to findings.",
+  "reply_markdown": "**Q1.** One blind path is a severity or remedy change. The prose can name F18-1 as major with remedy “add a retry credential”; the repaired JSON can retain F18-1, the same Q/RC counts, the same verdict, and the same long sentences while changing its severity to note or replacing the remedy. The six checks do not compare finding tuples, locations, claims, evidence, verification, remedies, prior statuses, `verdict_reason`, `unproven`, or checklist content. A seventh cheap check is worthwhile: hash normalized `(id,severity,path:line,claim,remedy)` and prior `(id,status)` tuples and compare them, while keeping drift warnings non-fatal and preserving the original prose as the evidence of record.\n\n**Q2.** During repair, `.consult.pending.json` remains `state=running` with `child_pid` set to the repair process. `Test-PendingActive` checks that pid/start time and scans descendants. If the bridge dies while the repair child is alive, the next run refuses until it exits. If the child is gone, the next run treats the reservation as inactive, consumes it, and continues numbering. The first prose message survives byte-for-byte in the pre-repair `.original.md`, but if the bridge dies before the final ledger commit, there is no `format_retry` entry or handoff association; the repaired artifact and outcome are also lost unless already copied.\n\n**Q3.** Wrong acceptance: a 130-word refusal beginning “I cannot assist with that request” passes solely because `words >= 120`. Wrong rejection: a complete 35-word answer beginning `Q1.` and `Q2.` is rejected because it is below both thresholds.\n\n**Q4.** **HOLD.** No blocker is proven, but the two evidence risks above should be fixed before relying on repaired findings. Unproven: process-kill timing during repair, semantic-drift recall, and whether the 120/40 thresholds match real refusals. First-run success is `structured=true`, empty `validation_error`, and `format_retry=null` on the first turn; `format_retry.attempted=true` means the contract still failed on this route.",
+  "findings": [
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 1517
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 1931
+        }
+      ],
+      "claim": "Format-repair drift checks can miss semantic changes to findings, prior statuses, remedies, locations, evidence, and verdict rationale, allowing a changed repaired object to be ingested without a drift note.",
+      "trigger": "The prose reports F18-1 as major with a specific remedy; the repaired JSON keeps F18-1 and all counted IDs but changes its severity, location, or remedy.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:1517-1558",
+          "observation": "Checks cover RC IDs, Q counts, named finding IDs, verdict token, and five longest sentences only."
+        }
+      ],
+      "verification": "Add a repair fixture that preserves IDs and counts but changes one finding's severity, location, and remedy and require a drift note.",
+      "remedy": "Compare normalized finding and prior-finding tuples and flag any changed severity, path/line, claim, remedy, evidence, or status.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 1845
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 1878
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 1937
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 1253
+        }
+      ],
+      "claim": "If the bridge is killed during format repair after the original prose copy but before ledger commit, the prose survives as an orphan `.original.md` while `format_retry`, the handoff linkage, and the repaired outcome are lost.",
+      "trigger": "Terminate the bridge after line 1848 and before the final sessions.json write while the repair child is running or has just completed.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:1845-1848",
+          "observation": "The original is copied before the repair process starts."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:1937-1947",
+          "observation": "`format_retry` is created only after the repair finishes."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:1253-1260",
+          "observation": "A later run recovers the reservation but cannot reconstruct the missing ledger entry."
+        }
+      ],
+      "verification": "Kill the bridge during the repair fixture and inspect whether the next run records the original prose and repair outcome in sessions.json.",
+      "remedy": "Persist a repair journal or commit the original/repaired artifacts and format_retry atomically before releasing recovery state.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 1482
+        }
+      ],
+      "claim": "The substantive-prose heuristic accepts long refusals and rejects short complete answers.",
+      "trigger": "A 130-word safety refusal or a 35-word complete Q1/Q2 answer reaches the parser.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:1480-1487",
+          "observation": "The function uses only word count and a numbered-line regex."
+        }
+      ],
+      "verification": "Run both sample texts through Test-SubstantiveProse and compare the expected repair decision.",
+      "remedy": "Detect refusal/safety language and require answer structure rather than word count alone.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F02-4",
+      "status": "fixed",
+      "note": "Endpoint-host and exact-model effort mapping remains implemented."
+    },
+    {
+      "id": "F06-1",
+      "status": "fixed",
+      "note": "Unsupported provider-set declarations still prevent false builtin provenance."
+    },
+    {
+      "id": "F06-2",
+      "status": "fixed",
+      "note": "Provider and model remain compared separately with endpoint fingerprint."
+    },
+    {
+      "id": "F06-3",
+      "status": "fixed",
+      "note": "Peak status is still checked immediately before launch."
+    },
+    {
+      "id": "F06-4",
+      "status": "fixed",
+      "note": "Long exception ranges remain interval-based."
+    },
+    {
+      "id": "F12-1",
+      "status": "still-open",
+      "note": "Anonymous access has `auth: none`, but rotated-credential recovery still requires broad `-SkipPreflight`."
+    },
+    {
+      "id": "F15-1",
+      "status": "fixed",
+      "note": "Reset wall times now use daylight-saving-aware zone conversion."
+    },
+    {
+      "id": "F15-2",
+      "status": "fixed",
+      "note": "Legacy reset parsing uses the recorded failure reference offset."
+    },
+    {
+      "id": "F15-3",
+      "status": "fixed",
+      "note": "The panel explicitly stops later members on persistent survivors and reports the reason."
+    },
+    {
+      "id": "F15-4",
+      "status": "fixed",
+      "note": "Future-stamped failures are clamped to age zero rather than skipped."
+    },
+    {
+      "id": "F18-1",
+      "status": "fixed",
+      "note": "The JSON-only contract is now the first structured prompt paragraph."
+    }
+  ],
+  "unproven": [
+    "Whether semantic drift detection catches paraphrased or reordered findings.",
+    "Whether repair-process crashes leave recoverable artifacts in all process-tree cases.",
+    "Whether the substantive thresholds behave correctly on real refusal and short-answer traffic.",
+    "Whether the contract-first prompt reliably produces first-turn JSON across routes."
+  ],
+  "first_run_checklist": [
+    "The first turn records `structured=true`, empty `validation_error`, and `format_retry=null`.",
+    "The prompt opens with the FINAL OUTPUT CONTRACT paragraph.",
+    "If `format_retry.attempted=true`, inspect `reason`, `succeeded`, `thread`, `usage`, `drift`, and `original` before trusting the repaired findings.",
+    "The original prose and any repaired object remain byte-for-byte available as separate artifacts."
+  ]
+}

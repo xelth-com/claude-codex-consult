@@ -17,6 +17,11 @@
 #                                exit 1
 #   FAKE_CODEX_HANG_ON=<text>    only when the raw command line contains <text>: sleep 60 s
 #                                (the bridge's -TimeoutSec kills it)
+#   FAKE_CODEX_RESUME_REPLY=<f>  on `resume <thread>` (the bridge's format-repair turn): copy
+#                                <f> instead of FAKE_CODEX_REPLY and report the RESUMED thread
+#                                id in thread.started (as the real CLI does) - a new one with
+#                                FAKE_CODEX_RESUME_NEWTHREAD=1
+#   FAKE_CODEX_RESUME_LOG=<path> on `resume`: "ARGS: ...", "PROMPT:" and the prompt, there
 $ErrorActionPreference = 'Stop'
 $raw = [string]$env:FAKE_CODEX_ARGS
 if ($raw -match '--version') { Write-Output 'codex-cli 0.155.1-fake'; exit 0 }
@@ -38,11 +43,16 @@ if ($raw -match '^\s*login\s+status(\s|$)') {
 $o = $null
 if ($raw -match '(?:^| )-o (\S+)') { $o = $Matches[1] }
 $prompt = [Console]::In.ReadToEnd()
-if ($env:FAKE_CODEX_LOG) {
+$resumeOf = ''
+if ($env:FAKE_CODEX_RESUME_REPLY -and $raw -match ' resume ([0-9a-fA-F-]{36})') { $resumeOf = $Matches[1] }
+if ($resumeOf -and $env:FAKE_CODEX_RESUME_LOG) {
+    [IO.File]::WriteAllText($env:FAKE_CODEX_RESUME_LOG, "ARGS: $raw`nPROMPT:`n$prompt")
+} elseif ($env:FAKE_CODEX_LOG) {
     [IO.File]::WriteAllText($env:FAKE_CODEX_LOG, "ARGS: $raw`nPROMPT:`n$prompt")
 }
 if ($env:FAKE_CODEX_PIDFILE) { [IO.File]::WriteAllText($env:FAKE_CODEX_PIDFILE, "$PID") }
 $tid = [guid]::NewGuid().ToString()
+if ($resumeOf -and -not $env:FAKE_CODEX_RESUME_NEWTHREAD) { $tid = $resumeOf }
 if ($env:FAKE_CODEX_PRELINE) { [Console]::Out.Write($env:FAKE_CODEX_PRELINE + "`n") }
 if (-not $env:FAKE_CODEX_NOTHREAD) { [Console]::Out.Write("{""type"":""thread.started"",""thread_id"":""$tid""}`n") }
 [Console]::Out.Write("{""type"":""turn.started""}`n")
@@ -75,6 +85,7 @@ if ($env:FAKE_CODEX_FAIL_ON -and $raw.Contains($env:FAKE_CODEX_FAIL_ON)) {
     [Console]::Error.WriteLine('stream error: provider refused the request')
     exit 1
 }
-if ($o -and $env:FAKE_CODEX_REPLY) { [IO.File]::Copy($env:FAKE_CODEX_REPLY, $o, $true) }
+if ($o -and $resumeOf) { [IO.File]::Copy($env:FAKE_CODEX_RESUME_REPLY, $o, $true) }
+elseif ($o -and $env:FAKE_CODEX_REPLY) { [IO.File]::Copy($env:FAKE_CODEX_REPLY, $o, $true) }
 [Console]::Out.Write("{""type"":""turn.completed"",""usage"":{""input_tokens"":1000,""cached_input_tokens"":200,""cache_write_input_tokens"":0,""output_tokens"":300,""reasoning_output_tokens"":40}}`n")
 exit 0

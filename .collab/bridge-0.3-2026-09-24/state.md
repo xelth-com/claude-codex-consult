@@ -297,3 +297,56 @@ model, credit estimates, Codex-internal delegation, cross-host anything.
   SKILL step 3 "rate every consultation", TECH_DEBT T6 (legacy reset-time residual), examples `ratings`.
 - Harness counts after waves 11-12 on 5.1: harness-0.3 227, harness-roster 113, pending 26, fixes 45,
   lock2 11, 3b 12; pwsh 7.6: 227 / 113.
+
+## Round 5 - the format question, and each provider's own protocol (2026-09-24 21:30 - 2026-09-25 01:30)
+
+- Operator (21:20): retry the model with a request to reformat when it answers in prose; then (22:40) "use each
+  provider's own protocol" and add the Gemini subscription. Research: Codex CLI can only send `text.format
+  json_schema` (z.ai ignores it, MiMo rejects it), `wire_api = "chat"` no longer starts (Feb 2026), and both
+  plans forbid plain HTTP clients with the plan key - so no direct chat-API adapter (the operator agreed).
+- `handoffs/16-claude-format-compliance.md` -> panel `9e96bc8f` (`-Purpose checkpoint`, prompt-only):
+  `ZAI :: glm-5.3` answered as BARE JSON for the first time (n=10, ADVISE, 0 findings, 9 prior ids fixed /
+  F12-1 still-open) and `mimo :: mimo-v2.6-pro` (n=11, ADVISE, F18-1..3 minor). Same diagnosis from both:
+  the output contract sits mid-prompt after the brief and the open findings, and "write it exactly as you
+  would a normal reply" licenses prose; put a hard contract FIRST; one gated repair turn on the same thread
+  at low effort, convert-not-re-answer, cheap drift checks (RC ids, numbered answers, prior ids, verdict
+  token, longest sentences), never on a failed run / short reply / unverified thread; keep the prose verbatim.
+  Both rated `yes`. F18-1 adopted (wave 14); F18-2 = the wave-11 narrowing (wontfix, documented); F18-3 =
+  T5 (wontfix here).
+- Own protocol, verified live: Claude Code `claude -p --json-schema` returned `structured_output` on the z.ai
+  GLM route AND on the MiMo route (the schema travels as a forced tool call, which both endpoints honour) -
+  the prose problem is specific to the Codex wrapper's response-format path, not to the models. Gemini: the
+  installed `gemini` CLI 0.32.1 is dead for individuals (IneligibleTierError, OAuth discontinued 2026-06-18);
+  Google's successor is the Antigravity CLI `agy` (winget `Google.AntigravityCLI` 1.2.10, installed 2026-09-25
+  on the operator's request; logged in through the Antigravity IDE; headless `-p --output-format json
+  --json-schema` verified on gemini-3.8-flash-high; models incl. gemini-3.1-pro). Plan for 0.4.0 (R10): a
+  roster field `engine` = codex | claude | agy, one headless adapter for the Claude-Code-style CLIs, common
+  ledger/findings/panel.
+- Wave 14 (Opus worker): `FINAL OUTPUT CONTRACT` as the prompt's first paragraph; `-FormatRetry 0|1`
+  (default 1) - one repair turn `resume <thread>` at the route's lowest effort, no `--output-schema`, the
+  original prose kept as `.original.md` and rendered after the structured section, ledger `format_retry
+  {attempted, reason, succeeded, thread, wall_seconds, usage, drift[], original}`; `tests/harness-format.ps1`
+  23. Counts: 5.1 227/113/23/26/45/11/12; pwsh 227/113/23. Round 6 (handoff 19) = the live test of the
+  contract on both cheap routes.
+
+## Round 6 - wave 14 under review, and the contract works (2026-09-25 01:40-01:55)
+
+- `handoffs/19-claude-wave14-review.md` -> panel `18b99832` (`-Panel -Purpose diff-review`): BOTH cheap routes
+  returned the bare JSON object on the FIRST turn - `structured true`, `format_retry null` - n=12
+  `ZAI :: glm-5.3` (190 s, ACCEPT, F20-1..3) and n=13 `mimo :: mimo-v2.6-pro` (306 s, HOLD, F21-1..3); the
+  openai entry skipped by the roster as before. The z.ai route, prose twice under the old prompt, is now
+  structured three times in a row (n=10, 12 and the contract-first n=12 is the first under wave 14).
+- The same three gaps from both, independently: (1) the drift checks compare only the five longest prose
+  sentences, so a softened severity or a replaced remedy in a short sentence ingests with zero notes
+  (F20-1 minor / F21-1 major) - adopt GLM's cheap widening: ALL prose sentences >= 60 chars (capped), not a
+  severity parser (prose severities are unstructured); (2) a bridge killed during the repair turn leaves the
+  usable first-turn prose as an orphaned `.original.md` that no ledger entry or recovery message names
+  (F20-2 minor / F21-2 major) - adopt GLM's remedy: the pending record carries the original's path and
+  "repair in progress", and the next run's recovery message says a usable prose reply exists there; MiMo's
+  journal/atomic-commit remedy is heavier than the gap; (3) `Test-SubstantiveProse` accepts a 130-word
+  refusal and rejects a terse complete `Q1./Q2.` answer (F20-3 note / F21-3 minor) - adopt: refusal gate on
+  leading "I cannot / I'm sorry / I am unable" content, accept `Q1:`, `1)`, `**1.**` styles, lower floor with
+  numbered answers. Both rated `yes`. -> wave 15.
+- Verdict on the disagreement (ACCEPT vs HOLD on the same facts): the judge sides with HOLD for the orphaned
+  original - a usable answer the coordinator is never told about violates "nothing already written is
+  silently lost" - and treats the other two as minor. Checkpoint commit before wave 15.

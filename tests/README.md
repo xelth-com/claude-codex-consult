@@ -16,6 +16,7 @@ harness ends with `<harness>...: N failure(s).` and exits 1 when anything failed
 |---|---|
 | `harness-0.3.ps1` | 0.3.0: constrained TOML scanner, reviewer identity and provider fingerprint, user-defined `[model_providers.openai]`, absent `wire_api`, lineage-scoped parent threads, rollout fallback verified by the consultation id, event drift nets, effort vocabularies, peak windows, requested-checks prompt, ledger field order, timeout kill without false survivors |
 | `harness-roster.ps1` | reviewer roster: file validation (fail-closed), the selection rules (`-Provider` defaults, `-Thread` fixes the reviewer, the roster walk, `-Model` filter, `auth: none`), usage limits with a known reset time (`Get-RetryAfter`, `provider_failure.retry_after`, the frozen consult clock), the F12-2 classifier order, UTF-8 capture of codex's stderr and `login status`, `-SchemaTransport`, the roster view of `codex-providers.ps1`, the review panel (`-Panel`, `-PanelAll`, `"panel": "weighty"`), the `chore` purpose, the per-reviewer scoreboard of `codex-findings.ps1 -Stats`, the judge's marks (`codex-findings.ps1 -Rate`), `codex-scoreboard.ps1`, reset times across daylight-saving changes, timestamps keeping their offset on pwsh, future-stamped failures, a panel stopped by a member's surviving processes |
+| `harness-format.ps1` | the first-turn output contract (the prompt opens with the FINAL OUTPUT CONTRACT paragraph) and the format repair (`-FormatRetry`): prose then JSON on `resume`, prose twice, drift notes, a different thread, the cases that must not repair, panel members (the fake answers the repair turn from `FAKE_CODEX_RESUME_REPLY`) |
 | `harness-pending.ps1` | 0.2.0 recovery record (`.consult.pending.json`): reservations, survivors, injected registration failure, crash at lock acquisition |
 | `harness-fixes.ps1` | 0.2.0 review findings F04-1..F04-11: atomic stores, lock contention, numbering, prior blockers, validation, fingerprints, timeout kill |
 | `harness-lock2.ps1` | the held-handle task lock, including a consultation in flight |
@@ -26,8 +27,8 @@ harness ends with `<harness>...: N failure(s).` and exits 1 when anything failed
 ## Requirements
 
 * Windows (the fake codex is a `.cmd` shim; several cases use Win32 process APIs).
-* Windows PowerShell 5.1 runs everything. `harness-0.3.ps1` and `harness-roster.ps1`
-  also run under PowerShell 7 (`pwsh`); the 0.2.0 harnesses start their child processes with
+* Windows PowerShell 5.1 runs everything. `harness-0.3.ps1`, `harness-roster.ps1` and
+  `harness-format.ps1` also run under PowerShell 7 (`pwsh`); the 0.2.0 harnesses start their child processes with
   `powershell.exe` whichever host runs them.
 * `git` on PATH.
 

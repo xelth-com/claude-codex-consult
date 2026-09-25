@@ -319,6 +319,38 @@
                                                      "note":  "caps-v1 remains endpoint-host and exact-model based, including aliases and MiMo hosts.",
                                                      "base_commit":  "68353d756cbb581700a0be3d4338cd32a43a1950",
                                                      "tree_sha256":  "c4981ee3dd157de0a638f6eade64bf43ea892caaeae0472e7b729a4a1803cf50"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-24T21:32:00+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "caps-v1 keys effort by endpoint host with a per-host model allowlist; undeclared model/host refuses without -NativeEffort (verified in the wave-10 review of this code).",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-24T21:37:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Effort mapping remains endpoint-host and exact-model based.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "caps-v1 keys effort by endpoint host with per-host model allowlists; verified while reviewing this tree in the wave-13 checkpoint.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint-host and exact-model effort mapping remains implemented.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
                                                  }
                                              ]
                      },
@@ -781,6 +813,38 @@
                                                      "note":  "Unsupported OpenAI provider-set declarations still force unresolved identity and refuse reuse.",
                                                      "base_commit":  "68353d756cbb581700a0be3d4338cd32a43a1950",
                                                      "tree_sha256":  "c4981ee3dd157de0a638f6eade64bf43ea892caaeae0472e7b729a4a1803cf50"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-24T21:32:00+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "A usable user [model_providers.openai] table is now read for identity; an unusable ancestor leaves identity unresolved.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-24T21:37:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Unsupported provider-set declarations still prevent resolved builtin provenance.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "A usable [model_providers.openai] table is read for identity; an unusable ancestor leaves identity unresolved.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Unsupported provider-set declarations still prevent false builtin provenance.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
                                                  }
                                              ]
                      },
@@ -875,6 +939,38 @@
                                                      "note":  "Provider and model remain separately compared with endpoint fingerprint.",
                                                      "base_commit":  "68353d756cbb581700a0be3d4338cd32a43a1950",
                                                      "tree_sha256":  "c4981ee3dd157de0a638f6eade64bf43ea892caaeae0472e7b729a4a1803cf50"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-24T21:32:00+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Reviewer identity compared field-by-field (provider, model, ordinal); the \u0027 :: \u0027 string is display only.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-24T21:37:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Provider and model remain compared separately with endpoint fingerprint.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Reviewer identity compared field-by-field; the display string is never compared.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Provider and model remain compared separately with endpoint fingerprint.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
                                                  }
                                              ]
                      },
@@ -969,6 +1065,38 @@
                                                      "note":  "Peak status remains re-evaluated immediately before launch.",
                                                      "base_commit":  "68353d756cbb581700a0be3d4338cd32a43a1950",
                                                      "tree_sha256":  "c4981ee3dd157de0a638f6eade64bf43ea892caaeae0472e7b729a4a1803cf50"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-24T21:32:00+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Peak re-evaluated at launch, before Start-Process; the reservation is withdrawn when OffPeakOnly crosses into peak.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-24T21:37:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Peak status remains checked immediately before launch.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Peak re-evaluated at launch before Start-Process; the reservation is withdrawn.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Peak status is still checked immediately before launch.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
                                                  }
                                              ]
                      },
@@ -1055,6 +1183,38 @@
                                                      "note":  "Long exception ranges remain interval-based rather than loop-truncated.",
                                                      "base_commit":  "68353d756cbb581700a0be3d4338cd32a43a1950",
                                                      "tree_sha256":  "c4981ee3dd157de0a638f6eade64bf43ea892caaeae0472e7b729a4a1803cf50"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-24T21:32:00+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Exceptions stored as date intervals, no enumeration guard, no silent truncation.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-24T21:37:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Long exception ranges remain interval-based.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Exceptions stored as date intervals; no enumeration guard.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Long exception ranges remain interval-based.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
                                                  }
                                              ]
                      },
@@ -1444,7 +1604,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F18-3"
                                            ],
                          "source":  {
                                         "consult":  7,
@@ -1481,6 +1641,38 @@
                                                      "note":  "Anonymous endpoints now use roster `auth: none`, but retrying with a rotated credential still requires broad `-SkipPreflight`.",
                                                      "base_commit":  "68353d756cbb581700a0be3d4338cd32a43a1950",
                                                      "tree_sha256":  "c4981ee3dd157de0a638f6eade64bf43ea892caaeae0472e7b729a4a1803cf50"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-24T21:32:00+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Anonymous limb fixed by roster \"auth\": \"none\"; the rotated-credential limb still has only -SkipPreflight (now named in the refusal) — a grep of the CLI/providers surface found no narrower declaration.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-24T21:37:06+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Anonymous access is now declared with `auth: none`; rotated-credential retry remains broad.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Anonymous limb fixed via roster auth \u0027none\u0027; the rotated-credential limb still has only -SkipPreflight, now named in the refusal - no narrower declaration was added in waves 13-14.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Anonymous access has `auth: none`, but rotated-credential recovery still requires broad `-SkipPreflight`.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
                                                  }
                                              ]
                      },
@@ -1621,7 +1813,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-24T21:32:00+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Wall times resolved through TimeZoneInfo transition rules (ConvertTo-WallOffset); README/tests claim DST fixtures; not rerun by me.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-24T21:37:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Wall-clock reset parsing now applies the zone\u0027s daylight-saving rules.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Wall times resolved through TimeZoneInfo transition rules; DST fixtures claimed by README/tests.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Reset wall times now use daylight-saving-aware zone conversion.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                                 }
                                              ]
                      },
                      {
@@ -1688,7 +1911,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-24T21:32:00+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Legacy re-parse pinned with -ReferenceOffset and README/tests claim pwsh timestamps keep their offset; mechanism not independently rerun.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-24T21:37:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Legacy reset parsing uses the recorded failure reference offset.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Legacy re-parse pinned to the reference offset; pwsh offset-preservation covered by the harness per README.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Legacy reset parsing uses the recorded failure reference offset.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                                 }
                                              ]
                      },
                      {
@@ -1729,7 +1983,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F18-2"
                                            ],
                          "source":  {
                                         "consult":  9,
@@ -1759,7 +2013,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-24T21:32:00+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Invariant formally narrowed and tested: surviving processes stop later members (state \u0027survivors\u0027 refuses), with a TEST hook for it.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-24T21:37:06+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "The implementation safely stops later panel members on persistent survivors, narrowing the original continue-on-failure claim.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Formally narrowed and fixture-tested: surviving processes stop later members (state \u0027survivors\u0027 refuses).",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The panel explicitly stops later members on persistent survivors and reports the reason.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                                 }
                                              ]
                      },
                      {
@@ -1814,6 +2099,567 @@
                                              "evidence":  "",
                                              "base_commit":  "68353d756cbb581700a0be3d4338cd32a43a1950",
                                              "tree_sha256":  "bebd67b85af862164a7f9f5d44e13ec7cad60c59942497fc780b6e394e40493a"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-09-24T21:32:00+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Future-stamped records have their age clamped to 0 instead of being skipped (F15-4 note in code).",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-24T21:37:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Future-stamped failures are clamped to age zero and no longer skipped.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Future-stamped records clamp their age to 0 instead of being skipped.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Future-stamped failures are clamped to age zero rather than skipped.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F18-1",
+                         "status":  "implemented",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1334
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1364
+                                           }
+                                       ],
+                         "claim":  "The outer JSON-only contract is buried after the brief, purpose and findings, while `reply_markdown` is explicitly described as Markdown, leaving prose a plausible first-turn output.",
+                         "trigger":  "A route receives the current long prompt and answers the numbered brief questions as a normal Markdown reply.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1334-1387",
+                                              "observation":  "The format block is assembled after the brief and findings; the schema is appended later on prompt-only routes."
+                                          }
+                                      ],
+                         "verification":  "Compare first-turn bare-JSON rates before and after prepending the hard output contract to the prompt.",
+                         "remedy":  "Put the exact JSON-only contract first and repeat it immediately before the schema.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/18-codex-format-compliance-mimo.md",
+                                        "thread":  "01a0d4e7-5341-7111-96f1-c477b2b11ba6",
+                                        "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                        "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-24T21:37:06+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T07:16:24+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 14: FINAL OUTPUT CONTRACT is the prompt\u0027s first paragraph; reply_markdown described as living inside the JSON string; -FormatRetry repair turn (tests/harness-format.ps1)",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-09-25T07:20:20+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The FINAL OUTPUT CONTRACT paragraph is now the first prompt part (codex-consult.ps1:1369, structured mode only) and the reply_markdown wording no longer says \u0027write it exactly as you would a normal reply\u0027; harness CONTR checks confirm both.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                                 },
+                                                 {
+                                                     "consult":  13,
+                                                     "when":  "2026-09-25T07:25:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The JSON-only contract is now the first structured prompt paragraph.",
+                                                     "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                                     "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F18-2",
+                         "status":  "wontfix",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  711
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  715
+                                           }
+                                       ],
+                         "claim":  "The claimed invariant that one panel member\u0027s failure does not stop later members is only conditionally true: a timeout with surviving processes blocks all later members through the shared pending reservation.",
+                         "trigger":  "Member 2 times out and `Stop-ProcessTree` leaves survivors, leaving `.consult.pending.json` active.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:711-716",
+                                              "observation":  "The panel explicitly refuses to start later members when a previous member left a pending reservation."
+                                          }
+                                      ],
+                         "verification":  "Run the timeout-survivor panel fixture and check whether member 3 is marked skipped/refused rather than run.",
+                         "remedy":  "Either recover the reservation before continuing or document the invariant as stopping the panel on persistent survivors.",
+                         "supersedes":  [
+                                            "F15-3"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/18-codex-format-compliance-mimo.md",
+                                        "thread":  "01a0d4e7-5341-7111-96f1-c477b2b11ba6",
+                                        "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                        "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-24T21:37:06+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T21:42:42+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "by design since wave 11 (F15-3): a member that leaves surviving processes holds the task\u0027s reservation; the contract is narrowed and documented (README, SKILL), not patched around",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "904f7eaa075fa4e10796484484fbeef30857cba0f121faa670545fce052d8864"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F18-3",
+                         "status":  "wontfix",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3091
+                                           },
+                                           {
+                                               "path":  "README.md",
+                                               "line":  665
+                                           }
+                                       ],
+                         "claim":  "F12-1 is only partially resolved: anonymous endpoints now have `auth: none`, but retrying with a rotated credential still requires the broad `-SkipPreflight` escape hatch.",
+                         "trigger":  "A provider fails authentication and the operator replaces its key before the 24-hour health window expires.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3087-3092",
+                                              "observation":  "The auth-health refusal still instructs the operator to pass `-SkipPreflight` once after rotating the credential."
+                                          }
+                                      ],
+                         "verification":  "Rotate the key after a recorded auth failure and search for a one-shot retry or credential identity update path.",
+                         "remedy":  "Add a narrow rotated-credential retry that records the credential change while retaining other preflight checks.",
+                         "supersedes":  [
+                                            "F12-1"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/18-codex-format-compliance-mimo.md",
+                                        "thread":  "01a0d4e7-5341-7111-96f1-c477b2b11ba6",
+                                        "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                        "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-24T21:37:06+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "0e0f47f40965ad7e9c7eaea02a0e57053aeb89b41583cdc864152437468d92d4"
+                                         },
+                                         {
+                                             "when":  "2026-09-24T21:42:44+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "restates F12-1\u0027s rotation limb, tracked as TECH_DEBT T5 (0.4.0); anonymous limb closed by roster auth none",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "904f7eaa075fa4e10796484484fbeef30857cba0f121faa670545fce052d8864"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F20-1",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1568
+                                           }
+                                       ],
+                         "claim":  "The format-repair drift checks cannot see severity changes or edits confined to prose sentences outside the five longest \u003e=60-character sentences, so a softened or reworded finding ingests with zero drift notes.",
+                         "trigger":  "The first-turn prose states a severity or remedy in short sentences and the repaired object downgrades the severity or replaces the remedy while RC ids, Q-count, F-ids and verdict match.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:1517-1576",
+                                              "observation":  "Check 5 selects only the five longest \u003e=60-char sentences; no check compares findings[] severities or short-sentence content to the prose."
+                                          }
+                                      ],
+                         "verification":  "Craft a prose/JSON pair with a downgraded severity in a \u003c60-char sentence and run Get-FormatRepairDrift; expect an empty note list.",
+                         "remedy":  "Widen check 5 to all (or the top ~12) prose sentences \u003e=60 chars; keep drift as warnings with the original prose as evidence of record.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  12,
+                                        "reply":  "handoffs/20-codex-wave14-zai.md",
+                                        "thread":  "01a0d6ff-0235-7161-bd56-32dcb6743097",
+                                        "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                        "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T07:20:20+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F20-2",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1846
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1881
+                                           }
+                                       ],
+                         "claim":  "If the bridge is killed during the repair turn, the already-usable first-turn prose survives only as an orphaned .original.md that no ledger entry or recovery message references, and the reservation is consumed silently.",
+                         "trigger":  "The bridge process dies after Start-Process of the repair codex turn and before the ledger write.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1826-1955",
+                                              "observation":  "The original is copied before the repair starts, but the ledger entry is written only at the end; the pending record names only the planned reply path."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3958-4040",
+                                              "observation":  "Recovery checks pid liveness and consumes the reservation without mentioning any preserved reply file."
+                                          }
+                                      ],
+                         "verification":  "Kill a bridge fixture mid-repair and run the next consultation; observe that nothing in its output or the ledger points at the orphaned .original.md.",
+                         "remedy":  "Record the original path (and \u0027repair in progress\u0027) in the pending record, so recovery can report \u0027a usable prose reply exists at \u003cpath\u003e; no ledger entry was written\u0027.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  12,
+                                        "reply":  "handoffs/20-codex-wave14-zai.md",
+                                        "thread":  "01a0d6ff-0235-7161-bd56-32dcb6743097",
+                                        "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                        "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T07:20:20+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F20-3",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1482
+                                           }
+                                       ],
+                         "claim":  "Test-SubstantiveProse accepts long non-answers (\u003e=120-word refusals or apologies) and rejects short complete answers (under 40 words, or numbered with \u0027Q1:\u0027/\u00271)\u0027 styles the regex misses), both deciding the repair turn wrongly.",
+                         "trigger":  "A 130-word safety refusal arrives as the reply, or a 12-word \u0027**Q1.** Handled. **Q2.** Agree.\u0027 answer arrives as the reply.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:1482-1488",
+                                              "observation":  "The test is word count plus one narrow line-start regex; no refusal detection, no colon/list-marker styles."
+                                          }
+                                      ],
+                         "verification":  "Run Test-SubstantiveProse on the two inputs from Q3; expect true for the refusal and false for the short answer.",
+                         "remedy":  "Cheap gate on leading refusal phrasing (\u0027I cannot\u0027, \u0027I\u0027m sorry\u0027 as the dominant content) and accept any numbered style (Q1:, 1), **1.**) with a lower word floor.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  12,
+                                        "reply":  "handoffs/20-codex-wave14-zai.md",
+                                        "thread":  "01a0d6ff-0235-7161-bd56-32dcb6743097",
+                                        "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                        "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T07:20:20+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "2b69286da97fd078db260e4451332b05898943a23b53c965c5893e1b529d949e"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F21-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1517
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1931
+                                           }
+                                       ],
+                         "claim":  "Format-repair drift checks can miss semantic changes to findings, prior statuses, remedies, locations, evidence, and verdict rationale, allowing a changed repaired object to be ingested without a drift note.",
+                         "trigger":  "The prose reports F18-1 as major with a specific remedy; the repaired JSON keeps F18-1 and all counted IDs but changes its severity, location, or remedy.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:1517-1558",
+                                              "observation":  "Checks cover RC IDs, Q counts, named finding IDs, verdict token, and five longest sentences only."
+                                          }
+                                      ],
+                         "verification":  "Add a repair fixture that preserves IDs and counts but changes one finding\u0027s severity, location, and remedy and require a drift note.",
+                         "remedy":  "Compare normalized finding and prior-finding tuples and flag any changed severity, path/line, claim, remedy, evidence, or status.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  13,
+                                        "reply":  "handoffs/21-codex-wave14-mimo.md",
+                                        "thread":  "01a0d701-f396-7491-b01d-5bdeb383ef3a",
+                                        "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                        "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T07:25:30+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F21-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1845
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1878
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1937
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1253
+                                           }
+                                       ],
+                         "claim":  "If the bridge is killed during format repair after the original prose copy but before ledger commit, the prose survives as an orphan `.original.md` while `format_retry`, the handoff linkage, and the repaired outcome are lost.",
+                         "trigger":  "Terminate the bridge after line 1848 and before the final sessions.json write while the repair child is running or has just completed.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1845-1848",
+                                              "observation":  "The original is copied before the repair process starts."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1937-1947",
+                                              "observation":  "`format_retry` is created only after the repair finishes."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1253-1260",
+                                              "observation":  "A later run recovers the reservation but cannot reconstruct the missing ledger entry."
+                                          }
+                                      ],
+                         "verification":  "Kill the bridge during the repair fixture and inspect whether the next run records the original prose and repair outcome in sessions.json.",
+                         "remedy":  "Persist a repair journal or commit the original/repaired artifacts and format_retry atomically before releasing recovery state.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  13,
+                                        "reply":  "handoffs/21-codex-wave14-mimo.md",
+                                        "thread":  "01a0d701-f396-7491-b01d-5bdeb383ef3a",
+                                        "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                        "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T07:25:30+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F21-3",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  1482
+                                           }
+                                       ],
+                         "claim":  "The substantive-prose heuristic accepts long refusals and rejects short complete answers.",
+                         "trigger":  "A 130-word safety refusal or a 35-word complete Q1/Q2 answer reaches the parser.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:1480-1487",
+                                              "observation":  "The function uses only word count and a numbered-line regex."
+                                          }
+                                      ],
+                         "verification":  "Run both sample texts through Test-SubstantiveProse and compare the expected repair decision.",
+                         "remedy":  "Detect refusal/safety language and require answer structure rather than word count alone.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  13,
+                                        "reply":  "handoffs/21-codex-wave14-mimo.md",
+                                        "thread":  "01a0d701-f396-7491-b01d-5bdeb383ef3a",
+                                        "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                        "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T07:25:30+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a743d81627efefa7201eef2af68734c95db6d5cc",
+                                             "tree_sha256":  "17933633535b590f0e0e17e3e6506c22521ddc864173253c2db1b86e245ff1e2"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -1920,6 +2766,50 @@
                         "useful":  "yes",
                         "note":  "structured HOLD with the DST, cross-zone, survivors and future-skew defects; all four adopted for wave 11",
                         "when":  "2026-09-24T19:53:42+02:00"
+                    },
+                    {
+                        "n":  10,
+                        "consult_id":  "55cc73c4-8077-45b7-a774-2f2cf406db0f",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "purpose":  "checkpoint",
+                        "useful":  "yes",
+                        "note":  "first STRUCTURED reply on the z.ai route; precise diagnosis (contract buried mid-prompt, \u0027normal reply\u0027 sentence), retry gating and drift checks adopted",
+                        "when":  "2026-09-24T21:40:28+02:00"
+                    },
+                    {
+                        "n":  11,
+                        "consult_id":  "74d18ee5-baf7-438f-a99d-5ccf32fd9541",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "purpose":  "checkpoint",
+                        "useful":  "yes",
+                        "note":  "output-contract-first wording adopted; three minor findings restate known residuals (F18-1 adopted, F18-2/F18-3 already narrowed/deferred)",
+                        "when":  "2026-09-24T21:40:30+02:00"
+                    },
+                    {
+                        "n":  12,
+                        "consult_id":  "182f195c-c913-4405-ac1e-e74f85c1d39d",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "purpose":  "diff-review",
+                        "useful":  "yes",
+                        "note":  "first-turn JSON under the contract-first prompt on the z.ai route; three real blind spots in the repair path (drift check breadth, orphaned original on kill, prose heuristic), cheap remedies adopted",
+                        "when":  "2026-09-25T07:26:35+02:00"
+                    },
+                    {
+                        "n":  13,
+                        "consult_id":  "253c5515-3572-4248-b412-aae3ca98a21d",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "purpose":  "diff-review",
+                        "useful":  "yes",
+                        "note":  "same three defects independently, with the kill-during-repair sequence traced through Test-PendingActive; HOLD adopted as wave 15",
+                        "when":  "2026-09-25T07:26:36+02:00"
                     }
                 ]
 }

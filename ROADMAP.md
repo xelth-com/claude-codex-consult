@@ -137,6 +137,26 @@ optional participant whose "done" is never trusted and who never closes a findin
   kept distinct from fix status; verification-time records; nullable avoided-rework
   estimates; idempotent atomic relations (`-Link` must not create duplicate or
   asymmetric edges on a retry); and failed attempts recorded, not only successful ones.
+- **R10 — Engines: each provider through its own official protocol (planned for 0.4.0).**
+  Today every reviewer is reached through `codex exec`, whose only structured-output path is
+  the Responses API `json_schema` response format — ignored by some third-party endpoints and
+  rejected by others, which is why 0.3.0 needed the contract-first prompt and the one
+  format-repair turn. The same models answer with native structured output when consulted
+  through the CLI their provider officially supports: Claude Code headless
+  (`claude -p --json-schema <schema> --output-format json`, an Anthropic-compatible endpoint
+  in the child process only; `--resume`/`--fork-session` for lineage) and Google's
+  Antigravity CLI (`agy -p --json-schema ... --output-format json`, `--conversation <id>`),
+  which share one flag surface — verified live on 2026-09-25 with a GLM route, a MiMo route
+  and a Gemini model, each returning `structured_output` on the first turn. R10 adds a roster
+  field `engine` = `codex` (default) | `claude` | `agy`, one headless adapter for the
+  Claude-Code-style CLIs (argv, JSON envelope, session id as the thread, usage), the same
+  ledger, findings, panel, scoreboard and preflight (credential = the CLI's own login or the
+  endpoint's env key; a CLI that reports `authentication required` is `unavailable`), and
+  caps-v1 entries per engine (effort vocabulary, schema transport `native`). Non-goals: any
+  direct HTTP client with a subscription key (the plans forbid it), a gateway/proxy between
+  Codex and a provider, and mixing engines inside one lineage (a thread belongs to one
+  engine as it belongs to one provider). Measured by first-turn structured rate per route
+  and by the scoreboard's hit rate per (engine, provider, purpose).
 - **A fourth seat (e.g. MiMo-V2.6)** only after a capped project-local evaluation (seeded
   historical defects plus clean controls at a fixed budget) on an officially supported route;
   leaderboard rank is not that evidence. Consider replacing a role before adding a reviewer.

@@ -16,11 +16,26 @@
     <CollabDir>/<task>/sessions.json. Failed runs are recorded as failures too.
 
     Structured mode (the default) asks Codex for one JSON object matching
-    schemas/consult-reply.schema.json (verdict, reply_markdown, findings, ...),
+    schemas/consult-reply.schema.json (verdict, reply_markdown, findings, ...) - the
+    prompt OPENS with a "FINAL OUTPUT CONTRACT" paragraph, before the ask and the brief -
     validates it locally, renders it into the handoff file, keeps the raw object as
     handoffs/NN-codex-<slug>.reply.json and tracks the findings by id in
     <CollabDir>/<task>/findings.json (statuses are moved by codex-findings.ps1).
     -Raw is the 0.1 plain-text consultation without any of that.
+    Format repair (-FormatRetry 1, the default; 0 = off; never with -Raw or chore): a
+    usable reply that is not a valid object, is substantive prose (>= 120 words, or
+    >= 40 with a numbered answer) and came on a verified thread (codex exit 0, no
+    timeout, no provider failure) gets ONE repair turn - `codex exec ... resume <thread>`
+    with --sandbox read-only, the lowest effort of the route, the same -CodexConfig
+    items, NO --output-schema and a prompt that asks to convert the previous message
+    unchanged into the object (the schema and the consultation id; never the brief),
+    within min(-TimeoutSec, 300) s under the same lock and recovery record. A valid
+    result is ingested as the reply (.reply.json = the repaired object; the prose is
+    kept as handoffs/NN-codex-<slug>.original.md and after the structured section);
+    drift notes compare the two (RC ids, numbered answers, finding ids, verdict, the
+    longest sentences). Ledger format_retry {attempted, reason, succeeded, thread,
+    wall_seconds, usage, drift[], original} after validation_error (null otherwise);
+    console "format repair: <succeeded|failed> in <s> s; drift: <n> note(s)".
 
     Reviewer identity and lineage (0.3.0): the provider and the model are what Codex
     will use - -Provider / -Model, else the top-level model_provider (Codex's
@@ -228,6 +243,12 @@ param(
     # validated locally). Empty (the default): what capability table caps-v1 declares for
     # the endpoint. Not with -Raw. Ledger schema_transport_source '-SchemaTransport'.
     [string]$SchemaTransport = '',
+
+    # Format repair (structured mode): 1 (the default) = when the reply is substantive
+    # prose instead of the JSON object, ONE extra turn resumes the same thread and asks
+    # for the same content as JSON (no --output-schema, lowest effort, no brief); 0 = off.
+    # Ignored with -Raw and -Purpose chore. Ledger format_retry.
+    [int]$FormatRetry = 1,
 
     # Review panel: the same brief goes to EVERY available reviewer of the roster, one after
     # another, each as a consultation of its own (own preflight, lock, pending record,
@@ -481,6 +502,7 @@ if ($PanelSpec) {
     $SkipPreflight = [bool]$pa.skip_preflight
     $CodexConfig = [string[]]@(@($pa.codex_config) | Where-Object { $_ })
     $SchemaTransport = [string]$pa.schema_transport
+    if ($null -ne $pa.PSObject.Properties['format_retry']) { $FormatRetry = [int]$pa.format_retry }
     $DryRun = [bool]$pa.dry_run
     # This member's output reaches the -Panel run through a pipe: write it as UTF-8 (the
     # panel run reads it so).
@@ -565,6 +587,11 @@ if ($transportOverride) {
     }
     if ($Raw) { Stop-WithError "-SchemaTransport does not apply to -Raw$(if ($Purpose -eq 'chore') { ' (-Purpose chore is a plain-text consultation)' }) (a raw consultation sends no reply schema)." }
 }
+if ($FormatRetry -ne 0 -and $FormatRetry -ne 1) {
+    Stop-WithError "-FormatRetry must be 0 or 1 (got $FormatRetry): at most one format-repair turn per consultation."
+}
+# (never $formatRetry: PowerShell names are case-insensitive)
+$repairEnabled = ($FormatRetry -eq 1 -and -not $Raw)
 
 # The reviewer roster (CODEX_CONSULT_ROSTER - it must exist; none = no roster - else
 # <codex home>/codex-consult-roster.json). No default file: no roster, everything as before. A file that is not a usable roster refuses the
@@ -761,6 +788,7 @@ if ($panelRun) {
                 skip_preflight   = [bool]$SkipPreflight
                 codex_config     = [object[]]@($CodexConfig)
                 schema_transport = $transportOverride
+                format_retry     = $FormatRetry
                 dry_run          = [bool]$DryRun
             }
         }
@@ -1165,6 +1193,11 @@ $tmpId = [guid]::NewGuid().ToString('N')
 $lastMsgPath = Join-Path $tmpRoot "codex-consult-last-$tmpId.md"
 $promptPath = Join-Path $tmpRoot "codex-consult-prompt-$tmpId.txt"
 $stderrPath = Join-Path $tmpRoot "codex-consult-stderr-$tmpId.txt"
+# the format-repair turn (-FormatRetry): its last message, events, stderr and prompt
+$repairLastPath = Join-Path $tmpRoot "codex-consult-repair-last-$tmpId.md"
+$repairEventsPath = Join-Path $tmpRoot "codex-consult-repair-events-$tmpId.jsonl"
+$repairStderrPath = Join-Path $tmpRoot "codex-consult-repair-stderr-$tmpId.txt"
+$repairPromptPath = Join-Path $tmpRoot "codex-consult-repair-prompt-$tmpId.txt"
 
 # ----------------------------------------------------------------------------- lock + run
 #
@@ -1330,6 +1363,11 @@ try {
 
     $nl = "`r`n"
     $promptParts = New-Object System.Collections.ArrayList
+    # Structured mode: the output contract comes FIRST, before the ask and the brief - a
+    # reviewer that reads a long brief first tends to answer in prose (handoffs 17/18).
+    if (-not $Raw) {
+        [void]$promptParts.Add('FINAL OUTPUT CONTRACT: your ENTIRE final message must be exactly one bare JSON object (schema_version "1") - no code fence, no text before or after it. The Markdown answer lives only inside its reply_markdown string; each defect goes in findings[]. A prose final message cannot be ingested, however good the answer is.')
+    }
     if ($Prompt) { [void]$promptParts.Add($Prompt.Trim()) }
     if ($briefRef) {
         [void]$promptParts.Add("Read the brief at ``$briefRef`` (path relative to the repository root, which is your working directory) and answer every numbered question in it.")
@@ -1362,7 +1400,7 @@ try {
         }
         $schemaLines = @(
             $(if ($schemaTransport -eq 'prompt-only') { 'Reply format: your final message must be exactly one JSON object - no code fence, no text before or after it - that satisfies the JSON Schema given at the end of this section (schema_version "1"). Field meaning:' } else { 'Reply format: your final message must be exactly one JSON object matching the output schema you were given (schema_version "1"). Field meaning:' }),
-            '- reply_markdown: your full answer in Markdown, answering every numbered question by number. This is what people read; write it exactly as you would a normal reply. The word limit below applies to reply_markdown only - never shorten, merge or drop findings to fit it.',
+            '- reply_markdown: your full answer in Markdown, answering every numbered question by number. This is what people read - a complete Markdown answer, but it lives INSIDE the JSON string, never as the message itself. The word limit below applies to reply_markdown only - never shorten, merge or drop findings to fit it.',
             '  If you want evidence you cannot obtain read-only, end reply_markdown with a section `## Requested checks` listing at most 5 items `RC1`..`RCn`, each ONE runnable command or procedure with its working directory, the permission it needs (read-only / workspace-write), the observation that would settle it, and a budget (time or scope); refer to a finding by its position in your findings array (`finding #2`), by an earlier id (`F04-1`) or by the invariant name. "Investigate X" is not a check. Omit the section if you need nothing.',
             '- findings: one item per concrete defect or risk you assert; an empty array is a valid answer.',
             '  - severity: blocker (must be fixed before acceptance) | major | minor | note.',
@@ -1478,6 +1516,7 @@ try {
             schema_transport                = $schemaTransport
             schema_transport_source         = $schemaTransportSource
             validation_error                = $(if ($Raw) { '' } else { '<"" or the first validation error>' })
+            format_retry                    = $(if (-not $repairEnabled) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, drift, original} after a format-repair turn>' })
             base_commit                     = $revBefore.base_commit
             reviewed_revision               = $revBefore.reviewed_revision
             tree_sha256                     = $revBefore.tree_sha256
@@ -1530,6 +1569,7 @@ try {
             if ($schemaTransport -eq 'output-schema') { Write-Host "transport   : output-schema ($schemaTransportBasis): passed as --output-schema" }
             else { Write-Host "transport   : prompt-only ($schemaTransportBasis): --output-schema is NOT passed; the schema travels in the prompt, the reply is validated locally" }
         }
+        if ($repairEnabled) { Write-Host 'format retry : 1 attempt if the reply is not valid JSON' } else { Write-Host 'format retry : 0 (off)' }
         Write-Host "mode        : $Mode"
         if ($Mode -eq 'new') { Write-Host "thread      : (a new thread will be created)" }
         else { Write-Host "thread      : $parentThread (parent for $Mode)" }
@@ -1771,23 +1811,155 @@ try {
     $findingIds = @()
     $priorForLedger = @()
     $uncheckedPrior = @()
+    $bridgeBug = $false
     if (-not $Raw -and $bridgeOutcome -eq 'usable reply') {
         try {
             $parse = ConvertFrom-StructuredReply -Text $rawReply -Purpose $Purpose -PriorFindings $priorInfo
             $validationError = $parse.ValidationError
-            if ($parse.Valid) {
-                $ingest = Add-ReplyFindings -Store $findingsStore -Reply $parse.Reply -Nn $nn -ConsultN $consultN `
-                    -ReplyRel $replyRel -ThreadId $threadId -BaseCommit $revBefore.base_commit `
-                    -TreeSha256 $revBefore.tree_sha256 -ListedIds $listedIds
-                $structured = $true
-                $replyBody = $parse.Reply.reply_markdown
-                $verdict = $parse.Verdict
-                if (-not $parse.VerdictInvalid) { $verdictReason = $parse.Reply.verdict_reason }
-                $counts = $ingest.Counts
-                $findingIds = @($ingest.NewIds)
-                $priorForLedger = @($ingest.PriorEntries | ForEach-Object { [pscustomobject]@{ id = $_.id; status = $_.status } })
-                $uncheckedPrior = @($parse.UncheckedPriorBlockers)
+        } catch {
+            $bridgeBug = $true
+            $validationError = "bridge could not process the reply: $(ConvertTo-OneLine $_.Exception.Message)"
+            $parse = [pscustomobject]@{ Valid = $false; ValidationError = $validationError; Reply = $null; UncheckedPriorBlockers = @() }
+        }
+    }
+
+    # ------------------------------------------------------------------------- format repair
+
+    # The reviewer answered in prose instead of the JSON object: ONE repair turn resumes the
+    # same thread and asks it to convert that message, unchanged, into the object - no
+    # --output-schema, the lowest effort of the route, never the brief. Only for a usable
+    # reply (codex exit 0, no timeout, no provider failure) that is substantive prose on a
+    # VERIFIED thread, and only with -FormatRetry 1. The task lock and the recovery record
+    # stay held (state running; child_pid = the repair process). The result is validated
+    # like any reply; drift notes compare the prose with the repaired object (warnings).
+    $formatRetryRecord = $null
+    $repairedOk = $false
+    $originalProse = ''
+    $repairConsole = ''
+    if ($repairEnabled -and $parse -and -not $parse.Valid -and -not $bridgeBug -and $bridgeOutcome -eq 'usable reply' -and
+        $threadId -and ($threadSource -eq 'events' -or $threadSource -eq 'rollout (verified by consultation id)') -and
+        (Test-SubstantiveProse -Text $rawReply)) {
+        $originalProse = $rawReply
+        $repairReason = [string]$validationError
+        if ($repairReason.Length -gt 200) { $repairReason = $repairReason.Substring(0, 200) }
+        # The raw first message, byte for byte (the .reply.json gets the repaired object).
+        $originalRel = "handoffs/$nn-codex-$ReplyName.original.md"
+        $originalFull = Join-Path $handoffsDir "$nn-codex-$ReplyName.original.md"
+        try { [IO.File]::Copy($lastMsgPath, $originalFull, $true) } catch { Write-Utf8NoBom -Path $originalFull -Text $rawReply }
+        $repairEffort = Get-RepairEffort -Identity $identity -EffortPlan $effortPlan
+        $repairArgv = @('exec', '--sandbox', 'read-only', '--color', 'never', '--json')
+        if ($identity.ModelSource -ne 'unknown') { $repairArgv += @('-m', $identity.Model) }
+        $repairArgv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $repairEffort) + '"'))
+        if ($identity.ProviderSource) { $repairArgv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
+        foreach ($ec in $extraConfig) { $repairArgv += @('-c', $ec) }
+        $repairArgv += @('-o', $repairLastPath, 'resume', $threadId, '-')
+        $repairSchema = ([IO.File]::ReadAllText($schemaPath, $script:Utf8NoBom).Trim() -replace "`r`n", "`n") -replace "`n", $nl
+        $repairPrompt = 'Your last message was prose, not the required JSON. Reply with exactly one bare JSON object satisfying the JSON Schema below - no fence, nothing before or after it. Convert, do not re-answer: copy your previous content unchanged (the same Q1..Qn answers verbatim inside reply_markdown, the same findings, the same Requested checks, the same prior-finding statuses and the same verdict); add or omit nothing.' +
+            "$nl$nl" + "JSON Schema of the reply:$nl$repairSchema" + "$nl$nl" + "Consultation id: $consultId"
+        Write-Utf8NoBom -Path $repairPromptPath -Text $repairPrompt
+        $repairTimeout = [Math]::Min($TimeoutSec, 300)
+        $repairWatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $repairExit = -1
+        $repairProblem = ''
+        $repairProc = $null
+        try {
+            $repairProc = Start-Process -FilePath $codexExePath -ArgumentList ((($repairArgv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')) `
+                -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
+                -RedirectStandardOutput $repairEventsPath `
+                -RedirectStandardError $repairStderrPath `
+                -RedirectStandardInput $repairPromptPath
+        } catch {
+            $repairProblem = "could not start codex - $(ConvertTo-OneLine $_.Exception.Message)"
+        }
+        if ($repairProc) {
+            if ($script:LegacyPS) { try { $null = $repairProc.Handle } catch { } }
+            $repairRegistered = $true
+            try {
+                $pendingRecord.state = 'running'
+                $pendingRecord.child_pid = $repairProc.Id
+                $pendingRecord.child_start_time = [string](Get-ProcessStartIso -ProcessId $repairProc.Id)
+                $pendingRecord.note = 'format repair turn'
+                Write-PendingFile -Path $pendingPath -Record $pendingRecord
+            } catch {
+                $repairRegistered = $false
+                $repairProblem = "could not register the repair process ($(ConvertTo-OneLine $_.Exception.Message)); it was stopped"
+                $null = Stop-ProcessTree -Process $repairProc
             }
+            if ($repairRegistered) {
+                if (-not $repairProc.WaitForExit($repairTimeout * 1000)) {
+                    $repairSurvivors = Stop-ProcessTree -Process $repairProc   # [int[]]; never wrap in @()
+                    $repairProblem = "timeout after $repairTimeout s (process tree killed)"
+                    if ($repairSurvivors.Count -gt 0) {
+                        $repairProblem = "timeout after $repairTimeout s (process tree killed; $($repairSurvivors.Count) processes survived: pid $($repairSurvivors -join ', '))"
+                        $keepPending = $true
+                        try {
+                            $pendingRecord.state = 'survivors'
+                            $pendingRecord.survivors = [object[]]@(New-SurvivorEntries -Pids $repairSurvivors)
+                            Write-PendingFile -Path $pendingPath -Record $pendingRecord
+                        } catch { }
+                    }
+                } else {
+                    $repairExit = $repairProc.ExitCode
+                }
+            }
+        }
+        $repairWatch.Stop()
+        $repairWall = [math]::Round($repairWatch.Elapsed.TotalSeconds, 1)
+        $repairThread = ''
+        try { $repairThread = Get-ThreadIdFromEvents -Path $repairEventsPath } catch { $repairThread = '' }
+        $repairUsage = $null
+        try { $repairUsage = Get-UsageFromEvents -Path $repairEventsPath } catch { $repairUsage = $null }
+        $repairRaw = (Read-SharedText -Path $repairLastPath).Trim()
+        if (-not $repairProblem -and $repairExit -ne 0) { $repairProblem = "codex exit $repairExit" }
+        if (-not $repairProblem -and -not $repairRaw) { $repairProblem = 'empty reply' }
+        $repairParse = $null
+        if (-not $repairProblem) {
+            try {
+                $repairParse = ConvertFrom-StructuredReply -Text $repairRaw -Purpose $Purpose -PriorFindings $priorInfo
+                if (-not $repairParse.Valid) { $repairProblem = "still not valid: $($repairParse.ValidationError)" }
+            } catch {
+                $repairProblem = "bridge could not process the repaired reply: $(ConvertTo-OneLine $_.Exception.Message)"
+                $repairParse = $null
+            }
+        }
+        $drift = New-Object System.Collections.Generic.List[string]
+        if ($repairThread -and $repairThread -ne $threadId) { $drift.Add('repair returned a different thread id') }
+        if (-not $repairProblem) {
+            $repairedOk = $true
+            $parse = $repairParse
+            $validationError = $parse.ValidationError
+            foreach ($d in (Get-FormatRepairDrift -Prose $originalProse -Reply $parse.Reply)) { $drift.Add($d) }
+            # The .reply.json holds the repaired object, byte for byte.
+            try { [IO.File]::Copy($repairLastPath, $replyJsonPath, $true); $replyJsonRel = $replyJsonPlanned } catch { }
+        } else {
+            $validationError = "$validationError (format repair failed: $(ConvertTo-OneLine $repairProblem))"
+        }
+        $formatRetryRecord = [pscustomobject]@{
+            attempted    = $true
+            reason       = $repairReason
+            succeeded    = $repairedOk
+            thread       = $repairThread
+            wall_seconds = $repairWall
+            usage        = $repairUsage
+            drift        = [object[]]$drift.ToArray()
+            original     = $originalRel
+        }
+        $repairConsole = "format repair: $(if ($repairedOk) { 'succeeded' } else { 'failed' }) in $repairWall s; drift: $($drift.Count) note(s)"
+    }
+
+    if ($parse -and $parse.Valid) {
+        try {
+            $ingest = Add-ReplyFindings -Store $findingsStore -Reply $parse.Reply -Nn $nn -ConsultN $consultN `
+                -ReplyRel $replyRel -ThreadId $threadId -BaseCommit $revBefore.base_commit `
+                -TreeSha256 $revBefore.tree_sha256 -ListedIds $listedIds
+            $structured = $true
+            $replyBody = $parse.Reply.reply_markdown
+            $verdict = $parse.Verdict
+            if (-not $parse.VerdictInvalid) { $verdictReason = $parse.Reply.verdict_reason }
+            $counts = $ingest.Counts
+            $findingIds = @($ingest.NewIds)
+            $priorForLedger = @($ingest.PriorEntries | ForEach-Object { [pscustomobject]@{ id = $_.id; status = $_.status } })
+            $uncheckedPrior = @($parse.UncheckedPriorBlockers)
         } catch {
             # Never lose the reply over a bridge bug: record it as unprocessable.
             $structured = $false
@@ -1865,6 +2037,14 @@ try {
         $headerLines.Add($statusLine)
     }
     if ($verdictWarning) { $headerLines.Add($verdictWarning) }
+    if ($formatRetryRecord) {
+        $driftText = if (@($formatRetryRecord.drift).Count -gt 0) { "$(@($formatRetryRecord.drift).Count) note(s): $(@($formatRetryRecord.drift) -join '; ')" } else { 'none' }
+        if ($repairedOk) {
+            $headerLines.Add("Format repair: succeeded in $($formatRetryRecord.wall_seconds) s - the first reply was prose ($(ConvertTo-OneLine $formatRetryRecord.reason)); one repair turn resumed thread ``$threadId`` and converted it. Drift: $driftText. The original prose follows the structured section and is kept as ``$($formatRetryRecord.original)``.")
+        } else {
+            $headerLines.Add("Format repair: failed in $($formatRetryRecord.wall_seconds) s - the first reply was prose ($(ConvertTo-OneLine $formatRetryRecord.reason)) and the repair turn did not produce a valid object; the prose is kept below (also ``$($formatRetryRecord.original)``).")
+        }
+    }
     $headerLines.Add("Raw event stream: ``$eventsRel``.")
     $headerLines.Add('Verbatim reply follows.')
     $headerLines.Add('')
@@ -1888,6 +2068,7 @@ try {
     if ($structured) { $section = Format-StructuredSection -Parse $parse -Ingest $ingest }
     $replyText = $header + "`n" + ($body -replace "`r`n", "`n") + "`n"
     if ($section) { $replyText += "`n---`n`n" + ($section -replace "`r`n", "`n") + "`n" }
+    if ($repairedOk) { $replyText += "`n---`n`n## Original reply (prose, before format repair)`n`n" + ($originalProse -replace "`r`n", "`n") + "`n" }
     Write-Utf8NoBom -Path $replyPath -Text $replyText
 
     # ------------------------------------------------------------------------- 3. findings.json
@@ -1942,6 +2123,7 @@ try {
         schema_transport                = $schemaTransport
         schema_transport_source         = $schemaTransportSource
         validation_error                = $validationError
+        format_retry                    = $formatRetryRecord
         base_commit                     = $revBefore.base_commit
         reviewed_revision               = $revBefore.reviewed_revision
         tree_sha256                     = $revBefore.tree_sha256
@@ -1999,6 +2181,10 @@ try {
     }
 
     Write-Host "codex-consult: $bridgeOutcome - $lineage, mode $Mode, thread $threadId (source: $threadSource), wall $wallSeconds s"
+    if ($repairConsole) {
+        Write-Host $repairConsole -ForegroundColor $(if ($repairedOk -and @($formatRetryRecord.drift).Count -eq 0) { 'Gray' } else { 'Yellow' })
+        foreach ($dn in @($formatRetryRecord.drift)) { Write-Host "  drift: $dn" -ForegroundColor Yellow }
+    }
     if ($threadCandidate) { Write-Host "thread     : unknown - rollout candidate $threadCandidate did not contain consultation id $consultId (not used as a thread or a parent)" -ForegroundColor Yellow }
     if (-not $identity.Resolved) { Write-Host "reviewer   : identity unresolved ($($identity.Note)); this thread is never a parent" -ForegroundColor Yellow }
     if ($peakWarning) { Write-Host $peakWarning -ForegroundColor Yellow }
@@ -2035,7 +2221,7 @@ try {
     }
     exit 0
 } finally {
-    foreach ($tmp in @($promptPath, $stderrPath)) {
+    foreach ($tmp in @($promptPath, $stderrPath, $repairLastPath, $repairEventsPath, $repairStderrPath, $repairPromptPath)) {
         if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
     }
     if (-not $keepLastMsg -and (Test-Path -LiteralPath $lastMsgPath)) {

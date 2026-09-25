@@ -18,6 +18,7 @@
                          Add-ReplyFindings
       * structured reply ConvertFrom-StructuredReply, Test-StructuredReply,
                          Format-StructuredSection, Format-StructuredStatusLine
+      * format repair    Test-SubstantiveProse, Get-RepairEffort, Get-FormatRepairDrift
       * codex config     Get-CodexHome, Get-CodexConfigPath, Read-CodexConfigSubset
                          (constrained TOML scanner), Get-ProviderTable,
                          ConvertFrom-CodexConfigItems (-CodexConfig / codex_config rules)
@@ -1466,6 +1467,95 @@ function Format-StructuredSection {
     foreach ($c in $cl) { $out.Add("- [ ] $(ConvertTo-OneLine $c)") }
 
     return ($out.ToArray() -join "`n")
+}
+
+# ----------------------------------------------------------------------------- format repair
+#
+# A structured consultation whose reviewer answered in prose (not the JSON object) gets ONE
+# repair turn (codex-consult.ps1 -FormatRetry 1): the same thread is resumed and asked to
+# convert its previous message, unchanged, into the JSON object. These helpers decide
+# whether the prose is worth converting, which effort the repair turn uses, and what the
+# conversion may have changed (drift notes - warnings only).
+
+# Substantive prose: >= 120 words, or >= 40 words with at least one numbered answer at a
+# line start (**Q1.**, Q1., 1.).
+function Test-SubstantiveProse {
+    param([string]$Text)
+    $words = @(([string]$Text -split '\s+') | Where-Object { $_ }).Count
+    if ($words -ge 120) { return $true }
+    return ($words -ge 40 -and $Text -match '(?m)^\s*(\*\*Q[0-9]+\.\*\*|Q[0-9]+\.|[0-9]+\.)')
+}
+
+# The effort of the repair turn: the lowest value of the route's effort vocabulary (the
+# value 'low' maps to; caps-v1), or the value sent when -NativeEffort bypassed the
+# vocabulary.
+function Get-RepairEffort {
+    param($Identity, $EffortPlan)
+    if ($EffortPlan.Mapping -eq 'native') { return [string]$EffortPlan.Sent }
+    $hostName = [string]$Identity.HostName
+    if ($hostName -and $script:EffortCaps.ContainsKey($hostName)) {
+        return [string]$script:EffortVocabularies[$script:EffortCaps[$hostName].Vocabulary].Map['low']
+    }
+    return [string]$EffortPlan.Sent
+}
+
+function ConvertTo-DriftText {
+    param([string]$Text)
+    return (([string]$Text -replace '\s+', ' ').Trim().ToLowerInvariant())
+}
+
+# What a format repair may have changed: the prose (the first reply) against the repaired
+# object ($Reply: reply_markdown, findings, prior_findings, verdict). One note per check
+# that differs, [string[]] (empty when clean):
+#   1 the RC<n> ids of the prose vs of reply_markdown
+#   2 the numbered answers (Q<n>. at a line start, bold or not) of both
+#   3 every F<NN>-<k> id the prose names appears in prior_findings or findings
+#   4 a verdict token the prose states (ACCEPT|HOLD|REJECT|ADVISE, after "Verdict" if
+#     there is one) equals the JSON verdict
+#   5 the five longest prose sentences (>= 60 characters, whitespace-normalised) each
+#     appear in reply_markdown (normalised, case-insensitive)
+function Get-FormatRepairDrift {
+    param([string]$Prose, $Reply)
+    $notes = New-Object System.Collections.Generic.List[string]
+    $md = [string](Get-PropertyValue $Reply 'reply_markdown' '')
+    $rcOf = { param($t) @([regex]::Matches([string]$t, '\bRC([0-9]+)\b') | ForEach-Object { [int]$_.Groups[1].Value } | Sort-Object -Unique | ForEach-Object { "RC$_" }) }
+    $rcProse = @(& $rcOf $Prose)
+    $rcMd = @(& $rcOf $md)
+    if (($rcProse -join ',') -ne ($rcMd -join ',')) {
+        $notes.Add("requested checks differ: prose $(if ($rcProse.Count) { $rcProse -join ', ' } else { 'none' }), reply_markdown $(if ($rcMd.Count) { $rcMd -join ', ' } else { 'none' })")
+    }
+    $qOf = { param($t) @([regex]::Matches([string]$t, '(?m)^\s*(?:\*\*)?Q([0-9]+)\.') | ForEach-Object { [int]$_.Groups[1].Value } | Sort-Object -Unique) }
+    $qProse = @(& $qOf $Prose)
+    $qMd = @(& $qOf $md)
+    if ($qProse.Count -ne $qMd.Count) {
+        $notes.Add("numbered answers differ: prose $($qProse.Count), reply_markdown $($qMd.Count)")
+    }
+    $idsProse = @([regex]::Matches([string]$Prose, '\bF[0-9]{2,}-[0-9]+\b') | ForEach-Object { $_.Value } | Sort-Object -Unique)
+    if ($idsProse.Count -gt 0) {
+        $known = New-Object System.Collections.Generic.List[string]
+        foreach ($pf in @(Get-PropertyValue $Reply 'prior_findings' @())) { if ($pf) { $known.Add([string](Get-PropertyValue $pf 'id' '')) } }
+        $findingsText = ConvertTo-Json -InputObject ([object[]]@(Get-PropertyValue $Reply 'findings' @())) -Depth 8 -Compress
+        foreach ($m in [regex]::Matches([string]$findingsText, '\bF[0-9]{2,}-[0-9]+\b')) { $known.Add($m.Value) }
+        $missing = @($idsProse | Where-Object { -not $known.Contains($_) })
+        if ($missing.Count -gt 0) { $notes.Add("finding id(s) named in the prose but absent from prior_findings/findings: $($missing -join ', ')") }
+    }
+    $vm = [regex]::Match([string]$Prose, '\b[Vv]erdict\b[^A-Za-z]{0,12}(ACCEPT|HOLD|REJECT|ADVISE)\b')
+    if (-not $vm.Success) { $vm = [regex]::Match([string]$Prose, '\b(ACCEPT|HOLD|REJECT|ADVISE)\b') }
+    $jsonVerdict = [string](Get-PropertyValue $Reply 'verdict' '')
+    if ($vm.Success -and $vm.Groups[1].Value -cne $jsonVerdict) {
+        $notes.Add("verdict differs: prose $($vm.Groups[1].Value), JSON $(if ($jsonVerdict) { $jsonVerdict } else { '(none)' })")
+    }
+    $sentences = @(([string]$Prose -split '(?<=[.!?])\s+|\r?\n') | ForEach-Object { ConvertTo-DriftText $_ } | Where-Object { $_.Length -ge 60 } | Sort-Object -Unique | Sort-Object -Property Length -Descending | Select-Object -First 5)
+    if ($sentences.Count -gt 0) {
+        $mdNorm = ConvertTo-DriftText $md
+        $lost = @($sentences | Where-Object { -not $mdNorm.Contains($_) })
+        if ($lost.Count -gt 0) {
+            $first = $lost[0]
+            if ($first.Length -gt 60) { $first = $first.Substring(0, 60) + '...' }
+            $notes.Add("$($lost.Count) of the $($sentences.Count) longest prose sentences are not in reply_markdown (first: '$first')")
+        }
+    }
+    return , ([string[]]$notes.ToArray())
 }
 
 # ----------------------------------------------------------------------------- codex config + reviewer identity
