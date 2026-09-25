@@ -35,11 +35,14 @@
     takes the task lock like a status change. codex-scoreboard.ps1 sums the marks per
     reviewer and purpose across tasks.
 
-    A status change takes the task lock (<task>/.consult.lock) around its
-    read-modify-write, so it is refused while a consultation for the task runs,
-    and also while an interrupted consultation's codex process may still be
-    running (<task>/.consult.pending.json, read but never changed here).
-    -List and -Stats only read; they show an interrupted consultation's record.
+    A status change takes the task lock (<task>/.consult.lock), so it is refused
+    while a consultation (or a -Panel run) for the task runs, and also while an
+    interrupted consultation's bridge or codex process may still be running (every
+    recovery record <task>/.consult.pending.json and .consult.pending-<NN>.json,
+    read but never changed here). Its write - like -Rate's - goes through the
+    task's store commit (0.4.x wave 21): <task>/.consult.write.lock, findings.json
+    RE-READ under it, the change applied to that fresh store, written, released.
+    -List and -Stats only read; they show every interrupted consultation's record.
 
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File codex-findings.ps1 -Task cache-rewrite -List
@@ -142,18 +145,22 @@ $findingsPath = Join-Path $taskDir 'findings.json'
 $sessionsPath = Join-Path $taskDir 'sessions.json'
 $pendingPath = Get-PendingPath -TaskDir $taskDir
 
-# One line about an interrupted consultation, for -List / -Stats (no lock taken).
+# One line per interrupted consultation (every recovery record of the task: the single
+# run's .consult.pending.json and a panel's .consult.pending-<NN>.json), for -List / -Stats
+# (no lock taken).
 function Write-PendingLine {
-    $p = Read-PendingFile -Path $pendingPath
-    if (-not $p.Exists) { return }
-    if ($p.Error) { Write-Host "pending: $($p.Error)" -ForegroundColor Yellow; return }
-    $r = $p.Record
-    $line = ("pending: state={0}, n={1}, nn={2}, reply={3}, started {4} - an interrupted consultation; the next consultation consumes it ({5})" -f `
-            (Get-PropertyValue $r 'state' '?'), (Get-PropertyValue $r 'n' '?'), (Get-PropertyValue $r 'nn' '?'), (Get-PropertyValue $r 'reply' '?'), (Get-PropertyValue $r 'started' '?'), $pendingPath)
-    # stopped during a format-repair turn: the prose it had saved
-    $originalNote = Get-PendingOriginalNote $r
-    if ($originalNote) { $line += "; $originalNote" }
-    Write-Host $line -ForegroundColor Yellow
+    foreach ($path in (Get-PendingPaths -TaskDir $taskDir)) {
+        $p = Read-PendingFile -Path $path
+        if (-not $p.Exists) { continue }
+        if ($p.Error) { Write-Host "pending: $($p.Error)" -ForegroundColor Yellow; continue }
+        $r = $p.Record
+        $line = ("pending: state={0}, n={1}, nn={2}, reply={3}, started {4} - an interrupted consultation; the next consultation consumes it ({5})" -f `
+                (Get-PropertyValue $r 'state' '?'), (Get-PropertyValue $r 'n' '?'), (Get-PropertyValue $r 'nn' '?'), (Get-PropertyValue $r 'reply' '?'), (Get-PropertyValue $r 'started' '?'), $path)
+        # stopped during a format-repair turn: the prose it had saved (and the like)
+        $originalNote = Get-PendingOriginalNote $r
+        if ($originalNote) { $line += "; $originalNote" }
+        Write-Host $line -ForegroundColor Yellow
+    }
 }
 
 function Read-Ledger {
@@ -359,9 +366,17 @@ if ($rating) {
     }
     $lock = Enter-TaskLock -TaskDir $taskDir -Task $Task
     if (-not $lock.Acquired) { Stop-WithError $lock.Message }
+    $commit = $null
     try {
+        # The store commit (write lock, both stores re-read under it): the mark goes into the
+        # FRESH findings.json.
+        $commit = Enter-StoreCommit -TaskDir $taskDir -Task $Task -TimeoutSec (Get-WriteLockTimeout)
+        if (-not $commit.Acquired) { Stop-WithError "$($commit.Message); nothing was changed." }
         $entry = $null
-        foreach ($c in @(Read-Ledger)) {
+        $ledgerData = $commit.Sessions
+        $ledgerConsults = @()
+        if ($null -ne $ledgerData -and $ledgerData.PSObject.Properties['codex'] -and $ledgerData.codex.PSObject.Properties['consults']) { $ledgerConsults = @($ledgerData.codex.consults | Where-Object { $_ }) }
+        foreach ($c in $ledgerConsults) {
             $v = 0
             if ($c.PSObject.Properties['n'] -and [int]::TryParse([string]$c.n, [ref]$v) -and $v -eq $Rate) { $entry = $c }
         }
@@ -389,7 +404,7 @@ if ($rating) {
             when       = (Get-IsoTimestamp)
         }
         # (created on the first mark; a findings.json that exists but does not parse is refused)
-        $store = Read-FindingsFile -Path $findingsPath -Task $Task
+        $store = $commit.Findings
         $kept = New-Object System.Collections.Generic.List[object]
         $previous = ''
         $replaced = $false
@@ -404,12 +419,14 @@ if ($rating) {
         if (-not $replaced) { $kept.Add($mark) }
         if ($store.PSObject.Properties['ratings']) { $store.ratings = [object[]]$kept.ToArray() }
         else { $store | Add-Member -NotePropertyName 'ratings' -NotePropertyValue ([object[]]$kept.ToArray()) }
-        Write-FindingsFile -Path $findingsPath -Store $store
+        Complete-StoreCommit -Commit $commit -Findings
+        Exit-StoreCommit -Commit $commit
         $purposeText = if ($mark.purpose) { $mark.purpose } else { 'no purpose' }
         if ($replaced) { Write-Host "codex-findings: consult n=$Rate ($lineage, $purposeText) re-rated $Useful (was $previous)." }
         else { Write-Host "codex-findings: consult n=$Rate ($lineage, $purposeText) rated $Useful." }
         exit 0
     } finally {
+        Exit-StoreCommit -Commit $commit
         Exit-TaskLock -Lock $lock
     }
 }
@@ -422,18 +439,20 @@ if (-not (Test-Path -LiteralPath $findingsPath)) {
 
 $lock = Enter-TaskLock -TaskDir $taskDir -Task $Task
 if (-not $lock.Acquired) { Stop-WithError $lock.Message }
+$commit = $null
 try {
-    # The recovery record of an interrupted consultation is read only to refuse while
-    # its codex process may still be running; it is never modified or deleted here
-    # (the next consultation consumes it).
-    $pendingRead = Read-PendingFile -Path $pendingPath
-    if ($pendingRead.Error) { Stop-WithError $pendingRead.Error }
-    if ($pendingRead.Exists) {
-        $pendingCheck = Test-PendingActive -Record $pendingRead.Record -Path $pendingPath
-        if ($pendingCheck.Active) { Stop-WithError $pendingCheck.Message }
-    }
+    # The recovery records of interrupted consultations are read only to refuse while
+    # their bridge or codex process may still be running; they are never modified or
+    # deleted here (the next consultation consumes them).
+    $pendingAll = Read-TaskPendingRecords -TaskDir $taskDir
+    if ($pendingAll.Error) { Stop-WithError $pendingAll.Error }
+    if ($pendingAll.Active) { Stop-WithError $pendingAll.Active.Check.Message }
 
-    $store = Read-FindingsFile -Path $findingsPath -Task $Task
+    # The store commit (write lock, findings.json re-read under it): the change goes into
+    # the FRESH store.
+    $commit = Enter-StoreCommit -TaskDir $taskDir -Task $Task -TimeoutSec (Get-WriteLockTimeout) -NoSessions
+    if (-not $commit.Acquired) { Stop-WithError "$($commit.Message); nothing was changed." }
+    $store = $commit.Findings
     $target = $null
     foreach ($f in @($store.findings)) {
         if ([string](Get-PropertyValue $f 'id' '') -eq $Id.Trim()) { $target = $f; break }
@@ -459,11 +478,13 @@ try {
     Add-ArrayItem -Object $target -Name 'history' -Item $record
     if ($target.PSObject.Properties['status']) { $target.status = $Status }
     else { $target | Add-Member -NotePropertyName 'status' -NotePropertyValue $Status }
-    Write-FindingsFile -Path $findingsPath -Store $store
+    Complete-StoreCommit -Commit $commit -Findings
+    Exit-StoreCommit -Commit $commit
 
     Write-Host "codex-findings: $($target.id) $current -> $Status (history: $(@($target.history).Count) records; tree sha256 $(if ($rev.tree_sha256) { $rev.tree_sha256.Substring(0, 12) } else { 'none (no git)' }))."
     Write-Host (Format-FindingLine -Finding $target)
     exit 0
 } finally {
+    Exit-StoreCommit -Commit $commit
     Exit-TaskLock -Lock $lock
 }

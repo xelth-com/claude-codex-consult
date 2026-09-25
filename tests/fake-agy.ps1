@@ -45,6 +45,10 @@
 #                                 --conversation; the raw stdin bytes also to <path>.stdin
 #   FAKE_AGY_RESUME_LOG=<path>    the same for a --conversation turn
 #   FAKE_AGY_PIDFILE=<path>       its pid
+#   FAKE_AGY_DELAY_MS=<ms> | <model>=<ms>[|<model>=<ms>...]
+#                                 sleeps that long before the answer on every print-mode turn
+#                                 (a map keys it by the --model of the turn; `*=<ms>` or a bare
+#                                 number: every other model) - the panel cases' delay
 $ErrorActionPreference = 'Stop'
 $u8 = New-Object System.Text.UTF8Encoding($false)
 $raw = [string]$env:FAKE_AGY_ARGS
@@ -74,11 +78,13 @@ if ($raw -match '--conversation\s+(\S+)') { $conv = $Matches[1] }
 $model = 'unknown'
 if ($raw -match '--model\s+(\S+)') { $model = $Matches[1] }
 $log = if ($conv -and $env:FAKE_AGY_RESUME_LOG) { $env:FAKE_AGY_RESUME_LOG } elseif (-not $conv) { $env:FAKE_AGY_LOG } else { '' }
+# (retried on a sharing violation: the members of a parallel panel share the harness's variables)
+function Invoke-FakeWrite { param([scriptblock]$Do) for ($i = 0; $i -lt 40; $i++) { try { & $Do; return } catch { Start-Sleep -Milliseconds 50 } }; & $Do }
 if ($log) {
-    [IO.File]::WriteAllText($log, "ARGS: $raw`nSTDIN:`n$stdinText", $u8)
-    [IO.File]::WriteAllBytes("$log.stdin", $stdinBytes)
+    Invoke-FakeWrite { [IO.File]::WriteAllText($log, "ARGS: $raw`nSTDIN:`n$stdinText", $u8) }
+    Invoke-FakeWrite { [IO.File]::WriteAllBytes("$log.stdin", $stdinBytes) }
 }
-if ($env:FAKE_AGY_PIDFILE) { [IO.File]::WriteAllText($env:FAKE_AGY_PIDFILE, "$PID") }
+if ($env:FAKE_AGY_PIDFILE) { Invoke-FakeWrite { [IO.File]::WriteAllText($env:FAKE_AGY_PIDFILE, "$PID") } }
 
 $cmode = [string]$env:FAKE_AGY_CONVERSATION
 $id = [guid]::NewGuid().ToString()
@@ -95,6 +101,17 @@ Out-Bytes ((J ([pscustomobject]@{ event = 'init'; conversation_id = $id; init = 
 Out-Bytes ((J ([pscustomobject]@{ event = 'step_update'; step_update = [pscustomobject]@{ conversation_id = $id; step_index = 0; state = 'DONE'; step_type = 'user_input' } })) + "`n")
 if ($env:FAKE_AGY_HANG -eq '1' -or ($env:FAKE_AGY_HANG_ON -and $raw.Contains($env:FAKE_AGY_HANG_ON))) { Start-Sleep -Seconds 60 }
 Out-Bytes ((J ([pscustomobject]@{ event = 'step_update'; step_update = [pscustomobject]@{ conversation_id = $id; step_index = 1; state = 'DONE'; step_type = 'tool'; tool_name = 'view_file'; duration_seconds = 0.1; tool_info = [pscustomobject]@{ name = 'view_file'; parameters = [pscustomobject]@{ AbsolutePath = 'app.txt' }; output = '1 lines' } } })) + "`n")
+$delayMs = $null
+if ($env:FAKE_AGY_DELAY_MS) {
+    foreach ($item in $env:FAKE_AGY_DELAY_MS.Split('|')) {
+        $eq = $item.IndexOf('=')
+        if ($eq -lt 0) { if ($item.Trim() -and $null -eq $delayMs) { $delayMs = $item.Trim() }; continue }
+        $k = $item.Substring(0, $eq).Trim()
+        if ($k -ceq $model) { $delayMs = $item.Substring($eq + 1).Trim(); break }
+        if ($k -eq '*') { $delayMs = $item.Substring($eq + 1).Trim() }
+    }
+}
+if ($delayMs) { Start-Sleep -Milliseconds ([int]$delayMs) }
 if ($env:FAKE_AGY_WRITE) {
     $w = $env:FAKE_AGY_WRITE.Split('|')
     if (-not $conv -or ($w.Count -gt 1 -and $w[1] -eq 'all')) {

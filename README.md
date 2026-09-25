@@ -315,7 +315,8 @@ were still written.
 Verify every finding yourself (open the location, run the build or test) before acting
 on it, then move its status with `codex-findings.ps1` and rate the consultation with
 `-Rate` (see "Findings: ids, status, ratings"). Commit the whole `.collab/` tree next to
-the code; `.gitignore` excludes only `.consult.lock` and `.consult.pending.json`. A
+the code; `.gitignore` excludes only the bridge's runtime files (`.consult.lock`,
+`.consult.write.lock`, `.consult.pending.json`, a panel member's `.consult.pending-<NN>.json`). A
 fabricated example of the layout is in `examples/`.
 
 ---
@@ -349,8 +350,10 @@ to fit it. The weighty purposes (`framing`, `decision`, `core-contract`, `accept
 ## The ledger
 
 `.collab/<task>/sessions.json` holds `task_id`, `cwd` (the repository root) and
-`codex: {tool, consults[]}`. Every run that got past the refusals appends one entry,
-failed runs included, so the ledger is a history and not a success log. A refusal (see
+`codex: {tool, consults[]}`. Every run that got past the refusals adds one entry, failed
+runs included, so the ledger is a history and not a success log; `consults` stays sorted by
+`n` (0.4.x wave 21: a parallel panel's members commit in any order, each entry is inserted at
+its place, so the highest `n` of a lineage is always its newest thread). A refusal (see
 "Usage") writes nothing. A full entry, fields in the order the bridge writes them:
 
 ```json
@@ -430,7 +433,8 @@ failed runs included, so the ledger is a history and not a success log. A refusa
   "prior_findings": [{ "id": "F02-3", "status": "fixed" }],
   "unchecked_prior_blockers": [],
   "usage": { "input_tokens": 18400, "cached_input_tokens": 12000, "output_tokens": 900, "reasoning_output_tokens": 400 },
-  "wall_seconds": 11.1
+  "wall_seconds": 11.1,
+  "finished_at": "2026-09-22T11:24:39+02:00"
 }
 ```
 
@@ -452,7 +456,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `preflight` | `ok: <credential detail>` or `skipped` (`-SkipPreflight`); any other verdict refuses the run |
 | `preflight_warning` | a recent usage limit that did not refuse the run, else `""` |
 | `roster` | `null` without a roster; else `{path, position, skipped: [{provider, model, engine, reason}], applied: []}`, `applied` naming what the roster entry supplied (`engine`, `model`, `codex_config`) |
-| `panel` | `null` outside a panel; else `{id, position, of, members: [{provider, model, state: "run"\|"skipped", reason}]}` |
+| `panel` | `null` outside a panel; else `{id, position, of, members: [{provider, model, state: "run"\|"skipped", reason}], concurrency, limits}` - `concurrency` (0.4.x wave 21) the most members the panel's plan let run at once, `limits` `{"<provider label>": n}` the members of that label's endpoint at a time (see "The panel") |
 | `parent_thread` / `thread` | the thread forked or resumed (`""` for `new`); the resulting thread (`""` when not verified) |
 | `thread_source` | `events`, `rollout (verified by consultation id)` or `unknown` |
 | `thread_candidate` | an unverified rollout uuid (agy: a conversation id the run could not verify - a failed resume's new conversation, the init id of a run without a result) kept for diagnosis only; never a parent |
@@ -479,6 +483,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `prior_findings` | the reviewer's reports on earlier ids: `{id, status}` with `fixed`, `still-open`, `not-checked` or `unknown-id` |
 | `unchecked_prior_blockers` | open prior blockers the reviewer did not check while answering `ACCEPT` |
 | `usage` / `wall_seconds` | token counts from the event stream (agy: `cache_read_tokens` -> `cached_input_tokens`, `thinking_tokens` -> `reasoning_output_tokens`, plus `total_tokens`); wall time |
+| `finished_at` | (0.4.x wave 21) when the entry was committed (`when` is the reviewer's start). The endpoint health's "newest wins" orders by it (older entries: `when` + `wall_seconds`), ties by `n` - a panel's members finish in any order |
 
 `bridge_outcome` and `verdict` are separate on purpose: a delivered `HOLD` is a success of
 the bridge. Legacy entries: the pre-0.2.0 field `outcome` (now `bridge_outcome`) is left
@@ -671,6 +676,24 @@ every `source.consult` and `reviewer_checks[].consult`, every `F<NN>` id and any
 reservation in `.consult.pending.json`, in `-Raw` mode too, so nothing written or reserved
 is overwritten.
 
+**The commit write lock (0.4.x wave 21).** The handoff `.md`, `findings.json`, `sessions.json`
+and the removal of the run's recovery record happen under `<task>/.consult.write.lock` - a
+permanent file owned by holding it open, like `.consult.lock`, but held only for the seconds
+of one commit and waited for (backoff up to 60 s). Under it the bridge RE-READS both stores
+and applies only its own delta: this run's findings (`F<NN>-k`, kept in id order) and
+reviewer checks go into the fresh `findings.json`, the handoff's rendered section is made from
+THAT ingest, the ledger entry is inserted at its place by `n`. Every writer does so - a single
+run, a panel member, `codex-findings.ps1 -Status` and `-Rate` - so no writer replaces a store
+with a snapshot read before it and no concurrent commit is lost. Before it waits, the run
+marks its recovery record `committing`. When the lock cannot be had within 60 s it gives up
+WITHOUT touching the stores: the record stays `committing` and names the kept reply
+(`.reply.json`, the event stream), the run exits non-zero (`codex-consult: commit blocked:
+the write lock '<path>' of task '<task>' was not acquired within 60 s: it is held open by
+...`; a panel's summary says `commit blocked`), and the next run consumes the record like any
+interrupted reservation, naming the kept reply. A kill inside the commit can still leave
+findings without a ledger entry (`codex-findings.ps1 -List` flags them ORPHAN); numbering
+never reuses their ids.
+
 `sessions.json` and `findings.json` are written to a temp file in the same directory,
 flushed, and moved over the store in ONE rename that replaces it (`MoveFileEx` with
 `MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH` via P/Invoke on Windows PowerShell
@@ -717,35 +740,53 @@ then the repository root; a missing path refuses the run.
 
 ## The lock and recovery
 
-The rule: one consultation per task at a time; an interrupted run leaves
-`.consult.pending.json` and the next consultation recovers it automatically unless a codex
-process from it is still alive; never delete `.consult.lock`.
+The rule: one consultation per task at a time (a `-Panel` run counts as one: it holds the
+lock for all its members); an interrupted run leaves `.consult.pending.json` (a panel
+member: `.consult.pending-<NN>.json`) and the next consultation recovers it automatically
+unless the bridge that wrote it or a codex process from it is still alive; never delete
+`.consult.lock` or `.consult.write.lock`.
 
 - **`<task>/.consult.lock`** is permanent: created on first use, never deleted. Owning it
   means holding it OPEN for the whole run (Windows: `FileShare.Read`, so a refused
   contender can read who holds it; elsewhere `FileShare.None`, an advisory `flock`);
-  closing the handle releases it. Its content (`{pid, start_time, host, task, started}`)
-  is informational only; deleting the file unlocks nothing. `codex-consult.ps1`,
-  `codex-findings.ps1 -Id/-Status` and `-Rate` take it; `-List`/`-Stats` never do.
-- **`<task>/.consult.pending.json`** is the recovery record. It exists only during a run
-  or after an interrupted one (a clean run deletes it after the ledger write) and moves
-  through `reserved` (before Codex starts) → `launching` → `running` (child registered) →
-  `survivors` (a `-TimeoutSec` kill could not stop the whole process tree).
-- **The next run judges it before writing anything.** Unreadable or malformed: refused as
-  corruption, naming the file. `running`/`survivors` with a recorded pid alive on this
-  host: refused (`a previous consultation's codex process (pid N) is still running…`).
+  closing the handle releases it. Its content (`{pid, start_time, host, task, started}`,
+  plus `panel` while a `-Panel` run holds it) is informational only; deleting the file
+  unlocks nothing. `codex-consult.ps1` (a `-Panel` run for the whole panel; its members
+  never), `codex-findings.ps1 -Id/-Status` and `-Rate` take it; `-List`/`-Stats` never do.
+- **`<task>/.consult.write.lock`** (0.4.x wave 21) is the commit lock of the two stores,
+  with the same discipline, held for one commit only (see "Write order and atomic stores").
+- **`<task>/.consult.pending.json`** is the recovery record (a panel member's:
+  `.consult.pending-<NN>.json`, written `reserved` by the panel run before any member
+  starts, then owned by the member). It exists only during a run or after an interrupted
+  one (a clean run deletes it after the ledger write) and moves through `reserved` (before
+  Codex starts) → `launching` → `running` (child registered) → `survivors` (a
+  `-TimeoutSec` kill could not stop the whole process tree) → `committing` (the run is
+  over; waiting for or holding the write lock). It names the bridge that wrote it (`pid`
+  and, since wave 21, `start_time`).
+- **The next run judges every record before writing anything.** Unreadable or malformed:
+  refused as corruption, naming the file. A record whose writer (pid + start time) still
+  runs on this host is active in every state, `reserved` included - a panel member building
+  its prompt, running its reviewer or committing (`a consultation of this task is still
+  running: its bridge (pid N) wrote <record>…`). `running`/`survivors`/`committing` with a
+  recorded pid alive on this host: refused (`a previous consultation's codex process (pid N)
+  is still running…`).
   A dead recorded pid is not proof of a dead tree (it is usually the launcher shim), so
   when every recorded pid is gone, and for a `launching` record, the bridge scans for a
   child of the dead bridge or of a dead recorded pid (Windows keeps an orphan's parent
   id), then for any codex-looking process (named `codex`, or with the launcher path or
   `@openai/codex` on its command line) started at or after the record's `started` time.
   That second rule cannot tell tasks apart and says so ("task not verifiable"); there is
-  no age cut-off. A record from another host naming pids is refused. Otherwise the
+  no age cut-off - and it is never applied to a panel member's record, which is judged by
+  its recorded pids and (Windows) their children only: a live SIBLING member's reviewer
+  looks like codex too. A record from another host naming pids is refused. Otherwise the
   reservation is consumed (`recovered reservation n=…, nn=…`, or `cleared the recovery
-  record of consult n=…` when that consult already reached the ledger).
-- Delete `.consult.pending.json` only when you know the named process is unrelated.
-  `-List`/`-Stats` print its `pending:` line without locking; `-DryRun` reports what the
-  next run would recover, or that it would be refused and why. Both files are git-ignored.
+  record of consult n=…` when that consult already reached the ledger; a member record is
+  named: `(.consult.pending-05.json: state '…'`), numbering skips past every one, and the
+  consumed member records are removed.
+- Delete a recovery record only when you know the named process is unrelated.
+  `-List`/`-Stats` print one `pending:` line per record without locking; `-DryRun` reports
+  what the next run would recover, or that it would be refused and why. These files are
+  git-ignored.
 - Not enforced: one Codex thread belongs to one task directory. Never resume the same
   thread from two task directories.
 
@@ -1073,6 +1114,7 @@ a fabricated one is `examples/codex-consult-roster.json`.
 | `reviewers[].auth` | optional `"none"`: the endpoint needs no credential, so a table with no `env_key` and no bearer token passes the check. No effect on a table that names an `env_key`, nor on `openai`/`requires_openai_auth` providers (always `codex login status`) |
 | `reviewers[].panel` | `"always"` (default) or `"weighty"`: joins a `-Panel` run only on `framing`, `decision`, `core-contract`, `acceptance` and `stuck`, or under `-PanelAll` |
 | `reviewers[].engine` | (0.4.0) `"codex"` (default) or `"agy"`: the CLI that carries it (see "Engines"). For `agy`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster |
+| `parallel` | (0.4.x wave 21) optional top-level object `{"<provider label>": <n>}`: a `-Panel` runs the members of one endpoint one after another; n >= 1 lets n members of that label run at once (see "The panel"). Every key must be a label the roster uses, every value an integer >= 1 |
 
 An unusable roster (an unknown key, `roster_version` other than 1, an empty or non-array
 `reviewers`, the same `(provider, model)` twice, anything that does not parse) **refuses
@@ -1098,27 +1140,96 @@ every run, `-DryRun` included, naming the path**; an existing roster is never ig
 - The pick is printed and put in the handoff header, e.g. `Roster: <path> - position 2 of 3;
   skipped openai :: <model> (usage limit until <iso>)`; ledger `roster`.
 
-**The panel.** `-Panel` sends the same brief to every available roster entry, one after
-another, each as a complete, independent consultation: its own preflight, lock and
-recovery record, parent thread (the newest of its own lineage, or a new one; `-Mode new`
-starts fresh threads for all; an agy member starts a new conversation), consultation id,
-reply file `handoffs/<NN>-<engine>-<ReplyName>-<provider lowercased>.md` (`codex` or `agy`)
-and ledger entry (`panel`). A roster may mix engines; `-Panel -Engine agy` runs only the agy
-entries.
+**The panel.** `-Panel` sends the same brief to every available roster entry, each as a
+complete, independent consultation: its own preflight, recovery record, parent thread (the
+newest of its own lineage, or a new one; `-Mode new` starts fresh threads for all; an agy
+member starts a new conversation), consultation id, reply file
+`handoffs/<NN>-<engine>-<ReplyName>-<provider lowercased>.md` (`codex` or `agy`) and ledger
+entry (`panel`). A roster may mix engines; `-Panel -Engine agy` runs only the agy entries.
 Every member sees the findings that were open when the panel started, not a later
 member's answer; a later panel on the same task does see this panel's findings (members are
 not blind across waves). `-PanelAll` includes `weighty` entries whatever the purpose.
 `-Panel`/`-PanelAll` need a roster and are refused with `-Provider`, `-Thread` or
-`-Mode resume`. A failing member does not stop the others, **except** when it leaves
-surviving processes (the task's `.consult.pending.json` stays in `survivors`): the
-remaining members are then not started and are recorded `skipped` with `not started: the
-previous member (<lineage>) left surviving processes (.consult.pending.json state
-survivors); recover the task first`. A summary block (one line per member: lineage,
-verdict or failure, finding counts, or the skip reason) closes the run; exit `0` only
-when every member produced a usable reply. Members run as child bridge processes through
-the internal `-PanelSpec` parameter; never pass it yourself. There is no tooling yet for
-linking corroborating or contradicting findings across members (ROADMAP R9): compare the
-replies yourself.
+`-Mode resume`.
+
+**Members run in parallel (0.4.x wave 21, ROADMAP R11)**, each in a bridge process of its
+own, so a panel takes about as long as its slowest member instead of the sum of all:
+
+- *The plan is endpoint-aware.* Members that reach the same endpoint run one after another:
+  the entries of one provider label are one endpoint, and so are labels whose entries
+  resolve to the same provider fingerprint (two labels on one base URL; every agy label -
+  they share one Google sign-in). Different endpoints run at once. The roster's optional
+  top-level `"parallel": { "<provider label>": <n> }` lets n members of that label run at
+  once (integers >= 1, labels the roster uses; anything else refuses the roster).
+  `-PanelConcurrency <n>` caps the total on top: `0` (the default) no cap, `1` strictly one
+  after another in roster order, `k` at most k at a time. The first output line says which
+  (`at once`, `one after another`, `at most 2 at a time`), a `Concurrency:` line lists the
+  endpoint groups, and each member's ledger `panel` record carries `concurrency` and `limits`.
+- *The panel run owns the task.* It holds `.consult.lock` for the whole panel (its record
+  names the panel), so a single run, another panel or `codex-findings.ps1 -Status`/`-Rate` on
+  the task is refused until the panel ends. It judges every recovery record of the task
+  first, gives every member its consult number n and handoff number NN up front in roster
+  order - files and ledger entries keep the roster order whatever finishes first - and writes
+  each member's recovery record `<task>/.consult.pending-<NN>.json` (`reserved`, naming the
+  panel, n, NN and itself) before it starts any member.
+- *A member proves its parent.* It accepts its spec only when its record names the same
+  panel, n, NN and parent (pid + start time) and that parent is alive; as its first act it
+  rewrites the record with its own pid and start time, so the record reads active as long as
+  the member runs - also when the parent dies. Right before it starts its reviewer it checks
+  the parent again and stops there, nothing started, if the parent is gone. It commits under
+  the write lock ("Write order and atomic stores"): every member's findings, reviewer checks
+  and ledger entry survive whatever order they commit in.
+- *The run.* The panel run polls its members, prints one line per member as it finishes,
+  and stops a member that outlives its guard (its `-TimeoutSec` + one format-repair turn and,
+  for agy, one denial-retry turn of min(timeout, 300) s when enabled + 60 s write lock +
+  120 s) with its process tree. It then prints every member's console output in roster
+  order and the summary block with the panel's wall clock (one line per member: lineage,
+  verdict or failure - `commit blocked`, `killed by the panel after N s` -, finding counts,
+  or the skip reason; a member that left no ledger entry names its unused n and handoff, or
+  its kept record), and removes the records of members that never started anything. Exit
+  `0` only when every member produced a usable reply.
+- A failing member does not stop the others. With `-PanelConcurrency 1` the old rule
+  stays: a member that leaves surviving processes (its record stays in `survivors`) stops the
+  remaining ones, recorded `skipped` with `not started: the previous member (<lineage>) left
+  surviving processes (.consult.pending-<NN>.json state survivors); recover the task first`.
+  At the default, the other members run on; the kept record blocks the task afterwards
+  until it is recovered, as any interrupted run's does.
+- If the panel run itself dies, its members finish and commit on their own; meanwhile a new
+  consultation of the task finds the lock free but is refused by the member records (their
+  writers, the members, are alive), and consumes them afterwards.
+- **Residual (agy):** while members run at the same time, an agy member's read-only check
+  ("Engines") leaves out the task's `sessions.json` and `findings.json` and the other members'
+  handoff files (each with its atomic-write temp file `.<name>.<guid>.tmp`), which the
+  siblings write meanwhile; an agy reviewer that writes its own task's stores is then not
+  caught by the check (a store that no longer parses is still refused at the commit). Every
+  other collab path stays monitored - so a consultation on ANOTHER task that commits during
+  an agy member's run fails that member: run no other consultation in the repository beside
+  a panel with agy members.
+
+Example - three reviewers on three endpoints (add `-PanelConcurrency 1` to run the same
+panel one after another under the same protocol):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File codex-consult.ps1 -Task cache-rewrite `
+    -Panel -Purpose acceptance -ReplyName acceptance `
+    -Brief .collab/cache-rewrite/handoffs/07-claude-acceptance.md
+```
+```
+Panel 1a2b3c4d: 3 of 3 roster entries run, at once (roster <path>; panel id 1a2b3c4d-...)
+  #1 openai :: gpt-5.1 - member, n=8, handoff 12
+  #2 ZAI :: glm-5.3 - member, n=9, handoff 13
+  #3 mimo :: mimo-v2.6-pro - member, n=10, handoff 14
+Concurrency: at once - endpoint groups: openai x1, ZAI x1, mimo x1; -PanelConcurrency 0 (no cap)
+  panel member 3 of 3 finished: mimo :: mimo-v2.6-pro - usable reply (231.4 s)
+  ...
+Panel 1a2b3c4d: 3 of 3 entries ran (wall clock 402.7 s; at once)
+  openai :: gpt-5.1      ACCEPT  0 blocker, 0 major, 2 minor  prior: 3 fixed  398.2 s  handoffs/12-codex-acceptance-openai.md
+  ...
+```
+
+Members run as child bridge processes through the internal `-PanelSpec` parameter; never
+pass it yourself. There is no tooling yet for linking corroborating or contradicting
+findings across members (ROADMAP R9): compare the replies yourself.
 
 **Council rules** (the `consult-codex` skill has the full list): the coordinator is an
 equal participant and the judge by default; a hard question can hand the judge role to
@@ -1222,7 +1333,9 @@ bridge therefore compares, before and after every agy turn, the working tree (th
 status manifest: tracked and untracked files), the WHOLE collab directory (every file under
 `-CollabDir`, recursively: every task's `findings.json` / `sessions.json` / `state.md` and
 handoffs; the bridge's own `.consult.*` files and this run's own `NN-agy-<slug>.*` files
-excepted), the brief and the artifacts, and fails the run when any of them changed: `failed:
+excepted - and, for a member of a panel whose members run at the same time, the task's two
+stores and the other members' handoffs, see "The panel"), the brief and the artifacts, and
+fails the run when any of them changed: `failed:
 the working tree changed during the run (by the reviewer or anyone else): <n> files: <list>
 - agy's sandbox does not block writes` (or `the collab directory changed during the run (by
 the reviewer or anyone else): <n> files: .collab/<task>/...`), class `permission`, the reply
@@ -1340,7 +1453,8 @@ nor writes it.
 | `-CodexConfig key=value[,…]` | — (roster `codex_config` when empty) | one comma-separated string; refused keys: "Per-run Codex overrides (-CodexConfig)" |
 | `-OffPeakOnly` | off | refuses at peak and when no schedule is set |
 | `-SkipPreflight` | off | bypasses every preflight refusal; ledger `preflight: "skipped"` |
-| `-Panel` / `-PanelAll` | off | every available roster entry, sequentially; needs a roster; not with `-Provider`/`-Thread`/`-Mode resume` |
+| `-Panel` / `-PanelAll` | off | every available roster entry, in parallel across endpoints (one after another within one); needs a roster; not with `-Provider`/`-Thread`/`-Mode resume` |
+| `-PanelConcurrency <n>` | `0` | `-Panel` only: at most n members at a time on top of the per-endpoint plan; `0` no cap, `1` strictly one after another |
 | `-CollabDir <path>` | `.collab` | relative to the git repo root |
 | `-CodexExe <path>` | the launcher on PATH | env override `CODEX_CONSULT_EXE` |
 | `-Engine codex\|agy` | the roster entry's engine (the thread's with `-Thread`), else `codex` | "Engines"; with a roster and no `-Provider`/`-Thread` it restricts the walk (and `-Panel`) to that engine |
@@ -1471,8 +1585,8 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 
 ## Tests
 
-`tests/run-all.ps1` runs the eight harnesses one at a time against a FAKE `codex` shim (and
-a FAKE `agy` for `harness-engines`): no real `codex` or `agy`, no quota spent, your own `~/.codex/config.toml` never changed (`harness-0.3`
+`tests/run-all.ps1` runs the nine harnesses one at a time against a FAKE `codex` shim (and
+a FAKE `agy` for `harness-engines` and `harness-panel`): no real `codex` or `agy`, no quota spent, your own `~/.codex/config.toml` never changed (`harness-0.3`
 points `CODEX_HOME` at scratch directories and compares your config's hash before and
 after; every harness sets `CODEX_CONSULT_ROSTER` to a scratch file or `none`). The fake
 codex is a `.cmd` shim, so the suite needs Windows and `git` on PATH. Never run two
@@ -1483,11 +1597,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1
 pwsh -NoProfile -File tests/run-all.ps1 -Only harness-roster,harness-0.3
 ```
 
-Assertions per harness (Windows PowerShell 5.1, 2026-09-25): `harness-0.3` 227,
-`harness-roster` 113, `harness-format` 37, `harness-engines` 81, `harness-pending` 26,
-`harness-fixes` 45, `harness-lock2` 11, `harness-3b` 12. `harness-0.3`, `harness-roster`,
-`harness-format` and `harness-engines` also run under pwsh. A full run takes about fifteen
-minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
+Assertions per harness (Windows PowerShell 5.1, 2026-09-26): `harness-0.3` 227,
+`harness-roster` 113, `harness-format` 37, `harness-engines` 95, `harness-panel` 48 (0.4.x
+wave 21, the parallel panel), `harness-pending` 26, `harness-fixes` 45, `harness-lock2` 11,
+`harness-3b` 12. `harness-0.3`, `harness-roster`, `harness-format`, `harness-engines` and
+`harness-panel` also run under pwsh. A full run takes about forty minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
 prints one summary line per harness, exits `1` when anything failed, and keeps full logs
 in `$env:TEMP\codex-consult-tests\run-all-<timestamp>\`. `tests/` is not part of the
 installed plugin; `tests/README.md` lists what each harness covers.

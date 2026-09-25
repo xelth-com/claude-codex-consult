@@ -37,11 +37,17 @@
       * reviewer roster  Get-RosterPath, Read-ReviewerRoster (fail-closed validation),
                          Find-RosterEntry, Get-PreflightVerdict, Format-QuotaWarning,
                          Select-RosterReviewer (the walk), Select-PanelMembers (-Panel),
+                         Get-PanelPlan (the panel's endpoint-aware concurrency),
+                         Get-PanelIgnorePrefixes (an agy member's siblings),
                          Format-RosterSkips; Find-ThreadEntry (-Thread lookup)
       * task lock        Enter-TaskLock, Exit-TaskLock (ownership, .consult.lock)
+      * store commit     Enter-StoreCommit, Complete-StoreCommit, Exit-StoreCommit (the ONE
+                         way to change findings.json / sessions.json: .consult.write.lock,
+                         re-read, delta, write), Enter-WriteLock, Add-LedgerEntry
       * recovery record  Read-PendingFile, Write-PendingFile, Remove-PendingFile,
-                         Test-PendingActive, Find-CodexProcesses
-                         (.consult.pending.json)
+                         Test-PendingActive, Find-CodexProcesses, Get-PendingPaths,
+                         Read-TaskPendingRecords (.consult.pending.json and the panel
+                         members' .consult.pending-<NN>.json)
       * processes        Stop-ProcessTree, ConvertTo-ProcArg, Format-Argv
 
     Windows PowerShell 5.1 and PowerShell 7 compatible, no external dependencies.
@@ -741,14 +747,16 @@ function Write-FindingsFile {
 # Next consult number n and handoff number NN. No number that anything on disk
 # already names may be handed out again:
 #   n  > the ledger's entry count and every entry's n, every finding's
-#        source.consult, every reviewer_checks[].consult, and the n of an
-#        interrupted run's recovery record ($Leftover = .consult.pending.json);
+#        source.consult, every reviewer_checks[].consult, and the n of every
+#        interrupted run's recovery record ($Leftovers: the records of
+#        .consult.pending.json and the panel members' .consult.pending-<NN>.json);
 #   NN > every handoff file "<NN>-..." (two OR MORE digits, so 100-... counts),
-#        every finding id F<NN>-<k>, and the nn of that recovery record.
-# Recovered is set when the recovery record's n has no ledger entry (a run that
-# stopped before its commit point); the caller reports it.
+#        every finding id F<NN>-<k>, and the nn of every such recovery record.
+# Per record (Items, in the order given): Recovered is set when its n has no ledger entry
+# (a run that stopped before its commit point); the caller reports each. Recovered /
+# RecoveredN / RecoveredNn of the result: any record recovered / the first record's numbers.
 function Get-NextNumbers {
-    param($Consults, $Store, [string]$HandoffsDir, $Leftover)
+    param($Consults, $Store, [string]$HandoffsDir, [Alias('Leftover')] [object[]]$Leftovers = @())
     $ledgerNs = @{}
     $maxN = @($Consults).Count
     foreach ($c in @($Consults | Where-Object { $null -ne $_ })) {
@@ -778,30 +786,34 @@ function Get-NextNumbers {
             if ([string](Get-PropertyValue $f 'id' '') -match '^F(\d{2,})-\d+$' -and [int]::TryParse($Matches[1], [ref]$v) -and $v -gt $maxNn) { $maxNn = $v }
         }
     }
-    $recovered = $false
-    $recN = $null
-    $recNn = ''
-    if ($Leftover) {
+    $items = New-Object System.Collections.Generic.List[object]
+    foreach ($leftover in @($Leftovers | Where-Object { $null -ne $_ })) {
+        $recovered = $false
+        $recN = $null
+        $recNn = ''
         $v = 0
-        if ([int]::TryParse([string](Get-PropertyValue $Leftover 'n' ''), [ref]$v) -and $v -gt 0) {
+        if ([int]::TryParse([string](Get-PropertyValue $leftover 'n' ''), [ref]$v) -and $v -gt 0) {
             $recN = $v
             if (-not $ledgerNs.ContainsKey($v)) { $recovered = $true }
             if ($v -gt $maxN) { $maxN = $v }
         }
         $w = 0
-        $leftNn = [string](Get-PropertyValue $Leftover 'nn' '')
+        $leftNn = [string](Get-PropertyValue $leftover 'nn' '')
         if ($leftNn -and [int]::TryParse($leftNn, [ref]$w) -and $w -gt 0) {
             $recNn = $leftNn
             if ($w -gt $maxNn) { $maxNn = $w }
             if ($null -eq $recN) { $recovered = $true }
         }
+        $items.Add([pscustomobject]@{ N = $recN; Nn = $recNn; Recovered = $recovered })
     }
+    $first = if ($items.Count -gt 0) { $items[0] } else { [pscustomobject]@{ N = $null; Nn = ''; Recovered = $false } }
     return [pscustomobject]@{
         N           = $maxN + 1
         Nn          = ('{0:D2}' -f ($maxNn + 1))
-        Recovered   = $recovered
-        RecoveredN  = $recN
-        RecoveredNn = $recNn
+        Recovered   = [bool](@($items | Where-Object { $_.Recovered }).Count -gt 0)
+        RecoveredN  = $first.N
+        RecoveredNn = $first.Nn
+        Items       = [object[]]$items.ToArray()
     }
 }
 
@@ -1403,7 +1415,20 @@ function Add-ReplyFindings {
     }
 
     if ($newRecords.Count -gt 0) {
-        $Store.findings = [object[]](@($Store.findings | Where-Object { $null -ne $_ }) + $newRecords.ToArray())
+        # In id order (0.4.x wave 21): after every finding whose F<NN> is not greater than this
+        # run's - a panel member that commits first still lands after the lower-NN members'
+        # findings; a single run (the highest NN) appends as before.
+        $list = New-Object System.Collections.Generic.List[object]
+        foreach ($f in @($Store.findings | Where-Object { $null -ne $_ })) { $list.Add($f) }
+        $mine = 0
+        [void][int]::TryParse($Nn, [ref]$mine)
+        $at = $list.Count
+        for ($i = $list.Count - 1; $i -ge 0; $i--) {
+            $v = 0
+            if ([string](Get-PropertyValue $list[$i] 'id' '') -match '^F(\d{2,})-\d+$' -and [int]::TryParse($Matches[1], [ref]$v) -and $v -gt $mine) { $at = $i } else { break }
+        }
+        $list.InsertRange($at, $newRecords)
+        $Store.findings = [object[]]$list.ToArray()
     }
     return [pscustomobject]@{
         NewIds            = [string[]]$newIds.ToArray()
@@ -3642,7 +3667,8 @@ function ConvertTo-WhenOffset {
 # tasks. Entries recorded before 0.3.0 count as the built-in openai endpoint; entries with
 # an unresolved identity (empty fingerprint) are ignored. A failure's class comes from its
 # provider_failure, else (older entries) from its bridge_outcome. Newest wins: a later
-# successful run clears an earlier auth or quota failure. $UtcNow: the consult clock
+# successful run clears an earlier auth or quota failure ("later" by completion: finished_at,
+# else when + wall_seconds; ties by n). $UtcNow: the consult clock
 # (Get-ConsultClock -Peek), so a test can freeze time.
 #   Auth         the newest of {success, auth failure} is an auth failure <= 24 h old
 #   Quota        the newest of {success, quota failure} is a quota failure that still
@@ -3674,7 +3700,19 @@ function Get-EndpointHealth {
         # A failure stamped in the future (clock skew, a mislabelled zone) counts as now:
         # its age is clamped to 0, it is never skipped (F15-4).
         $age = [Math]::Max(0, ($UtcNow - $at.UtcDateTime).TotalMinutes)
-        $rec = [pscustomobject]@{ At = $at; Ok = ($outcome -eq 'usable reply'); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); Age = $age; RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Until = $at.AddMinutes(60) }
+        # "Newest" is by COMPLETION (D9, F03-3): a panel's members start together and finish in
+        # any order, so a member that started later may have succeeded before an earlier one hit
+        # its usage limit. finished_at (0.4.x wave 21), else when + wall_seconds (older entries),
+        # else when; ties by n (F02-5).
+        $order = ConvertTo-WhenOffset (Get-PropertyValue $c 'finished_at' '')
+        if ($null -eq $order) {
+            $order = $at
+            $ws = 0.0
+            if ([double]::TryParse([string](Get-PropertyValue $c 'wall_seconds' ''), [System.Globalization.NumberStyles]::Float, $script:Invariant, [ref]$ws) -and $ws -gt 0) { $order = $at.AddSeconds($ws) }
+        }
+        $entryN = 0
+        [void][int]::TryParse([string](Get-PropertyValue $c 'n' ''), [ref]$entryN)
+        $rec = [pscustomobject]@{ At = $at; Order = $order; N = $entryN; Ok = ($outcome -eq 'usable reply'); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); Age = $age; RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Until = $at.AddMinutes(60) }
         if (-not $rec.Ok) {
             $reference = $at
             $pf = Get-PropertyValue $c 'provider_failure' $null
@@ -3707,7 +3745,7 @@ function Get-EndpointHealth {
         }
         $records.Add($rec)
     }
-    $sorted = @($records | Sort-Object -Property At -Descending)
+    $sorted = @($records | Sort-Object -Property @{ Expression = { $_.Order }; Descending = $true }, @{ Expression = { $_.N }; Descending = $true })
     $auth = @($sorted | Where-Object { $_.Ok -or $_.Class -eq 'auth' }) | Select-Object -First 1
     if ($auth -and -not $auth.Ok -and $auth.AgeMinutes -le 24 * 60) { $h.Auth = $auth }
     $quota = @($sorted | Where-Object { $_.Ok -or $_.Class -eq 'quota' }) | Select-Object -First 1
@@ -3760,6 +3798,10 @@ function Get-EndpointHealth {
 #                 tier), codex_config and auth are refused, and one label names one engine
 #                 across the roster. Two entries with the same label and different models
 #                 are fine (e.g. a "panel": "weighty" entry on the pro model).
+#   parallel      optional TOP-LEVEL object (0.4.x wave 21) { "<provider label>": <n> }: a
+#                 -Panel runs the members of one endpoint one after another (Get-PanelPlan);
+#                 n >= 1 lets that label's members run n at a time. Every key must be a
+#                 label the roster uses, every value an integer >= 1.
 # Anything else - an unknown key, roster_version other than 1, reviewers not an array or
 # empty, the same (provider, model) twice, a file that does not parse - makes the roster
 # unusable, and the bridge refuses to run (fail-closed: an existing roster is never
@@ -3774,8 +3816,9 @@ function Get-EndpointHealth {
 #   otherwise         the roster is walked in order and the first entry whose preflight is
 #                     available is used (Select-RosterReviewer); every skipped entry is
 #                     recorded with its reason. None available: refused.
-#   -Panel            every available entry (Select-PanelMembers) runs the same brief, one
-#                     after another, each as a consultation of its own.
+#   -Panel            every available entry (Select-PanelMembers) runs the same brief, each
+#                     as a consultation of its own; members of different endpoints at once,
+#                     of one endpoint one after another (Get-PanelPlan, roster "parallel").
 
 # Where the roster comes from: { Path ('' when none); FromEnv (CODEX_CONSULT_ROSTER named
 # it: it must exist); Disabled (CODEX_CONSULT_ROSTER=none) }.
@@ -3795,13 +3838,15 @@ function Get-RosterPath {
 # { Exists; Path; Disabled (CODEX_CONSULT_ROSTER=none); Entries ({ Position; Provider; Model
 # ('' = not given); CodexConfig (string[], already expanded and quoted); Auth ('' | 'none');
 # Panel ('always' | 'weighty'); Engine ('codex' | 'agy'); EngineDeclared (the entry names
-# its engine) }); Error }. Error is the whole refusal message; the caller stops on it.
+# its engine) }); Parallel (hashtable, ordinal keys: provider label -> n from the top-level
+# "parallel"; empty when absent); Error }. Error is the whole refusal message; the caller
+# stops on it.
 # $Location: Get-RosterPath (the default).
 function Read-ReviewerRoster {
     param($Location = $null)
     if ($null -eq $Location) { $Location = Get-RosterPath }
     $Path = [string]$Location.Path
-    $r = [pscustomobject]@{ Exists = $false; Path = $Path; Disabled = [bool]$Location.Disabled; Entries = [object[]]@(); Error = '' }
+    $r = [pscustomobject]@{ Exists = $false; Path = $Path; Disabled = [bool]$Location.Disabled; Entries = [object[]]@(); Parallel = (New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)); Error = '' }
     if ($r.Disabled) { return $r }
     if ($Path -and $Location.FromEnv -and -not (Test-Path -LiteralPath $Path)) {
         $r.Error = "the reviewer roster '$Path' named by CODEX_CONSULT_ROSTER does not exist; unset CODEX_CONSULT_ROSTER to use <codex home>/codex-consult-roster.json when it exists, or set it to none for no roster."
@@ -3824,7 +3869,7 @@ function Read-ReviewerRoster {
     $entries = New-Object System.Collections.Generic.List[object]
     if (-not $why) {
         foreach ($prop in $data.PSObject.Properties) {
-            if (@('roster_version', 'reviewers') -cnotcontains $prop.Name) { $why = "unknown key '$($prop.Name)' at the top level (allowed: roster_version, reviewers)"; break }
+            if (@('roster_version', 'reviewers', 'parallel') -cnotcontains $prop.Name) { $why = "unknown key '$($prop.Name)' at the top level (allowed: roster_version, reviewers, parallel)"; break }
         }
     }
     if (-not $why) {
@@ -3895,6 +3940,18 @@ function Read-ReviewerRoster {
                 $why = "entries $($dup.Position) and $pos are the same reviewer $label"; break
             }
             $entries.Add([pscustomobject]@{ Position = $pos; Provider = $provider; Model = $model; CodexConfig = $cfgItems; Auth = $auth; Panel = $panelWeight; Engine = $engine; EngineDeclared = $engineDeclared })
+        }
+    }
+    if (-not $why -and $data.PSObject.Properties['parallel']) {
+        $pv = $data.parallel
+        if (-not (Test-IsJsonObject $pv)) {
+            $why = "parallel must be an object {""<provider label>"": <n>} (got $(ConvertTo-Json -InputObject $pv -Compress))"
+        } else {
+            foreach ($prop in $pv.PSObject.Properties) {
+                if (@($entries | Where-Object { $_.Provider -ceq $prop.Name }).Count -eq 0) { $why = "parallel names the provider label '$($prop.Name)', which no entry of the roster uses"; break }
+                if (-not (Test-IsJsonInteger $prop.Value) -or [double]$prop.Value -lt 1) { $why = "parallel.$($prop.Name) must be an integer >= 1 (got $(ConvertTo-Json -InputObject $prop.Value -Compress))"; break }
+                $r.Parallel[$prop.Name] = [int]$prop.Value
+            }
         }
     }
     if ($why) {
@@ -4115,6 +4172,98 @@ function Select-PanelMembers {
     return $r
 }
 
+# The concurrency plan of a panel (0.4.x wave 21, D8 - endpoint-aware): members that reach the
+# same ENDPOINT run one after another, members of different endpoints at once. An endpoint
+# group is the members of one provider label, merged with every other label whose members
+# resolve to the same provider fingerprint (two labels on one base URL; every agy label - they
+# share one Google sign-in). A group runs 1 member at a time unless the roster's top-level
+# "parallel" raises its label (a merged group: the smallest limit of its labels); -Cap
+# (-PanelConcurrency) caps the total (0 = no cap, 1 = strictly one after another in roster
+# order). $Runners: the members Select-PanelMembers runs (State 'run'), in roster order.
+# { Groups (object[] of { Labels (string[]); Limit; Positions (int[] roster positions) });
+#   GroupOf (hashtable roster position -> group index); Cap; Effective (the most members
+#   that can run at once); Text ('at once' | 'one after another' | 'at most <k> at a time');
+#   Limits (ordered: label -> its group's limit, roster order) }
+function Get-PanelPlan {
+    param([object[]]$Runners, [hashtable]$Parallel = $null, [int]$Cap = 0)
+    $labels = New-Object System.Collections.Generic.List[string]
+    $fps = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+    foreach ($m in @($Runners | Where-Object { $_ })) {
+        $label = [string]$m.Entry.Provider
+        if (-not $fps.ContainsKey($label)) { $fps[$label] = New-Object System.Collections.Generic.List[string]; $labels.Add($label) }
+        $fp = ''
+        if ($m.Identity -and $m.Identity.Resolved) { $fp = [string]$m.Identity.Fingerprint }
+        if ($fp -and -not $fps[$label].Contains($fp)) { $fps[$label].Add($fp) }
+    }
+    # one group per label, then labels that share a fingerprint are merged (to a fixed point)
+    $groupOfLabel = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+    for ($i = 0; $i -lt $labels.Count; $i++) { $groupOfLabel[$labels[$i]] = $i }
+    $changed = $true
+    while ($changed) {
+        $changed = $false
+        for ($i = 0; $i -lt $labels.Count; $i++) {
+            for ($j = $i + 1; $j -lt $labels.Count; $j++) {
+                $gi = $groupOfLabel[$labels[$i]]; $gj = $groupOfLabel[$labels[$j]]
+                if ($gi -eq $gj) { continue }
+                $shared = @($fps[$labels[$i]] | Where-Object { $fps[$labels[$j]].Contains($_) }).Count -gt 0
+                if (-not $shared) { continue }
+                $keep = [Math]::Min($gi, $gj); $drop = [Math]::Max($gi, $gj)
+                foreach ($l in $labels) { if ($groupOfLabel[$l] -eq $drop) { $groupOfLabel[$l] = $keep } }
+                $changed = $true
+            }
+        }
+    }
+    $groups = New-Object System.Collections.Generic.List[object]
+    $indexOf = @{}
+    $groupOf = @{}
+    foreach ($m in @($Runners | Where-Object { $_ })) {
+        $label = [string]$m.Entry.Provider
+        $gid = $groupOfLabel[$label]
+        if (-not $indexOf.ContainsKey($gid)) {
+            $indexOf[$gid] = $groups.Count
+            $groups.Add([pscustomobject]@{ Labels = (New-Object System.Collections.Generic.List[string]); Limit = 0; Positions = (New-Object System.Collections.Generic.List[int]) })
+        }
+        $g = $groups[$indexOf[$gid]]
+        if (-not $g.Labels.Contains($label)) { $g.Labels.Add($label) }
+        $g.Positions.Add([int]$m.Entry.Position)
+        $groupOf[[int]$m.Entry.Position] = $indexOf[$gid]
+    }
+    $effective = 0
+    $limits = [ordered]@{}
+    $out = New-Object System.Collections.Generic.List[object]
+    foreach ($g in $groups) {
+        $limit = 0
+        foreach ($l in $g.Labels) {
+            $v = 1
+            if ($null -ne $Parallel -and $Parallel.ContainsKey($l)) { $v = [int]$Parallel[$l] }
+            if ($limit -eq 0 -or $v -lt $limit) { $limit = $v }
+        }
+        $effective += [Math]::Min($limit, $g.Positions.Count)
+        $out.Add([pscustomobject]@{ Labels = [string[]]$g.Labels.ToArray(); Limit = $limit; Positions = [int[]]$g.Positions.ToArray() })
+    }
+    foreach ($l in $labels) { $limits[$l] = $out[$indexOf[$groupOfLabel[$l]]].Limit }
+    if ($Cap -gt 0 -and $Cap -lt $effective) { $effective = $Cap }
+    $count = @($Runners | Where-Object { $_ }).Count
+    $text = if ($effective -ge $count) { 'at once' } elseif ($effective -le 1) { 'one after another' } else { "at most $effective at a time" }
+    return [pscustomobject]@{ Groups = [object[]]$out.ToArray(); GroupOf = $groupOf; Cap = $Cap; Effective = $effective; Text = $text; Limits = $limits }
+}
+
+# The collab paths an agy panel member's tree check leaves out besides its own handoff files
+# (0.4.x wave 21, D7): the task's two stores and the handoffs of every OTHER member of its
+# panel that may run at the same time ($SiblingNns; none when the panel runs one member at a
+# time), each with its Write-TextAtomic temp variant (.<name>.<guid>.tmp in the same
+# directory). Prefixes relative to the collab root, '/'-separated (Get-CollabSnapshot keys).
+# Everything else in the collab root stays monitored (other tasks, state.md, briefs).
+function Get-PanelIgnorePrefixes {
+    param([string]$Task, [string[]]$SiblingNns = @())
+    $nns = @($SiblingNns | Where-Object { $_ })
+    $p = New-Object System.Collections.Generic.List[string]
+    if ($nns.Count -eq 0) { return , ([string[]]$p.ToArray()) }
+    foreach ($store in @('sessions.json', 'findings.json')) { $p.Add("$Task/$store"); $p.Add("$Task/.$store.") }
+    foreach ($s in $nns) { $p.Add("$Task/handoffs/$s-"); $p.Add("$Task/handoffs/.$s-") }
+    return , ([string[]]$p.ToArray())
+}
+
 # "openai :: gpt-5.1 (usage limit until ...), ZAI :: glm-5.3 (missing: env ZAI_KEY not set)"
 function Format-RosterSkips {
     param([object[]]$Skipped)
@@ -4304,21 +4453,46 @@ function Select-ParentThread {
 #                                 Cross-host exclusion (a task directory on a network
 #                                 share used from two machines) is out of scope. The
 #                                 content is informational only - { pid, start_time,
-#                                 host, task, started } of the current holder - written
+#                                 host, task, started } of the current holder, plus
+#                                 `panel` (its id) while a -Panel run holds it - written
 #                                 after the handle is held; overwriting it destroys
-#                                 nothing recoverable.
+#                                 nothing recoverable. A -Panel run holds it for the
+#                                 whole panel; its members never take it.
+#
+#   <task>/.consult.write.lock    (0.4.x wave 21) the COMMIT lock of the task's two stores,
+#                                 same discipline (permanent file, held open, release =
+#                                 close, a killed holder releases it), held only for one
+#                                 commit and waited for (Enter-WriteLock: backoff up to
+#                                 60 s). Every writer of findings.json / sessions.json -
+#                                 a single run, a panel member, codex-findings.ps1 -Status
+#                                 and -Rate - goes through Enter-StoreCommit: lock,
+#                                 RE-READ both stores, apply its own delta, write, release.
+#                                 No writer ever writes a store snapshot read before it.
 #
 #   <task>/.consult.pending.json  recovery metadata of the consultation in progress,
-#                                 replaced ATOMICALLY (Write-TextAtomic) and only while
-#                                 the lock is held:
-#                                   { state, n, nn, reply, started, pid, host, launcher,
-#                                     child_pid, child_start_time, survivors, note }
-#                                 state: reserved   numbers allocated, codex not started
-#                                        launching  about to start codex (the child may
-#                                                   or may not exist)
-#                                        running    codex started as child_pid
-#                                        survivors  a timeout kill left survivors[] alive
-#                                 pid: the bridge that wrote the record. survivors[]:
+#   <task>/.consult.pending-<NN>.json  (one per -Panel member, NN = its handoff number;
+#                                 written `reserved` by the panel run before any member
+#                                 starts, then owned by the member) - replaced ATOMICALLY
+#                                 (Write-TextAtomic):
+#                                   { state, n, nn, reply, events, consult_id, started,
+#                                     pid, start_time, host, launcher, engine, child_pid,
+#                                     child_start_time, survivors, note [, reply_json,
+#                                     raw_reply, original, first_reply, panel] }
+#                                 state: reserved    numbers allocated, codex not started
+#                                        launching   about to start codex (the child may
+#                                                    or may not exist)
+#                                        running     codex started as child_pid
+#                                        survivors   a timeout kill left survivors[] alive
+#                                        committing  the run is over; the bridge waits for
+#                                                    or holds the write lock (kept when the
+#                                                    write lock was never acquired: the
+#                                                    reply files it names have no ledger
+#                                                    entry)
+#                                 pid + start_time: the bridge that wrote the record (a
+#                                 panel member rewrites its record with its own as its
+#                                 first act); while THAT process runs the record is active
+#                                 in every state. panel: { id, position, of, parent_pid,
+#                                 parent_start_time } of a member record. survivors[]:
 #                                   { pid, start_time, name } per process still alive
 #                                   after the kill (start_time: UTC round-trip string
 #                                   from Get-Process; name: its ProcessName). A recorded
@@ -4328,12 +4502,14 @@ function Select-ParentThread {
 #                                   pid) counts only if that process looks like codex
 #                                   (Test-RecordedProcess) - never by pid alone.
 #                                 It is deleted when the run completed cleanly (after the
-#                                 ledger commit). A run that finds one decides from it
-#                                 BEFORE writing anything (Test-PendingActive): a live
-#                                 codex process refuses the run; a dead one's reservation
-#                                 is consumed (numbering skips past it) and only then is
-#                                 the file replaced by the new run's record. An
-#                                 unparseable pending file is corruption and refuses.
+#                                 ledger commit, under the write lock). A run that finds
+#                                 records decides from ALL of them BEFORE writing anything
+#                                 (Read-TaskPendingRecords, Test-PendingActive): a live
+#                                 writer or codex process refuses the run; a dead one's
+#                                 reservation is consumed (numbering skips past it) and
+#                                 only then is the file replaced by the new run's record
+#                                 (a member record: removed). An unparseable pending file
+#                                 is corruption and refuses.
 
 # Process start time as a UTC round-trip string. $null: no such process. '': the
 # process exists but its start time cannot be read (e.g. another user's process).
@@ -4409,7 +4585,7 @@ function Read-LockContent {
 # Takes the task's ownership lock (see the section comment). Returns
 # { Acquired; Path; Stream; Record; Message } - the caller refuses when not Acquired.
 function Enter-TaskLock {
-    param([string]$TaskDir, [string]$Task)
+    param([string]$TaskDir, [string]$Task, [string]$Panel = '')
     $path = Join-Path $TaskDir '.consult.lock'
     $share = if ($script:OnWindows) { [IO.FileShare]::Read } else { [IO.FileShare]::None }
     $record = [pscustomobject]@{
@@ -4419,6 +4595,7 @@ function Enter-TaskLock {
         task       = $Task
         started    = (Get-IsoTimestamp)
     }
+    if ($Panel) { $record | Add-Member -NotePropertyName 'panel' -NotePropertyValue $Panel }
     $fs = $null
     try {
         $fs = [IO.File]::Open($path, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, $share)
@@ -4434,7 +4611,11 @@ function Enter-TaskLock {
             Start-Sleep -Milliseconds 125
         }
         $who = 'a live process'
-        if ($holder) { $who = "pid $(Get-PropertyValue $holder 'pid' '?') on $(Get-PropertyValue $holder 'host' '?') since $(Get-PropertyValue $holder 'started' '?')" }
+        if ($holder) {
+            $who = "pid $(Get-PropertyValue $holder 'pid' '?') on $(Get-PropertyValue $holder 'host' '?') since $(Get-PropertyValue $holder 'started' '?')"
+            $holderPanel = [string](Get-PropertyValue $holder 'panel' '')
+            if ($holderPanel) { $who += " (review panel $($holderPanel.Substring(0, [Math]::Min(8, $holderPanel.Length))))" }
+        }
         return (New-LockRefusal -Path $path -Message "another consultation or status update for task '$Task' is running: $path is held open by $who. Wait for it to finish; the lock is released when that process exits.")
     } catch {
         return (New-LockRefusal -Path $path -Message "could not open the lock '$path': $($_.Exception.Message)")
@@ -4458,11 +4639,188 @@ function Exit-TaskLock {
     try { $Lock.Stream.Dispose() } catch { }
 }
 
-$script:PendingStates = @('reserved', 'launching', 'running', 'survivors')
+# How long a commit waits for the write lock before it gives up (D3): 60 s.
+# TEST HOOK: CODEX_CONSULT_TEST_WRITE_LOCK_SEC=<s> shortens it.
+function Get-WriteLockTimeout {
+    $v = 0.0
+    if ([double]::TryParse([string]$env:CODEX_CONSULT_TEST_WRITE_LOCK_SEC, [System.Globalization.NumberStyles]::Float, $script:Invariant, [ref]$v) -and $v -gt 0) { return $v }
+    return 60.0
+}
+
+# Takes <task>/.consult.write.lock (see the section comment): opened like .consult.lock and
+# retried with backoff (50 ms, doubling up to 1 s) while another process holds it, until
+# $TimeoutSec. { Acquired; Path; Stream; Record; Message; Waited (seconds) }; release with
+# Exit-TaskLock (close the handle; the file stays).
+function Enter-WriteLock {
+    param([string]$TaskDir, [string]$Task, [double]$TimeoutSec = 60)
+    $path = Join-Path $TaskDir '.consult.write.lock'
+    $share = if ($script:OnWindows) { [IO.FileShare]::Read } else { [IO.FileShare]::None }
+    $record = [pscustomobject]@{
+        pid        = $PID
+        start_time = (Get-ProcessStartIso -ProcessId $PID)
+        host       = [Environment]::MachineName
+        task       = $Task
+        started    = (Get-IsoTimestamp)
+    }
+    $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    $delay = 50
+    $fs = $null
+    while ($null -eq $fs) {
+        try {
+            $fs = [IO.File]::Open($path, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, $share)
+        } catch [System.IO.DirectoryNotFoundException] {
+            $r = New-LockRefusal -Path $path -Message "could not open the write lock '$path': $($_.Exception.Message)"
+            $r | Add-Member -NotePropertyName 'Waited' -NotePropertyValue ([math]::Round($watch.Elapsed.TotalSeconds, 1))
+            return $r
+        } catch [System.IO.IOException] {
+            if ($watch.Elapsed.TotalSeconds -ge $TimeoutSec) {
+                $who = 'a live process'
+                $holder = Read-LockContent -Path $path
+                $hpid = 0
+                if ($holder -and [int]::TryParse([string](Get-PropertyValue $holder 'pid' ''), [ref]$hpid) -and
+                    (Test-PidAlive -ProcessId $hpid -StartTime (ConvertTo-JsonText (Get-PropertyValue $holder 'start_time' '')))) {
+                    $who = "pid $hpid on $(Get-PropertyValue $holder 'host' '?') since $(Get-PropertyValue $holder 'started' '?')"
+                }
+                $r = New-LockRefusal -Path $path -Message "the write lock '$path' of task '$Task' was not acquired within $TimeoutSec s: it is held open by $who"
+                $r | Add-Member -NotePropertyName 'Waited' -NotePropertyValue ([math]::Round($watch.Elapsed.TotalSeconds, 1))
+                return $r
+            }
+            Start-Sleep -Milliseconds $delay
+            $delay = [Math]::Min($delay * 2, 1000)
+        } catch {
+            $r = New-LockRefusal -Path $path -Message "could not open the write lock '$path': $($_.Exception.Message)"
+            $r | Add-Member -NotePropertyName 'Waited' -NotePropertyValue ([math]::Round($watch.Elapsed.TotalSeconds, 1))
+            return $r
+        }
+    }
+    # Informational only (who holds it); nothing recoverable lives here.
+    try {
+        $bytes = $script:Utf8NoBom.GetBytes((ConvertTo-Json -InputObject $record -Compress) + "`n")
+        $fs.SetLength(0)
+        $fs.Position = 0
+        $fs.Write($bytes, 0, $bytes.Length)
+        $fs.Flush($true)
+    } catch { }
+    return [pscustomobject]@{ Acquired = $true; Path = $path; Stream = $fs; Record = $record; Message = ''; Waited = [math]::Round($watch.Elapsed.TotalSeconds, 1) }
+}
+
+# THE way every writer changes a task's stores (D2, F04-3): codex-consult.ps1 (a single run,
+# a panel member) and codex-findings.ps1 (-Status, -Rate). Takes the write lock, then
+# RE-READS findings.json and sessions.json; the caller applies ITS OWN delta to these fresh
+# objects, writes them with Complete-StoreCommit (findings.json, then sessions.json) and
+# releases with Exit-StoreCommit in a finally. A store that no longer parses refuses
+# (Read-JsonStore; the lock is released on the way out). Not acquired within $TimeoutSec:
+# Acquired $false and the Message - the caller gives up WITHOUT touching the stores (D3).
+# { Acquired; Message; Waited; Lock; FindingsPath; SessionsPath; Findings (the fresh store,
+# a new one when absent); Sessions (the fresh ledger object, $null when absent) }.
+function Enter-StoreCommit {
+    param([string]$TaskDir, [string]$Task, [double]$TimeoutSec = 60, [switch]$NoSessions)
+    $lock = Enter-WriteLock -TaskDir $TaskDir -Task $Task -TimeoutSec $TimeoutSec
+    $c = [pscustomobject]@{
+        Acquired     = [bool]$lock.Acquired
+        Message      = [string]$lock.Message
+        Waited       = $lock.Waited
+        Lock         = $lock
+        FindingsPath = (Join-Path $TaskDir 'findings.json')
+        SessionsPath = (Join-Path $TaskDir 'sessions.json')
+        Findings     = $null
+        Sessions     = $null
+    }
+    if (-not $c.Acquired) { return $c }
+    $read = $false
+    try {
+        $c.Findings = Read-FindingsFile -Path $c.FindingsPath -Task $Task
+        if (-not $NoSessions) { $c.Sessions = Read-JsonStore -Path $c.SessionsPath }
+        $read = $true
+    } finally {
+        if (-not $read) { Exit-TaskLock -Lock $lock; $c.Acquired = $false }
+    }
+    return $c
+}
+
+# Writes the commit's fresh stores in the documented order: findings.json, then
+# sessions.json (the commit point). Only while the write lock is held.
+function Complete-StoreCommit {
+    param($Commit, [switch]$Findings, [switch]$Sessions)
+    if ($null -eq $Commit -or -not $Commit.Acquired -or -not $Commit.Lock.Acquired) { throw 'Complete-StoreCommit: the write lock is not held' }
+    if ($Findings) { Write-FindingsFile -Path $Commit.FindingsPath -Store $Commit.Findings }
+    if ($Sessions) { Write-JsonFile -Path $Commit.SessionsPath -Object $Commit.Sessions }
+}
+
+# Releases the write lock of a commit (idempotent; $null is fine).
+function Exit-StoreCommit {
+    param($Commit)
+    if ($null -eq $Commit) { return }
+    Exit-TaskLock -Lock $Commit.Lock
+    $Commit.Acquired = $false
+}
+
+# Inserts $Entry into the ledger object's codex.consults at its place by n (D10): the array
+# stays sorted by n whatever order a panel's members commit in - an entry lands after every
+# entry whose n is not greater than its own, so a single run (the highest n) is appended as
+# before. Select-ParentThread's "newest thread of a lineage" is therefore the highest n.
+function Add-LedgerEntry {
+    param($Sessions, $Entry)
+    $list = New-Object System.Collections.Generic.List[object]
+    foreach ($c in @($Sessions.codex.consults | Where-Object { $null -ne $_ })) { $list.Add($c) }
+    $mine = 0
+    [void][int]::TryParse([string](Get-PropertyValue $Entry 'n' ''), [ref]$mine)
+    $at = $list.Count
+    for ($i = $list.Count - 1; $i -ge 0; $i--) {
+        $v = 0
+        if ([int]::TryParse([string](Get-PropertyValue $list[$i] 'n' ''), [ref]$v) -and $v -gt $mine) { $at = $i } else { break }
+    }
+    $list.Insert($at, $Entry)
+    $Sessions.codex.consults = [object[]]$list.ToArray()
+}
+
+$script:PendingStates = @('reserved', 'launching', 'running', 'survivors', 'committing')
 
 function Get-PendingPath {
     param([string]$TaskDir)
     return (Join-Path $TaskDir '.consult.pending.json')
+}
+
+# The recovery record of a -Panel member: <task>/.consult.pending-<NN>.json.
+function Get-MemberPendingPath {
+    param([string]$TaskDir, [string]$Nn)
+    return (Join-Path $TaskDir ".consult.pending-$Nn.json")
+}
+
+# Every recovery record file of a task: .consult.pending.json first, then the panel members'
+# .consult.pending-<...>.json by name. (Their atomic-write temps ..consult.pending*.tmp are
+# not records.)
+function Get-PendingPaths {
+    param([string]$TaskDir)
+    $single = New-Object System.Collections.Generic.List[string]
+    $members = New-Object System.Collections.Generic.List[string]
+    if ($TaskDir -and [IO.Directory]::Exists($TaskDir)) {
+        foreach ($f in [IO.Directory]::GetFiles($TaskDir)) {
+            $name = [IO.Path]::GetFileName($f)
+            if ($name -ieq '.consult.pending.json') { $single.Add($f) }
+            elseif ($name -match '^\.consult\.pending-[^\\/]+\.json$') { $members.Add($f) }
+        }
+    }
+    $sorted = [string[]]$members.ToArray()
+    [Array]::Sort($sorted, [StringComparer]::OrdinalIgnoreCase)
+    return , ([string[]]($single.ToArray() + $sorted))
+}
+
+# Every recovery record of a task (Get-PendingPaths), read and judged (Test-PendingActive):
+# { Items (object[] of { Path; Name; Record; Check }); Active (the first active item, or
+# $null); Error ('' or the refusal for the first unusable record - corruption refuses) }.
+function Read-TaskPendingRecords {
+    param([string]$TaskDir)
+    $items = New-Object System.Collections.Generic.List[object]
+    foreach ($p in (Get-PendingPaths -TaskDir $TaskDir)) {
+        $rd = Read-PendingFile -Path $p
+        if ($rd.Error) { return [pscustomobject]@{ Items = [object[]]$items.ToArray(); Active = $null; Error = $rd.Error } }
+        if (-not $rd.Exists) { continue }
+        $chk = Test-PendingActive -Record $rd.Record -Path $p
+        $items.Add([pscustomobject]@{ Path = $p; Name = [IO.Path]::GetFileName($p); Record = $rd.Record; Check = $chk })
+    }
+    $active = @($items | Where-Object { $_.Check.Active }) | Select-Object -First 1
+    return [pscustomobject]@{ Items = [object[]]$items.ToArray(); Active = $active; Error = '' }
 }
 
 # { Exists; Record; Error }. Absent -> Exists $false. Present but empty, unparseable,
@@ -4492,9 +4850,12 @@ function Read-PendingFile {
 # runs (repo-relative when inside the repository), set when its process is registered:
 # for agy it holds the reply itself, so a run that stops before its ledger entry leaves it
 # named here (Get-PendingOriginalNote).
+# start_time (0.4.x wave 21, D1): the start time of the bridge that writes the record (pid),
+# so the record is judged active while that very process runs. panel: the member's panel
+# record { id, position, of, parent_pid, parent_start_time } ($null: not a panel member).
 function New-PendingRecord {
-    param([string]$State, $N, [string]$Nn, [string]$Reply, [string]$Started, [string]$Launcher = '', [string]$ConsultId = '', [string]$Engine = 'codex')
-    return [pscustomobject]@{
+    param([string]$State, $N, [string]$Nn, [string]$Reply, [string]$Started, [string]$Launcher = '', [string]$ConsultId = '', [string]$Engine = 'codex', $Panel = $null)
+    $r = [pscustomobject]@{
         state            = $State
         n                = $N
         nn               = $Nn
@@ -4503,6 +4864,7 @@ function New-PendingRecord {
         consult_id       = $ConsultId
         started          = $Started
         pid              = $PID
+        start_time       = [string](Get-ProcessStartIso -ProcessId $PID)
         host             = [Environment]::MachineName
         launcher         = $Launcher
         engine           = $Engine
@@ -4511,6 +4873,8 @@ function New-PendingRecord {
         survivors        = [object[]]@()
         note             = ''
     }
+    if ($null -ne $Panel) { $r | Add-Member -NotePropertyName 'panel' -NotePropertyValue $Panel }
+    return $r
 }
 
 # Atomic replace (temp + replace); throws on failure - callers decide what a failed
@@ -4695,14 +5059,20 @@ function Find-CodexProcesses {
 # reports or consumes such a record says so. '' when the record has no `original`.
 # 0.4.0: a record that names its turn's raw event stream (`events`) says so too - for the agy
 # engine that stream holds the reply itself (A18).
+# 0.4.x wave 21 (D3): a run whose commit was blocked (the write lock never acquired) keeps its
+# record in state committing, naming its kept reply (`reply_json`, `raw_reply`).
 function Get-PendingOriginalNote {
     param($Record)
     $o = [string](Get-PropertyValue $Record 'original' '')
     $ev = [string](Get-PropertyValue $Record 'events' '')
+    $rj = [string](Get-PropertyValue $Record 'reply_json' '')
+    $rr = [string](Get-PropertyValue $Record 'raw_reply' '')
     $parts = New-Object System.Collections.Generic.List[string]
+    if ($rj) { $parts.Add("the reply of that run is kept at $rj (its commit was blocked); no ledger entry was written for it") }
+    if ($rr) { $parts.Add("the raw last message of that run is kept at $rr") }
     if ($o) { $parts.Add("a usable prose reply of that run exists at $o; no ledger entry was written for it") }
     if ($ev) {
-        if ($o) { $parts.Add("the raw event stream of that run is at $ev (it may hold a usable reply)") }
+        if ($o -or $rj) { $parts.Add("the raw event stream of that run is at $ev (it may hold a usable reply)") }
         else { $parts.Add("the raw event stream of that run is at $ev (it may hold a usable reply); no ledger entry was written") }
     }
     return ($parts.ToArray() -join '; ')
@@ -4710,20 +5080,35 @@ function Get-PendingOriginalNote {
 
 # Decides whether a pending record (from Read-PendingFile) still belongs to a live
 # consultation. Returns { Active; Message; Check }:
+#   the writer (0.4.x wave 21, D1): a record that carries the start time of the bridge that
+#                        wrote it (pid + start_time) is ACTIVE in every state while that
+#                        process runs on this host (never by pid alone, never this very
+#                        process); otherwise:
 #   reserved             never active (codex was not started);
-#   running / survivors  active while child_pid (with its start time) or any survivor
+#   running / survivors / committing
+#                        active while child_pid (with its start time) or any survivor
 #                        pid is alive on this host; with pids from another host:
 #                        active (they cannot be checked from here);
 #   launching            the child may or may not exist: active when
 #                        Find-CodexProcesses finds a codex process started since the
 #                        record's `started` (or cannot scan); from another host (no
 #                        pids to check): treated as dead.
+#   A panel member's record (`panel`) is judged by its RECORDED pids + start times only
+#   (writer, child, survivors) and, on Windows, by the children of the recorded writer and
+#   recorded pids (the ppid rule) - never by the machine-wide "looks like codex" rule, which
+#   would take a live sibling member's reviewer for this record's orphan (F03-2, F04-5).
 function Test-PendingActive {
     param($Record, [string]$Path)
     $state = [string](Get-PropertyValue $Record 'state' '')
     $recHost = [string](Get-PropertyValue $Record 'host' '')
     $otherHost = [bool]($recHost -and -not $recHost.Equals([Environment]::MachineName, [StringComparison]::OrdinalIgnoreCase))
     $what = "state '$state', consult n=$(Get-PropertyValue $Record 'n' '?'), handoff $(Get-PropertyValue $Record 'nn' '?'), started $(Get-PropertyValue $Record 'started' '?')"
+    $panelInfo = Get-PropertyValue $Record 'panel' $null
+    $isPanel = ($null -ne $panelInfo)
+    if ($isPanel) {
+        $panelId = [string](Get-PropertyValue $panelInfo 'id' '')
+        $what += ", review panel $($panelId.Substring(0, [Math]::Min(8, $panelId.Length))) member $(Get-PropertyValue $panelInfo 'position' '?')"
+    }
     $launcher = [string](Get-PropertyValue $Record 'launcher' '')
     # the CLI the record's run started (0.4.0 `engine`; older records: codex)
     $cli = [string](Get-PropertyValue $Record 'engine' '')
@@ -4752,7 +5137,23 @@ function Test-PendingActive {
     $inactive = { param($c) [pscustomobject]@{ Active = $false; Message = ''; Check = $(if ($originalNote) { "$c; $originalNote" } else { $c }) } }
     $active = { param($m, $c) [pscustomobject]@{ Active = $true; Message = $(if ($originalNote) { $m.TrimEnd([char]'.') + "; $originalNote." } else { $m }); Check = $c } }
 
-    if ($state -eq 'reserved') { return (& $inactive "reserved: $cli was never started") }
+    # D1: the bridge that wrote the record, while it runs (a panel member building its prompt,
+    # running its reviewer or committing) - by pid + start time only, and never this process.
+    $writerPid = 0
+    [void][int]::TryParse([string](Get-PropertyValue $Record 'pid' ''), [ref]$writerPid)
+    $writerStart = ConvertTo-JsonText (Get-PropertyValue $Record 'start_time' '')
+    $writerGone = ''
+    if ($writerPid -gt 0 -and $writerStart -and $writerPid -ne $PID) {
+        if ($otherHost) {
+            # cannot be checked from here; the rules below decide (pids on another host: active)
+        } elseif (Test-PidAlive -ProcessId $writerPid -StartTime $writerStart) {
+            return (& $active "a consultation of this task is still running: its bridge (pid $writerPid) wrote $Path ($what). Wait for it to finish; the record is removed when it commits." "writer pid $writerPid alive (pid + start time)")
+        } else {
+            $writerGone = "writer pid $writerPid gone"
+        }
+    }
+
+    if ($state -eq 'reserved') { return (& $inactive "reserved: $cli was never started$(if ($writerGone) { "; $writerGone" })") }
     if ($pids.Count -gt 0 -and $state -ne 'launching') {
         $pidList = (@($pids | ForEach-Object { $_.pid }) -join ', ')
         if ($otherHost) {
@@ -4776,9 +5177,14 @@ function Test-PendingActive {
     } else {
         $recordedGone = ''
     }
+    if ($writerGone) { $recordedGone = $(if ($recordedGone) { "$writerGone; $recordedGone" } else { $writerGone }) }
     # The child may exist unregistered (launching) or as a descendant of a dead recorded
     # process (running/survivors). Scan for it; never trust a dead root or elapsed time.
     if ($otherHost) { return (& $inactive "state '$state' from host $recHost without pids: treated as dead") }
+    if ($isPanel -and -not $script:OnWindows) {
+        # Orphans are reparented outside Windows: only the recorded pids tell (above).
+        return (& $inactive "$(if ($recordedGone) { "$recordedGone; " })panel member record: judged by its recorded pids only (no process scan outside Windows)")
+    }
     $since = [datetime]::MinValue
     try { $since = [DateTimeOffset]::Parse((ConvertTo-JsonText (Get-PropertyValue $Record 'started' '')), $script:Invariant).LocalDateTime } catch { $since = [datetime]::MinValue }
     # Parent pids whose (orphaned) children would be ours: the bridge that wrote the
@@ -4797,6 +5203,12 @@ function Test-PendingActive {
         if ($s.Failed) { $scan = $s; break }
         if (@($s.Found).Count -gt 0) { $scan = $s; break }
         $checks.Add("$($s.Check): none found")
+    }
+    # A panel member's record stops here: recorded pids and their children only - the
+    # machine-wide rule below would take a live SIBLING member's reviewer for its orphan.
+    if ($isPanel -and ($null -eq $scan -or (-not $scan.Failed -and @($scan.Found).Count -eq 0))) {
+        $checks.Add('panel member record: no machine-wide name scan')
+        return (& $inactive ($checks -join '; '))
     }
     # The parent-pid rule sees only DIRECT children of a dead parent. If the shim died
     # but its own child lives, only the "looks like codex" rule can see it; its matches

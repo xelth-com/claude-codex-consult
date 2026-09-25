@@ -618,16 +618,18 @@ if (Want 'PANEL') {
 
     # F15-3: a member's timeout survivors hold the task's reservation -> the rest are not
     # started. (CODEX_CONSULT_TEST_SURVIVORS: nothing can make a real process outlive the kill.)
+    # 0.4.x wave 21: the rule holds for a panel run one member after another (-PanelConcurrency
+    # 1); the member's record is its own .consult.pending-<NN>.json.
     $rs = New-Repo 'panel-survivors'
     $sleeper = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep -Seconds 180') -PassThru -WindowStyle Hidden
     try {
-        $ps = Consult $rs $roster6 @('-Panel', '-Prompt', 'x', '-ReplyName', 's', '-TimeoutSec', '4') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""'; CODEX_CONSULT_TEST_SURVIVORS = "$($sleeper.Id)" }
+        $ps = Consult $rs $roster6 @('-Panel', '-PanelConcurrency', '1', '-Prompt', 'x', '-ReplyName', 's', '-TimeoutSec', '4') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""'; CODEX_CONSULT_TEST_SURVIVORS = "$($sleeper.Id)" }
     } finally { Stop-Process -Id $sleeper.Id -Force -ErrorAction SilentlyContinue }
     $ls = @(Ledger $rs)
     $psShort = if ($ls.Count -gt 0) { ([string]$ls[0].panel.id).Substring(0, 8) } else { '?' }
     $psAt = $ps.Out.LastIndexOf("Panel ${psShort}: 2 of 3 entries ran")
     $psSum = if ($psAt -ge 0) { @($ps.Out.Substring($psAt) -split "`n") } else { @('') }
-    Check 'F15-3' 'member 2 times out leaving survivors -> member 3 is NOT started: summary "skipped  not started: ...", header "2 of 3 entries ran", ledger has members 1 and 2 only, exit 1' ($ps.Code -eq 1 -and $ls.Count -eq 2 -and $ls[0].bridge_outcome -eq 'usable reply' -and $ls[1].bridge_outcome -match '^failed: timeout after 4 s \(process tree killed; 1 processes survived' -and $psAt -ge 0 -and $psSum[3] -match '^  mimo :: mimo-v2\.6-pro\s+skipped\s+not started: the previous member \(ZAI :: glm-5\.3\) left surviving processes \(\.consult\.pending\.json state survivors\); recover the task first$') ($psSum[0..3] -join ' | ')
+    Check 'F15-3' 'member 2 times out leaving survivors -> member 3 is NOT started (-PanelConcurrency 1): summary "skipped  not started: ...", header "2 of 3 entries ran", ledger has members 1 and 2 only, exit 1' ($ps.Code -eq 1 -and $ls.Count -eq 2 -and $ls[0].bridge_outcome -eq 'usable reply' -and $ls[1].bridge_outcome -match '^failed: timeout after 4 s \(process tree killed; 1 processes survived' -and $psAt -ge 0 -and $psSum[3] -match '^  mimo :: mimo-v2\.6-pro\s+skipped\s+not started: the previous member \(ZAI :: glm-5\.3\) left surviving processes \(\.consult\.pending-\d\d\.json state survivors\); recover the task first$') ($psSum[0..3] -join ' | ')
     $rt = New-Repo 'panel-timeout'
     $pt2 = Consult $rt $roster6 @('-Panel', '-Prompt', 'x', '-ReplyName', 't', '-TimeoutSec', '4') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""' }
     $lt = @(Ledger $rt)

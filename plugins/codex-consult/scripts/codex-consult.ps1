@@ -108,18 +108,32 @@
     after preflight_warning ($null without a roster); one line "Roster: ..." on the
     console, in the dry run and in the handoff header.
     -Panel (-PanelAll: "weighty" entries too, whatever the purpose) sends the same
-    brief to EVERY available roster entry, one after another, each a consultation
-    of its own (own preflight, lock, pending record, parent thread, consultation id,
-    handoffs/NN-codex-<ReplyName>-<provider>.md and ledger entry with
-    panel {id, position, of, members[{provider, model, state run|skipped, reason}]}).
-    A "weighty" entry joins only on framing, decision, core-contract, acceptance and
-    stuck. Every member is shown the findings open when the panel started. A failing
-    member does not stop the others - except when it leaves surviving processes,
-    which hold the task's reservation (.consult.pending.json): the remaining members
-    are then not started (summary: "skipped  not started: ..."). A summary block
-    closes the run; exit 0 only when every member produced a usable reply. Not with
-    -Provider, -Thread or -Mode resume. TEST HOOK: CODEX_CONSULT_TEST_SURVIVORS=<pid>
-    makes a timeout kill report that live pid as a survivor.
+    brief to EVERY available roster entry, each a consultation of its own (own
+    preflight, recovery record .consult.pending-<NN>.json, parent thread, consultation
+    id, handoffs/NN-codex-<ReplyName>-<provider>.md and ledger entry with panel {id,
+    position, of, members[{provider, model, state run|skipped, reason}], concurrency,
+    limits}). 0.4.x wave 21 (ROADMAP R11): the members run IN PARALLEL as processes
+    of their own - members of different endpoints at once, of one endpoint (one
+    provider label, or labels that resolve to one provider fingerprint) one after
+    another unless the roster's top-level "parallel" raises it; -PanelConcurrency
+    caps the total (0 none, 1 strictly one after another). The -Panel run holds the
+    task lock for the whole panel, judges every recovery record of the task first,
+    assigns n and NN to every member up front in roster order and writes each
+    member's `reserved` record before any member starts; a member accepts its spec
+    only when that record names its panel, n, NN and the live parent, rewrites it
+    with its own pid as its first act, and commits under the write lock
+    (.consult.write.lock: re-read the stores, apply its own delta - the ledger stays
+    sorted by n). A "weighty" entry joins only on framing, decision, core-contract,
+    acceptance and stuck. Every member is shown the findings open when the panel
+    started. A failing member does not stop the others; with -PanelConcurrency 1 a
+    member that leaves surviving processes stops the remaining ones (summary:
+    "skipped  not started: ..."). A summary block closes the run; exit 0 only when
+    every member produced a usable reply. Not with -Provider, -Thread or -Mode
+    resume. TEST HOOKS: CODEX_CONSULT_TEST_SURVIVORS=<pid> makes a timeout kill
+    report that live pid as a survivor; CODEX_CONSULT_TEST_WRITE_LOCK_SEC=<s>
+    shortens the 60 s write-lock wait; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=<ms> pauses
+    a commit between findings.json and sessions.json;
+    CODEX_CONSULT_TEST_PANEL_GUARD_SEC=<s> replaces a panel member's kill guard.
 
     Engines (0.4.0): the CLI that carries the consultation - `codex` (the default, all of
     the above) or `agy` (Google's Antigravity CLI for the Gemini models), chosen by -Engine or
@@ -165,12 +179,16 @@
       * the prompt travels on stdin ('-'), never as an argument
       * the model and the provider are the resolved ones and are passed
         explicitly (-m, -c model_provider=...) whenever they are known
-      * one consultation per task directory at a time: <task>/.consult.lock is a
+      * one consultation per task directory at a time (a -Panel run counts as one:
+        it holds the lock for all its members): <task>/.consult.lock is a
         permanent file held open while a run lasts (never delete it to "unlock";
-        closing the process releases it). <task>/.consult.pending.json exists
-        only while a run is in progress or after one was interrupted; the next
-        run checks it and refuses while that run's codex process may still be
-        running. One Codex thread belongs to one task directory (not enforced).
+        closing the process releases it). <task>/.consult.pending.json (a panel
+        member: .consult.pending-<NN>.json) exists only while a run is in
+        progress or after one was interrupted; the next run checks every one and
+        refuses while the bridge that wrote it or its codex process may still be
+        running. findings.json and sessions.json change only under
+        <task>/.consult.write.lock (re-read, own delta, write). One Codex thread
+        belongs to one task directory (not enforced).
 
     Runs on Windows PowerShell 5.1 and on PowerShell 7 (pwsh) for macOS/Linux.
 
@@ -294,12 +312,13 @@ param(
     # Ignored with -Raw and -Purpose chore. Ledger format_retry.
     [int]$FormatRetry = 1,
 
-    # Review panel: the same brief goes to EVERY available reviewer of the roster, one after
-    # another, each as a consultation of its own (own preflight, lock, pending record,
+    # Review panel: the same brief goes to EVERY available reviewer of the roster, each as a
+    # consultation of its own in a process of its own (own preflight, recovery record,
     # parent thread, handoff files handoffs/NN-codex-<ReplyName>-<provider>.md and ledger
-    # entry with a `panel` record). Needs a roster; not with -Provider, -Thread or -Mode
-    # resume. A "weighty" roster entry joins only on framing, decision, core-contract,
-    # acceptance and stuck. Exit 0 only when every member produced a usable reply.
+    # entry with a `panel` record); members of different endpoints run at once (see
+    # -PanelConcurrency). Needs a roster; not with -Provider, -Thread or -Mode resume. A
+    # "weighty" roster entry joins only on framing, decision, core-contract, acceptance and
+    # stuck. Exit 0 only when every member produced a usable reply.
     [switch]$Panel,
 
     # -Panel with every available entry, "weighty" ones included whatever the purpose.
@@ -308,6 +327,12 @@ param(
     # INTERNAL: set by -Panel for each member run (the member and the panel's parameters,
     # base64 of UTF-8 JSON). Never pass it yourself.
     [string]$PanelSpec = '',
+
+    # -Panel only: how many members may run at the same time, on top of the per-endpoint plan
+    # (the members of one endpoint run one after another unless the roster's "parallel" raises
+    # it). 0 (the default) = no cap; 1 = strictly one after another in roster order (a member
+    # that leaves surviving processes then stops the rest); k = at most k at a time.
+    [int]$PanelConcurrency = 0,
 
     # The CLI that carries the consultation: codex | agy. Empty (the default): the engine of
     # the roster entry used (the thread's with -Thread), else codex. With a roster and no
@@ -535,6 +560,8 @@ function Invoke-EngineTurn {
         } catch {
             $registered = $false
             $t.Problem = "could not register the $Note process ($(ConvertTo-OneLine $_.Exception.Message)); it was stopped"
+            # the record on disk still says launching: so does the one in memory
+            $pendingRecord.state = 'launching'; $pendingRecord.child_pid = $null; $pendingRecord.child_start_time = ''
             $null = Stop-ProcessTree -Process $proc
         }
         if ($registered) {
@@ -660,11 +687,27 @@ if ($PanelSpec) {
     if ($null -ne $pa.PSObject.Properties['engine_exe']) { $EngineExe = [string]$pa.engine_exe }
     if ($null -ne $pa.PSObject.Properties['denial_retry']) { $DenialRetry = [int]$pa.denial_retry }
     $DryRun = [bool]$pa.dry_run
-    # This member's output reaches the -Panel run through a pipe: write it as UTF-8 (the
+    # (0.4.x wave 21) the numbers, the consultation id and the parent come from the panel run
+    $memberNn = [string](Get-PropertyValue $panelMember 'nn' '')
+    $memberN = 0
+    [void][int]::TryParse([string](Get-PropertyValue $panelMember 'n' ''), [ref]$memberN)
+    $memberParentPid = 0
+    [void][int]::TryParse([string](Get-PropertyValue $panelMember 'parent_pid' ''), [ref]$memberParentPid)
+    $memberParentStart = ConvertTo-JsonText (Get-PropertyValue $panelMember 'parent_start_time' '')
+    if ($memberN -le 0 -or $memberNn -notmatch '^\d{2,}$' -or $memberParentPid -le 0) {
+        Stop-WithError "-PanelSpec is internal to -Panel and does not name this member's numbers and parent (n, nn, parent_pid); this panel member was not started."
+    }
+    # This member's output reaches the -Panel run through a file: write it as UTF-8 (the
     # panel run reads it so).
     try { [Console]::OutputEncoding = $script:Utf8NoBom } catch { }
 }
 $panelRun = [bool]($Panel -or $PanelAll)
+if ($PSBoundParameters.ContainsKey('PanelConcurrency') -and -not $panelRun) {
+    Stop-WithError "-PanelConcurrency goes with -Panel (or -PanelAll) only."
+}
+if ($PanelConcurrency -lt 0) {
+    Stop-WithError "-PanelConcurrency must be 0 (no cap) or a positive number (got $PanelConcurrency)."
+}
 
 # ----------------------------------------------------------------------------- validation
 
@@ -804,6 +847,51 @@ $lockPath = Join-Path $taskDir '.consult.lock'
 $pendingPath = Get-PendingPath -TaskDir $taskDir
 $runStarted = Get-IsoTimestamp
 
+# A -Panel member (0.4.x wave 21). Its recovery record .consult.pending-<NN>.json was written
+# `reserved` by the panel run before it launched this member: that record - not the lock file -
+# is the member's proof of a live parent owning the task (D6). It must name this panel, this n
+# and NN and the parent (pid + start time, also as its writer), and that parent must be alive;
+# otherwise the member refuses, nothing started. Then, as its FIRST act, the member rewrites the
+# record with its own pid + start time (D1): from here on the record reads active for as long
+# as this process runs, whatever becomes of the parent. A dry-run member has no record.
+$pendingRecord = $null
+if ($panelMember) {
+    $pendingPath = Get-MemberPendingPath -TaskDir $taskDir -Nn $memberNn
+    if (-not $DryRun) {
+        $own = Read-PendingFile -Path $pendingPath
+        if ($own.Error) { Stop-WithError "$($own.Error) This panel member was not started." }
+        if (-not $own.Exists) { Stop-WithError "this panel member's recovery record '$pendingPath' does not exist (the panel run writes it before it launches a member); this panel member was not started." }
+        $ownRecord = $own.Record
+        $ownPanel = Get-PropertyValue $ownRecord 'panel' $null
+        $mismatch = New-Object System.Collections.Generic.List[string]
+        $compare = { param($Name, $InRecord, $InSpec) if ([string]$InRecord -cne [string]$InSpec) { $mismatch.Add("$Name $(if ([string]$InRecord) { [string]$InRecord } else { '(none)' }) in the record, $InSpec in the spec") } }
+        if ($null -eq $ownPanel) { $mismatch.Add('the record names no panel') }
+        else {
+            & $compare 'panel id' (Get-PropertyValue $ownPanel 'id' '') ([string]$panelMember.id)
+            & $compare 'parent pid' (Get-PropertyValue $ownPanel 'parent_pid' '') $memberParentPid
+            & $compare 'parent start time' (ConvertTo-JsonText (Get-PropertyValue $ownPanel 'parent_start_time' '')) $memberParentStart
+        }
+        & $compare 'n' (Get-PropertyValue $ownRecord 'n' '') $memberN
+        & $compare 'nn' (Get-PropertyValue $ownRecord 'nn' '') $memberNn
+        & $compare 'state' (Get-PropertyValue $ownRecord 'state' '') 'reserved'
+        & $compare 'writer pid' (Get-PropertyValue $ownRecord 'pid' '') $memberParentPid
+        if ($mismatch.Count -gt 0) {
+            Stop-WithError "this panel member's recovery record '$pendingPath' does not match its spec ($($mismatch.ToArray() -join '; ')); this panel member was not started."
+        }
+        if (-not (Test-PidAlive -ProcessId $memberParentPid -StartTime $memberParentStart)) {
+            Stop-WithError "the review panel run that launched this member (pid $memberParentPid) is gone; this panel member was not started (its recovery record '$pendingPath' is consumed by the next run)."
+        }
+        $ownRecord.pid = $PID
+        $ownRecord | Add-Member -NotePropertyName 'start_time' -NotePropertyValue ([string](Get-ProcessStartIso -ProcessId $PID)) -Force
+        $ownRecord.host = [Environment]::MachineName
+        $ownRecord.note = "review panel member (the panel run is pid $memberParentPid)"
+        try { Write-PendingFile -Path $pendingPath -Record $ownRecord } catch {
+            Stop-WithError "could not rewrite this panel member's recovery record '$pendingPath': $(ConvertTo-OneLine $_.Exception.Message); this panel member was not started."
+        }
+        $pendingRecord = $ownRecord
+    }
+}
+
 $codexExePath = Resolve-CodexLauncher -Explicit $CodexExe
 
 $codexVersion = 'unknown'
@@ -820,16 +908,34 @@ $harness = if ($codexVersion -match '^codex-cli\s') { $codexVersion } else { "co
 # ----------------------------------------------------------------------------- review panel (-Panel)
 #
 # The roster is walked like the single-reviewer walk, without stopping at the first available
-# entry (Select-PanelMembers). Each member then runs as a complete consultation of its own -
-# a child run of this script (-PanelSpec), strictly one after another: own preflight, own
-# task lock and recovery record, own parent thread (the newest of its lineage, or a new one;
+# entry (Select-PanelMembers). Each member then runs as a complete consultation of its own - a
+# child run of this script (-PanelSpec) in a process of its own: own preflight, own recovery
+# record .consult.pending-<NN>.json, own parent thread (the newest of its lineage, or a new one;
 # -Mode new: new for all), own consultation id, handoff files
-# handoffs/NN-codex-<ReplyName>-<provider>.md and ledger entry with the `panel` record. A
-# member that fails or is refused does not stop the others - unless it leaves surviving
-# processes: they hold the task's reservation, so the remaining members are not started
-# (recorded in the summary as skipped, exit 1). This run itself takes no lock
-# and writes nothing; it prints a summary and exits 0 only when every member produced a
-# usable reply (-DryRun: when every member's plan could be made).
+# handoffs/NN-<engine>-<ReplyName>-<provider>.md and ledger entry with the `panel` record.
+# 0.4.x wave 21 (ROADMAP R11) - the members run IN PARALLEL; this run:
+#   1. takes the task lock (.consult.lock; its informational record names the panel) and holds
+#      it until the summary is printed: no other consultation or status update of the task in
+#      between (D12);
+#   2. judges EVERY recovery record of the task first: an active one refuses the panel, the
+#      inactive ones are consumed (numbering skips past them; D5);
+#   3. assigns n and NN to every member up front, in roster order (member k: n0 + k - 1,
+#      NN0 + k - 1), so the files and the ledger keep the roster order whatever finishes first;
+#   4. writes every member's `reserved` record (the panel, n, NN, this process as writer and
+#      parent) BEFORE it launches any member - a member proves its parent with it and
+#      rewrites it with its own pid as its first act (D6, D1);
+#   5. launches the members as processes of their own (Start-Process; console output to files
+#      in a temp directory) along the plan of Get-PanelPlan - members of different endpoints at
+#      once, of one endpoint one after another unless the roster's "parallel" raises it,
+#      -PanelConcurrency caps the total (D8) - polls them, prints one line per finished member
+#      and stops a member that outlives its guard (its timeout + its format-repair and
+#      denial-retry budgets + 60 s write lock + 120 s, D11);
+#   6. prints every member's console output in roster order, the summary with the panel's wall
+#      clock, and removes the records of members that never started anything (D5).
+# A member that fails or is refused does not stop the others; with -PanelConcurrency 1 a member
+# that leaves surviving processes stops the rest (recorded as skipped, exit 1; F15-3). Exit 0
+# only when every member produced a usable reply (-DryRun: when every member's plan could be
+# made; a dry run writes nothing and takes no lock).
 
 # The ledger entry a panel member recorded (the task's sessions.json, read tolerantly).
 function Find-PanelEntry {
@@ -855,6 +961,114 @@ function Format-PriorCounts {
         if ($n -gt 0) { $parts.Add("$n $st") }
     }
     return 'prior: ' + ($parts.ToArray() -join ', ')
+}
+
+# The console output of a member (its stdout, then its stderr file; UTF-8) as lines.
+function Read-PanelMemberOutput {
+    param($Slot)
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($f in @($Slot.OutPath, $Slot.ErrPath)) {
+        if (-not $f) { continue }
+        $t = Read-SharedText -Path $f
+        if (-not $t -or -not $t.Trim()) { continue }
+        foreach ($l in ($t.TrimEnd() -split "`r?`n")) { $lines.Add($l) }
+    }
+    return , ([string[]]$lines.ToArray())
+}
+
+# Starts one member: its spec (base64 of UTF-8 JSON on the command line, as before), its console
+# output to <temp>/codex-consult-panel-<id>/<NN>.out|.err, stdin from an empty file. Reads the
+# panel run's variables; sets the slot's Proc / Watch / State ('running' | 'failed-start').
+function Start-PanelMember {
+    param($Slot)
+    $pm = $Slot.Pm
+    $siblings = @()
+    if ($panelPlan.Effective -gt 1) { $siblings = @($panelSlots | Where-Object { $_.K -ne $Slot.K } | ForEach-Object { [string]$_.Nn }) }
+    $spec = [pscustomobject]@{
+        id                = $panelId
+        position          = $Slot.K
+        of                = $panelRunners.Count
+        members           = $panelMembersRecord
+        roster_position   = $pm.Entry.Position
+        provider          = $pm.Entry.Provider
+        model             = $pm.Entry.Model
+        engine            = [string]$pm.Entry.Engine
+        skipped           = $panelSkippedRecord
+        listed_ids        = [object[]]$panelListed
+        n                 = $Slot.N
+        nn                = $Slot.Nn
+        consult_id        = $Slot.ConsultId
+        parent_pid        = $PID
+        parent_start_time = $panelParentStart
+        sibling_nns       = [object[]]$siblings
+        concurrency       = $panelPlan.Effective
+        limits            = $panelLimits
+        args              = [pscustomobject]@{
+            collab_dir       = $CollabDir
+            mode             = $Mode
+            brief            = $Brief
+            prompt           = $Prompt
+            purpose          = $Purpose
+            effort           = $Effort
+            sandbox          = $Sandbox
+            max_words        = $MaxWords
+            timeout_sec      = $TimeoutSec
+            reply_name       = $Slot.ReplyName
+            artifact         = [object[]]@($Artifact)
+            raw              = [bool]$Raw
+            codex_exe        = $CodexExe
+            native_effort    = $NativeEffort
+            off_peak_only    = [bool]$OffPeakOnly
+            skip_preflight   = [bool]$SkipPreflight
+            codex_config     = [object[]]@($CodexConfig)
+            schema_transport = $transportOverride
+            format_retry     = $FormatRetry
+            engine           = $Engine
+            engine_exe       = $EngineExe
+            denial_retry     = $DenialRetry
+            dry_run          = [bool]$DryRun
+        }
+    }
+    $specB64 = [Convert]::ToBase64String($script:Utf8NoBom.GetBytes((ConvertTo-Json -InputObject $spec -Depth 8 -Compress)))
+    $Slot.OutPath = Join-Path $panelTmp "$($Slot.Nn).out"
+    $Slot.ErrPath = Join-Path $panelTmp "$($Slot.Nn).err"
+    $argLine = (@('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $panelSelf, '-Task', $Task, '-PanelSpec', $specB64) | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' '
+    try {
+        $Slot.Proc = Start-Process -FilePath $panelHost -ArgumentList $argLine -WorkingDirectory $callerCwd -NoNewWindow -PassThru `
+            -RedirectStandardOutput $Slot.OutPath -RedirectStandardError $Slot.ErrPath -RedirectStandardInput $panelEmptyIn
+        # PS 5.1: touch .Handle right away, or .ExitCode comes back empty (see the run below)
+        if ($script:LegacyPS) { try { $null = $Slot.Proc.Handle } catch { } }
+        $Slot.Watch = [System.Diagnostics.Stopwatch]::StartNew()
+        $Slot.State = 'running'
+    } catch {
+        $Slot.State = 'failed-start'
+        $Slot.StartError = ConvertTo-OneLine $_.Exception.Message
+    }
+}
+
+# A finished (or stopped) member: its console output, its refusal line, its ledger entry and
+# what became of its recovery record.
+function Complete-PanelMember {
+    param($Slot)
+    $Slot.Lines = Read-PanelMemberOutput $Slot
+    $last = @($Slot.Lines | Where-Object { $_ -match '^codex-consult: ' }) | Select-Object -Last 1
+    $Slot.Refusal = $(if ($last) { $last -replace '^codex-consult: ', '' } else { "exit $($Slot.Exit)" })
+    if (-not $DryRun) {
+        $Slot.Entry = Find-PanelEntry -Path $sessionsPath -PanelId $panelId -Position $Slot.K
+        $rd = Read-PendingFile -Path $Slot.RecordPath
+        $Slot.RecordState = $(if ($rd.Exists -and $rd.Record) { [string](Get-PropertyValue $rd.Record 'state' '') } else { '' })
+    }
+}
+
+# One phrase for a member that ran (the progress line; the summary builds on it).
+function Get-PanelMemberStatus {
+    param($Slot)
+    if ($Slot.State -eq 'killed') { return "killed by the panel after $($Slot.Wall) s (its guard: $($Slot.Guard) s)" }
+    if ($Slot.State -eq 'failed-start') { return "failed: could not start the member process - $($Slot.StartError)" }
+    if ($DryRun) { if ($Slot.Exit -eq 0) { return 'planned' } else { return "refused: $(ConvertTo-OneLine $Slot.Refusal)" } }
+    if ($null -ne $Slot.Entry) { return [string](Get-PropertyValue $Slot.Entry 'bridge_outcome' '') }
+    if ($Slot.RecordState -eq 'committing') { return "commit blocked: $(ConvertTo-OneLine ($Slot.Refusal -replace '^commit blocked:\s*', ''))" }
+    return "failed: $(ConvertTo-OneLine $Slot.Refusal)"
 }
 
 if ($panelRun) {
@@ -892,184 +1106,300 @@ if ($panelRun) {
     $panelShort = $panelId.Substring(0, 8)
     $panelMembersRecord = [object[]]@($panelEntries | ForEach-Object { [pscustomobject]@{ provider = $_.Entry.Provider; model = $_.Identity.Model; state = $_.State; reason = $_.Reason } })
     $panelSkippedRecord = [object[]]@($panelEntries | Where-Object { $_.State -ne 'run' } | ForEach-Object { [pscustomobject]@{ provider = $_.Entry.Provider; model = $_.Identity.Model; engine = [string]$_.Entry.Engine; reason = $_.Reason } })
-    # The findings every member is shown: those open when the panel starts.
-    $panelListed = @()
-    if (-not $Raw -and (Test-Path -LiteralPath $findingsPath -PathType Leaf)) {
+    # The plan (D8): endpoint groups, the roster's "parallel", -PanelConcurrency.
+    $panelPlan = Get-PanelPlan -Runners $panelRunners -Parallel $roster.Parallel -Cap $PanelConcurrency
+    $panelLimits = [pscustomobject]$panelPlan.Limits
+    $panelParentStart = [string](Get-ProcessStartIso -ProcessId $PID)
+    $panelSelf = $PSCommandPath
+    $panelHost = (Get-Process -Id $PID).Path
+    $panelTmp = Join-Path ([IO.Path]::GetTempPath()) "codex-consult-panel-$panelId"
+    $panelEmptyIn = Join-Path $panelTmp 'stdin.empty'
+    $panelLock = $null
+    $panelSlots = New-Object System.Collections.Generic.List[object]
+    $panelWatch = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        if (-not $DryRun) {
+            [void][IO.Directory]::CreateDirectory($handoffsDir)
+            $panelLock = Enter-TaskLock -TaskDir $taskDir -Task $Task -Panel $panelId
+            if (-not $panelLock.Acquired) { Stop-WithError $panelLock.Message }
+        }
+        # Every recovery record of the task, judged before anything is written: an active one
+        # refuses the panel (a dry run reports it); the others are consumed below.
+        $panelPending = Read-TaskPendingRecords -TaskDir $taskDir
+        if ($panelPending.Error) { Stop-WithError $panelPending.Error }
+        $panelPendingRefusal = ''
+        if ($panelPending.Active) {
+            if ($DryRun) { $panelPendingRefusal = [string]$panelPending.Active.Check.Message } else { Stop-WithError $panelPending.Active.Check.Message }
+        }
+        # The numbers of every member, past everything on disk (a store that does not parse
+        # refuses here, before any member starts).
+        $panelSessions = Read-JsonStore -Path $sessionsPath
+        $panelConsults = @()
+        if ($null -ne $panelSessions) { $panelConsults = @(Get-PropertyValue (Get-PropertyValue $panelSessions 'codex' $null) 'consults' @() | Where-Object { $_ }) }
         $panelStore = Read-FindingsFile -Path $findingsPath -Task $Task
-        $panelListed = @(@($panelStore.findings) | Where-Object { $_ -and $script:OpenStatuses -contains [string](Get-PropertyValue $_ 'status' '') } | ForEach-Object { [string]$_.id })
-    }
-    $panelVerb = if ($DryRun) { 'would run' } else { 'run' }
-    Write-Host "Panel $panelShort$(if ($DryRun) { ' (dry run - nothing is executed or written)' }): $($panelRunners.Count) of $($panelEntries.Count) roster entries $panelVerb, one after another (roster $($roster.Path); panel id $panelId)"
-    # The lineage as shown: ' [agy]' for a member of another engine than codex.
-    foreach ($pm in $panelEntries) { $pm | Add-Member -NotePropertyName 'Shown' -NotePropertyValue (Format-ReviewerLineage -Provider $pm.Identity.Provider -Model $pm.Identity.Model -Engine ([string]$pm.Identity.Engine)) -Force }
-    foreach ($pm in $panelEntries) {
-        Write-Host ("  #{0} {1} - {2}" -f $pm.Entry.Position, $pm.Shown, $(if ($pm.State -eq 'run') { 'member' } else { "skipped: $($pm.Reason)" }))
-    }
-    $psHost = (Get-Process -Id $PID).Path
-    $panelResults = @{}
-    $k = 0
-    $panelStarted = 0
-    $panelBlocked = ''
-    $previousLineage = ''
-    foreach ($pm in $panelRunners) {
-        $k++
-        # One consultation per task at a time: a member that left surviving processes
-        # holds the task's reservation (.consult.pending.json), and every later member
-        # would be refused. They are not started; the summary says why (F15-3).
-        if (-not $DryRun -and -not $panelBlocked) {
-            $pendingNow = Read-PendingFile -Path $pendingPath
-            if ($pendingNow.Error) {
-                $panelBlocked = "not started: the task's recovery record cannot be used ($(ConvertTo-OneLine $pendingNow.Error))"
-            } elseif ($pendingNow.Exists) {
-                $activeNow = Test-PendingActive -Record $pendingNow.Record -Path $pendingPath
-                if ($activeNow.Active) {
-                    $stateNow = [string](Get-PropertyValue $pendingNow.Record 'state' '')
-                    if ($previousLineage) { $panelBlocked = "not started: the previous member ($previousLineage) left surviving processes (.consult.pending.json state $stateNow); recover the task first" }
-                    else { $panelBlocked = "not started: an earlier consultation of this task is still active (.consult.pending.json state $stateNow); recover the task first" }
+        $panelNumbers = Get-NextNumbers -Consults $panelConsults -Store $panelStore -HandoffsDir $handoffsDir -Leftovers @($panelPending.Items | ForEach-Object { $_.Record })
+        # The findings every member is shown: those open when the panel starts.
+        $panelListed = @()
+        if (-not $Raw) {
+            $panelListed = @(@($panelStore.findings) | Where-Object { $_ -and $script:OpenStatuses -contains [string](Get-PropertyValue $_ 'status' '') } | ForEach-Object { [string]$_.id })
+        }
+        $guardHook = 0
+        [void][int]::TryParse([string]$env:CODEX_CONSULT_TEST_PANEL_GUARD_SEC, [ref]$guardHook)
+        $slotOf = @{}
+        $k = 0
+        foreach ($pm in $panelRunners) {
+            $k++
+            $slug = ($pm.Entry.Provider.ToLowerInvariant() -replace '[^a-z0-9._-]', '-').Trim('-')
+            if (-not $slug) { $slug = 'reviewer' }
+            $engineK = [string]$pm.Entry.Engine
+            if (-not $engineK) { $engineK = 'codex' }
+            $nnK = '{0:D2}' -f ([int]$panelNumbers.Nn + $k - 1)
+            # The kill guard from the member's own budgets (D11): its timeout, one format-repair
+            # turn and (agy) one denial-retry turn of min(timeout, 300) s when enabled, the 60 s
+            # write-lock wait, 120 s slack. TEST HOOK: CODEX_CONSULT_TEST_PANEL_GUARD_SEC.
+            $guard = $TimeoutSec + 60 + 120
+            if ($repairEnabled) { $guard += [Math]::Min($TimeoutSec, 300) }
+            if ($engineK -ne 'codex' -and $DenialRetry -eq 1) { $guard += [Math]::Min($TimeoutSec, 300) }
+            if ($guardHook -gt 0) { $guard = $guardHook }
+            $slot = [pscustomobject]@{
+                Pm = $pm; K = $k; N = ($panelNumbers.N + $k - 1); Nn = $nnK; Engine = $engineK
+                ReplyName = "$ReplyName-$slug"; Reply = "handoffs/$nnK-$((Get-EngineSpec $engineK).Prefix)-$ReplyName-$slug.md"
+                RecordPath = (Get-MemberPendingPath -TaskDir $taskDir -Nn $nnK); ConsultId = [guid]::NewGuid().ToString()
+                Group = [int]$panelPlan.GroupOf[[int]$pm.Entry.Position]; Guard = $guard
+                State = 'waiting'; Proc = $null; Watch = $null; Exit = $null; Wall = 0; OutPath = ''; ErrPath = ''
+                Entry = $null; Refusal = ''; RecordState = ''; RecordKept = $false; NotStarted = ''; StartError = ''; Lines = [string[]]@()
+            }
+            $panelSlots.Add($slot)
+            $slotOf[[int]$pm.Entry.Position] = $slot
+        }
+
+        $panelVerb = if ($DryRun) { 'would run' } else { 'run' }
+        Write-Host "Panel $panelShort$(if ($DryRun) { ' (dry run - nothing is executed or written)' }): $($panelRunners.Count) of $($panelEntries.Count) roster entries $panelVerb, $($panelPlan.Text) (roster $($roster.Path); panel id $panelId)"
+        # The lineage as shown: ' [agy]' for a member of another engine than codex.
+        foreach ($pm in $panelEntries) { $pm | Add-Member -NotePropertyName 'Shown' -NotePropertyValue (Format-ReviewerLineage -Provider $pm.Identity.Provider -Model $pm.Identity.Model -Engine ([string]$pm.Identity.Engine)) -Force }
+        foreach ($pm in $panelEntries) {
+            $slot = $slotOf[[int]$pm.Entry.Position]
+            Write-Host ("  #{0} {1} - {2}" -f $pm.Entry.Position, $pm.Shown, $(if ($pm.State -eq 'run') { "member, n=$($slot.N), handoff $($slot.Nn)" } else { "skipped: $($pm.Reason)" }))
+        }
+        $groupTexts = @(foreach ($g in $panelPlan.Groups) {
+                $cnt = @($g.Positions).Count
+                $t = "$(@($g.Labels) -join '+') x$cnt"
+                if ($cnt -gt 1) { $t += $(if ($g.Limit -ge $cnt) { ' at once' } elseif ($g.Limit -le 1) { ' one after another' } else { " $($g.Limit) at a time" }) }
+                $t
+            })
+        Write-Host "Concurrency: $($panelPlan.Text) - endpoint groups: $($groupTexts -join ', '); -PanelConcurrency $(if ($PanelConcurrency -gt 0) { $PanelConcurrency } else { '0 (no cap)' })"
+        if ($panelPendingRefusal) { Write-Host "pending     : the real run would be REFUSED - $panelPendingRefusal" -ForegroundColor Yellow }
+
+        if (-not $DryRun) {
+            # Every member's `reserved` record BEFORE any member starts: a panel run that dies
+            # from here on leaves one record per planned member (inactive once this process is
+            # gone - the next run consumes them).
+            $written = New-Object System.Collections.Generic.List[string]
+            foreach ($slot in $panelSlots) {
+                $launcherK = Get-EngineLauncher -Engine $slot.Engine -Launchers $engineLaunchers -CodexLauncher ([string]$codexExePath)
+                $panelInfo = [pscustomobject]@{ id = $panelId; position = $slot.K; of = $panelRunners.Count; parent_pid = $PID; parent_start_time = $panelParentStart }
+                $rec = New-PendingRecord -State 'reserved' -N $slot.N -Nn $slot.Nn -Reply $slot.Reply -Started (Get-IsoTimestamp) -Launcher $launcherK -ConsultId $slot.ConsultId -Engine $slot.Engine -Panel $panelInfo
+                $rec.note = "reserved by review panel $panelShort (pid $PID); the member has not started"
+                try { Write-PendingFile -Path $slot.RecordPath -Record $rec } catch {
+                    $why = ConvertTo-OneLine $_.Exception.Message
+                    foreach ($w in $written) { $null = Remove-PendingFile -Path $w }
+                    Stop-WithError "could not write the recovery record '$($slot.RecordPath)': $why; no panel member was started."
+                }
+                $written.Add($slot.RecordPath)
+            }
+            # The consumed records go now (their numbers are skipped) - never a path a member
+            # record now uses.
+            for ($i = 0; $i -lt @($panelPending.Items).Count; $i++) {
+                $it = $panelPending.Items[$i]
+                $num = $panelNumbers.Items[$i]
+                $st = [string](Get-PropertyValue $it.Record 'state' '')
+                if (-not (@($written) -icontains $it.Path)) {
+                    $rmError = Remove-PendingFile -Path $it.Path
+                    if ($rmError) { Write-Host "codex-consult: could not remove the consumed recovery record $($it.Path) ($rmError)" -ForegroundColor Yellow }
+                }
+                if ($num.Recovered) { Write-Host "codex-consult: recovered reservation n=$($num.N), nn=$($num.Nn) ($($it.Name): state '$st' of an interrupted run; $($it.Check.Check)); numbering continues past it." -ForegroundColor Yellow }
+                else { Write-Host "codex-consult: cleared the recovery record of consult n=$($num.N), nn=$($num.Nn) ($($it.Name): state '$st'; $($it.Check.Check)); its ledger entry exists." -ForegroundColor Yellow }
+            }
+        } else {
+            for ($i = 0; $i -lt @($panelPending.Items).Count; $i++) {
+                $it = $panelPending.Items[$i]
+                $num = $panelNumbers.Items[$i]
+                if (-not $it.Check.Active) { Write-Host "pending     : $($it.Path) (state '$([string](Get-PropertyValue $it.Record 'state' ''))', n=$($num.N), nn=$($num.Nn); $($it.Check.Check)): the real run recovers it; numbering continues past it." -ForegroundColor Yellow }
+            }
+        }
+
+        # ------------------------------------------------------------------ launch + poll
+        [void][IO.Directory]::CreateDirectory($panelTmp)
+        Write-Utf8NoBom -Path $panelEmptyIn -Text ''
+        $panelBlocked = ''
+        while ($true) {
+            $progress = $false
+            foreach ($slot in $panelSlots) {
+                if ($slot.State -ne 'running') { continue }
+                $exited = $true
+                try { $exited = $slot.Proc.HasExited } catch { $exited = $true }
+                if ($exited) {
+                    try { $slot.Exit = $slot.Proc.ExitCode } catch { $slot.Exit = -1 }
+                    $slot.Wall = [math]::Round($slot.Watch.Elapsed.TotalSeconds, 1)
+                    $slot.State = 'done'
+                } elseif ($slot.Watch.Elapsed.TotalSeconds -gt $slot.Guard) {
+                    $null = Stop-ProcessTree -Process $slot.Proc
+                    $slot.Exit = -1
+                    $slot.Wall = [math]::Round($slot.Watch.Elapsed.TotalSeconds, 1)
+                    $slot.State = 'killed'
+                } else {
+                    continue
+                }
+                $progress = $true
+                Complete-PanelMember $slot
+                $status = Get-PanelMemberStatus $slot
+                if ($status.Length -gt 110) { $status = $status.Substring(0, 110) + '...' }
+                Write-Host "  panel member $($slot.K) of $($panelRunners.Count) finished: $($slot.Pm.Shown) - $status ($($slot.Wall) s)"
+                # -PanelConcurrency 1: a member that left surviving processes stops the rest - one
+                # member after another is the old order, and its rule stays (F15-3).
+                if (-not $DryRun -and $PanelConcurrency -eq 1 -and -not $panelBlocked) {
+                    $rd = Read-PendingFile -Path $slot.RecordPath
+                    if ($rd.Error) {
+                        $panelBlocked = "not started: the previous member's recovery record cannot be used ($(ConvertTo-OneLine $rd.Error))"
+                    } elseif ($rd.Exists) {
+                        $chk = Test-PendingActive -Record $rd.Record -Path $slot.RecordPath
+                        if ($chk.Active) { $panelBlocked = "not started: the previous member ($($slot.Pm.Shown)) left surviving processes ($([IO.Path]::GetFileName($slot.RecordPath)) state $(Get-PropertyValue $rd.Record 'state' '')); recover the task first" }
+                    }
+                }
+            }
+            $running = @($panelSlots | Where-Object { $_.State -eq 'running' }).Count
+            foreach ($slot in $panelSlots) {
+                if ($slot.State -ne 'waiting') { continue }
+                if ($panelBlocked) { $slot.State = 'blocked'; $slot.NotStarted = $panelBlocked; $progress = $true; continue }
+                if ($PanelConcurrency -gt 0 -and $running -ge $PanelConcurrency) { break }
+                $grp = $panelPlan.Groups[$slot.Group]
+                if (@($panelSlots | Where-Object { $_.Group -eq $slot.Group -and $_.State -eq 'running' }).Count -ge $grp.Limit) { continue }
+                # within an endpoint group the roster order holds
+                if (@($panelSlots | Where-Object { $_.Group -eq $slot.Group -and $_.State -eq 'waiting' -and $_.K -lt $slot.K }).Count -gt 0) { continue }
+                Start-PanelMember $slot
+                $progress = $true
+                if ($slot.State -eq 'running') { $running++ }
+            }
+            if (@($panelSlots | Where-Object { $_.State -eq 'waiting' -or $_.State -eq 'running' }).Count -eq 0) { break }
+            if (-not $progress) { Start-Sleep -Milliseconds 500 }
+        }
+        $panelWatch.Stop()
+        $panelWall = [math]::Round($panelWatch.Elapsed.TotalSeconds, 1)
+
+        # ------------------------------------------------------------------ console output, records
+        foreach ($slot in $panelSlots) {
+            if (@('done', 'killed') -notcontains $slot.State) { continue }
+            Write-Host ""
+            Write-Host "=== panel $panelShort member $($slot.K) of $($panelRunners.Count): $($slot.Pm.Shown) (roster #$($slot.Pm.Entry.Position)) ==="
+            foreach ($l in $slot.Lines) { Write-Host $l }
+        }
+        if (-not $DryRun) {
+            # D5: the records of members that never started, and of launched members that are
+            # gone with their record still `reserved` (nothing was started under it), go.
+            foreach ($slot in $panelSlots) {
+                $rd = Read-PendingFile -Path $slot.RecordPath
+                if (-not $rd.Exists -or $rd.Error) { continue }
+                $st = [string](Get-PropertyValue $rd.Record 'state' '')
+                if ((@('waiting', 'blocked', 'failed-start') -contains $slot.State) -or $st -eq 'reserved') {
+                    $rmError = Remove-PendingFile -Path $slot.RecordPath
+                    if ($rmError) { $slot.RecordKept = $true; Write-Host "codex-consult: could not remove the unused recovery record $($slot.RecordPath) ($rmError)" -ForegroundColor Yellow }
+                } else {
+                    $slot.RecordKept = $true
+                    $slot.RecordState = $st
                 }
             }
         }
-        if ($panelBlocked) {
-            $panelResults[[int]$pm.Entry.Position] = [pscustomobject]@{ Exit = $null; Entry = $null; Refusal = ''; NotStarted = $panelBlocked }
-            continue
-        }
-        $panelStarted++
-        $previousLineage = $pm.Shown
-        $slug = ($pm.Entry.Provider.ToLowerInvariant() -replace '[^a-z0-9._-]', '-').Trim('-')
-        if (-not $slug) { $slug = 'reviewer' }
-        $spec = [pscustomobject]@{
-            id              = $panelId
-            position        = $k
-            of              = $panelRunners.Count
-            members         = $panelMembersRecord
-            roster_position = $pm.Entry.Position
-            provider        = $pm.Entry.Provider
-            model           = $pm.Entry.Model
-            engine          = [string]$pm.Entry.Engine
-            skipped         = $panelSkippedRecord
-            listed_ids      = [object[]]$panelListed
-            args            = [pscustomobject]@{
-                collab_dir       = $CollabDir
-                mode             = $Mode
-                brief            = $Brief
-                prompt           = $Prompt
-                purpose          = $Purpose
-                effort           = $Effort
-                sandbox          = $Sandbox
-                max_words        = $MaxWords
-                timeout_sec      = $TimeoutSec
-                reply_name       = "$ReplyName-$slug"
-                artifact         = [object[]]@($Artifact)
-                raw              = [bool]$Raw
-                codex_exe        = $CodexExe
-                native_effort    = $NativeEffort
-                off_peak_only    = [bool]$OffPeakOnly
-                skip_preflight   = [bool]$SkipPreflight
-                codex_config     = [object[]]@($CodexConfig)
-                schema_transport = $transportOverride
-                format_retry     = $FormatRetry
-                engine           = $Engine
-                engine_exe       = $EngineExe
-                denial_retry     = $DenialRetry
-                dry_run          = [bool]$DryRun
-            }
-        }
-        $specB64 = [Convert]::ToBase64String($script:Utf8NoBom.GetBytes((ConvertTo-Json -InputObject $spec -Depth 8 -Compress)))
-        Write-Host ""
-        Write-Host "=== panel $panelShort member $k of $($panelRunners.Count): $($pm.Shown) (roster #$($pm.Entry.Position)) ==="
-        $captured = New-Object System.Collections.Generic.List[string]
-        $eapBefore = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        $encBefore = $null
-        try { $encBefore = [Console]::OutputEncoding; [Console]::OutputEncoding = $script:Utf8NoBom } catch { }
-        & $psHost -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath -Task $Task -PanelSpec $specB64 2>&1 | ForEach-Object { $lineText = "$_"; $captured.Add($lineText); Write-Host $lineText }
-        $childExit = $LASTEXITCODE
-        if ($encBefore) { try { [Console]::OutputEncoding = $encBefore } catch { } }
-        $ErrorActionPreference = $eapBefore
-        $memberEntry = $null
-        if (-not $DryRun) { $memberEntry = Find-PanelEntry -Path $sessionsPath -PanelId $panelId -Position $k }
-        $refusal = @($captured | Where-Object { $_ -match '^codex-consult: ' }) | Select-Object -Last 1
-        $panelResults[[int]$pm.Entry.Position] = [pscustomobject]@{ Exit = $childExit; Entry = $memberEntry; Refusal = $(if ($refusal) { $refusal -replace '^codex-consult: ', '' } else { "exit $childExit" }); NotStarted = '' }
-    }
 
-    # ------------------------------------------------------------------------- summary
-    $rows = New-Object System.Collections.Generic.List[object]
-    $allUsable = ($panelRunners.Count -gt 0)
-    foreach ($pm in $panelEntries) {
-        $row = [pscustomobject]@{ Lineage = $pm.Shown; Status = ''; Counts = ''; Prior = ''; Tail = ''; Wide = $false }
-        if ($pm.State -ne 'run') {
-            $row.Status = 'skipped'
-            $row.Counts = $pm.Reason
-            $row.Wide = $true
-        } else {
-            $res = $panelResults[[int]$pm.Entry.Position]
-            if ($res.NotStarted) {
+        # ------------------------------------------------------------------ summary
+        $rows = New-Object System.Collections.Generic.List[object]
+        $allUsable = ($panelRunners.Count -gt 0)
+        $panelStarted = @($panelSlots | Where-Object { @('done', 'killed') -contains $_.State }).Count
+        foreach ($pm in $panelEntries) {
+            $row = [pscustomobject]@{ Lineage = $pm.Shown; Status = ''; Counts = ''; Prior = ''; Tail = ''; Wide = $false }
+            if ($pm.State -ne 'run') {
                 $row.Status = 'skipped'
-                $row.Counts = $res.NotStarted
+                $row.Counts = $pm.Reason
                 $row.Wide = $true
-                $allUsable = $false
-            } elseif ($DryRun) {
-                if ($res.Exit -eq 0) { $row.Status = 'planned' } else { $row.Status = "refused: $(ConvertTo-OneLine $res.Refusal)"; $row.Wide = $true; $allUsable = $false }
-            } elseif ($null -eq $res.Entry) {
-                $row.Status = "failed: $(ConvertTo-OneLine $res.Refusal)"
-                $row.Wide = $true
-                $allUsable = $false
             } else {
-                $me = $res.Entry
-                $outcome = [string](Get-PropertyValue $me 'bridge_outcome' '')
-                $tail = "$(Get-PropertyValue $me 'wall_seconds' '?') s  $(Get-PropertyValue $me 'reply' '')"
-                if ($outcome -ne 'usable reply') {
-                    $short = $outcome -replace '^failed:\s*', ''
-                    if ($short.Length -gt 90) { $short = $short.Substring(0, 90) + '...' }
-                    $row.Status = "failed: $short"
-                    $row.Tail = $tail
+                $slot = $slotOf[[int]$pm.Entry.Position]
+                if (@('waiting', 'blocked') -contains $slot.State) {
+                    $row.Status = 'skipped'
+                    $row.Counts = $(if ($slot.NotStarted) { $slot.NotStarted } else { 'not started' })
+                    $row.Wide = $true
+                    $allUsable = $false
+                } elseif ($DryRun -and $slot.State -eq 'done') {
+                    if ($slot.Exit -eq 0) { $row.Status = 'planned' } else { $row.Status = "refused: $(ConvertTo-OneLine $slot.Refusal)"; $row.Wide = $true; $allUsable = $false }
+                } elseif ($null -eq $slot.Entry) {
+                    $row.Status = Get-PanelMemberStatus $slot
+                    if (-not $DryRun -and -not $slot.RecordKept) { $row.Status += " (n=$($slot.N) and handoff $($slot.Nn) stay unused)" }
+                    elseif (-not $DryRun) { $row.Status += " ($([IO.Path]::GetFileName($slot.RecordPath)) kept, state $($slot.RecordState))" }
                     $row.Wide = $true
                     $allUsable = $false
                 } else {
-                    $verdictText = [string](Get-PropertyValue $me 'verdict' '')
-                    if ($verdictText -and (Get-PropertyValue $me 'structured' $false) -eq $true) {
-                        $row.Status = $verdictText
-                        $fc = Get-PropertyValue $me 'findings' $null
-                        $row.Counts = "$(Get-PropertyValue $fc 'blocker' 0) blocker, $(Get-PropertyValue $fc 'major' 0) major, $(Get-PropertyValue $fc 'minor' 0) minor"
-                        if ([int](Get-PropertyValue $fc 'note' 0) -gt 0) { $row.Counts += ", $(Get-PropertyValue $fc 'note' 0) note" }
-                        $row.Prior = Format-PriorCounts $me
+                    $me = $slot.Entry
+                    $outcome = [string](Get-PropertyValue $me 'bridge_outcome' '')
+                    $tail = "$(Get-PropertyValue $me 'wall_seconds' '?') s  $(Get-PropertyValue $me 'reply' '')"
+                    if ($slot.State -eq 'killed') {
+                        $row.Status = Get-PanelMemberStatus $slot
+                        $row.Tail = $tail
+                        $row.Wide = $true
+                        $allUsable = $false
+                    } elseif ($outcome -ne 'usable reply') {
+                        $short = $outcome -replace '^failed:\s*', ''
+                        if ($short.Length -gt 90) { $short = $short.Substring(0, 90) + '...' }
+                        $row.Status = "failed: $short"
+                        $row.Tail = $tail
+                        $row.Wide = $true
+                        $allUsable = $false
                     } else {
-                        $row.Status = 'prose (no verdict)'
+                        $verdictText = [string](Get-PropertyValue $me 'verdict' '')
+                        if ($verdictText -and (Get-PropertyValue $me 'structured' $false) -eq $true) {
+                            $row.Status = $verdictText
+                            $fc = Get-PropertyValue $me 'findings' $null
+                            $row.Counts = "$(Get-PropertyValue $fc 'blocker' 0) blocker, $(Get-PropertyValue $fc 'major' 0) major, $(Get-PropertyValue $fc 'minor' 0) minor"
+                            if ([int](Get-PropertyValue $fc 'note' 0) -gt 0) { $row.Counts += ", $(Get-PropertyValue $fc 'note' 0) note" }
+                            $row.Prior = Format-PriorCounts $me
+                        } else {
+                            $row.Status = 'prose (no verdict)'
+                        }
+                        $row.Tail = $tail
                     }
-                    $row.Tail = $tail
                 }
             }
+            $rows.Add($row)
         }
-        $rows.Add($row)
-    }
-    $wLineage = (@($rows | ForEach-Object { $_.Lineage.Length }) | Measure-Object -Maximum).Maximum
-    $narrow = @($rows | Where-Object { -not $_.Wide })
-    $wStatus = 7
-    $wCounts = 0
-    $wPrior = 0
-    if ($narrow.Count -gt 0) {
-        $wStatus = [Math]::Max(7, (@($narrow | ForEach-Object { $_.Status.Length }) | Measure-Object -Maximum).Maximum)
-        $wCounts = (@($narrow | ForEach-Object { $_.Counts.Length }) | Measure-Object -Maximum).Maximum
-        $wPrior = (@($narrow | ForEach-Object { $_.Prior.Length }) | Measure-Object -Maximum).Maximum
-    }
-    Write-Host ""
-    Write-Host "Panel $($panelShort): $(if ($DryRun) { "$($panelRunners.Count) of $($panelEntries.Count) entries would run (dry run)" } else { "$panelStarted of $($panelEntries.Count) entries ran" })"
-    foreach ($row in $rows) {
-        $parts = New-Object System.Collections.Generic.List[string]
-        $parts.Add($row.Lineage.PadRight($wLineage))
-        if ($row.Wide) {
-            $parts.Add($row.Status.PadRight($(if ($row.Status -eq 'skipped') { $wStatus } else { 0 })))
-            if ($row.Counts) { $parts.Add($row.Counts) }
-        } else {
-            $parts.Add($row.Status.PadRight($wStatus))
-            if ($wCounts -gt 0) { $parts.Add($row.Counts.PadRight($wCounts)) }
-            if ($wPrior -gt 0) { $parts.Add($row.Prior.PadRight($wPrior)) }
+        $wLineage = (@($rows | ForEach-Object { $_.Lineage.Length }) | Measure-Object -Maximum).Maximum
+        $narrow = @($rows | Where-Object { -not $_.Wide })
+        $wStatus = 7
+        $wCounts = 0
+        $wPrior = 0
+        if ($narrow.Count -gt 0) {
+            $wStatus = [Math]::Max(7, (@($narrow | ForEach-Object { $_.Status.Length }) | Measure-Object -Maximum).Maximum)
+            $wCounts = (@($narrow | ForEach-Object { $_.Counts.Length }) | Measure-Object -Maximum).Maximum
+            $wPrior = (@($narrow | ForEach-Object { $_.Prior.Length }) | Measure-Object -Maximum).Maximum
         }
-        if ($row.Tail) { $parts.Add($row.Tail) }
-        Write-Host ('  ' + (($parts.ToArray() -join '  ').TrimEnd()))
+        Write-Host ""
+        Write-Host "Panel $($panelShort): $(if ($DryRun) { "$($panelRunners.Count) of $($panelEntries.Count) entries would run (dry run)" } else { "$panelStarted of $($panelEntries.Count) entries ran" }) (wall clock $panelWall s; $($panelPlan.Text))"
+        foreach ($row in $rows) {
+            $parts = New-Object System.Collections.Generic.List[string]
+            $parts.Add($row.Lineage.PadRight($wLineage))
+            if ($row.Wide) {
+                $parts.Add($row.Status.PadRight($(if ($row.Status -eq 'skipped') { $wStatus } else { 0 })))
+                if ($row.Counts) { $parts.Add($row.Counts) }
+            } else {
+                $parts.Add($row.Status.PadRight($wStatus))
+                if ($wCounts -gt 0) { $parts.Add($row.Counts.PadRight($wCounts)) }
+                if ($wPrior -gt 0) { $parts.Add($row.Prior.PadRight($wPrior)) }
+            }
+            if ($row.Tail) { $parts.Add($row.Tail) }
+            Write-Host ('  ' + (($parts.ToArray() -join '  ').TrimEnd()))
+        }
+        if ($allUsable) { exit 0 }
+        exit 1
+    } finally {
+        Exit-TaskLock -Lock $panelLock
+        if ($panelTmp -and (Test-Path -LiteralPath $panelTmp)) { Remove-Item -LiteralPath $panelTmp -Recurse -Force -ErrorAction SilentlyContinue }
     }
-    if ($allUsable) { exit 0 }
-    exit 1
 }
 
 # ----------------------------------------------------------------------------- reviewer, effort, peak
@@ -1334,14 +1664,17 @@ if ($roster.Exists) {
     }
 }
 # The ledger's `panel` record of a -Panel member ($null otherwise): the same members list in
-# every member's entry.
+# every member's entry, and the panel's plan (0.4.x wave 21): concurrency = the most members
+# that could run at once, limits = provider label -> members of its endpoint at a time.
 $panelRecord = $null
 if ($panelMember) {
     $panelRecord = [pscustomobject]@{
-        id       = [string]$panelMember.id
-        position = [int]$panelMember.position
-        of       = [int]$panelMember.of
-        members  = [object[]]@(@($panelMember.members) | Where-Object { $_ } | ForEach-Object { [pscustomobject]@{ provider = [string]$_.provider; model = [string]$_.model; state = [string]$_.state; reason = [string]$_.reason } })
+        id          = [string]$panelMember.id
+        position    = [int]$panelMember.position
+        of          = [int]$panelMember.of
+        members     = [object[]]@(@($panelMember.members) | Where-Object { $_ } | ForEach-Object { [pscustomobject]@{ provider = [string]$_.provider; model = [string]$_.model; state = [string]$_.state; reason = [string]$_.reason } })
+        concurrency = [int](Get-PropertyValue $panelMember 'concurrency' 1)
+        limits      = (Get-PropertyValue $panelMember 'limits' $null)
     }
 }
 if ($rosterLine -and -not $DryRun) { Write-Host $rosterLine }
@@ -1371,8 +1704,10 @@ $peakWarning = ''
 if ($peak.Peak -eq $true) { $peakWarning = "WARNING: $peakProvider peak window ($($peak.Schedule)) - this consultation runs at peak tariff." }
 $peakLabel = if ($null -eq $peak.Peak) { "unknown ($(if ($peak.Variable) { "$($peak.Variable) not set" } else { 'provider unknown' }))" } elseif ($peak.Peak) { "PEAK ($($peak.Schedule); now $($peak.Local))" } else { "off-peak ($($peak.Schedule); now $($peak.Local); $($peak.Detail))" }
 
-# The prompt's last line; a rollout file is attributed to this run only if it holds it.
+# The prompt's last line; a rollout file is attributed to this run only if it holds it. (A
+# panel member's comes from its panel run, which wrote it into the member's record.)
 $consultId = [guid]::NewGuid().ToString()
+if ($panelMember -and [string](Get-PropertyValue $panelMember 'consult_id' '') -match '^[0-9a-fA-F-]{36}$') { $consultId = [string]$panelMember.consult_id }
 
 # ----------------------------------------------------------------------------- brief, artifacts, schema
 
@@ -1455,32 +1790,42 @@ $denialStderrPath = Join-Path $tmpRoot "codex-consult-denial-stderr-$tmpId.txt"
 # ----------------------------------------------------------------------------- lock + run
 #
 # Everything from here to the end runs while <task>/.consult.lock is HELD OPEN (not in
-# -DryRun, which writes nothing at all): the lock is taken BEFORE the recovery record,
+# -DryRun, which writes nothing at all): the lock is taken BEFORE the recovery records,
 # sessions.json and findings.json are read and before the consult number n and the
 # handoff number NN are allocated, and released in `finally` by closing the handle
-# (an `exit` inside `try` still runs it; the lock file itself is permanent).
+# (an `exit` inside `try` still runs it; the lock file itself is permanent). A -Panel
+# member takes no lock: its panel run holds it for the whole panel, judged the records
+# and handed the member its n and NN.
 #
-# Recovery record <task>/.consult.pending.json (atomic replace, only under the lock):
-#   1. read it first: unusable -> refuse; a live codex process of an interrupted run
-#      -> refuse; otherwise its reservation is consumed (numbering skips past it)
-#   2. {state: reserved, n, nn, reply, consult_id}
-#                                       after allocation - replaces the old record
+# Recovery record <task>/.consult.pending.json (a panel member: .consult.pending-<NN>.json;
+# atomic replace):
+#   1. read EVERY record of the task first: unusable -> refuse; a live writer or codex
+#      process of an interrupted run -> refuse; otherwise their reservations are consumed
+#      (numbering skips past them; consumed member records are removed)
+#   2. {state: reserved, n, nn, reply, consult_id, pid, start_time}
+#                                       after allocation - replaces the old record (a
+#                                       member: its record, rewritten at its start)
 #   3. {state: launching}               right before Start-Process (a failed write
-#                                       aborts the run before codex exists)
+#                                       aborts the run before codex exists; a member
+#                                       whose panel run is gone stops here instead)
 #   4. {state: running, child_pid}      right after Start-Process; if this write fails
 #                                       the codex tree is killed, the run is recorded
 #                                       as failed and the record stays 'launching'
 #   5. {state: survivors, survivors[]}  after a timeout kill that left survivors; kept
-#   6. deleted after the ledger commit when codex is known to be gone
+#   6. {state: committing}              the run is over; waiting for the write lock (kept,
+#                                       naming the reply files, when the lock is never had)
+#   7. deleted after the ledger commit (under the write lock) when codex is known to be gone
 # If this process dies at any point, the record tells the next run what to check.
 #
-# Write order after the run:
+# Write order after the run (0.4.x wave 21: 2-4 and the record's removal under
+# <task>/.consult.write.lock, on stores RE-READ under it - Enter-StoreCommit):
 #   1. handoffs/NN-codex-<slug>.reply.json  byte-for-byte copy of Codex's last message,
 #                                           BEFORE any parsing (a failed copy is a
 #                                           bridge failure; the temp original is kept)
-#   2. handoffs/NN-codex-<slug>.md          header + verbatim reply (+ rendered section)
+#   2. handoffs/NN-codex-<slug>.md          header + verbatim reply (+ the section rendered
+#                                           from the ingest into the FRESH findings.json)
 #   3. findings.json                        new findings, reviewer checks
-#   4. sessions.json                        the ledger entry - the commit point
+#   4. sessions.json                        the ledger entry, inserted by n - the commit point
 # Both JSON stores are replaced atomically (temp file + replace), and an existing
 # store that is empty or unparseable is refused as corruption. A crash between 3 and
 # 4 leaves findings or reviewer checks whose consult has no ledger entry;
@@ -1488,33 +1833,35 @@ $denialStderrPath = Join-Path $tmpRoot "codex-consult-denial-stderr-$tmpId.txt"
 # number that any finding, reviewer check, handoff file or reservation names.
 
 $lock = $null
+$commit = $null
 $keepPending = $false
 $keepLastMsg = $false
 if (-not $DryRun) {
     [void][IO.Directory]::CreateDirectory($handoffsDir)
-    $lock = Enter-TaskLock -TaskDir $taskDir -Task $Task
-    if (-not $lock.Acquired) { Stop-WithError $lock.Message }
+    if (-not $panelMember) {
+        $lock = Enter-TaskLock -TaskDir $taskDir -Task $Task
+        if (-not $lock.Acquired) { Stop-WithError $lock.Message }
+    }
 }
 
 try {
-    # ------------------------------------------------------------------------- recovery record
+    # ------------------------------------------------------------------------- recovery records
 
-    # Read and judged BEFORE anything is written (a dry run only reports).
-    $pendingOld = $null
-    $pendingCheck = $null
-    $pendingRefusal = ''
-    $pendingRead = Read-PendingFile -Path $pendingPath
-    if ($pendingRead.Error) { Stop-WithError $pendingRead.Error }
-    if ($pendingRead.Exists) {
-        $pendingOld = $pendingRead.Record
-        $pendingCheck = Test-PendingActive -Record $pendingOld -Path $pendingPath
-        if ($pendingCheck.Active) {
-            if ($DryRun) { $pendingRefusal = $pendingCheck.Message } else { Stop-WithError $pendingCheck.Message }
-        }
+    # EVERY recovery record of the task (.consult.pending.json and a panel's
+    # .consult.pending-<NN>.json), read and judged BEFORE anything is written (a dry run only
+    # reports). A panel member skips this: its panel run judged them all under the lock.
+    $pendingItems = @()
+    if (-not $panelMember) {
+        $pendingAll = Read-TaskPendingRecords -TaskDir $taskDir
+        if ($pendingAll.Error) { Stop-WithError $pendingAll.Error }
+        if ($pendingAll.Active -and -not $DryRun) { Stop-WithError $pendingAll.Active.Check.Message }
+        $pendingItems = @($pendingAll.Items)
     }
 
     # ------------------------------------------------------------------------- ledgers
 
+    # Read for the numbering, the parent thread and the prompt. Written only by the commit,
+    # re-read under the write lock (Enter-StoreCommit) - never from this snapshot.
     $sessions = Read-JsonStore -Path $sessionsPath
     if ($null -eq $sessions) {
         $sessions = [pscustomobject]@{
@@ -1525,7 +1872,6 @@ try {
                 consults = [object[]]@()
             }
         }
-        if (-not $DryRun) { Write-JsonFile -Path $sessionsPath -Object $sessions }
     }
     if (-not $sessions.PSObject.Properties['codex']) {
         $sessions | Add-Member -NotePropertyName 'codex' -NotePropertyValue ([pscustomobject]@{ tool = $(if ($isCodex) { $codexVersion } else { $harness }); consults = [object[]]@() })
@@ -1570,25 +1916,38 @@ try {
 
     # ------------------------------------------------------------------------- numbering
 
-    # The old recovery record's reservation is consumed here: numbering skips past its
-    # n / nn (and past everything else on disk that names a number).
-    $numbers = Get-NextNumbers -Consults $consults -Store $findingsStore -HandoffsDir $handoffsDir -Leftover $pendingOld
-    $consultN = $numbers.N
-    $nn = $numbers.Nn
-    $recoveredLine = ''
-    if ($pendingOld) {
-        $state = [string](Get-PropertyValue $pendingOld 'state' '')
+    # The old recovery records' reservations are consumed here: numbering skips past their
+    # n / nn (and past everything else on disk that names a number). A panel member's n and
+    # NN were assigned by its panel run.
+    if ($panelMember) {
+        $numbers = $null
+        $consultN = $memberN
+        $nn = $memberNn
+    } else {
+        $numbers = Get-NextNumbers -Consults $consults -Store $findingsStore -HandoffsDir $handoffsDir -Leftovers @($pendingItems | ForEach-Object { $_.Record })
+        $consultN = $numbers.N
+        $nn = $numbers.Nn
+    }
+    $recoveredLines = New-Object System.Collections.Generic.List[string]
+    for ($pi = 0; $pi -lt $pendingItems.Count; $pi++) {
+        $pItem = $pendingItems[$pi]
+        $pNum = $numbers.Items[$pi]
+        $state = [string](Get-PropertyValue $pItem.Record 'state' '')
+        # a panel member's record is named (the single run's record is the classic one)
+        $which = $(if ($pItem.Name -ine '.consult.pending.json') { "$($pItem.Name): " } else { '' })
         if ($DryRun) {
-            if ($pendingRefusal) { $recoveredLine = "$pendingPath (state '$state', n=$($numbers.RecoveredN), nn=$($numbers.RecoveredNn)): the next run would be REFUSED - $pendingRefusal" }
-            else { $recoveredLine = "$pendingPath (state '$state', n=$($numbers.RecoveredN), nn=$($numbers.RecoveredNn); $($pendingCheck.Check)): the next run recovers it; numbering continues past it." }
-        } elseif ($numbers.Recovered) {
-            $recoveredLine = "recovered reservation n=$($numbers.RecoveredN), nn=$($numbers.RecoveredNn) (state '$state' of an interrupted run; $($pendingCheck.Check)); numbering continues past it."
-            Write-Host "codex-consult: $recoveredLine" -ForegroundColor Yellow
+            if ($pItem.Check.Active) { $recoveredLines.Add("$($pItem.Path) (state '$state', n=$($pNum.N), nn=$($pNum.Nn)): the next run would be REFUSED - $($pItem.Check.Message)") }
+            else { $recoveredLines.Add("$($pItem.Path) (state '$state', n=$($pNum.N), nn=$($pNum.Nn); $($pItem.Check.Check)): the next run recovers it; numbering continues past it.") }
+        } elseif ($pNum.Recovered) {
+            $line = "recovered reservation n=$($pNum.N), nn=$($pNum.Nn) ($($which)state '$state' of an interrupted run; $($pItem.Check.Check)); numbering continues past it."
+            $recoveredLines.Add($line)
+            Write-Host "codex-consult: $line" -ForegroundColor Yellow
         } else {
             # Its consultation reached the ledger (e.g. a failed registration or timeout
             # survivors that have exited since): nothing to recover, only to clear.
-            $recoveredLine = "cleared the recovery record of consult n=$($numbers.RecoveredN), nn=$($numbers.RecoveredNn) (state '$state'; $($pendingCheck.Check)); its ledger entry exists."
-            Write-Host "codex-consult: $recoveredLine" -ForegroundColor Yellow
+            $line = "cleared the recovery record of consult n=$($pNum.N), nn=$($pNum.Nn) ($($which)state '$state'; $($pItem.Check.Check)); its ledger entry exists."
+            $recoveredLines.Add($line)
+            Write-Host "codex-consult: $line" -ForegroundColor Yellow
         }
     }
     # NB: PowerShell variable names are case-insensitive - never call these $replyName,
@@ -1606,12 +1965,28 @@ try {
     $replyJsonPlanned = ''
     if (-not $Raw) { $replyJsonPlanned = "handoffs/$replyJsonFileName" }
     # This run's reservation replaces the consumed record (atomically; if the write
-    # fails the old record is left intact and nothing was started).
-    $pendingRecord = $null
+    # fails the old record is left intact and nothing was started). A panel member updates
+    # the record it rewrote at its start (its reply, consultation id and launcher).
     if (-not $DryRun) {
-        $pendingRecord = New-PendingRecord -State 'reserved' -N $consultN -Nn $nn -Reply $replyRel -Started $runStarted -Launcher $engineLauncher -ConsultId $consultId -Engine $engineName
-        try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
-            Stop-WithError "could not write the recovery record '$pendingPath': $(ConvertTo-OneLine $_.Exception.Message); nothing was started."
+        if ($panelMember) {
+            $pendingRecord.reply = $replyRel
+            $pendingRecord.consult_id = $consultId
+            $pendingRecord.launcher = $engineLauncher
+            $pendingRecord.engine = $engineName
+            try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
+                Stop-WithError "could not write the recovery record '$pendingPath': $(ConvertTo-OneLine $_.Exception.Message); nothing was started."
+            }
+        } else {
+            $pendingRecord = New-PendingRecord -State 'reserved' -N $consultN -Nn $nn -Reply $replyRel -Started $runStarted -Launcher $engineLauncher -ConsultId $consultId -Engine $engineName
+            try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
+                Stop-WithError "could not write the recovery record '$pendingPath': $(ConvertTo-OneLine $_.Exception.Message); nothing was started."
+            }
+            # The consumed records of a panel's members go now (their numbers are skipped).
+            foreach ($pItem in $pendingItems) {
+                if ($pItem.Path -ieq $pendingPath) { continue }
+                $rmError = Remove-PendingFile -Path $pItem.Path
+                if ($rmError) { Write-Host "codex-consult: could not remove the consumed recovery record $($pItem.Path) ($rmError)" -ForegroundColor Yellow }
+            }
         }
     }
 
@@ -1815,6 +2190,7 @@ try {
             unchecked_prior_blockers        = [object[]]@()
             usage                           = $(if ($isCodex) { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n>'; output_tokens = '<n>'; reasoning_output_tokens = '<n>' } } else { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n (cache_read_tokens)>'; output_tokens = '<n>'; reasoning_output_tokens = '<n (thinking_tokens)>'; total_tokens = '<n>' } })
             wall_seconds                    = 0
+            finished_at                     = '<written at the commit>'
         }
         Write-Host "DRY RUN - nothing was executed and no file was written." -ForegroundColor Yellow
         Write-Host ""
@@ -1823,7 +2199,7 @@ try {
         Write-Host "sessions    : $sessionsPath"
         if (-not $Raw) { Write-Host "findings    : $findingsPath ($($openFindings.Count) open finding(s) listed in the prompt)" }
         Write-Host "lock        : $lockPath (held open for the run; not in a dry run)"
-        if ($recoveredLine) { Write-Host "pending     : $recoveredLine" -ForegroundColor Yellow }
+        foreach ($rl in $recoveredLines) { Write-Host "pending     : $rl" -ForegroundColor Yellow }
         if ($isCodex) {
             if ($codexExePath) { Write-Host "launcher    : $codexExePath" }
             else { Write-Host "launcher    : (codex not found on PATH)" -ForegroundColor Yellow }
@@ -1924,6 +2300,14 @@ try {
     # (<task>/handoffs/NN-<prefix>-<slug>.*) are its output, not a change.
     $collabBefore = $null
     $ownPrefixes = [string[]]@("$Task/handoffs/$nn-$enginePrefix-$ReplyName.")
+    # A member of a panel whose members run at the same time (D7): the task's two stores and
+    # the siblings' handoffs are theirs to write meanwhile (each with its atomic-write temp);
+    # every other collab path stays monitored.
+    if ($panelMember) {
+        # (Get-PanelIgnorePrefixes hands back the array itself: assigned directly, never @()-wrapped)
+        $siblingPrefixes = Get-PanelIgnorePrefixes -Task $Task -SiblingNns ([string[]]@(@(Get-PropertyValue $panelMember 'sibling_nns' @()) | Where-Object { $_ } | ForEach-Object { [string]$_ }))
+        $ownPrefixes = [string[]]($ownPrefixes + $siblingPrefixes)
+    }
     $collabShown = ''
     if (-not $isCodex) {
         $collabBefore = Get-CollabSnapshot -Dir $collabRoot
@@ -1934,6 +2318,12 @@ try {
     # (3) launching - from the next statement on, a crash may leave a codex process
     # whose pid is not recorded; the next run then scans for one (Test-PendingActive).
     $engineCmd = [string]$engineSpec.Command
+    # A panel member re-checks its panel run right before it starts anything (D1): when that
+    # run is gone, the member stops here - nothing started, its record withdrawn.
+    if ($panelMember -and -not (Test-PidAlive -ProcessId $memberParentPid -StartTime $memberParentStart)) {
+        $rmError = Remove-PendingFile -Path $pendingPath
+        Stop-WithError "the review panel run that launched this member (pid $memberParentPid) is gone; this member stopped before starting $engineCmd - nothing was started$(if ($rmError) { " (its recovery record '$pendingPath' could not be removed: $rmError)" })."
+    }
     $pendingRecord.state = 'launching'
     $pendingRecord.note = "$engineCmd is being started; its pid is not recorded yet"
     try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
@@ -1972,6 +2362,9 @@ try {
             Write-PendingFile -Path $pendingPath -Record $pendingRecord
         } catch {
             $registerError = ConvertTo-OneLine $_.Exception.Message
+            # the record on disk still says launching: so does the one in memory (a kept
+            # record is written from it after the commit)
+            $pendingRecord.state = 'launching'; $pendingRecord.child_pid = $null; $pendingRecord.child_start_time = ''
         }
         if ($registerError) {
             # An unregistered codex must not outlive this run: stop it now. The record
@@ -2335,6 +2728,7 @@ try {
                 } catch {
                     $repairRegistered = $false
                     $repairProblem = "could not register the repair process ($(ConvertTo-OneLine $_.Exception.Message)); it was stopped"
+                    $pendingRecord.state = 'launching'; $pendingRecord.child_pid = $null; $pendingRecord.child_start_time = ''
                     $null = Stop-ProcessTree -Process $repairProc
                 }
                 if ($repairRegistered) {
@@ -2446,6 +2840,59 @@ try {
         }
     }
 
+    # Classified provider failure (null on success): what the endpoint said - an SSE
+    # `data:{"error":...}` line, the event-stream error, stderr - or the bridge's own reason.
+    # Later preflights read it back per endpoint (Get-EndpointHealth).
+    $providerFailure = $null
+    if ($bridgeOutcome -ne 'usable reply' -and $isCodex) {
+        $sseLines = @(($stderrText -split "`r?`n") | Where-Object { $_ -match '^\s*data:\s*\{' })
+        $stderrTail = (($stderrText.Trim() -split "`r?`n") | Select-Object -Last 1)
+        $providerFailure = New-ProviderFailure -Texts @(($sseLines | Select-Object -Last 1), $eventError, $stderrTail, ($bridgeOutcome -replace '^failed:\s*', ''))
+    } elseif ($bridgeOutcome -ne 'usable reply') {
+        # agy: the result's error, the telling stderr line, the bridge's reason - and the class
+        # the turn rules force (permission, transport, unknown), else the classifier's.
+        $providerFailure = New-ProviderFailure -Texts @(@($agyFailureTexts) + @(($bridgeOutcome -replace '^failed:\s*', ''))) -Class $agyFailureClass
+    }
+
+    # ------------------------------------------------------------------------- commit (write lock)
+
+    # 0.4.x wave 21 (D2-D4). The run is over and its reply files (.reply.json, the event
+    # stream, a repair's .original.md) are on disk. The rest happens under
+    # <task>/.consult.write.lock on stores RE-READ under it (Enter-StoreCommit): this run's
+    # findings are ingested into the FRESH findings.json (Add-ReplyFindings - the new ids
+    # F<NN>-k are this run's own), the handoff .md is rendered from THAT ingest, then
+    # findings.json, then sessions.json (the entry inserted by n), then the record goes - a
+    # sibling panel member's commit in between is never lost. The record says `committing`
+    # meanwhile. When the write lock cannot be had within 60 s the stores are NOT touched: the
+    # record stays `committing`, naming the kept reply files, the run exits non-zero ("commit
+    # blocked") and the next run consumes the record like any interrupted reservation (D3).
+    $preCommitState = [string]$pendingRecord.state
+    $pendingRecord.state = 'committing'
+    $pendingRecord.note = 'the run is over; committing under the write lock'
+    try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
+    $commit = Enter-StoreCommit -TaskDir $taskDir -Task $Task -TimeoutSec (Get-WriteLockTimeout)
+    if (-not $commit.Acquired) {
+        $kept = New-Object System.Collections.Generic.List[string]
+        if ($replyJsonRel) {
+            $keptJson = Get-RepoRelativePath -Root $repoRoot -Path $replyJsonPath
+            if (-not $keptJson) { $keptJson = $replyJsonPath }
+            $pendingRecord | Add-Member -NotePropertyName 'reply_json' -NotePropertyValue $keptJson -Force
+            $kept.Add($keptJson)
+        } elseif ($isCodex -and (Test-Path -LiteralPath $lastMsgPath -PathType Leaf)) {
+            # (-Raw, or a reply that could not be copied) the last message stays in its temp file
+            $keepLastMsg = $true
+            $pendingRecord | Add-Member -NotePropertyName 'raw_reply' -NotePropertyValue $lastMsgPath -Force
+            $kept.Add($lastMsgPath)
+        }
+        if ([string](Get-PropertyValue $pendingRecord 'events' '')) { $kept.Add([string]$pendingRecord.events) }
+        if ([string](Get-PropertyValue $pendingRecord 'original' '')) { $kept.Add([string]$pendingRecord.original) }
+        $pendingRecord.note = "commit blocked: $($commit.Message); findings.json and sessions.json were not touched"
+        try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
+        Write-Host "codex-consult: commit blocked: $($commit.Message). This run's reply is kept ($(if ($kept.Count -gt 0) { $kept.ToArray() -join ', ' } else { 'nothing to keep' })); no ledger entry was written and the stores were not touched - $pendingPath stays in state committing and the next run consumes it (bridge outcome: $bridgeOutcome)." -ForegroundColor Red
+        exit 1
+    }
+    $findingsStore = $commit.Findings
+
     if ($parse -and $parse.Valid) {
         try {
             $ingest = Add-ReplyFindings -Store $findingsStore -Reply $parse.Reply -Nn $nn -ConsultN $consultN `
@@ -2469,20 +2916,6 @@ try {
             $validationError = "bridge could not process the reply: $(ConvertTo-OneLine $_.Exception.Message)"
             $parse = [pscustomobject]@{ Valid = $false; ValidationError = $validationError; Reply = $null; UncheckedPriorBlockers = @() }
         }
-    }
-
-    # Classified provider failure (null on success): what the endpoint said - an SSE
-    # `data:{"error":...}` line, the event-stream error, stderr - or the bridge's own reason.
-    # Later preflights read it back per endpoint (Get-EndpointHealth).
-    $providerFailure = $null
-    if ($bridgeOutcome -ne 'usable reply' -and $isCodex) {
-        $sseLines = @(($stderrText -split "`r?`n") | Where-Object { $_ -match '^\s*data:\s*\{' })
-        $stderrTail = (($stderrText.Trim() -split "`r?`n") | Select-Object -Last 1)
-        $providerFailure = New-ProviderFailure -Texts @(($sseLines | Select-Object -Last 1), $eventError, $stderrTail, ($bridgeOutcome -replace '^failed:\s*', ''))
-    } elseif ($bridgeOutcome -ne 'usable reply') {
-        # agy: the result's error, the telling stderr line, the bridge's reason - and the class
-        # the turn rules force (permission, transport, unknown), else the classifier's.
-        $providerFailure = New-ProviderFailure -Texts @(@($agyFailureTexts) + @(($bridgeOutcome -replace '^failed:\s*', ''))) -Class $agyFailureClass
     }
 
     # ------------------------------------------------------------------------- 2. reply file
@@ -2523,7 +2956,7 @@ try {
     if ($rosterLine) { $headerLines.Add("$rosterLine.") }
     $headerLines.Add("Effort: $(if ($null -eq $effortSent) { 'nothing' } else { $effortSent }) sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis); not confirmed by the provider). Consultation id: $consultId.")
     if ($peakWarning) { $headerLines.Add(($peakWarning -replace 'this consultation runs at', 'this consultation ran at')) }
-    if ($recoveredLine) { $headerLines.Add("Recovery record: $recoveredLine") }
+    foreach ($rl in $recoveredLines) { $headerLines.Add("Recovery record: $rl") }
     $headerLines.Add("Invocation: ``codex-consult.ps1`` (mode: $Mode, sandbox: $sandboxRecord, purpose: $purposeLabel). Argv: ``$commandStr`` (prompt on stdin$(if (-not $isCodex) { ' as one NDJSON line' })).")
     $headerLines.Add("$parentLine Result thread: $resultThread (source: $threadSourceText).")
     $headerLines.Add("$briefLine $reviewedLine")
@@ -2587,8 +3020,12 @@ try {
     # ------------------------------------------------------------------------- 3. findings.json
 
     if ($ingest -and $ingest.Changed) {
-        Write-FindingsFile -Path $findingsPath -Store $findingsStore
+        Complete-StoreCommit -Commit $commit -Findings
     }
+    # TEST HOOK: CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=<ms> - a pause inside the commit, between
+    # findings.json and sessions.json (the ORPHAN window a kill can hit; write-lock contention).
+    $commitPause = 0
+    if ([int]::TryParse([string]$env:CODEX_CONSULT_TEST_COMMIT_PAUSE_MS, [ref]$commitPause) -and $commitPause -gt 0) { Start-Sleep -Milliseconds $commitPause }
 
     # ------------------------------------------------------------------------- 4. sessions.json
 
@@ -2661,29 +3098,51 @@ try {
         unchecked_prior_blockers        = [object[]]$uncheckedPrior
         usage                           = $usage
         wall_seconds                    = $wallSeconds
+        finished_at                     = (Get-IsoTimestamp)
     }
-    $newConsults = @()
-    $newConsults += $consults
-    $newConsults += $entry
-    $sessions.codex.consults = [object[]]$newConsults
-    Write-JsonFile -Path $sessionsPath -Object $sessions
+    # The FRESH ledger (re-read under the write lock): created when absent, the entry
+    # inserted at its place by n (a panel member that finishes first still lands after the
+    # lower-n members' entries; D10).
+    $ledger = $commit.Sessions
+    if ($null -eq $ledger) {
+        $ledger = [pscustomobject]@{
+            task_id = $Task
+            cwd     = $repoRoot
+            codex   = [pscustomobject]@{
+                tool     = $(if ($isCodex) { $codexVersion } else { $harness })
+                consults = [object[]]@()
+            }
+        }
+    }
+    if (-not $ledger.PSObject.Properties['codex']) {
+        $ledger | Add-Member -NotePropertyName 'codex' -NotePropertyValue ([pscustomobject]@{ tool = $(if ($isCodex) { $codexVersion } else { $harness }); consults = [object[]]@() })
+    }
+    if (-not $ledger.codex.PSObject.Properties['consults']) {
+        $ledger.codex | Add-Member -NotePropertyName 'consults' -NotePropertyValue ([object[]]@())
+    }
+    # (`tool` is the codex version; an agy run leaves it as it is)
+    if ($isCodex) { $ledger.codex.tool = $codexVersion }
+    Add-LedgerEntry -Sessions $ledger -Entry $entry
+    $commit.Sessions = $ledger
+    Complete-StoreCommit -Commit $commit -Sessions
 
-    # (6) The ledger is committed and codex is known to be gone: the recovery record
-    # has nothing left to protect (still under the lock). Kept after a failed
-    # registration ('launching') or with timeout survivors.
+    # (7) The ledger is committed and codex is known to be gone: the recovery record
+    # has nothing left to protect (still under the write lock). Kept after a failed
+    # registration ('launching') or with timeout survivors - in that state again.
     $pendingNote = ''
     if ($keepPending) {
+        $pendingRecord.state = $preCommitState
+        $pendingRecord.note = ''
         # The ledger now holds this run's entry: the saved prose is no longer orphaned.
-        if ($pendingRecord -and (($pendingRecord.PSObject.Properties['original'] -and $pendingRecord.original) -or ($pendingRecord.PSObject.Properties['events'] -and $pendingRecord.events))) {
-            if ($pendingRecord.PSObject.Properties['original']) { $pendingRecord.original = ''; $pendingRecord.first_reply = '' }
-            $pendingRecord.events = ''
-            try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
-        }
+        if ($pendingRecord.PSObject.Properties['original']) { $pendingRecord.original = ''; $pendingRecord.first_reply = '' }
+        $pendingRecord.events = ''
+        try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
         $pendingNote = "recovery record kept: $pendingPath (state '$($pendingRecord.state)')"
     } else {
         $rmError = Remove-PendingFile -Path $pendingPath
         if ($rmError) { $pendingNote = "could not remove $pendingPath ($rmError); the next run will find codex gone and consume it" }
     }
+    Exit-StoreCommit -Commit $commit
 
     # ------------------------------------------------------------------------- output
 
@@ -2751,5 +3210,6 @@ try {
     if (-not $keepLastMsg -and (Test-Path -LiteralPath $lastMsgPath)) {
         Remove-Item -LiteralPath $lastMsgPath -Force -ErrorAction SilentlyContinue
     }
+    Exit-StoreCommit -Commit $commit
     Exit-TaskLock -Lock $lock
 }

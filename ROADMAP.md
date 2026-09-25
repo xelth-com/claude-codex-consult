@@ -173,7 +173,8 @@ optional participant whose "done" is never trusted and who never closes a findin
   engine is the next row of the same table (argv, stdin, event parser, turn rules,
   credential) without touching the run block again. Open: TECH_DEBT T7 (an agy lineage binds
   engine + label + model, not the signed-in account).
-- **R11 — Parallel panel (planned for 0.4.x, after R10).** A `-Panel` run consults its
+- **R11 — Parallel panel (0.4.x wave 21 - implemented in the 0.4.0 candidate, not yet run
+  live).** A `-Panel` run consults its
   members one after another (README, "Reviewer roster and panel"), so its wall clock is the
   SUM of the members' times (a two-member framing panel today: 8-12 minutes). The members are
   already independent — each gets the same brief and the same snapshot of the findings that
@@ -194,6 +195,13 @@ optional participant whose "done" is never trusted and who never closes a findin
   single run beside a panel on one task are still refused by the lock), and any change to
   what a member sees. Measured by the panel's wall clock (max of the members instead of
   their sum) and by an unchanged per-member result set against the sequential harness cases.
+  **Status (wave 21, fakes only):** built per the design round
+  `.collab/parallel-panel-2026-09-25/` (decisions D1-D13): members in parallel across
+  endpoints (one after another within one; roster `"parallel"`, `-PanelConcurrency`), the
+  panel run holding the task lock, n/NN and one `reserved` record per member up front,
+  the member's proof of its parent, writer liveness for every record, the commit write lock
+  with re-read and own delta (single runs and `codex-findings.ps1` too), `finished_at` for
+  endpoint health; `tests/harness-panel.ps1`. Next: a live parallel panel reviews the wave.
 - **R12 — Non-blocking consultation (planned for 0.4.x, with or after R11).** Today a
   consultation or a panel holds the coordinator's turn until the last reply is in (a
   two-member framing panel: 8-12 minutes; three members: 20+). The coordinator should be

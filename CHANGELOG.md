@@ -136,8 +136,64 @@ amendments A1-A20 and the facts F11/F12).
   the tree with read-only tool calls to confirm six prior findings fixed, which cost 515k input
   tokens (410k of them cached) - a per-request plan pays for that loop in tokens, not calls.
 
+- **Wave 21 — the parallel panel (ROADMAP R11)**, per the design round recorded in
+  `.collab/parallel-panel-2026-09-25/` (`handoffs/01` the design, `02`-`04` the reviews by
+  kimi k3, deepseek-v4.1-flash and glm-5.3, `05` the decisions D1-D13).
+  - A `-Panel` run's members run IN PARALLEL, each a bridge process of its own
+    (`Start-Process` with its console output in a temp directory, polled; no runspaces or
+    jobs). The plan is endpoint-aware (D8): the members of one endpoint - one provider
+    label, or labels on one provider fingerprint (every agy label: one Google sign-in) - run
+    one after another, different endpoints at once; the roster's new optional top-level
+    `"parallel": {"<provider label>": n}` raises a label's limit (validated: integers >= 1,
+    labels the roster uses); the new `-PanelConcurrency <n>` caps the total (0 = no cap, the
+    default; 1 = strictly one after another). The first line, a `Concurrency:` line and the
+    dry run show the plan; one progress line per finished member; the members' console
+    output in roster order; the summary gains the panel's wall clock.
+  - The panel run holds the task lock for the whole panel (its record names the panel,
+    D12), judges every recovery record first, assigns n and NN to every member up front in
+    roster order, and writes one recovery record per member,
+    `<task>/.consult.pending-<NN>.json` (state `reserved`, with a `panel` object), before
+    any member starts; it removes the records of members that never started anything (D5).
+  - A member accepts its spec only when its record names the same panel, n, NN and parent
+    pid + start time and the parent is alive (D6); it rewrites the record with its own pid +
+    start time as its first act and re-checks the parent right before it starts its
+    reviewer (D1). The parent stops a member that outlives its guard (timeout + repair /
+    denial-retry budgets + 60 s + 120 s, D11): summary "killed by the panel after N s".
+  - Recovery records carry the writer's `start_time`; a live writer makes a record active
+    in every state (D1). A panel member's record is judged by its recorded pids + start
+    times and, on Windows, their children only - never by the machine-wide name rule. New
+    state `committing`. `Get-NextNumbers` takes several leftover records; every reader
+    (`codex-consult.ps1`, `codex-findings.ps1 -List/-Stats/-Status`) enumerates
+    `.consult.pending*.json` (D5).
+  - The commit write lock `<task>/.consult.write.lock` (D2): an OS-held handle like
+    `.consult.lock`, waited for up to 60 s; ONE routine (`Enter-StoreCommit` -> delta on the
+    RE-READ stores -> `Complete-StoreCommit` -> `Exit-StoreCommit`) for single runs, panel
+    members and `codex-findings.ps1 -Status`/`-Rate`. The ingest and the handoff's rendered
+    section happen inside it (D4); the ledger entry is inserted by n (D10). Not acquired in
+    60 s: the stores are not touched, the record stays `committing` naming the kept reply,
+    exit 1 "commit blocked", the next run consumes it (D3).
+  - agy member (D7): its collab comparison also leaves out the task's two stores and the
+    sibling members' handoffs, each with its Write-TextAtomic temp variant, while members
+    run at the same time.
+  - Ledger `finished_at` (after `wall_seconds`); `Get-EndpointHealth` orders by completion
+    (`finished_at`, else `when` + `wall_seconds`), ties by n (D9). Ledger `panel` gains
+    `concurrency` and `limits`.
+  - Fakes (D13): `FAKE_CODEX_DELAY_MS` and `FAKE_CODEX_REPLY_MAP` keyed by the `-m` model,
+    `FAKE_CODEX_LOGIN_DELAY_MS`, `FAKE_AGY_DELAY_MS`; the fakes' log and pid writes retry on a
+    sharing violation. Test hooks `CODEX_CONSULT_TEST_WRITE_LOCK_SEC`,
+    `CODEX_CONSULT_TEST_COMMIT_PAUSE_MS`, `CODEX_CONSULT_TEST_PANEL_GUARD_SEC`.
+  - `tests/harness-panel.ps1` (new; `run-all.ps1` runs it), see "Tests" in the README.
+
 ### Changed
 
+- Wave 21: the panel is parallel (see "Added"); `sessions.json` is no longer created at a
+  run's start (the commit creates it); `findings.json` keeps its findings in id order;
+  `consults` stays sorted by n; the F15-3 rule ("later members are not started" after a
+  member left survivors) applies to `-PanelConcurrency 1` only. Existing assertions changed
+  where the output legitimately changed: the ledger field order (`harness-0.3`,
+  `harness-engines`: `finished_at` last), the F15-3 case of `harness-roster` (now with
+  `-PanelConcurrency 1`, the record named `.consult.pending-<NN>.json`), the description of
+  `harness-engines`' mixed panel case.
 - Ledger: `reviewer.engine` (written as `codex` for codex runs; an absent field reads as
   codex), `denial_retry` after `format_retry`, `warnings[]` after `provider_failure` - for
   every engine (`null` / `[]` for codex). `harness-0.3`'s field-order assertion and
@@ -168,6 +224,13 @@ amendments A1-A20 and the facts F11/F12).
   launcher's file metadata names one.
 - The harness runs against the fake only; the live runs are listed under "Live evidence"
   above (the F11 denial retry has not fired live through the bridge yet).
+- Wave 21 (accepted in the decisions): an agy panel member does not catch its own
+  reviewer writing its task's `findings.json`/`sessions.json` while members run at the same
+  time (F02-2's other half: a consultation on ANOTHER task committing during an agy run
+  fails that run - run nothing else beside a panel with agy members); a kill inside a
+  commit can leave ORPHAN findings (F03-11); the panel holds the task lock for its whole
+  wall clock, so `codex-findings.ps1` writes wait for it (F03-8, relaxable with R12). The
+  parallel panel has not run live yet.
 
 ## [0.3.0] - 2026-09-24
 

@@ -13,11 +13,14 @@ ehthumbs.db
 desktop.ini
 *~
 
-# Bridge runtime files inside a task directory. .consult.lock is a permanent,
-# informational ownership file (never delete it); .consult.pending.json exists
-# only during or after an interrupted consultation. Neither belongs in history.
+# Bridge runtime files inside a task directory. .consult.lock and .consult.write.lock
+# are permanent, informational lock files (never delete them); .consult.pending.json
+# and a panel member's .consult.pending-<NN>.json exist only during or after an
+# interrupted consultation. None of them belongs in history.
 .consult.lock
+.consult.write.lock
 .consult.pending.json
+.consult.pending-*.json
 
 # Local eval runs (claude plugin eval) - reports and transcripts, never committed.
 evals/results/

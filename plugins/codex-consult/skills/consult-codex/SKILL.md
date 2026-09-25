@@ -179,9 +179,11 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
 - `-Raw` — 0.1-style plain-text reply: no structured schema, no findings bookkeeping.
   Use it for a quick informal ask that is not going into the findings ledger.
 - `-Panel` (`-PanelAll` to include `"weighty"` roster entries whatever the purpose) —
-  send the **same brief to every available reviewer roster entry**, sequentially, each
-  its own consultation, own lineage and own reply file. Needs a reviewer roster; refused
-  with `-Provider`, `-Thread`, or `-Mode resume`. See "The panel" below.
+  send the **same brief to every available reviewer roster entry**, in parallel across
+  endpoints (one after another within one endpoint), each its own consultation, own
+  lineage and own reply file. `-PanelConcurrency 1` runs them strictly one after another.
+  Needs a reviewer roster; refused with `-Provider`, `-Thread`, or `-Mode resume`. See
+  "The panel" below.
 - `-SchemaTransport output-schema|prompt-only|native` — override caps-v1's declared reply-schema
   transport for this one run (not with `-Raw`); use it only when you know the endpoint's
   declared transport is wrong for it right now, not as a routine override.
@@ -256,12 +258,15 @@ and finding counts per consultation — the R5 measurement of what each review p
 actually cost and produced.
 
 `-Id`/`-Status` holds the same task lock as a running consultation and is **refused**
-while one is in progress for that task (under the same live-process rules, without ever
-modifying the recovery record); `-List` (which flags `[ORPHAN]` findings — a crash
-between the findings write and the ledger write) and `-Stats` only read and never take
-the lock. `.consult.lock` is permanent and git-ignored — deleting it does nothing useful.
-`.consult.pending.json` means an interrupted run; the next consultation recovers it
-automatically unless a codex process from it is still alive, in which case it is
+while one is in progress for that task — a whole `-Panel` run included — (under the same
+live-process rules, without ever modifying a recovery record); its write, like `-Rate`'s,
+goes through the task's commit write lock on a freshly re-read `findings.json`. `-List`
+(which flags `[ORPHAN]` findings — a crash between the findings write and the ledger
+write) and `-Stats` only read and never take the lock. `.consult.lock` and
+`.consult.write.lock` are permanent and git-ignored — deleting them does nothing useful.
+`.consult.pending.json` (a panel member's: `.consult.pending-<NN>.json`) means a run in
+progress or an interrupted one; the next consultation recovers it automatically unless the
+bridge that wrote it or a codex process from it is still alive, in which case it is
 refused and the message says which pid.
 
 **Rate the consultation.** After recording the findings (or confirming a prose reply
@@ -326,20 +331,29 @@ as required coverage, not as a redundant second look.
 ## The panel
 
 `-Panel` (a reviewer roster is required — see the README's "Reviewer roster and panel") sends the **same
-brief to every available roster entry**, one after another: each member is a complete,
-independent consultation — its own preflight, its own lineage, its own reply file
+brief to every available roster entry**: each member is a complete, independent
+consultation — its own preflight, its own lineage, its own reply file
 (`handoffs/NN-codex-<ReplyName>-<provider>.md`) and its own ledger entry (`panel`
 field). `-PanelAll` includes `"weighty"` roster entries whatever the purpose; without
 it, a `"weighty"` entry only joins on the weighty purposes.
 
-- **Sequential, not parallel** — there is no concurrent-dispatch tooling here; members
-  run one after another in roster order, and a failing member does not stop the rest —
-  **except** when its failure leaves surviving processes behind: the task's
-  `.consult.pending.json` reservation then stays active, one consultation per task at
-  a time is absolute, and the remaining members are not started at all — recorded
-  `skipped` with reason `not started: the previous member (<lineage>) left surviving
-  processes (.consult.pending.json state survivors); recover the task first` (found by
-  the first live panel run, F15-3).
+- **Parallel across endpoints** (0.4.x wave 21) — members run as processes of their own,
+  at once when they reach different endpoints, one after another within one endpoint (one
+  provider label, or labels on one provider fingerprint such as all agy labels); the
+  roster's top-level `"parallel": {"<label>": n}` raises a label's limit, and
+  `-PanelConcurrency <n>` caps the total (`1` = strictly one after another). The panel
+  takes about as long as its slowest member, and it holds the task lock for the whole
+  panel: no `codex-findings.ps1 -Status`/`-Rate` on that task until it ends. The ledger
+  stays sorted by `n` (roster order) whatever finishes first.
+- A failing member does not stop the rest. With `-PanelConcurrency 1` a member whose
+  failure leaves surviving processes stops the remaining members — recorded `skipped` with
+  reason `not started: the previous member (<lineage>) left surviving processes
+  (.consult.pending-<NN>.json state survivors); recover the task first` (F15-3); at the
+  default the others run on, and the kept record blocks the task afterwards until it is
+  recovered.
+- **Do not run other consultations in the repository beside a panel with agy members**:
+  an agy member's read-only check fails on any collab change outside its own task's stores
+  and its siblings' handoffs.
 - **Per-lineage** — each member forks the newest thread of its own lineage (or starts
   one); never fork or resume one member's thread under another's provider/model.
 - **Members see the same open-findings snapshot** — every member is shown the findings

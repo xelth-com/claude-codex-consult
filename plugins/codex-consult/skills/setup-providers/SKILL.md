@@ -246,9 +246,12 @@ wire_api = "responses"
 
 - Allowed keys only: `roster_version` (must be `1`), `reviewers[]` with `provider`
   (required), `model`, `codex_config` (array of `key=value` strings), `auth`, `panel`,
-  `engine` (`codex`, the default, or `agy`). An unknown key, an unknown engine, an agy
-  entry without a model or with `codex_config`/`auth`, one label with two engines, a
-  duplicate `(provider, model)` or invalid JSON refuses EVERY run.
+  `engine` (`codex`, the default, or `agy`), and the optional top-level `parallel`
+  (`{"<provider label>": n}`, n >= 1: how many `-Panel` members of that label may run at
+  once; the default is one at a time per endpoint). An unknown key, an unknown engine, an
+  agy entry without a model or with `codex_config`/`auth`, one label with two engines, a
+  duplicate `(provider, model)`, a `parallel` value that is not an integer >= 1 or names a
+  label the roster does not use, or invalid JSON refuses EVERY run.
 - `"panel": "weighty"` for the expensive reviewer: it joins a `-Panel` run only on
   `framing`, `decision`, `core-contract`, `acceptance` and `stuck` (or `-PanelAll`). The
   default is `"always"`.

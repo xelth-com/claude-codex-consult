@@ -22,13 +22,49 @@
 #                                id in thread.started (as the real CLI does) - a new one with
 #                                FAKE_CODEX_RESUME_NEWTHREAD=1
 #   FAKE_CODEX_RESUME_LOG=<path> on `resume`: "ARGS: ...", "PROMPT:" and the prompt, there
+#   FAKE_CODEX_DELAY_MS=<ms> | <model>=<ms>[|<model>=<ms>...]
+#                                sleep that long after turn.started on every exec turn; a map
+#                                keys the delay by the `-m` model of the turn (`*=<ms>` or a
+#                                bare number: every other model) - the panel cases' per-model
+#                                delay
+#   FAKE_CODEX_REPLY_MAP=<model>=<file>[|<model>=<file>...]
+#                                the reply of a turn of that `-m` model (instead of
+#                                FAKE_CODEX_REPLY; a `resume` turn keeps FAKE_CODEX_RESUME_REPLY)
+#   FAKE_CODEX_LOGIN_DELAY_MS=<ms>  `login status` answers after that long
 $ErrorActionPreference = 'Stop'
 $raw = [string]$env:FAKE_CODEX_ARGS
+# "<model>=<value>|..." -> the value for $Key ('*' or a bare value: the default; $null: none)
+function Get-FakeMapValue {
+    param([string]$Spec, [string]$Key)
+    if (-not $Spec) { return $null }
+    $default = $null
+    foreach ($item in $Spec.Split('|')) {
+        $eq = $item.IndexOf('=')
+        if ($eq -lt 0) { if ($item.Trim()) { $default = $item.Trim() }; continue }
+        $k = $item.Substring(0, $eq).Trim()
+        $v = $item.Substring($eq + 1).Trim()
+        if ($k -ceq $Key) { return $v }
+        if ($k -eq '*') { $default = $v }
+    }
+    return $default
+}
+$model = ''
+if ($raw -match '(?:^| )-m (\S+)') { $model = $Matches[1].Trim('"') }
+# A log or pid file several fakes may write at once (the members of a parallel panel share
+# the harness's variables): retried on a sharing violation.
+function Write-FakeFile {
+    param([string]$Path, [string]$Text)
+    for ($i = 0; $i -lt 40; $i++) {
+        try { [IO.File]::WriteAllText($Path, $Text); return } catch { Start-Sleep -Milliseconds 50 }
+    }
+    [IO.File]::WriteAllText($Path, $Text)
+}
 if ($raw -match '--version') { Write-Output 'codex-cli 0.155.1-fake'; exit 0 }
 # `codex login status` (the bridge's credential preflight): logged in unless
 # FAKE_CODEX_LOGIN=out, hanging 40 s with FAKE_CODEX_LOGIN=hang. Written to stderr,
 # like the real CLI's status line.
 if ($raw -match '^\s*login\s+status(\s|$)') {
+    if ($env:FAKE_CODEX_LOGIN_DELAY_MS) { Start-Sleep -Milliseconds ([int]$env:FAKE_CODEX_LOGIN_DELAY_MS) }
     if ($env:FAKE_CODEX_LOGIN -eq 'out') { [Console]::Error.WriteLine('Not logged in'); exit 1 }
     if ($env:FAKE_CODEX_LOGIN -eq 'hang') { Start-Sleep -Seconds 40 }
     if ($env:FAKE_CODEX_LOGIN -eq 'utf8') {
@@ -46,17 +82,19 @@ $prompt = [Console]::In.ReadToEnd()
 $resumeOf = ''
 if ($env:FAKE_CODEX_RESUME_REPLY -and $raw -match ' resume ([0-9a-fA-F-]{36})') { $resumeOf = $Matches[1] }
 if ($resumeOf -and $env:FAKE_CODEX_RESUME_LOG) {
-    [IO.File]::WriteAllText($env:FAKE_CODEX_RESUME_LOG, "ARGS: $raw`nPROMPT:`n$prompt")
+    Write-FakeFile $env:FAKE_CODEX_RESUME_LOG "ARGS: $raw`nPROMPT:`n$prompt"
 } elseif ($env:FAKE_CODEX_LOG) {
-    [IO.File]::WriteAllText($env:FAKE_CODEX_LOG, "ARGS: $raw`nPROMPT:`n$prompt")
+    Write-FakeFile $env:FAKE_CODEX_LOG "ARGS: $raw`nPROMPT:`n$prompt"
 }
-if ($env:FAKE_CODEX_PIDFILE) { [IO.File]::WriteAllText($env:FAKE_CODEX_PIDFILE, "$PID") }
+if ($env:FAKE_CODEX_PIDFILE) { Write-FakeFile $env:FAKE_CODEX_PIDFILE "$PID" }
 $tid = [guid]::NewGuid().ToString()
 if ($resumeOf -and -not $env:FAKE_CODEX_RESUME_NEWTHREAD) { $tid = $resumeOf }
 if ($env:FAKE_CODEX_PRELINE) { [Console]::Out.Write($env:FAKE_CODEX_PRELINE + "`n") }
 if (-not $env:FAKE_CODEX_NOTHREAD) { [Console]::Out.Write("{""type"":""thread.started"",""thread_id"":""$tid""}`n") }
 [Console]::Out.Write("{""type"":""turn.started""}`n")
 [Console]::Out.Flush()
+$delayMs = Get-FakeMapValue $env:FAKE_CODEX_DELAY_MS $model
+if ($delayMs) { Start-Sleep -Milliseconds ([int]$delayMs) }
 if ($env:FAKE_CODEX_ROLLOUT) {
     $now = Get-Date
     $day = Join-Path (Join-Path (Join-Path (Join-Path $env:CODEX_HOME 'sessions') ('{0:yyyy}' -f $now)) ('{0:MM}' -f $now)) ('{0:dd}' -f $now)
@@ -85,7 +123,9 @@ if ($env:FAKE_CODEX_FAIL_ON -and $raw.Contains($env:FAKE_CODEX_FAIL_ON)) {
     [Console]::Error.WriteLine('stream error: provider refused the request')
     exit 1
 }
+$mappedReply = Get-FakeMapValue $env:FAKE_CODEX_REPLY_MAP $model
 if ($o -and $resumeOf) { [IO.File]::Copy($env:FAKE_CODEX_RESUME_REPLY, $o, $true) }
+elseif ($o -and $mappedReply) { [IO.File]::Copy($mappedReply, $o, $true) }
 elseif ($o -and $env:FAKE_CODEX_REPLY) { [IO.File]::Copy($env:FAKE_CODEX_REPLY, $o, $true) }
 [Console]::Out.Write("{""type"":""turn.completed"",""usage"":{""input_tokens"":1000,""cached_input_tokens"":200,""cache_write_input_tokens"":0,""output_tokens"":300,""reasoning_output_tokens"":40}}`n")
 exit 0
