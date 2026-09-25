@@ -194,6 +194,35 @@ wire_api = "responses"
   "codex_config": ["model_supports_reasoning_summaries=true"] }`; the same label may carry
   several models (one entry per model), each a lineage of its own.
 
+## 3d. Kimi Code membership (Moonshot; a Codex provider)
+
+A Kimi membership (Plus and above) includes Kimi Code, whose overseas Codex base URL speaks the
+Responses API, so K3 is an ordinary provider table:
+
+```toml
+[model_providers.kimi]
+name = "Kimi Code membership (Moonshot, overseas)"
+base_url = "https://api.kimi.ai/coding/v1"
+env_key = "KIMI_API_KEY"
+wire_api = "responses"
+```
+
+- The user creates the key in the Kimi Code Console (it is shown once) and sets
+  `KIMI_API_KEY` themselves; the pay-as-you-go API (`https://api.moonshot.ai/v1`, model
+  `kimi-k3`, its own key) is a different route and is not declared in caps-v1.
+- caps-v1 declares `api.kimi.ai`: vocabulary `low | high | max` (`medium` -> `high`, `xhigh` ->
+  `max`, mapping `kimi-v1`), models `k3`, `k3-256k`, `kimi-for-coding`,
+  `kimi-for-coding-highspeed` (exact), schema transport `prompt-only`. Which of them the plan
+  unlocks depends on the tier: Plus has `k3` and `k3-256k` at a 256K context, Pro adds the 1M
+  window and `kimi-for-coding-highspeed`. A model the tier does not unlock fails the run with the
+  endpoint's error, classified like any provider failure.
+- Quota: a rolling 5-hour window (the new plans have no weekly cap); the numbers are not
+  published. The plan's key is for coding tools; Codex CLI is one. Observed: one reviewing
+  checkpoint with `k3` at `high` (the reviewer verified six prior findings with read-only tool
+  calls) took 198 s and ~515k input tokens (410k cached), because Codex re-sends the context on
+  every tool turn - budget the window in tokens, not in calls.
+- Roster entry: `{ "provider": "kimi", "model": "k3", "panel": "weighty" }` (or `"always"`).
+
 ## 4. Write the roster
 
 `<codex home>/codex-consult-roster.json`, first choice first:

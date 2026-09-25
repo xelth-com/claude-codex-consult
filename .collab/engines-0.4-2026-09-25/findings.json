@@ -1494,6 +1494,14 @@
                                                      "note":  "No code read in this consultation",
                                                      "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
                                                      "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-25T20:48:55+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-CollabSnapshot now covers the whole collab root recursively (every task\u0027s findings.json/sessions.json/state.md and handoffs, wave 18 comment at codex-consult-common.ps1:617); Get-EngineTreeProblem compares it. Gitignored/submodule/outside-repo blind spots remain but are now explicitly documented (common comment F12, README:1219-1234 \u0027not for gitignored paths, submodules or files outside the repository\u0027).",
+                                                     "base_commit":  "cfd7eefa3932753c452f173ec4279e062719ee9b",
+                                                     "tree_sha256":  "0e5fb5001cfdbdd648bfddb559bec31bd4d063b13f247777cdca37e2dc49a2c8"
                                                  }
                                              ]
                      },
@@ -1603,6 +1611,14 @@
                                                      "note":  "No code read in this consultation",
                                                      "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
                                                      "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-25T20:48:55+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "sessions.json entry now carries format_retry and denial_retry records (codex-consult.ps1:2639-2640), each with an events field naming the retry/repair event file (lines 2205, 2424); machine readers no longer need the handoff Markdown.",
+                                                     "base_commit":  "cfd7eefa3932753c452f173ec4279e062719ee9b",
+                                                     "tree_sha256":  "0e5fb5001cfdbdd648bfddb559bec31bd4d063b13f247777cdca37e2dc49a2c8"
                                                  }
                                              ]
                      },
@@ -1709,6 +1725,14 @@
                                                      "note":  "No code read in this consultation",
                                                      "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
                                                      "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-25T20:48:55+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-EngineTreeProblem text now reads \u0027changed during the run (by the reviewer or anyone else)\u0027 for tree, collab, brief and artifacts (codex-consult.ps1:579-586); it no longer attributes the change to the reviewer.",
+                                                     "base_commit":  "cfd7eefa3932753c452f173ec4279e062719ee9b",
+                                                     "tree_sha256":  "0e5fb5001cfdbdd648bfddb559bec31bd4d063b13f247777cdca37e2dc49a2c8"
                                                  }
                                              ]
                      },
@@ -1820,6 +1844,14 @@
                                                      "note":  "No code read in this consultation",
                                                      "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
                                                      "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-25T20:48:55+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Same wave-18 widening as F09-1: collab-root snapshot comparison added to the tree check; the remaining unmonitored classes (ignored files, submodules, external paths) are documented in the code comment and README F12 instead of being claimed as enforced.",
+                                                     "base_commit":  "cfd7eefa3932753c452f173ec4279e062719ee9b",
+                                                     "tree_sha256":  "0e5fb5001cfdbdd648bfddb559bec31bd4d063b13f247777cdca37e2dc49a2c8"
                                                  }
                                              ]
                      },
@@ -1922,6 +1954,14 @@
                                                      "note":  "No code read in this consultation",
                                                      "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
                                                      "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-25T20:48:55+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Read-AgyEvents takes -AllowPartialLast; the caller passes it only when the process was killed or exited non-zero (codex-consult.ps1:2126-2127, comment \u0027after exit 0 trailing garbage makes the stream malformed\u0027; retry path line 2193 mirrors it).",
+                                                     "base_commit":  "cfd7eefa3932753c452f173ec4279e062719ee9b",
+                                                     "tree_sha256":  "0e5fb5001cfdbdd648bfddb559bec31bd4d063b13f247777cdca37e2dc49a2c8"
                                                  }
                                              ]
                      },
@@ -2028,7 +2068,64 @@
                                                      "note":  "No code read in this consultation",
                                                      "base_commit":  "4e2016f1c7627050db12718b9f2e72f6c786f2a2",
                                                      "tree_sha256":  "a8cf2d6db37d244af7617566a8131151bd2e70cec72bb458483ba3199dc1e3e9"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-25T20:48:55+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Ambiguous -Provider still picks the first entry but is no longer silent: codex-consult.ps1:1152-1156 emits a run warning naming the count, the chosen entry and the -Model remedy.",
+                                                     "base_commit":  "cfd7eefa3932753c452f173ec4279e062719ee9b",
+                                                     "tree_sha256":  "0e5fb5001cfdbdd648bfddb559bec31bd4d063b13f247777cdca37e2dc49a2c8"
                                                  }
+                                             ]
+                     },
+                     {
+                         "id":  "F20-1",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1153
+                                           }
+                                       ],
+                         "claim":  "F10-3\u0027s underlying behavior is unchanged: -Provider with several same-label entries still selects the first entry; only a run warning was added, so an inattentive caller can still get the wrong tier.",
+                         "trigger":  "A roster with two entries under one provider label and a caller passing only -Provider.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1150-1156",
+                                              "observation":  "First entry of the label is used; a warning \u0027label X names N entries; the first (...) is used - pass -Model for another\u0027 is added to runWarnings, not an error."
+                                          }
+                                      ],
+                         "verification":  "Dry-run -Provider with a two-entry label and confirm the selected model plus the warning text in output.",
+                         "remedy":  "Optional: refuse ambiguous -Provider without -Model, or surface the warning in the ledger/preflight line where coordinators audit.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  14,
+                                        "reply":  "handoffs/20-codex-kimi-k3-smoke.md",
+                                        "thread":  "01a0d9e3-2ad1-7f83-889a-65e0e8cc736d",
+                                        "base_commit":  "cfd7eefa3932753c452f173ec4279e062719ee9b",
+                                        "tree_sha256":  "0e5fb5001cfdbdd648bfddb559bec31bd4d063b13f247777cdca37e2dc49a2c8"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T20:48:55+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "cfd7eefa3932753c452f173ec4279e062719ee9b",
+                                             "tree_sha256":  "0e5fb5001cfdbdd648bfddb559bec31bd4d063b13f247777cdca37e2dc49a2c8"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
                                              ]
                      }
                  ],

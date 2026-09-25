@@ -114,3 +114,23 @@ saved by hand as handoff 04 and rated here, not in findings.json).
 - Roster (after the installed plugin carries wave 19): `byteplus :: deepseek-v4.1-flash` always;
   `byteplus :: dola-seed-2.0-pro` and `byteplus :: kimi-k2.5` weighty (the coder leaderboard the
   user pasted puts deepseek-v4.1-flash-max at 1620 and kimi-k2.5 at 1436); GLM stays on z.ai.
+
+## Round 5 - Kimi Code membership as a Codex provider (2026-09-25 20:00-20:50)
+
+- The user bought the Kimi Code membership Plus on kimi.ai (K3 at 256K) because the BytePlus plan
+  has no K3. Its overseas Codex base URL `https://api.kimi.ai/coding/v1` speaks the Responses API,
+  so it is a plain provider table `[model_providers.kimi]` (env `KIMI_API_KEY`, set by the user).
+  Wave 20 declares the host in caps-v1 (vocabulary `kimi`: low | high | max, medium -> high,
+  xhigh -> max; four exact names k3, k3-256k, kimi-for-coding, kimi-for-coding-highspeed;
+  prompt-only); harness-0.3 227 / roster 113 / engines 95 with the change; README, CHANGELOG,
+  setup-providers 3d updated; ROADMAP records the 1.0.0 name C3 next to CCC.
+- Live: n=14 `kimi :: k3`, preflight `ok: env KIMI_API_KEY set`, effort medium -> high, usable,
+  structured on the first turn, ADVISE, 198.3 s wall; usage 515,430 input (409,600 cached) /
+  4,617 output (2,087 reasoning). The reviewer walked the code with read-only tool calls and
+  confirmed F09-1..3 and F10-1..3 fixed; it left F20-1 (note): the ambiguous `-Provider` label
+  still selects the first entry and only warns - that is the F10-3 remedy already accepted, so
+  F20-1 stays a note. Cost lesson: Codex's tool loop re-sends the context every turn, so one
+  reviewing checkpoint on a per-request plan is cheap in calls but ~0.5M tokens.
+- Roster: `kimi :: k3` weighty (backup `codex-consult-roster.json.bak-before-kimi`).
+- Next: commit + push as the 0.4.0 candidate (wave 20), reinstall the plugin, dry-run
+  `-Provider kimi` against the installed copy.

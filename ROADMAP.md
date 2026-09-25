@@ -229,7 +229,10 @@ optional participant whose "done" is never trusted and who never closes a findin
   availability line for hosts without hooks becomes a documented one-liner
   (`codex-consult-hook.ps1`) the coordinator runs at the start of a session. Non-goals: a
   second packaging format per host, a rename of the plugin or marketplace ids (installed
-  copies key on them); the short name **CCC** (Claude Codex Consult) is used in the docs.
+  copies key on them); the short name **CCC** (Claude Codex Consult) is used in the docs until
+  1.0.0, which will be released under the name **C3** (the same three words, and a nod to a
+  certain protocol droid that translates between parties and never stops advising) - the
+  plugin and marketplace ids change only then, with a migration note for installed copies.
   Measured by one fresh Codex-CLI-coordinated consultation from the README alone.
 - **A fourth seat (e.g. MiMo-V2.6)** only after a capped project-local evaluation (seeded
   historical defects plus clean controls at a fixed budget) on an officially supported route;

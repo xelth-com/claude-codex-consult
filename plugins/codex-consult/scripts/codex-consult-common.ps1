@@ -2523,7 +2523,13 @@ $script:EffortVocabularies = @{
     'mimo'   = @{ Mapping = 'mimo-v1'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'high' } }
     # BytePlus ModelArk Coding Plan (the Codex integration doc: model_reasoning_effort = low | medium | high)
     'ark'    = @{ Mapping = 'ark-v1'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'high' } }
+    # Kimi Code (Moonshot) on its Codex base URL: K3 takes low | high | max (the Kimi Code Codex doc)
+    'kimi'   = @{ Mapping = 'kimi-v1'; Map = @{ 'low' = 'low'; 'medium' = 'high'; 'high' = 'high'; 'xhigh' = 'max' } }
 }
+# The model names Kimi Code accepts on https://api.kimi.ai/coding/v1 (its Codex doc; which of them a
+# membership unlocks depends on the tier: Plus has k3 at 256K context, Pro adds the 1M window and
+# kimi-for-coding-highspeed).
+$script:KimiDeclaredModels = @('k3', 'k3-256k', 'kimi-for-coding', 'kimi-for-coding-highspeed')
 $script:ZaiDeclaredModels = @('glm-5.3', 'glm-5.3-flash', 'glm-5.3-flashx', 'glm-5.2', 'glm-5.1', 'glm-5', 'glm-5-turbo', 'glm-4.7', 'glm-4.6', 'glm-4.5', 'glm-4.5-air')
 $script:MimoDeclaredModels = @('mimo-v2.6-pro', 'mimo-v2.6-flash', 'mimo-v2.6-pro-ultraspeed', 'mimo-v2.5-pro', 'mimo-v2.5')
 # The model names the BytePlus ModelArk Coding Plan accepts on its Codex (OpenAI-protocol) base URL
@@ -2544,6 +2550,9 @@ $script:EffortCaps = @{
     # BytePlus ModelArk Coding Plan (ap-southeast-1): the quota counts only through the /api/coding/v3
     # base URL; the schema travels in the prompt (a json_schema response format is not documented).
     'ark.ap-southeast.bytepluses.com' = @{ Vocabulary = 'ark'; Models = $script:ArkPlanDeclaredModels; SchemaTransport = 'prompt-only' }
+    # Kimi Code membership (overseas domain; the China domain api.kimi.com is not declared): the
+    # schema travels in the prompt (a json_schema response format on this route is not documented).
+    'api.kimi.ai'                   = @{ Vocabulary = 'kimi'; Models = $script:KimiDeclaredModels; SchemaTransport = 'prompt-only' }
     'engine:agy'                    = @{ Vocabulary = 'model-tier'; Models = $null; SchemaTransport = 'native' }
 }
 

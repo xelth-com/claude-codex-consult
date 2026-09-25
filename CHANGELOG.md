@@ -125,6 +125,17 @@ amendments A1-A20 and the facts F11/F12).
   capability); a wrong key n=9 was `401 The API key format is incorrect` (class auth) and the
   fail-closed preflight refused the next runs until `-SkipPreflight` with the corrected key.
 
+- **Wave 20 — Kimi Code declared in caps-v1.** The host `api.kimi.ai` (the Kimi Code membership's
+  Codex base URL `/coding/v1`, Responses API per Moonshot's Codex doc) gets the vocabulary `kimi`
+  (`low | high | max`, `medium` -> `high`, `xhigh` -> `max`, mapping `kimi-v1`), the four model
+  names of that doc (`k3`, `k3-256k`, `kimi-for-coding`, `kimi-for-coding-highspeed`; the
+  membership tier decides which are unlocked - Plus: K3 at 256K) and schema transport
+  `prompt-only`. `setup-providers` 3d and the README tables gain the recipe. Live evidence
+  (task `engines-0.4-2026-09-25`, n=14): `kimi :: k3`, preflight `ok: env KIMI_API_KEY set`,
+  effort medium -> high, structured on the first turn, ADVISE, 198 s wall; the reviewer walked
+  the tree with read-only tool calls to confirm six prior findings fixed, which cost 515k input
+  tokens (410k of them cached) - a per-request plan pays for that loop in tokens, not calls.
+
 ### Changed
 
 - Ledger: `reviewer.engine` (written as `codex` for codex runs; an absent field reads as
