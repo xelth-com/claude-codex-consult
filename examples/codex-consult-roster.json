@@ -7,6 +7,8 @@
       "provider": "mimo",
       "model": "mimo-v2.6-pro",
       "codex_config": ["model_catalog_json=~/.codex/model-catalogs.json"]
-    }
+    },
+    { "provider": "gemini", "engine": "agy", "model": "gemini-3.8-flash-high" },
+    { "provider": "gemini", "engine": "agy", "model": "gemini-3.1-pro-high", "panel": "weighty" }
   ]
 }

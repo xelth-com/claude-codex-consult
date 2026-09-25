@@ -42,3 +42,57 @@ saved by hand as handoff 04 and rated here, not in findings.json).
   F11 remedy from the inside; its hook point duplicated GLM's.
 - Cost of the round: ZAI 2.3M tokens in (2.2M cached), MiMo similar; agy 24k + 66k (the resume
   replays the conversation: 54k input) + RC1 probes 3 x ~27k.
+
+## Round 2 - wave 17 built, reviewed and live-tested (2026-09-25 12:00-15:10)
+
+- Wave 17 (Opus worker, brief = handoff 06; the worker hit its session limit once and was resumed):
+  engine table, roster `engine`, `-Engine`/`-EngineExe`/`-DenialRetry`, stdin stream-json, events
+  parser, failure rules, denial retry, tree check, `-NoNetwork` hook, classifier, `tests/fake-agy.*`,
+  `tests/harness-engines.ps1` 81; existing counts unchanged (5.1: 227/113/37/26/45/11/12; pwsh:
+  227/113/37/81); docs, CHANGELOG [0.4.0] wave 17, ROADMAP R10, TECH_DEBT T7, version 0.4.0.
+- Live, through the new bridge (scratch roster via CODEX_CONSULT_ROSTER; the user's roster keeps no
+  `engine` field until the installed plugin is 0.4.0, because the installed 0.3.0 would refuse it):
+  - n=3 `07-agy-smoke`: first real run (gemini-3.8-flash-low, checkpoint, no brief): exit 0,
+    structured on the first turn, 118 s, 17k tokens.
+  - Panel `2d8d5f25` (`-Panel -Purpose diff-review`, brief 08): 3 of 5 entries ran - n=4 `ZAI ::
+    glm-5.3` ACCEPT (F09-1 major, F09-2 minor, F09-3 note; 673 s), n=5 `mimo :: mimo-v2.6-pro` HOLD
+    (F10-1 major, F10-2/3 minor; 391 s), n=6 `gemini :: gemini-3.8-flash-high [agy]` ACCEPT, 0
+    findings (605 s; usage 1.6M input + 5.9M cached - a flash diff review reads the tree); openai
+    skipped (usage limit), gemini pro skipped (weighty, light purpose). All ten round-1 findings
+    confirmed `fixed` by their authors from the code (ZAI ran the parser on the real streams).
+  - n=7 `12-agy-resume-check`: `-Mode resume -Thread` of n=3's conversation: same conversation id
+    back, the model quoted the previous consultation id verbatim.
+  - n=8 `13-agy-denial-check`: asked to run `git --version`; the tools line held, the model refused
+    and filed RC1; F11 did not fire live (the retry path stays verified by the harness and by the
+    round-1 manual turn). Its first attempt was REFUSED by the preflight: "`agy models` did not
+    finish within 15 s" - measured afterwards 1.7 / 7.7 / 13.8 s -> **F13** (judge): timeout 45 s
+    and a ledger short-circuit (a usable agy reply on the endpoint within 60 min = signed in).
+  - Hook with an agy roster entry: `gemini not checked (launcher present)`, 2.5 s, no network.
+- Judge's verdict on the panel: ACCEPT with fixes. Wave 18 (worker brief in the scratchpad):
+  collab-root snapshot for the tree check + explicit residual (F09-1/F10-1), retry event paths in
+  the ledger (F09-2), wording (F09-3), trailing garbage on exit 0 (F10-2), non-unique label warning
+  (F10-3), F13. Ratings: n=4 yes, n=5 yes, n=6 partly (nothing new, costly), n=3/7/8 partly
+  (operational checks).
+
+## Round 3 - wave 18 (fixes after the panel) and the judge's acceptance of the candidate (2026-09-25 15:30-16:30)
+
+- Wave 18 (Opus worker, brief = handoff 14; resumed once after a session limit): collab-root
+  snapshot for the agy tree check with the residual stated (T8), `events` in `denial_retry` /
+  `format_retry`, "changed during the run (by the reviewer or anyone else)", `Read-AgyEvents
+  -AllowPartialLast` only after a kill or a non-zero exit, the non-unique-label warning, F13 (45 s
+  `agy models` timeout + the 60-minute ledger short-circuit "signed in (usable reply <m> min ago)").
+  harness-engines 95 (+14), every other count unchanged on 5.1 and pwsh; CHANGELOG wave 18 + live
+  evidence; `claude plugin validate` passes.
+- Judge's decisions on the worker's two open points: (1) the 60-minute shortcut applies under
+  `-NoNetwork` too (it reads only the ledger), so the hook may say `gemini available` after a
+  recent agy run - accepted; (2) another task's consultation running in the same repo during an
+  agy run trips the collab snapshot and fails the agy run - accepted for 0.4.0 (documented, T8);
+  R11 (parallel panel) must exclude sibling members' files from the snapshot.
+- Live after wave 18: hook with the scratch roster 2.3 s, `gemini not checked (launcher present)`;
+  dry run `-Provider gemini` picks roster entry 4 (flash-high), warns about the non-unique label,
+  preflight `signed in (14 models)`, sandbox text with the residual.
+- F09-1..3, F10-1..3 -> implemented (their authors' confirmation comes with the next panel; the
+  openai reviewer's acceptance of 0.3.0 AND 0.4.0 is due after its reset on 2026-09-28 20:35).
+- Next: commit + push as the 0.4.0 candidate; update the installed plugin; add the two gemini
+  entries to the user's roster (only after the update - the installed 0.3.0 would refuse the
+  `engine` field).

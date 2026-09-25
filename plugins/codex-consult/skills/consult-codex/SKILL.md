@@ -133,6 +133,23 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   carries no reviewer identity, so its provenance is unknown: the first 0.3.0
   consultation on such a task always starts a new thread, whatever provider or model
   you use.
+- `-Engine codex|agy` — the CLI that carries the consultation (0.4.0). Omitted, it comes
+  from the roster entry used (`"engine": "agy"` for Gemini through Google's Antigravity CLI),
+  else `codex`. For agy, `-Provider` is a free label (e.g. `gemini`) and `-Model` the full
+  model id with its tier (`gemini-3.8-flash-high`); no effort is sent (the tier is in the
+  id), the default mode is `new` (`-Mode resume` / `-Thread` continue a conversation), and
+  `fork`, `-Sandbox workspace-write`, `-CodexConfig` and `-SchemaTransport output-schema`
+  are refused. Its files are `handoffs/<NN>-agy-<slug>.*`. An agy run FAILS when the working
+  tree (tracked or untracked files) or the collab directory (every task's stores and
+  handoffs) changed during it, by the reviewer or anyone else (agy's sandbox does not block
+  writes) - do not edit the repository or the collab directory, and run no other
+  consultation here, while one runs. Read-only is enforced by evidence for tracked and
+  untracked files and the collab directory; not for gitignored paths, submodules or files
+  outside the repository. `-DenialRetry 0|1` (default 1): one more turn when a tool was
+  auto-denied and the turn produced nothing. `-EngineExe <path>` if `agy` is not on `PATH`.
+  `-Provider gemini` without `-Model` on a roster with several `gemini` entries takes the
+  first one and warns (`roster: label gemini names 2 entries; ...`) - pass `-Model` for
+  another. See the README section "Engines".
 - `-NativeEffort <value>` — send an effort value verbatim when the resolved provider's
   endpoint has no known vocabulary (the run refuses `-Effort` in that case and tells you
   to use this instead).
@@ -165,14 +182,16 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   send the **same brief to every available reviewer roster entry**, sequentially, each
   its own consultation, own lineage and own reply file. Needs a reviewer roster; refused
   with `-Provider`, `-Thread`, or `-Mode resume`. See "The panel" below.
-- `-SchemaTransport output-schema|prompt-only` — override caps-v1's declared reply-schema
+- `-SchemaTransport output-schema|prompt-only|native` — override caps-v1's declared reply-schema
   transport for this one run (not with `-Raw`); use it only when you know the endpoint's
   declared transport is wrong for it right now, not as a routine override.
 - `-CollabDir <path>` (default `.collab`), `-CodexExe <path>` if `codex` is not on `PATH`.
 - `-DryRun` — print the argv, the resolved paths and the planned ledger entry without
   calling Codex. Use it when a call fails and you need to see what would be sent.
 
-The script creates `handoffs/` and `sessions.json` when missing, and writes:
+The script creates `handoffs/` and `sessions.json` when missing, and writes (with the
+`agy` engine the prefix is `agy` instead of `codex`, and a denial-retry or format-repair
+turn keeps its own `.denial-retry.events.jsonl` / `.repair.events.jsonl` next to them):
 
 - `handoffs/<NN>-codex-<slug>.md` — header, the verbatim reply, and (unless `-Raw`)
   the rendered findings/verdict/blockers/unproven/first-run-checklist sections;

@@ -3,7 +3,11 @@
 Scripted harnesses for the bridge scripts in `plugins/codex-consult/scripts/`. They
 never call a model: every consultation runs against a FAKE codex (`fake-codex.cmd` /
 `fake-codex.ps1`, and `fake-codex3.cmd` / `fake-codex3.ps1` for the 0.3.0 cases), which
-prints a scripted JSONL event stream and copies a prepared reply. The real `codex` CLI
+prints a scripted JSONL event stream and copies a prepared reply, or - for the `agy`
+engine (0.4.0) - a FAKE agy (`fake-agy.cmd` / `fake-agy.ps1`, pointed at by
+`CODEX_CONSULT_AGY_EXE`), which reads the prompt as one NDJSON line on stdin and prints
+agy's init / step_update / result events (its `FAKE_AGY_*` switches are listed at the top of
+`fake-agy.ps1`). The real `agy` CLI is never started. The real `codex` CLI
 and your own `~/.codex/config.toml` are not used (the 0.3.0 harness points `CODEX_HOME`
 at scratch directories and only compares your config's hash before and after). `harness-roster.ps1` also points
 `CODEX_CONSULT_ROSTER` at scratch roster files; the other harnesses set it to `none` (no
@@ -16,6 +20,7 @@ harness ends with `<harness>...: N failure(s).` and exits 1 when anything failed
 |---|---|
 | `harness-0.3.ps1` | 0.3.0: constrained TOML scanner, reviewer identity and provider fingerprint, user-defined `[model_providers.openai]`, absent `wire_api`, lineage-scoped parent threads, rollout fallback verified by the consultation id, event drift nets, effort vocabularies, peak windows, requested-checks prompt, ledger field order, timeout kill without false survivors |
 | `harness-roster.ps1` | reviewer roster: file validation (fail-closed), the selection rules (`-Provider` defaults, `-Thread` fixes the reviewer, the roster walk, `-Model` filter, `auth: none`), usage limits with a known reset time (`Get-RetryAfter`, `provider_failure.retry_after`, the frozen consult clock), the F12-2 classifier order, UTF-8 capture of codex's stderr and `login status`, `-SchemaTransport`, the roster view of `codex-providers.ps1`, the review panel (`-Panel`, `-PanelAll`, `"panel": "weighty"`), the `chore` purpose, the per-reviewer scoreboard of `codex-findings.ps1 -Stats`, the judge's marks (`codex-findings.ps1 -Rate`), `codex-scoreboard.ps1`, reset times across daylight-saving changes, timestamps keeping their offset on pwsh, future-stamped failures, a panel stopped by a member's surviving processes |
+| `harness-engines.ps1` | 0.4.0 engines (the `agy` engine): roster `engine` validation, the dry-run argv and the engine refusals (fork, workspace-write, output-schema, -CodexConfig), a full run's ledger (engine, fingerprint, thread, usage mapping, native transport, NN-agy-* handoffs, findings), the prompt on stdin byte for byte (`"`, `\`, `%APPDATA%`, a newline, non-ASCII), resume and the conversation-id rules, the denial retry (F11), every failure rule and class with Google's wordings and reset times, the format repair through `--conversation`, the read-only tree check (the tree and the WHOLE collab directory - another task, a task store - with the new "changed during the run (by the reviewer or anyone else)" wording, and the documented blind spot of a gitignored path), the retry turns' event streams in the ledger (`denial_retry.events`, `format_retry.events`), trailing garbage after the result (malformed on exit 0, a partial line after a kill), the warning for a `-Provider` label that names several roster entries, the timeout kill and the recovery record naming the event stream, a mixed codex + agy panel, `codex-providers.ps1` engine rows and `-NoNetwork`, the SessionStart hook line, the sign-in check (45 s, shortened by the test hook `CODEX_CONSULT_TEST_LOGIN_TIMEOUT`; no `agy models` call after a usable agy reply within 60 minutes, the endpoint health still in front), the scoreboards |
 | `harness-format.ps1` | the first-turn output contract (the prompt opens with the FINAL OUTPUT CONTRACT paragraph) and the format repair (`-FormatRetry`): prose then JSON on `resume`, prose twice, drift notes, a different thread, the cases that must not repair, panel members (the fake answers the repair turn from `FAKE_CODEX_RESUME_REPLY`); wave 15: the prose gate (refusals, short replies, every numbered-answer style), drift check 5 over every long sentence, the recovery record naming the orphaned original when the bridge dies during the repair turn |
 | `harness-pending.ps1` | 0.2.0 recovery record (`.consult.pending.json`): reservations, survivors, injected registration failure, crash at lock acquisition |
 | `harness-fixes.ps1` | 0.2.0 review findings F04-1..F04-11: atomic stores, lock contention, numbering, prior blockers, validation, fingerprints, timeout kill |
@@ -27,8 +32,8 @@ harness ends with `<harness>...: N failure(s).` and exits 1 when anything failed
 ## Requirements
 
 * Windows (the fake codex is a `.cmd` shim; several cases use Win32 process APIs).
-* Windows PowerShell 5.1 runs everything. `harness-0.3.ps1`, `harness-roster.ps1` and
-  `harness-format.ps1` also run under PowerShell 7 (`pwsh`); the 0.2.0 harnesses start their child processes with
+* Windows PowerShell 5.1 runs everything. `harness-0.3.ps1`, `harness-roster.ps1`,
+  `harness-format.ps1` and `harness-engines.ps1` also run under PowerShell 7 (`pwsh`); the 0.2.0 harnesses start their child processes with
   `powershell.exe` whichever host runs them.
 * `git` on PATH.
 

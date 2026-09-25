@@ -157,6 +157,22 @@ optional participant whose "done" is never trusted and who never closes a findin
   Codex and a provider, and mixing engines inside one lineage (a thread belongs to one
   engine as it belongs to one provider). Measured by first-turn structured rate per route
   and by the scoreboard's hit rate per (engine, provider, purpose).
+  **Status (0.4.0 candidate, wave 17): `agy` shipped, `claude` next.** The engine table
+  (`$script:Engines`) with its first row `agy` - after a design round with a panel (GLM,
+  MiMo) and Gemini itself (`.collab/engines-0.4-2026-09-25/`), whose amendments A1-A20 are in
+  the code: stdin stream-json transport (one NDJSON line), default mode `new`, the
+  conversation-id rules (a resume, repair or retry that lands in another conversation
+  fails), exactly one `result` event, the F11 denial retry, the `permission` failure class
+  and Google's error/retry wordings, `agy models` as the sign-in check (never in the hook),
+  and - because agy's `--sandbox` does not block writes (F12) - the bridge's tree check
+  failing any agy run that changed the working tree or (wave 18) anything in the collab
+  directory; wave 18 also records the retry turns' event streams in the ledger, rejects
+  trailing garbage after exit 0, warns on a non-unique `-Provider` label and gives the
+  sign-in check 45 s plus a ledger short-circuit (a usable agy reply within 60 minutes).
+  Gitignored paths, submodules and files outside the repository stay unmonitored. The `claude`
+  engine is the next row of the same table (argv, stdin, event parser, turn rules,
+  credential) without touching the run block again. Open: TECH_DEBT T7 (an agy lineage binds
+  engine + label + model, not the signed-in account).
 - **R11 — Parallel panel (planned for 0.4.x, after R10).** A `-Panel` run consults its
   members one after another (README, "Reviewer roster and panel"), so its wall clock is the
   SUM of the members' times (a two-member framing panel today: 8-12 minutes). The members are
@@ -173,7 +189,8 @@ optional participant whose "done" is never trusted and who never closes a findin
   pid + start time only, and one summary written after the last member. Invariants kept: the
   members stay blind to each other inside a wave; the same open-findings snapshot; exit 0
   only when every member produced a usable reply; nothing already written is lost when one
-  member dies. Non-goals: concurrent consultations OUTSIDE a panel (two `-Panel` runs or a
+  member dies. The agy engine's collab-root snapshot (0.4.0, wave 18) must then exclude the
+  sibling members' own files, or every concurrent member would fail the others' tree check. Non-goals: concurrent consultations OUTSIDE a panel (two `-Panel` runs or a
   single run beside a panel on one task are still refused by the lock), and any change to
   what a member sees. Measured by the panel's wall clock (max of the members instead of
   their sum) and by an unchanged per-member result set against the sequential harness cases.

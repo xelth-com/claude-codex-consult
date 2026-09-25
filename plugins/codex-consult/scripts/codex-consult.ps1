@@ -39,7 +39,8 @@
     kept as handoffs/NN-codex-<slug>.original.md and after the structured section);
     drift notes compare the two (RC ids, numbered answers, finding ids, verdict, every
     prose sentence of >= 60 characters, at most the 40 longest). Ledger format_retry {attempted, reason, succeeded, thread,
-    wall_seconds, usage, drift[], original} after validation_error (null otherwise);
+    wall_seconds, usage, drift[], original, events (the repair turn's event stream when
+    one is kept - agy; null for codex)} after validation_error (null otherwise);
     console "format repair: <succeeded|failed> in <s> s; drift: <n> note(s)".
 
     Reviewer identity and lineage (0.3.0): the provider and the model are what Codex
@@ -119,6 +120,44 @@
     closes the run; exit 0 only when every member produced a usable reply. Not with
     -Provider, -Thread or -Mode resume. TEST HOOK: CODEX_CONSULT_TEST_SURVIVORS=<pid>
     makes a timeout kill report that live pid as a survivor.
+
+    Engines (0.4.0): the CLI that carries the consultation - `codex` (the default, all of
+    the above) or `agy` (Google's Antigravity CLI for the Gemini models), chosen by -Engine or
+    by the roster entry's `engine`. An agy run has the same ledger, handoff files
+    (handoffs/NN-agy-<slug>.*), findings, ratings, panel, scoreboard, preflight, lock and
+    recovery record as a codex run; what differs:
+      * argv `agy -p= --input-format stream-json --output-format stream-json --model <m>
+        [--json-schema <schema>] --print-timeout 0 --sandbox --disable-slash-commands
+        [--conversation <thread>] [--effort <v>]`; the prompt is ONE NDJSON line
+        {"event":"user","message":{"content":...}} on stdin; the working directory is the
+        repository root; -EngineExe / CODEX_CONSULT_AGY_EXE override the launcher
+      * the reply is the single `result` event's structured_output (else its response
+        text, which goes through the prose gate and the format repair); the thread is
+        result.conversation_id; usage maps cache_read_tokens -> cached_input_tokens and
+        thinking_tokens -> reasoning_output_tokens
+      * default mode new; -Mode resume / -Thread send --conversation; fork, -Sandbox
+        workspace-write, -CodexConfig and -SchemaTransport output-schema are refused; the
+        schema transport is `native` (or prompt-only); effort: nothing is sent (the tier is
+        part of the model id; effort_mapping model-tier) unless -NativeEffort
+      * a run FAILS on: exit != 0, a malformed stream (not exactly one result; a line that
+        does not parse - the last one may be partial only after a kill or a non-zero exit),
+        no result, init/result conversation ids that differ, status != SUCCESS, on resume
+        the "conversation not found" warning or another id, stderr "partial output", an
+        empty reply (with a denial notice: class permission) - and when the working tree
+        (tracked or untracked files), the collab directory (every file under -CollabDir:
+        all task stores and handoffs), the brief or an artifact changed during the run, by
+        the reviewer or anyone else (agy's --sandbox does not block writes; the tree check
+        does - enforced by evidence for tracked and untracked files and the collab
+        directory; not for gitignored paths, submodules or files outside the repository).
+        A denial notice or a `warning:` line with a usable reply is ledger `warnings[]`
+        (present for every engine; also a non-unique -Provider label without -Model)
+      * -DenialRetry 1 (the default): a run that produced nothing because a tool was
+        auto-denied gets ONE more turn on the same conversation telling the model not to
+        call it again (ledger denial_retry {..., events}, after format_retry)
+      * preflight credential: `agy models` (45 s; cached per listing), skipped when THIS
+        repository's ledgers hold a usable reply on the agy endpoint from the last 60
+        minutes ("ok: signed in (usable reply <m> min ago)"; a recorded auth failure or
+        usage limit still refuses)
 
     Invariants:
       * read-only sandbox by default; danger-full-access is refused outright
@@ -269,6 +308,20 @@ param(
     # INTERNAL: set by -Panel for each member run (the member and the panel's parameters,
     # base64 of UTF-8 JSON). Never pass it yourself.
     [string]$PanelSpec = '',
+
+    # The CLI that carries the consultation: codex | agy. Empty (the default): the engine of
+    # the roster entry used (the thread's with -Thread), else codex. With a roster and no
+    # -Provider/-Thread, only the entries of that engine are walked (-Panel: members).
+    [string]$Engine = '',
+
+    # Explicit path to the agy launcher (the -Engine agy CLI). Env override:
+    # CODEX_CONSULT_AGY_EXE. (codex: -CodexExe)
+    [string]$EngineExe = '',
+
+    # agy only: 1 (the default) = a run that produced nothing because a tool was auto-denied
+    # (headless print mode cannot grant it) gets ONE more turn on the same conversation that
+    # tells the model not to call it again; 0 = off. Ledger denial_retry.
+    [int]$DenialRetry = 1,
 
     # Print the plan (argv, prompt, paths, ledger entry) without calling codex and
     # without writing anything.
@@ -438,6 +491,101 @@ function Format-Usage {
     return "in $($v.input_tokens) (cached $($v.cached_input_tokens)), out $($v.output_tokens), reasoning $($v.reasoning_output_tokens)"
 }
 
+# ----------------------------------------------------------------------------- engine turns (agy)
+
+# One more turn of a non-codex engine (the denial retry, the format repair) under the SAME
+# task lock and recovery record as the run: the record goes launching -> running (child pid,
+# start time, `events` = this turn's event stream) before the process is waited on; a timeout
+# kills the process tree, and survivors are recorded (state survivors) and keep the record.
+# Reads the run's $pendingRecord, $pendingPath, $engineLauncher, $engineName and $repoRoot.
+# { Exit (-1 unless it exited); Problem ('' or why the turn did not complete); Wall;
+# KeepPending; Stderr (UTF-8 text) }.
+function Invoke-EngineTurn {
+    param([string[]]$Argv, [string]$StdinText, [string]$EventsPath, [string]$StdinPath, [string]$StderrPath, [int]$Timeout, [string]$Note)
+    $t = [pscustomobject]@{ Exit = -1; Problem = ''; Wall = 0; KeepPending = $false; Stderr = '' }
+    Write-Utf8NoBom -Path $StdinPath -Text $StdinText
+    $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    $pendingRecord.state = 'launching'
+    $pendingRecord.note = "$Note being started; its pid is not recorded yet"
+    try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
+        $t.Problem = "could not write the recovery record ($(ConvertTo-OneLine $_.Exception.Message)); the turn was not started"
+        return $t
+    }
+    $proc = $null
+    try {
+        $proc = Start-Process -FilePath $engineLauncher -ArgumentList ((($Argv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')) `
+            -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
+            -RedirectStandardOutput $EventsPath `
+            -RedirectStandardError $StderrPath `
+            -RedirectStandardInput $StdinPath
+    } catch {
+        $t.Problem = "could not start $engineName - $(ConvertTo-OneLine $_.Exception.Message)"
+    }
+    if ($proc) {
+        if ($script:LegacyPS) { try { $null = $proc.Handle } catch { } }
+        $registered = $true
+        try {
+            $pendingRecord.state = 'running'
+            $pendingRecord.child_pid = $proc.Id
+            $pendingRecord.child_start_time = [string](Get-ProcessStartIso -ProcessId $proc.Id)
+            $pendingRecord.note = $Note
+            $evRel = Get-RepoRelativePath -Root $repoRoot -Path $EventsPath
+            $pendingRecord.events = $(if ($evRel) { $evRel } else { $EventsPath })
+            Write-PendingFile -Path $pendingPath -Record $pendingRecord
+        } catch {
+            $registered = $false
+            $t.Problem = "could not register the $Note process ($(ConvertTo-OneLine $_.Exception.Message)); it was stopped"
+            $null = Stop-ProcessTree -Process $proc
+        }
+        if ($registered) {
+            if (-not $proc.WaitForExit($Timeout * 1000)) {
+                $surv = Stop-ProcessTree -Process $proc   # [int[]]; never wrap in @()
+                $t.Problem = "timeout after $Timeout s (process tree killed)"
+                if ($surv.Count -gt 0) {
+                    $t.Problem = "timeout after $Timeout s (process tree killed; $($surv.Count) processes survived: pid $($surv -join ', '))"
+                    $t.KeepPending = $true
+                    try {
+                        $pendingRecord.state = 'survivors'
+                        $pendingRecord.survivors = [object[]]@(New-SurvivorEntries -Pids $surv)
+                        Write-PendingFile -Path $pendingPath -Record $pendingRecord
+                    } catch { }
+                }
+            } else {
+                $t.Exit = $proc.ExitCode
+            }
+        }
+    }
+    $watch.Stop()
+    $t.Wall = [math]::Round($watch.Elapsed.TotalSeconds, 1)
+    $t.Stderr = Read-SharedText -Path $StderrPath
+    return $t
+}
+
+# The agy engine's read-only check (A17, widened in wave 18 - F09-1/F10-1): '' when nothing the
+# review must not touch changed during the run, else the reason - the working tree (tracked
+# or untracked files; the paths that changed), the collab directory (EVERY file under it,
+# recursively: every task's stores and handoffs - outside the tree fingerprint; the run's own
+# <task>/handoffs/NN-<prefix>-<slug>.* files and the .consult.* lock and recovery files
+# excepted), the brief, an artifact. The check cannot tell who changed a file, so the text
+# does not blame the reviewer (F09-3). Gitignored paths, submodules and files outside the
+# repository stay unmonitored (README "Engines", F12). $CollabShown: the collab directory as
+# shown in front of its paths ('.collab/' inside the repository, '' otherwise).
+function Get-EngineTreeProblem {
+    param($RevBefore, $RevAfter, [bool]$BriefChanged, [string[]]$ChangedArtifacts, [hashtable]$CollabBefore, [hashtable]$CollabAfter, [string[]]$OwnPrefixes, [string]$Engine, [string]$CollabShown = '')
+    $cut = { param([string[]]$Names) $n = @($Names); $list = (@($n | Select-Object -First 5) -join ', '); if ($n.Count -gt 5) { $list += ', ...' }; "$($n.Count) file$(if ($n.Count -ne 1) { 's' }): $list" }
+    $why = New-Object System.Collections.Generic.List[string]
+    if ($RevBefore.tree_sha256 -ne $RevAfter.tree_sha256) {
+        $paths = Get-ManifestChanges -Before $RevBefore.manifest -After $RevAfter.manifest
+        $why.Add("the working tree changed during the run (by the reviewer or anyone else): $(& $cut $paths)")
+    }
+    $collab = Compare-DirectorySnapshot -Before $CollabBefore -After $CollabAfter -IgnorePrefixes $OwnPrefixes
+    if ($collab.Count -gt 0) { $why.Add("the collab directory changed during the run (by the reviewer or anyone else): $(& $cut ([string[]]@($collab | ForEach-Object { $CollabShown + $_ })))") }
+    if ($BriefChanged) { $why.Add('the brief changed during the run (by the reviewer or anyone else)') }
+    if (@($ChangedArtifacts).Count -gt 0) { $why.Add("artifact(s) changed during the run (by the reviewer or anyone else): $(@($ChangedArtifacts) -join ', ')") }
+    if ($why.Count -eq 0) { return '' }
+    return (($why.ToArray() -join '; ') + " - $Engine's sandbox does not block writes")
+}
+
 # ----------------------------------------------------------------------------- presets + prompt text
 
 $validPurposes = @('framing', 'decision', 'checkpoint', 'core-contract', 'acceptance', 'diff-review', 'stuck', 'chore')
@@ -508,6 +656,9 @@ if ($PanelSpec) {
     $CodexConfig = [string[]]@(@($pa.codex_config) | Where-Object { $_ })
     $SchemaTransport = [string]$pa.schema_transport
     if ($null -ne $pa.PSObject.Properties['format_retry']) { $FormatRetry = [int]$pa.format_retry }
+    if ($null -ne $pa.PSObject.Properties['engine']) { $Engine = [string]$pa.engine }
+    if ($null -ne $pa.PSObject.Properties['engine_exe']) { $EngineExe = [string]$pa.engine_exe }
+    if ($null -ne $pa.PSObject.Properties['denial_retry']) { $DenialRetry = [int]$pa.denial_retry }
     $DryRun = [bool]$pa.dry_run
     # This member's output reaches the -Panel run through a pipe: write it as UTF-8 (the
     # panel run reads it so).
@@ -587,7 +738,7 @@ if ($extraConfig.Count -gt 0) { $extraConfigSource = '-CodexConfig' }
 # resolved transport below and would silently clobber the parameter)
 $transportOverride = $SchemaTransport.Trim().ToLowerInvariant()
 if ($transportOverride) {
-    if (@('output-schema', 'prompt-only') -notcontains $transportOverride) {
+    if (@('output-schema', 'prompt-only', 'native') -notcontains $transportOverride) {
         Stop-WithError "-SchemaTransport must be output-schema or prompt-only (got '$transportOverride'); omit it to use what caps-v1 declares for the endpoint."
     }
     if ($Raw) { Stop-WithError "-SchemaTransport does not apply to -Raw$(if ($Purpose -eq 'chore') { ' (-Purpose chore is a plain-text consultation)' }) (a raw consultation sends no reply schema)." }
@@ -595,6 +746,18 @@ if ($transportOverride) {
 if ($FormatRetry -ne 0 -and $FormatRetry -ne 1) {
     Stop-WithError "-FormatRetry must be 0 or 1 (got $FormatRetry): at most one format-repair turn per consultation."
 }
+$Engine = $Engine.Trim().ToLowerInvariant()
+if ($Engine -and $script:EngineNames -notcontains $Engine) {
+    Stop-WithError "-Engine must be one of: $($script:EngineNames -join ', ') (got '$Engine')."
+}
+if ($DenialRetry -ne 0 -and $DenialRetry -ne 1) {
+    Stop-WithError "-DenialRetry must be 0 or 1 (got $DenialRetry): at most one denial-retry turn per consultation."
+}
+$EngineExe = $EngineExe.Trim()
+# The launchers of the engines other than codex (engine -> path, '' = not found), resolved on
+# first use; -EngineExe names the agy launcher (codex has -CodexExe).
+$engineLaunchers = @{}
+if ($EngineExe) { $engineLaunchers['agy'] = [string](Resolve-EngineLauncher -Engine 'agy' -Explicit $EngineExe) }
 # (never $formatRetry: PowerShell names are case-insensitive)
 $repairEnabled = ($FormatRetry -eq 1 -and -not $Raw)
 
@@ -707,20 +870,28 @@ if ($panelRun) {
             Stop-WithError "brief '$Brief' not found (this script never writes briefs; write it first)."
         }
     }
-    if (-not $DryRun -and -not $codexExePath) {
+    if (-not $DryRun -and -not $codexExePath -and @($roster.Entries | Where-Object { $_.Engine -eq 'codex' -and (-not $Engine -or $Engine -eq 'codex') }).Count -gt 0) {
         Stop-WithError "codex CLI not found on PATH (set -CodexExe <path> or the CODEX_CONSULT_EXE environment variable)."
     }
     $panelConfig = Read-CodexConfigSubset -Path (Get-CodexConfigPath)
     $panelClock = Get-ConsultClock -Peek
     if ($panelClock.Error) { Stop-WithError $panelClock.Error }
-    $panelSelection = Select-PanelMembers -Roster $roster -Config $panelConfig -Consults (Read-AllTaskConsults -CollabRoot $collabRoot) -Launcher ([string]$codexExePath) -LoginCache @{} -UtcNow $panelClock.Now.UtcDateTime -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Model $Model -Purpose $Purpose -All:$PanelAll -SkipPreflight:$SkipPreflight
+    $panelSelection = Select-PanelMembers -Roster $roster -Config $panelConfig -Consults (Read-AllTaskConsults -CollabRoot $collabRoot) -Launcher ([string]$codexExePath) -LoginCache @{} -UtcNow $panelClock.Now.UtcDateTime -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Model $Model -Purpose $Purpose -All:$PanelAll -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers
     if ($panelSelection.Error) { Stop-WithError $panelSelection.Error }
     $panelEntries = @($panelSelection.Members)
     $panelRunners = @($panelEntries | Where-Object { $_.State -eq 'run' })
+    # A launcher every member of an engine would miss is refused once, up front.
+    if (-not $DryRun) {
+        foreach ($panelEngine in @($panelRunners | ForEach-Object { [string]$_.Identity.Engine } | Select-Object -Unique)) {
+            if ($panelEngine -ne 'codex' -and -not (Get-EngineLauncher -Engine $panelEngine -Launchers $engineLaunchers)) {
+                Stop-WithError "$panelEngine CLI not found on PATH (set -EngineExe <path> or the $((Get-EngineSpec $panelEngine).ExeEnv) environment variable)."
+            }
+        }
+    }
     $panelId = [guid]::NewGuid().ToString()
     $panelShort = $panelId.Substring(0, 8)
     $panelMembersRecord = [object[]]@($panelEntries | ForEach-Object { [pscustomobject]@{ provider = $_.Entry.Provider; model = $_.Identity.Model; state = $_.State; reason = $_.Reason } })
-    $panelSkippedRecord = [object[]]@($panelEntries | Where-Object { $_.State -ne 'run' } | ForEach-Object { [pscustomobject]@{ provider = $_.Entry.Provider; model = $_.Identity.Model; reason = $_.Reason } })
+    $panelSkippedRecord = [object[]]@($panelEntries | Where-Object { $_.State -ne 'run' } | ForEach-Object { [pscustomobject]@{ provider = $_.Entry.Provider; model = $_.Identity.Model; engine = [string]$_.Entry.Engine; reason = $_.Reason } })
     # The findings every member is shown: those open when the panel starts.
     $panelListed = @()
     if (-not $Raw -and (Test-Path -LiteralPath $findingsPath -PathType Leaf)) {
@@ -729,8 +900,10 @@ if ($panelRun) {
     }
     $panelVerb = if ($DryRun) { 'would run' } else { 'run' }
     Write-Host "Panel $panelShort$(if ($DryRun) { ' (dry run - nothing is executed or written)' }): $($panelRunners.Count) of $($panelEntries.Count) roster entries $panelVerb, one after another (roster $($roster.Path); panel id $panelId)"
+    # The lineage as shown: ' [agy]' for a member of another engine than codex.
+    foreach ($pm in $panelEntries) { $pm | Add-Member -NotePropertyName 'Shown' -NotePropertyValue (Format-ReviewerLineage -Provider $pm.Identity.Provider -Model $pm.Identity.Model -Engine ([string]$pm.Identity.Engine)) -Force }
     foreach ($pm in $panelEntries) {
-        Write-Host ("  #{0} {1} - {2}" -f $pm.Entry.Position, $pm.Identity.Lineage, $(if ($pm.State -eq 'run') { 'member' } else { "skipped: $($pm.Reason)" }))
+        Write-Host ("  #{0} {1} - {2}" -f $pm.Entry.Position, $pm.Shown, $(if ($pm.State -eq 'run') { 'member' } else { "skipped: $($pm.Reason)" }))
     }
     $psHost = (Get-Process -Id $PID).Path
     $panelResults = @{}
@@ -761,7 +934,7 @@ if ($panelRun) {
             continue
         }
         $panelStarted++
-        $previousLineage = $pm.Identity.Lineage
+        $previousLineage = $pm.Shown
         $slug = ($pm.Entry.Provider.ToLowerInvariant() -replace '[^a-z0-9._-]', '-').Trim('-')
         if (-not $slug) { $slug = 'reviewer' }
         $spec = [pscustomobject]@{
@@ -772,6 +945,7 @@ if ($panelRun) {
             roster_position = $pm.Entry.Position
             provider        = $pm.Entry.Provider
             model           = $pm.Entry.Model
+            engine          = [string]$pm.Entry.Engine
             skipped         = $panelSkippedRecord
             listed_ids      = [object[]]$panelListed
             args            = [pscustomobject]@{
@@ -794,12 +968,15 @@ if ($panelRun) {
                 codex_config     = [object[]]@($CodexConfig)
                 schema_transport = $transportOverride
                 format_retry     = $FormatRetry
+                engine           = $Engine
+                engine_exe       = $EngineExe
+                denial_retry     = $DenialRetry
                 dry_run          = [bool]$DryRun
             }
         }
         $specB64 = [Convert]::ToBase64String($script:Utf8NoBom.GetBytes((ConvertTo-Json -InputObject $spec -Depth 8 -Compress)))
         Write-Host ""
-        Write-Host "=== panel $panelShort member $k of $($panelRunners.Count): $($pm.Identity.Lineage) (roster #$($pm.Entry.Position)) ==="
+        Write-Host "=== panel $panelShort member $k of $($panelRunners.Count): $($pm.Shown) (roster #$($pm.Entry.Position)) ==="
         $captured = New-Object System.Collections.Generic.List[string]
         $eapBefore = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
@@ -819,7 +996,7 @@ if ($panelRun) {
     $rows = New-Object System.Collections.Generic.List[object]
     $allUsable = ($panelRunners.Count -gt 0)
     foreach ($pm in $panelEntries) {
-        $row = [pscustomobject]@{ Lineage = $pm.Identity.Lineage; Status = ''; Counts = ''; Prior = ''; Tail = ''; Wide = $false }
+        $row = [pscustomobject]@{ Lineage = $pm.Shown; Status = ''; Counts = ''; Prior = ''; Tail = ''; Wide = $false }
         if ($pm.State -ne 'run') {
             $row.Status = 'skipped'
             $row.Counts = $pm.Reason
@@ -916,11 +1093,20 @@ $loginCache = @{}
 #   -Thread        the thread's ledger entry fixes the provider and the model; the roster
 #                  entry supplies codex_config
 #   otherwise      the first roster entry whose preflight is available (-Model: only the
-#                  entries that resolve to that model); skipped entries are recorded
+#                  entries that resolve to that model; -Engine: only the entries of that
+#                  engine); skipped entries are recorded
+# The engine (0.4.0): -Engine, else the engine of the roster entry used (the thread's entry
+# with -Thread), else codex. -Engine that contradicts the entry is refused (a provider label
+# names one engine).
+$engineName = $Engine
+$engineFrom = $(if ($Engine) { '-Engine' } else { '' })
 $rosterRule = ''
 $rosterEntry = $null
 $rosterSkipped = @()
 $rosterApplied = New-Object System.Collections.Generic.List[string]
+# Notices decided before the run that go to the ledger's `warnings[]` (every engine) and the
+# console: a -Provider label that names several roster entries (wave 18, F10-3).
+$runWarnings = New-Object System.Collections.Generic.List[string]
 $identityProvider = $Provider
 $identityModel = $Model
 $providerSourceOverride = ''
@@ -931,9 +1117,12 @@ if ($roster.Exists) {
         $rosterRule = 'panel'
         $memberPosition = [int]$panelMember.roster_position
         $rosterEntry = @($roster.Entries | Where-Object { $_.Position -eq $memberPosition }) | Select-Object -First 1
-        if (-not $rosterEntry -or $rosterEntry.Provider -cne [string]$panelMember.provider -or $rosterEntry.Model -cne [string]$panelMember.model) {
-            Stop-WithError "the reviewer roster '$($roster.Path)' changed while the panel ran (entry $memberPosition is no longer $([string]$panelMember.provider) $([string]$panelMember.model)); this panel member was not started."
+        $memberEngine = if ($panelMember.PSObject.Properties['engine'] -and $panelMember.engine) { [string]$panelMember.engine } else { 'codex' }
+        if (-not $rosterEntry -or $rosterEntry.Provider -cne [string]$panelMember.provider -or $rosterEntry.Model -cne [string]$panelMember.model -or $rosterEntry.Engine -ne $memberEngine) {
+            Stop-WithError "the reviewer roster '$($roster.Path)' changed while the panel ran (entry $memberPosition is no longer $([string]$panelMember.provider) $([string]$panelMember.model)$(if ($memberEngine -ne 'codex') { " [$memberEngine]" })); this panel member was not started."
         }
+        $engineName = $rosterEntry.Engine
+        $engineFrom = 'roster'
         $rosterSkipped = @($panelMember.skipped | Where-Object { $_ })
         $identityProvider = $rosterEntry.Provider
         $providerSourceOverride = 'roster'
@@ -945,10 +1134,25 @@ if ($roster.Exists) {
     } elseif ($Provider) {
         $rosterRule = 'provider'
         $rosterEntry = Find-RosterEntry -Roster $roster -Provider $Provider -Model $Model
+        if ($rosterEntry -and $Engine -and $rosterEntry.Engine -ne $Engine) {
+            Stop-WithError "-Engine $($Engine): the roster entry $($rosterEntry.Position) for -Provider $Provider is engine $($rosterEntry.Engine) (a provider label names one engine); drop -Engine, or use another label"
+        }
+        if ($rosterEntry -and -not $Engine) {
+            $engineName = $rosterEntry.Engine
+            $engineFrom = 'roster'
+            if ($rosterEntry.EngineDeclared) { $rosterApplied.Add('engine') }
+        }
         if ($rosterEntry -and -not $Model -and $rosterEntry.Model) {
             $identityModel = $rosterEntry.Model
             $modelSourceOverride = 'roster'
             $rosterApplied.Add('model')
+        }
+        # The 0.3.0 rule stays (the first entry of the label), but a label that names several
+        # entries (e.g. gemini on a flash and a weighty pro model) is easy to misuse: say so.
+        $sameLabel = @($roster.Entries | Where-Object { $_.Provider -ceq $Provider })
+        if ($rosterEntry -and -not $Model -and $sameLabel.Count -gt 1) {
+            $firstShown = if ($rosterEntry.Model) { Format-ReviewerLineage -Provider $rosterEntry.Provider -Model $rosterEntry.Model -Engine $rosterEntry.Engine } else { "$($rosterEntry.Provider) (config model)" }
+            $runWarnings.Add("roster: label $Provider names $($sameLabel.Count) entries; the first ($firstShown) is used - pass -Model for another")
         }
     } elseif ($Thread) {
         $rosterRule = 'thread'
@@ -960,6 +1164,11 @@ if ($roster.Exists) {
         $threadFound = Find-ThreadEntry -Consults $threadConsults -Thread $Thread
         if ($threadFound.Error) { Stop-WithError $threadFound.Error }
         $threadReviewer = Get-EntryReviewer $threadFound.Entry
+        if ($Engine -and $threadReviewer.Engine -ne $Engine) {
+            Stop-WithError "-Engine $($Engine): thread $Thread belongs to engine $($threadReviewer.Engine) ($($threadReviewer.Display)); a thread never changes engine - drop -Engine, or use -Mode new"
+        }
+        $engineName = $threadReviewer.Engine
+        $engineFrom = '-Thread'
         $identityProvider = $threadReviewer.Provider
         $providerSourceOverride = '-Thread'
         if (-not $Model) {
@@ -969,10 +1178,15 @@ if ($roster.Exists) {
         $rosterEntry = Find-RosterEntry -Roster $roster -Provider $identityProvider -Model $identityModel
     } else {
         $rosterRule = 'walk'
-        $walk = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -Model $Model -SkipPreflight:$SkipPreflight
+        $walk = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -Model $Model -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers
         if ($walk.Error) { Stop-WithError $walk.Error }
         $rosterEntry = $walk.Entry
         $rosterSkipped = @($walk.Skipped)
+        $engineName = $rosterEntry.Engine
+        if (-not $Engine) {
+            $engineFrom = 'roster'
+            if ($rosterEntry.EngineDeclared) { $rosterApplied.Add('engine') }
+        }
         $identityProvider = $rosterEntry.Provider
         $providerSourceOverride = 'roster'
         if ($rosterEntry.Model -and -not $Model) {
@@ -987,16 +1201,42 @@ if ($roster.Exists) {
         $rosterApplied.Add('codex_config')
     }
 }
+if (-not $engineName) { $engineName = 'codex' }
+if (-not $engineFrom) { $engineFrom = 'default' }
+$engineSpec = Get-EngineSpec -Name $engineName
+$isCodex = ($engineName -eq 'codex')
 $anonymous = [bool]($rosterEntry -and $rosterEntry.Auth -eq 'none')
 
-$identity = Resolve-ReviewerIdentity -Config $codexConfigScan -Provider $identityProvider -Model $identityModel -OpenAiBaseUrl $openAiBaseUrl
+# What an engine does not support is refused with one message each (nothing started).
+if (-not $isCodex) {
+    if ($Mode -eq 'fork') { Stop-WithError "the $engineName engine has no fork; use -Mode resume or new." }
+    if ($Sandbox -ne 'read-only') { Stop-WithError "-Sandbox $Sandbox is refused for the $engineName engine: consultations are read-only there (its --sandbox restricts the terminal only; the bridge's tree check fails a run that writes)." }
+    if (@($CodexConfig | Where-Object { $_ -and $_.Trim() }).Count -gt 0) { Stop-WithError "-CodexConfig does not apply to the $engineName engine (it configures codex exec)." }
+    if ($transportOverride -and $engineSpec.Transports -notcontains $transportOverride) { Stop-WithError "-SchemaTransport $transportOverride is refused for the $engineName engine: it takes $($engineSpec.Transports -join ' or ') (native = the schema is passed as --json-schema)." }
+    # agy: default mode new (a conversation is resumed only on request); -Thread resumes it.
+    if (-not $Mode) { $Mode = $(if ($Thread) { 'resume' } else { $engineSpec.DefaultMode }) }
+} else {
+    if ($transportOverride -and $engineSpec.Transports -notcontains $transportOverride) { Stop-WithError "-SchemaTransport $transportOverride is for the agy engine; codex takes output-schema or prompt-only." }
+}
+# The ledger's `sandbox`: what was requested - and for agy how it is enforced (A17).
+$sandboxRecord = $Sandbox
+if (-not $isCodex) { $sandboxRecord = "read-only (requested; enforced by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules or files outside the repository; $engineName --sandbox restricts the terminal only)" }
+$engineLauncher = [string]$codexExePath
+if (-not $isCodex) {
+    $engineLauncher = Get-EngineLauncher -Engine $engineName -Launchers $engineLaunchers
+    $harness = Get-EngineHarness -Engine $engineName -Launcher $engineLauncher
+}
+
+$identity = Resolve-ReviewerIdentity -Config $codexConfigScan -Provider $identityProvider -Model $identityModel -OpenAiBaseUrl $openAiBaseUrl -Engine $engineName -Launcher $engineLauncher
 if ($identity.Error) { Stop-WithError $identity.Error }
 if ($providerSourceOverride) { $identity.ProviderSource = $providerSourceOverride }
 if ($modelSourceOverride) { $identity.ModelSource = $modelSourceOverride }
 $reviewerRecord = New-ReviewerRecord -Identity $identity -Harness $harness
 $lineage = $identity.Lineage
+# The lineage as shown on the console and in the handoff (' [agy]' for another engine).
+$lineageShown = Format-ReviewerLineage -Provider $identity.Provider -Model $identity.Model -Engine $engineName
 $modelLabel = $identity.Model
-$reviewerLine = "Reviewer: $lineage (provider from $($reviewerRecord.provider_source), model from $($identity.ModelSource); $($identity.Display)"
+$reviewerLine = "Reviewer: $lineageShown (provider from $($reviewerRecord.provider_source), model from $($identity.ModelSource); $($identity.Display)"
 if ($identity.Resolved) {
     $reviewerLine += "; provider fingerprint $(Format-ShortHash $identity.Fingerprint)"
     if ($identity.Note) { $reviewerLine += "; $($identity.Note)" }
@@ -1049,14 +1289,14 @@ if ($identity.Resolved) {
     $preflightWarning = Format-QuotaWarning -Identity $identity -Health $health -SkipPreflight:$SkipPreflight
 }
 if (-not $SkipPreflight) {
-    $preflightVerdict = Get-PreflightVerdict -Identity $identity -Config $codexConfigScan -Launcher ([string]$codexExePath) -Health $health -LoginCache $loginCache -Anonymous:$anonymous
+    $preflightVerdict = Get-PreflightVerdict -Identity $identity -Config $codexConfigScan -Launcher $engineLauncher -Health $health -LoginCache $loginCache -Anonymous:$anonymous
     $preflight = $preflightVerdict.Preflight
     $preflightLabel = $preflightVerdict.Label
     $preflightRefusal = $preflightVerdict.Refusal
     if ($preflightVerdict.State -ne 'available' -and $rosterRule -eq 'thread') {
         # The thread cannot continue: say which reviewer a new thread would get.
-        $alternative = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl
-        $hint = if ($alternative.Entry) { "; to continue with another reviewer, start a new thread: -Mode new; the roster would select $($alternative.Identity.Lineage)" } else { '; the roster has no available reviewer for a new thread either' }
+        $alternative = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -EngineLaunchers $engineLaunchers
+        $hint = if ($alternative.Entry) { "; to continue with another reviewer, start a new thread: -Mode new; the roster would select $(Format-ReviewerLineage -Provider $alternative.Identity.Provider -Model $alternative.Identity.Model -Engine ([string]$alternative.Identity.Engine))" } else { '; the roster has no available reviewer for a new thread either' }
         $preflightRefusal += $hint
         $preflightLabel += $hint
     }
@@ -1083,13 +1323,13 @@ if ($roster.Exists) {
         if ($rosterEntry) { $rosterLine = "Roster: $($roster.Path) - entry $rosterPosition of $rosterCount for -Provider $Provider ($appliedText)" }
         else { $rosterLine = "Roster: $($roster.Path) - no entry for -Provider $Provider (nothing applied)" }
     } else {
-        if ($rosterEntry) { $rosterLine = "Roster: $($roster.Path) - entry $rosterPosition of $rosterCount for -Thread $Thread, $lineage ($appliedText)" }
-        else { $rosterLine = "Roster: $($roster.Path) - no entry for -Thread $Thread, $lineage (nothing applied)" }
+        if ($rosterEntry) { $rosterLine = "Roster: $($roster.Path) - entry $rosterPosition of $rosterCount for -Thread $Thread, $lineageShown ($appliedText)" }
+        else { $rosterLine = "Roster: $($roster.Path) - no entry for -Thread $Thread, $lineageShown (nothing applied)" }
     }
     $rosterRecord = [pscustomobject]@{
         path     = $roster.Path
         position = $rosterPosition
-        skipped  = [object[]]@($rosterSkipped | ForEach-Object { [pscustomobject]@{ provider = $_.provider; model = $_.model; reason = $_.reason } })
+        skipped  = [object[]]@($rosterSkipped | ForEach-Object { [pscustomobject]@{ provider = $_.provider; model = $_.model; engine = $(if (Get-PropertyValue $_ 'engine' '') { [string]$_.engine } else { 'codex' }); reason = $_.reason } })
         applied  = [object[]]$rosterApplied.ToArray()
     }
 }
@@ -1105,6 +1345,7 @@ if ($panelMember) {
     }
 }
 if ($rosterLine -and -not $DryRun) { Write-Host $rosterLine }
+if (-not $DryRun) { foreach ($rw in $runWarnings) { Write-Host "WARNING: $rw" -ForegroundColor Yellow } }
 if ($preflightWarning -and -not $DryRun) { Write-Host "WARNING: $preflightWarning" -ForegroundColor Yellow }
 
 # Peak window of the provider (evaluated once, now).
@@ -1189,8 +1430,11 @@ if (-not $Raw) {
     }
 }
 
-if (-not $DryRun -and -not $codexExePath) {
+if (-not $DryRun -and $isCodex -and -not $codexExePath) {
     Stop-WithError "codex CLI not found on PATH (set -CodexExe <path> or the CODEX_CONSULT_EXE environment variable)."
+}
+if (-not $DryRun -and -not $isCodex -and -not $engineLauncher) {
+    Stop-WithError "$engineName CLI not found on PATH (set -EngineExe <path> or the $($engineSpec.ExeEnv) environment variable)."
 }
 
 $tmpRoot = [System.IO.Path]::GetTempPath()
@@ -1203,6 +1447,10 @@ $repairLastPath = Join-Path $tmpRoot "codex-consult-repair-last-$tmpId.md"
 $repairEventsPath = Join-Path $tmpRoot "codex-consult-repair-events-$tmpId.jsonl"
 $repairStderrPath = Join-Path $tmpRoot "codex-consult-repair-stderr-$tmpId.txt"
 $repairPromptPath = Join-Path $tmpRoot "codex-consult-repair-prompt-$tmpId.txt"
+# the denial-retry turn of an engine (-DenialRetry): its stdin and stderr (its event stream
+# goes to handoffs/, like the run's)
+$denialPromptPath = Join-Path $tmpRoot "codex-consult-denial-prompt-$tmpId.txt"
+$denialStderrPath = Join-Path $tmpRoot "codex-consult-denial-stderr-$tmpId.txt"
 
 # ----------------------------------------------------------------------------- lock + run
 #
@@ -1273,19 +1521,20 @@ try {
             task_id = $Task
             cwd     = $repoRoot
             codex   = [pscustomobject]@{
-                tool     = $codexVersion
+                tool     = $(if ($isCodex) { $codexVersion } else { $harness })
                 consults = [object[]]@()
             }
         }
         if (-not $DryRun) { Write-JsonFile -Path $sessionsPath -Object $sessions }
     }
     if (-not $sessions.PSObject.Properties['codex']) {
-        $sessions | Add-Member -NotePropertyName 'codex' -NotePropertyValue ([pscustomobject]@{ tool = $codexVersion; consults = [object[]]@() })
+        $sessions | Add-Member -NotePropertyName 'codex' -NotePropertyValue ([pscustomobject]@{ tool = $(if ($isCodex) { $codexVersion } else { $harness }); consults = [object[]]@() })
     }
     if (-not $sessions.codex.PSObject.Properties['consults']) {
         $sessions.codex | Add-Member -NotePropertyName 'consults' -NotePropertyValue ([object[]]@())
     }
-    $sessions.codex.tool = $codexVersion
+    # (`tool` is the codex version; an agy run leaves it as it is)
+    if ($isCodex) { $sessions.codex.tool = $codexVersion }
 
     # findings.json is read in both modes - numbering must see every finding and
     # reviewer check - but only structured mode lists open findings and ingests.
@@ -1344,9 +1593,11 @@ try {
     }
     # NB: PowerShell variable names are case-insensitive - never call these $replyName,
     # that would silently clobber the -ReplyName parameter.
-    $replyFileName = "$nn-codex-$ReplyName.md"
-    $eventsFileName = "$nn-codex-$ReplyName.events.jsonl"
-    $replyJsonFileName = "$nn-codex-$ReplyName.reply.json"
+    # The handoff prefix is the engine's (NN-codex-<slug>.md, NN-agy-<slug>.md, ...).
+    $enginePrefix = [string]$engineSpec.Prefix
+    $replyFileName = "$nn-$enginePrefix-$ReplyName.md"
+    $eventsFileName = "$nn-$enginePrefix-$ReplyName.events.jsonl"
+    $replyJsonFileName = "$nn-$enginePrefix-$ReplyName.reply.json"
     $replyPath = Join-Path $handoffsDir $replyFileName
     $eventsPath = Join-Path $handoffsDir $eventsFileName
     $replyJsonPath = Join-Path $handoffsDir $replyJsonFileName
@@ -1358,7 +1609,7 @@ try {
     # fails the old record is left intact and nothing was started).
     $pendingRecord = $null
     if (-not $DryRun) {
-        $pendingRecord = New-PendingRecord -State 'reserved' -N $consultN -Nn $nn -Reply $replyRel -Started $runStarted -Launcher ([string]$codexExePath) -ConsultId $consultId
+        $pendingRecord = New-PendingRecord -State 'reserved' -N $consultN -Nn $nn -Reply $replyRel -Started $runStarted -Launcher $engineLauncher -ConsultId $consultId -Engine $engineName
         try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
             Stop-WithError "could not write the recovery record '$pendingPath': $(ConvertTo-OneLine $_.Exception.Message); nothing was started."
         }
@@ -1376,6 +1627,11 @@ try {
     if ($Prompt) { [void]$promptParts.Add($Prompt.Trim()) }
     if ($briefRef) {
         [void]$promptParts.Add("Read the brief at ``$briefRef`` (path relative to the repository root, which is your working directory) and answer every numbered question in it.")
+    }
+    if (-not $isCodex) {
+        # agy's print mode auto-denies a tool it cannot grant and then ends the turn with no
+        # output (F11), and its --sandbox does not block file writes (F12): say both up front.
+        [void]$promptParts.Add('Tools: you may read files of the repository; you have NO permission to run commands in this consultation - never call run_command; make NO file changes; a check that needs a command belongs under `## Requested checks`.')
     }
     if ($Raw) {
         # (a plain -Raw consultation carries no purpose paragraph, as in 0.1; a chore does)
@@ -1435,32 +1691,45 @@ try {
 
     # ------------------------------------------------------------------------- argv
 
-    # Exec-level options MUST precede the fork|resume subcommand: `codex exec fork --help`
-    # has no --sandbox/--color, and placing them after the subcommand fails with
-    # "unexpected argument". --output-schema is exec-level too.
-    $argv = @(
-        'exec',
-        '--sandbox', $Sandbox,
-        '--color', 'never',
-        '--json'
-    )
-    # The resolved model and provider are pinned whenever they are known, so the run
-    # cannot drift from what the ledger records (values are TOML strings for -c).
-    if ($identity.ModelSource -ne 'unknown') { $argv += @('-m', $identity.Model) }
-    $argv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $effortSent) + '"'))
-    if ($identity.ProviderSource) { $argv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
-    foreach ($ec in $extraConfig) { $argv += @('-c', $ec) }
-    $argv += @('-o', $lastMsgPath)
-    if (-not $Raw -and $schemaTransport -eq 'output-schema') { $argv += @('--output-schema', $schemaPath) }
-    if ($Mode -eq 'fork') { $argv += @('fork', $parentThread) }
-    elseif ($Mode -eq 'resume') { $argv += @('resume', $parentThread) }
-    # The prompt is piped on stdin ('-'): a prompt passed as a positional argument
-    # would travel through the npm codex.cmd shim on Windows, where cmd.exe still
-    # expands %VAR% inside double quotes and would corrupt briefs that mention
-    # %APPDATA% & co.
-    $argv += '-'
+    if (-not $isCodex) {
+        # The engine's own argv (New-AgyArgv): the schema natively unless prompt-only, the
+        # conversation on resume, --effort only with -NativeEffort.
+        $engineSchemaArg = ''
+        if (-not $Raw -and $schemaTransport -eq 'native') { $engineSchemaArg = $schemaPath }
+        $engineThreadArg = ''
+        if ($Mode -eq 'resume') { $engineThreadArg = $parentThread }
+        $argv = & $engineSpec.Adapter.Argv -Model $identity.Model -Schema $engineSchemaArg -Thread $engineThreadArg -NativeEffort $NativeEffort
+    } else {
+        # Exec-level options MUST precede the fork|resume subcommand: `codex exec fork --help`
+        # has no --sandbox/--color, and placing them after the subcommand fails with
+        # "unexpected argument". --output-schema is exec-level too.
+        $argv = @(
+            'exec',
+            '--sandbox', $Sandbox,
+            '--color', 'never',
+            '--json'
+        )
+        # The resolved model and provider are pinned whenever they are known, so the run
+        # cannot drift from what the ledger records (values are TOML strings for -c).
+        if ($identity.ModelSource -ne 'unknown') { $argv += @('-m', $identity.Model) }
+        $argv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $effortSent) + '"'))
+        if ($identity.ProviderSource) { $argv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
+        foreach ($ec in $extraConfig) { $argv += @('-c', $ec) }
+        $argv += @('-o', $lastMsgPath)
+        if (-not $Raw -and $schemaTransport -eq 'output-schema') { $argv += @('--output-schema', $schemaPath) }
+        if ($Mode -eq 'fork') { $argv += @('fork', $parentThread) }
+        elseif ($Mode -eq 'resume') { $argv += @('resume', $parentThread) }
+        # The prompt is piped on stdin ('-'): a prompt passed as a positional argument
+        # would travel through the npm codex.cmd shim on Windows, where cmd.exe still
+        # expands %VAR% inside double quotes and would corrupt briefs that mention
+        # %APPDATA% & co.
+        $argv += '-'
+    }
 
-    $commandStr = 'codex ' + (Format-Argv $argv)
+    $commandStr = "$($engineSpec.Command) " + (Format-Argv $argv)
+    # What the engine reads on stdin: codex the prompt itself, agy one NDJSON line.
+    $stdinText = $promptText
+    if (-not $isCodex) { $stdinText = & $engineSpec.Adapter.Stdin -Prompt $promptText }
 
     # ------------------------------------------------------------------------- bindings
 
@@ -1492,8 +1761,8 @@ try {
             panel                           = $panelRecord
             parent_thread                   = $parentThread
             thread                          = '<filled from the event stream>'
-            thread_source                   = 'events|rollout (verified by consultation id)|unknown'
-            thread_candidate                = '<"" or an unverified rollout uuid>'
+            thread_source                   = $(if ($isCodex) { 'events|rollout (verified by consultation id)|unknown' } else { 'events|unknown' })
+            thread_candidate                = $(if ($isCodex) { '<"" or an unverified rollout uuid>' } else { '<"" or a conversation id that is never a parent>' })
             mode                            = $Mode
             command                         = $commandStr
             brief                           = $briefRef
@@ -1509,7 +1778,7 @@ try {
             effort_caps                     = $effortPlan.Caps
             effort_confirmed                = $null
             max_words                       = $maxWordsResolved
-            sandbox                         = $Sandbox
+            sandbox                         = $sandboxRecord
             extra_config                    = [object[]]$extraConfig.ToArray()
             extra_config_source             = $extraConfigSource
             peak                            = $peak.Peak
@@ -1521,7 +1790,8 @@ try {
             schema_transport                = $schemaTransport
             schema_transport_source         = $schemaTransportSource
             validation_error                = $(if ($Raw) { '' } else { '<"" or the first validation error>' })
-            format_retry                    = $(if (-not $repairEnabled) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, drift, original} after a format-repair turn>' })
+            format_retry                    = $(if (-not $repairEnabled) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events} after a format-repair turn>' })
+            denial_retry                    = $(if ($isCodex -or $DenialRetry -ne 1) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, events} after a denial-retry turn>' })
             base_commit                     = $revBefore.base_commit
             reviewed_revision               = $revBefore.reviewed_revision
             tree_sha256                     = $revBefore.tree_sha256
@@ -1536,13 +1806,14 @@ try {
             artifacts_changed_during_review = '<true|false>'
             bridge_outcome                  = '<usable reply | failed: ...>'
             provider_failure                = '<null, or {class auth|quota|capability|transport|unknown, code, message, when} of a failed run>'
+            warnings                        = [object[]]$runWarnings.ToArray()
             verdict                         = $(if ($Raw) { '' } else { "<$($verdictRule -replace ', | or ', '|'), or '' when unavailable>" })
             verdict_reason                  = $(if ($Raw) { '' } else { '<one sentence>' })
             findings                        = $previewFindings
             finding_ids                     = [object[]]$previewIds
             prior_findings                  = [object[]]@($listedIds | ForEach-Object { [pscustomobject]@{ id = $_; status = '<fixed|still-open|not-checked|unknown-id>' } })
             unchecked_prior_blockers        = [object[]]@()
-            usage                           = [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n>'; output_tokens = '<n>'; reasoning_output_tokens = '<n>' }
+            usage                           = $(if ($isCodex) { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n>'; output_tokens = '<n>'; reasoning_output_tokens = '<n>' } } else { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n (cache_read_tokens)>'; output_tokens = '<n>'; reasoning_output_tokens = '<n (thinking_tokens)>'; total_tokens = '<n>' } })
             wall_seconds                    = 0
         }
         Write-Host "DRY RUN - nothing was executed and no file was written." -ForegroundColor Yellow
@@ -1553,30 +1824,46 @@ try {
         if (-not $Raw) { Write-Host "findings    : $findingsPath ($($openFindings.Count) open finding(s) listed in the prompt)" }
         Write-Host "lock        : $lockPath (held open for the run; not in a dry run)"
         if ($recoveredLine) { Write-Host "pending     : $recoveredLine" -ForegroundColor Yellow }
-        if ($codexExePath) { Write-Host "launcher    : $codexExePath" }
-        else { Write-Host "launcher    : (codex not found on PATH)" -ForegroundColor Yellow }
-        Write-Host "codex       : $codexVersion"
-        Write-Host "config      : $($identity.ConfigPath)$(if (-not $codexConfigScan.Exists) { ' (not found)' })"
+        if ($isCodex) {
+            if ($codexExePath) { Write-Host "launcher    : $codexExePath" }
+            else { Write-Host "launcher    : (codex not found on PATH)" -ForegroundColor Yellow }
+            Write-Host "codex       : $codexVersion"
+            Write-Host "config      : $($identity.ConfigPath)$(if (-not $codexConfigScan.Exists) { ' (not found)' })"
+        } else {
+            Write-Host "engine      : $engineName - $($engineSpec.Label) (from $engineFrom)"
+            if ($engineLauncher) { Write-Host "launcher    : $engineLauncher" }
+            else { Write-Host "launcher    : ($engineName CLI not found on PATH; -EngineExe or $($engineSpec.ExeEnv))" -ForegroundColor Yellow }
+            Write-Host "harness     : $harness"
+            Write-Host "config      : (not used by the $engineName engine)"
+        }
         Write-Host "reviewer    : $($reviewerLine -replace '^Reviewer: ', '')"
-        Write-Host "lineage     : $lineage"
+        Write-Host "lineage     : $lineageShown"
         if ($preflightLabel -match 'a real run is refused') { Write-Host "preflight   : $preflightLabel" -ForegroundColor Yellow }
         else { Write-Host "preflight   : $preflightLabel" }
         if ($rosterLine) { Write-Host $rosterLine }
+        foreach ($rw in $runWarnings) { Write-Host "WARNING: $rw" -ForegroundColor Yellow }
         if ($preflightWarning) { Write-Host "WARNING: $preflightWarning" -ForegroundColor Yellow }
         Write-Host "model       : $modelLabel"
-        Write-Host "purpose     : $purposeLabel (effort $effortSent, max words $maxWordsResolved)"
-        Write-Host "effort      : $effortSent sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis))"
+        Write-Host "purpose     : $purposeLabel (effort $(if ($null -eq $effortSent) { 'none sent' } else { $effortSent }), max words $maxWordsResolved)"
+        Write-Host "effort      : $(if ($null -eq $effortSent) { 'nothing' } else { $effortSent }) sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis))"
         if ($peakWarning) { Write-Host "peak        : $peakLabel" -ForegroundColor Yellow; Write-Host $peakWarning -ForegroundColor Yellow }
         else { Write-Host "peak        : $peakLabel" }
         if ($Raw) { Write-Host "reply format: raw text ($(if ($Purpose -eq 'chore') { '-Purpose chore' } else { '-Raw' }): no schema, no findings bookkeeping)" }
         else {
             Write-Host "schema      : $schemaPath"
             if ($schemaTransport -eq 'output-schema') { Write-Host "transport   : output-schema ($schemaTransportBasis): passed as --output-schema" }
-            else { Write-Host "transport   : prompt-only ($schemaTransportBasis): --output-schema is NOT passed; the schema travels in the prompt, the reply is validated locally" }
+            elseif ($schemaTransport -eq 'native') { Write-Host "transport   : native ($schemaTransportBasis): passed as --json-schema, the reply is result.structured_output (validated locally too)" }
+            elseif ($isCodex) { Write-Host "transport   : prompt-only ($schemaTransportBasis): --output-schema is NOT passed; the schema travels in the prompt, the reply is validated locally" }
+            else { Write-Host "transport   : prompt-only ($schemaTransportBasis): --json-schema is NOT passed; the schema travels in the prompt, the reply is validated locally" }
         }
         if ($repairEnabled) { Write-Host 'format retry : 1 attempt if the reply is not valid JSON' } else { Write-Host 'format retry : 0 (off)' }
+        if (-not $isCodex) {
+            if ($DenialRetry -eq 1) { Write-Host 'denial retry: 1 attempt if a tool was auto-denied and the turn produced nothing' } else { Write-Host 'denial retry: 0 (off)' }
+            Write-Host "sandbox     : $sandboxRecord"
+        }
         Write-Host "mode        : $Mode"
         if ($Mode -eq 'new') { Write-Host "thread      : (a new thread will be created)" }
+        elseif (-not $isCodex) { Write-Host "thread      : $parentThread (conversation resumed with --conversation)" }
         else { Write-Host "thread      : $parentThread (parent for $Mode)" }
         if ($parentNote) { Write-Host "parent      : $parentNote" }
         Write-Host "consult id  : $consultId (the prompt's last line)"
@@ -1592,6 +1879,7 @@ try {
         $argv | ForEach-Object { Write-Host "    $_" }
         Write-Host ""
         Write-Host "command     : $commandStr"
+        if (-not $isCodex) { Write-Host "stdin       : one NDJSON line {""event"":""user"",""message"":{""content"":<the prompt>}} ($($stdinText.Length) chars, UTF-8, LF)" }
         Write-Host "prompt (stdin, $($promptText.Length) chars):"
         Write-Host "----"
         Write-Host $promptText
@@ -1600,7 +1888,8 @@ try {
         Write-Host "reply file  : $replyPath"
         if (-not $Raw) { Write-Host "reply json  : $replyJsonPath" }
         Write-Host "events file : $eventsPath"
-        Write-Host "last message: $lastMsgPath (temp)"
+        if ($isCodex) { Write-Host "last message: $lastMsgPath (temp)" }
+        else { Write-Host "reply source: the result event's structured_output (else its response text), extracted to the reply json before validation" }
         Write-Host ""
         Write-Host "sessions.json entry preview:"
         Write-Host (ConvertTo-Json -InputObject $preview -Depth 10)
@@ -1609,7 +1898,7 @@ try {
 
     # ------------------------------------------------------------------------- run
 
-    Write-Utf8NoBom -Path $promptPath -Text $promptText
+    Write-Utf8NoBom -Path $promptPath -Text $stdinText
 
     # Peak status AT LAUNCH (the one the ledger records). Under -OffPeakOnly a window
     # entered since the early check stops the run here: no child exists yet, this run's
@@ -1629,12 +1918,26 @@ try {
     }
     if ($peakWarning) { Write-Host $peakWarning -ForegroundColor Yellow }
 
+    # agy's --sandbox does not block writes (A17): what the review must not touch is
+    # compared after the run - the tree fingerprint (above) and the whole collab directory
+    # (every task's stores and handoffs; wave 18). The run's own handoff files
+    # (<task>/handoffs/NN-<prefix>-<slug>.*) are its output, not a change.
+    $collabBefore = $null
+    $ownPrefixes = [string[]]@("$Task/handoffs/$nn-$enginePrefix-$ReplyName.")
+    $collabShown = ''
+    if (-not $isCodex) {
+        $collabBefore = Get-CollabSnapshot -Dir $collabRoot
+        $collabRelShown = Get-RepoRelativePath -Root $repoRoot -Path $collabRoot
+        if ($collabRelShown) { $collabShown = "$collabRelShown/" }
+    }
+
     # (3) launching - from the next statement on, a crash may leave a codex process
     # whose pid is not recorded; the next run then scans for one (Test-PendingActive).
+    $engineCmd = [string]$engineSpec.Command
     $pendingRecord.state = 'launching'
-    $pendingRecord.note = 'codex is being started; its pid is not recorded yet'
+    $pendingRecord.note = "$engineCmd is being started; its pid is not recorded yet"
     try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
-        Stop-WithError "could not write the recovery record '$pendingPath': $(ConvertTo-OneLine $_.Exception.Message); codex was not started."
+        Stop-WithError "could not write the recovery record '$pendingPath': $(ConvertTo-OneLine $_.Exception.Message); $engineCmd was not started."
     }
 
     $startedAt = Get-Date
@@ -1645,13 +1948,13 @@ try {
 
     $proc = $null
     try {
-        $proc = Start-Process -FilePath $codexExePath -ArgumentList $argStr `
+        $proc = Start-Process -FilePath $engineLauncher -ArgumentList $argStr `
             -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
             -RedirectStandardOutput $eventsPath `
             -RedirectStandardError $stderrPath `
             -RedirectStandardInput $promptPath
     } catch {
-        $bridgeOutcome = "failed: could not start codex - $($_.Exception.Message)"
+        $bridgeOutcome = "failed: could not start $engineCmd - $($_.Exception.Message)"
     }
     if ($proc) {
         # PS 5.1: touching .Handle before the process exits caches it, otherwise
@@ -1664,6 +1967,8 @@ try {
             $pendingRecord.child_pid = $proc.Id
             $pendingRecord.child_start_time = [string](Get-ProcessStartIso -ProcessId $proc.Id)
             $pendingRecord.note = ''
+            # A18: the raw event stream of this run (for agy it holds the reply itself).
+            $pendingRecord.events = $(if (Get-RepoRelativePath -Root $repoRoot -Path $eventsPath) { Get-RepoRelativePath -Root $repoRoot -Path $eventsPath } else { $eventsPath })
             Write-PendingFile -Path $pendingPath -Record $pendingRecord
         } catch {
             $registerError = ConvertTo-OneLine $_.Exception.Message
@@ -1672,7 +1977,7 @@ try {
             # An unregistered codex must not outlive this run: stop it now. The record
             # on disk stays 'launching', so the next run checks for a codex process.
             $survivors = Stop-ProcessTree -Process $proc   # [int[]]; never wrap in @(): that nests the array
-            $bridgeOutcome = "failed: could not register the codex process ($registerError); codex was stopped"
+            $bridgeOutcome = "failed: could not register the $engineCmd process ($registerError); $engineCmd was stopped"
             if ($survivors.Count -gt 0) { $bridgeOutcome += "; $($survivors.Count) processes survived: pid $($survivors -join ', ')" }
             $keepPending = $true
         } else {
@@ -1724,8 +2029,22 @@ try {
     $artifactsChanged = ($changedArtifacts.Count -gt 0)
 
     $stderrText = Read-SharedText -Path $stderrPath
-    $rawReply = (Read-SharedText -Path $lastMsgPath).Trim()
+    $rawReply = ''
+    if ($isCodex) { $rawReply = (Read-SharedText -Path $lastMsgPath).Trim() }
+    # Ledger `warnings` (every engine; [] when none): agy's denial notices and `warning:`
+    # lines that came with a usable reply.
+    $engineWarnings = New-Object System.Collections.Generic.List[string]
+    foreach ($rw in $runWarnings) { $engineWarnings.Add($rw) }
+    $agyTurn = $null
+    $agyEvents = $null
+    $agyFailureClass = ''
+    $agyFailureTexts = @()
+    $denialRetryRecord = $null
+    $treeProblem = ''
+    $extraEvents = New-Object System.Collections.Generic.List[string]
+    $replyJsonRel = ''
 
+    if ($isCodex) {
     # thread id - never let a parse/IO problem here swallow the sessions.json record.
     # A rollout file is this run's thread only when it contains the consultation id;
     # otherwise the newest one is kept as thread_candidate (diagnostic, never a parent).
@@ -1776,7 +2095,6 @@ try {
     # The first write after the run, before anything parses the reply: Codex's last
     # message copied BYTE FOR BYTE (never re-serialized, never trimmed). If it cannot
     # be preserved, the run is a bridge failure and the temp original is kept.
-    $replyJsonRel = ''
     if (-not $Raw -and (Test-Path -LiteralPath $lastMsgPath -PathType Leaf)) {
         $copyError = ''
         for ($attempt = 1; $attempt -le 6; $attempt++) {
@@ -1796,6 +2114,110 @@ try {
             else { $bridgeOutcome += "; $note" }
         } else {
             $replyJsonRel = $replyJsonPlanned
+        }
+    }
+
+    } else {
+        # ---------------------------------------------------------------- agy: the turn
+        # The event stream is already saved (handoffs/NN-agy-<slug>.events.jsonl, stdout by
+        # redirection); the LAST and only `result` event carries the reply (A6, A19).
+        # A truncated last line is a partial line only when the process was killed or exited
+        # non-zero (F10-2); after exit 0 trailing garbage makes the stream malformed.
+        $allowPartial = [bool]($bridgeOutcome -or $exitCode -ne 0)
+        try { $agyEvents = & $engineSpec.Adapter.Events -Path $eventsPath -AllowPartialLast:$allowPartial } catch { $agyEvents = Read-AgyEvents -Path '' }
+        $agyTurn = & $engineSpec.Adapter.Outcome -Events $agyEvents -ExitCode $exitCode -StderrText $stderrText -Pre $bridgeOutcome -ExpectThread $(if ($Mode -eq 'resume') { $parentThread } else { '' })
+        $bridgeOutcome = $agyTurn.Outcome
+        $rawReplyFull = [string]$agyTurn.Reply
+        $rawReply = $rawReplyFull.Trim()
+        $threadId = [string]$agyTurn.Thread
+        $threadSource = $(if ($threadId) { 'events' } else { 'unknown' })
+        $threadCandidate = [string]$agyTurn.ThreadCandidate
+        $eventError = [string]$agyEvents.Error
+        $usage = $agyEvents.Usage
+        $agyFailureClass = [string]$agyTurn.Class
+        $agyFailureTexts = @($agyTurn.Texts)
+        foreach ($w in @($agyTurn.Warnings)) { $engineWarnings.Add($w) }
+
+        # 1. reply.json (A18): the reply extracted from the event stream, atomically, BEFORE
+        # any validation - structured_output serialized compactly, else the response text.
+        if (-not $Raw -and $rawReplyFull.Trim()) {
+            try {
+                Write-TextAtomic -Path $replyJsonPath -Text $rawReplyFull
+                $replyJsonRel = $replyJsonPlanned
+            } catch {
+                $note = "could not preserve the reply ($(ConvertTo-OneLine $_.Exception.Message)); it is still in $eventsRel"
+                if ($bridgeOutcome -eq 'usable reply') { $bridgeOutcome = "failed: $note"; $agyFailureClass = 'unknown'; $agyFailureTexts = @($note) }
+                else { $bridgeOutcome += "; $note" }
+            }
+        }
+
+        # Read-only check (A17): the tree, the collab directory, the brief, the artifacts.
+        $treeProblem = Get-EngineTreeProblem -RevBefore $revBefore -RevAfter $revAfter -BriefChanged $briefChanged -ChangedArtifacts $changedArtifacts -CollabBefore $collabBefore -CollabAfter (Get-CollabSnapshot -Dir $collabRoot) -OwnPrefixes $ownPrefixes -Engine $engineName -CollabShown $collabShown
+        if ($treeProblem) {
+            if ($bridgeOutcome -eq 'usable reply') {
+                $bridgeOutcome = "failed: $treeProblem"
+                $agyFailureClass = 'permission'
+                $agyFailureTexts = @($treeProblem)
+            } else {
+                $bridgeOutcome += "; also: $treeProblem"
+            }
+        }
+
+        # ---------------------------------------------------------------- denial retry (A3)
+        # The turn produced nothing because a tool was auto-denied (F11), on a verified
+        # conversation: ONE more turn there, told not to call it again (the output contract,
+        # the field meanings and the consultation id - never the brief).
+        if ($DenialRetry -eq 1 -and $agyTurn.DeniedEmpty -and $threadId -and -not $treeProblem) {
+            $deniedTool = [string]$agyEvents.ToolName
+            if (-not $deniedTool) { $deniedTool = [string]$agyEvents.DeniedAction }
+            $toolText = if ($deniedTool) { "the tool $deniedTool" } else { 'a tool' }
+            $permText = if ($agyTurn.Permission) { "(headless print mode has no ""$($agyTurn.Permission)"" permission)" } else { '(headless print mode cannot grant its permission)' }
+            $retryParts = New-Object System.Collections.Generic.List[string]
+            if (-not $Raw) {
+                $retryParts.Add($promptParts[0])
+                $retryParts.Add("Your previous turn produced no output: $toolText was auto-denied $permText. Do NOT call it again; answer from what you have read, as the JSON object.")
+                $retryParts.Add(($schemaLines -join $nl))
+            } else {
+                $retryParts.Add("Your previous turn produced no output: $toolText was auto-denied $permText. Do NOT call it again; answer from what you have read.")
+            }
+            $retryParts.Add("Consultation id: $consultId")
+            $retryPrompt = [string]::Join("$nl$nl", $retryParts.ToArray())
+            $retrySchemaArg = if (-not $Raw) { $schemaPath } else { '' }
+            $retryArgv = & $engineSpec.Adapter.Argv -Model $identity.Model -Schema $retrySchemaArg -Thread $threadId -NativeEffort $NativeEffort
+            $retryEventsName = "$nn-$enginePrefix-$ReplyName.denial-retry.events.jsonl"
+            $retryEventsPath = Join-Path $handoffsDir $retryEventsName
+            $extraEvents.Add("handoffs/$retryEventsName")
+            $retryTimeout = [Math]::Min($TimeoutSec, 300)
+            $retryTurn = Invoke-EngineTurn -Argv $retryArgv -StdinText (& $engineSpec.Adapter.Stdin -Prompt $retryPrompt) -EventsPath $retryEventsPath -StdinPath $denialPromptPath -StderrPath $denialStderrPath -Timeout $retryTimeout -Note 'denial retry turn'
+            if ($retryTurn.KeepPending) { $keepPending = $true }
+            $retryEvents = Read-AgyEvents -Path $retryEventsPath -AllowPartialLast:([bool]($retryTurn.Problem -or $retryTurn.Exit -ne 0))
+            $retryOut = Get-AgyTurnOutcome -Events $retryEvents -ExitCode $retryTurn.Exit -StderrText $retryTurn.Stderr -Pre $(if ($retryTurn.Problem) { "failed: $($retryTurn.Problem)" } else { '' }) -ExpectThread $threadId
+            $retryReason = [string]$agyTurn.DenialLine
+            if ($retryReason.Length -gt 200) { $retryReason = $retryReason.Substring(0, 200) }
+            $denialRetryRecord = [pscustomobject]@{
+                attempted    = $true
+                reason       = $retryReason
+                succeeded    = [bool]$retryOut.Ok
+                thread       = [string]$retryEvents.Thread
+                wall_seconds = $retryTurn.Wall
+                usage        = $retryEvents.Usage
+                # (F09-2) that turn's event stream, handoffs-relative; null when no turn ran
+                events       = $(if (Test-Path -LiteralPath $retryEventsPath -PathType Leaf) { "handoffs/$retryEventsName" } else { $null })
+            }
+            if ($retryOut.Ok) {
+                $bridgeOutcome = 'usable reply'
+                $agyFailureClass = ''
+                $agyFailureTexts = @()
+                $rawReplyFull = [string]$retryOut.Reply
+                $rawReply = $rawReplyFull.Trim()
+                $engineWarnings.Add("denial notice (the first turn produced nothing; the denial-retry turn answered): $(ConvertTo-OneLine $agyTurn.DenialLine)")
+                foreach ($w in @($retryOut.Warnings)) { $engineWarnings.Add($w) }
+                if (-not $Raw -and $rawReplyFull.Trim()) {
+                    try { Write-TextAtomic -Path $replyJsonPath -Text $rawReplyFull; $replyJsonRel = $replyJsonPlanned } catch { }
+                }
+            } else {
+                $bridgeOutcome += " (denial retry failed: $(ConvertTo-OneLine ($retryOut.Outcome -replace '^failed:\s*', '')))"
+            }
         }
     }
 
@@ -1855,87 +2277,118 @@ try {
         $repairReason = [string]$validationError
         if ($repairReason.Length -gt 200) { $repairReason = $repairReason.Substring(0, 200) }
         # The raw first message, byte for byte (the .reply.json gets the repaired object).
-        $originalRel = "handoffs/$nn-codex-$ReplyName.original.md"
-        $originalFull = Join-Path $handoffsDir "$nn-codex-$ReplyName.original.md"
-        try { [IO.File]::Copy($lastMsgPath, $originalFull, $true) } catch { Write-Utf8NoBom -Path $originalFull -Text $rawReply }
-        $repairEffort = Get-RepairEffort -Identity $identity -EffortPlan $effortPlan
-        $repairArgv = @('exec', '--sandbox', 'read-only', '--color', 'never', '--json')
-        if ($identity.ModelSource -ne 'unknown') { $repairArgv += @('-m', $identity.Model) }
-        $repairArgv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $repairEffort) + '"'))
-        if ($identity.ProviderSource) { $repairArgv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
-        foreach ($ec in $extraConfig) { $repairArgv += @('-c', $ec) }
-        $repairArgv += @('-o', $repairLastPath, 'resume', $threadId, '-')
+        $originalRel = "handoffs/$nn-$enginePrefix-$ReplyName.original.md"
+        $originalFull = Join-Path $handoffsDir "$nn-$enginePrefix-$ReplyName.original.md"
+        if ($isCodex) { try { [IO.File]::Copy($lastMsgPath, $originalFull, $true) } catch { Write-Utf8NoBom -Path $originalFull -Text $rawReply } }
+        else { Write-Utf8NoBom -Path $originalFull -Text $rawReplyFull }
         $repairSchema = ([IO.File]::ReadAllText($schemaPath, $script:Utf8NoBom).Trim() -replace "`r`n", "`n") -replace "`n", $nl
         $repairPrompt = 'Your last message was prose, not the required JSON. Reply with exactly one bare JSON object satisfying the JSON Schema below - no fence, nothing before or after it. Convert, do not re-answer: copy your previous content unchanged (the same Q1..Qn answers verbatim inside reply_markdown, the same findings, the same Requested checks, the same prior-finding statuses and the same verdict); add or omit nothing.' +
             "$nl$nl" + "JSON Schema of the reply:$nl$repairSchema" + "$nl$nl" + "Consultation id: $consultId"
-        Write-Utf8NoBom -Path $repairPromptPath -Text $repairPrompt
         $repairTimeout = [Math]::Min($TimeoutSec, 300)
-        $repairWatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $repairExit = -1
-        $repairProblem = ''
-        $repairProc = $null
-        # The recovery record names the saved prose BEFORE the repair process exists: if
-        # this run is stopped now, the next run (and codex-findings -List) points at it
-        # (Get-PendingOriginalNote). State launching until the repair pid is registered.
-        $originalRepoRel = Get-RepoRelativePath -Root $repoRoot -Path $originalFull
-        if (-not $originalRepoRel) { $originalRepoRel = $originalFull }
-        $pendingRecord | Add-Member -NotePropertyName 'original' -NotePropertyValue $originalRepoRel -Force
-        $pendingRecord | Add-Member -NotePropertyName 'first_reply' -NotePropertyValue 'usable prose (format repair in progress)' -Force
-        $pendingRecord.state = 'launching'
-        $pendingRecord.note = 'format repair turn being started; its pid is not recorded yet'
-        try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
-            $repairProblem = "could not write the recovery record ($(ConvertTo-OneLine $_.Exception.Message)); the repair turn was not started"
-        }
-        if (-not $repairProblem) { try {
-            $repairProc = Start-Process -FilePath $codexExePath -ArgumentList ((($repairArgv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')) `
-                -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
-                -RedirectStandardOutput $repairEventsPath `
-                -RedirectStandardError $repairStderrPath `
-                -RedirectStandardInput $repairPromptPath
-        } catch {
-            $repairProblem = "could not start codex - $(ConvertTo-OneLine $_.Exception.Message)"
-        } }
-        if ($repairProc) {
-            if ($script:LegacyPS) { try { $null = $repairProc.Handle } catch { } }
-            $repairRegistered = $true
-            try {
-                $pendingRecord.state = 'running'
-                $pendingRecord.child_pid = $repairProc.Id
-                $pendingRecord.child_start_time = [string](Get-ProcessStartIso -ProcessId $repairProc.Id)
-                $pendingRecord.note = 'format repair turn'
-                Write-PendingFile -Path $pendingPath -Record $pendingRecord
-            } catch {
-                $repairRegistered = $false
-                $repairProblem = "could not register the repair process ($(ConvertTo-OneLine $_.Exception.Message)); it was stopped"
-                $null = Stop-ProcessTree -Process $repairProc
+        # format_retry.events (F09-2): the repair turn's event stream when one is kept
+        # (agy: handoffs/NN-agy-<slug>.repair.events.jsonl); codex's goes to a temp file that
+        # is removed - null (the codex file layout is unchanged).
+        $repairEventsRel = $null
+        if ($isCodex) {
+            $repairEffort = Get-RepairEffort -Identity $identity -EffortPlan $effortPlan
+            $repairArgv = @('exec', '--sandbox', 'read-only', '--color', 'never', '--json')
+            if ($identity.ModelSource -ne 'unknown') { $repairArgv += @('-m', $identity.Model) }
+            $repairArgv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $repairEffort) + '"'))
+            if ($identity.ProviderSource) { $repairArgv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
+            foreach ($ec in $extraConfig) { $repairArgv += @('-c', $ec) }
+            $repairArgv += @('-o', $repairLastPath, 'resume', $threadId, '-')
+            Write-Utf8NoBom -Path $repairPromptPath -Text $repairPrompt
+            $repairWatch = [System.Diagnostics.Stopwatch]::StartNew()
+            $repairExit = -1
+            $repairProblem = ''
+            $repairProc = $null
+            # The recovery record names the saved prose BEFORE the repair process exists: if
+            # this run is stopped now, the next run (and codex-findings -List) points at it
+            # (Get-PendingOriginalNote). State launching until the repair pid is registered.
+            $originalRepoRel = Get-RepoRelativePath -Root $repoRoot -Path $originalFull
+            if (-not $originalRepoRel) { $originalRepoRel = $originalFull }
+            $pendingRecord | Add-Member -NotePropertyName 'original' -NotePropertyValue $originalRepoRel -Force
+            $pendingRecord | Add-Member -NotePropertyName 'first_reply' -NotePropertyValue 'usable prose (format repair in progress)' -Force
+            $pendingRecord.state = 'launching'
+            $pendingRecord.note = 'format repair turn being started; its pid is not recorded yet'
+            try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
+                $repairProblem = "could not write the recovery record ($(ConvertTo-OneLine $_.Exception.Message)); the repair turn was not started"
             }
-            if ($repairRegistered) {
-                if (-not $repairProc.WaitForExit($repairTimeout * 1000)) {
-                    $repairSurvivors = Stop-ProcessTree -Process $repairProc   # [int[]]; never wrap in @()
-                    $repairProblem = "timeout after $repairTimeout s (process tree killed)"
-                    if ($repairSurvivors.Count -gt 0) {
-                        $repairProblem = "timeout after $repairTimeout s (process tree killed; $($repairSurvivors.Count) processes survived: pid $($repairSurvivors -join ', '))"
-                        $keepPending = $true
-                        try {
-                            $pendingRecord.state = 'survivors'
-                            $pendingRecord.survivors = [object[]]@(New-SurvivorEntries -Pids $repairSurvivors)
-                            Write-PendingFile -Path $pendingPath -Record $pendingRecord
-                        } catch { }
+            if (-not $repairProblem) { try {
+                $repairProc = Start-Process -FilePath $codexExePath -ArgumentList ((($repairArgv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')) `
+                    -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
+                    -RedirectStandardOutput $repairEventsPath `
+                    -RedirectStandardError $repairStderrPath `
+                    -RedirectStandardInput $repairPromptPath
+            } catch {
+                $repairProblem = "could not start codex - $(ConvertTo-OneLine $_.Exception.Message)"
+            } }
+            if ($repairProc) {
+                if ($script:LegacyPS) { try { $null = $repairProc.Handle } catch { } }
+                $repairRegistered = $true
+                try {
+                    $pendingRecord.state = 'running'
+                    $pendingRecord.child_pid = $repairProc.Id
+                    $pendingRecord.child_start_time = [string](Get-ProcessStartIso -ProcessId $repairProc.Id)
+                    $pendingRecord.note = 'format repair turn'
+                    Write-PendingFile -Path $pendingPath -Record $pendingRecord
+                } catch {
+                    $repairRegistered = $false
+                    $repairProblem = "could not register the repair process ($(ConvertTo-OneLine $_.Exception.Message)); it was stopped"
+                    $null = Stop-ProcessTree -Process $repairProc
+                }
+                if ($repairRegistered) {
+                    if (-not $repairProc.WaitForExit($repairTimeout * 1000)) {
+                        $repairSurvivors = Stop-ProcessTree -Process $repairProc   # [int[]]; never wrap in @()
+                        $repairProblem = "timeout after $repairTimeout s (process tree killed)"
+                        if ($repairSurvivors.Count -gt 0) {
+                            $repairProblem = "timeout after $repairTimeout s (process tree killed; $($repairSurvivors.Count) processes survived: pid $($repairSurvivors -join ', '))"
+                            $keepPending = $true
+                            try {
+                                $pendingRecord.state = 'survivors'
+                                $pendingRecord.survivors = [object[]]@(New-SurvivorEntries -Pids $repairSurvivors)
+                                Write-PendingFile -Path $pendingPath -Record $pendingRecord
+                            } catch { }
+                        }
+                    } else {
+                        $repairExit = $repairProc.ExitCode
                     }
-                } else {
-                    $repairExit = $repairProc.ExitCode
                 }
             }
+            $repairWatch.Stop()
+            $repairWall = [math]::Round($repairWatch.Elapsed.TotalSeconds, 1)
+            $repairThread = ''
+            try { $repairThread = Get-ThreadIdFromEvents -Path $repairEventsPath } catch { $repairThread = '' }
+            $repairUsage = $null
+            try { $repairUsage = Get-UsageFromEvents -Path $repairEventsPath } catch { $repairUsage = $null }
+            $repairRaw = (Read-SharedText -Path $repairLastPath).Trim()
+            if (-not $repairProblem -and $repairExit -ne 0) { $repairProblem = "codex exit $repairExit" }
+            if (-not $repairProblem -and -not $repairRaw) { $repairProblem = 'empty reply' }
+        } else {
+            # agy: the same repair prompt on the same conversation (--conversation), with the
+            # schema natively; the turn must come back on THAT conversation (A12) - a repair
+            # in a fresh conversation has no "last message" to convert and would invent one.
+            $originalRepoRel = Get-RepoRelativePath -Root $repoRoot -Path $originalFull
+            if (-not $originalRepoRel) { $originalRepoRel = $originalFull }
+            $pendingRecord | Add-Member -NotePropertyName 'original' -NotePropertyValue $originalRepoRel -Force
+            $pendingRecord | Add-Member -NotePropertyName 'first_reply' -NotePropertyValue 'usable prose (format repair in progress)' -Force
+            $repairArgv = & $engineSpec.Adapter.Argv -Model $identity.Model -Schema $schemaPath -Thread $threadId -NativeEffort $NativeEffort
+            $repairEventsName = "$nn-$enginePrefix-$ReplyName.repair.events.jsonl"
+            $repairEngineEvents = Join-Path $handoffsDir $repairEventsName
+            $extraEvents.Add("handoffs/$repairEventsName")
+            $repairTurn = Invoke-EngineTurn -Argv $repairArgv -StdinText (& $engineSpec.Adapter.Stdin -Prompt $repairPrompt) -EventsPath $repairEngineEvents -StdinPath $repairPromptPath -StderrPath $repairStderrPath -Timeout $repairTimeout -Note 'format repair turn'
+            if ($repairTurn.KeepPending) { $keepPending = $true }
+            $repairWall = $repairTurn.Wall
+            $repairEv = Read-AgyEvents -Path $repairEngineEvents -AllowPartialLast:([bool]($repairTurn.Problem -or $repairTurn.Exit -ne 0))
+            if (Test-Path -LiteralPath $repairEngineEvents -PathType Leaf) { $repairEventsRel = "handoffs/$repairEventsName" }
+            $repairOut = Get-AgyTurnOutcome -Events $repairEv -ExitCode $repairTurn.Exit -StderrText $repairTurn.Stderr -Pre $(if ($repairTurn.Problem) { "failed: $($repairTurn.Problem)" } else { '' }) -ExpectThread $threadId
+            $repairThread = [string]$repairEv.Thread
+            $repairUsage = $repairEv.Usage
+            $repairRawFull = [string]$repairOut.Reply
+            $repairRaw = $repairRawFull.Trim()
+            $repairProblem = ''
+            if (-not $repairOut.Ok) { $repairProblem = ($repairOut.Outcome -replace '^failed:\s*', '') }
         }
-        $repairWatch.Stop()
-        $repairWall = [math]::Round($repairWatch.Elapsed.TotalSeconds, 1)
-        $repairThread = ''
-        try { $repairThread = Get-ThreadIdFromEvents -Path $repairEventsPath } catch { $repairThread = '' }
-        $repairUsage = $null
-        try { $repairUsage = Get-UsageFromEvents -Path $repairEventsPath } catch { $repairUsage = $null }
-        $repairRaw = (Read-SharedText -Path $repairLastPath).Trim()
-        if (-not $repairProblem -and $repairExit -ne 0) { $repairProblem = "codex exit $repairExit" }
-        if (-not $repairProblem -and -not $repairRaw) { $repairProblem = 'empty reply' }
         $repairParse = $null
         if (-not $repairProblem) {
             try {
@@ -1947,14 +2400,15 @@ try {
             }
         }
         $drift = New-Object System.Collections.Generic.List[string]
-        if ($repairThread -and $repairThread -ne $threadId) { $drift.Add('repair returned a different thread id') }
+        if ($isCodex -and $repairThread -and $repairThread -ne $threadId) { $drift.Add('repair returned a different thread id') }
         if (-not $repairProblem) {
             $repairedOk = $true
             $parse = $repairParse
             $validationError = $parse.ValidationError
             foreach ($d in (Get-FormatRepairDrift -Prose $originalProse -Reply $parse.Reply)) { $drift.Add($d) }
             # The .reply.json holds the repaired object, byte for byte.
-            try { [IO.File]::Copy($repairLastPath, $replyJsonPath, $true); $replyJsonRel = $replyJsonPlanned } catch { }
+            if ($isCodex) { try { [IO.File]::Copy($repairLastPath, $replyJsonPath, $true); $replyJsonRel = $replyJsonPlanned } catch { } }
+            else { try { Write-TextAtomic -Path $replyJsonPath -Text $repairRawFull; $replyJsonRel = $replyJsonPlanned } catch { } }
         } else {
             $validationError = "$validationError (format repair failed: $(ConvertTo-OneLine $repairProblem))"
         }
@@ -1967,8 +2421,29 @@ try {
             usage        = $repairUsage
             drift        = [object[]]$drift.ToArray()
             original     = $originalRel
+            events       = $repairEventsRel
         }
         $repairConsole = "format repair: $(if ($repairedOk) { 'succeeded' } else { 'failed' }) in $repairWall s; drift: $($drift.Count) note(s)"
+    }
+
+    # agy: a denial-retry or format-repair turn may have written too - the read-only check
+    # again over the whole run (A17); a run that changed anything ingests nothing.
+    if (-not $isCodex -and $extraEvents.Count -gt 0 -and -not $treeProblem) {
+        $revAfter = Get-RevisionInfo -Root $repoRoot -CollabRoot $collabRoot
+        $treeChanged = ($revBefore.tree_sha256 -ne $revAfter.tree_sha256)
+        if ($briefPath) { $briefShaAfter = Get-FileSha256OrMissing -Path $briefPath }
+        $briefChanged = ($briefSha -ne $briefShaAfter)
+        $artifactsFinal = @($artifactHashes | ForEach-Object { [pscustomobject]@{ path = $_.path; sha256 = $_.sha256; sha256_after = (Get-FileSha256OrMissing -Path $_.full) } })
+        $changedArtifacts = @($artifactsFinal | Where-Object { $_.sha256 -ne $_.sha256_after } | ForEach-Object { $_.path })
+        $artifactsChanged = ($changedArtifacts.Count -gt 0)
+        $treeProblem = Get-EngineTreeProblem -RevBefore $revBefore -RevAfter $revAfter -BriefChanged $briefChanged -ChangedArtifacts $changedArtifacts -CollabBefore $collabBefore -CollabAfter (Get-CollabSnapshot -Dir $collabRoot) -OwnPrefixes $ownPrefixes -Engine $engineName -CollabShown $collabShown
+        if ($treeProblem -and $bridgeOutcome -eq 'usable reply') {
+            $bridgeOutcome = "failed: $treeProblem"
+            $agyFailureClass = 'permission'
+            $agyFailureTexts = @($treeProblem)
+            # the reply stays named (reply json, handoff), nothing of it is ingested
+            $parse = $null
+        }
     }
 
     if ($parse -and $parse.Valid) {
@@ -2000,10 +2475,14 @@ try {
     # `data:{"error":...}` line, the event-stream error, stderr - or the bridge's own reason.
     # Later preflights read it back per endpoint (Get-EndpointHealth).
     $providerFailure = $null
-    if ($bridgeOutcome -ne 'usable reply') {
+    if ($bridgeOutcome -ne 'usable reply' -and $isCodex) {
         $sseLines = @(($stderrText -split "`r?`n") | Where-Object { $_ -match '^\s*data:\s*\{' })
         $stderrTail = (($stderrText.Trim() -split "`r?`n") | Select-Object -Last 1)
         $providerFailure = New-ProviderFailure -Texts @(($sseLines | Select-Object -Last 1), $eventError, $stderrTail, ($bridgeOutcome -replace '^failed:\s*', ''))
+    } elseif ($bridgeOutcome -ne 'usable reply') {
+        # agy: the result's error, the telling stderr line, the bridge's reason - and the class
+        # the turn rules force (permission, transport, unknown), else the classifier's.
+        $providerFailure = New-ProviderFailure -Texts @(@($agyFailureTexts) + @(($bridgeOutcome -replace '^failed:\s*', ''))) -Class $agyFailureClass
     }
 
     # ------------------------------------------------------------------------- 2. reply file
@@ -2014,7 +2493,8 @@ try {
     $resultThread = '(unknown)'
     if ($threadId) { $resultThread = "``$threadId``" }
     $threadSourceText = $threadSource
-    if ($threadCandidate) { $threadSourceText += "; unverified rollout candidate ``$threadCandidate`` did not contain this run's consultation id - not used as a thread or a parent" }
+    if ($threadCandidate -and $isCodex) { $threadSourceText += "; unverified rollout candidate ``$threadCandidate`` did not contain this run's consultation id - not used as a thread or a parent" }
+    elseif ($threadCandidate) { $threadSourceText += "; conversation ``$threadCandidate`` is not a verified thread of this run - never a parent" }
     $briefLine = 'Brief: (none, prompt only).'
     if ($briefRef) { $briefLine = "Brief: ``$briefRef`` (sha256 $(Format-ShortHash $briefSha))." }
     $treeText = 'tree sha256 none (no git)'
@@ -2032,22 +2512,28 @@ try {
     if ($structured) { $verdictWarning = Format-VerdictWarning -Parse $parse }
 
     $headerLines = New-Object System.Collections.Generic.List[string]
-    $headerLines.Add("# Handoff $nn - Codex: $ReplyName")
+    $headerLines.Add("# Handoff $nn - $($engineSpec.Label): $ReplyName")
     $headerLines.Add('')
-    $headerLines.Add("Date: $($startedAt.ToString('yyyy-MM-dd HH:mm', $script:Invariant)) local. Author: Codex (model $modelLabel, effort $effortSent), Codex CLI $codexVersionShort.")
+    if ($isCodex) { $headerLines.Add("Date: $($startedAt.ToString('yyyy-MM-dd HH:mm', $script:Invariant)) local. Author: Codex (model $modelLabel, effort $effortSent), Codex CLI $codexVersionShort.") }
+    else { $headerLines.Add("Date: $($startedAt.ToString('yyyy-MM-dd HH:mm', $script:Invariant)) local. Author: $($engineSpec.Label) (model $modelLabel, effort $(if ($null -eq $effortSent) { 'tier in the model id' } else { "$effortSent (-NativeEffort)" })), $harness.") }
     $headerLines.Add($reviewerLine)
     $preflightLine = "Preflight: $preflight."
     if ($preflightWarning) { $preflightLine += " WARNING: $preflightWarning." }
     $headerLines.Add($preflightLine)
     if ($rosterLine) { $headerLines.Add("$rosterLine.") }
-    $headerLines.Add("Effort: $effortSent sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis); not confirmed by the provider). Consultation id: $consultId.")
+    $headerLines.Add("Effort: $(if ($null -eq $effortSent) { 'nothing' } else { $effortSent }) sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis); not confirmed by the provider). Consultation id: $consultId.")
     if ($peakWarning) { $headerLines.Add(($peakWarning -replace 'this consultation runs at', 'this consultation ran at')) }
     if ($recoveredLine) { $headerLines.Add("Recovery record: $recoveredLine") }
-    $headerLines.Add("Invocation: ``codex-consult.ps1`` (mode: $Mode, sandbox: $Sandbox, purpose: $purposeLabel). Argv: ``$commandStr`` (prompt on stdin).")
+    $headerLines.Add("Invocation: ``codex-consult.ps1`` (mode: $Mode, sandbox: $sandboxRecord, purpose: $purposeLabel). Argv: ``$commandStr`` (prompt on stdin$(if (-not $isCodex) { ' as one NDJSON line' })).")
     $headerLines.Add("$parentLine Result thread: $resultThread (source: $threadSourceText).")
     $headerLines.Add("$briefLine $reviewedLine")
     foreach ($d in $driftLines) { $headerLines.Add($d) }
     $headerLines.Add("Bridge outcome: $bridgeOutcome. Wall time: $wallSeconds s. Tokens: $(Format-Usage $usage).")
+    if ($engineWarnings.Count -gt 0) { $headerLines.Add("Warnings: $(($engineWarnings.ToArray() | ForEach-Object { ConvertTo-OneLine $_ }) -join '; ').") }
+    if ($denialRetryRecord) {
+        if ($denialRetryRecord.succeeded) { $headerLines.Add("Denial retry: succeeded in $($denialRetryRecord.wall_seconds) s - the first turn produced nothing (a tool was auto-denied); one more turn on conversation ``$threadId`` answered without it. Tokens of that turn: $(Format-Usage $denialRetryRecord.usage).") }
+        else { $headerLines.Add("Denial retry: failed in $($denialRetryRecord.wall_seconds) s - the first turn produced nothing (a tool was auto-denied) and the retry turn on conversation ``$threadId`` did not produce a usable reply.") }
+    }
     if ($providerFailure) {
         $codeText = ''
         if ($providerFailure.code) { $codeText = " ($($providerFailure.code))" }
@@ -2070,7 +2556,9 @@ try {
             $headerLines.Add("Format repair: failed in $($formatRetryRecord.wall_seconds) s - the first reply was prose ($(ConvertTo-OneLine $formatRetryRecord.reason)) and the repair turn did not produce a valid object; the prose is kept below (also ``$($formatRetryRecord.original)``).")
         }
     }
-    $headerLines.Add("Raw event stream: ``$eventsRel``.")
+    $furtherTurns = ''
+    if ($extraEvents.Count -gt 0) { $furtherTurns = '; further turns: ' + (($extraEvents.ToArray() | ForEach-Object { '`' + $_ + '`' }) -join ', ') }
+    $headerLines.Add("Raw event stream: ``$eventsRel``$furtherTurns.")
     $headerLines.Add('Verbatim reply follows.')
     $headerLines.Add('')
     $headerLines.Add('---')
@@ -2081,7 +2569,7 @@ try {
     if (-not $rawReply) {
         $body = "_(no reply captured)_"
         if ($eventError) {
-            $body += "`n`nCodex reported: $eventError"
+            $body += "`n`n$($engineSpec.Label) reported: $eventError"
         }
         if ($stderrText.Trim()) {
             $body += "`n`n```````n" + $stderrText.Trim() + "`n``````"
@@ -2090,7 +2578,7 @@ try {
         $body = '_(empty reply_markdown)_'
     }
     $section = ''
-    if ($structured) { $section = Format-StructuredSection -Parse $parse -Ingest $ingest }
+    if ($structured) { $section = Format-StructuredSection -Parse $parse -Ingest $ingest -ReviewerLabel $engineSpec.Label }
     $replyText = $header + "`n" + ($body -replace "`r`n", "`n") + "`n"
     if ($section) { $replyText += "`n---`n`n" + ($section -replace "`r`n", "`n") + "`n" }
     if ($repairedOk) { $replyText += "`n---`n`n## Original reply (prose, before format repair)`n`n" + ($originalProse -replace "`r`n", "`n") + "`n" }
@@ -2136,7 +2624,7 @@ try {
         effort_caps                     = $effortPlan.Caps
         effort_confirmed                = $null
         max_words                       = $maxWordsResolved
-        sandbox                         = $Sandbox
+        sandbox                         = $sandboxRecord
         extra_config                    = [object[]]$extraConfig.ToArray()
         extra_config_source             = $extraConfigSource
         peak                            = $peak.Peak
@@ -2149,6 +2637,7 @@ try {
         schema_transport_source         = $schemaTransportSource
         validation_error                = $validationError
         format_retry                    = $formatRetryRecord
+        denial_retry                    = $denialRetryRecord
         base_commit                     = $revBefore.base_commit
         reviewed_revision               = $revBefore.reviewed_revision
         tree_sha256                     = $revBefore.tree_sha256
@@ -2163,6 +2652,7 @@ try {
         artifacts_changed_during_review = $artifactsChanged
         bridge_outcome                  = $bridgeOutcome
         provider_failure                = $providerFailure
+        warnings                        = [object[]]$engineWarnings.ToArray()
         verdict                         = $verdict
         verdict_reason                  = $verdictReason
         findings                        = [pscustomobject]@{ blocker = $counts.blocker; major = $counts.major; minor = $counts.minor; note = $counts.note }
@@ -2184,9 +2674,9 @@ try {
     $pendingNote = ''
     if ($keepPending) {
         # The ledger now holds this run's entry: the saved prose is no longer orphaned.
-        if ($pendingRecord -and $pendingRecord.PSObject.Properties['original'] -and $pendingRecord.original) {
-            $pendingRecord.original = ''
-            $pendingRecord.first_reply = ''
+        if ($pendingRecord -and (($pendingRecord.PSObject.Properties['original'] -and $pendingRecord.original) -or ($pendingRecord.PSObject.Properties['events'] -and $pendingRecord.events))) {
+            if ($pendingRecord.PSObject.Properties['original']) { $pendingRecord.original = ''; $pendingRecord.first_reply = '' }
+            $pendingRecord.events = ''
             try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
         }
         $pendingNote = "recovery record kept: $pendingPath (state '$($pendingRecord.state)')"
@@ -2204,19 +2694,22 @@ try {
         Write-Host "reply file : $replyPath"
         if ($replyJsonRel) { Write-Host "reply json : $replyJsonPath" }
         Write-Host "events file: $eventsPath"
+        foreach ($w in $engineWarnings) { Write-Host "warning    : $w" -ForegroundColor Yellow }
         if ($stderrText.Trim()) {
-            Write-Host "--- codex stderr (tail) ---"
+            Write-Host "--- $engineCmd stderr (tail) ---"
             Write-Host (($stderrText.Trim() -split "`r?`n" | Select-Object -Last 20) -join "`n")
         }
         exit 1
     }
 
-    Write-Host "codex-consult: $bridgeOutcome - $lineage, mode $Mode, thread $threadId (source: $threadSource), wall $wallSeconds s"
+    Write-Host "codex-consult: $bridgeOutcome - $lineageShown, mode $Mode, thread $threadId (source: $threadSource), wall $wallSeconds s"
+    foreach ($w in $engineWarnings) { Write-Host "warning    : $w" -ForegroundColor Yellow }
+    if ($denialRetryRecord) { Write-Host "denial retry: $(if ($denialRetryRecord.succeeded) { 'succeeded' } else { 'failed' }) in $($denialRetryRecord.wall_seconds) s" -ForegroundColor Yellow }
     if ($repairConsole) {
         Write-Host $repairConsole -ForegroundColor $(if ($repairedOk -and @($formatRetryRecord.drift).Count -eq 0) { 'Gray' } else { 'Yellow' })
         foreach ($dn in @($formatRetryRecord.drift)) { Write-Host "  drift: $dn" -ForegroundColor Yellow }
     }
-    if ($threadCandidate) { Write-Host "thread     : unknown - rollout candidate $threadCandidate did not contain consultation id $consultId (not used as a thread or a parent)" -ForegroundColor Yellow }
+    if ($threadCandidate -and $isCodex) { Write-Host "thread     : unknown - rollout candidate $threadCandidate did not contain consultation id $consultId (not used as a thread or a parent)" -ForegroundColor Yellow }
     if (-not $identity.Resolved) { Write-Host "reviewer   : identity unresolved ($($identity.Note)); this thread is never a parent" -ForegroundColor Yellow }
     if ($peakWarning) { Write-Host $peakWarning -ForegroundColor Yellow }
     if ($parse) {
@@ -2252,7 +2745,7 @@ try {
     }
     exit 0
 } finally {
-    foreach ($tmp in @($promptPath, $stderrPath, $repairLastPath, $repairEventsPath, $repairStderrPath, $repairPromptPath)) {
+    foreach ($tmp in @($promptPath, $stderrPath, $repairLastPath, $repairEventsPath, $repairStderrPath, $repairPromptPath, $denialPromptPath, $denialStderrPath)) {
         if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
     }
     if (-not $keepLastMsg -and (Test-Path -LiteralPath $lastMsgPath)) {

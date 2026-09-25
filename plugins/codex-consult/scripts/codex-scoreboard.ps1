@@ -10,8 +10,10 @@
     be read is reported and left out. Exit 0.
 
     Row key
-      REVIEWER   '<provider> :: <model>' of the consultation (its ledger reviewer);
-                 'unknown provenance' for entries recorded before 0.3.0 (no reviewer)
+      REVIEWER   '<provider> :: <model>' of the consultation (its ledger reviewer), with
+                 ' [<engine>]' appended for an engine other than codex (0.4.0, e.g.
+                 'gemini :: gemini-3.8-flash-high [agy]'; an absent reviewer.engine is
+                 codex); 'unknown provenance' for entries recorded before 0.3.0 (no reviewer)
       PURPOSE    the consultation's purpose, '(none)' without one; '(total)' on a
                  lineage's total row; the grand total row is '(all) (total)'
     Columns (JSON field in brackets)
@@ -119,7 +121,7 @@ foreach ($dir in $taskDirs) {
         if ($null -eq $c) { continue }
         $rev = Get-PropertyValue $c 'reviewer' $null
         $lineage = 'unknown provenance'
-        if ($null -ne $rev) { $lineage = Format-Lineage -Provider ([string](Get-PropertyValue $rev 'provider' '')) -Model ([string](Get-PropertyValue $rev 'model' '')) }
+        if ($null -ne $rev) { $lineage = Format-ReviewerLineage -Provider ([string](Get-PropertyValue $rev 'provider' '')) -Model ([string](Get-PropertyValue $rev 'model' '')) -Engine ([string](Get-PropertyValue $rev 'engine' '')) }
         $purpose = [string](Get-PropertyValue $c 'purpose' '')
         if (-not $purpose) { $purpose = '(none)' }
         $acc = Get-Acc $lineage $purpose

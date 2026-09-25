@@ -6,6 +6,143 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - candidate (not tagged)
+
+Implements ROADMAP R10 (engines) with its first engine besides Codex, `agy` (Google's
+Antigravity CLI for the Gemini models), per the design round recorded in
+`.collab/engines-0.4-2026-09-25/` (`handoffs/01` the design D1-D12 and facts F1-F10,
+`handoffs/02`/`04`/`05` the panel's and Gemini's reviews, `handoffs/06` the judge's
+amendments A1-A20 and the facts F11/F12).
+
+### Added
+
+- **Wave 17 — the `agy` engine (R10).**
+  - An engine table (`$script:Engines` in `codex-consult-common.ps1`): one row per CLI with
+    its launcher names, handoff prefix, modes, sandboxes, schema transports, caps-v1 host and
+    adapter functions (argv, stdin, event parser, turn rules, credential check). `codex`
+    stays the default and its path is unchanged; the next engine (`claude`) is one more row.
+  - Roster field `engine` (`codex` | `agy`): for agy the provider is a free label, the
+    model is required, `codex_config` and `auth` are refused, one label names one engine;
+    the entries carry it through the walk, `-Provider`, `-Thread` and `-Panel`
+    (`roster.skipped[].engine`, `roster.applied` `engine`).
+  - Bridge parameters `-Engine codex|agy` (default: the roster entry's, the thread's, else
+    codex; with a roster it filters the walk and the panel), `-EngineExe` /
+    `CODEX_CONSULT_AGY_EXE`, `-DenialRetry 0|1`. Refused for agy with one message each:
+    `-Mode fork`, `-Sandbox workspace-write`, `-CodexConfig`, `-SchemaTransport
+    output-schema`.
+  - Invocation `agy -p= --input-format stream-json --output-format stream-json --model <m>
+    [--json-schema <schema>] --print-timeout 0 --sandbox --disable-slash-commands
+    [--conversation <thread>] [--effort <v>]` from the repository root, the prompt as ONE
+    NDJSON line on stdin (UTF-8, no BOM), plus a prompt line that forbids commands and file
+    changes. Default mode `new`; `-Mode resume` / `-Thread` resume a conversation.
+  - Identity: provider = the label, fingerprint SHA-256 of `cc-engine-v1|agy`,
+    `provider_config {engine, launcher}`, harness `agy-cli <version>`; caps-v1 entry
+    `engine:agy` (effort mapping `model-tier`, nothing sent; schema transport `native`).
+  - The reply is the single `result` event's `structured_output`, extracted to
+    `handoffs/NN-agy-<slug>.reply.json` before validation; a `response` text alone goes
+    through the prose gate and the format repair on `--conversation`. Usage maps
+    `cache_read_tokens` and `thinking_tokens`.
+  - Failure rules: exit != 0, a malformed stream (not exactly one result), no result, init
+    and result ids that differ, `status` != `SUCCESS`, on resume the not-found warning or
+    another id (the new conversation is never a parent), a non-uuid id, partial output, an
+    empty reply; the same id checks on a repair or retry turn.
+  - F11: a turn that ends empty because a tool was auto-denied fails with the new class
+    `permission`; with `-DenialRetry 1` ONE more turn on the same conversation tells the
+    model not to call it again (ledger `denial_retry`, after `format_retry`).
+  - F12: agy's `--sandbox` does not block writes, so an agy run whose working tree, brief,
+    artifacts or task handoffs changed FAILS (class `permission`; the reply kept, nothing
+    ingested; ledger `sandbox` says how read-only is enforced).
+  - Preflight: `agy models` (15 s, cached per listing) as the sign-in check;
+    `codex-providers.ps1` lists one engine row per agy roster label (JSON rows gain
+    `engine`) and has `-NoNetwork`, which the SessionStart hook now uses (`gemini not
+    checked (launcher present)`); endpoint health by the engine's fingerprint.
+  - Scoreboards: `codex-scoreboard.ps1`, `codex-findings.ps1 -Stats`/`-Rate`, the panel
+    summary and the roster lines show an agy lineage as `<label> :: <model> [agy]`.
+  - `tests/harness-engines.ps1` (81 assertions, Windows PowerShell 5.1 and pwsh) with
+    `tests/fake-agy.cmd` / `fake-agy.ps1`; `run-all.ps1` runs it.
+- **Wave 18 — fixes after the wave-17 diff-review panel** (GLM `F09-1..3`, MiMo `F10-1..3`,
+  the judge's F13).
+  - Tree check scope (F09-1, F10-1): an agy turn now snapshots the WHOLE collab directory
+    (every file under `-CollabDir`, recursively - every task's `findings.json` /
+    `sessions.json` / `state.md` and handoffs; `.consult.*` files and the run's own
+    `NN-agy-<slug>.*` files excepted) instead of the task's handoffs only, and fails a run
+    that changed anything there. Gitignored paths, submodules and files outside the
+    repository stay unmonitored and are documented as such: "enforced by evidence for
+    tracked and untracked files and the collab directory; not for gitignored paths,
+    submodules or files outside the repository" (README "Engines", the ledger `sandbox`
+    text, the skills; TECH_DEBT T8).
+  - Retry event streams in the ledger (F09-2): `denial_retry` and `format_retry` gain
+    `events`, the handoffs-relative path of that turn's event stream (`null` when no turn
+    ran; `null` for a codex format repair, whose stream stays a temp file).
+  - Wording (F09-3): `failed: the working tree changed during the run (by the reviewer or
+    anyone else): <n> files: ...` and `the collab directory changed during the run (by the
+    reviewer or anyone else): <n> files: .collab/...` (the brief and the artifacts likewise);
+    the README keeps "do not edit during an agy run" and adds "run no other consultation
+    here".
+  - Trailing garbage (F10-2): `Read-AgyEvents -AllowPartialLast`; the last line counts as a
+    partial line only when the bridge killed the process or it exited non-zero - after
+    exit 0 a malformed last line fails the run (class `transport`).
+  - Non-unique label (F10-3): `-Provider <label>` without `-Model` on a roster with several
+    entries of that label still takes the first entry (the 0.3.0 rule) but warns on the
+    console and in `warnings[]`: `roster: label gemini names 2 entries; the first (gemini ::
+    gemini-3.8-flash-high [agy]) is used - pass -Model for another`.
+  - Sign-in timing (F13): the `agy models` timeout is 45 s (was 15 s; live it took 1.7 s,
+    7.7 s, 13.8 s and once more than 15 s, which refused a real run) in the preflight and
+    `codex-providers.ps1`; test hook `CODEX_CONSULT_TEST_LOGIN_TIMEOUT`. And a ledger
+    short-circuit: a usable reply on the agy endpoint in THIS repository's ledgers within
+    the last 60 minutes (consult clock) makes the credential `ok: signed in (usable reply
+    <m> min ago)` without running `agy models` (preflight, listing, hook); the endpoint
+    health's auth and quota rules stay in front of it.
+  - `harness-engines.ps1` 95 assertions (+14: the collab snapshot, another task and a task
+    store written, the gitignored blind spot and the README sentence, the retry streams,
+    trailing garbage on exit 0 and after a kill, the label warning, the sign-in
+    short-circuit at 5 and 61 minutes, auth / quota still refusing, the hanging `agy
+    models`); `harness-format`'s `format_retry` field assertion includes `events` (`null`
+    for codex).
+- **Live evidence** (the judge's runs through the bridge, task `engines-0.4-2026-09-25`):
+  - first run n=3 (`gemini-3.8-flash-low`, checkpoint): 118 s, a structured first turn;
+  - panel `2d8d5f25` n=4-6: ZAI ACCEPT, mimo HOLD, `gemini-3.8-flash-high [agy]` ACCEPT
+    (605 s, usage 1.6M input / 5.9M cached tokens);
+  - resume n=7: the same conversation id, and the model quoted the previous consultation
+    id;
+  - denial check n=8 (gemini-3.8-flash-low asked to run `git --version`): the prompt's tools
+    line held - the model refused the command and filed it as a requested check (RC1), so
+    the F11 path did not fire live; the denial retry stays verified by the harness and by
+    the round-1 manual turn (handoff 04).
+
+### Changed
+
+- Ledger: `reviewer.engine` (written as `codex` for codex runs; an absent field reads as
+  codex), `denial_retry` after `format_retry`, `warnings[]` after `provider_failure` - for
+  every engine (`null` / `[]` for codex). `harness-0.3`'s field-order assertion and
+  `harness-format`'s `format_retry` position assertion were updated to the new order.
+- The recovery record gains `engine` and `events` (the running turn's event stream, for
+  both engines); every message about an interrupted run's reservation names it: "the raw
+  event stream of that run is at <path> (it may hold a usable reply); no ledger entry was
+  written". The process rule also matches the recorded launcher's file name (`agy.exe`).
+- Failure classes: `permission` first; Google's codes and wordings added to capability
+  (`INVALID_ARGUMENT`, `invalid model selection`, `conflicts with --effort`), auth
+  (`PERMISSION_DENIED`, `UNAUTHENTICATED`, `not signed in`, `login required`, `sign in
+  to`), quota (`RESOURCE_EXHAUSTED`, `rate_limit_exceeded`) and transport (`UNAVAILABLE`,
+  `DEADLINE_EXCEEDED`). `Get-RetryAfter` reads `retry in 32s`, `retry in 1m5.3s`, `retry in
+  90 seconds` and gRPC `retryDelay` (`{"seconds":N}` or `"32s"`, also from an error
+  payload's details).
+- Handoff names, the handoff header (`# Handoff NN - Gemini (agy): <slug>`), the ledger
+  `command` (`agy ...`), the pending-record notes and the `.original.md` of a format repair
+  take the engine's prefix and label instead of a literal `codex`.
+
+### Known limitations
+
+- TECH_DEBT T7: an agy lineage binds engine + label + model, not the signed-in Google
+  account (nothing local exposes it).
+- TECH_DEBT T8: agy's read-only rule is enforced by evidence (the tree check), which does
+  not see gitignored paths, submodules or files outside the repository and cannot tell who
+  changed a file.
+- agy has no version flag; `reviewer.harness` is `agy-cli (version unknown)` unless the
+  launcher's file metadata names one.
+- The harness runs against the fake only; the live runs are listed under "Live evidence"
+  above (the F11 denial retry has not fired live through the bridge yet).
+
 ## [0.3.0] - 2026-09-24
 
 Implements ROADMAP R7 (provider support with reviewer lineages) and ships R8 as a

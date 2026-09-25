@@ -73,3 +73,26 @@ seven-wave task with three consultations. Ordered by the damage they did.
   an entry. Not fixable after the fact without guessing; the residual only shrinks as old
   entries age out. Fix (not planned): none — flagged so a future investigation of a
   seemingly-wrong `retry_after` on an old entry checks this before assuming a bug.
+- **T7 — An agy lineage binds engine + label + model, not the signed-in account.** (0.4.0,
+  wave 17; MiMo's F05-3 in the engine design round, recorded as wontfix for now.) The agy
+  engine's provider fingerprint is the SHA-256 of `cc-engine-v1|agy`: it proves the engine,
+  not which Google account the CLI is signed in to, because nothing local exposes that
+  account (the credentials live in the OS keyring, `agy` has no `auth status`). A user who
+  switches accounts between two consultations can therefore resume a conversation of the
+  same label and model under another account - agy itself then answers "conversation not
+  found" (the bridge fails such a resume closed), but health records and the scoreboard
+  still pool both accounts under one lineage. Fix (not designed): bind a stable account
+  subject into the fingerprint once agy exposes one locally, and refuse a resume when it
+  changed.
+- **T8 — agy's read-only rule is enforced by evidence, and the evidence has a scope.** (0.4.0,
+  wave 18; GLM's F09-1 and MiMo's F10-1 on the wave-17 diff.) agy's `--sandbox` does not block
+  writes (F12), so the bridge compares, before and after every agy turn, the git status
+  manifest (tracked and untracked files), every file under the collab directory, the brief
+  and the artifacts, and fails a run that changed any of them. A write to a gitignored path,
+  inside a submodule or outside the repository is not seen (the manifest lists no ignored
+  files and does not recurse submodules; nothing outside the repository is snapshotted). The
+  check cannot attribute a change either, so an edit by the coordinator or another
+  consultation of the repository during the run fails a valid reply (documented: do not edit
+  or consult in parallel while an agy run is in flight). Fix (not designed): an OS-level
+  sandbox for the agy process (a restricted token or a read-only mount) - the only way to
+  block rather than detect, and to cover ignored and external paths.

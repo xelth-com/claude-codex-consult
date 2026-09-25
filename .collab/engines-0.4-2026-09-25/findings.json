@@ -3,7 +3,7 @@
     "findings":  [
                      {
                          "id":  "F02-1",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -48,15 +48,80 @@
                                              "evidence":  "",
                                              "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
                                              "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T13:51:15+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A12: resume fails on the not-found warning, a missing result id or an id mismatch; the same after repair/denial turns",
+                                             "evidence":  "wave 17 (handoff 06 amendments): tests/harness-engines.ps1 81/81 on 5.1 and pwsh; existing harnesses unchanged (227/113/37/26/45/11/12); first live agy run n=3 exit 0",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T14:28:43+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "confirmed fixed by its author (ZAI, panel 2d8d5f25, n=4) from the code; the residual of F02-3 is F09-1",
+                                             "evidence":  "handoffs/09-codex-wave17-review-zai.md prior findings; ZAI ran Read-AgyEvents/Get-AgyTurnOutcome on the real streams of handoffs 04 and 07",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-25T13:50:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Still open in agy engine design.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-25T14:03:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-AgyTurnOutcome hard-fails on the not-found warning, a missing or mismatched result id under ExpectThread, and any init/result id mismatch (common.ps1 3190-3279); RESUME tests cover it.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-25T14:10:07+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-AgyTurnOutcome hard-fails not-found warnings and any resume id mismatch, including repair turns.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-25T14:20:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Implemented in Get-AgyTurnOutcome: resume mismatch ($resId -ne $ExpectThread) and conversation-not-found warnings fail closed with class unknown; never downgraded to warnings.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marked implemented in task context.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Lineage break detection under soft-denial/warning remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-2",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -106,15 +171,80 @@
                                              "evidence":  "",
                                              "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
                                              "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T13:51:16+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A4: the hook runs codex-providers.ps1 -NoNetwork and prints \"not checked (launcher present)\"; agy models only in the per-run preflight and the explicit listing",
+                                             "evidence":  "wave 17 (handoff 06 amendments): tests/harness-engines.ps1 81/81 on 5.1 and pwsh; existing harnesses unchanged (227/113/37/26/45/11/12); first live agy run n=3 exit 0",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T14:28:45+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "confirmed fixed by its author (ZAI, panel 2d8d5f25, n=4) from the code; the residual of F02-3 is F09-1",
+                                             "evidence":  "handoffs/09-codex-wave17-review-zai.md prior findings; ZAI ran Read-AgyEvents/Get-AgyTurnOutcome on the real streams of handoffs 04 and 07",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-25T13:50:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Still open in hook integration design.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-25T14:03:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Hook runs codex-providers.ps1 -Json -NoNetwork and prints \u0027gemini not checked (launcher present)\u0027; unknown sign-in refuses the roster walk.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-25T14:10:07+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The hook calls codex-providers.ps1 with -NoNetwork and reports unchecked engine credentials.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-25T14:20:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Implemented: codex-consult-hook.ps1 invokes codex-providers.ps1 with -NoNetwork, bypassing agy models network calls and returning \u0027not checked (launcher present)\u0027.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marked implemented in task context.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Network call in hook without fast timeout remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-3",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -146,7 +276,8 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F09-1",
+                                               "F10-1"
                                            ],
                          "source":  {
                                         "consult":  1,
@@ -164,15 +295,80 @@
                                              "evidence":  "",
                                              "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
                                              "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T13:51:18+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A17 (F12 confirmed by RC1): a changed tree or handoffs dir fails an agy run (class permission), prompt forbids writes",
+                                             "evidence":  "wave 17 (handoff 06 amendments): tests/harness-engines.ps1 81/81 on 5.1 and pwsh; existing harnesses unchanged (227/113/37/26/45/11/12); first live agy run n=3 exit 0",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T14:28:47+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "confirmed fixed by its author (ZAI, panel 2d8d5f25, n=4) from the code; the residual of F02-3 is F09-1",
+                                             "evidence":  "handoffs/09-codex-wave17-review-zai.md prior findings; ZAI ran Read-AgyEvents/Get-AgyTurnOutcome on the real streams of handoffs 04 and 07",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-25T13:50:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Still open regarding sandbox read-only enforcement.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-25T14:03:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The tree check now FAILS an agy run whose tree/handoffs/brief/artifacts changed (class permission), re-run after retry/repair turns; residual blind spots filed as finding #1.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-25T14:10:07+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Tree/handoff changes now fail agy runs with class permission; remaining scope gap is filed separately.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-25T14:20:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Implemented via Get-EngineTreeProblem: A17 tree check monitors git status, brief, artifacts, and handoffs, failing runs with class permission if files are modified.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marked implemented in task context.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Review read-only sandbox enforcement remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-4",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -217,15 +413,80 @@
                                              "evidence":  "",
                                              "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
                                              "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T13:51:19+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A12: result.conversation_id authoritative, init must match, missing result -\u003e thread_candidate only",
+                                             "evidence":  "wave 17 (handoff 06 amendments): tests/harness-engines.ps1 81/81 on 5.1 and pwsh; existing harnesses unchanged (227/113/37/26/45/11/12); first live agy run n=3 exit 0",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T14:28:49+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "confirmed fixed by its author (ZAI, panel 2d8d5f25, n=4) from the code; the residual of F02-3 is F09-1",
+                                             "evidence":  "handoffs/09-codex-wave17-review-zai.md prior findings; ZAI ran Read-AgyEvents/Get-AgyTurnOutcome on the real streams of handoffs 04 and 07",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-25T13:50:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Still open regarding event parsing specifics.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-25T14:03:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Parser reads the init id top-level and the result id nested, requires exactly one result, keeps the init id as thread_candidate on a missing result; verified live on handoffs 04 and 07.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-25T14:10:07+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Read-AgyEvents records init ids as candidates and fails missing-result streams; timeout tests cover it.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-25T14:20:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Implemented in Read-AgyEvents: parses init conversation_id as fallback ThreadCandidate on missing result; enforces exactly one result and init == result.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marked implemented in task context.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Conversation id parser event placement remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-5",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -274,15 +535,80 @@
                                              "evidence":  "",
                                              "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
                                              "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T13:51:20+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A5/A13: Google codes and wordings in the classifier; Get-RetryAfter learns retry in \u003cdur\u003e and gRPC retryDelay",
+                                             "evidence":  "wave 17 (handoff 06 amendments): tests/harness-engines.ps1 81/81 on 5.1 and pwsh; existing harnesses unchanged (227/113/37/26/45/11/12); first live agy run n=3 exit 0",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T14:28:51+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "confirmed fixed by its author (ZAI, panel 2d8d5f25, n=4) from the code; the residual of F02-3 is F09-1",
+                                             "evidence":  "handoffs/09-codex-wave17-review-zai.md prior findings; ZAI ran Read-AgyEvents/Get-AgyTurnOutcome on the real streams of handoffs 04 and 07",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-25T13:50:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Still open regarding Google error classification regexes.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-25T14:03:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "permission class added first; RESOURCE_EXHAUSTED/rate_limit_exceeded in quota, PERMISSION_DENIED/UNAUTHENTICATED/\u0027not signed in\u0027 in auth, INVALID_ARGUMENT/\u0027invalid model selection\u0027 in capability, UNAVAILABLE/DEADLINE_EXCEEDED in transport; \u0027retry in 32s\u0027, Go durations and gRPC retryDelay parsed.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-25T14:10:07+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Google codes and retry wordings, including retryDelay payloads, are implemented and unit-tested.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-25T14:20:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Implemented: Get-ProviderFailureClass and Get-RetryAfter support Google SCREAMING_SNAKE codes, \u0027not signed in\u0027, \u0027invalid model selection\u0027, and \u0027retry in 32s\u0027 / gRPC retryDelay.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marked implemented in task context.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Failure-class regexes for Google error codes remain open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-6",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -340,15 +666,80 @@
                                              "evidence":  "",
                                              "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
                                              "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T13:51:22+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A14: engine table drives file names, header, command word, pending notes; process rule matches the recorded launcher file name",
+                                             "evidence":  "wave 17 (handoff 06 amendments): tests/harness-engines.ps1 81/81 on 5.1 and pwsh; existing harnesses unchanged (227/113/37/26/45/11/12); first live agy run n=3 exit 0",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T14:28:53+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "confirmed fixed by its author (ZAI, panel 2d8d5f25, n=4) from the code; the residual of F02-3 is F09-1",
+                                             "evidence":  "handoffs/09-codex-wave17-review-zai.md prior findings; ZAI ran Read-AgyEvents/Get-AgyTurnOutcome on the real streams of handoffs 04 and 07",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-25T13:50:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Still open regarding hardcoded codex string references.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-25T14:03:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Engine table drives prefix, header label, command word, pending record engine/events, and Get-CodexRule now matches the recorded launcher\u0027s base name (agy).",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-25T14:10:07+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Engine table and recorded launcher replace codex-only naming and recovery assumptions.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-25T14:20:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Implemented: parameterised engine properties ($engineSpec.Command, $engineSpec.Label, $engineSpec.Prefix); Get-ProcessDescendants uses recorded launcher path.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marked implemented in task context.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Hardcoded codex strings across scripts remain open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-7",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -394,15 +785,80 @@
                                              "evidence":  "",
                                              "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
                                              "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T13:51:23+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A12: a repair/denial turn whose result id is not the thread is a failed repair; original prose stays",
+                                             "evidence":  "wave 17 (handoff 06 amendments): tests/harness-engines.ps1 81/81 on 5.1 and pwsh; existing harnesses unchanged (227/113/37/26/45/11/12); first live agy run n=3 exit 0",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T14:28:55+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "confirmed fixed by its author (ZAI, panel 2d8d5f25, n=4) from the code; the residual of F02-3 is F09-1",
+                                             "evidence":  "handoffs/09-codex-wave17-review-zai.md prior findings; ZAI ran Read-AgyEvents/Get-AgyTurnOutcome on the real streams of handoffs 04 and 07",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-25T13:50:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Still open regarding expired conversation format repair behavior.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-25T14:03:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The agy repair turn is verified with ExpectThread; a repair landing in a new conversation fails and nothing is ingested (harness PROSE case).",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-25T14:10:07+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Repair and denial turns use ExpectThread and reject a replacement conversation.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-25T14:20:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Implemented in codex-consult.ps1: format repair turn runs with --conversation and validates returned thread against ExpectThread; mismatch fails the run.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marked implemented in task context.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Format-repair turn on expired conversation remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F05-1",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -443,7 +899,8 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F09-1",
+                                               "F10-1"
                                            ],
                          "source":  {
                                         "consult":  2,
@@ -461,15 +918,80 @@
                                              "evidence":  "",
                                              "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
                                              "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T13:51:25+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A17: read-only enforced by the tree check, agy sandbox documented as terminal-only",
+                                             "evidence":  "wave 17 (handoff 06 amendments): tests/harness-engines.ps1 81/81 on 5.1 and pwsh; existing harnesses unchanged (227/113/37/26/45/11/12); first live agy run n=3 exit 0",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T14:28:57+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "confirmed fixed by its author (mimo, panel 2d8d5f25, n=5) from the code; the residual of F05-1 is F10-1",
+                                             "evidence":  "handoffs/10-codex-wave17-review-mimo.md prior findings",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-25T13:50:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Still open regarding sandbox write detection.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-25T14:03:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Tree check fails the run and soft denials with a usable reply become ledger warnings; superseded for the residual blind spots by finding #1.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-25T14:10:07+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Read-only is detected and fails the run, with the monitoring-scope limitation newly filed.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-25T14:20:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Implemented: tree check detects workspace writes and fails run with class permission; auto-denial stderr messages trigger class permission.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marked implemented in task context.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Read-only review guarantee under agy sandbox remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F05-2",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -528,10 +1050,75 @@
                                              "evidence":  "",
                                              "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
                                              "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T13:51:27+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A18: the recovery record names the events file (both engines); structured_output extracted to .reply.json before validation",
+                                             "evidence":  "wave 17 (handoff 06 amendments): tests/harness-engines.ps1 81/81 on 5.1 and pwsh; existing harnesses unchanged (227/113/37/26/45/11/12); first live agy run n=3 exit 0",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T14:28:59+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "confirmed fixed by its author (mimo, panel 2d8d5f25, n=5) from the code; the residual of F05-1 is F10-1",
+                                             "evidence":  "handoffs/10-codex-wave17-review-mimo.md prior findings",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-25T13:50:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Still open regarding artifact-first preservation.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-25T14:03:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "structured_output is atomically written to .reply.json before validation; the pending record names the running turn\u0027s events path and every recovery message points at it.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-25T14:10:07+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Structured output is written to .reply.json before validation and recovery names event streams.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-25T14:20:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Implemented: structured_output is extracted and written to .reply.json before validation; recovery record names the events file.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marked implemented in task context.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Artifact-first preservation invariant on crash remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
                                              ]
                      },
                      {
@@ -603,7 +1190,7 @@
                      },
                      {
                          "id":  "F05-4",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -653,10 +1240,75 @@
                                              "evidence":  "",
                                              "base_commit":  "7f46fe49e2c26f9d650fad63e7063ce612b122f1",
                                              "tree_sha256":  "4c9d0f35d4ce56a6d81f3e3a42f940e26d823a177650137dbf5a4f8ad32b7440"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T13:51:29+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A1: default mode new for agy; resume only with -Mode resume / -Thread; fork refused",
+                                             "evidence":  "wave 17 (handoff 06 amendments): tests/harness-engines.ps1 81/81 on 5.1 and pwsh; existing harnesses unchanged (227/113/37/26/45/11/12); first live agy run n=3 exit 0",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T14:29:01+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "confirmed fixed by its author (mimo, panel 2d8d5f25, n=5) from the code; the residual of F05-1 is F10-1",
+                                             "evidence":  "handoffs/10-codex-wave17-review-mimo.md prior findings",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-09-25T13:50:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Still open regarding resume default behavior.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-25T14:03:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "agy DefaultMode is \u0027new\u0027; resume only via -Mode resume or -Thread.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-25T14:10:07+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The engine default is new; resume is explicit.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-25T14:20:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Implemented: default mode for agy is \u0027new\u0027; \u0027resume\u0027 is explicit opt-in via -Mode resume.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marked implemented in task context.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Default resume mode context leakage remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
                                              ]
                      },
                      {
@@ -729,6 +1381,511 @@
                          "reviewer_checks":  [
 
                                              ]
+                     },
+                     {
+                         "id":  "F09-1",
+                         "status":  "implemented",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  491
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  620
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  559
+                                           },
+                                           {
+                                               "path":  "README.md",
+                                               "line":  1213
+                                           }
+                                       ],
+                         "claim":  "The read-only tree check has blind spots that the \u0027enforced by evidence\u0027 claim and the README wording (\u0027tracked or untracked files\u0027) do not cover: gitignored files are invisible to `git status --porcelain=v1 -uall` (the code\u0027s own comment at line 465 admits this), the task store outside the handoffs directory (findings.json, sessions.json, state.md) is excluded from the tree fingerprint as collab root and not in the handoffs snapshot, and writes outside the repository are undetectable — so a writing reviewer can defeat the check by writing to an ignored path or tamper with the findings/sessions stores without failing the run.",
+                         "trigger":  "During an agy consultation, the reviewer (or a tool it calls) writes to a .gitignored path such as a build output, or edits .collab/\u003ctask\u003e/findings.json or sessions.json.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1 lines 465-491, 620-645",
+                                              "observation":  "The manifest is built from git status porcelain v1 -uall (no --ignored; the comment says ignored files are not listed) with the collab root excluded; Get-DirectorySnapshot hashes only files directly in the handoffs directory."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1 lines 559-575, 2118-2125",
+                                              "observation":  "Get-EngineTreeProblem compares only the manifest, the handoffs snapshot, the brief and artifact hashes."
+                                          }
+                                      ],
+                         "verification":  "In a fake-agy run, write once to a .gitignored path and once to the task\u0027s findings.json during the turn; assert that neither produces a treeProblem today.",
+                         "remedy":  "Add ignored files to the manifest (git status --ignored=matching, or hash the store files findings.json/sessions.json before and after like the brief), and state the outside-the-repo residual explicitly in the README invariant.",
+                         "supersedes":  [
+                                            "F02-3",
+                                            "F05-1"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/09-codex-wave17-review-zai.md",
+                                        "thread":  "01a0d868-c704-7fa1-b6e4-aa4c71307931",
+                                        "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                        "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T14:03:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T17:52:51+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "the agy tree check now snapshots the whole collab root (all tasks, stores, state.md); gitignored paths, submodules and files outside the repo stay unmonitored and are stated in README, ledger sandbox text, skills and TECH_DEBT T8",
+                                             "evidence":  "wave 18 (handoff 14): tests/harness-engines.ps1 95/95 on 5.1 and pwsh (+14), existing harnesses unchanged (227/113/37/26/45/11/12)",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "c677d6c7710dd445d1e0db69c508b34672f2b37fb3ecb2dc4152a94c060158ee"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Proposed finding remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Tree check blind spots for ignored files and external paths remain open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F09-2",
+                         "status":  "implemented",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2150
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2335
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2515
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2589
+                                           }
+                                       ],
+                         "claim":  "The ledger row names only the main event stream: the denial-retry and format-repair event files are recorded in the handoff header (\u0027further turns\u0027) and in the transient pending record, but not in sessions.json, so machine readers of the ledger cannot find a retry\u0027s provenance without parsing the handoff Markdown.",
+                         "trigger":  "A denial-retry or repair turn runs; a coordinator or tool later audits the consultation from sessions.json alone.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult.ps1 lines 2150, 2335, 2515, 2585-2600",
+                                              "observation":  "extraEvents feeds only the handoff header; the ledger entry\u0027s events field is the main stream and denial_retry/format_retry records carry no events path."
+                                          }
+                                      ],
+                         "verification":  "Inspect a ledger entry produced by the DENIAL harness case; confirm no field names handoffs/NN-agy-*.denial-retry.events.jsonl.",
+                         "remedy":  "Add the extra event-stream paths to the ledger entry (e.g. an extra_events array, or an events field inside denial_retry/format_retry).",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/09-codex-wave17-review-zai.md",
+                                        "thread":  "01a0d868-c704-7fa1-b6e4-aa4c71307931",
+                                        "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                        "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T14:03:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T17:52:52+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "denial_retry.events and format_retry.events name the turn event stream (null when no turn; codex format_retry keeps its temp layout -\u003e null)",
+                                             "evidence":  "wave 18 (handoff 14): tests/harness-engines.ps1 95/95 on 5.1 and pwsh (+14), existing harnesses unchanged (227/113/37/26/45/11/12)",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "c677d6c7710dd445d1e0db69c508b34672f2b37fb3ecb2dc4152a94c060158ee"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Proposed finding remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Ledger omits denial-retry and format-repair event files.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F09-3",
+                         "status":  "implemented",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  567
+                                           },
+                                           {
+                                               "path":  "README.md",
+                                               "line":  1216
+                                           }
+                                       ],
+                         "claim":  "The tree-check failure text attributes any change to \u0027the reviewer changed the working tree / handoffs\u0027, but the check cannot distinguish who changed a file; in the documented judge workflow (preparing the next handoff while a long agy run is in flight) the coordinator\u0027s own write fails an otherwise valid reply.",
+                         "trigger":  "The coordinator saves a new brief into the task\u0027s handoffs directory while an agy consultation is running.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult.ps1 Get-EngineTreeProblem lines 559-575",
+                                              "observation":  "The reason strings name the reviewer; the comparison is time-based with no attribution."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "README.md F12 section",
+                                              "observation":  "The README warns \u0027A file changed by YOU during the run fails it too - do not edit the repository while an agy consultation runs\u0027, so the behavior is documented, only the wording misattributes."
+                                          }
+                                      ],
+                         "verification":  "Add a file to handoffs mid-run via the fake; observe the failure message naming the reviewer.",
+                         "remedy":  "Word the failure as \u0027changed during the run (the reviewer or anyone else)\u0027 and keep the README warning; optionally re-check after a short settle delay before failing.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/09-codex-wave17-review-zai.md",
+                                        "thread":  "01a0d868-c704-7fa1-b6e4-aa4c71307931",
+                                        "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                        "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T14:03:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T17:52:53+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "failure text now reads \"changed during the run (by the reviewer or anyone else)\" for the tree and the collab directory; README keeps the warning and adds \"run no other consultation here\"",
+                                             "evidence":  "wave 18 (handoff 14): tests/harness-engines.ps1 95/95 on 5.1 and pwsh (+14), existing harnesses unchanged (227/113/37/26/45/11/12)",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "c677d6c7710dd445d1e0db69c508b34672f2b37fb3ecb2dc4152a94c060158ee"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Proposed finding remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Attribution of tree changes during concurrent handoff preparation remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F10-1",
+                         "status":  "implemented",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  465
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  472
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2118
+                                           }
+                                       ],
+                         "claim":  "The agy tree check does not enforce read-only across ignored files, the collaboration root outside the task\u0027s handoffs, submodules, or paths outside the repository, so its claimed evidence-based guarantee is incomplete.",
+                         "trigger":  "An agy reviewer writes an ignored file, another collab directory, or an external path while returning a schema-valid reply.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:465-476",
+                                              "observation":  "The manifest explicitly excludes ignored files and the collaboration directory; submodules are not recursed."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2118",
+                                              "observation":  "Only the revision manifest, brief, artifacts, and one handoffs directory snapshot are compared."
+                                          }
+                                      ],
+                         "verification":  "Run an agy review that writes `.collab/probe.txt`; confirm whether the run is still marked usable.",
+                         "remedy":  "Snapshot the full collaboration root and recurse submodules, or narrow the invariant and docs to the paths actually checked; reject writes outside monitored scope when detectable.",
+                         "supersedes":  [
+                                            "F02-3",
+                                            "F05-1"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/10-codex-wave17-review-mimo.md",
+                                        "thread":  "01a0d873-1534-7881-84ca-2a2bc7038ae7",
+                                        "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                        "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T14:10:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T17:52:55+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "same fix as F09-1: collab-root snapshot + explicit residual (T8)",
+                                             "evidence":  "wave 18 (handoff 14): tests/harness-engines.ps1 95/95 on 5.1 and pwsh (+14), existing harnesses unchanged (227/113/37/26/45/11/12)",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "c677d6c7710dd445d1e0db69c508b34672f2b37fb3ecb2dc4152a94c060158ee"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Proposed finding remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Tree check scope limitations outside handoffs remain open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F10-2",
+                         "status":  "implemented",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3122
+                                           }
+                                       ],
+                         "claim":  "Read-AgyEvents exempts the final non-empty line from malformed-stream detection regardless of exit status, so a completed run with a valid result plus trailing corruption can be ingested.",
+                         "trigger":  "A fake or real agy stream has one valid result followed by a truncated or non-JSON final line while the process exits 0.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3122-3132",
+                                              "observation":  "The parser skips malformed parsing for the last non-empty line without checking whether the run was killed."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "PowerShell JSONL scan of 04-agy-engine-design.attempt1.events.jsonl, 04-agy-engine-design.events.jsonl, 07-agy-smoke.events.jsonl",
+                                              "observation":  "All real streams contain exactly one result and matching init/result conversation ids; the edge is not represented."
+                                          }
+                                      ],
+                         "verification":  "Append garbage after a valid fake-agy result and assert that Read-AgyEvents reports malformed.",
+                         "remedy":  "Ignore a trailing partial line only when a timeout/pre-failure is present; otherwise reject the stream.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/10-codex-wave17-review-mimo.md",
+                                        "thread":  "01a0d873-1534-7881-84ca-2a2bc7038ae7",
+                                        "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                        "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T14:10:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T17:52:56+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Read-AgyEvents -AllowPartialLast only after a kill or a non-zero exit; garbage after a valid result on exit 0 is a malformed stream (class transport)",
+                                             "evidence":  "wave 18 (handoff 14): tests/harness-engines.ps1 95/95 on 5.1 and pwsh (+14), existing harnesses unchanged (227/113/37/26/45/11/12)",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "c677d6c7710dd445d1e0db69c508b34672f2b37fb3ecb2dc4152a94c060158ee"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Proposed finding remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Read-AgyEvents malformed stream exemption on final line remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F10-3",
+                         "status":  "implemented",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3705
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3833
+                                           }
+                                       ],
+                         "claim":  "When several roster entries share one provider label, `-Provider \u003clabel\u003e` without `-Model` silently selects the first entry, which can choose the wrong tier.",
+                         "trigger":  "A roster contains `gemini` low-tier and `gemini` weighty high-tier entries and the caller passes only `-Provider gemini`.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3704-3707",
+                                              "observation":  "The documented selection rule is the first entry of that provider."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-engines.ps1:570-580",
+                                              "observation":  "The listing test intentionally creates two gemini entries with different models."
+                                          }
+                                      ],
+                         "verification":  "Dry-run `-Provider gemini` with that roster and inspect the selected model.",
+                         "remedy":  "Require `-Model` when a label is non-unique, or record and display a prominent first-entry selection warning.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/10-codex-wave17-review-mimo.md",
+                                        "thread":  "01a0d873-1534-7881-84ca-2a2bc7038ae7",
+                                        "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                        "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-25T14:10:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                         },
+                                         {
+                                             "when":  "2026-09-25T17:52:57+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "-Provider \u003clabel\u003e without -Model on a non-unique label warns on the console and in warnings[] naming the entry used",
+                                             "evidence":  "wave 18 (handoff 14): tests/harness-engines.ps1 95/95 on 5.1 and pwsh (+14), existing harnesses unchanged (227/113/37/26/45/11/12)",
+                                             "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                             "tree_sha256":  "c677d6c7710dd445d1e0db69c508b34672f2b37fb3ecb2dc4152a94c060158ee"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-25T14:23:19+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Proposed finding remains open.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-25T14:27:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Provider label selection without model selects first tier silently.",
+                                                     "base_commit":  "a320844989f75989a670c3d0c292929999a4a11d",
+                                                     "tree_sha256":  "a3cf3dbbd3838b5807016f46ae26dce02d5d79e2870ec5793a4181ad7a5a6893"
+                                                 }
+                                             ]
                      }
                  ],
     "ratings":  [
@@ -753,6 +1910,72 @@
                         "useful":  "yes",
                         "note":  "F05-1 (read-only not enforced) and F05-2 (name the raw artifact in the recovery record) adopted; F05-4 confirmed default new; F05-3/F05-5 wontfix; the blocker verdict overstated",
                         "when":  "2026-09-25T11:13:04+02:00"
+                    },
+                    {
+                        "n":  3,
+                        "consult_id":  "284c4dbc-e24b-4bfe-9193-ac48976d2c06",
+                        "lineage":  "gemini :: gemini-3.8-flash-low [agy]",
+                        "provider":  "gemini",
+                        "model":  "gemini-3.8-flash-low",
+                        "purpose":  "checkpoint",
+                        "useful":  "partly",
+                        "note":  "operational check, not a review: first live run of the agy engine (structured first turn)",
+                        "when":  "2026-09-25T14:28:05+02:00"
+                    },
+                    {
+                        "n":  4,
+                        "consult_id":  "7a1bdfd4-7baf-4dcc-b2af-faa26389f187",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "purpose":  "diff-review",
+                        "useful":  "yes",
+                        "note":  "verified all 10 priors from the code and ran the parser on the real streams; F09-1 (tree-check blind spots) and F09-2 (retry events not in the ledger) adopted, F09-3 wording adopted",
+                        "when":  "2026-09-25T14:28:06+02:00"
+                    },
+                    {
+                        "n":  5,
+                        "consult_id":  "a7e543e9-296d-4e6b-a537-fa4310d1f204",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "purpose":  "diff-review",
+                        "useful":  "yes",
+                        "note":  "F10-2 (trailing garbage on exit 0) and F10-3 (non-unique label warning) adopted; F10-1 duplicates F09-1; HOLD reasonable for the over-broad read-only claim",
+                        "when":  "2026-09-25T14:28:07+02:00"
+                    },
+                    {
+                        "n":  6,
+                        "consult_id":  "29e49e48-824e-4a28-87ef-3302c42a88e8",
+                        "lineage":  "gemini :: gemini-3.8-flash-high [agy]",
+                        "provider":  "gemini",
+                        "model":  "gemini-3.8-flash-high",
+                        "purpose":  "diff-review",
+                        "useful":  "partly",
+                        "note":  "first review carried by the engine itself: confirmed the 10 priors, found nothing the codex reviewers found; 605 s and 1.6M input + 5.9M cached tokens for a flash diff review",
+                        "when":  "2026-09-25T14:28:08+02:00"
+                    },
+                    {
+                        "n":  7,
+                        "consult_id":  "4f551b03-0cc8-4676-82c7-a9dbd356df97",
+                        "lineage":  "gemini :: gemini-3.8-flash-low [agy]",
+                        "provider":  "gemini",
+                        "model":  "gemini-3.8-flash-low",
+                        "purpose":  "checkpoint",
+                        "useful":  "partly",
+                        "note":  "operational check: real resume of the n=3 conversation, the model quoted the previous consultation id",
+                        "when":  "2026-09-25T14:28:09+02:00"
+                    },
+                    {
+                        "n":  8,
+                        "consult_id":  "3f1c0abe-1063-4f8f-8087-df51234c84b1",
+                        "lineage":  "gemini :: gemini-3.8-flash-low [agy]",
+                        "provider":  "gemini",
+                        "model":  "gemini-3.8-flash-low",
+                        "purpose":  "checkpoint",
+                        "useful":  "partly",
+                        "note":  "operational check: asked to run a command; the tools line held, the command became RC1, F11 did not fire live",
+                        "when":  "2026-09-25T14:28:10+02:00"
                     }
                 ]
 }

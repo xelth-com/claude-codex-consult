@@ -1,20 +1,21 @@
 # claude-codex-consult
 
-A Claude Code plugin (`codex-consult`, version 0.3.0). This README is written for the AI
+A Claude Code plugin (`codex-consult`, version 0.4.0). This README is written for the AI
 coding agent that installs, wires and uses the plugin; humans can follow the same steps.
 
 ## For the agent installing this
 
-- **What it is:** a dependency-free PowerShell bridge that runs `codex exec` for a review, records the consultation as files (brief, verbatim reply, JSON ledger), and manages reviewer identity, availability, a roster/panel and structured findings.
+- **What it is:** a dependency-free PowerShell bridge that runs `codex exec` for a review (or, per roster entry, another CLI "engine": Google's Antigravity CLI `agy` for the Gemini models - see "Engines"), records the consultation as files (brief, verbatim reply, JSON ledger), and manages reviewer identity, availability, a roster/panel and structured findings.
 - **Prerequisites.** Check each with the command; do not assume:
   - [ ] Windows PowerShell 5.1 or PowerShell 7: `powershell -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` or `pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` → `5.1.…` or `7.…`
   - [ ] git: `git --version` → `git version …`
   - [ ] Codex CLI on PATH: `codex --version` → `codex-cli 0.148` or newer (tested with `codex-cli 0.155.1`)
   - [ ] a reviewer: `codex login status` → `Logged in using ChatGPT`, **or** a `[model_providers.<name>]` table whose `env_key` variable the USER has set. Never create, print or paste an API key.
+  - [ ] optional, Gemini through the `agy` engine: `agy models` → lines `<model id><TAB><name>` (the USER installed Google's Antigravity CLI and signed in by running `agy` once; you never handle the login). See "Engines".
 - **Install** (at the Claude Code prompt): `/plugin marketplace add xelth-com/claude-codex-consult`, then `/plugin install codex-consult@claude-codex-consult`.
 - **Verify:** `codex-providers.ps1` → at least one row `available`; then a `-DryRun` consultation → first line `DRY RUN - nothing was executed and no file was written.` and a line `preflight   : available (…)`. Exact commands: "Setup on a new machine", steps 0 and 9.
 - **First consultation:** `/codex-consult:consult-codex <task-id> <question>`, or the command under "Usage".
-- **More reviewers** (z.ai GLM, Xiaomi MiMo, any Responses-API provider): follow the `setup-providers` skill.
+- **More reviewers** (z.ai GLM, Xiaomi MiMo, any Responses-API provider; Gemini through the `agy` engine): follow the `setup-providers` skill.
 
 ---
 
@@ -228,8 +229,8 @@ verdicts with the date, and anything left unavailable and why.
 | Component | What it does |
 |---|---|
 | skill `consult-codex` (`/codex-consult:consult-codex <task-id> <ask>`) | the consultation process: when to consult, reconciling findings, the brief, the one command, verifying and recording findings, rating the consultation, the panel and the council rules |
-| skill `setup-providers` (`/codex-consult:setup-providers [provider]`) | wiring reviewers on a machine: Codex login, `[model_providers.*]` tables with `env_key`, per-run catalogs, the roster, peak windows, verification |
-| hook `SessionStart` (`hooks/hooks.json` → `scripts/codex-consult-hook.ps1`) | at every session start (`startup`, `resume`) in a project where the plugin is enabled, adds ONE line to the agent's context: `codex-consult: reviewers - openai available \| ZAI available \| mimo unavailable (missing: env MIMO_API_KEY not set); roster -> would select openai` — the same local check as `codex-providers.ps1` (credentials, table usability, endpoint health from THIS repository's ledgers, the roster walk); `codex-consult: codex CLI not found on PATH - follow the setup-providers skill ...` when Codex is missing. No network call, nothing written, exit code always 0, about one second (`codex login status`), timeout 30 s; `pwsh` when present, else `powershell`. Disable it with the plugin (`/plugin disable codex-consult`) — hooks have no per-plugin switch |
+| skill `setup-providers` (`/codex-consult:setup-providers [provider]`) | wiring reviewers on a machine: Codex login, `[model_providers.*]` tables with `env_key`, per-run catalogs, the `agy` engine (install, the user's sign-in, `agy models`, roster entries), the roster, peak windows, verification |
+| hook `SessionStart` (`hooks/hooks.json` → `scripts/codex-consult-hook.ps1`) | at every session start (`startup`, `resume`) in a project where the plugin is enabled, adds ONE line to the agent's context: `codex-consult: reviewers - openai available \| ZAI available \| mimo unavailable (missing: env MIMO_API_KEY not set); roster -> would select openai` — the same local check as `codex-providers.ps1` (credentials, table usability, endpoint health from THIS repository's ledgers, the roster walk); `codex-consult: codex CLI not found on PATH - follow the setup-providers skill ...` when Codex is missing. No network call (it runs `codex-providers.ps1 -Json -NoNetwork`: an `agy` engine row reads `gemini not checked (launcher present)` - or `gemini available` when THIS repository's ledgers hold a usable agy reply from the last 60 minutes - and a missing launcher `gemini unavailable (agy CLI not found on PATH)`), nothing written, exit code always 0, about one second (`codex login status`), timeout 30 s; `pwsh` when present, else `powershell`. Disable it with the plugin (`/plugin disable codex-consult`) — hooks have no per-plugin switch |
 | evals `evals/` (`claude plugin eval <plugin dir> --ablation none --allow-tools Bash` — the `--allow-tools Bash` operator grant is REQUIRED for the two cases that run the bridge; they are silently downgraded without it) | the install test: two cases a fresh agent must pass with only this plugin loaded — `dry-run-consultation` (reach the bridge through the `consult-codex` skill, run `-DryRun` for task `eval-smoke`, report the fixed first line, the preflight and reviewer lines, write nothing) and `providers-listing` (use `codex-providers.ps1`, one verdict per provider, no invented verdict). Graders: `tool_used`, `regex` on the trace, `file_exists: false`, an `llm` rubric. A machine with no usable reviewer still passes when reported honestly. The third case `command-plan` (tag `readonly`) needs no shell grant and runs everywhere: the agent must produce the exact dry-run command and the files a real run writes, from the skill, without executing anything. Shell-granted cases need a sandbox backend: Linux/macOS have one; on Windows the eval runner refuses to run a shell tool unconfined (`sandbox required but unavailable`), so there run `--case command-plan` only. Results land in `evals/results/` (ignored by git) |
 
 Per-provider alias skills a user may keep in `~/.claude/skills/` (say, one that maps "ask
@@ -357,6 +358,7 @@ failed runs included, so the ledger is a history and not a success log. A refusa
     "provider_source": "-Provider",
     "model": "glm-5.3",
     "model_source": "-Model",
+    "engine": "codex",
     "harness": "codex-cli 0.155.1",
     "provider_fingerprint": "e3b0c44298fc…",
     "provider_config": { "base_url": "https://api.z.ai/api/v1", "wire_api": "responses" },
@@ -399,6 +401,7 @@ failed runs included, so the ledger is a history and not a success log. A refusa
   "schema_transport_source": "caps-v1",
   "validation_error": "",
   "format_retry": null,
+  "denial_retry": null,
   "base_commit": "4e9cc4f0…",
   "reviewed_revision": "4e9cc4f + uncommitted",
   "tree_sha256": "9c2a…",
@@ -413,6 +416,7 @@ failed runs included, so the ledger is a history and not a success log. A refusa
   "artifacts_changed_during_review": false,
   "bridge_outcome": "usable reply",
   "provider_failure": null,
+  "warnings": [],
   "verdict": "HOLD",
   "verdict_reason": "one blocker in the invalidation path",
   "findings": { "blocker": 1, "major": 2, "minor": 0, "note": 1 },
@@ -434,38 +438,41 @@ This is the only place field meanings are listed; other sections refer to them b
 | `consult_id` | a fresh guid per run; also the prompt's last line `Consultation id: <guid>` and the key that verifies a rollout-file thread id |
 | `reviewer.provider` / `reviewer.provider_source` | the provider that answered; how it was decided: `-Provider`, `config`, `codex default`, `roster`, `-Thread` or `unknown` |
 | `reviewer.model` / `reviewer.model_source` | the model that answered (`unknown` when unresolvable); `-Model`, `config`, `roster`, `-Thread` or `unknown` |
-| `reviewer.harness` | `codex-cli <version>`; audit only, never compared |
-| `reviewer.provider_fingerprint` / `reviewer.provider_config` | SHA-256 of the canonical endpoint (`""` when identity is unresolved); `{base_url, wire_api}` of the table (no `wire_api` key when the table has none), or `{builtin: "openai"}` |
+| `reviewer.engine` | (0.4.0) the CLI that carried the run: `codex` or `agy` (see "Engines"); an entry without it is `codex`. A thread never mixes engines |
+| `reviewer.harness` | `codex-cli <version>` (`agy-cli <version>` or `agy-cli (version unknown)` for agy); audit only, never compared |
+| `reviewer.provider_fingerprint` / `reviewer.provider_config` | SHA-256 of the canonical endpoint (`""` when identity is unresolved); `{base_url, wire_api}` of the table (no `wire_api` key when the table has none), or `{builtin: "openai"}`; for the agy engine SHA-256 of `cc-engine-v1\|agy` and `{engine, launcher}` |
 | `reviewer.identity_note` | why identity is unresolved, or how it was derived (e.g. a user-defined `[model_providers.openai]` table); `""` otherwise |
 | `lineage` | `<provider> :: <model>`, display only; matching never compares this string |
 | `preflight` | `ok: <credential detail>` or `skipped` (`-SkipPreflight`); any other verdict refuses the run |
 | `preflight_warning` | a recent usage limit that did not refuse the run, else `""` |
-| `roster` | `null` without a roster; else `{path, position, skipped: [{provider, model, reason}], applied: []}`, `applied` naming what the roster entry supplied (`model`, `codex_config`) |
+| `roster` | `null` without a roster; else `{path, position, skipped: [{provider, model, engine, reason}], applied: []}`, `applied` naming what the roster entry supplied (`engine`, `model`, `codex_config`) |
 | `panel` | `null` outside a panel; else `{id, position, of, members: [{provider, model, state: "run"\|"skipped", reason}]}` |
 | `parent_thread` / `thread` | the thread forked or resumed (`""` for `new`); the resulting thread (`""` when not verified) |
 | `thread_source` | `events`, `rollout (verified by consultation id)` or `unknown` |
-| `thread_candidate` | an unverified rollout uuid kept for diagnosis only; never a parent |
+| `thread_candidate` | an unverified rollout uuid (agy: a conversation id the run could not verify - a failed resume's new conversation, the init id of a run without a result) kept for diagnosis only; never a parent |
 | `mode` / `command` | `new`, `fork` or `resume`; the full argv as one string (prompt on stdin) |
 | `brief` / `prompt_chars` | the brief path (`""` without one); the prompt length |
 | `reply` / `reply_json` / `events` | handoff paths relative to the task directory (`reply_json` is `""` for plain-text runs) |
 | `model` / `effort` | kept for 0.2 readers and `-Stats`: the resolved model; `effort` equals `effort_sent` |
-| `effort_requested` / `effort_sent` / `effort_mapping` / `effort_caps` / `effort_confirmed` | the preset, `-Effort` or `-NativeEffort` value; the value put into argv; `openai`, `zai-v1`, `mimo-v1` or `native`; the capability-table version (`caps-v1`); always `null` (Codex does not report the effort it used) |
-| `max_words` / `sandbox` | the resolved word cap; `read-only` or `workspace-write` |
+| `effort_requested` / `effort_sent` / `effort_mapping` / `effort_caps` / `effort_confirmed` | the preset, `-Effort` or `-NativeEffort` value; the value put into argv (`null` for agy: the tier is part of the model id); `openai`, `zai-v1`, `mimo-v1`, `model-tier` (agy) or `native`; the capability-table version (`caps-v1`); always `null` (Codex does not report the effort it used) |
+| `max_words` / `sandbox` | the resolved word cap; `read-only` or `workspace-write` (agy: `read-only (requested; enforced by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules or files outside the repository; agy --sandbox restricts the terminal only)`) |
 | `extra_config` / `extra_config_source` | the `-CodexConfig` or roster `codex_config` items as sent (expanded); `""` (none), `-CodexConfig` or `roster` |
 | `peak` / `peak_schedule` / `peak_source` / `peak_evaluated_at` | `true`, `false` or `null` (no schedule) at launch; the schedule; `env`, `env (CODEX_CONSULT_NOW)` or `none`; when that decisive check ran |
 | `structured` / `schema` | whether a valid structured reply was ingested; `consult-reply v1`, or `""` for `-Raw` |
-| `schema_transport` / `schema_transport_source` | `output-schema` or `prompt-only`; `caps-v1` or `-SchemaTransport` (`""` for plain-text runs) |
+| `schema_transport` / `schema_transport_source` | `output-schema`, `prompt-only` or `native` (agy: `--json-schema`); `caps-v1` or `-SchemaTransport` (`""` for plain-text runs) |
 | `validation_error` | `""`, or every validation message joined with `; `, plus a format-repair note |
-| `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original}` |
+| `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events}` - `events` (0.4.0) the repair turn's event stream, handoffs-relative, when one is kept (agy: `handoffs/NN-agy-<slug>.repair.events.jsonl`), else `null` (codex: its repair stream is a temp file) |
+| `denial_retry` | (0.4.0, agy) `null` (not attempted), else `{attempted, reason, succeeded, thread, wall_seconds, usage, events}`: the one extra turn after a run that produced nothing because a tool was auto-denied (see "Engines"); `events` = that turn's event stream (`handoffs/NN-agy-<slug>.denial-retry.events.jsonl`, `null` when no turn ran) |
 | `base_commit` … `fingerprint_note` | revision binding: see "Binding a review to a revision" |
 | `artifacts` / `artifacts_changed_during_review` | `[{path, sha256, sha256_after}]` per `-Artifact`; whether any changed during the run |
 | `bridge_outcome` | `usable reply` or `failed: <why>`: only whether the bridge worked |
 | `provider_failure` | `null` on success, else `{class, code, message, when, retry_after}` (see "Preflight and endpoint health") |
+| `warnings` | (0.4.0) notices of the run - a `-Provider` label that names several roster entries (any engine), agy's denial notice and its `warning:` stderr lines that came with a usable reply; `[]` when none |
 | `verdict` / `verdict_reason` | `ACCEPT`, `HOLD`, `REJECT`, `ADVISE`, or `""` (unavailable or invalid); one sentence |
 | `findings` / `finding_ids` | severity counts of the new findings; their ids |
 | `prior_findings` | the reviewer's reports on earlier ids: `{id, status}` with `fixed`, `still-open`, `not-checked` or `unknown-id` |
 | `unchecked_prior_blockers` | open prior blockers the reviewer did not check while answering `ACCEPT` |
-| `usage` / `wall_seconds` | token counts from the event stream; wall time |
+| `usage` / `wall_seconds` | token counts from the event stream (agy: `cache_read_tokens` -> `cached_input_tokens`, `thinking_tokens` -> `reasoning_output_tokens`, plus `total_tokens`); wall time |
 
 `bridge_outcome` and `verdict` are separate on purpose: a delivered `HOLD` is a success of
 the bridge. Legacy entries: the pre-0.2.0 field `outcome` (now `bridge_outcome`) is left
@@ -856,7 +863,9 @@ empty, `thread_source = "unknown"`, and the newest candidate is kept as
 ## Preflight and endpoint health
 
 Before anything is locked or started, the bridge checks the resolved provider locally
-(the same check as `codex-providers.ps1`; no network call) and fails CLOSED:
+(the same check as `codex-providers.ps1`; no network call for a codex provider - an agy
+engine's sign-in check is one `agy models` call, or none after a usable agy reply within
+the last 60 minutes, see "Engines") and fails CLOSED:
 
 | Check | Refusal |
 |---|---|
@@ -878,13 +887,18 @@ failed run.
 
 **Failure classes.** A failed run records `provider_failure = {class, code, message
 (<= 200 chars), when, retry_after}` (and a `Provider failure:` header line). The class
-comes from word-bounded keywords, tried in this order: `capability` (not
-supported/unsupported/"does not support"/feature_not_supported/json_schema), `auth`
-(401/403/unauthorized/forbidden/invalid api key/authentication), `quota` (usage limit/
-quota/rate limit/`rate_limit`/`usage_limit`/429/insufficient balance/too many requests/
-credits exhausted/credit balance/payment required/402/token plan/billing), `transport`
-(timeout/connection/dns/tls/certificate/502-504/network; a bridge-side timeout kill is
-`transport`), else `unknown`. An SSE-style `data:{"error":{...}}` payload on stderr (how
+comes from word-bounded keywords, tried in this order: `permission` (0.4.0: no output
+produced/auto-denied/"permission that headless mode" - agy's F11 notice; also forced for
+agy's tree-check failure), `capability` (not supported/unsupported/"does not
+support"/feature_not_supported/json_schema/INVALID_ARGUMENT/invalid model
+selection/"conflicts with --effort"), `auth` (401/403/unauthorized/forbidden/invalid api
+key/authentication/PERMISSION_DENIED/UNAUTHENTICATED/not signed in/login required/sign in
+to), `quota` (usage limit/quota/rate limit/`rate_limit`/`usage_limit`/429/insufficient
+balance/too many requests/credits exhausted/credit balance/payment required/402/token
+plan/billing/RESOURCE_EXHAUSTED/rate_limit_exceeded), `transport`
+(timeout/connection/dns/tls/certificate/502-504/network/UNAVAILABLE/DEADLINE_EXCEEDED; a
+bridge-side timeout kill is `transport`, so is agy's malformed event stream), else
+`unknown` (agy's conversation-id failures are forced to `unknown`). An SSE-style `data:{"error":{...}}` payload on stderr (how
 the MiMo endpoint reports rejections) is parsed for `error.message`/`error.code` first.
 Codex reports quota, auth and turn failures on the JSON event stream, not on stderr; the
 bridge lifts the message from there. MiMo's exact wording for exhausted credits is not
@@ -892,8 +906,10 @@ confirmed; its keywords are a best guess.
 
 **`retry_after`** is a quota failure's reset time, parsed from the message and never
 guessed: Codex's wording (`try again at Sep 28th, 2026 8:35 PM.`), a bare ISO-8601
-timestamp, or a duration (`retry after 30`, `resets in 2 days`, `try again in 3 days 1 hour
-7 minutes`). A wall-clock time is interpreted with the recording machine's time-zone rules
+timestamp, a duration (`retry after 30`, `retry after 2h`, `resets in 2 days`, `try again
+in 3 days 1 hour 7 minutes`), or Google's wordings (`retry in 32s`, `retry in 1m5.3s`,
+`retry in 90 seconds`, the gRPC `"retryDelay":{"seconds":N}` / `"retryDelay": "32s"` - a
+fraction rounds up to the next second). A wall-clock time is interpreted with the recording machine's time-zone rules
 at write time, DST included (a spring-forward gap takes the post-transition offset, a
 fall-back overlap the pre-transition one), and stored as an instant with its offset. An
 entry written before that fix has no `retry_after`; reading it reparses the message with
@@ -913,11 +929,13 @@ keep their recorded offset; Windows PowerShell 5.1 reads them as plain strings.
 ### codex-providers.ps1
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-providers.ps1" [-Provider <name>] [-Json] [-CollabDir <path>] [-CodexExe <path>]
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-providers.ps1" [-Provider <name>] [-Json] [-CollabDir <path>] [-CodexExe <path>] [-EngineExe <path>] [-NoNetwork]
 ```
 
 It answers "what can I consult right now?" and writes nothing, takes no lock and makes no
-network call. First line: `codex config: <path>`. Then one row per provider (the built-in
+network call for a codex provider (at most one `agy models` call per agy engine; none
+after a usable agy reply within the last 60 minutes, none with `-NoNetwork` - the
+SessionStart hook's mode). First line: `codex config: <path>`. Then one row per provider (the built-in
 `openai` and every `[model_providers.*]` table): `VERDICT` (`available`,
 `unavailable (<reason>)` including `unavailable (usage limit until <iso>)`, or
 `unknown (<reason>)` when `codex login status` could not run or the config cannot be
@@ -930,7 +948,17 @@ env_key/bearer token in the table`, `missing: <first line of login status>`), `E
 `unknown (needs -NativeEffort)`) and `LAST FAILURE (24 h)` (`<class>: <when> - <message>`,
 or `quota until <iso>: …`). With a roster, a final line `roster: <path> -> would select
 <provider> :: <model> (skipped: …)` or `roster: <path> -> no entry is available (skipped:
-…)`. `-Json` returns objects with `name`, `kind`, `endpoint`, `wire_api`, `table`
+…)`. **Engine rows (0.4.0):** one more row per provider label the roster declares with
+`"engine": "agy"` - `KIND` `engine agy`, `ENDPOINT` `agy (<launcher>)` (or `agy (launcher
+not found)`), table `n/a`, `CREDENTIALS` from `agy models` (`ok: signed in (N models)`,
+`missing: …` for sign-in wording or `missing: agy CLI not found on PATH`, `unknown: …`;
+`ok: signed in (usable reply <m> min ago)` without any call when this repository's ledgers
+hold a usable agy reply from the last 60 minutes - also with `-NoNetwork`; otherwise with
+`-NoNetwork` `not checked (launcher present; run codex-providers.ps1)` and the verdict
+`unknown (sign-in not checked)`), `EFFORT` `agy (tier in the model id)`, transport
+`native`; health, `LAST FAILURE` and the roster columns as for any provider (health is
+keyed by the engine's fingerprint, shared by every agy label). `-Json` returns objects with
+`name`, `engine` (`codex` or `agy`), `kind`, `endpoint`, `wire_api`, `table`
 (`built in`/`usable`/`unusable: <reason>`), `credentials`, `effort_vocabulary`,
 `effort_models`, `schema_transport`, `last_limit` (the newest quota failure),
 `last_failure` (`{class, code, when, message, retry_after}`), `roster_position` (first
@@ -1036,6 +1064,7 @@ a fabricated one is `examples/codex-consult-roster.json`.
 | `reviewers[].codex_config` | optional array of `key=value` strings, `-CodexConfig` rules |
 | `reviewers[].auth` | optional `"none"`: the endpoint needs no credential, so a table with no `env_key` and no bearer token passes the check. No effect on a table that names an `env_key`, nor on `openai`/`requires_openai_auth` providers (always `codex login status`) |
 | `reviewers[].panel` | `"always"` (default) or `"weighty"`: joins a `-Panel` run only on `framing`, `decision`, `core-contract`, `acceptance` and `stuck`, or under `-PanelAll` |
+| `reviewers[].engine` | (0.4.0) `"codex"` (default) or `"agy"`: the CLI that carries it (see "Engines"). For `agy`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster |
 
 An unusable roster (an unknown key, `roster_version` other than 1, an empty or non-array
 `reviewers`, the same `(provider, model)` twice, anything that does not parse) **refuses
@@ -1044,7 +1073,10 @@ every run, `-DryRun` included, naming the path**; an existing roster is never ig
 **Selection.**
 - `-Provider <name>`: the roster does not choose, but that provider's entry supplies the
   model (when `-Model` is empty) and `codex_config` (when `-CodexConfig` is empty); ledger
-  `model_source`/`extra_config_source` `roster`.
+  `model_source`/`extra_config_source` `roster`. When several entries share the label and
+  `-Model` is not given, the FIRST one is used, with a console warning and a ledger
+  `warnings[]` entry: `roster: label gemini names 2 entries; the first (gemini ::
+  gemini-3.8-flash-high [agy]) is used - pass -Model for another`.
 - `-Thread <uuid>`: the thread's own ledger entry fixes the reviewer (`provider_source`/
   `model_source` `-Thread`); its roster entry supplies `codex_config`. If that reviewer is
   unavailable, the refusal names what the roster would select for a new thread
@@ -1061,8 +1093,10 @@ every run, `-DryRun` included, naming the path**; an existing roster is never ig
 **The panel.** `-Panel` sends the same brief to every available roster entry, one after
 another, each as a complete, independent consultation: its own preflight, lock and
 recovery record, parent thread (the newest of its own lineage, or a new one; `-Mode new`
-starts fresh threads for all), consultation id, reply file
-`handoffs/<NN>-codex-<ReplyName>-<provider lowercased>.md` and ledger entry (`panel`).
+starts fresh threads for all; an agy member starts a new conversation), consultation id,
+reply file `handoffs/<NN>-<engine>-<ReplyName>-<provider lowercased>.md` (`codex` or `agy`)
+and ledger entry (`panel`). A roster may mix engines; `-Panel -Engine agy` runs only the agy
+entries.
 Every member sees the findings that were open when the panel started, not a later
 member's answer; a later panel on the same task does see this panel's findings (members are
 not blind across waves). `-PanelAll` includes `weighty` entries whatever the purpose.
@@ -1087,6 +1121,142 @@ Disagreement is the signal: record it in `state.md` until evidence settles it. G
 bounded search/extraction work to cheap members with `-Purpose chore` and put extracts,
 not raw files, into a weighty brief. Acceptance authority for a release stays with the
 reviewer who raised the findings.
+
+---
+
+## Engines (0.4.0): Gemini through the Antigravity CLI (`agy`)
+
+An **engine** is the CLI that carries a consultation. `codex` (`codex exec`) is the default
+and everything above describes it. `agy` - Google's Antigravity CLI, the official headless
+client of the Gemini models under a Google AI Pro plan - enforces the reply schema natively
+(`--json-schema`), which `codex exec` cannot promise for every endpoint. The ledger, the
+handoff files, findings, ratings, the panel, the scoreboards, the preflight, the lock and
+the recovery record are the same for both. The design and its review round are ROADMAP
+R10; a `claude` engine (Claude Code headless) is planned as the next row of the same
+engine table (`$script:Engines` in `codex-consult-common.ps1`).
+
+**Choosing it.** A roster entry `{ "provider": "gemini", "engine": "agy", "model":
+"gemini-3.8-flash-high" }`, or on the command line `-Engine agy -Provider gemini -Model
+gemini-3.8-flash-high` (without a roster the label defaults to `gemini`). For agy the
+provider is a free LABEL (the lineage's provider) and the model is REQUIRED - the full
+id, whose last part is the reasoning tier (`gemini-3.8-flash-{high,medium,low}`,
+`gemini-3.1-pro-{high,low}`; `agy models` lists them). One label names one engine across
+the roster; `codex_config` and `auth` are refused on an agy entry. `-Engine` without
+`-Provider` restricts the roster walk (and `-Panel`) to that engine's entries. Solo runs on
+the weighty model need no new mechanism: a second entry with the same label and another
+model is legal (the duplicate rule is provider + model), e.g.
+`{ "provider": "gemini", "engine": "agy", "model": "gemini-3.1-pro-high", "panel":
+"weighty" }` - a panel then routes weighty purposes to it, and `-Provider gemini -Model
+gemini-3.1-pro-high` picks it for a single run.
+
+**The invocation.** From the repository root:
+`agy -p= --input-format stream-json --output-format stream-json --model <m> --json-schema
+<plugin>/schemas/consult-reply.schema.json --print-timeout 0 --sandbox
+--disable-slash-commands [--conversation <thread>] [--effort <v>]`. The prompt travels as
+ONE NDJSON line `{"event":"user","message":{"content":"<prompt>"}}` on stdin (UTF-8, no
+BOM, one LF) - no argv length limit, no cmd.exe quoting. `--print-timeout 0` is pinned
+because an agy-side timeout looks like success (partial output); the bridge's
+`-TimeoutSec` process-tree kill is the only timeout. Effort: nothing is sent (`effort_sent`
+`null`, mapping `model-tier`) - the tier is part of the model id and the model id is the
+lineage; `-NativeEffort <v>` sends `--effort <v>` verbatim and agy's own conflict check
+applies. The prompt of an agy run carries one more line: `Tools: you may read files of the
+repository; you have NO permission to run commands in this consultation - never call
+run_command; make NO file changes; a check that needs a command belongs under ## Requested
+checks.` The launcher: `agy.exe` on PATH (winget package `Google.AntigravityCLI`, or the
+official installer under `%LOCALAPPDATA%\agy\bin`), else `-EngineExe <path>` or
+`CODEX_CONSULT_AGY_EXE`.
+
+**Refused for agy** (one message each, nothing started): `-Mode fork` (agy has no fork),
+`-Sandbox workspace-write`, `-CodexConfig`, `-SchemaTransport output-schema` (it takes
+`native` or `prompt-only`). **Mode:** `new` by default - a conversation grows with every
+turn, so it is resumed only on request: `-Mode resume` (the newest verified conversation of
+the lineage) or `-Thread <uuid>` sends `--conversation <thread>`.
+
+**The reply.** stdout is saved as `handoffs/NN-agy-<slug>.events.jsonl`. The reply is the
+`result` event's `structured_output` (never its `response` text when `structured_output`
+is there - the text carries extra keys), extracted atomically to
+`handoffs/NN-agy-<slug>.reply.json` BEFORE any validation, then validated like a codex
+reply; without `structured_output` the `response` text goes through the prose gate and the
+format repair (one turn on `--conversation <thread>` with `--json-schema`). The thread is
+`result.conversation_id`.
+
+**A run FAILS** (nothing ingested, the reply kept and named) on: exit code != 0; a
+malformed event stream (not exactly one `result` event, a line that does not parse - the
+last line counts as a partial line only when the bridge killed the process or it exited
+non-zero; after exit 0 trailing garbage fails the run) - class `transport`; no `result` event (the init id is kept as
+`thread_candidate` only); an init id different from the result's (class `unknown`);
+`status` other than `SUCCESS`; on resume the `warning: conversation "<id>" not found`, a
+result without an id, or another id (`failed: parent conversation <p> not found, agy started
+<new>`, class `unknown` - the new conversation is never a parent); an id that is not a
+uuid; `returning partial output` / `print timeout` on stderr; an empty reply (with agy's
+denial notice: class `permission`, message = that line). The same conversation-id checks
+apply to a format-repair or denial-retry turn: a repair that lands in a new conversation is
+a failed repair and nothing from it is ingested.
+
+**F11 and the denial retry.** When the model calls a tool headless print mode cannot grant
+(e.g. `run_command`), agy auto-denies it and may end the turn with exit 0, `SUCCESS`, an
+empty response and `jetski: no output produced - a tool required the "command" permission
+that headless mode cannot prompt for, so it was auto-denied...` on stderr. With
+`-DenialRetry 1` (the default) the bridge then runs ONE more turn on the same conversation:
+the output contract, `Your previous turn produced no output: the tool run_command was
+auto-denied (headless print mode has no "command" permission). Do NOT call it again; answer
+from what you have read, as the JSON object.`, the field meanings and the consultation id
+(never the brief), `--json-schema`, `min(-TimeoutSec, 300)` s, same lock and recovery
+record, its events in `handoffs/NN-agy-<slug>.denial-retry.events.jsonl`. Ledger
+`denial_retry {attempted, reason, succeeded, thread, wall_seconds, usage, events}` (`events`
+names that stream, as `format_retry.events` names a repair turn's); a handoff line
+`Denial retry: succeeded|failed ...`. A denial notice WITH a usable reply is ingested with
+a ledger `warnings[]` entry and a `Warnings:` handoff line.
+
+**F12: read-only is NOT enforced by agy.** Its `--sandbox` restricts the terminal only
+(a `write_to_file` call created a file with no prompt; `--mode plan` changes nothing). The
+bridge therefore compares, before and after every agy turn, the working tree (the git
+status manifest: tracked and untracked files), the WHOLE collab directory (every file under
+`-CollabDir`, recursively: every task's `findings.json` / `sessions.json` / `state.md` and
+handoffs; the bridge's own `.consult.*` files and this run's own `NN-agy-<slug>.*` files
+excepted), the brief and the artifacts, and fails the run when any of them changed: `failed:
+the working tree changed during the run (by the reviewer or anyone else): <n> files: <list>
+- agy's sandbox does not block writes` (or `the collab directory changed during the run (by
+the reviewer or anyone else): <n> files: .collab/<task>/...`), class `permission`, the reply
+kept and named, nothing ingested. Read-only is thereby **enforced by evidence for tracked and
+untracked files and the collab directory; not for gitignored paths, submodules or files
+outside the repository** - a write there goes unnoticed (the git manifest does not list
+ignored files and does not recurse submodules). Ledger `sandbox`: `read-only (requested;
+enforced by evidence for tracked and untracked files and the collab directory, not for
+gitignored paths, submodules or files outside the repository; agy --sandbox restricts the
+terminal only)`. The check cannot tell who changed a file: a file changed by YOU during the
+run - a brief saved into the handoffs, an edit in the tree, another consultation of this
+repository writing its own handoffs and ledger - fails it too. **Do not edit the repository
+or the collab directory, and run no other consultation here, while an agy consultation
+runs.**
+
+**Sign-in and cost.** agy keeps its credentials in the OS keyring after the USER signed in
+interactively (run `agy` once); the bridge never handles a login. The preflight's credential
+check is `agy models` (a network round-trip, usually ~2 s but observed at 1.7-15+ s, so the
+timeout is 45 s; once per listing): exit 0 and at least one `<id><TAB><name>` line -> `ok:
+signed in (N models)`; sign-in wording -> `missing`; anything else, a timeout included ->
+`unknown` (refused). No call at all when THIS repository's ledgers hold a usable reply on the
+agy endpoint (its fingerprint) from the last 60 minutes (consult clock): the sign-in is
+evidenced - `ok: signed in (usable reply <m> min ago)`, the listing shows the same text; the
+endpoint health stays in front of it (a recorded auth failure or a usage limit still
+refuses). The hook does not make the call (`not checked (launcher present)`, or `available`
+on that ledger evidence). Every agy call carries about 13-25k tokens of the CLI's own prompt
+and tools, and a resume replays the conversation (a resumed turn was observed at 54k input
+tokens); a diff review on `gemini-3.8-flash-high` reads the tree - the first live panel's
+took 605 s at 1.6M input + 5.9M cached tokens. The ledger records `usage` per run. Google AI
+Pro refreshes the quota every five hours until a weekly limit; the CLI cannot show the
+remaining quota. A lineage binds engine + label + model, not the signed-in Google account
+(TECH_DEBT T7).
+
+**Recovery.** The recovery record names each running turn's event stream (`events`, also
+for codex): a run that stops before its ledger entry leaves `the raw event stream of that
+run is at <path> (it may hold a usable reply); no ledger entry was written` in every message
+about its reservation (`-List`, the dry run, the next run). An interrupted `agy.exe` is found
+by the recorded launcher's name as well as by the launcher in a command line.
+
+**Listings.** `codex-scoreboard.ps1` and `codex-findings.ps1 -Stats`/`-Rate` show an agy
+lineage as `gemini :: gemini-3.8-flash-high [agy]`; the panel summary and the roster lines
+do too.
 
 ---
 
@@ -1145,7 +1315,7 @@ nor writes it.
 | `-Task <id>` | *required* | slug; groups one conversation under `<CollabDir>/<id>/` |
 | `-Brief <path>` / `-Prompt <text>` | — | at least one; the brief must exist (resolved against the current directory, then the repo root) |
 | `-Purpose <purpose>` | *(none)* | prompt paragraph, preset effort and word cap: "Review purposes" |
-| `-Mode new\|fork\|resume` | `fork` when a thread of this run's lineage is known, else `new` | `fork` branches, `resume` appends |
+| `-Mode new\|fork\|resume` | `fork` when a thread of this run's lineage is known, else `new` (agy: `new`; `resume` with `-Thread`) | `fork` branches, `resume` appends; agy has no `fork` |
 | `-Thread <uuid>` | the newest verified thread of this lineage in this task | needs `fork`/`resume`; must belong to this lineage |
 | `-Provider <name>` | first available roster entry; without a roster, the config's `model_provider`, else `openai` | case-sensitive table name; needs `-Model` unless its roster entry names one |
 | `-Model <name>` | the roster entry's model, else the config's top-level `model` | the resolved model is always passed as `-m`; without `-Provider` it restricts the roster walk |
@@ -1153,18 +1323,21 @@ nor writes it.
 | `-NativeEffort <token>` | — | sent verbatim; excludes `-Effort`; required where caps-v1 declares nothing |
 | `-MaxWords <n>` | the purpose preset (`700` without one) | prose only |
 | `-Sandbox read-only\|workspace-write` | `read-only` | `danger-full-access` is refused, with no flag to force it |
-| `-TimeoutSec <n>` | `900` | the codex process TREE is killed past it |
-| `-ReplyName <slug>` | `reply` | names `handoffs/<NN>-codex-<slug>.*` |
+| `-TimeoutSec <n>` | `900` | the codex (agy) process TREE is killed past it |
+| `-ReplyName <slug>` | `reply` | names `handoffs/<NN>-codex-<slug>.*` (`<NN>-agy-<slug>.*` for the agy engine) |
 | `-Artifact <path>[,<path>…]` | — | one comma-separated string; hashes built artifacts into the ledger; a missing path refuses the run |
 | `-Raw` | off | 0.1-style plain-text reply: no schema, no findings, no format repair |
 | `-FormatRetry 0\|1` | `1` | one recorded repair turn for a substantive prose reply; any other value refuses |
-| `-SchemaTransport output-schema\|prompt-only` | caps-v1's declared transport | one run only; not with `-Raw` |
+| `-SchemaTransport output-schema\|prompt-only\|native` | caps-v1's declared transport | one run only; not with `-Raw`; `native` (agy's `--json-schema`) only for agy, `output-schema` only for codex |
 | `-CodexConfig key=value[,…]` | — (roster `codex_config` when empty) | one comma-separated string; refused keys: "Per-run Codex overrides (-CodexConfig)" |
 | `-OffPeakOnly` | off | refuses at peak and when no schedule is set |
 | `-SkipPreflight` | off | bypasses every preflight refusal; ledger `preflight: "skipped"` |
 | `-Panel` / `-PanelAll` | off | every available roster entry, sequentially; needs a roster; not with `-Provider`/`-Thread`/`-Mode resume` |
 | `-CollabDir <path>` | `.collab` | relative to the git repo root |
 | `-CodexExe <path>` | the launcher on PATH | env override `CODEX_CONSULT_EXE` |
+| `-Engine codex\|agy` | the roster entry's engine (the thread's with `-Thread`), else `codex` | "Engines"; with a roster and no `-Provider`/`-Thread` it restricts the walk (and `-Panel`) to that engine |
+| `-EngineExe <path>` | `agy.exe` on PATH | the agy launcher; env override `CODEX_CONSULT_AGY_EXE` |
+| `-DenialRetry 0\|1` | `1` | agy: one more turn on the same conversation after a run that produced nothing because a tool was auto-denied; ledger `denial_retry` |
 | `-DryRun` | off | prints the plan (argv, prompt, paths, preflight, roster pick, ledger entry); calls nothing, writes nothing |
 
 Environment variables:
@@ -1177,6 +1350,7 @@ Environment variables:
 | `CODEX_CONSULT_ROSTER` | user | roster file path (must exist), or `none` |
 | `CODEX_CONSULT_PEAK_<PROVIDER>`, `CODEX_CONSULT_PEAK_<PROVIDER>_EXCEPT` | user | peak windows |
 | `CODEX_CONSULT_EXE` | user | codex launcher path |
+| `CODEX_CONSULT_AGY_EXE` | user | agy launcher path (the `agy` engine) |
 | `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS` | tests only | test hooks; never set them in normal use |
 
 ---
@@ -1271,15 +1445,16 @@ anything not listed, rerun with `-DryRun` and compare the argv.
   convention) and part of R9 (the roster, the panel, the per-reviewer scoreboard and
   usefulness telemetry) in 0.3.0. Per-item status lines: [ROADMAP.md](ROADMAP.md),
   [TECH_DEBT.md](TECH_DEBT.md).
-- Planned for 0.4.0: the rest of R9 (corroboration/contradiction links `-Link`, blind
-  baseline isolation across waves, canonical issues, grouped stats), and R10 **engines**:
-  a roster field `engine` so a reviewer can be reached through the CLI its provider
-  supports, Claude Code headless (`claude -p --json-schema`) or Google's Antigravity CLI
-  (`agy -p --json-schema`), where the same models return native structured output on the
-  first turn (verified live before the design was written down).
+- 0.4.0 (candidate): R10 **engines**, first row `agy` (Google's Antigravity CLI for the
+  Gemini models, native structured output) - see "Engines". Next: the `claude` engine
+  (Claude Code headless, `claude -p --json-schema`) as the second row of the same table,
+  R11 (a parallel panel) and the rest of R9 (corroboration/contradiction links `-Link`,
+  blind baseline isolation across waves, canonical issues, grouped stats).
 - Open tech debt: T5 (a credential rotated inside the 24-hour auth window still needs
   `-SkipPreflight` once), T6 (a legacy entry without `retry_after` can be off by a time-zone
-  difference).
+  difference), T7 (an agy lineage binds engine + label + model, not the signed-in Google
+  account), T8 (agy's read-only rule is enforced by evidence: gitignored paths, submodules
+  and files outside the repository are not seen, and a change cannot be attributed).
 - Help wanted: runs on macOS; a bash port; a `UserPromptSubmit` hook injector; the reverse
   direction (a Codex-side tool that consults Claude); an MCP server variant with
   background jobs.
@@ -1288,13 +1463,12 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 
 ## Tests
 
-`tests/run-all.ps1` runs the seven harnesses one at a time against a FAKE `codex` shim: no
-real `codex`, no quota spent, your own `~/.codex/config.toml` never changed (`harness-0.3`
+`tests/run-all.ps1` runs the eight harnesses one at a time against a FAKE `codex` shim (and
+a FAKE `agy` for `harness-engines`): no real `codex` or `agy`, no quota spent, your own `~/.codex/config.toml` never changed (`harness-0.3`
 points `CODEX_HOME` at scratch directories and compares your config's hash before and
 after; every harness sets `CODEX_CONSULT_ROSTER` to a scratch file or `none`). The fake
 codex is a `.cmd` shim, so the suite needs Windows and `git` on PATH. Never run two
-harnesses in parallel; the recovery checks would see each other's fake codex. A full run
-takes about ten minutes.
+harnesses in parallel; the recovery checks would see each other's fake codex.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1
@@ -1302,9 +1476,10 @@ pwsh -NoProfile -File tests/run-all.ps1 -Only harness-roster,harness-0.3
 ```
 
 Assertions per harness (Windows PowerShell 5.1, 2026-09-25): `harness-0.3` 227,
-`harness-roster` 113, `harness-format` 37, `harness-pending` 26, `harness-fixes` 45,
-`harness-lock2` 11, `harness-3b` 12. `harness-0.3`, `harness-roster` and `harness-format`
-also run under pwsh. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
+`harness-roster` 113, `harness-format` 37, `harness-engines` 81, `harness-pending` 26,
+`harness-fixes` 45, `harness-lock2` 11, `harness-3b` 12. `harness-0.3`, `harness-roster`,
+`harness-format` and `harness-engines` also run under pwsh. A full run takes about fifteen
+minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
 prints one summary line per harness, exits `1` when anything failed, and keeps full logs
 in `$env:TEMP\codex-consult-tests\run-all-<timestamp>\`. `tests/` is not part of the
 installed plugin; `tests/README.md` lists what each harness covers.

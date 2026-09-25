@@ -5,7 +5,8 @@
 .DESCRIPTION
     Reads the Codex config (<codex home>/config.toml, the constrained scanner of
     codex-consult-common.ps1) and reports the built-in openai plus every
-    [model_providers.<name>] table:
+    [model_providers.<name>] table - and (0.4.0) one row per provider label that the
+    reviewer roster declares with another engine than codex (e.g. "engine": "agy"):
 
       verdict      available               credentials present and the table usable
                    unavailable (<reason>)  credentials missing, the table unusable, an
@@ -14,21 +15,31 @@
                                            ("usage limit until <iso>")
                    unknown (<reason>)      `codex login status` could not run, or the
                                            config cannot be scanned
-      kind         builtin | custom
-      endpoint     canonical base_url, or builtin:openai[+OPENAI_BASE_URL <url>]
-      table        built in | usable | unusable: <scanner reason>
+      kind         builtin | custom | engine <name> (JSON `engine`: codex for the first two)
+      endpoint     canonical base_url, or builtin:openai[+OPENAI_BASE_URL <url>], or
+                   "agy (<launcher>)" for an agy row
+      table        built in | usable | unusable: <scanner reason> | n/a (an engine row)
       credentials  openai (and tables with requires_openai_auth = true): the output of
                    `codex login status` (timeout 15 s) - "ok: Logged in ..." or
                    "missing: <first line or exit N>"; other tables: "ok: env NAME set",
                    "ok: bearer token in config", "missing: env NAME not set" or
-                   "missing: no env_key/bearer token in the table"
+                   "missing: no env_key/bearer token in the table"; an agy row: `agy models`
+                   (a network round-trip, usually ~2 s, timeout 45 s, once per listing) -
+                   "ok: signed in (N models)", "missing: ..." (sign-in wording, or "agy CLI
+                   not found on PATH"), "unknown: ..."; no call when THIS repository's
+                   ledgers hold a usable reply on the agy endpoint from the last 60 minutes:
+                   "ok: signed in (usable reply <m> min ago)" (with -NoNetwork too; a
+                   recorded auth failure or usage limit still makes the verdict
+                   unavailable); otherwise with -NoNetwork "not checked (launcher present;
+                   run codex-providers.ps1)" and the verdict "unknown (sign-in not checked)"
       effort       the effort vocabulary DECLARED for the endpoint (capability table
                    caps-v1): openai (built-in openai, any model), zai (api.z.ai /
                    open.bigmodel.cn), mimo (*.xiaomimimo.com token-plan / api hosts) -
                    those two for their declared models only (JSON effort_models) - or
-                   "unknown (needs -NativeEffort)"
+                   "unknown (needs -NativeEffort)"; an agy row: "agy (tier in the model id)"
       transport    (JSON schema_transport) how the reply schema reaches the endpoint:
-                   output-schema (--output-schema) or prompt-only (MiMo, undeclared hosts)
+                   output-schema (--output-schema) or prompt-only (MiMo, undeclared hosts);
+                   native for an agy row (--json-schema)
       last failure the newest failed consultation of this provider's ENDPOINT
                    (provider_fingerprint, whatever alias ran it) in THIS repository's
                    <CollabDir>/*/sessions.json within the last 24 h, with its class
@@ -53,7 +64,9 @@
                    roster makes a table without env_key/bearer token "ok: declared
                    anonymous in the roster".
 
-    No network call is made; nothing is written; no task lock is taken.
+    No network call for codex providers; at most one `agy models` call per agy engine (none
+    after a usable agy reply within the last 60 minutes, none with -NoNetwork, which the
+    SessionStart hook uses); nothing is written; no task lock is taken.
     Exit codes: with -Provider <name>: 0 available, 2 unavailable, 3 unknown, 1 usage
     error (e.g. no such provider). Without -Provider: 0.
 
@@ -77,7 +90,13 @@ param(
 
     # Explicit path to the codex launcher (for `codex login status`). Env override:
     # CODEX_CONSULT_EXE.
-    [string]$CodexExe = ''
+    [string]$CodexExe = '',
+
+    # Explicit path to the agy launcher (for `agy models`). Env override: CODEX_CONSULT_AGY_EXE.
+    [string]$EngineExe = '',
+
+    # No network call at all: an agy row's sign-in is "not checked" (the SessionStart hook).
+    [switch]$NoNetwork
 )
 
 $ErrorActionPreference = 'Stop'
@@ -94,13 +113,6 @@ if ($config.Exists -and -not $config.Ok) { $fileReason = $config.Reason }
 $names = New-Object System.Collections.Generic.List[string]
 $names.Add('openai')
 foreach ($n in (Get-ProviderNames -Config $config)) { if ($n -cne 'openai') { $names.Add($n) } }
-if ($Provider) {
-    if (-not $names.Contains($Provider)) {
-        Stop-WithError "no provider '$Provider' in $where (providers: $($names.ToArray() -join ', '))."
-    }
-    $names = New-Object System.Collections.Generic.List[string]
-    $names.Add($Provider)
-}
 
 # Every task ledger of this repository (health is read per ENDPOINT across all of them, at
 # the consult clock: CODEX_CONSULT_NOW freezes it in tests).
@@ -115,10 +127,31 @@ $utcNow = $clock.Now.UtcDateTime
 # -Provider and -Thread would select now.
 $roster = Read-ReviewerRoster
 if ($roster.Error) { Stop-WithError $roster.Error }
+# The provider labels of the other engines (0.4.0): one row each, in roster order.
+$engineLaunchers = @{}
+if ($EngineExe) { $engineLaunchers['agy'] = [string](Resolve-EngineLauncher -Engine 'agy' -Explicit $EngineExe) }
+$engineLabels = New-Object System.Collections.Generic.List[object]
+foreach ($e in @($roster.Entries)) {
+    if ($e.Engine -eq 'codex') { continue }
+    if (@($engineLabels | Where-Object { $_.Name -ceq $e.Provider }).Count -eq 0) { $engineLabels.Add([pscustomobject]@{ Name = $e.Provider; Engine = $e.Engine }) }
+}
+if ($Provider) {
+    $known = @($names.ToArray()) + @($engineLabels | ForEach-Object { $_.Name })
+    if ($known -cnotcontains $Provider) {
+        Stop-WithError "no provider '$Provider' in $where (providers: $($known -join ', '))."
+    }
+    $keep = $names.Contains($Provider) -and @($engineLabels | Where-Object { $_.Name -ceq $Provider }).Count -eq 0
+    $names = New-Object System.Collections.Generic.List[string]
+    if ($keep) { $names.Add($Provider) }
+    $engineLabels = New-Object System.Collections.Generic.List[object]
+    foreach ($e in @($roster.Entries)) {
+        if ($e.Engine -ne 'codex' -and $e.Provider -ceq $Provider -and $engineLabels.Count -eq 0) { $engineLabels.Add([pscustomobject]@{ Name = $e.Provider; Engine = $e.Engine }) }
+    }
+}
 $loginCache = @{}
 $walk = $null
 if ($roster.Exists) {
-    $walk = Select-RosterReviewer -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL)
+    $walk = Select-RosterReviewer -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork
 }
 
 $rows = New-Object System.Collections.Generic.List[object]
@@ -202,9 +235,10 @@ foreach ($name in $names) {
     $limit = $null
     $lastFailure = $null
     if ($health) { $limit = $health.LastLimit; $lastFailure = $health.LastFailure }
-    $rosterPositions = @(@($roster.Entries) | Where-Object { $_.Provider -ceq $name } | ForEach-Object { [int]$_.Position })
+    $rosterPositions = @(@($roster.Entries) | Where-Object { $_.Provider -ceq $name -and $_.Engine -eq 'codex' } | ForEach-Object { [int]$_.Position })
     $rows.Add([pscustomobject]@{
             name              = $name
+            engine            = 'codex'
             kind              = $kind
             endpoint          = $endpoint
             wire_api          = $wire
@@ -216,7 +250,50 @@ foreach ($name in $names) {
             last_limit        = $(if ($limit) { [pscustomobject]@{ when = $limit.When; message = $limit.Message; retry_after = $(if ($limit.RetryAfterIso) { $limit.RetryAfterIso } else { $null }) } } else { $null })
             last_failure      = $(if ($lastFailure) { [pscustomobject]@{ class = $lastFailure.Class; code = $lastFailure.Code; when = $lastFailure.When; message = $lastFailure.Message; retry_after = $(if ($lastFailure.RetryAfterIso) { $lastFailure.RetryAfterIso } else { $null }) } } else { $null })
             roster_position   = $(if ($rosterPositions.Count -gt 0) { [int]$rosterPositions[0] } else { $null })
-            roster_selected   = [bool]($walk -and $walk.Entry -and $walk.Entry.Provider -ceq $name)
+            roster_selected   = [bool]($walk -and $walk.Entry -and $walk.Entry.Provider -ceq $name -and $walk.Entry.Engine -eq 'codex')
+            verdict           = $verdict
+        })
+}
+
+# ----------------------------------------------------------------------------- engine rows
+# One row per provider label of another engine (roster entries only): the launcher, the sign-in
+# (`agy models`, or "not checked" with -NoNetwork), the recorded health of the engine's
+# endpoint (its fingerprint: every label of one engine shares it), the roster columns.
+foreach ($el in $engineLabels) {
+    $spec = Get-EngineSpec -Name $el.Engine
+    $engineLauncher = Get-EngineLauncher -Engine $el.Engine -Launchers $engineLaunchers
+    $model = [string](@($roster.Entries | Where-Object { $_.Provider -ceq $el.Name } | Select-Object -First 1).Model)
+    $probe = Resolve-ReviewerIdentity -Config $config -Provider $el.Name -Model $model -Engine $el.Engine -Launcher $engineLauncher
+    $health = $null
+    if ($probe.Resolved) { $health = Get-EndpointHealth -Consults $consults -Fingerprint $probe.Fingerprint -UtcNow $utcNow }
+    # (a usable reply on this endpoint within the last 60 minutes evidences the sign-in: no
+    # `agy models` call; the auth / quota rules below still apply)
+    $cred = Get-EngineCredential -Engine $el.Engine -Launcher $engineLauncher -LoginCache $loginCache -NoNetwork:$NoNetwork -Health $health
+    $credText = $cred.Detail
+    if ($cred.State -eq 'ok') { $verdict = 'available' }
+    elseif ($cred.State -eq 'missing') { $verdict = "unavailable ($($cred.Reason))" }
+    else { $verdict = "unknown ($($cred.Reason))" }
+    if ($health -and $health.Auth -and $verdict -ne "unavailable ($($cred.Reason))") { $verdict = "unavailable (auth failed $($health.Auth.When): $($health.Auth.Message))" }
+    elseif ($health -and $health.Quota -and $health.QuotaKnown -and $verdict -ne "unavailable ($($cred.Reason))") { $verdict = "unavailable (usage limit until $($health.Quota.RetryAfterIso))" }
+    $limit = $null
+    $lastFailure = $null
+    if ($health) { $limit = $health.LastLimit; $lastFailure = $health.LastFailure }
+    $rosterPositions = @(@($roster.Entries) | Where-Object { $_.Provider -ceq $el.Name -and $_.Engine -eq $el.Engine } | ForEach-Object { [int]$_.Position })
+    $rows.Add([pscustomobject]@{
+            name              = $el.Name
+            engine            = $el.Engine
+            kind              = "engine $($el.Engine)"
+            endpoint          = "$($el.Engine) ($(if ($engineLauncher) { $engineLauncher } else { 'launcher not found' }))"
+            wire_api          = ''
+            table             = 'n/a'
+            credentials       = $credText
+            effort_vocabulary = "$($el.Engine) (tier in the model id)"
+            effort_models     = 'any'
+            schema_transport  = 'native'
+            last_limit        = $(if ($limit) { [pscustomobject]@{ when = $limit.When; message = $limit.Message; retry_after = $(if ($limit.RetryAfterIso) { $limit.RetryAfterIso } else { $null }) } } else { $null })
+            last_failure      = $(if ($lastFailure) { [pscustomobject]@{ class = $lastFailure.Class; code = $lastFailure.Code; when = $lastFailure.When; message = $lastFailure.Message; retry_after = $(if ($lastFailure.RetryAfterIso) { $lastFailure.RetryAfterIso } else { $null }) } } else { $null })
+            roster_position   = $(if ($rosterPositions.Count -gt 0) { [int]$rosterPositions[0] } else { $null })
+            roster_selected   = [bool]($walk -and $walk.Entry -and $walk.Entry.Provider -ceq $el.Name -and $walk.Entry.Engine -eq $el.Engine)
             verdict           = $verdict
         })
 }
@@ -228,7 +305,8 @@ if ($Json) {
     $header = [pscustomobject]@{ verdict = 'VERDICT'; name = 'PROVIDER'; roster = 'ROSTER'; kind = 'KIND'; endpoint = 'ENDPOINT'; credentials = 'CREDENTIALS'; effort = 'EFFORT'; limit = 'LAST FAILURE (24 h)' }
     $lines = @($header) + @($rows | ForEach-Object {
             $rowName = $_.name
-            $positions = @(@($roster.Entries) | Where-Object { $_.Provider -ceq $rowName } | ForEach-Object { [string]$_.Position })
+            $rowEngine = [string]$_.engine
+            $positions = @(@($roster.Entries) | Where-Object { $_.Provider -ceq $rowName -and $_.Engine -eq $rowEngine } | ForEach-Object { [string]$_.Position })
             $failureLabel = ''
             if ($_.last_failure) {
                 $failureLabel = [string]$_.last_failure.class
@@ -241,7 +319,7 @@ if ($Json) {
                 kind        = $_.kind
                 endpoint    = $(if ($_.endpoint) { $_.endpoint } else { '-' })
                 credentials = $_.credentials
-                effort      = $(if ($_.effort_models -eq 'any') { "$($_.effort_vocabulary) (any model)" } elseif ($null -ne $_.effort_models) { "$($_.effort_vocabulary) ($(@($_.effort_models).Count) declared models)" } else { $_.effort_vocabulary })
+                effort      = $(if ($_.engine -ne 'codex') { $_.effort_vocabulary } elseif ($_.effort_models -eq 'any') { "$($_.effort_vocabulary) (any model)" } elseif ($null -ne $_.effort_models) { "$($_.effort_vocabulary) ($(@($_.effort_models).Count) declared models)" } else { $_.effort_vocabulary })
                 limit       = $(if ($_.last_failure) { "$($failureLabel): $($_.last_failure.when) - $($_.last_failure.message)" } else { '-' })
             }
         })
@@ -255,7 +333,7 @@ if ($Json) {
     }
     if ($roster.Exists) {
         if ($walk.Entry) {
-            $line = "roster: $($roster.Path) -> would select $($walk.Identity.Lineage)"
+            $line = "roster: $($roster.Path) -> would select $(Format-ReviewerLineage -Provider $walk.Identity.Provider -Model $walk.Identity.Model -Engine ([string]$walk.Identity.Engine))"
             if (@($walk.Skipped).Count -gt 0) { $line += " (skipped: $(Format-RosterSkips @($walk.Skipped)))" }
             Write-Host $line
         } else {

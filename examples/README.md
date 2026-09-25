@@ -22,9 +22,16 @@ roster and panel" sections show those fields when a roster is in play.
 (`CODEX_CONSULT_ROSTER`, else `<codex home>/codex-consult-roster.json`): three generic
 reviewers — a built-in `openai` model marked `"panel": "weighty"` (joins a `-Panel` run
 only on the weighty purposes), a z.ai-shaped GLM entry, and a MiMo-shaped entry whose
-`codex_config` supplies a per-run model catalog. (`"auth": "none"` is for a table with
-neither `env_key` nor a bearer token, such as a local endpoint; it has no effect on a
-provider like these, whose tables name an `env_key`.)
+`codex_config` supplies a per-run model catalog - plus (0.4.0) two Gemini entries on the
+`agy` engine (Google's Antigravity CLI): the label `gemini` on a flash model for every
+panel and on the pro model as a `"weighty"` entry (one label may name several models of one
+engine; `-Provider gemini -Model gemini-3.1-pro-high` picks the second for a single run).
+An agy entry needs a `model` and takes no `codex_config` or `auth`. (`"auth": "none"` is for
+a table with neither `env_key` nor a bearer token, such as a local endpoint; it has no
+effect on a provider like these, whose tables name an `env_key`.) The FABRICATED ledger
+below predates 0.4.0: a 0.4.0 entry also records `reviewer.engine`, `denial_retry` and
+`warnings` (see the README's "The ledger"), and an agy consultation's files are named
+`NN-agy-<slug>.*`.
 
 ```
 .collab/
@@ -61,7 +68,8 @@ own project you move them along with
 Each entry's `validation_error` is followed by `format_retry` (wave 14): `null` here,
 since none of these three FABRICATED consults triggered a format-repair turn. A
 non-`null` value (`{attempted, reason, succeeded, thread, wall_seconds, usage, drift,
-original}`) means a structured reply that first came back as prose was converted by one
+original, events}` - `events` names the repair turn's event stream when one is kept, the
+agy engine's; `null` for codex) means a structured reply that first came back as prose was converted by one
 recorded repair turn — see the README's "Structured reply, findings and format repair"
 for when it fires and how to read its drift notes.
 

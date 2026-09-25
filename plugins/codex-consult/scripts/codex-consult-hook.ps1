@@ -14,8 +14,16 @@
     follow the setup-providers skill`. Everything else (an unreadable config, an unusable
     roster, a crash inside the check) is reported in the same one-line form and never
     fails the session: the exit code is always 0. No network call, no lock, nothing
-    written. The check is the same local one codex-providers.ps1 makes (credentials,
-    table usability, endpoint health from THIS repository's ledgers, the roster walk).
+    written: it runs `codex-providers.ps1 -Json -NoNetwork` - the same local check
+    codex-providers.ps1 makes (credentials, table usability, endpoint health from THIS
+    repository's ledgers, the roster walk), except that the sign-in of an engine provider
+    (the agy engine's `agy models`, a network round-trip) is NOT checked here: such a row
+    reads e.g. `gemini not checked (launcher present)` (a missing launcher stays
+    `gemini unavailable (agy CLI not found on PATH)`; a recorded auth failure or usage
+    limit still shows), and the roster walk skips it - unless THIS repository's ledgers
+    hold a usable reply on that engine's endpoint from the last 60 minutes, which evidences
+    the sign-in without any call (`gemini available`). `codex-providers.ps1` without
+    -NoNetwork and the consultation's own preflight do check it.
 
     Cost: about one second (`codex login status` for the built-in openai), once per
     session. Disable the hook by disabling the plugin's hooks in Claude Code settings.
@@ -40,7 +48,7 @@ try {
     } else {
         $previous = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
-        $raw = & $psExe -NoProfile -ExecutionPolicy Bypass -File $providers -Json -CollabDir $CollabDir 2>&1 | ForEach-Object { "$_" }
+        $raw = & $psExe -NoProfile -ExecutionPolicy Bypass -File $providers -Json -NoNetwork -CollabDir $CollabDir 2>&1 | ForEach-Object { "$_" }
         $code = $LASTEXITCODE
         $ErrorActionPreference = $previous
         $jsonStart = -1
@@ -68,6 +76,9 @@ try {
                         $short += " ($reason)"
                     }
                 }
+                # an engine row whose sign-in was not checked (-NoNetwork): say so plainly
+                $rowEngine = [string]$r.engine
+                if ($rowEngine -and $rowEngine -ne 'codex' -and ([string]$r.credentials).StartsWith('not checked') -and $verdict -like 'unknown*') { $short = 'not checked (launcher present)' }
                 $parts.Add("$($r.name) $short")
                 if ($r.roster_selected -eq $true) { $selected = [string]$r.name }
             }

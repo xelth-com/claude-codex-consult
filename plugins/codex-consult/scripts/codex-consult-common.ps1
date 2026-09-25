@@ -25,6 +25,10 @@
       * reviewer         Resolve-ReviewerIdentity, New-ReviewerRecord,
                          Resolve-EffortPlan (effort vocabularies), Get-PeakStatus
                          (peak windows), Select-ParentThread (lineage-scoped parent)
+      * engines          $script:Engines (codex | agy), Get-EngineSpec,
+                         Resolve-EngineLauncher, Get-EngineCredential (agy: `agy
+                         models`), New-AgyArgv, ConvertTo-AgyStdin, Read-AgyEvents,
+                         Get-AgyTurnOutcome, Format-ReviewerLineage
       * availability     Resolve-CodexLauncher, Get-CodexLoginStatus (UTF-8),
                          Get-ProviderCredential, Get-ProviderFailureClass,
                          Get-RetryAfter (a provider's named reset time),
@@ -587,6 +591,79 @@ function Get-RevisionInfo {
     if ($info.dirty) { $info.reviewed_revision = "$($info.short_sha) + uncommitted" }
     $info.fingerprint_note = ($notes.ToArray() -join '; ')
     return $info
+}
+
+# The paths whose manifest lines (Get-RevisionInfo .manifest) differ between two
+# fingerprints: a file that appeared, disappeared or changed (content, mode, status), in
+# manifest order, each once. The agy engine's tree check names them (A17).
+function Get-ManifestChanges {
+    param([string]$Before, [string]$After)
+    $b = @{}
+    $a = @{}
+    foreach ($l in @(([string]$Before) -split "`n")) { if ($l -and -not $l.StartsWith('base ')) { $b[$l] = $true } }
+    foreach ($l in @(([string]$After) -split "`n")) { if ($l -and -not $l.StartsWith('base ')) { $a[$l] = $true } }
+    $paths = New-Object System.Collections.Generic.List[string]
+    foreach ($l in @($b.Keys) + @($a.Keys)) {
+        if ($b.ContainsKey($l) -and $a.ContainsKey($l)) { continue }
+        # "XY mode blob path[<TAB>orig]"
+        $parts = $l.Split(' ', 4)
+        $p = if ($parts.Count -ge 4) { $parts[3].Split("`t")[0] } else { $l }
+        if (-not $paths.Contains($p)) { $paths.Add($p) }
+    }
+    $sorted = [string[]]$paths.ToArray()
+    [Array]::Sort($sorted, [StringComparer]::Ordinal)
+    return , $sorted
+}
+
+# Relative path ('/'-separated) -> "<length>|<sha256>" of EVERY file under $Dir, recursively
+# (0.4.0 wave 18: the whole collab root - every task's stores findings.json / sessions.json /
+# state.md and handoffs - which lies outside the tree fingerprint). Left out: the bridge's
+# own lock and recovery files (a name starting with .consult., and the atomic-write temp
+# ..consult.*), .git directories, and directories that are reparse points (a junction or a
+# symlink is not followed). An absent directory is an empty snapshot.
+function Get-CollabSnapshot {
+    param([string]$Dir)
+    # ordinal keys: a.md and A.md are two files on a case-sensitive filesystem
+    $snap = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+    if (-not $Dir -or -not [IO.Directory]::Exists($Dir)) { return $snap }
+    $root = [IO.Path]::GetFullPath($Dir).TrimEnd([char]'\', [char]'/')
+    $stack = New-Object System.Collections.Generic.Stack[string]
+    $stack.Push($root)
+    while ($stack.Count -gt 0) {
+        $d = $stack.Pop()
+        $info = New-Object System.IO.DirectoryInfo($d)
+        $files = @()
+        $subdirs = @()
+        try { $files = @($info.GetFiles()); $subdirs = @($info.GetDirectories()) } catch { continue }
+        foreach ($f in $files) {
+            if ($f.Name.StartsWith('.consult.', [StringComparison]::OrdinalIgnoreCase) -or $f.Name.StartsWith('..consult.', [StringComparison]::OrdinalIgnoreCase)) { continue }
+            $rel = $f.FullName.Substring($root.Length).TrimStart([char]'\', [char]'/').Replace('\', '/')
+            $snap[$rel] = "$($f.Length)|$(Get-FileSha256OrMissing -Path $f.FullName)"
+        }
+        foreach ($s in $subdirs) {
+            if ($s.Name -eq '.git') { continue }
+            if (($s.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { continue }
+            $stack.Push($s.FullName)
+        }
+    }
+    return $snap
+}
+
+# The paths that are new, gone or changed between two Get-CollabSnapshot results, except
+# those starting with one of $IgnorePrefixes (the files the run writes itself).
+function Compare-DirectorySnapshot {
+    param([hashtable]$Before, [hashtable]$After, [string[]]$IgnorePrefixes = @())
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($n in @(@($Before.Keys) + @($After.Keys) | Select-Object -Unique)) {
+        $skip = $false
+        foreach ($pfx in @($IgnorePrefixes)) { if ($pfx -and $n.StartsWith($pfx, [StringComparison]::OrdinalIgnoreCase)) { $skip = $true } }
+        if ($skip) { continue }
+        if ($Before.ContainsKey($n) -and $After.ContainsKey($n) -and $Before[$n] -eq $After[$n]) { continue }
+        $names.Add($n)
+    }
+    $sorted = [string[]]$names.ToArray()
+    [Array]::Sort($sorted, [StringComparer]::Ordinal)
+    return , $sorted
 }
 
 # SHA-256 of a file, or 'missing' when it no longer exists / cannot be read (used
@@ -1370,7 +1447,7 @@ function Format-StructuredStatusLine {
 # Findings, Prior findings, then the four R4 blocks last - Verdict, Blockers,
 # Unproven scenarios, First-run checklist (observable).
 function Format-StructuredSection {
-    param($Parse, $Ingest)
+    param($Parse, $Ingest, [string]$ReviewerLabel = 'Codex')
     $r = $Parse.Reply
     $ids = @($Ingest.NewIds)
     $out = New-Object System.Collections.Generic.List[string]
@@ -1409,7 +1486,7 @@ function Format-StructuredSection {
     if ($Parse.VerdictInvalid) {
         $out.Add("## Verdict: (invalid: $($Parse.VerdictProblem))")
         $out.Add('')
-        $why = "Codex answered $($r.verdict)"
+        $why = "$ReviewerLabel answered $($r.verdict)"
         $reason = ConvertTo-OneLine $r.verdict_reason
         if ($reason) { $why += " ($reason)" }
         $out.Add("$why; no verdict was recorded: $($Parse.ValidationError).")
@@ -1522,7 +1599,7 @@ function Get-RepairEffort {
     param($Identity, $EffortPlan)
     if ($EffortPlan.Mapping -eq 'native') { return [string]$EffortPlan.Sent }
     $hostName = [string]$Identity.HostName
-    if ($hostName -and $script:EffortCaps.ContainsKey($hostName)) {
+    if ($hostName -and $script:EffortCaps.ContainsKey($hostName) -and $script:EffortVocabularies.ContainsKey($script:EffortCaps[$hostName].Vocabulary)) {
         return [string]$script:EffortVocabularies[$script:EffortCaps[$hostName].Vocabulary].Map['low']
     }
     return [string]$EffortPlan.Sent
@@ -2148,7 +2225,7 @@ function Get-ProviderEndpoint {
 # carry information on a resolved identity). Error is set only for an explicit
 # -Provider that cannot be used (the caller refuses the run).
 function Resolve-ReviewerIdentity {
-    param($Config, [string]$Provider = '', [string]$Model = '', [string]$OpenAiBaseUrl = '')
+    param($Config, [string]$Provider = '', [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '')
     $notes = New-Object System.Collections.Generic.List[string]
     $id = [pscustomobject]@{
         Provider       = 'unknown'
@@ -2167,7 +2244,10 @@ function Resolve-ReviewerIdentity {
         ProviderConfig = (New-Object PSObject)
         Display        = 'endpoint unknown'
         ConfigPath     = [string]$Config.Path
+        Engine         = 'codex'
     }
+    # Another engine than codex (Resolve-EngineIdentity): no Codex config lookup at all.
+    if ($Engine -and $Engine -ne 'codex') { return (Resolve-EngineIdentity -Identity $id -Engine $Engine -Provider $Provider -Model $Model -Launcher $Launcher) }
     $where = if ($Config.Path) { [string]$Config.Path } else { '(no Codex home)' }
     $fileReason = ''
     if ($Config.Exists -and -not $Config.Ok) { $fileReason = $Config.Reason }
@@ -2303,14 +2383,74 @@ function Format-Lineage {
     return "$Provider :: $Model"
 }
 
-# The `reviewer` object of a ledger entry.
+# The lineage as listings show it: Format-Lineage plus ' [<engine>]' for an engine other
+# than codex ('' or absent = codex, the engine of every entry recorded before 0.4.0).
+function Format-ReviewerLineage {
+    param([string]$Provider, [string]$Model, [string]$Engine = '')
+    $l = Format-Lineage -Provider $Provider -Model $Model
+    if ($Engine -and $Engine -ne 'codex') { $l += " [$Engine]" }
+    return $l
+}
+
+# The engine of a ledger entry's reviewer: reviewer.engine, 'codex' when absent (every entry
+# recorded before 0.4.0, and legacy entries without a reviewer).
+function Get-EntryEngine {
+    param($Entry)
+    $rev = Get-PropertyValue $Entry 'reviewer' $null
+    $e = [string](Get-PropertyValue $rev 'engine' '')
+    if (-not $e) { return 'codex' }
+    return $e
+}
+
+# The engine branch of Resolve-ReviewerIdentity (see the engine table below): the provider is
+# a free label (default: the engine's DefaultProvider), the model is REQUIRED (for agy the full
+# id with its tier), the endpoint is the engine itself - HostName 'engine:<name>', CompatString
+# 'cc-engine-v1|<name>', Fingerprint its SHA-256 (a thread of the engine never mixes with a codex
+# thread), ProviderConfig { engine; launcher }. Error: an unknown engine or a missing model.
+function Resolve-EngineIdentity {
+    param($Identity, [string]$Engine, [string]$Provider, [string]$Model, [string]$Launcher)
+    $id = $Identity
+    $id.Engine = $Engine
+    $spec = Get-EngineSpec -Name $Engine
+    if (-not $spec) {
+        $id.Error = "unknown engine '$Engine' (engines: $($script:EngineNames -join ', '))"
+        $id.Lineage = Format-Lineage -Provider $id.Provider -Model $id.Model
+        return $id
+    }
+    if ($Provider) { $id.Provider = $Provider; $id.ProviderSource = '-Provider' }
+    else { $id.Provider = [string]$spec.DefaultProvider; $id.ProviderSource = 'engine default' }
+    if ($Model) { $id.Model = $Model; $id.ModelSource = '-Model' }
+    else { $id.Error = "the $Engine engine needs a model: pass -Model <id> (the full model id, e.g. $($spec.ModelExample)) or name it in the roster entry" }
+    $id.HostName = [string]$spec.HostName
+    $id.WireApi = ''
+    $id.BaseUrl = ''
+    $pc = New-Object PSObject
+    $pc | Add-Member -NotePropertyName 'engine' -NotePropertyValue $Engine
+    $pc | Add-Member -NotePropertyName 'launcher' -NotePropertyValue $(if ($Launcher) { $Launcher } else { '' })
+    $id.ProviderConfig = $pc
+    $id.Display = "engine $Engine ($(if ($Launcher) { $Launcher } else { "$($spec.Command) CLI not found" }))"
+    $id.ConfigPath = ''
+    $id.Lineage = Format-Lineage -Provider $id.Provider -Model $id.Model
+    if (-not $id.Error) {
+        $id.Resolved = $true
+        $id.CompatString = [string]$spec.CompatString
+        $id.Fingerprint = Get-Sha256Hex ($script:Utf8NoBom.GetBytes($id.CompatString))
+    }
+    return $id
+}
+
+# The `reviewer` object of a ledger entry. `engine` (0.4.0): codex | agy; readers treat an
+# absent field as codex.
 function New-ReviewerRecord {
     param($Identity, [string]$Harness)
+    $engine = [string]$Identity.Engine
+    if (-not $engine) { $engine = 'codex' }
     return [pscustomobject]@{
         provider             = $Identity.Provider
         provider_source      = $(if ($Identity.ProviderSource) { $Identity.ProviderSource } else { 'unknown' })
         model                = $Identity.Model
         model_source         = $Identity.ModelSource
+        engine               = $engine
         harness              = $Harness
         provider_fingerprint = $Identity.Fingerprint
         provider_config      = $Identity.ProviderConfig
@@ -2368,6 +2508,11 @@ function ConvertFrom-CodexConfigItems {
 #   hosts token-plan-ams.xiaomimimo.com, token-plan-cn.xiaomimimo.com, api.xiaomimimo.com
 #       vocabulary mimo (mapping mimo-v1) ONLY for the declared models     none low medium
 #       below (exact): low, medium, high as is, xhigh -> high               high
+#   engine:agy (the agy engine, any model)
+#       vocabulary model-tier (mapping model-tier): NOTHING is sent - the reasoning tier is
+#       part of the agy model id (gemini-3.8-flash-high); effort_sent null. -NativeEffort
+#       sends --effort <value> verbatim (agy checks it against the tier itself). The reply
+#       schema travels natively (--json-schema): SchemaTransport 'native'.
 # Anything else - an undeclared model on a known host, any model on another endpoint -
 # has no vocabulary: the run is refused unless -NativeEffort sends a value verbatim.
 # Codex's events do not report the effort the endpoint applied: effort_confirmed is null.
@@ -2391,6 +2536,7 @@ $script:EffortCaps = @{
     'token-plan-ams.xiaomimimo.com' = @{ Vocabulary = 'mimo'; Models = $script:MimoDeclaredModels; SchemaTransport = 'prompt-only' }
     'token-plan-cn.xiaomimimo.com'  = @{ Vocabulary = 'mimo'; Models = $script:MimoDeclaredModels; SchemaTransport = 'prompt-only' }
     'api.xiaomimimo.com'            = @{ Vocabulary = 'mimo'; Models = $script:MimoDeclaredModels; SchemaTransport = 'prompt-only' }
+    'engine:agy'                    = @{ Vocabulary = 'model-tier'; Models = $null; SchemaTransport = 'native' }
 }
 
 # { Transport ('output-schema' | 'prompt-only'); Basis } for the identity's endpoint;
@@ -2418,9 +2564,16 @@ function Resolve-EffortPlan {
     $model = [string]$Identity.Model
     $cap = $null
     if ($hostName -and $script:EffortCaps.ContainsKey($hostName)) { $cap = $script:EffortCaps[$hostName] }
+    if ($cap -and $cap.Vocabulary -eq 'model-tier') {
+        # An engine whose model id carries the reasoning tier: nothing is sent.
+        $plan.Sent = $null
+        $plan.Mapping = 'model-tier'
+        $plan.Basis = "$($script:EffortCapsVersion): engine $($hostName -replace '^engine:', ''), the tier is part of the model id"
+        return $plan
+    }
     if (-not $cap) {
         $hostLabel = if ($hostName) { $hostName } else { 'unknown-host' }
-        $declared = @($script:EffortCaps.Keys | Sort-Object) -join ', '
+        $declared = @($script:EffortCaps.Keys | Where-Object { $_ -notlike 'engine:*' } | Sort-Object) -join ', '
         $plan.Error = "no effort vocabulary declared for $hostLabel ($($script:EffortCapsVersion) declares $declared); pass -NativeEffort <value> to send a value verbatim"
         return $plan
     }
@@ -2755,19 +2908,448 @@ function Get-ProviderCredential {
     return (New-CredentialResult 'missing' 'no env_key/bearer token in the table')
 }
 
-# Classes of a provider failure, tried in this order (case-insensitive). capability comes
-# first: "Your token plan does not support response_format" is a capability rejection,
-# not a quota one. auth matches whole words only ("text authored by" is not auth).
-# transport stays last.
+# ----------------------------------------------------------------------------- engines
+#
+# The CLI that carries a consultation (0.4.0, ROADMAP R10). One row per engine; `codex` is
+# the default and its path through codex-consult.ps1 is the 0.3.0 one. Every other engine is
+# driven through the same adapter interface (the Adapter functions named in its row), so a
+# further engine (e.g. `claude`) is one more row plus its adapter functions:
+#   Argv        the argv of a turn (New-AgyArgv)
+#   Stdin       the bytes written to the turn's stdin (ConvertTo-AgyStdin)
+#   Events      the event-stream parser (Read-AgyEvents) -> a normalized turn record
+#   Outcome     the failure rules of a turn (Get-AgyTurnOutcome)
+#   Credential  the sign-in check of the preflight (Get-AgyModelsStatus)
+# Row fields: Name, Label (handoff header / author), Prefix (handoff file names
+# NN-<prefix>-<slug>.*), Command (first word of the ledger `command`), ExeEnv (launcher
+# override), LauncherNames (PATH lookup, in order), Modes, DefaultMode ('' = automatic:
+# fork when a parent exists), Sandboxes, Transports (-SchemaTransport values), HostName
+# (caps-v1 key), CompatString (the provider fingerprint's input), DefaultProvider (the
+# lineage label without -Provider), ModelExample.
+#
+#   agy   Google's Antigravity CLI: `agy -p= --input-format stream-json --output-format
+#         stream-json --model <m> [--json-schema <schema>] --print-timeout 0 --sandbox
+#         --disable-slash-commands [--conversation <thread>] [--effort <v>]`, the prompt as
+#         ONE NDJSON line on stdin, the reply = the LAST (and only) `result` event's
+#         structured_output (never its `response` text when structured_output is there).
+#         Read-only is NOT enforced by agy (--sandbox restricts the terminal only): the
+#         bridge's tree check fails a run that changed the working tree (tracked or
+#         untracked files) or the collab directory; gitignored paths, submodules and files
+#         outside the repository stay unmonitored.
+$script:EngineNames = @('codex', 'agy')
+$script:Engines = @{
+    'codex' = [pscustomobject]@{
+        Name = 'codex'; Label = 'Codex'; Prefix = 'codex'; Command = 'codex'; ExeEnv = 'CODEX_CONSULT_EXE'
+        LauncherNames = $(if ($script:OnWindows) { @('codex.exe', 'codex.cmd', 'codex.bat', 'codex') } else { @('codex') })
+        Modes = @('new', 'resume', 'fork'); DefaultMode = ''; Sandboxes = @('read-only', 'workspace-write')
+        Transports = @('output-schema', 'prompt-only'); HostName = ''; CompatString = ''; DefaultProvider = ''; ModelExample = 'gpt-5.1'
+        Adapter = $null
+    }
+    'agy'   = [pscustomobject]@{
+        Name = 'agy'; Label = 'Gemini (agy)'; Prefix = 'agy'; Command = 'agy'; ExeEnv = 'CODEX_CONSULT_AGY_EXE'
+        LauncherNames = $(if ($script:OnWindows) { @('agy.exe', 'agy.cmd', 'agy.bat', 'agy') } else { @('agy') })
+        Modes = @('new', 'resume'); DefaultMode = 'new'; Sandboxes = @('read-only')
+        Transports = @('native', 'prompt-only'); HostName = 'engine:agy'; CompatString = 'cc-engine-v1|agy'; DefaultProvider = 'gemini'; ModelExample = 'gemini-3.8-flash-high'
+        Adapter = [pscustomobject]@{ Argv = 'New-AgyArgv'; Stdin = 'ConvertTo-AgyStdin'; Events = 'Read-AgyEvents'; Outcome = 'Get-AgyTurnOutcome'; Credential = 'Get-AgyModelsStatus' }
+    }
+}
+
+# The row of an engine, or $null.
+function Get-EngineSpec {
+    param([string]$Name)
+    if ($Name -and $script:Engines.ContainsKey($Name)) { return $script:Engines[$Name] }
+    return $null
+}
+
+# The launcher of an engine: $Explicit (codex: -CodexExe; others: -EngineExe), then the
+# engine's ExeEnv variable, then its LauncherNames on PATH. An explicit launcher that does not
+# resolve is an error (never a silent fall-through to PATH); $null when none is found.
+function Resolve-EngineLauncher {
+    param([string]$Engine, [string]$Explicit = '')
+    if (-not $Engine -or $Engine -eq 'codex') { return (Resolve-CodexLauncher -Explicit $Explicit) }
+    $spec = Get-EngineSpec -Name $Engine
+    if (-not $spec) { return $null }
+    $sources = @(@{ value = $Explicit; label = '-EngineExe' }, @{ value = [Environment]::GetEnvironmentVariable($spec.ExeEnv); label = $spec.ExeEnv })
+    foreach ($source in $sources) {
+        $candidate = [string]$source.value
+        if ($candidate) {
+            if (Test-Path -LiteralPath $candidate) { return (Resolve-Path -LiteralPath $candidate).Path }
+            $cmd = Get-Command $candidate -CommandType Application -ErrorAction SilentlyContinue
+            if ($cmd) { return @($cmd)[0].Source }
+            Stop-WithError "$($source.label) '$candidate' is not a file and not an application on PATH."
+        }
+    }
+    foreach ($name in @($spec.LauncherNames)) {
+        $cmd = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue
+        if ($cmd) { return @($cmd)[0].Source }
+    }
+    return $null
+}
+
+# The launcher of $Engine for a walk over the roster: codex -> $CodexLauncher; any other engine
+# is resolved once per $Launchers table (engine -> path, '' = not found).
+function Get-EngineLauncher {
+    param([string]$Engine, [hashtable]$Launchers = $null, [string]$CodexLauncher = '')
+    if (-not $Engine -or $Engine -eq 'codex') { return $CodexLauncher }
+    if ($null -ne $Launchers -and $Launchers.ContainsKey($Engine)) { return [string]$Launchers[$Engine] }
+    $p = [string](Resolve-EngineLauncher -Engine $Engine)
+    if ($null -ne $Launchers) { $Launchers[$Engine] = $p }
+    return $p
+}
+
+# The harness string of an engine run (reviewer.harness): agy has no --version flag (the CLI
+# rejects unknown flags), so the version comes from the launcher's file metadata when it
+# carries one: "agy-cli <version>" or "agy-cli (version unknown)". Nothing is started.
+function Get-EngineHarness {
+    param([string]$Engine, [string]$Launcher)
+    $ver = ''
+    if ($Launcher) {
+        try { $ver = [string](Get-Item -LiteralPath $Launcher -ErrorAction Stop).VersionInfo.ProductVersion } catch { $ver = '' }
+    }
+    if ($ver -and $ver.Trim()) { return "$Engine-cli $($ver.Trim())" }
+    return "$Engine-cli (version unknown)"
+}
+
+# `agy models` with a timeout (a network round-trip, usually ~2 s but observed at 1.7-15+ s,
+# hence 45 s): exit 0 and at least one "<id><TAB><name>" line -> ok "signed in (N models)";
+# output mentioning login / sign in / auth / unauthenticated -> missing; anything else (and a
+# timeout) -> unknown. stdout and stderr are read as UTF-8. { State; Reason; Detail } like
+# Get-CodexLoginStatus.
+$script:AgyModelsTimeoutSec = 45
+function Get-AgyModelsStatus {
+    param([string]$Launcher, [int]$TimeoutSec = 45)
+    if (-not $Launcher) { return (New-CredentialResult 'missing' 'agy CLI not found on PATH') }
+    $p = $null
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $Launcher
+        $psi.Arguments = 'models'
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardInput = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.StandardOutputEncoding = $script:Utf8NoBom
+        $psi.StandardErrorEncoding = $script:Utf8NoBom
+        $p = [System.Diagnostics.Process]::Start($psi)
+    } catch {
+        return (New-CredentialResult 'unknown' "``agy models`` could not be started ($(ConvertTo-OneLine $_.Exception.Message))")
+    }
+    try {
+        try { $p.StandardInput.Close() } catch { }
+        $outTask = $p.StandardOutput.ReadToEndAsync()
+        $errTask = $p.StandardError.ReadToEndAsync()
+        if (-not $p.WaitForExit($TimeoutSec * 1000)) {
+            $null = Stop-ProcessTree -Process $p
+            return (New-CredentialResult 'unknown' "``agy models`` did not finish within $TimeoutSec s")
+        }
+        $p.WaitForExit()
+        $null = $outTask.Wait(5000)
+        $null = $errTask.Wait(5000)
+        $outLines = @(([string]$outTask.Result) -split "`r?`n" | Where-Object { $_ -and $_.Trim() })
+        $allLines = @((([string]$outTask.Result) + "`n" + ([string]$errTask.Result)) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        $models = @($outLines | Where-Object { $_ -match '^\S+\t' })
+        if ($p.ExitCode -eq 0 -and $models.Count -ge 1) { return (New-CredentialResult 'ok' "signed in ($($models.Count) models)") }
+        $authLine = @($allLines | Where-Object { $_ -match '(?i)log ?in|sign in|signed in|\bauth|unauthenticated' }) | Select-Object -First 1
+        if ($authLine) { return (New-CredentialResult 'missing' "``agy models``: $authLine") }
+        $first = if ($allLines.Count -gt 0) { $allLines[-1] } else { 'no output' }
+        return (New-CredentialResult 'unknown' "``agy models`` exit $($p.ExitCode) without a model list ($first)")
+    } finally {
+        $p.Dispose()
+    }
+}
+
+# Sign-in of an engine for the preflight and the listing. A missing launcher is always
+# missing ("agy CLI not found on PATH"). Then (wave 18, F13) the ledger short-circuit: when
+# $Health (Get-EndpointHealth of the engine's endpoint, read from THIS repository's ledgers)
+# holds a usable reply no older than 60 minutes (RecentUsable, consult clock), the sign-in is
+# evidenced - "ok: signed in (usable reply <m> min ago)" - and nothing is started (also with
+# -NoNetwork: it is a ledger read). The caller keeps the endpoint health's auth and quota rules
+# in front of it (Get-PreflightVerdict): a recorded auth failure or a usage limit still
+# refuses. -NoNetwork (the SessionStart hook): otherwise nothing is started - "not checked
+# (launcher present; run codex-providers.ps1)", State unknown, Reason "sign-in not checked".
+# Else the adapter's check (agy: `agy models`, 45 s - TEST HOOK
+# CODEX_CONSULT_TEST_LOGIN_TIMEOUT=<s> shortens it). $LoginCache: one check per launcher per
+# listing.
+function Get-EngineCredential {
+    param([string]$Engine, [string]$Launcher, [hashtable]$LoginCache = $null, [switch]$NoNetwork, [int]$TimeoutSec = 0, $Health = $null)
+    $spec = Get-EngineSpec -Name $Engine
+    if (-not $spec -or -not $spec.Adapter) { return (New-CredentialResult 'unknown' "no credential check for engine '$Engine'") }
+    if (-not $Launcher) { return (New-CredentialResult 'missing' "$($spec.Command) CLI not found on PATH") }
+    if ($Health -and $Health.PSObject.Properties['RecentUsable'] -and $Health.RecentUsable) {
+        return (New-CredentialResult 'ok' "signed in (usable reply $($Health.RecentUsable.AgeMinutes) min ago)")
+    }
+    if ($NoNetwork) { return [pscustomobject]@{ State = 'unknown'; Reason = 'sign-in not checked'; Detail = 'not checked (launcher present; run codex-providers.ps1)' } }
+    if ($TimeoutSec -le 0) {
+        $TimeoutSec = $script:AgyModelsTimeoutSec
+        $hook = ([string]$env:CODEX_CONSULT_TEST_LOGIN_TIMEOUT).Trim()
+        if ($hook -match '^[0-9]+$' -and [int]$hook -gt 0) { $TimeoutSec = [int]$hook }
+    }
+    $key = "engine:$Engine|$Launcher"
+    if ($LoginCache -and $LoginCache.ContainsKey($key)) { return $LoginCache[$key] }
+    $r = & $spec.Adapter.Credential -Launcher $Launcher -TimeoutSec $TimeoutSec
+    if ($LoginCache) { $LoginCache[$key] = $r }
+    return $r
+}
+
+# ---- agy adapter
+
+# The argv of one agy turn (after the launcher). -Schema: the schema path (structured mode
+# with transport native, and every repair / denial-retry turn); -Thread: --conversation (resume,
+# repair, denial retry); -NativeEffort: --effort <v> verbatim (never otherwise: the tier is part
+# of the model id).
+function New-AgyArgv {
+    param([string]$Model, [string]$Schema = '', [string]$Thread = '', [string]$NativeEffort = '')
+    $a = @('-p=', '--input-format', 'stream-json', '--output-format', 'stream-json', '--model', $Model)
+    if ($Schema) { $a += @('--json-schema', $Schema) }
+    $a += @('--print-timeout', '0', '--sandbox', '--disable-slash-commands')
+    if ($Thread) { $a += @('--conversation', $Thread) }
+    if ($NativeEffort) { $a += @('--effort', $NativeEffort) }
+    return , ([string[]]$a)
+}
+
+# The stdin of one agy turn: ONE NDJSON line {"event":"user","message":{"content":"<prompt>"}}
+# plus one LF, serialized by ConvertTo-Json -Compress on both hosts (Windows PowerShell 5.1
+# escapes some characters as \uXXXX - the same JSON string), written UTF-8 without BOM by the
+# caller.
+function ConvertTo-AgyStdin {
+    param([string]$Prompt)
+    $o = [pscustomobject]@{ event = 'user'; message = [pscustomobject]@{ content = $Prompt } }
+    return ((ConvertTo-Json -InputObject $o -Compress -Depth 5) + "`n")
+}
+
+$script:UuidRe = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+
+# One agy event stream (stdout of --output-format stream-json), parsed tolerantly into the
+# normalized turn record the run block uses:
+#   InitThread       init.conversation_id ('' when none)
+#   ResultCount      number of `result` events (exactly one is a well-formed stream)
+#   Malformed        '' or why the stream is malformed: a line that does not parse, more
+#                    than one result, a result that is not an object. The LAST non-empty
+#                    line may be a partial line only with -AllowPartialLast - the caller
+#                    passes it when the process was killed (timeout) or exited non-zero
+#                    (wave 18, F10-2); on exit 0 trailing garbage makes the stream malformed
+#   HasResult        a result event was seen
+#   Thread           result.conversation_id ('' when absent)
+#   Status, Response, Error      result.status / .response / .error (strings)
+#   HasStructured    result.structured_output is a JSON object
+#   StructuredJson   that object serialized compactly (ConvertTo-Json -Compress -Depth 30)
+#   Usage            { input_tokens, cached_input_tokens (cache_read_tokens), output_tokens,
+#                    reasoning_output_tokens (thinking_tokens), total_tokens } or $null
+#   ToolName         tool_name of the LAST step_update with step_type "tool" ('' when none)
+#   DeniedAction     result.denied_actions[].display_name / .action (first; '' when none)
+function Read-AgyEvents {
+    param([string]$Path, [switch]$AllowPartialLast)
+    $r = [pscustomobject]@{ InitThread = ''; ResultCount = 0; Malformed = ''; HasResult = $false; Thread = ''; Status = ''; Response = ''; Error = ''; HasStructured = $false; StructuredJson = ''; Usage = $null; ToolName = ''; DeniedAction = '' }
+    $text = Read-SharedText -Path $Path
+    if (-not $text) { return $r }
+    $lines = @($text -split "`r?`n")
+    $lastIdx = -1
+    for ($i = $lines.Count - 1; $i -ge 0; $i--) { if ($lines[$i].Trim()) { $lastIdx = $i; break } }
+    $result = $null
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $t = $lines[$i].Trim()
+        if (-not $t) { continue }
+        $obj = $null
+        try { $obj = ConvertFrom-Json -InputObject $t } catch { $obj = $null }
+        if ($null -eq $obj -or -not ($obj -is [System.Management.Automation.PSCustomObject])) {
+            if (($i -ne $lastIdx -or -not $AllowPartialLast) -and -not $r.Malformed) { $r.Malformed = "line $($i + 1) is not a JSON object" }
+            continue
+        }
+        $ev = [string](Get-PropertyValue $obj 'event' '')
+        if ($ev -eq 'init') {
+            if (-not $r.InitThread) { $r.InitThread = [string](Get-PropertyValue $obj 'conversation_id' '') }
+        } elseif ($ev -eq 'step_update') {
+            $su = Get-PropertyValue $obj 'step_update' $null
+            if ($su -and [string](Get-PropertyValue $su 'step_type' '') -eq 'tool') {
+                $tn = [string](Get-PropertyValue $su 'tool_name' '')
+                if ($tn) { $r.ToolName = $tn }
+            }
+        } elseif ($ev -eq 'result') {
+            $r.ResultCount++
+            $res = Get-PropertyValue $obj 'result' $null
+            if ($null -eq $res -or -not ($res -is [System.Management.Automation.PSCustomObject])) {
+                if (-not $r.Malformed) { $r.Malformed = "result event at line $($i + 1) is not an object" }
+                continue
+            }
+            $result = $res
+        }
+    }
+    if ($r.ResultCount -gt 1 -and -not $r.Malformed) { $r.Malformed = "$($r.ResultCount) result events (exactly one expected)" }
+    if ($null -ne $result) {
+        $r.HasResult = $true
+        $r.Thread = [string](Get-PropertyValue $result 'conversation_id' '')
+        $r.Status = [string](Get-PropertyValue $result 'status' '')
+        $r.Response = [string](Get-PropertyValue $result 'response' '')
+        $err = Get-PropertyValue $result 'error' ''
+        if ($err -is [string]) { $r.Error = $err } else { $r.Error = (ConvertTo-Json -InputObject $err -Compress -Depth 10) }
+        $so = Get-PropertyValue $result 'structured_output' $null
+        if ($null -ne $so -and $so -is [System.Management.Automation.PSCustomObject]) {
+            $r.HasStructured = $true
+            $r.StructuredJson = ConvertTo-Json -InputObject $so -Compress -Depth 30
+        }
+        $u = Get-PropertyValue $result 'usage' $null
+        if ($null -ne $u) {
+            $map = [ordered]@{ input_tokens = 'input_tokens'; cached_input_tokens = 'cache_read_tokens'; output_tokens = 'output_tokens'; reasoning_output_tokens = 'thinking_tokens'; total_tokens = 'total_tokens' }
+            $values = [ordered]@{}
+            foreach ($k in $map.Keys) {
+                $values[$k] = $null
+                $v = Get-PropertyValue $u $map[$k] $null
+                $n = [long]0
+                if ($null -ne $v -and [long]::TryParse([string]$v, [ref]$n)) { $values[$k] = $n }
+            }
+            $r.Usage = [pscustomobject]$values
+        }
+        foreach ($da in @(Get-PropertyValue $result 'denied_actions' @())) {
+            if ($null -eq $da) { continue }
+            $name = [string](Get-PropertyValue $da 'display_name' '')
+            if (-not $name) { $name = [string](Get-PropertyValue $da 'action' '') }
+            if ($name) { $r.DeniedAction = $name; break }
+        }
+    }
+    return $r
+}
+
+# The failure rules of one agy turn (the main turn, a denial retry, a format repair):
+# { Ok; Outcome ('usable reply' | 'failed: ...'); Class ('' = classify the texts, else the
+# forced provider_failure class); Texts (the failure evidence, best first); Thread (a verified
+# conversation id, '' otherwise); ThreadCandidate (an id that is never a parent); Reply (the
+# reply text: structured_output serialized, else the response); Structured; DeniedEmpty (the
+# F11 case: a denial notice and nothing to use); DenialLine; Permission (the permission the
+# notice names, e.g. command); NotFound (the resume warning line); Warnings (string[]) }.
+#   $Pre             a failure the bridge already knows (timeout, could not start, not
+#                    registered) - it wins
+#   exit != 0        failed: agy exit <n> - <result.error | stderr>
+#   malformed        failed: malformed event stream: <why> (class transport)
+#   no result        failed: no result event in the agy event stream (init id -> candidate)
+#   init != result   failed: conversation id mismatch (class unknown)
+#   status           failed: agy status <S> - <error>
+#   $ExpectThread    (resume, repair, denial retry) the not-found warning, a result without
+#                    conversation_id, or another id -> failed (class unknown); the new id is
+#                    a candidate only
+#   not a uuid       failed (class unknown)
+#   partial          stderr "returning partial output" / "print timeout" -> failed
+#   empty reply      with a denial notice: failed: <notice> (class permission, DeniedEmpty);
+#                    otherwise failed: empty reply
+#   usable           a denial notice and every `warning:` line of stderr become Warnings
+function Get-AgyTurnOutcome {
+    param($Events, [int]$ExitCode, [string]$StderrText = '', [string]$Pre = '', [string]$ExpectThread = '')
+    $o = [pscustomobject]@{ Ok = $false; Outcome = ''; Class = ''; Texts = [string[]]@(); Thread = ''; ThreadCandidate = ''; Reply = ''; Structured = $false; DeniedEmpty = $false; DenialLine = ''; Permission = ''; NotFound = ''; Warnings = [string[]]@() }
+    $lines = @(([string]$StderrText) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $denial = @($lines | Where-Object { $_ -match '(?i)no output produced|auto-denied' }) | Select-Object -First 1
+    $notFound = @($lines | Where-Object { $_ -match '(?i)^warning:\s*conversation\s.*not found' }) | Select-Object -First 1
+    $partial = @($lines | Where-Object { $_ -match '(?i)returning partial output|print timeout' }) | Select-Object -First 1
+    $warnLines = @($lines | Where-Object { $_ -match '(?i)^warning:' })
+    $stderrTail = if ($lines.Count -gt 0) { $lines[-1] } else { '' }
+    if ($denial) {
+        $o.DenialLine = [string]$denial
+        if ($denial -match 'the "(?<perm>[^"]+)" permission') { $o.Permission = $Matches['perm'] }
+    }
+    if ($notFound) { $o.NotFound = [string]$notFound }
+    $o.Reply = if ($Events.HasStructured) { [string]$Events.StructuredJson } else { [string]$Events.Response }
+    $o.Structured = [bool]$Events.HasStructured
+    $resId = [string]$Events.Thread
+    $initId = [string]$Events.InitThread
+    $fail = {
+        param([string]$Why, [string]$Class = '', [string[]]$Texts = @())
+        $o.Ok = $false
+        $o.Outcome = "failed: $Why"
+        $o.Class = $Class
+        $o.Texts = [string[]]@(@($Texts) + @($Why) | Where-Object { $_ })
+    }
+    $bestErr = [string]$Events.Error
+    $detail = if ($bestErr) { $bestErr } elseif ($denial) { [string]$denial } else { $stderrTail }
+    if ($Pre) {
+        $o.Outcome = $Pre
+        $o.Texts = [string[]]@(@($bestErr, $detail, ($Pre -replace '^failed:\s*', '')) | Where-Object { $_ })
+        if ($resId -match $script:UuidRe) { $o.ThreadCandidate = $resId } elseif ($initId -match $script:UuidRe) { $o.ThreadCandidate = $initId }
+        return $o
+    }
+    if ($ExitCode -ne 0) {
+        & $fail "agy exit $ExitCode$(if ($detail) { " - $(ConvertTo-OneLine $detail)" })" '' @($bestErr, $detail)
+        if ($resId -match $script:UuidRe -and (-not $ExpectThread -or $resId -eq $ExpectThread) -and -not $notFound) { $o.Thread = $resId } elseif ($resId -match $script:UuidRe) { $o.ThreadCandidate = $resId } elseif ($initId -match $script:UuidRe) { $o.ThreadCandidate = $initId }
+        return $o
+    }
+    if ($Events.Malformed) {
+        & $fail "malformed event stream: $($Events.Malformed)" 'transport'
+        if ($initId -match $script:UuidRe) { $o.ThreadCandidate = $initId }
+        return $o
+    }
+    if (-not $Events.HasResult) {
+        & $fail "no result event in the agy event stream$(if ($stderrTail) { " - $(ConvertTo-OneLine $stderrTail)" })" '' @($stderrTail)
+        if ($initId -match $script:UuidRe) { $o.ThreadCandidate = $initId }
+        return $o
+    }
+    if ($initId -and $resId -and $initId -ne $resId) {
+        & $fail "conversation id mismatch: init $initId, result $resId" 'unknown'
+        if ($resId -match $script:UuidRe) { $o.ThreadCandidate = $resId }
+        return $o
+    }
+    if ($ExpectThread) {
+        if ($notFound) {
+            & $fail "parent conversation $ExpectThread not found, agy started $(if ($resId) { $resId } else { 'another conversation' }) ($notFound)" 'unknown' @($notFound)
+            if ($resId -match $script:UuidRe) { $o.ThreadCandidate = $resId }
+            return $o
+        }
+        if (-not $resId) {
+            & $fail "the result names no conversation id (resume of $ExpectThread)" 'unknown'
+            return $o
+        }
+        if ($resId -ne $ExpectThread) {
+            & $fail "parent conversation $ExpectThread not found, agy started $resId" 'unknown'
+            if ($resId -match $script:UuidRe) { $o.ThreadCandidate = $resId }
+            return $o
+        }
+    }
+    if ($Events.Status -ne 'SUCCESS') {
+        & $fail "agy status $(if ($Events.Status) { $Events.Status } else { '(none)' })$(if ($detail) { " - $(ConvertTo-OneLine $detail)" })" '' @($bestErr, $detail)
+        if ($resId -match $script:UuidRe) { $o.Thread = $resId }
+        return $o
+    }
+    if (-not ($resId -match $script:UuidRe)) {
+        & $fail "the result's conversation_id '$resId' is not a uuid" 'unknown'
+        return $o
+    }
+    $o.Thread = $resId
+    if ($partial) {
+        & $fail "partial output - $(ConvertTo-OneLine $partial)" '' @($partial)
+        return $o
+    }
+    if (-not $Events.HasStructured -and -not ([string]$Events.Response).Trim()) {
+        if ($denial) {
+            & $fail (ConvertTo-OneLine $denial) 'permission' @($denial)
+            $o.DeniedEmpty = $true
+        } else {
+            & $fail "empty reply$(if ($bestErr) { " - $(ConvertTo-OneLine $bestErr)" })" '' @($bestErr)
+        }
+        return $o
+    }
+    $o.Ok = $true
+    $o.Outcome = 'usable reply'
+    $w = New-Object System.Collections.Generic.List[string]
+    if ($denial) { $w.Add("denial notice: $(ConvertTo-OneLine $denial)") }
+    foreach ($wl in $warnLines) { $w.Add((ConvertTo-OneLine $wl)) }
+    $o.Warnings = [string[]]$w.ToArray()
+    return $o
+}
+
+# Classes of a provider failure, tried in this order (case-insensitive). permission comes
+# first (0.4.0, agy F11: a tool the headless print mode cannot grant was auto-denied and
+# the turn produced nothing). capability comes next: "Your token plan does not support
+# response_format" is a capability rejection, not a quota one. auth matches whole words
+# only ("text authored by" is not auth). transport stays last. Google's wordings (the agy
+# engine): RESOURCE_EXHAUSTED -> quota, UNAUTHENTICATED / PERMISSION_DENIED / "not signed
+# in" -> auth, INVALID_ARGUMENT / "invalid model selection" -> capability, UNAVAILABLE /
+# DEADLINE_EXCEEDED -> transport.
 $script:FailureClassPatterns = [ordered]@{
-    'capability' = '(?i)not supported|unsupported|does(?: not|n[''\u2019]t) support|do not support|feature_not_supported|json_schema'
-    'auth'       = '(?i)\b40[13]\b|unauthori[sz]ed|forbidden|invalid[ _]api[ _]key|\bauthentication\b|\bauth\b|\bapi key\b'
-    'quota'      = '(?i)usage[ _]limit|quota|rate[ _]limit|\b429\b|insufficient balance|too many requests|credits? exhausted|credit balance|payment required|\b402\b|token plan|plan exhausted|billing'
-    'transport'  = '(?i)timeout|timed out|connection|econn|enotfound|\bdns\b|\btls\b|certificate|\b50[234]\b|network'
+    'permission' = '(?i)no output produced|auto-denied|permission that headless mode'
+    'capability' = '(?i)not supported|unsupported|does(?: not|n[''\u2019]t) support|do not support|feature_not_supported|json_schema|invalid_argument|invalid model selection|conflicts with --effort'
+    'auth'       = '(?i)\b40[13]\b|unauthori[sz]ed|forbidden|invalid[ _]api[ _]key|\bauthentication\b|\bauth\b|\bapi key\b|permission_denied|unauthenticated|not signed in|login required|sign in to'
+    'quota'      = '(?i)usage[ _]limit|quota|rate[ _]limit|\b429\b|insufficient balance|too many requests|credits? exhausted|credit balance|payment required|\b402\b|token plan|plan exhausted|billing|resource_exhausted|rate_limit_exceeded'
+    'transport'  = '(?i)timeout|timed out|connection|econn|enotfound|\bdns\b|\btls\b|certificate|\b50[234]\b|network|\bunavailable\b|deadline_exceeded'
 }
 $script:BuiltinOpenAiFingerprint = Get-Sha256Hex ($script:Utf8NoBom.GetBytes('cc-provider-v1|builtin:openai'))
 
-# auth | quota | capability | transport | unknown
+# permission | capability | auth | quota | transport | unknown
 function Get-ProviderFailureClass {
     param([string]$Message)
     foreach ($k in $script:FailureClassPatterns.Keys) {
@@ -2815,6 +3397,10 @@ function ConvertFrom-ProviderErrorText {
 #   3. a duration: "retry after 30" / "Retry-After: 30s" (no unit = seconds), "retry after
 #      1 week", "try again in 5 minutes", "resets in 2 days", "try again in 3 days 1 hour
 #      7 minutes" (units w, d, h, m, s; the parts are summed) -> $Reference + it.
+#   4. Google's wordings (the agy engine, 0.4.0): "retry in 32s", "retry in 1m5.3s" (Go
+#      durations: h, m, s, ms, decimals), "retry in 90 seconds", and the gRPC RetryInfo
+#      payload "retryDelay":{"seconds":32} / "retryDelay": "32s" / retryDelay: 32s ->
+#      $Reference + it, fractions rounded UP to the next second.
 # Which offset (F15-1):
 #   write time (New-ProviderFailure, on the machine that saw the failure): a wall-clock
 #     time is read with the rules of -TimeZone (default [TimeZoneInfo]::Local), so a reset
@@ -2838,6 +3424,29 @@ $script:RetryAfterRe = @{
     After = [regex]('(?i)retry[- ]after[:\s]\s*(?<n>[0-9]+)(?![0-9:.\-])(?:\s*(?<u>' + $script:DurationUnit + '))?')
     In    = [regex]('(?i)(?:try\s+again|resets?)\s+in\s+(?<parts>[0-9]+\s*' + $script:DurationUnit + '(?:(?:\s*,\s*|\s+and\s+|\s+)[0-9]+\s*' + $script:DurationUnit + ')*)')
     Part  = [regex]('(?i)(?<n>[0-9]+)\s*(?<u>' + $script:DurationUnit + ')')
+    # Google: "retry in 32s" / "retry in 1m5.3s" (a Go duration) / "retry in 90 seconds"
+    RetryIn = [regex]'(?i)\bretry\s+in\s+(?<dur>(?:[0-9]+(?:\.[0-9]+)?(?:ms|h|m|s))+(?![A-Za-z0-9])|[0-9]+(?:\.[0-9]+)?\s*(?:hours?|hrs?|minutes?|mins?|seconds?|secs?)\b(?:(?:\s*,\s*|\s+and\s+|\s+)[0-9]+(?:\.[0-9]+)?\s*(?:hours?|hrs?|minutes?|mins?|seconds?|secs?)\b)*)'
+    # gRPC RetryInfo: "retryDelay":{"seconds":32} or "retryDelay": "32s" / retryDelay: 32s
+    RetryDelay = [regex]'(?i)retryDelay"?\s*[:=]\s*(?:\{\s*"?seconds"?\s*:\s*"?(?<sec>[0-9]+)|"?(?<dur>(?:[0-9]+(?:\.[0-9]+)?(?:ms|h|m|s))+)(?![A-Za-z0-9]))'
+    GoPart = [regex]'(?i)(?<n>[0-9]+(?:\.[0-9]+)?)\s*(?<u>ms|hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)'
+}
+# Seconds of a Go duration ("1m5.3s", "500ms") or a worded one ("90 seconds", "1 hour 30
+# minutes"); decimals allowed; $null when nothing parses.
+function ConvertFrom-GoDuration {
+    param([string]$Text)
+    $total = [double]0
+    $any = $false
+    foreach ($p in $script:RetryAfterRe.GoPart.Matches([string]$Text)) {
+        $n = [double]::Parse($p.Groups['n'].Value, $script:Invariant)
+        $u = $p.Groups['u'].Value.ToLowerInvariant()
+        if ($u -eq 'ms') { $total += $n / 1000 }
+        elseif ($u.StartsWith('h')) { $total += $n * 3600 }
+        elseif ($u.StartsWith('m')) { $total += $n * 60 }
+        else { $total += $n }
+        $any = $true
+    }
+    if (-not $any) { return $null }
+    return $total
 }
 function ConvertTo-DurationSeconds {
     param([long]$N, [string]$Unit)
@@ -2932,6 +3541,20 @@ function Get-RetryAfter {
         }
         return (ConvertTo-ZoneTime -At ($Reference.AddSeconds($total)) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset)
     }
+    # Google (agy): "retry in 32s", "retry in 1m5.3s", "retry in 90 seconds"
+    $m = $script:RetryAfterRe.RetryIn.Match($text)
+    if ($m.Success) {
+        $secs = ConvertFrom-GoDuration -Text $m.Groups['dur'].Value
+        if ($null -ne $secs) { return (ConvertTo-ZoneTime -At ($Reference.AddSeconds([Math]::Ceiling($secs))) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset) }
+    }
+    # gRPC RetryInfo: "retryDelay":{"seconds":N} / "retryDelay": "32s"
+    $m = $script:RetryAfterRe.RetryDelay.Match($text)
+    if ($m.Success) {
+        $secs = $null
+        if ($m.Groups['sec'].Success) { $secs = [double]$m.Groups['sec'].Value }
+        else { $secs = ConvertFrom-GoDuration -Text $m.Groups['dur'].Value }
+        if ($null -ne $secs) { return (ConvertTo-ZoneTime -At ($Reference.AddSeconds([Math]::Ceiling($secs))) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset) }
+    }
     return $null
 }
 
@@ -2947,20 +3570,24 @@ function Format-OffsetIso {
 # first non-empty. retry_after: the reset time the chosen message names (Get-RetryAfter,
 # read from the FULL message before it is cut to 200 characters), ISO with offset, or $null.
 function New-ProviderFailure {
-    param([string[]]$Texts)
+    param([string[]]$Texts, [string]$Class = '')
     $chosen = $null
+    $chosenRaw = ''
     foreach ($t in @($Texts | Where-Object { $_ -and $_.Trim() })) {
         $p = ConvertFrom-ProviderErrorText -Text $t
-        if ($p.Code -or ($t.IndexOf('{"error"') -ge 0)) { $chosen = $p; break }
-        if (-not $chosen) { $chosen = $p }
+        if ($p.Code -or ($t.IndexOf('{"error"') -ge 0)) { $chosen = $p; $chosenRaw = $t; break }
+        if (-not $chosen) { $chosen = $p; $chosenRaw = $t }
     }
     if (-not $chosen) { $chosen = [pscustomobject]@{ Code = ''; Message = '' } }
     $msg = [string]$chosen.Message
     $now = Get-Date
     $retryAfter = Get-RetryAfter -Message $msg -Reference ([DateTimeOffset]$now)
+    # A gRPC error payload (Google, the agy engine) names its reset time in the details
+    # (RetryInfo.retryDelay), outside error.message.
+    if ($null -eq $retryAfter -and $chosenRaw -and $chosenRaw -match '(?i)retryDelay') { $retryAfter = Get-RetryAfter -Message $chosenRaw -Reference ([DateTimeOffset]$now) }
     if ($msg.Length -gt 200) { $msg = $msg.Substring(0, 200) }
     return [pscustomobject]@{
-        class       = (Get-ProviderFailureClass "$($chosen.Code) $($chosen.Message)")
+        class       = $(if ($Class) { $Class } else { (Get-ProviderFailureClass "$($chosen.Code) $($chosen.Message)") })
         code        = [string]$chosen.Code
         message     = $msg
         when        = (Get-IsoTimestamp $now)
@@ -3007,6 +3634,8 @@ function ConvertTo-WhenOffset {
 #   QuotaKnown   [bool] Quota is set and names its reset time (RetryAfter)
 #   LastLimit    the newest quota failure <= 24 h old (informational)
 #   LastFailure  the newest failure of any class <= 24 h old (informational)
+#   RecentUsable the newest usable reply <= 60 min old (wave 18: an engine's sign-in is then
+#                evidenced without a network check - Get-EngineCredential)
 # Each record is $null or { Class; Code; Message; When; AgeMinutes (a `when` in the future
 # counts as now: 0); RetryAfter (DateTimeOffset or $null: provider_failure.retry_after, else
 # Get-RetryAfter -ReferenceOffset on the recorded message with the failure's `when` as
@@ -3014,7 +3643,7 @@ function ConvertTo-WhenOffset {
 # offset)' | ''); Until (RetryAfter, else When + 60 min) }.
 function Get-EndpointHealth {
     param([object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow)
-    $h = [pscustomobject]@{ Auth = $null; Quota = $null; QuotaKnown = $false; LastLimit = $null; LastFailure = $null }
+    $h = [pscustomobject]@{ Auth = $null; Quota = $null; QuotaKnown = $false; LastLimit = $null; LastFailure = $null; RecentUsable = $null }
     if (-not $Fingerprint) { return $h }
     $records = New-Object System.Collections.Generic.List[object]
     foreach ($c in @($Consults | Where-Object { $null -ne $_ })) {
@@ -3028,7 +3657,7 @@ function Get-EndpointHealth {
         # A failure stamped in the future (clock skew, a mislabelled zone) counts as now:
         # its age is clamped to 0, it is never skipped (F15-4).
         $age = [Math]::Max(0, ($UtcNow - $at.UtcDateTime).TotalMinutes)
-        $rec = [pscustomobject]@{ At = $at; Ok = ($outcome -eq 'usable reply'); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Until = $at.AddMinutes(60) }
+        $rec = [pscustomobject]@{ At = $at; Ok = ($outcome -eq 'usable reply'); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); Age = $age; RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Until = $at.AddMinutes(60) }
         if (-not $rec.Ok) {
             $reference = $at
             $pf = Get-PropertyValue $c 'provider_failure' $null
@@ -3075,6 +3704,7 @@ function Get-EndpointHealth {
     $h.QuotaKnown = [bool]($h.Quota -and $null -ne $h.Quota.RetryAfter)
     $h.LastLimit = @($sorted | Where-Object { -not $_.Ok -and $_.Class -eq 'quota' -and $_.AgeMinutes -le 24 * 60 }) | Select-Object -First 1
     $h.LastFailure = @($sorted | Where-Object { -not $_.Ok -and $_.AgeMinutes -le 24 * 60 }) | Select-Object -First 1
+    $h.RecentUsable = @($sorted | Where-Object { $_.Ok -and $_.Age -le 60 }) | Select-Object -First 1
     return $h
 }
 
@@ -3107,6 +3737,12 @@ function Get-EndpointHealth {
 #                 reviewer joins only on the weighty purposes (framing, decision,
 #                 core-contract, acceptance, stuck) or with -PanelAll. The single-reviewer
 #                 walk ignores it.
+#   engine        optional (0.4.0), "codex" (the default) or "agy": the CLI that carries the
+#                 consultation. For agy the provider is a free label (the lineage's
+#                 provider, e.g. "gemini"), the model is REQUIRED (the full id with its
+#                 tier), codex_config and auth are refused, and one label names one engine
+#                 across the roster. Two entries with the same label and different models
+#                 are fine (e.g. a "panel": "weighty" entry on the pro model).
 # Anything else - an unknown key, roster_version other than 1, reviewers not an array or
 # empty, the same (provider, model) twice, a file that does not parse - makes the roster
 # unusable, and the bridge refuses to run (fail-closed: an existing roster is never
@@ -3141,8 +3777,9 @@ function Get-RosterPath {
 
 # { Exists; Path; Disabled (CODEX_CONSULT_ROSTER=none); Entries ({ Position; Provider; Model
 # ('' = not given); CodexConfig (string[], already expanded and quoted); Auth ('' | 'none');
-# Panel ('always' | 'weighty') }); Error }. Error is the whole refusal message; the caller
-# stops on it. $Location: Get-RosterPath (the default).
+# Panel ('always' | 'weighty'); Engine ('codex' | 'agy'); EngineDeclared (the entry names
+# its engine) }); Error }. Error is the whole refusal message; the caller stops on it.
+# $Location: Get-RosterPath (the default).
 function Read-ReviewerRoster {
     param($Location = $null)
     if ($null -eq $Location) { $Location = Get-RosterPath }
@@ -3189,7 +3826,7 @@ function Read-ReviewerRoster {
             $at = "entry $pos"
             if (-not (Test-IsJsonObject $item)) { $why = "$at is not an object"; break }
             foreach ($prop in $item.PSObject.Properties) {
-                if (@('provider', 'model', 'codex_config', 'auth', 'panel') -cnotcontains $prop.Name) { $why = "$at has an unknown key '$($prop.Name)' (allowed: provider, model, codex_config, auth, panel)"; break }
+                if (@('provider', 'model', 'codex_config', 'auth', 'panel', 'engine') -cnotcontains $prop.Name) { $why = "$at has an unknown key '$($prop.Name)' (allowed: provider, model, codex_config, auth, panel, engine)"; break }
             }
             if ($why) { break }
             $provider = $null
@@ -3221,12 +3858,26 @@ function Read-ReviewerRoster {
                 if (-not ($item.panel -is [string]) -or @('always', 'weighty') -cnotcontains $item.panel) { $why = "${at}: panel must be ""always"" or ""weighty"" (got $(ConvertTo-Json -InputObject $item.panel -Compress))"; break }
                 $panelWeight = $item.panel
             }
+            $engine = 'codex'
+            $engineDeclared = $false
+            if ($item.PSObject.Properties['engine']) {
+                if (-not ($item.engine -is [string]) -or $script:EngineNames -cnotcontains $item.engine) { $why = "${at}: engine must be one of: $($script:EngineNames -join ', ') (got $(ConvertTo-Json -InputObject $item.engine -Compress))"; break }
+                $engine = $item.engine
+                $engineDeclared = $true
+            }
+            if ($engine -ne 'codex') {
+                if (-not $model) { $why = "${at}: engine $engine needs a model (the full model id, e.g. $((Get-EngineSpec $engine).ModelExample))"; break }
+                if ($item.PSObject.Properties['codex_config']) { $why = "${at}: codex_config does not apply to engine $engine (it configures codex exec)"; break }
+                if ($item.PSObject.Properties['auth']) { $why = "${at}: auth does not apply to engine $engine (the $engine CLI keeps its own sign-in)"; break }
+            }
+            $other = @($entries | Where-Object { $_.Provider -ceq $provider -and $_.Engine -ne $engine }) | Select-Object -First 1
+            if ($other) { $why = "entries $($other.Position) and $pos use the provider label '$provider' with two engines ($($other.Engine), $engine); a label names one engine"; break }
             $dup = @($entries | Where-Object { $_.Provider -ceq $provider -and $_.Model -ceq $model }) | Select-Object -First 1
             if ($dup) {
                 $label = if ($model) { Format-Lineage -Provider $provider -Model $model } else { "$provider (no model)" }
                 $why = "entries $($dup.Position) and $pos are the same reviewer $label"; break
             }
-            $entries.Add([pscustomobject]@{ Position = $pos; Provider = $provider; Model = $model; CodexConfig = $cfgItems; Auth = $auth; Panel = $panelWeight })
+            $entries.Add([pscustomobject]@{ Position = $pos; Provider = $provider; Model = $model; CodexConfig = $cfgItems; Auth = $auth; Panel = $panelWeight; Engine = $engine; EngineDeclared = $engineDeclared })
         }
     }
     if ($why) {
@@ -3266,9 +3917,11 @@ function Find-RosterEntry {
 #                                warns about it
 # $Health: Get-EndpointHealth of the identity's endpoint ($null: none known).
 function Get-PreflightVerdict {
-    param($Identity, $Config, [string]$Launcher, $Health, [hashtable]$LoginCache = $null, [switch]$Anonymous, [switch]$RosterWalk)
+    param($Identity, $Config, [string]$Launcher, $Health, [hashtable]$LoginCache = $null, [switch]$Anonymous, [switch]$RosterWalk, [switch]$NoNetwork)
     $v = [pscustomobject]@{ State = 'available'; Preflight = ''; Reason = ''; Refusal = ''; Label = '' }
     $p = [string]$Identity.Provider
+    $engine = [string]$Identity.Engine
+    if (-not $engine) { $engine = 'codex' }
     if ($Identity.Error) {
         $v.State = 'unavailable'
         $v.Reason = $Identity.Error
@@ -3286,12 +3939,19 @@ function Get-PreflightVerdict {
         $v.Label = "unknown ($reason) - a real run is refused: $($v.Refusal)"
         return $v
     }
-    $table = $null
-    if ($Config -and $Config.Exists -and $Config.Ok) {
-        $pt = Get-ProviderTable -Config $Config -Name $p
-        if ($pt.Found) { $table = $pt.Table }
+    if ($engine -ne 'codex') {
+        # An engine keeps its own sign-in: its credential check (agy: `agy models`, or a usable
+        # reply on this endpoint within the last 60 minutes - the auth / quota rules below
+        # still apply).
+        $cred = Get-EngineCredential -Engine $engine -Launcher $Launcher -LoginCache $LoginCache -NoNetwork:$NoNetwork -Health $Health
+    } else {
+        $table = $null
+        if ($Config -and $Config.Exists -and $Config.Ok) {
+            $pt = Get-ProviderTable -Config $Config -Name $p
+            if ($pt.Found) { $table = $pt.Table }
+        }
+        $cred = Get-ProviderCredential -Name $p -Table $table -Launcher $Launcher -LoginCache $LoginCache -Anonymous:$Anonymous
     }
-    $cred = Get-ProviderCredential -Name $p -Table $table -Launcher $Launcher -LoginCache $LoginCache -Anonymous:$Anonymous
     $v.Preflight = $cred.Detail
     $v.Reason = $cred.Detail
     if ($cred.State -eq 'missing') {
@@ -3347,12 +4007,15 @@ function Format-QuotaWarning {
 # Considered (entries walked); Error ('' or the refusal: none available / no entry for
 # $Model / the first entry's identity error under -SkipPreflight) }.
 function Select-RosterReviewer {
-    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [switch]$SkipPreflight)
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork)
     $skipped = New-Object System.Collections.Generic.List[object]
     $r = [pscustomobject]@{ Entry = $null; Identity = $null; Verdict = $null; Skipped = [object[]]@(); Considered = 0; Error = '' }
     $listing = New-Object System.Collections.Generic.List[string]
     foreach ($e in @($Roster.Entries)) {
-        $id = Resolve-ReviewerIdentity -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl
+        $entryEngine = if ($e.PSObject.Properties['Engine'] -and $e.Engine) { [string]$e.Engine } else { 'codex' }
+        if ($Engine -and $entryEngine -ne $Engine) { continue }
+        $entryLauncher = Get-EngineLauncher -Engine $entryEngine -Launchers $EngineLaunchers -CodexLauncher $Launcher
+        $id = Resolve-ReviewerIdentity -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher
         if ($Model -and $id.Model -cne $Model) { continue }
         $r.Considered++
         if ($SkipPreflight) {
@@ -3362,18 +4025,22 @@ function Select-RosterReviewer {
         }
         $health = $null
         if ($id.Resolved) { $health = Get-EndpointHealth -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
-        $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $Launcher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk
+        $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $entryLauncher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk -NoNetwork:$NoNetwork
         if ($verdict.State -eq 'available') {
             $r.Entry = $e; $r.Identity = $id; $r.Verdict = $verdict
             $r.Skipped = [object[]]$skipped.ToArray()
             return $r
         }
-        $skipped.Add([pscustomobject]@{ provider = $e.Provider; model = $id.Model; reason = $verdict.Reason })
-        $listing.Add("#$($e.Position) $($id.Lineage) ($($verdict.Reason))")
+        $skipped.Add([pscustomobject]@{ provider = $e.Provider; model = $id.Model; engine = $entryEngine; reason = $verdict.Reason })
+        $listing.Add("#$($e.Position) $(Format-ReviewerLineage -Provider $id.Provider -Model $id.Model -Engine $entryEngine) ($($verdict.Reason))")
     }
     if ($r.Considered -eq 0) {
-        $all = (@($Roster.Entries) | ForEach-Object { "#$($_.Position) $(if ($_.Model) { Format-Lineage -Provider $_.Provider -Model $_.Model } else { "$($_.Provider) (config model)" })" }) -join ', '
-        $r.Error = "-Model $($Model): no entry of the reviewer roster '$($Roster.Path)' resolves to that model ($all); pass -Provider <name> -Model $Model to choose a reviewer outside the roster"
+        $all = (@($Roster.Entries) | ForEach-Object { "#$($_.Position) $(if ($_.Model) { Format-ReviewerLineage -Provider $_.Provider -Model $_.Model -Engine $_.Engine } else { "$($_.Provider) (config model)" })" }) -join ', '
+        if ($Engine -and -not $Model) {
+            $r.Error = "-Engine $($Engine): no entry of the reviewer roster '$($Roster.Path)' uses that engine ($all); pass -Provider <label> -Model <model> to choose a reviewer outside the roster"
+        } else {
+            $r.Error = "-Model $($Model): no entry of the reviewer roster '$($Roster.Path)' resolves to that model ($all); pass -Provider <name> -Model $Model to choose a reviewer outside the roster"
+        }
         return $r
     }
     $r.Skipped = [object[]]$skipped.ToArray()
@@ -3391,20 +4058,23 @@ $script:WeightyPurposes = @('framing', 'decision', 'core-contract', 'acceptance'
 # the walk. { Members (object[], roster order, of { Entry; Identity; State 'run'|'skipped';
 # Reason ('' when it runs) }); Error ('' or the refusal: nobody runs / no entry for $Model) }.
 function Select-PanelMembers {
-    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight)
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null)
     $members = New-Object System.Collections.Generic.List[object]
     $r = [pscustomobject]@{ Members = [object[]]@(); Error = '' }
     $listing = New-Object System.Collections.Generic.List[string]
     $purposeLabel = if ($Purpose) { $Purpose } else { 'none' }
     foreach ($e in @($Roster.Entries)) {
-        $id = Resolve-ReviewerIdentity -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl
+        $entryEngine = if ($e.PSObject.Properties['Engine'] -and $e.Engine) { [string]$e.Engine } else { 'codex' }
+        if ($Engine -and $entryEngine -ne $Engine) { continue }
+        $entryLauncher = Get-EngineLauncher -Engine $entryEngine -Launchers $EngineLaunchers -CodexLauncher $Launcher
+        $id = Resolve-ReviewerIdentity -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher
         if ($Model -and $id.Model -cne $Model) { continue }
         $state = 'run'
         $reason = ''
         if (-not $SkipPreflight) {
             $health = $null
             if ($id.Resolved) { $health = Get-EndpointHealth -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
-            $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $Launcher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk
+            $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $entryLauncher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk
             if ($verdict.State -ne 'available') { $state = 'skipped'; $reason = $verdict.Reason }
         }
         if ($state -eq 'run' -and $e.Panel -eq 'weighty' -and -not $All -and $script:WeightyPurposes -notcontains $Purpose) {
@@ -3412,12 +4082,16 @@ function Select-PanelMembers {
             $reason = "weighty reviewer; purpose $purposeLabel is light (use -PanelAll)"
         }
         $members.Add([pscustomobject]@{ Entry = $e; Identity = $id; State = $state; Reason = $reason })
-        $listing.Add("#$($e.Position) $($id.Lineage) ($(if ($state -eq 'run') { 'runs' } else { $reason }))")
+        $listing.Add("#$($e.Position) $(Format-ReviewerLineage -Provider $id.Provider -Model $id.Model -Engine $entryEngine) ($(if ($state -eq 'run') { 'runs' } else { $reason }))")
     }
     $r.Members = [object[]]$members.ToArray()
     if ($members.Count -eq 0) {
-        $all = (@($Roster.Entries) | ForEach-Object { "#$($_.Position) $(if ($_.Model) { Format-Lineage -Provider $_.Provider -Model $_.Model } else { "$($_.Provider) (config model)" })" }) -join ', '
-        $r.Error = "-Model $($Model): no entry of the reviewer roster '$($Roster.Path)' resolves to that model ($all); pass -Provider <name> -Model $Model to choose a reviewer outside the roster"
+        $all = (@($Roster.Entries) | ForEach-Object { "#$($_.Position) $(if ($_.Model) { Format-ReviewerLineage -Provider $_.Provider -Model $_.Model -Engine $_.Engine } else { "$($_.Provider) (config model)" })" }) -join ', '
+        if ($Engine -and -not $Model) {
+            $r.Error = "-Engine $($Engine): no entry of the reviewer roster '$($Roster.Path)' uses that engine ($all)"
+        } else {
+            $r.Error = "-Model $($Model): no entry of the reviewer roster '$($Roster.Path)' resolves to that model ($all); pass -Provider <name> -Model $Model to choose a reviewer outside the roster"
+        }
     } elseif (@($members | Where-Object { $_.State -eq 'run' }).Count -eq 0) {
         $r.Error = "no reviewer of the roster '$($Roster.Path)' is available; nothing was started: $($listing.ToArray() -join '; ') (run codex-providers.ps1 for the full picture)"
     }
@@ -3427,7 +4101,7 @@ function Select-PanelMembers {
 # "openai :: gpt-5.1 (usage limit until ...), ZAI :: glm-5.3 (missing: env ZAI_KEY not set)"
 function Format-RosterSkips {
     param([object[]]$Skipped)
-    return ((@($Skipped | Where-Object { $_ }) | ForEach-Object { "$(Format-Lineage -Provider $_.provider -Model $_.model) ($($_.reason))" }) -join ', ')
+    return ((@($Skipped | Where-Object { $_ }) | ForEach-Object { "$(Format-ReviewerLineage -Provider $_.provider -Model $_.model -Engine ([string](Get-PropertyValue $_ 'engine' ''))) ($($_.reason))" }) -join ', ')
 }
 
 # ----------------------------------------------------------------------------- parent thread (lineage)
@@ -3448,20 +4122,29 @@ function Get-EntryFingerprint {
     return [string](Get-PropertyValue $rev 'provider_fingerprint' '')
 }
 
-# { Provider; Model; Display } of a 0.3.0+ entry's reviewer ($null for a legacy entry).
+# { Provider; Model; Engine; Display } of a 0.3.0+ entry's reviewer ($null for a legacy
+# entry). Engine: reviewer.engine, 'codex' when absent (0.3.x entries).
 function Get-EntryReviewer {
     param($Entry)
     $rev = Get-PropertyValue $Entry 'reviewer' $null
     if ($null -eq $rev) { return $null }
     $p = [string](Get-PropertyValue $rev 'provider' '')
     $m = [string](Get-PropertyValue $rev 'model' '')
-    return [pscustomobject]@{ Provider = $p; Model = $m; Display = (Format-Lineage -Provider $p -Model $m) }
+    $e = [string](Get-PropertyValue $rev 'engine' '')
+    if (-not $e) { $e = 'codex' }
+    return [pscustomobject]@{ Provider = $p; Model = $m; Engine = $e; Display = (Format-ReviewerLineage -Provider $p -Model $m -Engine $e) }
 }
 
-# Same reviewer: provider and model equal, ordinal (case-sensitive), each on its own.
+# Same reviewer: provider and model equal, ordinal (case-sensitive), each on its own - and the
+# same engine (an absent one is codex), so a codex thread and an agy thread of the same label
+# and model never mix (their fingerprints differ as well).
 function Test-SameReviewer {
     param($EntryReviewer, $Identity)
-    return ($null -ne $EntryReviewer -and [string]::Equals($EntryReviewer.Provider, [string]$Identity.Provider, [StringComparison]::Ordinal) -and [string]::Equals($EntryReviewer.Model, [string]$Identity.Model, [StringComparison]::Ordinal))
+    $idEngine = [string]$Identity.Engine
+    if (-not $idEngine) { $idEngine = 'codex' }
+    $entryEngine = [string](Get-PropertyValue $EntryReviewer 'Engine' '')
+    if (-not $entryEngine) { $entryEngine = 'codex' }
+    return ($null -ne $EntryReviewer -and [string]::Equals($EntryReviewer.Provider, [string]$Identity.Provider, [StringComparison]::Ordinal) -and [string]::Equals($EntryReviewer.Model, [string]$Identity.Model, [StringComparison]::Ordinal) -and $entryEngine -eq $idEngine)
 }
 
 function Format-ShortHash {
@@ -3509,7 +4192,7 @@ function Select-ParentThread {
     param([object[]]$Consults, $Identity, [string]$Mode, [string]$Thread)
     $r = [pscustomobject]@{ Mode = $Mode; Parent = ''; ParentN = $null; Note = ''; Error = '' }
     $entries = @($Consults | Where-Object { $null -ne $_ })
-    $lineage = $Identity.Lineage
+    $lineage = Format-ReviewerLineage -Provider $Identity.Provider -Model $Identity.Model -Engine ([string]$Identity.Engine)
     $unresolvedMsg = "provider identity could not be resolved ($($Identity.Note)); pass -Provider and -Model explicitly, or use -Mode new"
     $driftMsg = { param($t, $n, $fp) "endpoint or protocol of provider $($Identity.Provider) changed since thread $t (consult n=$n recorded provider fingerprint $(Format-ShortHash $fp), now $(Format-ShortHash $Identity.Fingerprint)); start a new thread with -Mode new" }
     $thread = ([string]$Thread).Trim()
@@ -3787,18 +4470,25 @@ function Read-PendingFile {
 
 # consult_id (0.3.0): the run's consultation id - the last line of its prompt - so an
 # interrupted run's rollout file can be identified later. Informational only.
+# engine (0.4.0): the CLI of the run (codex | agy; absent in older records = codex), so the
+# messages name the right process. events (0.4.0): the raw event stream of the turn that
+# runs (repo-relative when inside the repository), set when its process is registered:
+# for agy it holds the reply itself, so a run that stops before its ledger entry leaves it
+# named here (Get-PendingOriginalNote).
 function New-PendingRecord {
-    param([string]$State, $N, [string]$Nn, [string]$Reply, [string]$Started, [string]$Launcher = '', [string]$ConsultId = '')
+    param([string]$State, $N, [string]$Nn, [string]$Reply, [string]$Started, [string]$Launcher = '', [string]$ConsultId = '', [string]$Engine = 'codex')
     return [pscustomobject]@{
         state            = $State
         n                = $N
         nn               = $Nn
         reply            = $Reply
+        events           = ''
         consult_id       = $ConsultId
         started          = $Started
         pid              = $PID
         host             = [Environment]::MachineName
         launcher         = $Launcher
+        engine           = $Engine
         child_pid        = $null
         child_start_time = ''
         survivors        = [object[]]@()
@@ -3830,12 +4520,20 @@ function Remove-PendingFile {
 }
 
 # The "looks like codex" rule: '' or the reason - name codex / codex.exe (the native
-# binary), or a command line containing the recorded launcher path (the codex.cmd
-# shim or -CodexExe) or @openai/codex (node running the npm package). It cannot tell
-# WHICH task's consultation a process belongs to.
+# binary), the file name of the recorded launcher when that is a binary (0.4.0: agy.exe
+# for the agy engine, found by name AND by the recorded launcher path), or a command line
+# containing the recorded launcher path (the codex.cmd shim, -CodexExe, -EngineExe) or
+# @openai/codex (node running the npm package). It cannot tell WHICH task's consultation
+# a process belongs to.
 function Get-CodexRule {
     param([string]$Name, [string]$Cmd, [string]$Launcher = '')
     if ($Name -match '^codex(\.exe)?$') { return 'name codex' }
+    if ($Launcher -and $Name) {
+        $ext = [IO.Path]::GetExtension($Launcher)
+        $base = [IO.Path]::GetFileNameWithoutExtension($Launcher)
+        $nameBase = $Name -replace '(?i)\.exe$', ''
+        if ($base -and ($ext -eq '' -or $ext -ieq '.exe') -and $nameBase.Equals($base, [StringComparison]::OrdinalIgnoreCase)) { return "name $base (the recorded launcher)" }
+    }
     if ($Launcher -and $Cmd -and $Cmd.IndexOf($Launcher, [StringComparison]::OrdinalIgnoreCase) -ge 0) { return 'launcher in command line' }
     if ($Cmd -match '@openai[\\/]codex') { return '@openai/codex in command line' }
     return ''
@@ -3978,11 +4676,19 @@ function Find-CodexProcesses {
 # A reservation whose run was stopped during its format-repair turn names the prose reply
 # it had already saved (`original`, set when the repair turn starts): every message that
 # reports or consumes such a record says so. '' when the record has no `original`.
+# 0.4.0: a record that names its turn's raw event stream (`events`) says so too - for the agy
+# engine that stream holds the reply itself (A18).
 function Get-PendingOriginalNote {
     param($Record)
     $o = [string](Get-PropertyValue $Record 'original' '')
-    if (-not $o) { return '' }
-    return "a usable prose reply of that run exists at $o; no ledger entry was written for it"
+    $ev = [string](Get-PropertyValue $Record 'events' '')
+    $parts = New-Object System.Collections.Generic.List[string]
+    if ($o) { $parts.Add("a usable prose reply of that run exists at $o; no ledger entry was written for it") }
+    if ($ev) {
+        if ($o) { $parts.Add("the raw event stream of that run is at $ev (it may hold a usable reply)") }
+        else { $parts.Add("the raw event stream of that run is at $ev (it may hold a usable reply); no ledger entry was written") }
+    }
+    return ($parts.ToArray() -join '; ')
 }
 
 # Decides whether a pending record (from Read-PendingFile) still belongs to a live
@@ -4002,6 +4708,9 @@ function Test-PendingActive {
     $otherHost = [bool]($recHost -and -not $recHost.Equals([Environment]::MachineName, [StringComparison]::OrdinalIgnoreCase))
     $what = "state '$state', consult n=$(Get-PropertyValue $Record 'n' '?'), handoff $(Get-PropertyValue $Record 'nn' '?'), started $(Get-PropertyValue $Record 'started' '?')"
     $launcher = [string](Get-PropertyValue $Record 'launcher' '')
+    # the CLI the record's run started (0.4.0 `engine`; older records: codex)
+    $cli = [string](Get-PropertyValue $Record 'engine' '')
+    if (-not $cli) { $cli = 'codex' }
     $pids = New-Object System.Collections.Generic.List[object]
     $cp = 0
     if ([int]::TryParse([string](Get-PropertyValue $Record 'child_pid' ''), [ref]$cp) -and $cp -gt 0) {
@@ -4026,11 +4735,11 @@ function Test-PendingActive {
     $inactive = { param($c) [pscustomobject]@{ Active = $false; Message = ''; Check = $(if ($originalNote) { "$c; $originalNote" } else { $c }) } }
     $active = { param($m, $c) [pscustomobject]@{ Active = $true; Message = $(if ($originalNote) { $m.TrimEnd([char]'.') + "; $originalNote." } else { $m }); Check = $c } }
 
-    if ($state -eq 'reserved') { return (& $inactive 'reserved: codex was never started') }
+    if ($state -eq 'reserved') { return (& $inactive "reserved: $cli was never started") }
     if ($pids.Count -gt 0 -and $state -ne 'launching') {
         $pidList = (@($pids | ForEach-Object { $_.pid }) -join ', ')
         if ($otherHost) {
-            return (& $active "an interrupted consultation on host $recHost left codex process(es) pid $pidList ($what); they cannot be checked from this host. Delete $Path only after making sure they are gone." "pids on host $recHost")
+            return (& $active "an interrupted consultation on host $recHost left $cli process(es) pid $pidList ($what); they cannot be checked from this host. Delete $Path only after making sure they are gone." "pids on host $recHost")
         }
         $alive = New-Object System.Collections.Generic.List[string]
         $aliveHow = New-Object System.Collections.Generic.List[string]
@@ -4040,13 +4749,13 @@ function Test-PendingActive {
             if ($verdict.Alive) { $alive.Add("$($entry.pid)"); $aliveHow.Add("$($entry.pid) [$($verdict.How)]") } else { $gone.Add("$($entry.pid) [$($verdict.How)]") }
         }
         if ($alive.Count -gt 0) {
-            return (& $active "a previous consultation's codex process (pid $($alive -join ', ')) is still running ($what). Wait for it to exit or stop it, then retry; $Path keeps its record until then." "pid $($aliveHow -join ', ') alive")
+            return (& $active "a previous consultation's $cli process (pid $($alive -join ', ')) is still running ($what). Wait for it to exit or stop it, then retry; $Path keeps its record until then." "pid $($aliveHow -join ', ') alive")
         }
         # Every RECORDED pid is gone - but the record names the launcher (the npm shim on
         # Windows) and the survivors the kill could see; the real codex may be a
         # descendant that outlived them. A dead launcher is not proof of a dead tree:
         # fall through to the descendant scan below (F04-10).
-        $recordedGone = "codex pid(s) $($gone -join ', ') no longer running"
+        $recordedGone = "$cli pid(s) $($gone -join ', ') no longer running"
     } else {
         $recordedGone = ''
     }
@@ -4082,11 +4791,11 @@ function Test-PendingActive {
     }
     if ($checks.Count -gt 0) { $scan.Check = (($checks -join '; ') + '; then ' + $scan.Check) }
     if ($scan.Failed) {
-        return (& $active "an interrupted consultation ($what) may have left a codex process running, and the check failed: $($scan.Check). Make sure no such process runs, then delete $Path." $scan.Check)
+        return (& $active "an interrupted consultation ($what) may have left a $cli process running, and the check failed: $($scan.Check). Make sure no such process runs, then delete $Path." $scan.Check)
     }
     if (@($scan.Found).Count -gt 0) {
         $list = (@($scan.Found) | ForEach-Object { "pid $($_.pid) $($_.name) [$($_.rule)]" }) -join ', '
-        return (& $active "an interrupted consultation ($what) may still have its codex process running: $list, found by $($scan.Check). Wait for it to exit or stop it, then retry (or delete $Path once you know it is unrelated)." $scan.Check)
+        return (& $active "an interrupted consultation ($what) may still have its $cli process running: $list, found by $($scan.Check). Wait for it to exit or stop it, then retry (or delete $Path once you know it is unrelated)." $scan.Check)
     }
     return (& $inactive "$($scan.Check): none found")
 }

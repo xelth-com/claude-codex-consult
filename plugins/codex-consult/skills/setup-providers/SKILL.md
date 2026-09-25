@@ -1,15 +1,17 @@
 ---
 name: setup-providers
-description: Wire reviewers for the codex-consult bridge on a machine - verify the Codex CLI and its login, add a [model_providers.<name>] table for a third-party plan (z.ai GLM, Xiaomi MiMo or any Responses-API provider) with an env_key the user sets, supply per-run model catalogs, write the reviewer roster with panel weights, and verify with codex-providers.ps1 and a dry run. Use when a provider is missing or unavailable, on a new machine, or when the user asks to add a reviewer.
+description: Wire reviewers for the codex-consult bridge on a machine - verify the Codex CLI and its login, add a [model_providers.<name>] table for a third-party plan (z.ai GLM, Xiaomi MiMo or any Responses-API provider) with an env_key the user sets, supply per-run model catalogs, wire Gemini through the agy engine (Google's Antigravity CLI, signed in by the user), write the reviewer roster with panel weights, and verify with codex-providers.ps1 and a dry run. Use when a provider is missing or unavailable, on a new machine, or when the user asks to add a reviewer.
 argument-hint: "[provider name, e.g. ZAI or mimo]"
-allowed-tools: Bash(powershell:*), Bash(pwsh:*), Bash(codex:*), Read, Write, Edit, Glob, Grep, WebFetch
+allowed-tools: Bash(powershell:*), Bash(pwsh:*), Bash(codex:*), Bash(agy models), Read, Write, Edit, Glob, Grep, WebFetch
 disable-model-invocation: false
 ---
 
 # Set up reviewers for codex-consult
 
-This procedure wires one or more reviewers so `codex-consult.ps1` can reach them. Every
-reviewer goes through `codex exec`; the bridge itself never makes an HTTP call. Scripts:
+This procedure wires one or more reviewers so `codex-consult.ps1` can reach them. A
+reviewer goes through `codex exec` (the default engine) or, per roster entry, through
+Google's Antigravity CLI `agy` (the `agy` engine, section 3b); the bridge itself never makes
+an HTTP call. Scripts:
 `${CLAUDE_PLUGIN_ROOT}/scripts/`. Commands are shown for Windows PowerShell; on macOS/Linux
 use `pwsh -NoProfile -File` in place of `powershell -NoProfile -ExecutionPolicy Bypass -File`.
 `<codex home>` is `$CODEX_HOME` when set, else `~/.codex`.
@@ -116,6 +118,46 @@ expands `~/`; Codex on Windows does not). The same rule applies to any provider 
 suggests a global catalog (z.ai's suggests `~/.codex/models.json`; the z.ai route works
 without one).
 
+## 3b. Gemini through the agy engine (Google's Antigravity CLI)
+
+For the Gemini models under a Google AI Pro plan, the reviewer is reached through `agy`, the
+official headless client (the plan terms allow only the official clients; no
+`GEMINI_API_KEY` mode). It enforces the reply schema natively (`--json-schema`).
+
+1. **Install** (ask the user): `winget install Google.AntigravityCLI`, or the official
+   installer (it puts `agy.exe` under `%LOCALAPPDATA%\agy\bin`). Check:
+   `(Get-Command agy.exe).Source` -> a path. Not on PATH: the user passes `-EngineExe
+   <path>` or sets `CODEX_CONSULT_AGY_EXE`.
+2. **Sign in - the USER does it:** they run `agy` once in their own terminal and sign in
+   with their Google account (the credentials go to the OS keyring). You never handle a
+   login, a token or a keyring entry.
+3. **Check:** `agy models` -> exit `0` and lines `<model id><TAB><name>`, e.g.
+   `gemini-3.8-flash-high  Gemini 3.8 Flash (High)`. The model id is the FULL id; its last
+   part is the reasoning tier (`-high`, `-medium`, `-low`) - the bridge sends no effort for
+   agy. Take the model ids from this list; never invent one.
+4. **Roster entries** (section 4): `{ "provider": "gemini", "engine": "agy", "model":
+   "gemini-3.8-flash-high" }` - `provider` is a free label (the lineage's provider), the
+   model is required, `codex_config` and `auth` are refused, one label names one engine
+   across the roster. For weighty asks add a second entry with the same label on the pro
+   model, `{ "provider": "gemini", "engine": "agy", "model": "gemini-3.1-pro-high",
+   "panel": "weighty" }`; a single run picks it with `-Provider gemini -Model
+   gemini-3.1-pro-high`.
+5. **Cost:** every agy call carries about 13-25k tokens of the CLI's own prompt and tools,
+   and a resumed conversation replays itself (the bridge defaults agy to `-Mode new`); a diff
+   review on `gemini-3.8-flash-high` reads the tree (observed: 605 s, 1.6M input + 5.9M
+   cached tokens). Google AI Pro refreshes the quota every five hours until a weekly limit;
+   the CLI cannot show the remaining quota; the bridge records `usage` per run.
+6. **Read-only is not enforced by agy** (its `--sandbox` restricts the terminal only): the
+   bridge fails an agy run when the working tree (tracked or untracked files) or the collab
+   directory (every task's stores and handoffs) changed during it - enforced by evidence for
+   tracked and untracked files and the collab directory; not for gitignored paths,
+   submodules or files outside the repository. The check cannot tell who changed a file:
+   tell the user not to edit the repository or the collab directory, and not to run another
+   consultation in that repository, while an agy consultation runs.
+7. **Sign-in timing:** `agy models` usually answers in ~2 s but has taken 15 s and more; the
+   bridge waits up to 45 s, and skips the call when the repository's ledgers hold a usable
+   agy reply from the last 60 minutes (`ok: signed in (usable reply <m> min ago)`).
+
 ## 4. Write the roster
 
 `<codex home>/codex-consult-roster.json`, first choice first:
@@ -130,14 +172,18 @@ without one).
       "provider": "mimo",
       "model": "mimo-v2.6-pro",
       "codex_config": ["model_catalog_json=~/.codex/model-catalogs.json"]
-    }
+    },
+    { "provider": "gemini", "engine": "agy", "model": "gemini-3.8-flash-high" },
+    { "provider": "gemini", "engine": "agy", "model": "gemini-3.1-pro-high", "panel": "weighty" }
   ]
 }
 ```
 
 - Allowed keys only: `roster_version` (must be `1`), `reviewers[]` with `provider`
-  (required), `model`, `codex_config` (array of `key=value` strings), `auth`, `panel`.
-  An unknown key, a duplicate `(provider, model)` or invalid JSON refuses EVERY run.
+  (required), `model`, `codex_config` (array of `key=value` strings), `auth`, `panel`,
+  `engine` (`codex`, the default, or `agy`). An unknown key, an unknown engine, an agy
+  entry without a model or with `codex_config`/`auth`, one label with two engines, a
+  duplicate `(provider, model)` or invalid JSON refuses EVERY run.
 - `"panel": "weighty"` for the expensive reviewer: it joins a `-Panel` run only on
   `framing`, `decision`, `core-contract`, `acceptance` and `stuck` (or `-PanelAll`). The
   default is `"always"`.
@@ -158,8 +204,16 @@ wired one `available` with `ok: Logged in using ChatGPT` or `ok: env <NAME> set`
 then `roster: <path> -> would select <provider> :: <model>`. Other verdicts:
 `unavailable (missing: env <NAME> not set)` (not set, or Claude Code not restarted),
 `unavailable (usage limit until <iso>)`, `unknown (<reason>)` (login check failed, or the
-config cannot be scanned). Exit `1` means an unusable roster, or a `CODEX_CONSULT_ROSTER`
-file that does not exist; the message names it.
+config cannot be scanned). An agy roster label gets its own row: `available  gemini  4,5
+engine agy  agy (<launcher>)  ok: signed in (N models)  agy (tier in the model id)  -`
+(this listing makes one `agy models` call - none, and `ok: signed in (usable reply <m> min
+ago)`, after a usable agy reply in this repository within the last 60 minutes; with
+`-NoNetwork` the row otherwise reads `not checked (launcher present; run
+codex-providers.ps1)` / `unknown (sign-in not checked)`, which is what the SessionStart hook
+shows); `unavailable (agy CLI not found on PATH)` or
+`unavailable (missing: ``agy models``: <sign-in message>)` otherwise. Exit `1` means an
+unusable roster, or a `CODEX_CONSULT_ROSTER` file that does not exist; the message names
+it.
 Per provider: `-Provider <name>` (exit `0` available, `2` unavailable, `3` unknown, `1`
 no such provider).
 
@@ -172,7 +226,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 Expect exit `0`, `DRY RUN - nothing was executed and no file was written.`,
 `preflight   : available (ok: env ZAI_API_KEY set)`,
 `effort      : high sent (requested high, mapping zai-v1, …)`, and a `transport   :`
-line (`output-schema` for openai and z.ai, `prompt-only` for MiMo). Only with the user's
+line (`output-schema` for openai and z.ai, `prompt-only` for MiMo). For agy:
+`-DryRun -Engine agy -Provider gemini -Model gemini-3.8-flash-high` -> `engine      : agy -
+Gemini (agy) (from -Engine)`, `preflight   : available (ok: signed in (N models))`,
+`effort      : nothing sent (requested high, mapping model-tier, ...)`, `transport   :
+native (...)` and a `command     : agy -p= --input-format stream-json --output-format
+stream-json --model gemini-3.8-flash-high --json-schema <schema> --print-timeout 0 --sandbox
+--disable-slash-commands` line. Only with the user's
 consent, run one live `-Purpose chore` consultation to confirm the route end to end
 (expect `codex-consult: usable reply - <provider> :: <model>, …`).
 

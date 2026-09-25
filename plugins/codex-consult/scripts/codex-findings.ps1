@@ -21,7 +21,8 @@
     the findings write and the ledger write) is flagged ORPHAN. -Stats prints one line
     per consultation: purpose, effort, wall time, output tokens, verdict and the
     current status of its findings; then a per-reviewer scoreboard - one line per
-    lineage '<provider> :: <model>' (the reviewer of the ledger entry each finding was
+    lineage '<provider> :: <model>' (with ' [<engine>]' for an engine other than codex,
+    0.4.0) (the reviewer of the ledger entry each finding was
     ingested from; entries recorded before 0.3.0 and findings without a ledger entry
     count as 'unknown provenance'): raised, verified, implemented, proposed, rejected,
     wontfix, superseded, and the judge's usefulness marks yes / partly / no.
@@ -302,7 +303,7 @@ if ($Stats) {
         if (-not ($c.PSObject.Properties['n'] -and [int]::TryParse([string]$c.n, [ref]$v))) { continue }
         $rev = Get-PropertyValue $c 'reviewer' $null
         $label = 'unknown provenance'
-        if ($null -ne $rev) { $label = Format-Lineage -Provider ([string](Get-PropertyValue $rev 'provider' '')) -Model ([string](Get-PropertyValue $rev 'model' '')) }
+        if ($null -ne $rev) { $label = Format-ReviewerLineage -Provider ([string](Get-PropertyValue $rev 'provider' '')) -Model ([string](Get-PropertyValue $rev 'model' '')) -Engine ([string](Get-PropertyValue $rev 'engine' '')) }
         $lineageOf[$v] = $label
         if ($label -ne 'unknown provenance' -and -not $lineageOrder.Contains($label)) { $lineageOrder.Add($label) }
     }
@@ -374,7 +375,7 @@ if ($rating) {
         if ($null -ne $rev) {
             $provider = [string](Get-PropertyValue $rev 'provider' '')
             $model = [string](Get-PropertyValue $rev 'model' '')
-            $lineage = Format-Lineage -Provider $provider -Model $model
+            $lineage = Format-ReviewerLineage -Provider $provider -Model $model -Engine ([string](Get-PropertyValue $rev 'engine' ''))
         }
         $mark = [pscustomobject]@{
             n          = $Rate
