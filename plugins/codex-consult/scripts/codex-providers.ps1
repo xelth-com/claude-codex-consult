@@ -11,11 +11,16 @@
 
       verdict      available               credentials present and the table usable
                    unavailable (<reason>)  credentials missing, the table unusable, an
-                                           auth failure on this endpoint <= 24 h ago, or
-                                           a usage limit whose reset time lies ahead
-                                           ("usage limit until <iso>")
+                                           auth failure on this endpoint <= 24 h ago, a
+                                           usage limit whose reset time lies ahead
+                                           ("usage limit until <iso>"), or (wave 24) one
+                                           without a reset time, for 60 minutes ("usage
+                                           limit hit <iso>, reset unknown; retry after
+                                           <iso>")
                    unknown (<reason>)      `codex login status` could not run, or the
                                            config cannot be scanned
+                   (wave 24, D14) the roster walk's own verdict (Get-PreflightVerdict
+                   -RosterWalk): a row never reads available for an endpoint the walk skips
       kind         builtin | custom | engine <name> (JSON `engine`: codex for the first two)
       endpoint     canonical base_url, or builtin:openai[+OPENAI_BASE_URL <url>], or
                    "<engine> (<launcher>)" for an engine row
@@ -52,15 +57,20 @@
                    native for an engine row (agy --json-schema, muse --output-schema)
       last failure the newest failed consultation of this provider's ENDPOINT
                    (provider_fingerprint, whatever alias ran it) in THIS repository's
-                   <CollabDir>/*/sessions.json within the last 24 h, with its class
-                   (auth | quota | capability | transport | unknown; "quota until <iso>"
-                   when the provider named its reset time; JSON last_failure and
-                   last_limit = the newest quota failure, each with retry_after). An
-                   auth failure not followed by a successful run, and a usage limit
-                   until a reset time still ahead, make the verdict unavailable (a
-                   usage limit without a reset time does not). Entries recorded before
-                   0.3.0 count as the built-in openai endpoint. Health is read at the
-                   consult clock (CODEX_CONSULT_NOW, a test hook).
+                   <CollabDir>/*/sessions.json within the last 24 h - or, older, the
+                   usage limit that still makes the endpoint unavailable (wave 24, T2: a
+                   weekly limit hit days ago) - with its class (auth | quota |
+                   capability | transport | unknown; "quota until <iso>" when the
+                   provider named its reset time; JSON last_failure and last_limit =
+                   the newest quota failure, each with retry_after). An auth failure not
+                   followed by a successful run, a usage limit until a reset time still
+                   ahead and one without a reset time hit less than 60 minutes ago make
+                   the verdict unavailable. Entries recorded before 0.3.0 count as the
+                   built-in openai endpoint. Health is read at the consult clock
+                   (CODEX_CONSULT_NOW, a test hook) from the ledgers the line
+                   "endpoint health: <collab dir> (<k> task ledgers, <m>
+                   consultations)" names (JSON health_source) - THIS repository's: run
+                   the listing in the repository whose consultations you mean.
       roster       with a reviewer roster (CODEX_CONSULT_ROSTER - it must exist, "none"
                    = no roster - else <codex home>/codex-consult-roster.json when it
                    exists): the ROSTER column (the
@@ -72,7 +82,24 @@
                    unusable roster file, or a CODEX_CONSULT_ROSTER file that does not
                    exist, is refused (exit 1). "auth": "none" in the
                    roster makes a table without env_key/bearer token "ok: declared
-                   anonymous in the roster".
+                   anonymous in the roster". The "would select" entry is the single-run
+                   walk's own choice (Select-RosterReviewer), then a line
+                   "availability: <the -Short line>".
+      -Short       (wave 24, D15-D17) ONE line over EVERY roster entry, each judged
+                   with the roster walk's verdict (Select-PanelMembers -All): what is
+                   OUT per entry (the entries of one endpoint group that share the
+                   state collapse to "<label> :: *"), the reset in LOCAL time with a
+                   rounded relative hint, then the count, e.g.
+                     codex-consult: out - openai :: gpt-6-astra (until Sun 20:35, in 2d
+                     10h), gemini :: * (until Sun 21:30, in 2d 11h); 9 of 11 reviewers
+                     available
+                     codex-consult: all 11 reviewers available
+                   ("... available, <o> out, <c> not checked" when an entry was not
+                   checked; nothing is cut). Without a roster: the providers ("... (no
+                   reviewer roster)"). -Short -Json: an object {line, health_source,
+                   total, available, out, not_checked, roster, entries[{position,
+                   provider, model, engine, lineage, group, state, kind, reason, short,
+                   hit, until}]} - the SessionStart hook reads it (with -NoNetwork).
 
     No network call for codex providers; at most one `agy models` call per agy engine (none
     after a usable agy reply within the last 60 minutes, none with -NoNetwork, which the
@@ -109,7 +136,11 @@ param(
 
     # No network call at all: an agy row's sign-in is "not checked" (the SessionStart hook); a
     # muse row's check is local and still runs.
-    [switch]$NoNetwork
+    [switch]$NoNetwork,
+
+    # (wave 24) ONE line: what is OUT, per roster entry, and how many reviewers are available
+    # (with -Json: that line and every entry's record as one object - the SessionStart hook).
+    [switch]$Short
 )
 
 $ErrorActionPreference = 'Stop'
@@ -166,13 +197,41 @@ if ($Provider) {
         if ($e.Engine -ne 'codex' -and $e.Provider -ceq $Provider -and $engineLabels.Count -eq 0) { $engineLabels.Add([pscustomobject]@{ Name = $e.Provider; Engine = $e.Engine }) }
     }
 }
+if ($Short -and $Provider) { Stop-WithError "-Short summarizes every reviewer of the roster; drop -Provider (or drop -Short for one provider's row)." }
+# (wave 24, T2) where the endpoint health comes from: the ledgers of THIS repository only
+$ledgerCount = 0
+if (Test-Path -LiteralPath $collabRoot -PathType Container) {
+    $ledgerCount = @(Get-ChildItem -LiteralPath $collabRoot -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'sessions.json') -PathType Leaf }).Count
+}
+$consultCount = @($consults).Count
+$healthSource = "$collabRoot ($ledgerCount task ledger$(if ($ledgerCount -ne 1) { 's' }), $consultCount consultation$(if ($consultCount -ne 1) { 's' }))"
 $loginCache = @{}
 $walk = $null
+$avail = $null
 if ($roster.Exists) {
+    # the single-run walk itself ("would select") and every entry judged with the same verdict
+    # (Select-PanelMembers -All: the -Short line, the availability line) - one login cache, so
+    # `agy models` runs at most once
     $walk = Select-RosterReviewer -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork
+    $avail = Get-RosterAvailability -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork
+}
+
+# A row's verdict text from the shared verdict (Get-PreflightVerdict -RosterWalk, wave 24 D14):
+# available | unavailable (<reason>) | unknown (<reason>) - the wording of the rows before.
+function Format-RowVerdict {
+    param($V, [string]$Engine)
+    if ($V.State -eq 'available') { return 'available' }
+    if ($V.State -eq 'unavailable') {
+        if ($V.Kind -eq 'credentials' -and $Engine -ne 'codex' -and $V.Credential) { return "unavailable ($($V.Credential.Reason))" }
+        return "unavailable ($($V.Reason))"
+    }
+    if ($V.Kind -eq 'unknown' -and $V.Credential -and $V.Credential.Reason) { return "unknown ($($V.Credential.Reason))" }
+    return "unknown ($($V.Reason -replace '^unknown:\s*', ''))"
 }
 
 $rows = New-Object System.Collections.Generic.List[object]
+# the verdict behind each row, in row order (the -Short line without a roster)
+$rowVerdicts = New-Object System.Collections.Generic.List[object]
 foreach ($name in $names) {
     $tableName = '[' + (Format-TomlPath @('model_providers', $name)) + ']'
     $pt = $null
@@ -221,8 +280,16 @@ foreach ($name in $names) {
         $effortModels = if ($null -eq $script:EffortCaps[$hostName].Models) { 'any' } else { [object[]]$script:EffortCaps[$hostName].Models }
     } else { $vocab = 'unknown (needs -NativeEffort)' }
 
+    # Recorded health of this provider's ENDPOINT (fingerprint), whatever alias ran it.
+    $health = $null
+    $probe = $null
+    if (-not $fileReason -and -not $setProblem -and $tableOk) {
+        $probe = Resolve-ReviewerIdentity -Config $config -Provider $name -Model 'health-probe' -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL)
+        if ($probe.Resolved) { $health = Get-EndpointHealth -Consults $consults -Fingerprint $probe.Fingerprint -UtcNow $utcNow }
+    }
     $credText = 'not checked (table unusable)'
     $verdict = ''
+    $rowVerdict = $null
     if ($fileReason) {
         $credText = 'not checked (config unreadable)'
         $verdict = "unknown (config unreadable: $fileReason)"
@@ -232,24 +299,15 @@ foreach ($name in $names) {
     } elseif (-not $tableOk) {
         $verdict = "unavailable (table $tableState)"
     } else {
-        $table = $null
-        if ($pt -and $pt.Found) { $table = $pt.Table }
+        # (wave 24, D14) the roster walk's verdict: credentials, then the recorded health - an
+        # auth failure, a usage limit with a reset ahead or without one for 60 minutes
         $anonymous = [bool](@($roster.Entries | Where-Object { $_.Provider -ceq $name -and $_.Auth -eq 'none' }).Count -gt 0)
-        $cred = Get-ProviderCredential -Name $name -Table $table -Launcher ([string]$launcher) -LoginCache $loginCache -Anonymous:$anonymous
-        $credText = $cred.Detail
-        if ($cred.State -eq 'ok') { $verdict = 'available' }
-        elseif ($cred.State -eq 'missing') { $verdict = "unavailable ($($cred.Detail))" }
-        else { $verdict = "unknown ($($cred.Reason))" }
+        $rowVerdict = Get-PreflightVerdict -Identity $probe -Config $config -Launcher ([string]$launcher) -Health $health -LoginCache $loginCache -Anonymous:$anonymous -RosterWalk -NoNetwork:$NoNetwork
+        $credText = $(if ($rowVerdict.Credential) { [string]$rowVerdict.Credential.Detail } else { 'not checked (identity unresolved)' })
+        $verdict = Format-RowVerdict $rowVerdict 'codex'
     }
-
-    # Recorded health of this provider's ENDPOINT (fingerprint), whatever alias ran it.
-    $health = $null
-    if (-not $fileReason -and -not $setProblem -and $tableOk) {
-        $probe = Resolve-ReviewerIdentity -Config $config -Provider $name -Model 'health-probe' -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL)
-        if ($probe.Resolved) { $health = Get-EndpointHealth -Consults $consults -Fingerprint $probe.Fingerprint -UtcNow $utcNow }
-    }
-    if ($health -and $health.Auth -and $verdict -eq 'available') { $verdict = "unavailable (auth failed $($health.Auth.When): $($health.Auth.Message))" }
-    elseif ($health -and $health.Quota -and $health.QuotaKnown -and $verdict -eq 'available') { $verdict = "unavailable (usage limit until $($health.Quota.RetryAfterIso))" }
+    if (-not $rowVerdict) { $rowVerdict = [pscustomobject]@{ State = $(if ($verdict.StartsWith('unknown')) { 'unknown' } else { 'unavailable' }); Kind = 'config'; Reason = ($verdict -replace '^\w+ \((.*)\)$', '$1'); Credential = $null; Hit = $null; Until = $null } }
+    $rowVerdicts.Add([pscustomobject]@{ Verdict = $rowVerdict; Block = ''; Engine = 'codex' })
     $limit = $null
     $lastFailure = $null
     if ($health) { $limit = $health.LastLimit; $lastFailure = $health.LastFailure }
@@ -270,13 +328,15 @@ foreach ($name in $names) {
             roster_position   = $(if ($rosterPositions.Count -gt 0) { [int]$rosterPositions[0] } else { $null })
             roster_selected   = [bool]($walk -and $walk.Entry -and $walk.Entry.Provider -ceq $name -and $walk.Entry.Engine -eq 'codex')
             verdict           = $verdict
+            health_source     = $healthSource
         })
 }
 
 # ----------------------------------------------------------------------------- engine rows
 # One row per provider label of another engine (roster entries only): the launcher, the sign-in
 # (`agy models`, or "not checked" with -NoNetwork), the recorded health of the engine's
-# endpoint (its fingerprint: every label of one engine shares it), the roster columns.
+# endpoint (its fingerprint: every label of one engine shares it), the roster columns - the
+# verdict is the roster walk's (wave 24, D14), the engine's launch invariant outranks it.
 foreach ($el in $engineLabels) {
     $spec = Get-EngineSpec -Name $el.Engine
     $engineLauncher = Get-EngineLauncher -Engine $el.Engine -Launchers $engineLaunchers
@@ -285,17 +345,14 @@ foreach ($el in $engineLabels) {
     $health = $null
     if ($probe.Resolved) { $health = Get-EndpointHealth -Consults $consults -Fingerprint $probe.Fingerprint -UtcNow $utcNow }
     # (a usable reply on this endpoint within the last 60 minutes evidences the sign-in: no
-    # `agy models` call; the auth / quota rules below still apply)
-    $cred = Get-EngineCredential -Engine $el.Engine -Launcher $engineLauncher -LoginCache $loginCache -NoNetwork:$NoNetwork -Health $health
-    $credText = $cred.Detail
-    if ($cred.State -eq 'ok') { $verdict = 'available' }
-    elseif ($cred.State -eq 'missing') { $verdict = "unavailable ($($cred.Reason))" }
-    else { $verdict = "unknown ($($cred.Reason))" }
-    if ($health -and $health.Auth -and $verdict -ne "unavailable ($($cred.Reason))") { $verdict = "unavailable (auth failed $($health.Auth.When): $($health.Auth.Message))" }
-    elseif ($health -and $health.Quota -and $health.QuotaKnown -and $verdict -ne "unavailable ($($cred.Reason))") { $verdict = "unavailable (usage limit until $($health.Quota.RetryAfterIso))" }
+    # `agy models` call; the auth / quota rules still apply)
+    $rowVerdict = Get-PreflightVerdict -Identity $probe -Config $config -Launcher $engineLauncher -Health $health -LoginCache $loginCache -RosterWalk -NoNetwork:$NoNetwork
+    $credText = $(if ($rowVerdict.Credential) { [string]$rowVerdict.Credential.Detail } else { 'not checked (identity unresolved)' })
+    $verdict = Format-RowVerdict $rowVerdict $el.Engine
     # (wave 23, D4) the engine's launch invariant (muse: billing) outranks everything above
     $launchBlock = Get-EngineLaunchBlock -Engine $el.Engine
     if ($launchBlock) { $verdict = "unavailable (refused: $launchBlock)" }
+    $rowVerdicts.Add([pscustomobject]@{ Verdict = $rowVerdict; Block = [string]$launchBlock; Engine = $el.Engine })
     # caps-v1 of the engine: its effort vocabulary, declared models and schema transport
     $engineCap = $null
     if ($script:EffortCaps.ContainsKey("engine:$($el.Engine)")) { $engineCap = $script:EffortCaps["engine:$($el.Engine)"] }
@@ -327,14 +384,56 @@ foreach ($el in $engineLabels) {
             roster_position   = $(if ($rosterPositions.Count -gt 0) { [int]$rosterPositions[0] } else { $null })
             roster_selected   = [bool]($walk -and $walk.Entry -and $walk.Entry.Provider -ceq $el.Name -and $walk.Entry.Engine -eq $el.Engine)
             verdict           = $verdict
+            health_source     = $healthSource
         })
+}
+
+# ----------------------------------------------------------------------------- the availability line
+# (wave 24, D15-D17) ONE line: with a roster, every entry judged by the roster walk's verdict
+# (Get-RosterAvailability); without one, the provider rows above.
+$availability = $avail
+$noun = 'reviewers'
+$suffix = ''
+if (-not $roster.Exists) {
+    $recs = New-Object System.Collections.Generic.List[object]
+    for ($i = 0; $i -lt $rows.Count; $i++) {
+        $rv = $rowVerdicts[$i]
+        $recs.Add((ConvertTo-AvailabilityRecord -Position ($i + 1) -Provider ([string]$rows[$i].name) -Engine $rv.Engine -Group $i -Verdict $rv.Verdict -Block $rv.Block -UtcNow $utcNow))
+    }
+    $availability = [pscustomobject]@{ Records = [object[]]$recs.ToArray() }
+    $noun = 'providers'
+    $suffix = ' (no reviewer roster)'
+}
+$availabilityLine = Format-AvailabilityLine -Availability $availability -Noun $noun -Suffix $suffix
+
+if ($Short) {
+    if ($Json) {
+        $recsOut = @(@($availability.Records) | Where-Object { $_ } | ForEach-Object {
+                [pscustomobject]@{ position = $_.Position; provider = $_.Provider; model = $_.Model; engine = $_.Engine; lineage = $_.Lineage; group = $_.Group; state = $_.State; kind = $_.Kind; reason = $_.Reason; short = $_.Short; hit = $(if ($null -ne $_.Hit) { Format-OffsetIso $_.Hit } else { $null }); until = $(if ($null -ne $_.Until) { Format-OffsetIso $_.Until } else { $null }) }
+            })
+        $obj = [pscustomobject]@{
+            line          = $availabilityLine
+            health_source = $healthSource
+            total         = @($recsOut).Count
+            available     = @($recsOut | Where-Object { $_.state -eq 'available' }).Count
+            out           = @($recsOut | Where-Object { $_.state -eq 'out' }).Count
+            not_checked   = @($recsOut | Where-Object { $_.state -eq 'not checked' }).Count
+            roster        = $(if ($roster.Exists) { $roster.Path } else { $null })
+            entries       = [object[]]$recsOut
+        }
+        Write-Output (ConvertTo-Json -InputObject $obj -Depth 6)
+    } else {
+        Write-Output $availabilityLine
+    }
+    exit 0
 }
 
 if ($Json) {
     Write-Output (ConvertTo-Json -InputObject ([object[]]$rows.ToArray()) -Depth 5)
 } else {
     Write-Host "codex config: $where$(if (-not $config.Exists) { ' (not found - Codex runs on its built-in defaults)' })"
-    $header = [pscustomobject]@{ verdict = 'VERDICT'; name = 'PROVIDER'; roster = 'ROSTER'; kind = 'KIND'; endpoint = 'ENDPOINT'; credentials = 'CREDENTIALS'; effort = 'EFFORT'; limit = 'LAST FAILURE (24 h)' }
+    Write-Host "endpoint health: $healthSource, read at $($clock.Now.ToLocalTime().ToString('yyyy-MM-dd HH:mm', $script:Invariant)) - the ledgers of THIS repository"
+    $header = [pscustomobject]@{ verdict = 'VERDICT'; name = 'PROVIDER'; roster = 'ROSTER'; kind = 'KIND'; endpoint = 'ENDPOINT'; credentials = 'CREDENTIALS'; effort = 'EFFORT'; limit = 'LAST FAILURE' }
     $lines = @($header) + @($rows | ForEach-Object {
             $rowName = $_.name
             $rowEngine = [string]$_.engine
@@ -372,6 +471,8 @@ if ($Json) {
             Write-Host "roster: $($roster.Path) -> no entry is available (skipped: $(Format-RosterSkips @($walk.Skipped)))"
         }
     }
+    # (wave 24) the one-line view of every entry (the -Short line)
+    Write-Host "availability: $($availabilityLine -replace '^codex-consult: ', '')"
 }
 
 if ($Provider) {

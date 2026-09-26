@@ -8,10 +8,135 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - candidate (not tagged)
 
-The next candidate. Planned: an automatic continuation turn after a timeout kill and a
-partial salvage, per-purpose default timeouts, one truth about availability (providers
-listing, roster walk, SessionStart line), non-blocking consultation (R12), adaptive companions
-and telemetry routing (R14-R16), host invariance (R13), opt-out telemetry (R17).
+The next candidate. Wave 24 (the "operator visibility" wave, ROADMAP T1-T3 and the
+availability decisions D14-D17 of the companions design review,
+`.collab/companions-2026-09-26/handoffs/05-claude-companions-decisions.md`) is in; planned
+next: non-blocking consultation (R12), adaptive companions and telemetry routing (R14-R16),
+host invariance (R13), opt-out telemetry (R17).
+
+### Added
+
+- **Wave 24 - a timeout never throws the reviewer's work away (T1).**
+  - Per-purpose default timeouts: `-TimeoutSec` unset -> chore 600, checkpoint and no purpose
+    900, framing and decision 1800, diff-review, core-contract and stuck 2400, acceptance
+    3600 s; an explicit `-TimeoutSec` always wins. Ledger `timeout_sec`, `timeout_source`
+    (`purpose` | `explicit`), `continue_sec` (after `sandbox`); the dry run's `timeout     :`
+    line and the handoff header's `Timeout:` line say which applied; a `-Panel` resolves it
+    once (`Timeout: ... per member`) and its members inherit it.
+  - The timeout continuation: when the bridge kills the MAIN turn on its timeout and the
+    turn's thread is known (codex `thread.started`; agy the init event's conversation; muse
+    the session stream), ONE more turn continues that thread - codex `exec ... resume
+    <thread> -` with the main turn's exec options (`--output-schema` included), agy
+    `--conversation`, muse `--session-id` (through the engine adapter; its own prompt file) -
+    with "Your previous turn was stopped by a time limit after N s. Do not start over and do
+    not read more files than you must: finish now and output your final answer in the
+    required format." (plus the output contract and the consultation id), within
+    `-ContinueSec` s (new; default min(timeout, 900); 0 = off), under the same lock and
+    recovery record (`Invoke-EngineTurn`, now also for codex). A usable reply is ingested like
+    a first-turn reply: `bridge_outcome` `usable reply (after a timeout continuation)` - a
+    usable reply for the endpoint health, the scoreboard and a panel's exit code
+    (`Test-UsableOutcome`) - ledger `timeout_continue {thread, wall_seconds, outcome, events,
+    usage}` (after `denial_retry`; `outcome` `not attempted: <why>` when none ran), the
+    continuation's stream kept as `handoffs/NN-<engine>-<slug>.continue.events.jsonl`, the
+    summary line `continued  : the main turn was killed at <t> s of <T> s; one continuation
+    turn on thread <id> answered in <w> s`, the header line `Timeout continuation:`. Never more
+    than one per consultation; never after a quota or auth failure named in the killed turn's
+    own stream, never after a billing refusal (muse's guard is read afresh right before it),
+    not when processes survived the kill, the run changed files (an engine's tree check) or
+    the thread is unknown. A panel member continues inside its own process; its kill guard
+    grows by `-ContinueSec` (`Get-PanelMemberGuard`).
+  - The salvage: a turn killed on its timeout - the main turn without a usable continuation,
+    the continuation, a denial retry, a format repair - leaves
+    `handoffs/NN-<engine>-<slug>.partial.md`: the reply's header, then per turn every agent
+    message and reasoning text of its event stream in order and its tool calls (codex items
+    `agent_message`, `reasoning`, `command_execution` with its command line, `web_search`,
+    `mcp_tool_call`; agy `text_delta` steps and tool steps, `run_command` with its command
+    line; muse `run.output.delta` texts and `tool.*` tasks - the adapters' new `Salvage`),
+    then the footer ``killed at <t> s of <T> s; thread <id> - continue with `-Task <t> -Mode
+    resume -Thread <id> [-Purpose <p>] -Prompt "finish your review"` ``. Ledger `partial_reply`
+    (after `events`), the header line `Partial reply:`, the summary lines `partial    :` and
+    `resume     : <the exact command>`; `bridge_outcome` stays `failed: timeout ...`; a
+    panel's summary row names the partial file. `-Thread` takes the conversation of an agy or
+    muse run the bridge killed (a candidate only - its entry names the partial reply;
+    `Find-ThreadEntry`), so the printed command works for every engine.
+  - `-Range <revision range>` (diff-review and acceptance): `git diff --shortstat <range> --`
+    once (`Get-RangeStat`; a panel measures once for all members) - "Review range: `<range>`
+    - the range changes N files, M lines (...)" in the prompt, ledger `range {spec, files,
+    insertions, deletions, lines}` (after `brief`), and a WARNING (console, handoff header,
+    ledger `warnings[]`) when more than 1500 lines meet a timeout below 2400 s: "a range of M
+    lines with a T s timeout: pass -TimeoutSec or a reading plan in the brief". An unknown
+    range, an option-like or spaced argument, or another purpose is refused before anything
+    starts.
+- **Wave 24 - one truth about availability (T2, T3; D14-D17).**
+  - `Get-RosterAvailability`: every roster entry judged by the roster walk's own verdict
+    (`Select-PanelMembers -All`, which gains `-NoNetwork` and per-entry `Verdict`, `Health`
+    and `Block`), each a record `{position, provider, model, engine, lineage, group, state
+    available | out | not checked, kind, reason, short, hit, until}`; the endpoint groups over
+    ALL resolved entries (`Get-EndpointGroups`, extracted from `Get-PanelPlan`, which keeps
+    its plan): an outage recorded on an endpoint marks every entry of its group.
+  - `codex-providers.ps1 -Short`: ONE line - `codex-consult: out - openai :: gpt-6-astra
+    (until Sun 20:35, in 2d 10h), gemini :: * (until Sun 21:30, in 2d 11h); 9 of 11 reviewers
+    available`, `codex-consult: all 11 reviewers available`; entries of one group sharing the
+    state collapse to `<label> :: *`; reset times in LOCAL time (`ToLocalTime`) with a rounded
+    relative hint; no reason is cut; "..., <o> out, <c> not checked" when an entry was not
+    checked; without a roster the providers ("... (no reviewer roster)"). `-Short -Json`: the
+    line and every entry's record. The table gains `endpoint health: <collab dir> (<k> task
+    ledgers, <m> consultations), read at <local time> - the ledgers of THIS repository` and
+    `availability: <the -Short line>`; JSON rows gain `health_source`.
+  - The SessionStart hook prints that line (`codex-providers.ps1 -Short -Json -NoNetwork`,
+    the `line` of its object; the old per-provider parser and its 60-character cut are gone).
+- F15-1 (the muse acceptance): `Get-MuseCredentialInfo -Fresh`, `Get-MuseLaunchBlock -Fresh`,
+  `Get-EngineLaunchBlock -Fresh`: the launch guard right before every Start-Process of an
+  engine turn (the main turn, a denial retry, a format repair, the continuation) reads
+  `auth.json` again; listings and the preflight keep the cache.
+- `tests/harness-visibility.ps1` (registered in `run-all.ps1`): 76 assertions - see
+  `tests/README.md`. Fake knobs: `FAKE_CODEX_HANG_NEW`, `FAKE_CODEX_ITEMS`, `FAKE_AGY_HANG=new`,
+  `FAKE_AGY_TEXT`, `FAKE_MUSE_HANG=new|resume`, `FAKE_MUSE_TEXT`.
+
+### Changed
+
+- `Get-PreflightVerdict` gains `Kind`, `Hit`, `Until`, `Credential` and a new order: a
+  recorded auth failure or usage limit now outranks a credential that could not be checked
+  (an agy entry under `-NoNetwork` with a recorded limit is out, not "not checked"). A quota
+  failure without a reset time is out for 60 minutes after it was HIT (the failure's own
+  `provider_failure.when`, else the entry's `when`; a time in the future counts as now);
+  the roster walk's reason reads `usage limit hit <iso>, reset unknown; retry after <iso + 60
+  min>` (was `usage limit <n> min ago, no reset time given`). An explicit `-Provider` run
+  still only warns on it.
+- `codex-providers.ps1` rows are the roster walk's verdict (T3: a quota without a reset time
+  now reads `unavailable (usage limit hit ..., reset unknown; retry after ...)` and
+  `-Provider` exits 2; an unresolved identity reads `unknown (...)`); `LAST FAILURE` (was
+  `LAST FAILURE (24 h)`) also shows an older usage limit that still blocks the endpoint
+  (`Get-EndpointHealth` `LastFailure` / `LastLimit`); `-Short` with `-Provider` is refused.
+- `Get-EndpointHealth` counts `usable reply (after a timeout continuation)` as a success and
+  records `Hit` / `HitIso`; `Until` of a failure without a reset time is `Hit + 60 min`.
+- `codex-scoreboard.ps1`: USABLE counts a reply after a timeout continuation.
+- `Invoke-GitCapture` returns git's stderr too (`Err`).
+
+### Fixed
+
+- T2 (the providers view disagreed with the roster walk): the listing read the endpoint
+  health of the repository it ran in - silently - and its rows used a second implementation
+  of the verdict (a quota without a reset time read `available`; a usage limit hit days ago
+  showed `LAST FAILURE -`). Run in another repository, it saw none of the failures the panels
+  had recorded and printed `available`, `-` and `would select`. Now the rows, `-Short`, the
+  hook and the walk share one verdict, the listing names its health source, and LAST FAILURE
+  shows a still-blocking limit.
+- T3: the SessionStart line and the listing said available after a 429 without a reset time.
+
+### Known limitations
+
+- An explicit `-Provider` run is not refused by a quota failure without a reset time (it
+  warns, as before); only the roster walk, the panel and the views treat it as out.
+- A continuation only follows the MAIN turn's kill; a killed denial retry or format repair is
+  salvaged and names the resume command, but gets no continuation of its own.
+- No continuation when the thread of the killed turn is unknown (a codex stream without
+  `thread.started` whose rollout does not name the consultation id).
+- The salvage reads what the event stream holds: codex emits a reasoning or message item only
+  when it completes, so text of an item in flight at the kill is not in it.
+- The listing, `-Short` and the hook read the ledgers of the repository they run in (now
+  said on the `endpoint health:` line); a limit recorded in another repository stays invisible
+  there until a run in this one hits it.
 
 ## [0.4.0] - 2026-09-26
 

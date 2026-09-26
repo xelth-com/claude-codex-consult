@@ -1,32 +1,33 @@
 <#
 .SYNOPSIS
-    SessionStart hook: one line saying which reviewers are usable right now.
+    SessionStart hook: one line saying which reviewers are out right now, and until when.
 
 .DESCRIPTION
     Runs at the start of a Claude Code session in any project where the plugin is
     enabled (hooks/hooks.json). Prints ONE line to stdout, which Claude Code adds to the
-    agent's context:
+    agent's context (wave 24, D14-D17 - the line `codex-providers.ps1 -Short` prints):
 
-        codex-consult: reviewers - openai available | ZAI available | mimo unavailable
-        (missing: env MIMO_API_KEY not set); roster -> would select ZAI
+        codex-consult: out - openai :: gpt-6-astra (until Sun 20:35, in 2d 10h), gemini :: *
+        (until Sun 21:30, in 2d 11h); 9 of 11 reviewers available
 
-    or, when the Codex CLI is not on PATH, `codex-consult: codex CLI not found on PATH -
-    follow the setup-providers skill`. Everything else (an unreadable config, an unusable
-    roster, a crash inside the check) is reported in the same one-line form and never
-    fails the session: the exit code is always 0. No network call, no lock, nothing
-    written: it runs `codex-providers.ps1 -Json -NoNetwork` - the same local check
-    codex-providers.ps1 makes (credentials, table usability, endpoint health from THIS
-    repository's ledgers, the roster walk), except that the sign-in of an engine provider
-    (the agy engine's `agy models`, a network round-trip) is NOT checked here: such a row
-    reads e.g. `gemini not checked (launcher present)` (a missing launcher stays
-    `gemini unavailable (agy CLI not found on PATH)`; a recorded auth failure or usage
-    limit still shows), and the roster walk skips it - unless THIS repository's ledgers
-    hold a usable reply on that engine's endpoint from the last 60 minutes, which evidences
-    the sign-in without any call (`gemini available`). `codex-providers.ps1` without
-    -NoNetwork and the consultation's own preflight do check it. The muse engine's sign-in
-    check (wave 23) reads ~/.config/muse/auth.json locally and so runs here too (`meta
-    available`), as does its billing guard (`meta unavailable (refused: META_API_KEY is
-    set: ...)`).
+    or `codex-consult: all 11 reviewers available`. Every roster entry is judged with the
+    roster walk's own verdict (Select-PanelMembers -All: credentials, the launch invariant,
+    the endpoint health of THIS repository's ledgers - an auth failure, a usage limit with a
+    reset ahead, one without a reset for 60 minutes after it was hit); the entries of one
+    endpoint group that share the state collapse to `<label> :: *`; reset times are LOCAL
+    with a rounded relative hint; nothing is cut. An entry whose check needs the network (the
+    agy engine's `agy models`) is `not checked` here - "..., 2 not checked" in the count -
+    unless THIS repository's ledgers hold a usable reply on that endpoint from the last 60
+    minutes (then it is available); a recorded auth failure or usage limit still shows it
+    out. The muse engine's sign-in check reads ~/.config/muse/auth.json locally and runs here
+    too, as does its billing guard (`meta :: <model> (refused: META_API_KEY is set)`).
+    Without a roster: the providers of the Codex config ("... (no reviewer roster)").
+
+    When the Codex CLI is not on PATH: `codex-consult: codex CLI not found on PATH - follow
+    the setup-providers skill`. Everything else (an unreadable config, an unusable roster, a
+    crash inside the check) is reported in the same one-line form and never fails the
+    session: the exit code is always 0. No network call, no lock, nothing written: it runs
+    `codex-providers.ps1 -Short -Json -NoNetwork` and prints the `line` of its object.
 
     Cost: about one second (`codex login status` for the built-in openai), once per
     session. Disable the hook by disabling the plugin's hooks in Claude Code settings.
@@ -51,43 +52,22 @@ try {
     } else {
         $previous = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
-        $raw = & $psExe -NoProfile -ExecutionPolicy Bypass -File $providers -Json -NoNetwork -CollabDir $CollabDir 2>&1 | ForEach-Object { "$_" }
+        $raw = @(& $psExe -NoProfile -ExecutionPolicy Bypass -File $providers -Short -Json -NoNetwork -CollabDir $CollabDir 2>&1 | ForEach-Object { "$_" })
         $code = $LASTEXITCODE
         $ErrorActionPreference = $previous
         $jsonStart = -1
-        for ($i = 0; $i -lt $raw.Count; $i++) { if ($raw[$i] -match '^\s*\[') { $jsonStart = $i; break } }
-        if ($jsonStart -lt 0) {
+        for ($i = 0; $i -lt $raw.Count; $i++) { if ($raw[$i] -match '^\s*\{') { $jsonStart = $i; break } }
+        $obj = $null
+        if ($jsonStart -ge 0) {
+            try { $obj = (($raw[$jsonStart..($raw.Count - 1)]) -join "`n") | ConvertFrom-Json } catch { $obj = $null }
+        }
+        $text = $(if ($obj) { [string]$obj.line } else { '' })
+        if ($text -match '^codex-consult: ' -and $text -notmatch "[`r`n]") {
+            $line = $text
+        } else {
             $first = (@($raw | Where-Object { $_ -and $_.Trim() }) | Select-Object -First 1)
             if (-not $first) { $first = "codex-providers.ps1 exited $code without output" }
             $line = "codex-consult: reviewer check failed - $first"
-        } else {
-            # Pipeline form on purpose: on Windows PowerShell 5.1 `ConvertFrom-Json -InputObject`
-            # hands a JSON array back as ONE object, which @() would not unroll.
-            $jsonText = ($raw[$jsonStart..($raw.Count - 1)]) -join "`n"
-            $rows = @()
-            foreach ($item in ($jsonText | ConvertFrom-Json)) { $rows += $item }
-            $parts = New-Object System.Collections.Generic.List[string]
-            $selected = ''
-            foreach ($r in $rows) {
-                $verdict = [string]$r.verdict
-                $short = $verdict
-                if ($verdict -match '^(available|unavailable|unknown)\s*(\((.*)\))?$') {
-                    $short = $Matches[1]
-                    if ($Matches[3]) {
-                        $reason = $Matches[3]
-                        if ($reason.Length -gt 60) { $reason = $reason.Substring(0, 57) + '...' }
-                        $short += " ($reason)"
-                    }
-                }
-                # an engine row whose sign-in was not checked (-NoNetwork): say so plainly
-                $rowEngine = [string]$r.engine
-                if ($rowEngine -and $rowEngine -ne 'codex' -and ([string]$r.credentials).StartsWith('not checked') -and $verdict -like 'unknown*') { $short = 'not checked (launcher present)' }
-                $parts.Add("$($r.name) $short")
-                if ($r.roster_selected -eq $true) { $selected = [string]$r.name }
-            }
-            $line = 'codex-consult: reviewers - ' + ($parts.ToArray() -join ' | ')
-            if ($selected) { $line += "; roster -> would select $selected" }
-            elseif (@($rows | Where-Object { $null -ne $_.roster_position }).Count -gt 0) { $line += '; roster -> no entry is available' }
         }
     }
 } catch {

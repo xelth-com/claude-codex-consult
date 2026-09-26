@@ -55,7 +55,13 @@ again. With a reviewer roster (`CODEX_CONSULT_ROSTER`, else `<codex home>/codex-
 roster.json`), the same command's `ROSTER` column and its closing `roster: <path> ->
 would select ...` line show which entry a plain consultation would pick right now, and
 which ones the walk would skip and why — see the README's "Reviewer roster and panel"
-section for the file's shape and the selection rules.
+section for the file's shape and the selection rules. Its verdicts ARE the roster walk's
+(0.5.0): a usage limit without a reset time reads `unavailable (usage limit hit <iso>, reset
+unknown; retry after <iso>)` for 60 minutes, exactly as the walk skips it. Run it in the
+repository whose consultations you mean: health comes from THAT repository's ledgers (its
+`endpoint health:` line names them). For the one-line view of what is out and until when,
+run it with `-Short` (the SessionStart line: `codex-consult: out - openai :: gpt-6-astra
+(until Sun 20:35, in 2d 10h); 9 of 11 reviewers available`).
 
 **If a provider you need is missing** (no `[model_providers.<name>]` row, `missing: env
 ... not set`, no roster), follow the `setup-providers` skill
@@ -180,8 +186,23 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   `model_catalog_json` replaces Codex's own catalog and can degrade an unrelated
   model — `-CodexConfig model_catalog_json=~/.codex/model-catalogs.json`.
 - `-Purpose <purpose>` (see table above), `-Effort low|medium|high|xhigh`,
-  `-MaxWords <n>` (both override the preset), `-TimeoutSec <n>` (default 900),
-  `-Sandbox read-only|workspace-write` (default `read-only`).
+  `-MaxWords <n>` (both override the preset), `-TimeoutSec <n>` (0.5.0: default the
+  purpose's - chore 600, checkpoint and none 900, framing and decision 1800, diff-review,
+  core-contract and stuck 2400, acceptance 3600 s), `-Sandbox read-only|workspace-write`
+  (default `read-only`).
+- **A big review** (0.5.0): pass `-Range <from>..<to>` with diff-review and acceptance
+  (the bridge measures it with `git diff --shortstat`, tells the reviewer its size and
+  WARNS when more than 1500 lines meet a timeout below 2400 s) and/or `-TimeoutSec`, or give
+  the brief a reading plan (which files first, what to skip). Never leave a big review to
+  the 900 s of a checkpoint.
+- A reviewer killed on its timeout gets ONE continuation turn on its own thread (`-ContinueSec
+  <s>`, default min(timeout, 900); `0` = off): usable -> `usable reply (after a timeout
+  continuation)`, ingested like any reply. If that fails too, the summary prints a
+  `partial    :` line (the salvaged `handoffs/<NN>-<engine>-<slug>.partial.md`: what the
+  reviewer produced before the kill) and `resume     : <the exact command>`. **A timed-out reviewer is RESUMED,
+  not re-asked from scratch** - run that command (`-Mode resume -Thread <id> -Prompt "finish
+  your review"`); it keeps everything the reviewer read. Read the partial file before
+  deciding anything on it: it is unfinished work, not a verdict.
 - `-Artifact <path>` — hash a built artifact (an executable, a bundle) into the ledger
   so the review is bound to it, not just to the source tree. Several paths go in ONE
   comma-separated string (`-Artifact a.exe,b.dll`); the parameter cannot be repeated
@@ -292,7 +313,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 consultation, including a plain-prose reply that produced no ids — skipping those means
 the telemetry only ever counts structured reviewers, which biases the scoreboard toward
 whoever happens to answer in JSON. `codex-scoreboard.ps1` (below) sums these marks per
-reviewer and purpose.
+reviewer and purpose. A **failed** consultation may be rated too: `-Useful no` only when the
+failure was the reviewer's (a refusal, an invented finding, a reply it could not put in the
+format); **skip the rating** when the bridge's timeout or a plan limit (a usage limit, a
+quota) killed it - resume it instead (see "Run one command").
 
 ## Role split: the operator's council
 
@@ -374,7 +398,11 @@ it, a `"weighty"` entry only joins on the weighty purposes.
   state, but a LATER panel (on the same task) will see findings the earlier panel
   raised, exactly as a normal sequential consultation would.
 - A summary block closes the run (one line per member: lineage, verdict or failure,
-  finding counts); the run exits `0` only when every member produced a usable reply.
+  finding counts; `(after a timeout continuation)` for a member that answered on its
+  continuation turn, `partial <path>` for one whose work was salvaged); the run exits `0`
+  only when every member produced a usable reply. Each member continues inside its own
+  process after a timeout kill; a member that still failed is resumed on its own (its output
+  in the panel's prints the command) - never re-run the whole panel for it.
 - Record every member's findings normally with `codex-findings.ps1`; nothing about a
   panel changes the status lifecycle. There is still no `-Link`/`-Stats -Group` tooling
   for corroboration or contradiction between members — compare replies by hand and use

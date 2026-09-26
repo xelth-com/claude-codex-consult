@@ -35,7 +35,12 @@
 #   FAKE_AGY_WRITE=<rel path>     writes that file (relative to the working directory) on a
 #                                 turn without --conversation (=<path>|all: on every turn)
 #   FAKE_AGY_HANG=1               sleeps 60 s after init;  FAKE_AGY_HANG_ON=<text>  only when
-#                                 the raw arguments contain <text>
+#                                 the raw arguments contain <text>; FAKE_AGY_HANG=new: only on
+#                                 a turn without --conversation (wave 24: the main turn hangs,
+#                                 the bridge's timeout continuation answers)
+#   FAKE_AGY_TEXT=1               before the hang point: two agent_response text_delta steps and
+#                                 a run_command tool step, tagged "(first ...)" or "(resume
+#                                 ...)" (the salvage cases)
 #   FAKE_AGY_TRAILING=<text>      written to stdout after the result event (no newline):
 #                                 trailing garbage / a partial line
 #   FAKE_AGY_HANG_AFTER=1         sleeps 60 s after every event was written (a run that is
@@ -99,7 +104,13 @@ if ($cmode -eq 'mismatch') { $resultId = [guid]::NewGuid().ToString() }
 $denied = ($env:FAKE_AGY_DENIED -eq 'all') -or ($env:FAKE_AGY_DENIED -eq '1' -and -not $conv)
 Out-Bytes ((J ([pscustomobject]@{ event = 'init'; conversation_id = $id; init = [pscustomobject]@{ model = $model; cwd = (Get-Location).Path; tools = @('view_file', 'grep_search', 'run_command', 'write_to_file'); permission_mode = 'request-review' } })) + "`n")
 Out-Bytes ((J ([pscustomobject]@{ event = 'step_update'; step_update = [pscustomobject]@{ conversation_id = $id; step_index = 0; state = 'DONE'; step_type = 'user_input' } })) + "`n")
-if ($env:FAKE_AGY_HANG -eq '1' -or ($env:FAKE_AGY_HANG_ON -and $raw.Contains($env:FAKE_AGY_HANG_ON))) { Start-Sleep -Seconds 60 }
+if ($env:FAKE_AGY_TEXT) {
+    $tag = if ($conv) { 'resume' } else { 'first' }
+    Out-Bytes ((J ([pscustomobject]@{ event = 'step_update'; step_update = [pscustomobject]@{ conversation_id = $id; step_index = 1; state = 'ACTIVE'; step_type = 'agent_response'; text_delta = 'Reading the brief ' } })) + "`n")
+    Out-Bytes ((J ([pscustomobject]@{ event = 'step_update'; step_update = [pscustomobject]@{ conversation_id = $id; step_index = 1; state = 'ACTIVE'; step_type = 'agent_response'; text_delta = "($tag turn)." } })) + "`n")
+    Out-Bytes ((J ([pscustomobject]@{ event = 'step_update'; step_update = [pscustomobject]@{ conversation_id = $id; step_index = 2; state = 'ACTIVE'; step_type = 'tool'; tool_name = 'run_command'; tool_info = [pscustomobject]@{ name = 'run_command'; parameters = [pscustomobject]@{ CommandLine = "git log -1 ($tag)" } } } })) + "`n")
+}
+if ($env:FAKE_AGY_HANG -eq '1' -or ($env:FAKE_AGY_HANG -eq 'new' -and -not $conv) -or ($env:FAKE_AGY_HANG_ON -and $raw.Contains($env:FAKE_AGY_HANG_ON))) { Start-Sleep -Seconds 60 }
 Out-Bytes ((J ([pscustomobject]@{ event = 'step_update'; step_update = [pscustomobject]@{ conversation_id = $id; step_index = 1; state = 'DONE'; step_type = 'tool'; tool_name = 'view_file'; duration_seconds = 0.1; tool_info = [pscustomobject]@{ name = 'view_file'; parameters = [pscustomobject]@{ AbsolutePath = 'app.txt' }; output = '1 lines' } } })) + "`n")
 $delayMs = $null
 if ($env:FAKE_AGY_DELAY_MS) {

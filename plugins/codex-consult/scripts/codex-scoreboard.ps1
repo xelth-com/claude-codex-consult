@@ -18,7 +18,8 @@
                  lineage's total row; the grand total row is '(all) (total)'
     Columns (JSON field in brackets)
       CONSULTS   ledger entries [consults]
-      USABLE     bridge_outcome 'usable reply' [usable]
+      USABLE     bridge_outcome 'usable reply' - or (wave 24) 'usable reply (after a timeout
+                 continuation)' [usable]
       PROSE      usable, but no valid structured reply (-Raw, chore, invalid JSON) [prose]
       FAILED     every other outcome [failed]
       RAISED     findings raised by these consultations (a finding belongs to the
@@ -129,7 +130,7 @@ foreach ($dir in $taskDirs) {
         if ($null -ne $n) { $keyOf[$n] = $acc }
         $acc.Consults++
         $outcome = [string](Get-PropertyValue $c 'bridge_outcome' (Get-PropertyValue $c 'outcome' ''))
-        if ($outcome -eq 'usable reply') {
+        if (Test-UsableOutcome $outcome) {
             $acc.Usable++
             if ((Get-PropertyValue $c 'structured' $false) -ne $true) { $acc.Prose++ }
         } else {

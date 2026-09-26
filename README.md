@@ -178,16 +178,19 @@ Expect this shape, exit `0`:
 
 ```
 codex config: C:\Users\<you>\.codex\config.toml
-VERDICT    PROVIDER  ROSTER  KIND     ENDPOINT                                  CREDENTIALS                  EFFORT                    LAST FAILURE (24 h)
+endpoint health: <repo>\.collab (0 task ledgers, 0 consultations), read at 2026-09-26 10:40 - the ledgers of THIS repository
+VERDICT    PROVIDER  ROSTER  KIND     ENDPOINT                                  CREDENTIALS                  EFFORT                    LAST FAILURE
 available  openai    1       builtin  builtin:openai                            ok: Logged in using ChatGPT  openai (any model)        -
 available  ZAI       2       custom   https://api.z.ai/api/v1                   ok: env ZAI_API_KEY set      zai (11 declared models)  -
 available  mimo      3       custom   https://token-plan-ams.xiaomimimo.com/v1  ok: env MIMO_API_KEY set     mimo (5 declared models)  -
 roster: C:\Users\<you>\.codex\codex-consult-roster.json -> would select openai :: <model>
+availability: all 3 reviewers available
 ```
 
 `missing: env MIMO_API_KEY not set` means the variable is not visible to this process (not
 set, or Claude Code was not restarted). Health (the `LAST FAILURE` column, usage limits)
-comes from the ledgers of the repository you run in, so a fresh repository shows none.
+comes from the ledgers of the repository you run in - the `endpoint health:` line names them -
+so a fresh repository shows none.
 Then, inside a git repository:
 
 ```powershell
@@ -238,7 +241,7 @@ verdicts with the date, and anything left unavailable and why.
 |---|---|
 | skill `consult-codex` (`/codex-consult:consult-codex <task-id> <ask>`) | the consultation process: when to consult, reconciling findings, the brief, the one command, verifying and recording findings, rating the consultation, the panel and the council rules |
 | skill `setup-providers` (`/codex-consult:setup-providers [provider]`) | wiring reviewers on a machine: Codex login, `[model_providers.*]` tables with `env_key`, per-run catalogs, the `agy` engine (install, the user's sign-in, `agy models`, roster entries), the `muse` engine (install, `muse login` with the file credential backend, never an API key, the contributor vs standard model), the roster, peak windows, verification |
-| hook `SessionStart` (`hooks/hooks.json` → `scripts/codex-consult-hook.ps1`) | at every session start (`startup`, `resume`) in a project where the plugin is enabled, adds ONE line to the agent's context: `codex-consult: reviewers - openai available \| ZAI available \| mimo unavailable (missing: env MIMO_API_KEY not set); roster -> would select openai` — the same local check as `codex-providers.ps1` (credentials, table usability, endpoint health from THIS repository's ledgers, the roster walk); `codex-consult: codex CLI not found on PATH - follow the setup-providers skill ...` when Codex is missing. No network call (it runs `codex-providers.ps1 -Json -NoNetwork`: an `agy` engine row reads `gemini not checked (launcher present)` - or `gemini available` when THIS repository's ledgers hold a usable agy reply from the last 60 minutes - and a missing launcher `gemini unavailable (agy CLI not found on PATH)`; a `muse` row runs its local sign-in check - `meta available` when `~/.config/muse/auth.json` holds the Meta sign-in), nothing written, exit code always 0, about one second (`codex login status`), timeout 30 s; `pwsh` when present, else `powershell`. Disable it with the plugin (`/plugin disable codex-consult`) — hooks have no per-plugin switch |
+| hook `SessionStart` (`hooks/hooks.json` → `scripts/codex-consult-hook.ps1`) | at every session start (`startup`, `resume`) in a project where the plugin is enabled, adds ONE line to the agent's context (0.5.0, the line `codex-providers.ps1 -Short` prints): what is OUT, per roster entry, with the reset in local time and a rounded relative hint, then the count - `codex-consult: out - openai :: gpt-6-astra (until Sun 20:35, in 2d 10h), gemini :: * (until Sun 21:30, in 2d 11h); 9 of 11 reviewers available`, or `codex-consult: all 11 reviewers available`. Every entry is judged with the roster walk's own verdict (credentials, the launch invariant, the endpoint health of THIS repository's ledgers: an auth failure, a usage limit with a reset ahead, one without a reset for 60 minutes after it was hit); the entries of one endpoint group that share the state collapse to `<label> :: *`; nothing is cut. An agy entry's sign-in is not checked here (no network call): `not checked - gemini :: * (sign-in not checked); 7 of 11 reviewers available, 2 out, 2 not checked` - unless THIS repository's ledgers hold a usable agy reply from the last 60 minutes; a muse entry's local check and billing guard run (`meta :: <model> (refused: META_API_KEY is set)`). Without a roster: the providers (`... (no reviewer roster)`). `codex-consult: codex CLI not found on PATH - follow the setup-providers skill ...` when Codex is missing; `codex-consult: reviewer check failed - <why>` for an unusable roster or config. It runs `codex-providers.ps1 -Short -Json -NoNetwork`: nothing written, exit code always 0, about one second (`codex login status`), timeout 30 s; `pwsh` when present, else `powershell`. Disable it with the plugin (`/plugin disable codex-consult`) — hooks have no per-plugin switch |
 | evals `evals/` (`claude plugin eval <plugin dir> --ablation none --allow-tools Bash` — the `--allow-tools Bash` operator grant is REQUIRED for the two cases that run the bridge; they are silently downgraded without it) | the install test: two cases a fresh agent must pass with only this plugin loaded — `dry-run-consultation` (reach the bridge through the `consult-codex` skill, run `-DryRun` for task `eval-smoke`, report the fixed first line, the preflight and reviewer lines, write nothing) and `providers-listing` (use `codex-providers.ps1`, one verdict per provider, no invented verdict). Graders: `tool_used`, `regex` on the trace, `file_exists: false`, an `llm` rubric. A machine with no usable reviewer still passes when reported honestly. The third case `command-plan` (tag `readonly`) needs no shell grant and runs everywhere: the agent must produce the exact dry-run command and the files a real run writes, from the skill, without executing anything. Shell-granted cases need a sandbox backend: Linux/macOS have one; on Windows the eval runner refuses to run a shell tool unconfined (`sandbox required but unavailable`), so there run `--case command-plan` only. Results land in `evals/results/` (ignored by git) |
 
 Per-provider alias skills a user may keep in `~/.claude/skills/` (say, one that maps "ask
@@ -284,6 +287,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps
   `-Thread <uuid>` picks a specific parent of the same lineage.
 - One specific reviewer: `-Provider <name> -Model <model>`. Every available roster
   reviewer: `-Panel`.
+- A big review (0.5.0): leave `-TimeoutSec` out - the purpose sets it (diff-review 2400 s,
+  acceptance 3600 s) - and pass `-Range <from>..<to>`: the bridge measures the range once, tells
+  the reviewer its size and warns when the timeout is short for it. A reviewer the bridge kills
+  on its timeout gets ONE continuation turn on its thread; if that fails too, its work so far is
+  salvaged into `handoffs/<NN>-codex-<slug>.partial.md` and the summary prints the command that
+  resumes the thread ("Timeouts, the continuation and the partial reply").
 - When a call misbehaves, rerun it with `-DryRun` first: it prints the argv, the resolved
   launcher, reviewer, preflight, roster pick, transport, the prompt that would go on stdin,
   every path and the planned ledger entry, and writes nothing.
@@ -307,10 +316,12 @@ were still written.
 
 | File | Content |
 |---|---|
-| `handoffs/<NN>-codex-<slug>.md` | header lines (`Date`/author, `Reviewer:`, `Preflight`, `Roster:`, `Effort:`, peak warning, `Recovery record:`, `Invocation:` with the argv, parent and result thread, brief and reviewed revision, drift warnings, `Bridge outcome:`/wall/tokens, `Provider failure:`, `Structured reply:`, verdict warning, `Format repair:`, `Raw event stream:`), `---`, the reply **verbatim**, then (structured runs) the rendered findings, prior findings, verdict, blockers, unproven scenarios and first-run checklist; after a format repair, the original prose |
+| `handoffs/<NN>-codex-<slug>.md` | header lines (`Date`/author, `Reviewer:`, `Preflight`, `Roster:`, `Effort:`, peak warning, `Recovery record:`, `Invocation:` with the argv, parent and result thread, brief and reviewed revision, drift warnings, `Bridge outcome:`/wall/tokens, (0.5.0) `Timeout:`, `Timeout continuation:`, `Partial reply:`, `Provider failure:`, `Structured reply:`, verdict warning, `Format repair:`, `Raw event stream:`), `---`, the reply **verbatim**, then (structured runs) the rendered findings, prior findings, verdict, blockers, unproven scenarios and first-run checklist; after a format repair, the original prose |
 | `handoffs/<NN>-codex-<slug>.reply.json` | the reviewer's last message, byte for byte (structured runs) |
 | `handoffs/<NN>-codex-<slug>.events.jsonl` | the raw event stream |
 | `handoffs/<NN>-codex-<slug>.original.md` | the first-turn prose, only after a format repair |
+| `handoffs/<NN>-codex-<slug>.continue.events.jsonl` | (0.5.0) the event stream of the timeout continuation, only after a timeout kill of the main turn |
+| `handoffs/<NN>-codex-<slug>.partial.md` | (0.5.0) only when a turn was killed on its timeout and no continuation answered (or a denial retry or format repair was killed): the reply's header, then per turn every agent message and reasoning text of its event stream in order and its tool calls, then `killed at <t> s of <T> s; thread <id> - continue with <arguments>` |
 | `findings.json` | the findings tracked by id, and the `ratings` (only written once there is something to record) |
 | `sessions.json` | the ledger; one entry appended per consultation |
 
@@ -328,24 +339,106 @@ fabricated example of the layout is in `examples/`.
 `-Purpose` selects the prompt paragraph and the default effort and word cap; `-Effort` and
 `-MaxWords` override either.
 
-| `-Purpose` | Effort | Max words | Asks the reviewer to… |
-|---|---|---|---|
-| *(none)* | high | 700 | answer the brief with no preset framing |
-| `framing` | high | 700 | surface options the brief did not list; challenge the framing |
-| `decision` | high | 700 | rank the alternatives, name the deciding factor and each one's failure mode |
-| `checkpoint` | medium | 500 | verify the CURRENT invariants the brief claims against the code as it is now |
-| `core-contract` | xhigh | 900 | cover the interfaces, recovery/persistence paths and state machines named in the brief: states, transitions, the failure at each transition |
-| `acceptance` | high | 900 | decide ACCEPT/HOLD/REJECT, with blockers, unproven scenarios and an observable first-run checklist |
-| `diff-review` | high | 700 | an adversarial read: what breaks, what is not covered, what the tests do not prove |
-| `stuck` | xhigh | 700 | find the angle the coordinator is missing; question assumptions before proposing fixes |
-| `chore` | low | 400 | a bounded search or extraction task: facts with file paths and line numbers, quotes of what was found, what was not; no verdict, no findings |
+| `-Purpose` | Effort | Max words | Timeout (0.5.0) | Asks the reviewer to… |
+|---|---|---|---|---|
+| *(none)* | high | 700 | 900 s | answer the brief with no preset framing |
+| `framing` | high | 700 | 1800 s | surface options the brief did not list; challenge the framing |
+| `decision` | high | 700 | 1800 s | rank the alternatives, name the deciding factor and each one's failure mode |
+| `checkpoint` | medium | 500 | 900 s | verify the CURRENT invariants the brief claims against the code as it is now |
+| `core-contract` | xhigh | 900 | 2400 s | cover the interfaces, recovery/persistence paths and state machines named in the brief: states, transitions, the failure at each transition |
+| `acceptance` | high | 900 | 3600 s | decide ACCEPT/HOLD/REJECT, with blockers, unproven scenarios and an observable first-run checklist |
+| `diff-review` | high | 700 | 2400 s | an adversarial read: what breaks, what is not covered, what the tests do not prove |
+| `stuck` | xhigh | 700 | 2400 s | find the angle the coordinator is missing; question assumptions before proposing fixes |
+| `chore` | low | 400 | 600 s | a bounded search or extraction task: facts with file paths and line numbers, quotes of what was found, what was not; no verdict, no findings |
 
 `acceptance` and `diff-review` take a verdict of `ACCEPT`/`HOLD`/`REJECT`; every other
-purpose, and no purpose, takes `ADVISE`. `chore` is a plain-text reply like `-Raw` (no
+purpose, and no purpose, takes `ADVISE`. The timeout is the main turn's when `-TimeoutSec` is
+not given (an explicit `-TimeoutSec` always wins; see "Timeouts, the continuation and the partial
+reply"). `chore` is a plain-text reply like `-Raw` (no
 schema, no findings bookkeeping, no format repair): give grunt work to a cheap reviewer
 with it. The word cap applies to the prose (`reply_markdown`) only; findings are never cut
 to fit it. The weighty purposes (`framing`, `decision`, `core-contract`, `acceptance`,
 `stuck`) decide which roster entries join a panel.
+
+---
+
+## Timeouts, the continuation and the partial reply (0.5.0)
+
+A timeout never throws the reviewer's work away. **The timeout** is the main turn's wall-clock
+limit; past it the bridge kills the reviewer's process tree. Without `-TimeoutSec` the purpose
+sets it:
+
+| Purpose | Timeout |
+|---|---|
+| `chore` | 600 s |
+| `checkpoint`, *(none)* | 900 s |
+| `framing`, `decision` | 1800 s |
+| `diff-review`, `core-contract`, `stuck` | 2400 s |
+| `acceptance` | 3600 s |
+
+An explicit `-TimeoutSec` always wins; the dry run (`timeout     : 2400 s (the default of
+purpose diff-review; -TimeoutSec overrides); ...`), the handoff header (`Timeout:`) and the
+ledger (`timeout_sec`, `timeout_source` `purpose` or `explicit`) say which applied; a `-Panel`'s
+members inherit the resolved value.
+
+**The continuation.** When the bridge kills the MAIN turn on its timeout and the turn's thread
+is known (codex: its `thread.started`; agy: the conversation of its init event; muse: its session
+stream), the provider and the CLI still hold the conversation - Codex keeps the whole rollout of
+a killed thread. The bridge then runs ONE more turn on that thread (codex `exec ... resume
+<thread>` with the main turn's options, `--output-schema` included; agy `--conversation`; muse
+`--session-id`) with the prompt `Your previous turn was stopped by a time limit after N s. Do not
+start over and do not read more files than you must: finish now and output your final answer in
+the required format.`, within `-ContinueSec` s (default: the smaller of the timeout and 900 s;
+`0` = off). A usable reply is ingested exactly like a first-turn reply: `bridge_outcome`
+`usable reply (after a timeout continuation)` (a usable reply everywhere - the endpoint health,
+the scoreboard, a panel's exit code), ledger `timeout_continue {thread, wall_seconds, outcome,
+events, usage}`, the summary line `continued  : the main turn was killed at <t> s of <T> s; one
+continuation turn on thread <id> answered in <w> s`. No continuation (`outcome` `not attempted:
+<why>`) when the thread is unknown, when processes survived the kill (they may still write to
+it), when the run changed files (an engine's tree check), when the killed turn's own stream names
+a quota or auth failure, or with `-ContinueSec 0`; muse's billing guard re-reads `auth.json` right
+before it (a refusal: `failed: refused before launch: ...`). Never more than one per
+consultation. A `-Panel` member continues inside its own process; its kill guard grows by
+`-ContinueSec`.
+
+**The partial reply.** When a turn was killed on its timeout - the main turn without a usable
+continuation, the continuation, a denial retry, a format repair - the bridge writes
+`handoffs/<NN>-<engine>-<slug>.partial.md`: the reply's header, then per turn (`## Turn 1 - the
+main turn - killed at 902.3 s of 900 s`, `## Turn 2 - the timeout continuation - ...`) every agent
+message and reasoning text of its event stream in order and its tool calls (the command line of a
+shell command), then the footer ``killed at <t> s of <T> s; thread <id> - continue with `-Task
+<task> -Mode resume -Thread <id> -Purpose <p> -Prompt "finish your review"` ``. The ledger names it
+(`partial_reply`), the handoff header too (`Partial reply:`); `bridge_outcome` stays `failed:
+timeout after <T> s (process tree killed)` - the run did not produce a usable reply. The summary
+prints the file and the exact command:
+
+```
+codex-consult: failed: timeout after 900 s (process tree killed) (wall 902.3 s)
+continued  : failed: timeout after 900 s (process tree killed) (in 901.0 s) - thread <id>
+partial    : <repo>\.collab\my-task\handoffs\05-codex-review.partial.md (killed at 902.3 s of 900 s (the main turn), 901 s of 900 s (the timeout continuation); thread <id> - continue with `...`)
+resume     : powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>\scripts\codex-consult.ps1" -Task my-task -Mode resume -Thread <id> -Purpose diff-review -Prompt "finish your review"
+```
+
+**To resume** a killed reviewer, run that command: the reviewer continues its own thread with
+everything it read already in context (a resumed Codex acceptance that had been killed at 1800 s
+answered in 148 s, 94% of its 14.2M input tokens cached). With a roster `-Thread` fixes the
+reviewer; without one the command names `-Provider`, `-Model` (and `-Engine`). `-Thread` also
+takes the conversation of an agy or muse run the bridge killed (a candidate only, since no
+result verified it; its ledger entry names the partial reply), and the resumed turn must come
+back on it. A timed-out panel member is resumed the same way, not re-asked from scratch.
+
+**`-Range <from>..<to>`** (diff-review and acceptance only): `git diff --shortstat <range> --`
+runs once; the prompt says ``Review range: `<range>` - the range changes N files, M lines (I
+insertions, D deletions; git diff --shortstat). Plan your reading for its size.``, the ledger
+records `range {spec, files, insertions, deletions, lines}`, and a range of more than 1500
+lines with a timeout below 2400 s WARNS (console `WARNING:`, the handoff header's `Warnings:`,
+ledger `warnings[]`): `a range of M lines with a T s timeout: pass -TimeoutSec or a reading
+plan in the brief`. A range git does not know (or an argument that could be read as an option)
+is refused before anything starts. A `-Panel` measures it once for all members.
+
+**Rating a failed consultation** (`codex-findings.ps1 -Rate`): rate `no` only when the failure
+was the reviewer's (a refusal, an invented finding, prose it could not convert); skip the rating
+when the bridge's timeout or a plan limit killed it - resume it instead.
 
 ---
 
@@ -387,10 +480,12 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "mode": "fork",
   "command": "codex exec --sandbox read-only --color never --json -m glm-5.3 -c model_reasoning_effort=\"max\" -c model_provider=\"ZAI\" -o <temp> --output-schema <schema> fork 01a0c839-… -",
   "brief": ".collab/my-task/handoffs/03-claude-invalidation.md",
+  "range": null,
   "prompt_chars": 3412,
   "reply": "handoffs/04-codex-invalidation.md",
   "reply_json": "handoffs/04-codex-invalidation.reply.json",
   "events": "handoffs/04-codex-invalidation.events.jsonl",
+  "partial_reply": "",
   "model": "glm-5.3",
   "effort": "max",
   "effort_requested": "xhigh",
@@ -400,6 +495,9 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "effort_confirmed": null,
   "max_words": 700,
   "sandbox": "read-only",
+  "timeout_sec": 2400,
+  "timeout_source": "purpose",
+  "continue_sec": 900,
   "extra_config": [],
   "extra_config_source": "",
   "peak": false,
@@ -413,6 +511,7 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "validation_error": "",
   "format_retry": null,
   "denial_retry": null,
+  "timeout_continue": null,
   "base_commit": "4e9cc4f0…",
   "reviewed_revision": "4e9cc4f + uncommitted",
   "tree_sha256": "9c2a…",
@@ -465,10 +564,13 @@ This is the only place field meanings are listed; other sections refer to them b
 | `thread_candidate` | an unverified rollout uuid (agy: a conversation id the run could not verify - a failed resume's new conversation, the init id of a run without a result) kept for diagnosis only; never a parent |
 | `mode` / `command` | `new`, `fork` or `resume`; the full argv as one string (prompt on stdin) |
 | `brief` / `prompt_chars` | the brief path (`""` without one); the prompt length |
+| `range` | (0.5.0) `null` without `-Range`, else `{spec, files, insertions, deletions, lines}` of `git diff --shortstat <spec>` |
 | `reply` / `reply_json` / `events` | handoff paths relative to the task directory (`reply_json` is `""` for plain-text runs) |
+| `partial_reply` | (0.5.0) `""`, or `handoffs/<NN>-<engine>-<slug>.partial.md` when a turn was killed on its timeout (the salvage; "Timeouts, the continuation and the partial reply") |
 | `model` / `effort` | kept for 0.2 readers and `-Stats`: the resolved model; `effort` equals `effort_sent` |
 | `effort_requested` / `effort_sent` / `effort_mapping` / `effort_caps` / `effort_confirmed` | the preset, `-Effort` or `-NativeEffort` value; the value put into argv (`null` for agy: the tier is part of the model id); `openai`, `zai-v1`, `mimo-v1`, `model-tier` (agy), `muse-v1` (muse) or `native`; the capability-table version (`caps-v1`); always `null` (Codex does not report the effort it used) |
 | `max_words` / `sandbox` | the resolved word cap; `read-only` or `workspace-write` (agy: `read-only (requested; enforced by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules or files outside the repository; agy --sandbox restricts the terminal only)`; muse: `read-only (requested; muse --disable-write --disable-shell --disable-web-tools --approval-mode never; checked by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules, files outside the repository or what the reviewer reads)`) |
+| `timeout_sec` / `timeout_source` / `continue_sec` | (0.5.0) the main turn's timeout; `purpose` (the purpose's default) or `explicit` (`-TimeoutSec`); the timeout continuation's budget (`0` = off) |
 | `extra_config` / `extra_config_source` | the `-CodexConfig` or roster `codex_config` items as sent (expanded); `""` (none), `-CodexConfig` or `roster` |
 | `peak` / `peak_schedule` / `peak_source` / `peak_evaluated_at` | `true`, `false` or `null` (no schedule) at launch; the schedule; `env`, `env (CODEX_CONSULT_NOW)` or `none`; when that decisive check ran |
 | `structured` / `schema` | whether a valid structured reply was ingested; `consult-reply v1`, or `""` for `-Raw` |
@@ -476,9 +578,10 @@ This is the only place field meanings are listed; other sections refer to them b
 | `validation_error` | `""`, or every validation message joined with `; `, plus a format-repair note |
 | `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events, schema_transport}` - `events` (0.4.0) the repair turn's event stream, handoffs-relative, when one is kept (agy: `handoffs/NN-agy-<slug>.repair.events.jsonl`; muse: `handoffs/NN-muse-<slug>.repair.events.jsonl`), else `null` (codex: its repair stream is a temp file); `schema_transport` (wave 23b) the repair turn's transport: codex `prompt-only` (its repair never passes `--output-schema`), an engine the main turn's - `native`, or `prompt-only` with no schema flag and the schema in the repair prompt |
 | `denial_retry` | (0.4.0, agy; always `null` for muse, which has no denial retry) `null` (not attempted), else `{attempted, reason, succeeded, thread, wall_seconds, usage, events}`: the one extra turn after a run that produced nothing because a tool was auto-denied (see "Engines"); `events` = that turn's event stream (`handoffs/NN-agy-<slug>.denial-retry.events.jsonl`, `null` when no turn ran) |
+| `timeout_continue` | (0.5.0) `null` unless the main turn was killed on its timeout; else `{thread, wall_seconds, outcome, events, usage}` of the ONE continuation turn - `outcome` `usable reply`, `failed: <why>` or `not attempted: <why>` (then `wall_seconds` 0, `events` and `usage` `null`) |
 | `base_commit` … `fingerprint_note` | revision binding: see "Binding a review to a revision" |
 | `artifacts` / `artifacts_changed_during_review` | `[{path, sha256, sha256_after}]` per `-Artifact`; whether any changed during the run |
-| `bridge_outcome` | `usable reply` or `failed: <why>`: only whether the bridge worked |
+| `bridge_outcome` | `usable reply`, (0.5.0) `usable reply (after a timeout continuation)` or `failed: <why>`: only whether the bridge worked |
 | `provider_failure` | `null` on success, else `{class, code, message, when, retry_after}` (see "Preflight and endpoint health") |
 | `warnings` | (0.4.0) notices of the run - a `-Provider` label that names several roster entries (any engine), agy's denial notice and its `warning:` stderr lines that came with a usable reply; `[]` when none |
 | `verdict` / `verdict_reason` | `ACCEPT`, `HOLD`, `REJECT`, `ADVISE`, or `""` (unavailable or invalid); one sentence |
@@ -932,9 +1035,11 @@ environment refuses the run with and without `-SkipPreflight`):
 | no `auth` failure on this ENDPOINT in the last 24 h (unless a later run there succeeded) | `provider ZAI is not usable: the last run on this endpoint was rejected as unauthenticated at <when> (<message>); if you rotated the credential, pass -SkipPreflight once` |
 | no usage limit whose named reset time lies ahead | `provider ZAI is not usable: its usage limit (hit at <when>: <message>) lasts until <iso>; nothing was started (pass -SkipPreflight to launch anyway)` |
 
-A usage limit with NO reset time from the last 60 minutes only warns on an explicit
+A usage limit with NO reset time hit within the last 60 minutes only warns on an explicit
 `-Provider` run (console `WARNING:`, ledger `preflight_warning`); a roster walk skips it
-(`usage limit <n> min ago, no reset time given`). `-SkipPreflight` bypasses every refusal
+(0.5.0: `usage limit hit <iso>, reset unknown; retry after <iso + 60 min>` - out for 60 minutes
+after the limit was hit, the failure's own time; a later successful run on the endpoint clears
+it), and the providers listing, `-Short` and the SessionStart line say the same. `-SkipPreflight` bypasses every refusal
 above (ledger `preflight: "skipped"`; with a roster, the first entry is taken unchecked,
 under `-Panel` every entry). Use it only for an endpoint that genuinely needs no
 credential and has no roster entry saying so, or once, after the user rotated a
@@ -997,13 +1102,19 @@ keep their recorded offset; Windows PowerShell 5.1 reads them as plain strings.
 ### codex-providers.ps1
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-providers.ps1" [-Provider <name>] [-Json] [-CollabDir <path>] [-CodexExe <path>] [-EngineExe <path>] [-NoNetwork]
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-providers.ps1" [-Provider <name>] [-Json] [-Short] [-CollabDir <path>] [-CodexExe <path>] [-EngineExe <path>] [-NoNetwork]
 ```
 
 It answers "what can I consult right now?" and writes nothing, takes no lock and makes no
 network call for a codex provider (at most one `agy models` call per agy engine; none
 after a usable agy reply within the last 60 minutes, none with `-NoNetwork` - the
-SessionStart hook's mode). First line: `codex config: <path>`. Then one row per provider (the built-in
+SessionStart hook's mode). First line: `codex config: <path>`; then (0.5.0) `endpoint health:
+<collab dir> (<k> task ledgers, <m> consultations), read at <local time> - the ledgers of THIS
+repository`: the health comes from the ledgers of the repository the command runs in, so run it
+in the repository whose consultations you mean (run elsewhere, it sees none of them - the cause
+of a listing that called an entry available while every panel of the day skipped it). Every
+verdict below is the roster walk's own (`Get-PreflightVerdict -RosterWalk`, 0.5.0): a row never
+reads available for an endpoint the walk skips. Then one row per provider (the built-in
 `openai` and every `[model_providers.*]` table): `VERDICT` (`available`,
 `unavailable (<reason>)` including `unavailable (usage limit until <iso>)`, or
 `unknown (<reason>)` when `codex login status` could not run or the config cannot be
@@ -1013,10 +1124,12 @@ scanned), `PROVIDER`, `ROSTER` (roster positions, or `-`), `KIND` (`builtin`/`cu
 config`, `ok: declared anonymous in the roster`, `missing: env NAME not set`, `missing: no
 env_key/bearer token in the table`, `missing: <first line of login status>`), `EFFORT`
 (`openai (any model)`, `zai (11 declared models)`, `mimo (5 declared models)` or
-`unknown (needs -NativeEffort)`) and `LAST FAILURE (24 h)` (`<class>: <when> - <message>`,
-or `quota until <iso>: …`). With a roster, a final line `roster: <path> -> would select
-<provider> :: <model> (skipped: …)` or `roster: <path> -> no entry is available (skipped:
-…)`. **Engine rows (0.4.0):** one more row per provider label the roster declares with
+`unknown (needs -NativeEffort)`) and `LAST FAILURE` (`<class>: <when> - <message>`, or `quota
+until <iso>: …`; the newest failure of the last 24 h, else - 0.5.0 - the usage limit that still
+makes the endpoint unavailable, e.g. a weekly limit hit days ago). With a roster, a line
+`roster: <path> -> would select <provider> :: <model> (skipped: …)` or `roster: <path> -> no
+entry is available (skipped: …)` (the single-run walk itself), then `availability: <the -Short
+line>`. **Engine rows (0.4.0):** one more row per provider label the roster declares with
 `"engine": "agy"` - `KIND` `engine agy`, `ENDPOINT` `agy (<launcher>)` (or `agy (launcher
 not found)`), table `n/a`, `CREDENTIALS` from `agy models` (`ok: signed in (N models)`,
 `missing: …` for sign-in wording or `missing: agy CLI not found on PATH`, `unknown: …`;
@@ -1039,9 +1152,19 @@ engine other than codex in the roster. `-Json` returns objects with
 (`built in`/`usable`/`unusable: <reason>`), `credentials`, `effort_vocabulary`,
 `effort_models`, `schema_transport`, `last_limit` (the newest quota failure),
 `last_failure` (`{class, code, when, message, retry_after}`), `roster_position` (first
-position or `null`), `roster_selected` and `verdict`. Exit codes with `-Provider`: `0`
+position or `null`), `roster_selected`, `verdict` and (0.5.0) `health_source`. **`-Short`**
+(0.5.0) prints ONE line over EVERY roster entry, each judged with the roster walk's verdict - the
+SessionStart hook's line: `codex-consult: out - <provider> :: <model> (until <local time>, in
+<rounded hint>), <label> :: * (...); <a> of <n> reviewers available` (the entries of one endpoint
+group that share the state collapse to `<label> :: *`; a quota without a reset reads `limit hit
+10:31, reset unknown; retry after 11:31, in 52m`; `..., <o> out, <c> not checked` when an entry was
+not checked; nothing is cut), or `codex-consult: all <n> reviewers available`; without a roster
+the providers (`... (no reviewer roster)`). `-Short -Json` returns `{line, health_source, total,
+available, out, not_checked, roster, entries[{position, provider, model, engine, lineage, group,
+state, kind, reason, short, hit, until}]}`. Not with `-Provider`. Exit codes with `-Provider`: `0`
 available, `2` unavailable, `3` unknown, `1` no such provider or a usage error (an
-unusable roster, a `CODEX_CONSULT_ROSTER` file that does not exist). Without `-Provider`:
+unusable roster, a `CODEX_CONSULT_ROSTER` file that does not exist); the verdict is the roster
+walk's, so a quota without a reset time hit within the hour exits `2` (0.5.0). Without `-Provider`:
 `0` unless the roster is unusable. Plan against this output: a provider reported
 unavailable does not become available by retrying the bridge.
 
@@ -1219,8 +1342,8 @@ own, so a panel takes about as long as its slowest member instead of the sum of 
   and ledger entry survive whatever order they commit in.
 - *The run.* The panel run polls its members, prints one line per member as it finishes,
   and stops a member that outlives its guard (its `-TimeoutSec` + one format-repair turn and,
-  for agy, one denial-retry turn of min(timeout, 300) s when enabled + 60 s write lock +
-  120 s) with its process tree. It then prints every member's console output in roster
+  for agy, one denial-retry turn of min(timeout, 300) s when enabled + (0.5.0) its timeout
+  continuation's `-ContinueSec` + 60 s write lock + 120 s) with its process tree. It then prints every member's console output in roster
   order and the summary block with the panel's wall clock (one line per member: lineage,
   verdict or failure - `commit blocked`, `killed by the panel after N s` -, finding counts,
   or the skip reason; a member that left no ledger entry names its unused n and handoff, or
@@ -1632,7 +1755,9 @@ nor writes it.
 | `-NativeEffort <token>` | — | sent verbatim; excludes `-Effort`; required where caps-v1 declares nothing |
 | `-MaxWords <n>` | the purpose preset (`700` without one) | prose only |
 | `-Sandbox read-only\|workspace-write` | `read-only` | `danger-full-access` is refused, with no flag to force it |
-| `-TimeoutSec <n>` | `900` | the codex (agy, muse) process TREE is killed past it |
+| `-TimeoutSec <n>` | the purpose's default (0.5.0: 600-3600 s, "Timeouts, the continuation and the partial reply") | the main turn's process TREE is killed past it; ledger `timeout_sec`, `timeout_source` |
+| `-ContinueSec <n>` | the smaller of the timeout and 900 s | (0.5.0) the budget of the ONE continuation turn on the killed turn's thread; `0` = off; ledger `continue_sec`, `timeout_continue` |
+| `-Range <from>..<to>` | — | (0.5.0) diff-review and acceptance only: `git diff --shortstat` once - the size in the prompt and the ledger (`range`), a warning above 1500 lines with a timeout below 2400 s; an unknown range is refused |
 | `-ReplyName <slug>` | `reply` | names `handoffs/<NN>-codex-<slug>.*` (`<NN>-agy-<slug>.*`, `<NN>-muse-<slug>.*` for the engines) |
 | `-Artifact <path>[,<path>…]` | — | one comma-separated string; hashes built artifacts into the ledger; a missing path refuses the run |
 | `-Raw` | off | 0.1-style plain-text reply: no schema, no findings, no format repair |
@@ -1740,6 +1865,10 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 | `provider X: availability could not be established (…)` | run `codex login status` by hand; check for a top-level `profile` key or an unusable table (`codex-providers.ps1` names it) |
 | `… rejected as unauthenticated at <when> …` | the user rotates or fixes the credential; then pass `-SkipPreflight` once (the 24-hour window cannot tell "fixed" from "still broken") |
 | `… usage limit … lasts until <iso>` / `unavailable (usage limit until <iso>)` | wait, or consult another reviewer (`-Provider`, or let the roster walk pick the next entry) |
+| `unavailable (usage limit hit <iso>, reset unknown; retry after <iso>)` | (0.5.0) the endpoint hit a limit and named no reset time: it counts as out for 60 minutes after the hit (a later successful run clears it); wait, or consult another reviewer |
+| the listing says `available` but a panel skipped the entry | run `codex-providers.ps1` in the repository the panel ran in: health comes from THAT repository's ledgers (0.5.0: its `endpoint health:` line names them) |
+| `failed: timeout after N s (process tree killed)` with `partial    :` / `resume     :` lines | (0.5.0) read the partial reply (what the reviewer produced before the kill), then run the printed `resume` command: the reviewer continues its own thread with what it already read. For the next big review pass `-Range` and leave `-TimeoutSec` to the purpose, or give the brief a reading plan |
+| `WARNING: a range of M lines with a T s timeout: …` | (0.5.0) drop the short `-TimeoutSec` (diff-review defaults to 2400 s, acceptance to 3600 s) or add a reading plan to the brief |
 | `no effort vocabulary declared for model …` | use a model caps-v1 declares, or pass `-NativeEffort <value>` |
 | `endpoint or protocol of provider X changed since thread …` | the table's `base_url`/`wire_api` changed: `-Mode new` |
 | `thread <uuid> belongs to lineage …` / `unknown provenance …` | `-Mode new`, or run as that thread's lineage |
@@ -1778,7 +1907,7 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 
 ## Tests
 
-`tests/run-all.ps1` runs the ten harnesses one at a time against a FAKE `codex` shim (and
+`tests/run-all.ps1` runs the eleven harnesses one at a time against a FAKE `codex` shim (and
 a FAKE `agy` for `harness-engines` and `harness-panel`, a FAKE `muse` for `harness-muse`): no
 real `codex`, `agy` or `muse`, no quota spent, no real credential read (`harness-muse` gives
 every child a scratch home with a fake `auth.json`, a scratch `LOCALAPPDATA` and a PATH
@@ -1793,11 +1922,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1
 pwsh -NoProfile -File tests/run-all.ps1 -Only harness-roster,harness-0.3
 ```
 
-Assertions per harness (Windows PowerShell 5.1, 2026-09-26): `harness-0.3` 227,
-`harness-roster` 117, `harness-format` 37, `harness-engines` 95, `harness-panel` 52 (0.4.x
-wave 21, the parallel panel), `harness-pending` 26, `harness-fixes` 45, `harness-lock2` 11,
-`harness-3b` 12. `harness-0.3`, `harness-roster`, `harness-format`, `harness-engines` and
-`harness-panel` also run under pwsh. A full run takes about forty minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
+Assertions per harness (Windows PowerShell 5.1, 2026-09-26, 0.5.0 wave 24): `harness-0.3` 227,
+`harness-roster` 117, `harness-format` 37, `harness-engines` 97, `harness-muse` 72,
+`harness-panel` 53 (0.4.x wave 21, the parallel panel), `harness-pending` 26, `harness-fixes`
+45, `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 76 (wave 24: the timeouts, the
+continuation, the salvage, `-Range`, the one availability verdict). `harness-0.3`,
+`harness-roster`, `harness-format`, `harness-engines`, `harness-muse`, `harness-panel` and
+`harness-visibility` also run under pwsh. A full run takes about forty-five minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
 prints one summary line per harness, exits `1` when anything failed, and keeps full logs
 in `$env:TEMP\codex-consult-tests\run-all-<timestamp>\`. `tests/` is not part of the
 installed plugin; `tests/README.md` lists what each harness covers.

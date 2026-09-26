@@ -287,7 +287,7 @@ function Format-Argv {
 # go through PowerShell's line splitting or a console code page). stdin is not
 # redirected: on .NET Framework the child's stdin writer can emit a UTF-8 preamble
 # (chcp 65001), so paths travel as arguments instead. Returns $null when git cannot
-# be started, else { ExitCode; Bytes }.
+# be started, else { ExitCode; Bytes; Err (stderr as text) }.
 function Invoke-GitCapture {
     param([string]$Root, [string[]]$GitArgs)
     try {
@@ -314,13 +314,39 @@ function Invoke-GitCapture {
             $p.WaitForExit()
             $copy.Wait()
             $null = $err.Wait(5000)
-            return [pscustomobject]@{ ExitCode = $p.ExitCode; Bytes = $ms.ToArray() }
+            return [pscustomobject]@{ ExitCode = $p.ExitCode; Bytes = $ms.ToArray(); Err = [string]$err.Result }
         } finally {
             $p.Dispose()
         }
     } catch {
         return $null
     }
+}
+
+# -Range (wave 24, T1): `git diff --shortstat <range> --` once, in the repository root - "the
+# range changes N files, M lines" (M = insertions + deletions). { Range; Files; Insertions;
+# Deletions; Lines; Error ('' or why the range is refused: not a revision range git knows here,
+# an argument that could be read as an option, git not runnable) }.
+function Get-RangeStat {
+    param([string]$Root, [string]$Range)
+    $r = [pscustomobject]@{ Range = $Range; Files = 0; Insertions = 0; Deletions = 0; Lines = 0; Error = '' }
+    if (-not $Range -or $Range.StartsWith('-') -or $Range -match '[\s\x00-\x1f]') {
+        $r.Error = "-Range '$Range' is not a git revision range (e.g. a1b2c3d..HEAD; no spaces, not starting with '-')"
+        return $r
+    }
+    $cap = Invoke-GitCapture -Root $Root -GitArgs @('diff', '--shortstat', $Range, '--')
+    if ($null -eq $cap) { $r.Error = "-Range '$Range': git could not be started in $Root"; return $r }
+    if ($cap.ExitCode -ne 0) {
+        $why = @(([string]$cap.Err) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }) | Select-Object -First 1
+        $r.Error = "-Range '$Range' is not a revision range git knows in $Root (git diff --shortstat: $(if ($why) { $why } else { "exit $($cap.ExitCode)" }))"
+        return $r
+    }
+    $out = $script:Utf8NoBom.GetString($cap.Bytes)
+    if ($out -match '(\d+) files? changed') { $r.Files = [int]$Matches[1] }
+    if ($out -match '(\d+) insertions?\(\+\)') { $r.Insertions = [int]$Matches[1] }
+    if ($out -match '(\d+) deletions?\(-\)') { $r.Deletions = [int]$Matches[1] }
+    $r.Lines = $r.Insertions + $r.Deletions
+    return $r
 }
 
 # ----------------------------------------------------------------------------- paths
@@ -3021,7 +3047,10 @@ function Get-ProviderCredential {
 #   Credential  the sign-in check of the preflight (-Launcher -TimeoutSec)
 #   Harness     (optional) reviewer.harness (-Launcher); else the launcher's file version
 #   IdentityConfig  (optional) extra reviewer.provider_config fields (an ordered hashtable)
-#   LaunchBlock (optional) the launch invariant: '' or the refusal (Get-EngineLaunchBlock)
+#   LaunchBlock (optional) the launch invariant: '' or the refusal (Get-EngineLaunchBlock;
+#               -Fresh right before a launch - wave 24, F15-1)
+#   Salvage     (wave 24) what a killed turn's stream holds: its agent messages and reasoning
+#               text and its tool calls (-Path; Read-TurnSalvage, the .partial.md)
 # Row fields: Name, Label (handoff header / author), Prefix (handoff file names
 # NN-<prefix>-<slug>.*), Command (first word of the ledger `command`), ExeEnv (launcher
 # override), LauncherNames (PATH lookup, in order), InstallLaunchers (the vendor's install
@@ -3088,7 +3117,7 @@ $script:Engines = @{
         # agy's print mode auto-denies a tool it cannot grant and then ends the turn with no
         # output (F11), and its --sandbox does not block file writes (F12): say both up front.
         ToolsLine = 'Tools: you may read files of the repository; you have NO permission to run commands in this consultation - never call run_command; make NO file changes; a check that needs a command belongs under `## Requested checks`.'
-        Adapter = [pscustomobject]@{ Argv = 'New-AgyArgv'; Stdin = 'ConvertTo-AgyStdin'; Events = 'Read-AgyEvents'; Outcome = 'Get-AgyTurnOutcome'; Credential = 'Get-AgyModelsStatus'; Harness = ''; IdentityConfig = ''; LaunchBlock = '' }
+        Adapter = [pscustomobject]@{ Argv = 'New-AgyArgv'; Stdin = 'ConvertTo-AgyStdin'; Events = 'Read-AgyEvents'; Outcome = 'Get-AgyTurnOutcome'; Credential = 'Get-AgyModelsStatus'; Harness = ''; IdentityConfig = ''; LaunchBlock = ''; Salvage = 'Read-AgySalvage' }
     }
     'muse'  = [pscustomobject]@{
         Name = 'muse'; Label = 'Meta Muse (muse)'; Prefix = 'muse'; Command = 'muse'; ExeEnv = 'CODEX_CONSULT_MUSE_EXE'
@@ -3106,7 +3135,7 @@ $script:Engines = @{
         SandboxRecord = 'read-only (requested; muse --disable-write --disable-shell --disable-web-tools --approval-mode never; checked by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules, files outside the repository or what the reviewer reads)'
         TreeNote = 'muse ran with --disable-write --disable-shell (the check cannot tell who changed it)'
         ToolsLine = 'Tools: you may read files of the repository (read_file); writing files, the shell and the web tools are disabled in this consultation (--disable-write --disable-shell --disable-web-tools) - do not try them; make NO file changes; a check that needs a command belongs under `## Requested checks`.'
-        Adapter = [pscustomobject]@{ Argv = 'New-MuseArgv'; Stdin = 'ConvertTo-MuseStdin'; Events = 'Read-MuseEvents'; Outcome = 'Get-MuseTurnOutcome'; Credential = 'Get-MuseSignIn'; Harness = 'Get-MuseHarness'; IdentityConfig = 'Get-MuseIdentityConfig'; LaunchBlock = 'Get-MuseLaunchBlock' }
+        Adapter = [pscustomobject]@{ Argv = 'New-MuseArgv'; Stdin = 'ConvertTo-MuseStdin'; Events = 'Read-MuseEvents'; Outcome = 'Get-MuseTurnOutcome'; Credential = 'Get-MuseSignIn'; Harness = 'Get-MuseHarness'; IdentityConfig = 'Get-MuseIdentityConfig'; LaunchBlock = 'Get-MuseLaunchBlock'; Salvage = 'Read-MuseSalvage' }
     }
 }
 
@@ -3293,7 +3322,8 @@ function Get-EngineCredential {
 # ---- engine turns (every engine other than codex)
 
 # One turn of an engine other than codex (wave 23, D1): what its adapter's Argv receives -
-# { Model; Mode (new | resume | denial-retry | format-repair); Thread (the conversation / session
+# { Model; Mode (new | resume | denial-retry | format-repair | timeout-continue - wave 24);
+# Thread (the conversation / session
 # to continue, '' = a new one); PromptFile (this turn's own prompt file: muse reads it through
 # --prompt-file, agy's prompt travels on stdin); Schema (the schema path, '' = none); Effort (the
 # value to send, $null = nothing); NativeEffort (-NativeEffort, verbatim); MaxSteps (muse
@@ -3306,12 +3336,14 @@ function New-EngineTurnOptions {
 # The launch invariant of an engine (wave 23, D4): '' or the refusal. Checked when a roster
 # entry is selected (the walk and the panel skip it, under -SkipPreflight too), when the run's
 # engine is known (a refusal; -SkipPreflight never bypasses it) and again right before every
-# Start-Process of a turn. muse: Get-MuseLaunchBlock (billing); other engines: none.
+# Start-Process of a turn - there with -Fresh (wave 24, F15-1: what the invariant reads is read
+# again, never taken from a cache filled minutes earlier). muse: Get-MuseLaunchBlock (billing);
+# other engines: none.
 function Get-EngineLaunchBlock {
-    param([string]$Engine)
+    param([string]$Engine, [switch]$Fresh)
     $spec = Get-EngineSpec -Name $Engine
     if (-not $spec -or -not $spec.Adapter -or -not $spec.Adapter.PSObject.Properties['LaunchBlock'] -or -not $spec.Adapter.LaunchBlock) { return '' }
-    return [string](& $spec.Adapter.LaunchBlock)
+    return [string](& $spec.Adapter.LaunchBlock -Fresh:$Fresh)
 }
 
 # cmd.exe expands %VAR% even inside double quotes when it runs a .cmd / .bat launcher (the
@@ -3617,7 +3649,9 @@ function Get-AgyTurnOutcome {
 # backend is required there). The file is read for the presence of providers.meta and its
 # `mechanism` value only (an enum such as oauth, never a secret); the parsed object is never
 # logged, returned or written, and a parse error is reported without its text. Cached per
-# backend and path for this process. { Backend (file | keychain); State (ok | missing |
+# backend and path for this process - for listings and the preflight; -Fresh (wave 24, F15-1)
+# reads the file again (and refreshes the cache): the launch guard right before every
+# Start-Process of a muse turn uses it. { Backend (file | keychain); State (ok | missing |
 # unknown); Reason; Cause (wave 23b: the reason without its remedy, '' when ok - the billing
 # guard names it); Mechanism ('' when not read; 'unrecognized' for a value that is not a short
 # identifier - never shown) }.
@@ -3632,10 +3666,11 @@ function Get-MuseAuthPath {
     return (Join-Path (Join-Path (Join-Path $h '.config') 'muse') 'auth.json')
 }
 function Get-MuseCredentialInfo {
+    param([switch]$Fresh)
     $backend = ([string]$env:TBH_CREDENTIAL_BACKEND).Trim().ToLowerInvariant()
     $path = Get-MuseAuthPath
     $key = "$backend|$path"
-    if ($script:MuseCredentialCache.ContainsKey($key)) { return $script:MuseCredentialCache[$key] }
+    if (-not $Fresh -and $script:MuseCredentialCache.ContainsKey($key)) { return $script:MuseCredentialCache[$key] }
     $info = [pscustomobject]@{ Backend = $(if ($backend -eq 'file') { 'file' } else { 'keychain' }); State = 'unknown'; Reason = ''; Cause = ''; Mechanism = '' }
     $shown = $script:MuseAuthShown
     if ($backend -ne 'file') {
@@ -3715,14 +3750,16 @@ function Get-MuseIdentityConfig {
 # keychain backend, no home, no or an unreadable auth.json, no providers.meta, no mechanism
 # (the refusal names that cause and the remedy: TBH_CREDENTIAL_BACKEND=file and `muse login`).
 # Names only - a value is never shown. Not a preflight check: -SkipPreflight never bypasses
-# it; there is no roster opt-out and no override flag.
+# it; there is no roster opt-out and no override flag. -Fresh (wave 24, F15-1): auth.json is
+# read again, not taken from this process's cache - the guard right before a launch.
 $script:MuseApiKeyVariables = @('META_API_KEY', 'MODEL_API_KEY')
 function Get-MuseLaunchBlock {
+    param([switch]$Fresh)
     foreach ($name in $script:MuseApiKeyVariables) {
         $v = [Environment]::GetEnvironmentVariable($name)
         if ($v -and $v.Trim()) { return "$name is set: a muse run would bill per token instead of the Muse Code subscription; unset it (the muse process would inherit it)" }
     }
-    $c = Get-MuseCredentialInfo
+    $c = Get-MuseCredentialInfo -Fresh:$Fresh
     if ($c.State -eq 'ok' -and $c.Mechanism -eq 'oauth') { return '' }
     if ($c.Mechanism -and $c.Mechanism -ne 'oauth') { return "the Muse sign-in in $($script:MuseAuthShown) uses mechanism '$($c.Mechanism)', not oauth: a muse run would not bill the Muse Code subscription; sign in with ``muse login``" }
     $cause = $(if ($c.Cause) { $c.Cause } else { $c.Reason })
@@ -4061,6 +4098,187 @@ function Get-MuseTurnOutcome {
     return $o
 }
 
+# ---- salvage (wave 24, T1): what a turn the bridge killed on its timeout had produced
+
+# The salvage of one turn's event stream: { Items (object[] of { Kind 'message' | 'reasoning';
+# Text }, in stream order); Tools (string[]: the tool calls made, in order - a name, and for a
+# shell command the command line) }. Nothing is judged: a partial line, an unknown event, a
+# missing field are skipped. Read-TurnSalvage picks the engine's reader (codex: its --json
+# items; agy: stream-json step updates; muse: MSP records - the adapter's Salvage).
+function New-TurnSalvage {
+    param([System.Collections.Generic.List[object]]$Items, $ToolMap)
+    $tools = New-Object System.Collections.Generic.List[string]
+    if ($null -ne $ToolMap) { foreach ($k in @($ToolMap.Keys)) { $tools.Add([string]$ToolMap[$k]) } }
+    $it = @()
+    if ($null -ne $Items) { $it = $Items.ToArray() }
+    return [pscustomobject]@{ Items = [object[]]$it; Tools = [string[]]$tools.ToArray() }
+}
+
+# codex --json: item.completed agent_message / reasoning -> text; command_execution -> "shell:
+# <command>", web_search -> "web_search: <query>", mcp_tool_call -> "mcp: <server>/<tool>",
+# collab_tool_call -> "collab: <tool>", any other item type (not error) -> its type; a tool
+# item is listed once (item.started, completed by item.completed - a command still running at
+# the kill is listed too).
+function Read-CodexSalvage {
+    param([string]$Path)
+    $items = New-Object System.Collections.Generic.List[object]
+    $toolMap = [ordered]@{}
+    $text = $(if ($Path) { Read-SharedText -Path $Path } else { '' })
+    if (-not $text) { return (New-TurnSalvage -Items $items -ToolMap $toolMap) }
+    $k = 0
+    foreach ($line in ($text -split "`r?`n")) {
+        $t = $line.Trim()
+        if (-not $t.StartsWith('{')) { continue }
+        $obj = $null
+        try { $obj = ConvertFrom-Json -InputObject $t } catch { continue }
+        $type = [string](Get-PropertyValue $obj 'type' '')
+        if ($type -ne 'item.started' -and $type -ne 'item.completed') { continue }
+        $it = Get-PropertyValue $obj 'item' $null
+        if (-not (Test-IsJsonObject $it)) { continue }
+        $itype = [string](Get-PropertyValue $it 'type' '')
+        $k++
+        $id = [string](Get-PropertyValue $it 'id' '')
+        if (-not $id) { $id = "#$k" }
+        if ($itype -eq 'agent_message' -or $itype -eq 'reasoning') {
+            $tx = [string](Get-PropertyValue $it 'text' '')
+            if ($type -eq 'item.completed' -and $tx.Trim()) { $items.Add([pscustomobject]@{ Kind = $(if ($itype -eq 'reasoning') { 'reasoning' } else { 'message' }); Text = $tx }) }
+            continue
+        }
+        if (-not $itype -or $itype -eq 'error') { continue }
+        $name = $itype
+        if ($itype -eq 'command_execution') { $name = "shell: $(ConvertTo-OneLine ([string](Get-PropertyValue $it 'command' '')))" }
+        elseif ($itype -eq 'web_search') {
+            $q = [string](Get-PropertyValue $it 'query' '')
+            if (-not $q) { $q = [string](Get-PropertyValue (Get-PropertyValue $it 'action' $null) 'query' '') }
+            $name = "web_search: $(ConvertTo-OneLine $q)".TrimEnd(' ', ':')
+        } elseif ($itype -eq 'mcp_tool_call') { $name = "mcp: $([string](Get-PropertyValue $it 'server' ''))/$([string](Get-PropertyValue $it 'tool' ''))" }
+        elseif ($itype -eq 'collab_tool_call') { $name = "collab: $([string](Get-PropertyValue $it 'tool' ''))" }
+        if ($type -eq 'item.completed' -or -not $toolMap.Contains($id)) { $toolMap[$id] = $name }
+    }
+    return (New-TurnSalvage -Items $items -ToolMap $toolMap)
+}
+
+# agy stream-json: the text_delta pieces of an agent_response step (one message per step, in
+# the order the steps began), the result's response text when no step carried text; a tool
+# step -> its tool_name ("run_command: <CommandLine>" for a shell command), once per step.
+function Read-AgySalvage {
+    param([string]$Path)
+    $items = New-Object System.Collections.Generic.List[object]
+    $toolMap = [ordered]@{}
+    $text = $(if ($Path) { Read-SharedText -Path $Path } else { '' })
+    if (-not $text) { return (New-TurnSalvage -Items $items -ToolMap $toolMap) }
+    $msgs = [ordered]@{}
+    $response = ''
+    foreach ($line in ($text -split "`r?`n")) {
+        $t = $line.Trim()
+        if (-not $t.StartsWith('{')) { continue }
+        $obj = $null
+        try { $obj = ConvertFrom-Json -InputObject $t } catch { continue }
+        $ev = [string](Get-PropertyValue $obj 'event' '')
+        if ($ev -eq 'result') {
+            $res = Get-PropertyValue $obj 'result' $null
+            if (Test-IsJsonObject $res) { $response = [string](Get-PropertyValue $res 'response' '') }
+            continue
+        }
+        if ($ev -ne 'step_update') { continue }
+        $su = Get-PropertyValue $obj 'step_update' $null
+        if (-not (Test-IsJsonObject $su)) { continue }
+        $idx = "step $([string](Get-PropertyValue $su 'step_index' ''))"
+        $st = [string](Get-PropertyValue $su 'step_type' '')
+        if ($st -eq 'agent_response') {
+            $d = Get-PropertyValue $su 'text_delta' $null
+            if ($d -is [string] -and $d) {
+                if (-not $msgs.Contains($idx)) { $msgs[$idx] = New-Object System.Text.StringBuilder }
+                [void]$msgs[$idx].Append($d)
+            }
+        } elseif ($st -eq 'tool') {
+            $name = [string](Get-PropertyValue $su 'tool_name' '')
+            if (-not $name) { continue }
+            $params = Get-PropertyValue (Get-PropertyValue $su 'tool_info' $null) 'parameters' $null
+            $cmdLine = [string](Get-PropertyValue $params 'CommandLine' '')
+            if ($name -eq 'run_command' -and $cmdLine) { $name = "run_command: $(ConvertTo-OneLine $cmdLine)" }
+            if (-not $toolMap.Contains($idx)) { $toolMap[$idx] = $name }
+        }
+    }
+    foreach ($k in @($msgs.Keys)) { $s = $msgs[$k].ToString(); if ($s.Trim()) { $items.Add([pscustomobject]@{ Kind = 'message'; Text = $s }) } }
+    if ($items.Count -eq 0 -and $response.Trim()) { $items.Add([pscustomobject]@{ Kind = 'message'; Text = $response }) }
+    return (New-TurnSalvage -Items $items -ToolMap $toolMap)
+}
+
+# muse MSP: the run.output.delta texts, one message per run of consecutive deltas (a tool call
+# in between starts the next); a task proposed with task_kind tool.<name> -> <name>, once per
+# task (muse's shell and write tools are disabled - no command line to show).
+function Read-MuseSalvage {
+    param([string]$Path)
+    $items = New-Object System.Collections.Generic.List[object]
+    $toolMap = [ordered]@{}
+    $text = $(if ($Path) { Read-SharedText -Path $Path } else { '' })
+    if (-not $text) { return (New-TurnSalvage -Items $items -ToolMap $toolMap) }
+    $cur = New-Object System.Text.StringBuilder
+    foreach ($line in ($text -split "`r?`n")) {
+        $t = $line.Trim()
+        if (-not $t.StartsWith('{')) { continue }
+        $obj = $null
+        try { $obj = ConvertFrom-Json -InputObject $t } catch { continue }
+        $pType = [string](Get-PropertyValue $obj 'payload_type' '')
+        $payload = Get-PropertyValue $obj 'payload' $null
+        if (-not (Test-IsJsonObject $payload)) { continue }
+        if ($pType -eq 'run.output.delta') {
+            $d = Get-PropertyValue $payload 'text' $null
+            if ($d -is [string]) { [void]$cur.Append($d) }
+        } elseif ($pType -eq 'task.lifecycle.proposed') {
+            $ev = Get-PropertyValue $payload 'event' $null
+            $kind = [string](Get-PropertyValue $ev 'task_kind' '')
+            if ($kind -like 'tool.*') {
+                if ($cur.ToString().Trim()) { $items.Add([pscustomobject]@{ Kind = 'message'; Text = $cur.ToString() }) }
+                [void]$cur.Clear()
+                $tid = [string](Get-PropertyValue $ev 'task_id' '')
+                if (-not $tid) { $tid = "#$($toolMap.Count)" }
+                if (-not $toolMap.Contains($tid)) { $toolMap[$tid] = $kind.Substring(5) }
+            }
+        }
+    }
+    if ($cur.ToString().Trim()) { $items.Add([pscustomobject]@{ Kind = 'message'; Text = $cur.ToString() }) }
+    return (New-TurnSalvage -Items $items -ToolMap $toolMap)
+}
+
+# The salvage reader of an engine (codex: Read-CodexSalvage; another engine: its adapter's
+# Salvage).
+function Read-TurnSalvage {
+    param([string]$Engine, [string]$Path)
+    if (-not $Engine -or $Engine -eq 'codex') { return (Read-CodexSalvage -Path $Path) }
+    $spec = Get-EngineSpec -Name $Engine
+    if ($spec -and $spec.Adapter -and $spec.Adapter.PSObject.Properties['Salvage'] -and $spec.Adapter.Salvage) { return (& $spec.Adapter.Salvage -Path $Path) }
+    return (New-TurnSalvage -Items $null -ToolMap $null)
+}
+
+# The body of a <NN>-<engine>-<slug>.partial.md: per turn ($Turns: object[] of { Label; Note
+# (e.g. "killed at 902.1 s of 900 s"); Salvage }) a heading, every agent message and reasoning
+# text in stream order, then the tool calls. Markdown, LF line ends.
+function Format-PartialBody {
+    param([object[]]$Turns)
+    $out = New-Object System.Collections.Generic.List[string]
+    foreach ($turn in @($Turns | Where-Object { $_ })) {
+        $out.Add("## $($turn.Label)$(if ($turn.Note) { " - $($turn.Note)" })")
+        $out.Add('')
+        $sal = $turn.Salvage
+        $items = @($sal.Items | Where-Object { $_ })
+        if ($items.Count -eq 0) { $out.Add('_(no agent message or reasoning text in this turn''s event stream)_'); $out.Add('') }
+        $nMsg = 0; $nRea = 0
+        foreach ($it in $items) {
+            if ($it.Kind -eq 'reasoning') { $nRea++; $out.Add("**Reasoning $($nRea):**") } else { $nMsg++; $out.Add("**Agent message $($nMsg):**") }
+            $out.Add('')
+            $out.Add((([string]$it.Text).Trim() -replace "`r`n", "`n"))
+            $out.Add('')
+        }
+        $tools = @($sal.Tools | Where-Object { $_ })
+        $out.Add("**Tool calls ($($tools.Count)):**$(if ($tools.Count -eq 0) { ' none' })")
+        if ($tools.Count -gt 0) { $out.Add(''); foreach ($tl in $tools) { $out.Add("- ``$(([string]$tl) -replace '`', "'")``") } }
+        $out.Add('')
+    }
+    return ($out.ToArray() -join "`n")
+}
+
 # Classes of a provider failure, tried in this order (case-insensitive). permission comes
 # first (0.4.0, agy F11: a tool the headless print mode cannot grant was auto-denied and
 # the turn produced nothing). capability comes next: "Your token plan does not support
@@ -4392,6 +4610,14 @@ function Read-AllTaskConsults {
     return , $all.ToArray()
 }
 
+# A ledger entry's bridge_outcome that counts as a usable reply: 'usable reply' and (wave 24)
+# 'usable reply (after a timeout continuation)' - the reply of the ONE continuation turn the
+# bridge ran on the thread of a turn it had killed on its timeout.
+function Test-UsableOutcome {
+    param([string]$Outcome)
+    return [bool]($Outcome -ceq 'usable reply' -or $Outcome.StartsWith('usable reply (', [StringComparison]::Ordinal))
+}
+
 function ConvertTo-WhenOffset {
     param($Value)
     if ($Value -is [DateTimeOffset]) { return $Value }
@@ -4410,22 +4636,31 @@ function ConvertTo-WhenOffset {
 # (Get-ConsultClock -Peek), so a test can freeze time.
 #   Auth         the newest of {success, auth failure} is an auth failure <= 24 h old
 #   Quota        the newest of {success, quota failure} is a quota failure that still
-#                blocks: its RetryAfter lies in the future, or it has no RetryAfter and is
-#                <= 60 min old (a RetryAfter in the past clears it)
+#                blocks: its RetryAfter lies in the future, or it has no RetryAfter and its
+#                limit was hit less than 60 minutes ago (wave 24, T3: Hit + 60 min lies ahead
+#                - "out (limit hit <t>, reset unknown; retry after <t + 60 min>)"); a
+#                RetryAfter in the past clears it
 #   QuotaKnown   [bool] Quota is set and names its reset time (RetryAfter)
-#   LastLimit    the newest quota failure <= 24 h old (informational)
-#   LastFailure  the newest failure of any class <= 24 h old (informational)
+#   LastLimit    the newest quota failure <= 24 h old, else (wave 24, T2) the Quota record
+#                that still blocks (a reset days ahead): an endpoint that is out never shows
+#                no failure at all
+#   LastFailure  the newest failure of any class <= 24 h old, else the Quota record that
+#                still blocks (informational)
 #   RecentUsable the newest usable reply <= 60 min old (wave 18: an engine's sign-in is then
 #                evidenced without a network check - Get-EngineCredential)
 # Each record is $null or { Class; Code; Message; When; AgeMinutes (a `when` in the future
 # counts as now: 0); RetryAfter (DateTimeOffset or $null: provider_failure.retry_after, else
 # Get-RetryAfter -ReferenceOffset on the recorded message with the failure's `when` as
 # reference); RetryAfterIso ('' when none); RetryAfterBasis ('ledger' | 'message (reference
-# offset)' | ''); Until (RetryAfter, else When + 60 min) }.
+# offset)' | ''); Hit (wave 24: DateTimeOffset - when the failure happened: provider_failure.
+# when, else the entry's `when`; a time in the future counts as now); HitIso; Until
+# (RetryAfter, else Hit + 60 min) }. A usable reply is Test-UsableOutcome (a reply after a
+# timeout continuation counts).
 function Get-EndpointHealth {
     param([object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow)
     $h = [pscustomobject]@{ Auth = $null; Quota = $null; QuotaKnown = $false; LastLimit = $null; LastFailure = $null; RecentUsable = $null }
     if (-not $Fingerprint) { return $h }
+    $nowOffset = New-Object DateTimeOffset ([datetime]::SpecifyKind($UtcNow, [DateTimeKind]::Utc))
     $records = New-Object System.Collections.Generic.List[object]
     foreach ($c in @($Consults | Where-Object { $null -ne $_ })) {
         $rev = Get-PropertyValue $c 'reviewer' $null
@@ -4450,7 +4685,7 @@ function Get-EndpointHealth {
         }
         $entryN = 0
         [void][int]::TryParse([string](Get-PropertyValue $c 'n' ''), [ref]$entryN)
-        $rec = [pscustomobject]@{ At = $at; Order = $order; N = $entryN; Ok = ($outcome -eq 'usable reply'); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); Age = $age; RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Until = $at.AddMinutes(60) }
+        $rec = [pscustomobject]@{ At = $at; Order = $order; N = $entryN; Ok = (Test-UsableOutcome $outcome); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); Age = $age; RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Hit = $at; HitIso = ''; Until = $at.AddMinutes(60) }
         if (-not $rec.Ok) {
             $reference = $at
             $pf = Get-PropertyValue $c 'provider_failure' $null
@@ -4481,6 +4716,13 @@ function Get-EndpointHealth {
                 $rec.RetryAfter = Get-RetryAfter -Message $rec.Message -Reference $reference -ReferenceOffset
                 if ($null -ne $rec.RetryAfter) { $rec.RetryAfterBasis = 'message (reference offset)' }
             }
+            # (wave 24) when the failure happened - a time in the future counts as now (F15-4) -
+            # and, without a reset time, the 60 minutes it stays out
+            $hit = $reference
+            if ($hit.UtcDateTime -gt $UtcNow) { $hit = $nowOffset.ToOffset($hit.Offset) }
+            $rec.Hit = $hit
+            $rec.HitIso = Format-OffsetIso $hit
+            $rec.Until = $hit.AddMinutes(60)
             if ($null -ne $rec.RetryAfter) {
                 $rec.RetryAfterIso = Format-OffsetIso $rec.RetryAfter
                 $rec.Until = $rec.RetryAfter
@@ -4496,13 +4738,15 @@ function Get-EndpointHealth {
     if ($quota -and -not $quota.Ok) {
         if ($null -ne $quota.RetryAfter) {
             if ($quota.RetryAfter.UtcDateTime -gt $UtcNow) { $h.Quota = $quota }
-        } elseif ($quota.AgeMinutes -le 60) {
+        } elseif ($quota.Until.UtcDateTime -gt $UtcNow) {
             $h.Quota = $quota
         }
     }
     $h.QuotaKnown = [bool]($h.Quota -and $null -ne $h.Quota.RetryAfter)
     $h.LastLimit = @($sorted | Where-Object { -not $_.Ok -and $_.Class -eq 'quota' -and $_.AgeMinutes -le 24 * 60 }) | Select-Object -First 1
     $h.LastFailure = @($sorted | Where-Object { -not $_.Ok -and $_.AgeMinutes -le 24 * 60 }) | Select-Object -First 1
+    if (-not $h.LastLimit -and $h.Quota) { $h.LastLimit = $h.Quota }
+    if (-not $h.LastFailure -and $h.Quota) { $h.LastFailure = $h.Quota }
     $h.RecentUsable = @($sorted | Where-Object { $_.Ok -and $_.Age -le 60 }) | Select-Object -First 1
     return $h
 }
@@ -4724,24 +4968,33 @@ function Find-RosterEntry {
 # The preflight decision for one identity, local checks only (credentials, then the
 # endpoint's recorded health): { State available|unavailable|unknown; Preflight (the
 # ledger's preflight text); Reason (one phrase: why a roster walk skips it); Refusal (the
-# refusal message of a real run); Label (the dry-run line) }.
-#   unresolved identity          unknown
-#   credentials missing/unknown  unavailable / unknown (Get-ProviderCredential)
-#   auth failure <= 24 h         unavailable
+# refusal message of a real run); Label (the dry-run line); (wave 24, D14 - what every
+# availability surface shows) Kind ('' | identity | unresolved | credentials | auth | quota |
+# quota-unknown-reset | unknown); Hit and Until (DateTimeOffset or $null: when the recorded
+# failure happened and when the endpoint is expected back - a known reset, or Hit + 60 min);
+# Credential (the credential result, $null before the check) }. In this order:
+#   identity error / unresolved  unavailable / unknown
+#   credentials missing          unavailable (Get-ProviderCredential, Get-EngineCredential)
+#   auth failure <= 24 h         unavailable: auth failed <when>: <message>
 #   usage limit with a known     unavailable: usage limit until <iso>
 #   reset in the future
-#   usage limit without a reset  -RosterWalk: unavailable (a later roster entry exists to
-#   time, <= 60 min old          fall back to); otherwise available - Format-QuotaWarning
-#                                warns about it
+#   usage limit without a reset  -RosterWalk: unavailable: usage limit hit <iso>, reset
+#   time, hit < 60 min ago       unknown; retry after <iso + 60 min> (a later roster entry
+#                                exists to fall back to); otherwise available -
+#                                Format-QuotaWarning warns about it
+#   credentials unknown          unknown (wave 24: a recorded auth failure or usage limit
+#                                outranks a sign-in that was not checked - the hook's
+#                                -NoNetwork line names what is out)
 # $Health: Get-EndpointHealth of the identity's endpoint ($null: none known).
 function Get-PreflightVerdict {
     param($Identity, $Config, [string]$Launcher, $Health, [hashtable]$LoginCache = $null, [switch]$Anonymous, [switch]$RosterWalk, [switch]$NoNetwork)
-    $v = [pscustomobject]@{ State = 'available'; Preflight = ''; Reason = ''; Refusal = ''; Label = '' }
+    $v = [pscustomobject]@{ State = 'available'; Preflight = ''; Reason = ''; Refusal = ''; Label = ''; Kind = ''; Hit = $null; Until = $null; Credential = $null }
     $p = [string]$Identity.Provider
     $engine = [string]$Identity.Engine
     if (-not $engine) { $engine = 'codex' }
     if ($Identity.Error) {
         $v.State = 'unavailable'
+        $v.Kind = 'identity'
         $v.Reason = $Identity.Error
         $v.Preflight = "unavailable: $($Identity.Error)"
         $v.Refusal = $Identity.Error
@@ -4751,6 +5004,7 @@ function Get-PreflightVerdict {
     if (-not $Identity.Resolved) {
         $reason = "reviewer identity unresolved: $($Identity.Note)"
         $v.State = 'unknown'
+        $v.Kind = 'unresolved'
         $v.Preflight = "unknown: $reason"
         $v.Reason = $v.Preflight
         $v.Refusal = "provider $($p): availability could not be established ($reason); pass -SkipPreflight to launch anyway, or fix the check"
@@ -4770,34 +5024,46 @@ function Get-PreflightVerdict {
         }
         $cred = Get-ProviderCredential -Name $p -Table $table -Launcher $Launcher -LoginCache $LoginCache -Anonymous:$Anonymous
     }
+    $v.Credential = $cred
     $v.Preflight = $cred.Detail
     $v.Reason = $cred.Detail
     if ($cred.State -eq 'missing') {
         $v.State = 'unavailable'
+        $v.Kind = 'credentials'
         $v.Refusal = "provider $p is not usable: $($cred.Reason); nothing was started (run codex-providers.ps1 for the full picture)"
         $v.Label = "unavailable ($($cred.Reason)) - a real run is refused: $($v.Refusal)"
-    } elseif ($cred.State -eq 'unknown') {
-        $v.State = 'unknown'
-        $v.Refusal = "provider $($p): availability could not be established ($($cred.Reason)); pass -SkipPreflight to launch anyway, or fix the check"
-        $v.Label = "unknown ($($cred.Reason)) - a real run is refused: $($v.Refusal)"
     } elseif ($Health -and $Health.Auth) {
         $v.State = 'unavailable'
+        $v.Kind = 'auth'
+        $v.Hit = $Health.Auth.Hit
         $v.Reason = "auth failed $($Health.Auth.When): $($Health.Auth.Message)"
         $v.Preflight = "unavailable: $($v.Reason)"
         $v.Refusal = "provider $p is not usable: the last run on this endpoint was rejected as unauthenticated at $($Health.Auth.When) ($($Health.Auth.Message)); if you rotated the credential, pass -SkipPreflight once"
         $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
     } elseif ($Health -and $Health.Quota -and $Health.QuotaKnown) {
         $v.State = 'unavailable'
+        $v.Kind = 'quota'
+        $v.Hit = $Health.Quota.Hit
+        $v.Until = $Health.Quota.RetryAfter
         $v.Reason = "usage limit until $($Health.Quota.RetryAfterIso)"
         $v.Preflight = "unavailable: $($v.Reason)"
         $v.Refusal = "provider $p is not usable: its usage limit (hit at $($Health.Quota.When): $($Health.Quota.Message)) lasts until $($Health.Quota.RetryAfterIso); nothing was started (pass -SkipPreflight to launch anyway)"
         $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
     } elseif ($RosterWalk -and $Health -and $Health.Quota) {
+        $untilIso = Format-OffsetIso $Health.Quota.Until
         $v.State = 'unavailable'
-        $v.Reason = "usage limit $($Health.Quota.AgeMinutes) min ago, no reset time given"
+        $v.Kind = 'quota-unknown-reset'
+        $v.Hit = $Health.Quota.Hit
+        $v.Until = $Health.Quota.Until
+        $v.Reason = "usage limit hit $($Health.Quota.HitIso), reset unknown; retry after $untilIso"
         $v.Preflight = "unavailable: $($v.Reason)"
-        $v.Refusal = "provider $p is not usable: it hit a usage limit $($Health.Quota.AgeMinutes) min ago ($($Health.Quota.Message)) and named no reset time; nothing was started"
+        $v.Refusal = "provider $p is not usable: it hit a usage limit at $($Health.Quota.HitIso) ($($Health.Quota.Message)) and named no reset time - out for 60 minutes, until $untilIso; nothing was started"
         $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
+    } elseif ($cred.State -eq 'unknown') {
+        $v.State = 'unknown'
+        $v.Kind = 'unknown'
+        $v.Refusal = "provider $($p): availability could not be established ($($cred.Reason)); pass -SkipPreflight to launch anyway, or fix the check"
+        $v.Label = "unknown ($($cred.Reason)) - a real run is refused: $($v.Refusal)"
     } else {
         $v.Label = "available ($($cred.Detail))"
     }
@@ -4883,10 +5149,15 @@ $script:WeightyPurposes = @('framing', 'decision', 'core-contract', 'acceptance'
 # available (with -SkipPreflight: every entry) runs, unless it is "weighty" and $Purpose is
 # light (not in $script:WeightyPurposes) and -All (-PanelAll) is not given, or its engine's
 # launch invariant refuses it (wave 23, D4 - with -SkipPreflight too). $Model: as for
-# the walk. { Members (object[], roster order, of { Entry; Identity; State 'run'|'skipped';
-# Reason ('' when it runs) }); Error ('' or the refusal: nobody runs / no entry for $Model) }.
+# the walk. -NoNetwork (wave 24, D15): passed to every preflight (an engine's sign-in that
+# needs the network is then "not checked") - the availability view of the hook and the listing
+# (Get-RosterAvailability) judges EVERY entry this way. { Members (object[], roster order, of {
+# Entry; Identity; State 'run'|'skipped'; Reason ('' when it runs); Verdict (the preflight
+# verdict, $null under -SkipPreflight or a launch refusal); Health (the endpoint health, $null
+# when unresolved); Block ('' or the launch refusal) }); Error ('' or the refusal: nobody runs /
+# no entry for $Model) }.
 function Select-PanelMembers {
-    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null)
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork)
     $members = New-Object System.Collections.Generic.List[object]
     $r = [pscustomobject]@{ Members = [object[]]@(); Error = '' }
     $listing = New-Object System.Collections.Generic.List[string]
@@ -4899,19 +5170,20 @@ function Select-PanelMembers {
         if ($Model -and $id.Model -cne $Model) { continue }
         $state = 'run'
         $reason = ''
+        $verdict = $null
+        $health = $null
+        if ($id.Resolved) { $health = Get-EndpointHealth -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
         $block = Get-EngineLaunchBlock -Engine $entryEngine
         if ($block) { $state = 'skipped'; $reason = "refused: $block" }
         elseif (-not $SkipPreflight) {
-            $health = $null
-            if ($id.Resolved) { $health = Get-EndpointHealth -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
-            $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $entryLauncher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk
+            $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $entryLauncher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk -NoNetwork:$NoNetwork
             if ($verdict.State -ne 'available') { $state = 'skipped'; $reason = $verdict.Reason }
         }
         if ($state -eq 'run' -and $e.Panel -eq 'weighty' -and -not $All -and $script:WeightyPurposes -notcontains $Purpose) {
             $state = 'skipped'
             $reason = "weighty reviewer; purpose $purposeLabel is light (use -PanelAll)"
         }
-        $members.Add([pscustomobject]@{ Entry = $e; Identity = $id; State = $state; Reason = $reason })
+        $members.Add([pscustomobject]@{ Entry = $e; Identity = $id; State = $state; Reason = $reason; Verdict = $verdict; Health = $health; Block = [string]$block })
         $listing.Add("#$($e.Position) $(Format-ReviewerLineage -Provider $id.Provider -Model $id.Model -Engine $entryEngine) ($(if ($state -eq 'run') { 'runs' } else { $reason }))")
     }
     $r.Members = [object[]]$members.ToArray()
@@ -4928,23 +5200,21 @@ function Select-PanelMembers {
     return $r
 }
 
-# The concurrency plan of a panel (0.4.x wave 21, D8 - endpoint-aware): members that reach the
-# same ENDPOINT run one after another, members of different endpoints at once. An endpoint
-# group is the members of one provider label, merged with every other label whose members
-# resolve to the same provider fingerprint (two labels on one base URL; every agy label - they
-# share one Google sign-in). A group runs 1 member at a time unless the roster's top-level
-# "parallel" raises its label (a merged group: the smallest limit of its labels); -Cap
-# (-PanelConcurrency) caps the total (0 = no cap, 1 = strictly one after another in roster
-# order). $Runners: the members Select-PanelMembers runs (State 'run'), in roster order.
-# { Groups (object[] of { Labels (string[]); Limit; Positions (int[] roster positions) });
-#   GroupOf (hashtable roster position -> group index); Cap; Effective (the most members
-#   that can run at once); Text ('at once' | 'one after another' | 'at most <k> at a time');
-#   Limits (ordered: label -> its group's limit, roster order) }
-function Get-PanelPlan {
-    param([object[]]$Runners, [hashtable]$Parallel = $null, [int]$Cap = 0)
+# The endpoint groups of a set of roster members ({ Entry; Identity } - Select-PanelMembers'
+# records): one group per provider label, merged with every other label whose members resolve
+# to the same provider fingerprint, to a fixed point (two labels on one base URL; every agy
+# label - they share one Google sign-in). A member whose identity is unresolved adds no
+# fingerprint. Groups are numbered in the order their first member appears. { Labels
+# (string[], first-seen order); Groups (object[] of { Labels (List[string]); Positions
+# (List[int] roster positions) }); GroupOf (hashtable roster position -> group index);
+# IndexOfLabel (hashtable label -> group index) }. Used twice (wave 24, D16): over a panel's
+# RUNNERS for the scheduling plan (Get-PanelPlan) and over ALL roster entries for the
+# availability view (Get-RosterAvailability: an outage marks its whole group).
+function Get-EndpointGroups {
+    param([object[]]$Members)
     $labels = New-Object System.Collections.Generic.List[string]
     $fps = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
-    foreach ($m in @($Runners | Where-Object { $_ })) {
+    foreach ($m in @($Members | Where-Object { $_ })) {
         $label = [string]$m.Entry.Provider
         if (-not $fps.ContainsKey($label)) { $fps[$label] = New-Object System.Collections.Generic.List[string]; $labels.Add($label) }
         $fp = ''
@@ -4972,22 +5242,41 @@ function Get-PanelPlan {
     $groups = New-Object System.Collections.Generic.List[object]
     $indexOf = @{}
     $groupOf = @{}
-    foreach ($m in @($Runners | Where-Object { $_ })) {
+    foreach ($m in @($Members | Where-Object { $_ })) {
         $label = [string]$m.Entry.Provider
         $gid = $groupOfLabel[$label]
         if (-not $indexOf.ContainsKey($gid)) {
             $indexOf[$gid] = $groups.Count
-            $groups.Add([pscustomobject]@{ Labels = (New-Object System.Collections.Generic.List[string]); Limit = 0; Positions = (New-Object System.Collections.Generic.List[int]) })
+            $groups.Add([pscustomobject]@{ Labels = (New-Object System.Collections.Generic.List[string]); Positions = (New-Object System.Collections.Generic.List[int]) })
         }
         $g = $groups[$indexOf[$gid]]
         if (-not $g.Labels.Contains($label)) { $g.Labels.Add($label) }
         $g.Positions.Add([int]$m.Entry.Position)
         $groupOf[[int]$m.Entry.Position] = $indexOf[$gid]
     }
+    $indexOfLabel = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+    foreach ($l in $labels) { $indexOfLabel[$l] = $indexOf[$groupOfLabel[$l]] }
+    return [pscustomobject]@{ Labels = [string[]]$labels.ToArray(); Groups = [object[]]$groups.ToArray(); GroupOf = $groupOf; IndexOfLabel = $indexOfLabel }
+}
+
+# The concurrency plan of a panel (0.4.x wave 21, D8 - endpoint-aware): members that reach the
+# same ENDPOINT run one after another, members of different endpoints at once. The endpoint
+# groups come from Get-EndpointGroups over the runners. A group runs 1 member at a time unless
+# the roster's top-level "parallel" raises its label (a merged group: the smallest limit of its
+# labels); -Cap (-PanelConcurrency) caps the total (0 = no cap, 1 = strictly one after another
+# in roster order). $Runners: the members Select-PanelMembers runs (State 'run'), in roster
+# order.
+# { Groups (object[] of { Labels (string[]); Limit; Positions (int[] roster positions) });
+#   GroupOf (hashtable roster position -> group index); Cap; Effective (the most members
+#   that can run at once); Text ('at once' | 'one after another' | 'at most <k> at a time');
+#   Limits (ordered: label -> its group's limit, roster order) }
+function Get-PanelPlan {
+    param([object[]]$Runners, [hashtable]$Parallel = $null, [int]$Cap = 0)
+    $eg = Get-EndpointGroups -Members $Runners
     $effective = 0
     $limits = [ordered]@{}
     $out = New-Object System.Collections.Generic.List[object]
-    foreach ($g in $groups) {
+    foreach ($g in $eg.Groups) {
         $limit = 0
         foreach ($l in $g.Labels) {
             $v = 1
@@ -4997,11 +5286,11 @@ function Get-PanelPlan {
         $effective += [Math]::Min($limit, $g.Positions.Count)
         $out.Add([pscustomobject]@{ Labels = [string[]]$g.Labels.ToArray(); Limit = $limit; Positions = [int[]]$g.Positions.ToArray() })
     }
-    foreach ($l in $labels) { $limits[$l] = $out[$indexOf[$groupOfLabel[$l]]].Limit }
+    foreach ($l in $eg.Labels) { $limits[$l] = $out[$eg.IndexOfLabel[$l]].Limit }
     if ($Cap -gt 0 -and $Cap -lt $effective) { $effective = $Cap }
     $count = @($Runners | Where-Object { $_ }).Count
     $text = if ($effective -ge $count) { 'at once' } elseif ($effective -le 1) { 'one after another' } else { "at most $effective at a time" }
-    return [pscustomobject]@{ Groups = [object[]]$out.ToArray(); GroupOf = $groupOf; Cap = $Cap; Effective = $effective; Text = $text; Limits = $limits }
+    return [pscustomobject]@{ Groups = [object[]]$out.ToArray(); GroupOf = $eg.GroupOf; Cap = $Cap; Effective = $effective; Text = $text; Limits = $limits }
 }
 
 # The collab paths an agy panel member's tree check leaves out besides its own handoff files
@@ -5027,6 +5316,196 @@ function Get-PanelIgnorePrefixes {
 function Format-RosterSkips {
     param([object[]]$Skipped)
     return ((@($Skipped | Where-Object { $_ }) | ForEach-Object { "$(Format-ReviewerLineage -Provider $_.provider -Model $_.model -Engine ([string](Get-PropertyValue $_ 'engine' ''))) ($($_.reason))" }) -join ', ')
+}
+
+# The kill guard of a panel member (0.4.x wave 21, D11; wave 24): its timeout, one format-repair
+# turn (-Repair) and - an engine with a denial retry (agy) - one denial-retry turn
+# (-DenialRetry) of min(timeout, 300) s each, the timeout continuation's budget (-ContinueSec;
+# 0 = none), the 60 s write-lock wait and 120 s slack. The panel run stops a member that
+# outlives it.
+function Get-PanelMemberGuard {
+    param([int]$TimeoutSec, [int]$ContinueSec = 0, [switch]$Repair, [switch]$DenialRetry)
+    $g = $TimeoutSec + 60 + 120
+    if ($Repair) { $g += [Math]::Min($TimeoutSec, 300) }
+    if ($DenialRetry) { $g += [Math]::Min($TimeoutSec, 300) }
+    if ($ContinueSec -gt 0) { $g += $ContinueSec }
+    return $g
+}
+
+# ----------------------------------------------------------------------------- availability view (wave 24)
+#
+# One truth about availability (D14-D17): the roster walk, codex-providers.ps1's rows, its -Short
+# line and the SessionStart hook judge a roster entry with the SAME verdict - the engine's launch
+# invariant, then Get-PreflightVerdict -RosterWalk (through Select-PanelMembers -All, which judges
+# EVERY entry, a weighty one too) - on the endpoint health of the ledgers of the repository the
+# command runs in (Read-AllTaskConsults). An entry is available, out (unavailable: missing
+# credentials, a recorded auth failure, a usage limit - with a known reset, or without one for 60
+# minutes -, an identity error, a launch refusal) or not checked (unknown: an engine sign-in that
+# -NoNetwork did not check, an unresolved identity, a check that could not run).
+
+# "in 2d 10h" | "in 3h 20m" | "in 52m" | "in <1m" - rounded to the hour from one day on, else to
+# the minute; "now" when the span is not positive.
+function Format-RelativeHint {
+    param([TimeSpan]$Span)
+    if ($Span.TotalSeconds -le 0) { return 'now' }
+    $m = [long][Math]::Round($Span.TotalMinutes, [MidpointRounding]::AwayFromZero)
+    if ($m -lt 1) { return 'in <1m' }
+    if ($m -ge 1440) {
+        $h = [long][Math]::Round($Span.TotalHours, [MidpointRounding]::AwayFromZero)
+        $d = [long][Math]::Floor($h / 24)
+        $hh = $h - 24 * $d
+        if ($hh -eq 0) { return "in ${d}d" }
+        return "in ${d}d ${hh}h"
+    }
+    if ($m -ge 60) {
+        $h = [long][Math]::Floor($m / 60)
+        $mm = $m - 60 * $h
+        if ($mm -eq 0) { return "in ${h}h" }
+        return "in ${h}h ${mm}m"
+    }
+    return "in ${m}m"
+}
+
+# A moment in LOCAL time for the one-line views (D17: ToLocalTime()): 'HH:mm' on the local day of
+# $NowUtc, 'ddd HH:mm' up to six days from it (either way), else 'yyyy-MM-dd HH:mm' (invariant
+# culture: English day names).
+function Format-LocalWhen {
+    param([DateTimeOffset]$When, [datetime]$NowUtc = [datetime]::UtcNow)
+    $local = $When.ToLocalTime()
+    $nowLocal = (New-Object DateTimeOffset ([datetime]::SpecifyKind($NowUtc, [DateTimeKind]::Utc))).ToLocalTime()
+    $days = [Math]::Abs(($local.Date - $nowLocal.Date).TotalDays)
+    if ($days -lt 1) { return $local.ToString('HH:mm', $script:Invariant) }
+    if ($days -le 6) { return $local.ToString('ddd HH:mm', $script:Invariant) }
+    return $local.ToString('yyyy-MM-dd HH:mm', $script:Invariant)
+}
+
+# The first clause of a launch refusal - up to the first ': ' outside parentheses ("META_API_KEY
+# is set"), the whole text when there is none: a complete phrase, never a cut (D17).
+function Get-FirstClause {
+    param([string]$Text)
+    $depth = 0
+    for ($i = 0; $i -lt $Text.Length - 1; $i++) {
+        $c = $Text[$i]
+        if ($c -eq '(') { $depth++ } elseif ($c -eq ')' -and $depth -gt 0) { $depth-- }
+        elseif ($c -eq ':' -and $depth -eq 0 -and $Text[$i + 1] -eq ' ') { return $Text.Substring(0, $i) }
+    }
+    return $Text
+}
+
+# One availability record from a verdict (Get-PreflightVerdict -RosterWalk) and a launch refusal
+# ($Block; it outranks the verdict): { Position; Provider; Model; Engine; Lineage ('<provider> ::
+# <model>', the provider alone without a model); Group; State available | out (unavailable,
+# refused) | not checked (unknown); Kind; Reason (the roster walk's reason); Short (the one-line
+# view's complete phrase, in LOCAL time with a rounded relative hint - "until Sun 20:35, in 2d
+# 10h"; "limit hit 10:31, reset unknown; retry after 11:31, in 52m"; "auth failed Sat 10:31";
+# the credential's reason ("env MIMO_API_KEY not set", "sign-in not checked"); "refused: <first
+# clause of the launch refusal>"); Hit; Until }.
+function ConvertTo-AvailabilityRecord {
+    param([int]$Position, [string]$Provider, [string]$Model = '', [string]$Engine = 'codex', [int]$Group = 0, $Verdict = $null, [string]$Block = '', [datetime]$UtcNow = [datetime]::UtcNow)
+    $rec = [pscustomobject]@{ Position = $Position; Provider = $Provider; Model = $Model; Engine = $(if ($Engine) { $Engine } else { 'codex' }); Lineage = $(if ($Model) { Format-Lineage -Provider $Provider -Model $Model } else { $Provider }); Group = $Group; State = 'available'; Kind = ''; Reason = ''; Short = ''; Hit = $null; Until = $null }
+    $v = $Verdict
+    if ($Block) {
+        $rec.State = 'out'; $rec.Kind = 'refused'; $rec.Reason = "refused: $Block"; $rec.Short = "refused: $(Get-FirstClause $Block)"
+        return $rec
+    }
+    if (-not $v -or $v.State -eq 'available') { return $rec }
+    $rec.State = $(if ($v.State -eq 'unavailable') { 'out' } else { 'not checked' })
+    $rec.Kind = [string]$v.Kind
+    $rec.Reason = [string]$v.Reason
+    $rec.Hit = $v.Hit
+    $rec.Until = $v.Until
+    $now = New-Object DateTimeOffset ([datetime]::SpecifyKind($UtcNow, [DateTimeKind]::Utc))
+    if ($rec.Kind -eq 'quota' -and $null -ne $rec.Until) { $rec.Short = "until $(Format-LocalWhen -When $rec.Until -NowUtc $UtcNow), $(Format-RelativeHint ($rec.Until - $now))" }
+    elseif ($rec.Kind -eq 'quota-unknown-reset' -and $null -ne $rec.Until) { $rec.Short = "limit hit $(Format-LocalWhen -When $rec.Hit -NowUtc $UtcNow), reset unknown; retry after $(Format-LocalWhen -When $rec.Until -NowUtc $UtcNow), $(Format-RelativeHint ($rec.Until - $now))" }
+    elseif ($rec.Kind -eq 'auth') { $rec.Short = "auth failed $(if ($null -ne $rec.Hit) { Format-LocalWhen -When $rec.Hit -NowUtc $UtcNow } else { 'recently' })" }
+    elseif ($rec.Kind -eq 'unresolved') { $rec.Short = 'identity unresolved' }
+    elseif ($v.Credential -and $v.Credential.Reason -and @('credentials', 'unknown') -contains $rec.Kind) { $rec.Short = [string]$v.Credential.Reason }
+    else { $rec.Short = [string]$v.Reason }
+    return $rec
+}
+
+# Every roster entry's availability (D15): Select-PanelMembers -All [-NoNetwork] - the roster
+# walk's verdict for each entry, in roster order - plus the endpoint groups over ALL entries
+# (Get-EndpointGroups; D16: an outage recorded on an endpoint - auth, a usage limit - marks every
+# entry of its group). { Records (object[] in roster order of { Position; Provider; Model;
+# Engine; Lineage ('<provider> :: <model>'); Group; State available|out|not checked; Kind
+# (Get-PreflightVerdict's, or refused); Reason (the roster walk's reason); Short (the one-line
+# view's phrase, local time - Format-AvailabilityLine); Hit; Until }); Groups (Get-EndpointGroups);
+# Total; Available; Out; NotChecked; Selected (the first available record - the entry the
+# single-reviewer walk selects - or $null) }.
+function Get-RosterAvailability {
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork)
+    $sel = Select-PanelMembers -Roster $Roster -Config $Config -Consults $Consults -Launcher $Launcher -LoginCache $LoginCache -UtcNow $UtcNow -OpenAiBaseUrl $OpenAiBaseUrl -All -EngineLaunchers $EngineLaunchers -NoNetwork:$NoNetwork
+    $members = @($sel.Members | Where-Object { $_ })
+    $eg = Get-EndpointGroups -Members $members
+    $records = New-Object System.Collections.Generic.List[object]
+    foreach ($m in $members) {
+        $pos = [int]$m.Entry.Position
+        $records.Add((ConvertTo-AvailabilityRecord -Position $pos -Provider ([string]$m.Entry.Provider) -Model ([string]$m.Identity.Model) -Engine ([string]$m.Entry.Engine) -Group ([int]$eg.GroupOf[$pos]) -Verdict $m.Verdict -Block ([string]$m.Block) -UtcNow $UtcNow))
+    }
+    # D16: an outage recorded on the endpoint marks the whole group (an entry of it that was not
+    # judged out by itself - e.g. an unresolved one - is out with the same reason)
+    foreach ($rec in @($records | Where-Object { $_.State -eq 'out' -and @('auth', 'quota', 'quota-unknown-reset') -contains $_.Kind })) {
+        foreach ($o in @($records | Where-Object { $_.Group -eq $rec.Group -and $_.State -ne 'out' })) {
+            $o.State = 'out'; $o.Kind = $rec.Kind; $o.Reason = $rec.Reason; $o.Hit = $rec.Hit; $o.Until = $rec.Until; $o.Short = $rec.Short
+        }
+    }
+    $all = [object[]]$records.ToArray()
+    return [pscustomobject]@{
+        Records    = $all
+        Groups     = $eg
+        Total      = $all.Count
+        Available  = @($all | Where-Object { $_.State -eq 'available' }).Count
+        Out        = @($all | Where-Object { $_.State -eq 'out' }).Count
+        NotChecked = @($all | Where-Object { $_.State -eq 'not checked' }).Count
+        Selected   = (@($all | Where-Object { $_.State -eq 'available' }) | Select-Object -First 1)
+    }
+}
+
+# The one-line availability view (D17; the SessionStart hook, codex-providers.ps1 -Short): what is
+# OUT and what was NOT CHECKED, per roster entry, then the count -
+#   codex-consult: out - openai :: gpt-6-astra (until Sun 20:35, in 2d 10h), gemini :: * (until
+#   Sun 21:30, in 2d 11h); 9 of 11 reviewers available
+#   codex-consult: all 11 reviewers available
+# The entries of one endpoint group collapse to '<label> :: *' (labels of a merged group joined by
+# '+') when there are at least two and all share the state and the phrase; otherwise one clause
+# per entry. Nothing is cut. The count names the not-checked entries ("7 of 11 reviewers
+# available, 2 out, 2 not checked") whenever there are any (then the three counts do not add up
+# from the clauses alone). $Noun: 'reviewers' (a roster) or 'providers' (none).
+function Format-AvailabilityLine {
+    param($Availability, [string]$Noun = 'reviewers', [string]$Prefix = 'codex-consult: ', [string]$Suffix = '')
+    $recs = @($Availability.Records | Where-Object { $_ })
+    $n = $recs.Count
+    $noun = $(if ($n -eq 1) { $Noun -replace 's$', '' } else { $Noun })
+    if ($n -eq 0) { return "${Prefix}no $Noun to check$Suffix" }
+    $a = @($recs | Where-Object { $_.State -eq 'available' }).Count
+    $o = @($recs | Where-Object { $_.State -eq 'out' }).Count
+    $c = @($recs | Where-Object { $_.State -eq 'not checked' }).Count
+    if ($o -eq 0 -and $c -eq 0) { return "${Prefix}all $n $noun available$Suffix" }
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($state in @('out', 'not checked')) {
+        $these = @($recs | Where-Object { $_.State -eq $state })
+        if ($these.Count -eq 0) { continue }
+        $clauses = New-Object System.Collections.Generic.List[string]
+        $done = @{}
+        foreach ($r in $these) {
+            if ($done.ContainsKey($r.Group)) { continue }
+            $group = @($recs | Where-Object { $_.Group -eq $r.Group })
+            $same = @($group | Where-Object { $_.State -eq $state -and $_.Short -ceq $r.Short })
+            if ($group.Count -ge 2 -and $same.Count -eq $group.Count) {
+                $done[$r.Group] = $true
+                $labels = @($group | ForEach-Object { $_.Provider } | Select-Object -Unique)
+                $clauses.Add("$($labels -join '+') :: * ($($r.Short))")
+            } else {
+                $clauses.Add("$($r.Lineage) ($($r.Short))")
+            }
+        }
+        $parts.Add("$state - $($clauses.ToArray() -join ', ')")
+    }
+    $tail = "$a of $n $noun available"
+    if ($c -gt 0) { $tail += ", $o out, $c not checked" }
+    $parts.Add($tail)
+    return "$Prefix$($parts.ToArray() -join '; ')$Suffix"
 }
 
 # ----------------------------------------------------------------------------- parent thread (lineage)
@@ -5081,7 +5560,12 @@ function Format-ShortHash {
 # The ledger entry that recorded thread $Thread (the newest one) if it can be a parent at
 # all: recorded by 0.3.0 or later (it has a `reviewer`) with a resolved identity (a
 # provider_fingerprint). { Entry; N; Error }. Used by Select-ParentThread and by the roster
-# rule "-Thread fixes the reviewer" (codex-consult.ps1).
+# rule "-Thread fixes the reviewer" (codex-consult.ps1). (wave 24) The conversation of an
+# engine run the bridge KILLED on its timeout (an agy / muse entry with a `partial_reply`)
+# counts too: its id - a candidate only, since no result verified it - came from that run's
+# own event stream (agy's init, muse's session stream), and the salvage names it as the
+# thread to resume; the resumed turn itself must come back on it (the adapter's rule). Only
+# for -Thread: never an automatic parent. A codex candidate (a foreign rollout) never does.
 function Find-ThreadEntry {
     param([object[]]$Consults, [string]$Thread)
     $r = [pscustomobject]@{ Entry = $null; N = $null; Error = '' }
@@ -5090,6 +5574,12 @@ function Find-ThreadEntry {
     $match = $null
     for ($i = $entries.Count - 1; $i -ge 0; $i--) {
         if ([string](Get-PropertyValue $entries[$i] 'thread' '') -eq $thread) { $match = $entries[$i]; break }
+    }
+    if (-not $match -and $thread) {
+        for ($i = $entries.Count - 1; $i -ge 0; $i--) {
+            $e = $entries[$i]
+            if ([string](Get-PropertyValue $e 'thread_candidate' '') -eq $thread -and [string](Get-PropertyValue $e 'partial_reply' '') -and (Get-EntryEngine $e) -ne 'codex') { $match = $e; break }
+        }
     }
     if (-not $match) {
         $cand = $null

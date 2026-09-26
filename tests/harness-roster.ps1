@@ -448,12 +448,14 @@ if (Want 'QUOTA') {
     $r4 = New-Repo 'quota-noreset'
     Seed-Task $r4 'other' @((New-SeedEntry 1 'openai' 'gpt-5.1' $builtinFp $now 10 'failed: codex exit 1 - credits exhausted' ([pscustomobject]@{ class = 'quota'; code = ''; message = 'credits exhausted'; when = '' })))
     $d = Consult $r4 $roster3 @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_NOW = $nowIso }
-    Check 'QUOTA' 'quota without a reset time 10 min ago -> the walk skips openai ("usage limit 10 min ago, no reset time given")' ($d.Code -eq 0 -and $d.Preview.reviewer.provider -eq 'ZAI' -and $d.Preview.roster.skipped[0].reason -eq 'usage limit 10 min ago, no reset time given') (Line $d.Out 'Roster:')
+    # (wave 24, T3/D14) the shared verdict's wording: out for 60 minutes after the limit was hit
+    $noResetReason = "usage limit hit $(Iso $now.AddMinutes(-10)), reset unknown; retry after $(Iso $now.AddMinutes(50))"
+    Check 'QUOTA' 'quota without a reset time 10 min ago -> the walk skips openai ("usage limit hit <iso>, reset unknown; retry after <iso + 60 min>")' ($d.Code -eq 0 -and $d.Preview.reviewer.provider -eq 'ZAI' -and $d.Preview.roster.skipped[0].reason -eq $noResetReason) (Line $d.Out 'Roster:')
     $dn = Consult $r4 $noRoster @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_NOW = $nowIso }
     Check 'QUOTA' '... and without a roster: the existing warning only' ($dn.Code -eq 0 -and $dn.Preview.reviewer.provider -eq 'openai' -and $dn.Preview.preflight_warning -eq 'provider openai hit a usage limit 10 min ago: credits exhausted') $dn.Preview.preflight_warning
     $dAll = Write-Roster 'openai-only' '{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1"}]}'
     $dz = Consult $r4 $dAll @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_NOW = $nowIso }
-    Check 'QUOTA' 'nothing else to fall back to -> refused with that reason' ($dz.Code -eq 1 -and $dz.First -match '#1 openai :: gpt-5\.1 \(usage limit 10 min ago, no reset time given\)') $dz.First
+    Check 'QUOTA' 'nothing else to fall back to -> refused with that reason' ($dz.Code -eq 1 -and $dz.First.Contains("#1 openai :: gpt-5.1 ($noResetReason)")) $dz.First
     # (a real run records a ledger entry stamped with the REAL clock - later than the frozen
     # one, so it counts as now and would clear the limit: it runs last)
     $dx = Consult $r4 $roster3 @('-Prompt', 'x', '-Provider', 'openai', '-Model', 'gpt-5.1', '-ReplyName', 'explicit') @{ CODEX_CONSULT_NOW = $nowIso; FAKE_CODEX_REPLY = $advise }
@@ -464,7 +466,7 @@ if (Want 'QUOTA') {
     $r5 = New-Repo 'quota-future'
     Seed-Task $r5 'other' @((New-SeedEntry 1 'openai' 'gpt-5.1' $builtinFp $now -6 'failed: codex exit 1 - credits exhausted' ([pscustomobject]@{ class = 'quota'; code = ''; message = 'credits exhausted'; when = '' })))
     $f1 = Consult $r5 $roster3 @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_NOW = $nowIso }
-    Check 'F15-4' 'a quota failure stamped 6 min in the future, no reset time -> the roster skips openai ("usage limit 0 min ago, no reset time given")' ($f1.Code -eq 0 -and $f1.Preview.reviewer.provider -eq 'ZAI' -and $f1.Preview.roster.skipped[0].reason -eq 'usage limit 0 min ago, no reset time given') (Line $f1.Out 'Roster:')
+    Check 'F15-4' 'a quota failure stamped 6 min in the future, no reset time -> it counts as now: the roster skips openai ("usage limit hit <now>, reset unknown; retry after <now + 60 min>")' ($f1.Code -eq 0 -and $f1.Preview.reviewer.provider -eq 'ZAI' -and $f1.Preview.roster.skipped[0].reason -eq "usage limit hit $nowIso, reset unknown; retry after $(Iso $now.AddMinutes(60))") (Line $f1.Out 'Roster:')
     $r6f = New-Repo 'auth-future'
     Seed-Task $r6f 'other' @((New-SeedEntry 1 'openai' 'gpt-5.1' $builtinFp $now -6 'failed: codex exit 1 - 401 Unauthorized' ([pscustomobject]@{ class = 'auth'; code = ''; message = '401 Unauthorized'; when = '' })))
     $f2 = Consult $r6f $noRoster @('-Prompt', 'x', '-ReplyName', 'fut') @{ CODEX_CONSULT_NOW = $nowIso; FAKE_CODEX_REPLY = $advise }

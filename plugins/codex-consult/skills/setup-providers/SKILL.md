@@ -360,19 +360,23 @@ therefore REFUSES a muse run while either variable is set, and there is no opt-o
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-providers.ps1"
 ```
 
-Expect exit `0`, a first line `codex config: <path>`, one row per provider, and for each
+Expect exit `0`, a first line `codex config: <path>`, then `endpoint health: <repo>\.collab (<k>
+task ledgers, <m> consultations), read at <time> - the ledgers of THIS repository` (usage limits
+and auth failures come from the repository you run in), one row per provider, and for each
 wired one `available` with `ok: Logged in using ChatGPT` or `ok: env <NAME> set`, e.g.
 `available  ZAI  2  custom  https://api.z.ai/api/v1  ok: env ZAI_API_KEY set  zai (11 declared models)  -`,
-then `roster: <path> -> would select <provider> :: <model>`. Other verdicts:
-`unavailable (missing: env <NAME> not set)` (not set, or Claude Code not restarted),
-`unavailable (usage limit until <iso>)`, `unknown (<reason>)` (login check failed, or the
-config cannot be scanned). An agy roster label gets its own row: `available  gemini  4,5
+then `roster: <path> -> would select <provider> :: <model>` and `availability: all <n> reviewers
+available` (the SessionStart line; `codex-providers.ps1 -Short` prints it alone). Other
+verdicts - the roster walk's own: `unavailable (missing: env <NAME> not set)` (not set, or
+Claude Code not restarted), `unavailable (usage limit until <iso>)`, `unavailable (usage limit
+hit <iso>, reset unknown; retry after <iso>)` (a limit without a reset time, for 60 minutes),
+`unknown (<reason>)` (login check failed, or the config cannot be scanned). An agy roster label gets its own row: `available  gemini  4,5
 engine agy  agy (<launcher>)  ok: signed in (N models)  agy (tier in the model id)  -`
 (this listing makes one `agy models` call - none, and `ok: signed in (usable reply <m> min
 ago)`, after a usable agy reply in this repository within the last 60 minutes; with
 `-NoNetwork` the row otherwise reads `not checked (launcher present; run
-codex-providers.ps1)` / `unknown (sign-in not checked)`, which is what the SessionStart hook
-shows); `unavailable (agy CLI not found on PATH)` or
+codex-providers.ps1)` / `unknown (sign-in not checked)` - the SessionStart line counts such an
+entry as `not checked`); `unavailable (agy CLI not found on PATH)` or
 `unavailable (missing: ``agy models``: <sign-in message>)` otherwise. A muse label's row: see
 section 3f, step 7 (its sign-in check is local, so it runs with `-NoNetwork` too). Exit `1` means an
 unusable roster, or a `CODEX_CONSULT_ROSTER` file that does not exist; the message names

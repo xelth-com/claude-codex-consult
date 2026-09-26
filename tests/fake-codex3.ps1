@@ -17,6 +17,11 @@
 #                                exit 1
 #   FAKE_CODEX_HANG_ON=<text>    only when the raw command line contains <text>: sleep 60 s
 #                                (the bridge's -TimeoutSec kills it)
+#   FAKE_CODEX_HANG_NEW=1        sleep 60 s on a turn that is NOT `resume <thread>` (the main
+#                                turn hangs, the bridge's timeout continuation answers - wave 24)
+#   FAKE_CODEX_ITEMS=1           before any sleep or hang: a reasoning item, a shell command
+#                                (item.started + item.completed) and an agent message, each
+#                                tagged "(first ...)" or "(resume ...)" (the salvage cases)
 #   FAKE_CODEX_RESUME_REPLY=<f>  on `resume <thread>` (the bridge's format-repair turn): copy
 #                                <f> instead of FAKE_CODEX_REPLY and report the RESUMED thread
 #                                id in thread.started (as the real CLI does) - a new one with
@@ -99,6 +104,14 @@ if (-not $env:FAKE_CODEX_NOTHREAD) { [Console]::Out.Write("{""type"":""thread.st
 [Console]::Out.Flush()
 $delayMs = Get-FakeMapValue $env:FAKE_CODEX_DELAY_MS $model
 if ($delayMs) { Start-Sleep -Milliseconds ([int]$delayMs) }
+if ($env:FAKE_CODEX_ITEMS) {
+    $tag = if ($raw -match ' resume ') { 'resume' } else { 'first' }
+    [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"Reading the brief (' + $tag + ' turn)."}}' + "`n")
+    [Console]::Out.Write('{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"git diff --stat HEAD~1 (' + $tag + ')","aggregated_output":"","exit_code":null,"status":"in_progress"}}' + "`n")
+    [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"git diff --stat HEAD~1 (' + $tag + ')","aggregated_output":"1 file changed","exit_code":0,"status":"completed"}}' + "`n")
+    [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"Q1 so far (' + $tag + ' turn): the change looks consistent."}}' + "`n")
+    [Console]::Out.Flush()
+}
 if ($env:FAKE_CODEX_ROLLOUT) {
     $now = Get-Date
     $day = Join-Path (Join-Path (Join-Path (Join-Path $env:CODEX_HOME 'sessions') ('{0:yyyy}' -f $now)) ('{0:MM}' -f $now)) ('{0:dd}' -f $now)
@@ -118,6 +131,7 @@ if ($env:FAKE_CODEX_ROLLOUT) {
 }
 if ($env:FAKE_CODEX_SLEEP) { Start-Sleep -Seconds ([int]$env:FAKE_CODEX_SLEEP) }
 if ($env:FAKE_CODEX_HANG_ON -and $raw.Contains($env:FAKE_CODEX_HANG_ON)) { Start-Sleep -Seconds 60 }
+if ($env:FAKE_CODEX_HANG_NEW -and $raw -notmatch ' resume ') { Start-Sleep -Seconds 60 }
 if ($env:FAKE_CODEX_STDERR) {
     $b = (New-Object System.Text.UTF8Encoding($false)).GetBytes($env:FAKE_CODEX_STDERR + "`r`n")
     $es = [Console]::OpenStandardError(); $es.Write($b, 0, $b.Length); $es.Flush()

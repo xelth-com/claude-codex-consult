@@ -45,7 +45,13 @@
 #   FAKE_MUSE_PARTIAL=1           a truncated JSON line after the terminal (no newline)
 #   FAKE_MUSE_WRITE=<rel path>    writes that file (relative to the working directory) on a
 #                                 turn without --session-id (=<path>|all: on every turn)
-#   FAKE_MUSE_HANG=1              sleeps 60 s after the first records (a timeout kill)
+#   FAKE_MUSE_HANG=1              sleeps 60 s after the first records (a timeout kill); =new:
+#                                 only on a turn without --session-id (wave 24: the main turn
+#                                 hangs, the bridge's timeout continuation answers); =resume:
+#                                 only on a --session-id turn (a format repair that hangs)
+#   FAKE_MUSE_TEXT=1              before the hang point: a tool.search task and two
+#                                 run.output.delta texts, tagged "(first ...)" or "(resume ...)"
+#                                 (the salvage cases)
 #   FAKE_MUSE_DELAY_MS=<ms>       sleeps that long before the answer
 #   FAKE_MUSE_LOG=<path>          RAW: <FAKE_MUSE_ARGS>, ARG: <each argument>, STDIN-BYTES: <n>,
 #                                 PROMPT-FILE: <path>, then PROMPT: and the prompt file's text
@@ -204,7 +210,13 @@ if ($env:FAKE_MUSE_NOMODEL -ne '1') {
 $shown = if ($promptText.Length -gt 200) { $promptText.Substring(0, 200) } else { $promptText }
 Rec 'status' 'turn.input.user' (P 'turn_input_user' @{ prompt = $shown }) 'ephemeral'
 Rec 'event' 'run.lifecycle.started' (P 'run_started' @{ prompt = $shown })
-if ($env:FAKE_MUSE_HANG -eq '1') { Start-Sleep -Seconds 60 }
+if ($env:FAKE_MUSE_TEXT) {
+    $tag = if ($conv) { 'resume' } else { 'first' }
+    Task-Records 'tool.search'
+    Rec 'status' 'run.output.delta' (P 'run_output_delta' @{ text = 'Notes so far ' }) 'ephemeral'
+    Rec 'status' 'run.output.delta' (P 'run_output_delta' @{ text = "($tag turn)." }) 'ephemeral'
+}
+if ($env:FAKE_MUSE_HANG -eq '1' -or ($env:FAKE_MUSE_HANG -eq 'new' -and -not $conv) -or ($env:FAKE_MUSE_HANG -eq 'resume' -and $conv)) { Start-Sleep -Seconds 60 }
 Task-Records 'model.meta.response'
 Task-Records 'tool.read_file' "Read text file ``app.txt``.`n1|one"
 Rec 'event' 'tool.result' ([pscustomobject][ordered]@{ kind = 'tool_result'; command_id = $command; run_stream = $runStream; call_id = 'call_0000000000000000000000000000fake'; text = "Read text file ``app.txt``.`n1|one" })
