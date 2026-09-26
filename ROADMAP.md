@@ -328,6 +328,14 @@ optional participant whose "done" is never trusted and who never closes a findin
   "out (limit hit <time>, reset unknown)" for a documented window (60 min), see also the
   companions design's addendum (what is out, per roster entry, one line).
 
+- **T4 - the harnesses as an oracle for other implementations.** Every harness resolves the
+  scripts it drives through a hard-coded relative path (`$scripts` near the top of each
+  `tests/harness-*.ps1`), so a second implementation of the same CLI (the Rust C3) can run the
+  ~750 assertions only by dropping shim files into a checkout. Planned (wave 25): an env override
+  `CODEX_CONSULT_SCRIPTS_DIR` and a `-ScriptsDir` parameter on `run-all.ps1` and on each harness,
+  read once at the top, defaulting to the checkout's `plugins/codex-consult/scripts`; the run-all
+  summary names the directory it tested. No behaviour change without the override.
+
 ## Bridge features (earlier help-wanted list)
 
 - **A bash port**, so macOS/Linux users need no `pwsh` at all.
