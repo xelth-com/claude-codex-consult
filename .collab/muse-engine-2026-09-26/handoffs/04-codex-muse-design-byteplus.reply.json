@@ -1,0 +1,133 @@
+{
+  "schema_version": "1",
+  "verdict": "ADVISE",
+  "verdict_reason": "Design follows the agy precedent closely, with several unimplemented components and tradeoffs to resolve.",
+  "reply_markdown": "## Q1. Read-only enforcement\nThe `--disable-shell` + `--disable-write` + tree check pattern is identical to what is used for the agy engine today. This is considered acceptable for read-only reviewers in the current codebase, but has known limitations:\n- It only detects writes to tracked/untracked files and the collab directory\n- It cannot prevent or detect reads (including files outside the repo, gitignored paths, or submodules)\n- The brief confirms muse still uses its native `read_file` tool even with these flags\n\nA separate scratch workspace would eliminate write risk entirely, but would be a departure from the established pattern and require additional implementation. This choice is consistent with existing engine safety.\n\n## Q2. Billing guard behavior\nRefusing the run is the safer default:\n- Failing closed avoids silent unexpected behavior if the user explicitly set those variables intending API key billing\n- Stripping would require knowing all possible environment variables that could trigger per-token billing, which is fragile\n- The current codebase does not strip environment variables for any engine today; all engine processes inherit the full parent environment\n\nIf stripping is desired, it should be implemented as an explicit engine-specific configuration, not a default.\n\n## Q3. Preflight credential check\nReading only the auth.json key names is acceptable as a low-cost preflight, but has tradeoffs:\n- It does not verify credentials are actually valid (expired, revoked, or corrupted credentials will still pass preflight and waste quota)\n- The agy engine uses a live `agy models` call for preflight, which is cached for 60 minutes\n- Given the very low quota (10-50 prompts per 5 hours), wasting one prompt on a preflight check may not be worth it\n\nRecommendation: use the auth.json check with a warning that it does not verify validity, and fall back to live checking only after a failure.\n\n## Q4. MSP record handling and CLI updates\nSeveral points of fragility:\n1. **Schema version**: The design mentions `schema_version` in MSP records, but does not specify checking it. The parser should fail hard on unsupported schema versions.\n2. **Record structure**: If Meta changes the location of `run.terminal.completed`, the `stream.id` thread ID, or other record fields, the parser will break.\n3. **Auto-updates**: The launcher updates automatically with no version pinning or checking.\n\nMitigations:\n- Check the CLI version with `muse --version` before running, and fail or warn on untested versions\n- Make the parser lenient to extra fields, but strict on required fields\n- Include schema version checks in the event parser\n\n## Requested checks\nRC1. Run `muse exec --help` to confirm all proposed arguments are supported, working directory: repository root, permission: read-only, observation: verifies the exact argv flags exist.\nRC2. Test if `muse exec` can read files outside the repository, working directory: repository root, permission: read-only, observation: confirms the read scope of the native read_file tool.\nRC3. Check if `META_API_KEY` actually overrides the CLI's logged-in state, working directory: repository root, permission: read-only, observation: verifies the billing guard's premise is correct.",
+  "findings": [
+    {
+      "severity": "major",
+      "locations": [],
+      "claim": "No existing environment variable guard logic for non-codex engines. All engine processes inherit the full parent environment.",
+      "trigger": "Any API_KEY environment variable set in the bridge process will be passed to the muse child process, potentially triggering per-token billing.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "observation": "Start-Process is called without modifying EnvironmentVariables; no filtering or checking of environment variables exists for non-codex engines."
+        }
+      ],
+      "verification": "Run codex-consult -Engine agy with an API_KEY variable set and inspect the agy process environment.",
+      "remedy": "Add engine-specific environment variable filtering logic that checks for and either refuses or strips configured variables before launching the child process.",
+      "supersedes": []
+    },
+    {
+      "severity": "note",
+      "locations": [],
+      "claim": "The tree check only monitors writes, not reads. It cannot prevent or detect file reads by the engine.",
+      "trigger": "Muse can read any file accessible to the user (including outside the repository, gitignored files, etc.) even with --disable-write and --disable-shell, and this will not be detected.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "observation": "The tree check compares before/after working tree fingerprints, but has no visibility into read operations. This is identical to the agy engine's behavior."
+        }
+      ],
+      "verification": "Run a muse prompt asking to read a file outside the repository; it will succeed and the tree check will not flag it.",
+      "remedy": "This is the established safety model for all external engines. To restrict reads, a scratch workspace with restricted filesystem access would be required.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [],
+      "claim": "No MSP record parser exists for muse. The existing Read-AgyEvents parser is specific to agy's stream-json format.",
+      "trigger": "Any muse run will fail to extract the reply, thread ID, or failure information.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "observation": "Only Read-AgyEvents and Get-AgyTurnOutcome exist for non-codex engine event parsing."
+        }
+      ],
+      "verification": "Attempt to run muse through the bridge; it will attempt to use the agy parser which will not recognize MSP records.",
+      "remedy": "Implement Read-MuseEvents and Get-MuseTurnOutcome adapter functions following the MSP format specification, equivalent to the agy implementations.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [],
+      "claim": "No preflight credential check logic exists for muse.",
+      "trigger": "The preflight step for muse will not verify if the user is signed in.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "observation": "Only Get-AgyModelsStatus exists for non-codex engine credential checks."
+        }
+      ],
+      "verification": "Run codex-consult -Engine muse; the preflight will have no way to check sign-in status.",
+      "remedy": "Implement Get-MuseModelsStatus that checks ~/.config/muse/auth.json exists and has the providers.meta entry.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [],
+      "claim": "No CLI version checking or pinning exists for auto-updating engines.",
+      "trigger": "An automatic update to the muse CLI could break argument parsing, event format, or behavior with no warning.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "observation": "No --version check exists for agy or any other external engine."
+        }
+      ],
+      "verification": "Run agy --version; the bridge does not verify or pin the version before launching.",
+      "remedy": "Add version checking for muse that runs --version before each launch, and fail or warn on untested versions.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": null
+        }
+      ],
+      "claim": "The engine table does not contain an entry for muse.",
+      "trigger": "Any attempt to use -Engine muse will fail with 'unknown engine'.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "observation": "$script:Engines only contains entries for 'codex' and 'agy'."
+        }
+      ],
+      "verification": "Run codex-consult -Engine muse; it will error immediately.",
+      "remedy": "Add a muse entry to $script:Engines following the agy pattern, with the appropriate adapter function names.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [],
+      "claim": "No thread resume logic exists for muse.",
+      "trigger": "Attempting to resume a muse thread will not pass the --session-id argument correctly.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "observation": "Only New-AgyArgv implements thread resume logic for external engines."
+        }
+      ],
+      "verification": "Run codex-consult -Engine muse -Mode resume -Thread <id>; the argument will not be included in the muse argv.",
+      "remedy": "Implement New-MuseArgv that handles new/resume modes and passes --session-id when resuming, and refuses fork mode.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [],
+  "unproven": [
+    "Whether META_API_KEY actually overrides the logged-in subscription state",
+    "Whether --max-model-steps is actually supported by the muse CLI",
+    "Whether the tree check correctly detects changes made by muse's native write tools",
+    "Exact behavior of muse's exit codes under failure conditions"
+  ],
+  "first_run_checklist": []
+}

@@ -1,0 +1,2363 @@
+{
+    "task_id":  "muse-engine-2026-09-26",
+    "findings":  [
+                     {
+                         "id":  "F02-1",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2562
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2628
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2818
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3206
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3300
+                                           }
+                                       ],
+                         "claim":  "The generic non-codex denial-retry and format-repair paths hardcode the agy event parser and outcome, so a newly added muse adapter would work only on the first turn and misparse every retry or repair turn.",
+                         "trigger":  "A muse run returns prose despite the native schema, or returns an empty denial-like terminal, with the current retry defaults enabled.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2562,2628,2818-2820",
+                                              "observation":  "The first turn calls the adapter, but retry and repair call Read-AgyEvents and Get-AgyTurnOutcome directly; the catch fallback is also Read-AgyEvents."
+                                          }
+                                      ],
+                         "verification":  "Run a fake-muse prose reply with -FormatRetry 1 and inspect whether the second MSP stream is parsed and committed as a muse reply.",
+                         "remedy":  "Route every turn through engineSpec.Adapter.Events/Outcome, or explicitly disable denial and format retries for muse and test that policy.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-2",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2983
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3167
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2117
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2319
+                                           }
+                                       ],
+                         "claim":  "The current adapter argv contract cannot launch Muse as designed: it passes only model, schema path, thread and native effort, while Muse additionally needs the prompt-file path, max-model-steps and effort on every run.",
+                         "trigger":  "Adding the proposed muse row without first extending the adapter interface and main argv construction.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2110-2118,2319",
+                                              "observation":  "The main run builds adapter argv from four fields and writes the adapter stdin text to a temp file; no prompt path or step limit reaches the adapter."
+                                          }
+                                      ],
+                         "verification":  "With a fake muse, dry-run the engine and assert the exact exec argv contains the prompt file, schema, effort and max-step values.",
+                         "remedy":  "Pass an engine turn-options object (prompt path, schema, thread, effort, max steps) to the adapter, and define muse Stdin as the raw prompt or remove stdin for this engine.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3004
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3972
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4007
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4023
+                                           }
+                                       ],
+                         "claim":  "The roster format currently rejects both the muse engine value and the proposed per-entry billing key, and the design does not define validation, persistence, or panel-child propagation for that key.",
+                         "trigger":  "A roster containing {\"engine\":\"muse\"} or {\"billing\":\"api-key\"} at HEAD.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3971-3973,4004-4009",
+                                              "observation":  "Entry keys are limited to provider/model/codex_config/auth/panel/engine, engine must belong to EngineNames, and only codex and agy are listed."
+                                          }
+                                      ],
+                         "verification":  "Validate a muse roster with and without the billing key and a -Panel member; all three paths must accept or reject it consistently.",
+                         "remedy":  "Extend EngineNames and the roster schema deliberately, validate billing as subscription|api-key, carry it into the entry and panel spec, and record it in the ledger.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-4",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4074
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4116
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2383
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  293
+                                           }
+                                       ],
+                         "claim":  "The billing guard has no defined integration point; if it is treated as an ordinary preflight check, -SkipPreflight can bypass it, roster walking may not skip subscription muse entries, and panel children may repeat the decision inconsistently.",
+                         "trigger":  "META_API_KEY or MODEL_API_KEY is set and a muse run is launched with -SkipPreflight, a roster walk, or -Panel.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4116-4119; codex-consult.ps1:293-296",
+                                              "observation":  "Unknown credentials are refused only by preflight and -SkipPreflight is documented to bypass credential refusals; the child is launched with the inherited environment."
+                                          }
+                                      ],
+                         "verification":  "Set each key and run muse with -SkipPreflight, as a roster walk, and as a panel member; every subscription attempt must refuse before launch and fallback behavior must be explicit.",
+                         "remedy":  "Make billing an independent fail-closed launch invariant evaluated for the selected entry and again immediately before Start-Process; expose it in provider listings and never allow -SkipPreflight to override it.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-5",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2430
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2461
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  61
+                                           }
+                                       ],
+                         "claim":  "Letting some muse entries opt into API-key billing while every muse entry shares cc-engine-v1|muse would commingle unrelated endpoint health: an API-key auth, quota or billing failure can block the signed-in subscription and vice versa.",
+                         "trigger":  "One muse roster entry uses billing=api-key and another uses the subscription, then either mode records an auth or quota failure.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:2430-2463",
+                                              "observation":  "Every non-codex engine has one static fingerprint derived only from the engine name; Get-EndpointHealth is keyed by that fingerprint."
+                                          }
+                                      ],
+                         "verification":  "Seed ledger health for one billing mode and run preflight for the other; the design must either isolate them or justify shared health.",
+                         "remedy":  "Initially support subscription only; otherwise include the billing route in the endpoint identity and adjust thread-drift rules accordingly.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-6",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3134
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4116
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  50
+                                           }
+                                       ],
+                         "claim":  "A keychain-backend result described merely as a warning does not fit the current preflight state machine: unknown sign-in is a refusal unless -SkipPreflight is passed, not an available-with-warning outcome.",
+                         "trigger":  "Muse credentials are in the OS keychain and no recent usable muse ledger entry exists.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4116-4119",
+                                              "observation":  "Get-PreflightVerdict maps credential State unknown to unavailable/unknown refusal text."
+                                          }
+                                      ],
+                         "verification":  "Run the keychain configuration without a live call and inspect the roster walk and explicit-provider refusal.",
+                         "remedy":  "Return State=unknown with precise reason, or find/use a free auth-status command; do not call it a warning unless preflight gains a safe unknown-and-available category.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-7",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4097
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/README.md",
+                                               "line":  937
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  50
+                                           }
+                                       ],
+                         "claim":  "Parsing auth.json proves only the expected shape, not a valid or current sign-in; moreover a normal ConvertFrom-Json parse materializes values in memory even if they are never printed.",
+                         "trigger":  "auth.json contains providers.meta with an expired, malformed or stale OAuth value.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "README.md:937-940",
+                                              "observation":  "The existing credential model explicitly says local checks cannot establish live validity; validity is learned from a failed run."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Proposed JSON parse of auth.json",
+                                              "observation":  "Property-name inspection still requires deserializing the containing object unless a stream-level parser is used."
+                                          }
+                                      ],
+                         "verification":  "Use a fake auth file with providers.meta but invalid token data and confirm preflight wording followed by an auth-classified run failure.",
+                         "remedy":  "Treat the check as local credential-file evidence, never log the object, and let real auth failures update endpoint health.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-8",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  465
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  612
+                                           },
+                                           {
+                                               "path":  "README.md",
+                                               "line":  1362
+                                           }
+                                       ],
+                         "claim":  "The design overstates the agy-derived check as proving that a run that changed anything fails: gitignored paths, submodules and files outside the repository are not monitored, and Muse/launcher writes to home or config locations are invisible.",
+                         "trigger":  "A reviewer or launcher writes under .gitignore, inside a submodule, or to a user-profile path during the run.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:465-483; codex-consult.ps1:612-634; README.md:1362-1368",
+                                              "observation":  "The revision manifest excludes ignored paths and does not recurse submodules; the documented enforcement explicitly has these blind spots."
+                                          }
+                                      ],
+                         "verification":  "Have the fake reviewer write to a gitignored path and confirm no tree failure is recorded.",
+                         "remedy":  "State the evidence boundary exactly; add an OS sandbox/read-only mount only if the threat model requires those paths.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-9",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2591
+                                           }
+                                       ],
+                         "claim":  "A tree mutation is forced to provider class permission only when the engine otherwise produced a usable reply; when the same run already failed, the current branch merely appends the tree problem and leaves the original failure class.",
+                         "trigger":  "Muse writes a monitored file and also exits nonzero or emits a failed terminal.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2591-2598",
+                                              "observation":  "Only the usable-reply branch assigns agyFailureClass=permission; the else branch appends to bridgeOutcome without changing class."
+                                          }
+                                      ],
+                         "verification":  "Fake a file write plus exit 1 and inspect provider_failure.class against the documented rule.",
+                         "remedy":  "Either force permission whenever a mutation is the safety violation, or document that the primary provider class wins with the mutation appended; add a test.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-10",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  634
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1594
+                                           }
+                                       ],
+                         "claim":  "Reusing the agy tree-check text and sandbox ledger description unchanged would lie about muse: it would say muse’s sandbox does not block writes and restricts only the terminal, although muse is invoked with --disable-write and --disable-shell.",
+                         "trigger":  "Any muse run that changes a monitored path, or any ledger sandbox field for muse.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:634,1592-1595",
+                                              "observation":  "Both strings hardcode the agy --sandbox limitation."
+                                          }
+                                      ],
+                         "verification":  "Inspect the failure message and ledger sandbox text from a fake muse write.",
+                         "remedy":  "Parameterize the enforcement description: preventive Muse flags plus bridge evidence, with the same evidence blind spots.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-11",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  18
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3348
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3374
+                                           }
+                                       ],
+                         "claim":  "The proposed MSP extraction does not define enough stream identity invariants: any stream.kind=session record can win, multiple session streams are not rejected, the session need not match the terminal stream or be a UUID, and run.model.configured is not checked against the requested model.",
+                         "trigger":  "A CLI update emits nested/substream session records, two session records, a non-UUID id, a terminal on another stream, or a fallback model; the parser could accept the wrong thread or silently review with the contributor default.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3348-3376",
+                                              "observation":  "The agy precedent rejects init/result mismatches, foreign resumed conversations and non-UUID ids."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md:18-23",
+                                              "observation":  "The brief records the fields but the design only says take a session record and terminal text."
+                                          }
+                                      ],
+                         "verification":  "Feed fake MSP streams with two session ids, a mismatched terminal stream, no UUID and a wrong configured model; all must fail without ingestion.",
+                         "remedy":  "Give the parser the expected thread and model, validate one consistent session stream and one terminal, and classify model drift as capability/config failure.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-12",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  24
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3414
+                                           }
+                                       ],
+                         "claim":  "The design leaves Muse’s documented exit classes unmapped: exit 2 usage errors and exit 1 max-steps/cancellation are not matched by the shared keyword classifier unless their reason happens to contain a recognized word, so they will often be unknown.",
+                         "trigger":  "Muse exits 2 for an unknown flag, exits 1 for max model steps, or exits 130/143 without bridge-side timeout text.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3413-3419",
+                                              "observation":  "The classifier recognizes provider wording patterns but has no max-steps, usage-error or CLI-signal rule."
+                                          }
+                                      ],
+                         "verification":  "Run fake exit-code/reason combinations and inspect provider_failure.class and retry_after.",
+                         "remedy":  "Map exit 2 and max-steps to capability, cancellation to a defined class, signals consistently with bridge timeout/transport handling, and classify quota only from actual quota reason text.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-13",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3065
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2461
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  9
+                                           }
+                                       ],
+                         "claim":  "The design neither pins nor detects the actual Muse binary/MSP version: Get-EngineHarness would inspect muse.cmd metadata, while the auto-updating launcher can select muse-bin-\u003cversion\u003e.exe after that, leaving the static engine fingerprint unchanged.",
+                         "trigger":  "Muse auto-updates between the recorded harness determination and process launch, or an update changes the MSP envelope.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3065-3075,2459-2463",
+                                              "observation":  "Harness version comes from launcher file metadata and the endpoint fingerprint is only cc-engine-v1|\u003cengine\u003e."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Brief launcher facts",
+                                              "observation":  "muse.cmd delegates through an updating PowerShell launcher to a versioned 434 MB binary; a .cmd shim may carry no useful ProductVersion."
+                                          }
+                                      ],
+                         "verification":  "Run the version probe against muse.cmd and the resolved versioned binary and compare reviewer.harness with the record actually emitted in MSP.",
+                         "remedy":  "Use a free version command, resolve or allow pinning the versioned binary, record CLI plus MSP schema version, and fail closed outside the supported compatibility set.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-14",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2138
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2383
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  12
+                                           }
+                                       ],
+                         "claim":  "Muse is the first non-codex engine to put both prompt and schema paths in argv through a .cmd/PowerShell launcher chain; spaces, percent-signs and launcher re-quoting are not covered by the probe.",
+                         "trigger":  "The repository, temporary directory or plugin path contains spaces or a % variable-like component.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2138-2141",
+                                              "observation":  "The code explicitly avoids prompt argv through codex.cmd because cmd.exe can expand %VAR% inside quotes."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Muse launcher chain",
+                                              "observation":  "No verified probe in the brief covers paths with spaces or percent signs."
+                                          }
+                                      ],
+                         "verification":  "Point CODEX_CONSULT_MUSE_EXE and the repo at temporary paths containing spaces and %APPDATA% text, then compare received and intended argv in fake-muse.",
+                         "remedy":  "Test the launcher chain and, if needed, resolve a stable executable or use ProcessStartInfo with a controlled environment and argument list.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-15",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  312
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  349
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2626
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2815
+                                           }
+                                       ],
+                         "claim":  "The brief treats one consultation as one Muse prompt, but the bridge’s default format repair and denial retry can spend a second or third Muse prompt on the same consultation and consume the 10-50/5 h quota unexpectedly.",
+                         "trigger":  "A muse structured reply is prose, or an empty outcome resembling a denial, while FormatRetry and DenialRetry retain their defaults.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:312-316,349-352,2626,2815",
+                                              "observation":  "Both extra turns are enabled by default for non-codex engines and launch complete engine turns."
+                                          }
+                                      ],
+                         "verification":  "Instrument fake-muse to count exec invocations for a prose first reply and assert the intended one-turn or retry budget.",
+                         "remedy":  "Disable one or both retries for muse by default, or expose and record a strict muse prompt budget; never let a retry run after quota failure.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-16",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1042
+                                           }
+                                       ],
+                         "claim":  "The proposed -MaxModelSteps value is not included in the panel-member argument spec, so muse panel members would not inherit the operator’s limit and could diverge from solo runs.",
+                         "trigger":  "Run -Panel with one or more muse entries and a nondefault -MaxModelSteps.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1042-1066",
+                                              "observation":  "The serialized member args include timeout, engine and engine_exe but no max-model-steps field."
+                                          }
+                                      ],
+                         "verification":  "Dry-run/execute a muse panel member with a distinctive limit and inspect its command and ledger.",
+                         "remedy":  "Add a validated positive MaxModelSteps to parameters, dry run, panel spec and ledger command; reject it for engines that do not use it.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-17",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-providers.ps1",
+                                               "line":  95
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-providers.ps1",
+                                               "line":  130
+                                           }
+                                       ],
+                         "claim":  "codex-providers.ps1 hardcodes its explicit -EngineExe override for agy, so the muse engine and its tests can use the environment override but cannot use the CLI’s documented generic explicit-launcher parameter.",
+                         "trigger":  "Run codex-providers.ps1 -EngineExe \u003cpath-to-fake-muse.cmd\u003e for a muse roster entry.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-providers.ps1:95-99,130-133",
+                                              "observation":  "The parameter documentation and engineLaunchers assignment name only agy."
+                                          }
+                                      ],
+                         "verification":  "Invoke the provider listing with a fake muse launcher through -EngineExe and through CODEX_CONSULT_MUSE_EXE; compare behavior.",
+                         "remedy":  "Either document that muse uses only its environment override or add an engine-qualified explicit-launcher mechanism shared by provider listing and consultation.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-18",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "tests/README.md",
+                                               "line":  23
+                                           },
+                                           {
+                                               "path":  "tests/fake-agy.ps1",
+                                               "line":  9
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  63
+                                           }
+                                       ],
+                         "claim":  "The proposed fake/harness matrix omits several of the design’s highest-risk cases: malformed/partial JSONL, unsupported MSP schema version, multiple or mismatched session streams, wrong configured model, usage/max-step exits, keychain preflight, API-key opt-in, retry/repair parsing, panel propagation of MaxModelSteps, and billing with -SkipPreflight.",
+                         "trigger":  "Executing only the knob list in the design brief before acceptance.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/fake-agy.ps1:9-51; .collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md:63-66",
+                                              "observation":  "The existing agy fake covers analogous malformed/thread/failure knobs, while the proposed muse knob list is smaller."
+                                          }
+                                      ],
+                         "verification":  "Run the completed muse harness and confirm every listed branch has an assertion over argv, ledger class, thread and stored reply.",
+                         "remedy":  "Extend fake-muse with those knobs and add unit and end-to-end assertions before any real run is trusted.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-19",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  15
+                                           }
+                                       ],
+                         "claim":  "The read-only flags address mutation and command execution but do not establish that native read_file is confined to the repository, so confidentiality of external files is still outside the enforcement boundary.",
+                         "trigger":  "A muse reviewer requests an absolute path outside the repository or a path traversing out of the root.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md:15-17",
+                                              "observation":  "The verified probe shows repository reading, not a filesystem boundary for arbitrary paths."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Native read_file behavior",
+                                              "observation":  "No probe shows that Muse rejects absolute or traversing paths."
+                                          }
+                                      ],
+                         "verification":  "In a disposable repository, ask Muse to read a marked external file and inspect the terminal answer and tree check.",
+                         "remedy":  "Document the exposure; use an OS-level filesystem sandbox if external-file confidentiality is in scope.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-20",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  31
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  58
+                                           }
+                                       ],
+                         "claim":  "caps-v1 would declare the 1.2 muse models even though the brief verifies only the 1.3 pair under the subscription and merely says the docs list 1.2 and 1.1.",
+                         "trigger":  "A roster selects muse-spark-1.2 or its contributor variant when that model is not subscription-enabled.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md:31-32,58-60",
+                                              "observation":  "The fact and design sections distinguish live acceptance from documentation-only availability."
+                                          }
+                                      ],
+                         "verification":  "Run one bounded model-availability probe for each 1.2 id or obtain vendor confirmation before shipping the caps row.",
+                         "remedy":  "Declare only live-verified subscription models initially, or document that 1.2 entries are docs-declared and may fail capability preflight at runtime.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-21",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  42
+                                           }
+                                       ],
+                         "claim":  "The default max-model-steps value of 80 is asserted without evidence that a normal code review fits, so a legitimate long review can be terminated after consuming a subscription prompt.",
+                         "trigger":  "A muse reviewer needs more than 80 model steps to inspect a large repository or answer all brief questions.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md:12-17,42-43",
+                                              "observation":  "Only small 20-31 second probes are recorded; no step-count distribution supports 80."
+                                          }
+                                      ],
+                         "verification":  "Collect step counts from several real bounded reviews, including a large repo, before fixing the default.",
+                         "remedy":  "Use the vendor default unless a measured safety budget is required, or set a purpose-aware limit and classify a max-steps termination explicitly.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-muse-design-zai.md",
+                                        "thread":  "01a0db2c-64d8-76d2-83b6-5e590ba9d1d0",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:58:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-1",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3032
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3047
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "Item 1 cannot find the launcher on the machine the design was verified on: muse.cmd lives in %LOCALAPPDATA%\\Programs\\muse, that directory is absent from the bridge process\u0027s Path and from both the User and the Machine Path, and `Get-Command muse` returns nothing. Resolve-EngineLauncher only consults -EngineExe, the ExeEnv variable and PATH lookup, so the preflight reports \u0027muse CLI not found on PATH\u0027 and item 11\u0027s install story never says the override is mandatory.",
+                         "trigger":  "Any muse run without -EngineExe or CODEX_CONSULT_MUSE_EXE, on an install done exactly as item 11 describes.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-Command muse,muse.exe,muse.cmd -CommandType Application; PATH membership test against $env:LOCALAPPDATA\\Programs\\muse",
+                                              "observation":  "No command resolved; the directory is not in the process Path and not in the User or Machine Path, although muse.cmd (176 B) and muse-bin-1.4.0-R4161.1.exe (434 MB) are present there."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3032-3051",
+                                              "observation":  "Launcher resolution is explicit value -\u003e ExeEnv via [Environment]::GetEnvironmentVariable (process scope) -\u003e Get-Command over PATH; nothing probes a known install directory."
+                                          }
+                                      ],
+                         "verification":  "Run RC1 in a fresh bridge shell and confirm that no muse launcher resolves and that the install directory is not on the PATH the bridge sees.",
+                         "remedy":  "Make the override explicit in item 1/5/11 (add the directory to PATH and restart the bridge, or set CODEX_CONSULT_MUSE_EXE), and optionally probe %LOCALAPPDATA%\\Programs\\muse as a last resort. Requires finding #4 so -EngineExe can name Muse.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2982
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3166
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2117
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2621
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2811
+                                           }
+                                       ],
+                         "claim":  "The adapter\u0027s Argv function receives only Model, Schema, Thread and NativeEffort, so a muse row cannot name the prompt file item 2 depends on. The bridge writes the prompt to three different temp paths per turn ($promptPath, $denialPromptPath, $repairPromptPath) that only the run block knows, and the documented adapter interface (Argv/Stdin/Events/Outcome/Credential) has no slot for one.",
+                         "trigger":  "Implementing item 2 literally, and again on the denial-retry and format-repair turns, which use their own prompt files.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:2982-2987 and 3166-3168",
+                                              "observation":  "The interface and New-AgyArgv take Model/Schema/Thread/NativeEffort only; the prompt reaches agy through Adapter.Stdin, not through the argv."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1819-1828, 2319, 2621, 2811",
+                                              "observation":  "Prompt files are per-turn temp paths written by the run block after the argv is built."
+                                          }
+                                      ],
+                         "verification":  "Grep the three -Argv call sites and confirm that no parameter can carry a prompt-file path into the adapter.",
+                         "remedy":  "Add a -PromptFile parameter to the Argv contract (and its documentation) and pass the per-turn path at 2117, 2621 and 2811; or compute the prompt path in the run block and store it on the engine spec per turn.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2628
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2629
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2818
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2820
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2562
+                                           }
+                                       ],
+                         "claim":  "The denial-retry and format-repair turns parse their event streams with Read-AgyEvents/Get-AgyTurnOutcome by name, not through $engineSpec.Adapter, while the main turn goes through the adapter. A muse retry or repair turn would therefore be read by the agy rules (event/init/result/status/structured_output), which an MSP stream does not contain: every repair and retry would fail as \u0027no result event\u0027, and a successful repair could never be ingested.",
+                         "trigger":  "Any muse run that needs -FormatRetry 1, or any Muse denial-shaped failure with -DenialRetry 1.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2562-2563 versus 2628-2629 and 2818-2820",
+                                              "observation":  "The main turn calls \u0026 $engineSpec.Adapter.Events/Outcome; both secondary turns call the agy functions directly."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2605",
+                                              "observation":  "The denial-retry gate also reads $agyTurn.DeniedEmpty and $agyEvents.ToolName/DeniedAction, so the whole path is agy-shaped, not adapter-shaped."
+                                          }
+                                      ],
+                         "verification":  "Run `rg -n \"Read-AgyEvents|Get-AgyTurnOutcome\" plugins/codex-consult/scripts/codex-consult.ps1` and confirm four literal call sites outside the adapter dispatch.",
+                         "remedy":  "Route both secondary turns through $engineSpec.Adapter.Events and .Outcome (and move the denial-retry gate onto fields the adapter already returns).",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-4",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  824
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-providers.ps1",
+                                               "line":  132
+                                           }
+                                       ],
+                         "claim":  "-EngineExe is hardwired to the agy engine in both scripts, so a muse run can never be pointed at a launcher explicitly - which is exactly the escape hatch finding #1 makes mandatory. The help text at codex-consult.ps1:150 documents -EngineExe as the agy override, and item 1 adds CODEX_CONSULT_MUSE_EXE without addressing the parameter.",
+                         "trigger":  "-Engine muse -EngineExe \u003cpath to muse.cmd\u003e, or any panel whose muse member needs an explicit launcher.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:823-824 and plugins/codex-consult/scripts/codex-providers.ps1:132",
+                                              "observation":  "Both assign $engineLaunchers[\u0027agy\u0027] and nothing else, regardless of the selected engine."
+                                          }
+                                      ],
+                         "verification":  "Run the bridge with -Engine muse -EngineExe \u003creal muse.cmd\u003e -DryRun and observe that the muse launcher stays unresolved while agy\u0027s is set.",
+                         "remedy":  "Bind the explicit launcher to the selected non-codex engine ($engineLaunchers[$Engine]) and update the help text to name each engine\u0027s env override.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-5",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2555
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2602
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2650
+                                           }
+                                       ],
+                         "claim":  "Item 8 declares vocabulary muse with mapping muse-v1 but no $script:EffortVocabularies entry for it exists, and there is no Set-StrictMode in any script: Resolve-EffortPlan then does $v = $null, leaves Sent at $null and Mapping at \u0027\u0027, and the run proceeds with the effort silently dropped while the ledger prints an empty mapping. Only the special case Vocabulary -eq \u0027model-tier\u0027 avoids this today.",
+                         "trigger":  "Any muse run without -NativeEffort (the default path for every preset purpose).",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:2555-2566, 2602, 2630-2653",
+                                              "observation":  "EffortVocabularies holds openai, zai, mimo, ark, kimi, alibaba only; model-tier is special-cased before the table lookup; the table lookup result is dereferenced without a check."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "rg -n \"Set-StrictMode\" plugins/codex-consult/scripts/",
+                                              "observation":  "No match, so the null dereference cannot throw."
+                                          }
+                                      ],
+                         "verification":  "Add the muse row, then run -Engine muse -Model muse-spark-1.3 -Effort high -DryRun and read the effort mapping line: it must say muse-v1 (today it would be empty).",
+                         "remedy":  "Add the muse vocabulary to $script:EffortVocabularies (or map the row onto an existing mapping), and turn a missing vocabulary into a plan Error in Resolve-EffortPlan so the failure is loud.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-6",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4116
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3144
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "Item 5\u0027s \u0027otherwise sign-in not checkable (keychain) as a warning\u0027 cannot be built from this contract: a CredentialResult has only ok/missing/unknown (3139-3158), and Get-PreflightVerdict turns unknown into a hard refusal unless -SkipPreflight is passed. On an install where TBH_CREDENTIAL_BACKEND=file was never set, every muse run is refused by default, not warned about.",
+                         "trigger":  "A muse run on Windows where the keychain backend is in effect (the state the design itself measured on 2026-09-25).",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4074-4141",
+                                              "observation":  "cred.State -eq \u0027unknown\u0027 sets Refusal \u0027availability could not be established ... pass -SkipPreflight to launch anyway\u0027 and Label \u0027a real run is refused\u0027."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3144-3147",
+                                              "observation":  "Only ok (ledger short-circuit), unknown (NoNetwork) and the adapter\u0027s result are produced; there is no advisory state."
+                                          }
+                                      ],
+                         "verification":  "Write a fake credential check that returns at least one non-ok state and observe whether the dry run refuses or warns.",
+                         "remedy":  "State in item 5 which State each case maps to, document that TBH_CREDENTIAL_BACKEND=file is required on Windows for a checkable sign-in, and accept that an uncheckable sign-in refuses the run (or add a new state and teach Get-PreflightVerdict about it).",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-7",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2473
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3972
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "Billing safety covers only the bridge\u0027s environment. The credential file itself contains a providers.meta object whose key names include api_key alongside mechanism and obtained_via, so an api-key credential can be in effect without any META_API_KEY/MODEL_API_KEY in the environment; the preflight\u0027s key-names-only rule cannot tell which mechanism is live, and because MSP records carry no usage (brief, verified facts), nothing in the ledger afterwards distinguishes subscription from per-token billing. The roster escape hatch is also unreachable as designed: the entry validator rejects keys outside provider/model/codex_config/auth/panel/engine.",
+                         "trigger":  "A user who configured an API key in auth.json, or one who declares billing: api-key in the roster while the validator still rejects the key.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "property names of providers.meta in %USERPROFILE%\\.config\\muse\\auth.json (names only; no values read or printed)",
+                                              "observation":  "access_token, obtained_via, mechanism, api_key, api_base_url, user_full_name, user_email."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:2473-2483 and 3966-3975",
+                                              "observation":  "New-ReviewerRecord has no billing field; the roster validator rejects any key outside its five-plus-engine allow-list."
+                                          }
+                                      ],
+                         "verification":  "Run RC2 and RC3; if no cheap mechanism read exists, cost one probe run and confirm the ledger records nothing about the billing mode.",
+                         "remedy":  "Record the credential mechanism (enum only, never the secret) and the guard\u0027s decision in reviewer/provider_config, extend the roster allow-list for billing, and state that a loud refusal plus a recorded mechanism is the only control available because the stream has no usage.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-8",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2449
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3353
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  174
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "Item 7 adds no resume-verification rule. The agy precedent refuses a resume whose result names another conversation (ExpectThread) and distinguishes the not-found warning, but the muse design says nothing about verifying the session id in the terminal record; if the bridge or the CLI mints the id itself (the flag is --session-id UUID), the stream echoes it and \u0027resume silently started a fresh session\u0027 is indistinguishable from success. Item 9\u0027s shared fingerprint also ignores the signed-in account (TECH_DEBT T7), so a quota or auth failure recorded against one Meta account refuses and is attributed to every muse entry.",
+                         "trigger":  "-Mode resume after the CLI\u0027s session store is cleared, moved or reinstalled, or after a second Meta account is signed in on the same machine.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3353-3368 and 2449-2462",
+                                              "observation":  "agy has explicit parent-conversation checks; the engine fingerprint is SHA-256 of cc-engine-v1|\u003cengine\u003e alone, with no account component."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md:174",
+                                              "observation":  "T7 is recorded as open for agy: a lineage binds engine, label and model, not the signed-in account."
+                                          }
+                                      ],
+                         "verification":  "Run RC4 twice: the second run with -Mode resume on the first run\u0027s session id, then check the terminal record and the ledger thread against the parent id.",
+                         "remedy":  "Require the muse outcome to expose the session id of the completed run and to fail a resume whose stream names a different (or missing) session, and add the account/plan identity to ProviderConfig and the fingerprint as T7 asks.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-9",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  3008
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2300
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2310
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1594
+                                           }
+                                       ],
+                         "claim":  "The permanent record and dry-run text are agy-shaped for every non-codex engine: \u0027prompt on stdin as one NDJSON line\u0027 (3008), the same claim in the dry run (2300), \u0027reply source: the result event\u0027s structured_output\u0027 (2310), and the sandbox line \u0027the \u003cengine\u003e --sandbox restricts the terminal only\u0027 (1594, and the -Sandbox refusal at 1584). For muse all four statements are false - the prompt goes through a file, the reply comes from run.terminal.completed, and there is no --sandbox flag - so the handoff, the ledger\u0027s sandbox field and the dry run would assert untruths.",
+                         "trigger":  "Any muse dry run or completed muse handoff.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1584, 1594, 2300, 2310, 3008",
+                                              "observation":  "Each string is written once for the whole non-codex branch with no engine substitution except the bare name."
+                                          }
+                                      ],
+                         "verification":  "Run -Engine muse -DryRun and read the stdin, reply-source and sandbox lines.",
+                         "remedy":  "Move the transport, reply-source and read-only wording into the engine row (and its prompt) so each engine states its own facts.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-10",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3068
+                                           }
+                                       ],
+                         "claim":  "reviewer.harness would always read \u0027muse-cli (version unknown)\u0027: the harness string comes from the launcher file\u0027s ProductVersion, and that is empty for both muse.cmd and the 434 MB muse-bin-1.4.0-R4161.1.exe, while the launcher directory carries .muse-version and .muse-release-info.json with the real version. Nothing else in the design records which CLI build answered, so a post-update behaviour change cannot be attributed.",
+                         "trigger":  "Every muse run, since item 1 prefers muse.cmd on Windows.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "(Get-Item $env:LOCALAPPDATA\\Programs\\muse\\muse.cmd).VersionInfo.ProductVersion and the same for muse-bin-1.4.0-R4161.1.exe",
+                                              "observation":  "Both are empty strings; .muse-version contains 1.4.0-R4161.1 and .muse-release-info.json holds channel/version/manifest_url/urgency/notification_text/state/min_version."
+                                          }
+                                      ],
+                         "verification":  "Run RC3/RC4 and read the harness field of the ledger entry against the installed version.",
+                         "remedy":  "Let the engine row name its version source (.muse-version, else the binary\u0027s file version) and record it; use the same source for the Q4 drift check.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-11",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3414
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3655
+                                           }
+                                       ],
+                         "claim":  "Item 6 leans on the shared text classifier, but its patterns know Google, OpenAI, MiMo, Kimi and Alibaba wordings only, and the retry-after extraction knows Google and compact-duration phrasings. Meta\u0027s own quota wording and a max-model-steps stop (exit 1, \u0027failed or cancelled\u0027) would both land in class unknown, so item 9\u0027s promise that a quota blocks all muse entries until its reset holds only if the wording happens to match - and a max-steps stop is indistinguishable from a crash, including for the ledger.",
+                         "trigger":  "A muse run that hits the plan limit or exhausts --max-model-steps.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3414-3431 and 3640-3710",
+                                              "observation":  "Classes are matched by regex lists; quota classification is what makes Get-EndpointHealth record a limit and 60-min/last-24h rules refuse later runs."
+                                          }
+                                      ],
+                         "verification":  "Feed a fake-muse stream whose stderr carries Meta\u0027s quota sentence and confirm the ledger records class quota with a retry_after, and a max-steps exit 1 and confirm a distinct, non-unknown class.",
+                         "remedy":  "Add the Muse wordings to the classifier and the reset parser, give a max-steps stop its own text/class, and state the intended relation between -MaxModelSteps (default 80) and the bridge timeout so a slow review is not killed after spending a prompt unit.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-12",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2050
+                                           }
+                                       ],
+                         "claim":  "The read-only instruction the engine prompt carries names run_command, Google\u0027s tool. Muse\u0027s write and shell tools have other names and are disabled by flags, so the prompt tells the model not to call a tool that does not exist while never naming the ones that do - the weakest link in the item 3 posture.",
+                         "trigger":  "Every muse run.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2047-2051",
+                                              "observation":  "One hardcoded line for all non-codex engines, justified in the comment by agy\u0027s F11/F12."
+                                          }
+                                      ],
+                         "verification":  "Run -Engine muse -DryRun and read the tools line of the assembled prompt.",
+                         "remedy":  "Move the tools line into the engine row and phrase it with Muse\u0027s own tool names and its disabled flags.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-13",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "tests/harness-engines.ps1",
+                                               "line":  1
+                                           },
+                                           {
+                                               "path":  ".collab/muse-engine-2026-09-26/handoffs/01-claude-muse-engine-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "Item 10\u0027s case list omits precisely the paths this design changes: a denial-retry and a format-repair turn served by a muse fake (finding #3), the prompt-file argv (finding #2), the version-unknown harness (finding #10), a -Raw/prompt-only run, the -EngineExe path for muse (finding #4), and any case that pins the argv against the CLI\u0027s real flag spellings (--prompt-file, --output-schema, --reasoning-effort, --no-foreign-personal-context). The fake also has to reproduce MSP records with schema_version, a session stream and two terminal records, which no existing fake does for its engine.",
+                         "trigger":  "Reviewing the wave that adds muse on the strength of a green harness-engines run.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-engines.ps1:1-8 and tests/fake-agy.ps1",
+                                              "observation":  "The suite and the fake are agy-shaped (result events, conversation ids, agy wordings); nothing exercises the adapter indirection of the secondary turns."
+                                          }
+                                      ],
+                         "verification":  "Run RC5 to establish the agy baseline, then add the case list above and check that each new case fails before its fix.",
+                         "remedy":  "Extend item 10 with those cases, and make the fake emit a record set derived from a real sanitized probe so the record_type/payload paths are exercised verbatim.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70b9-7463-918d-18320e7b92e6",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:53:45+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-1",
+                         "status":  "superseded",
+                         "severity":  "major",
+                         "locations":  [
+
+                                       ],
+                         "claim":  "No existing environment variable guard logic for non-codex engines. All engine processes inherit the full parent environment.",
+                         "trigger":  "Any API_KEY environment variable set in the bridge process will be passed to the muse child process, potentially triggering per-token billing.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                              "observation":  "Start-Process is called without modifying EnvironmentVariables; no filtering or checking of environment variables exists for non-codex engines."
+                                          }
+                                      ],
+                         "verification":  "Run codex-consult -Engine agy with an API_KEY variable set and inspect the agy process environment.",
+                         "remedy":  "Add engine-specific environment variable filtering logic that checks for and either refuses or strips configured variables before launching the child process.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70c9-75d1-bd91-0a97d36fa4ba",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:51:05+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T03:00:39+02:00",
+                                             "status":  "superseded",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "superseded by F02-4 (handoffs/05)",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-2",
+                         "status":  "superseded",
+                         "severity":  "note",
+                         "locations":  [
+
+                                       ],
+                         "claim":  "The tree check only monitors writes, not reads. It cannot prevent or detect file reads by the engine.",
+                         "trigger":  "Muse can read any file accessible to the user (including outside the repository, gitignored files, etc.) even with --disable-write and --disable-shell, and this will not be detected.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                              "observation":  "The tree check compares before/after working tree fingerprints, but has no visibility into read operations. This is identical to the agy engine\u0027s behavior."
+                                          }
+                                      ],
+                         "verification":  "Run a muse prompt asking to read a file outside the repository; it will succeed and the tree check will not flag it.",
+                         "remedy":  "This is the established safety model for all external engines. To restrict reads, a scratch workspace with restricted filesystem access would be required.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70c9-75d1-bd91-0a97d36fa4ba",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:51:05+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T03:00:40+02:00",
+                                             "status":  "superseded",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "superseded by F02-19 (handoffs/05)",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-3",
+                         "status":  "rejected",
+                         "severity":  "major",
+                         "locations":  [
+
+                                       ],
+                         "claim":  "No MSP record parser exists for muse. The existing Read-AgyEvents parser is specific to agy\u0027s stream-json format.",
+                         "trigger":  "Any muse run will fail to extract the reply, thread ID, or failure information.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                              "observation":  "Only Read-AgyEvents and Get-AgyTurnOutcome exist for non-codex engine event parsing."
+                                          }
+                                      ],
+                         "verification":  "Attempt to run muse through the bridge; it will attempt to use the agy parser which will not recognize MSP records.",
+                         "remedy":  "Implement Read-MuseEvents and Get-MuseTurnOutcome adapter functions following the MSP format specification, equivalent to the agy implementations.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70c9-75d1-bd91-0a97d36fa4ba",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:51:05+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T03:01:00+02:00",
+                                             "status":  "rejected",
+                                             "by":  "coordinator",
+                                             "note":  "restates an item the design itself lists as work to do; not a defect of the design (handoffs/05)",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-4",
+                         "status":  "rejected",
+                         "severity":  "major",
+                         "locations":  [
+
+                                       ],
+                         "claim":  "No preflight credential check logic exists for muse.",
+                         "trigger":  "The preflight step for muse will not verify if the user is signed in.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                              "observation":  "Only Get-AgyModelsStatus exists for non-codex engine credential checks."
+                                          }
+                                      ],
+                         "verification":  "Run codex-consult -Engine muse; the preflight will have no way to check sign-in status.",
+                         "remedy":  "Implement Get-MuseModelsStatus that checks ~/.config/muse/auth.json exists and has the providers.meta entry.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70c9-75d1-bd91-0a97d36fa4ba",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:51:05+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T03:01:02+02:00",
+                                             "status":  "rejected",
+                                             "by":  "coordinator",
+                                             "note":  "restates an item the design itself lists as work to do; not a defect of the design (handoffs/05)",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-5",
+                         "status":  "superseded",
+                         "severity":  "minor",
+                         "locations":  [
+
+                                       ],
+                         "claim":  "No CLI version checking or pinning exists for auto-updating engines.",
+                         "trigger":  "An automatic update to the muse CLI could break argument parsing, event format, or behavior with no warning.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                              "observation":  "No --version check exists for agy or any other external engine."
+                                          }
+                                      ],
+                         "verification":  "Run agy --version; the bridge does not verify or pin the version before launching.",
+                         "remedy":  "Add version checking for muse that runs --version before each launch, and fail or warn on untested versions.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70c9-75d1-bd91-0a97d36fa4ba",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:51:05+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T03:00:41+02:00",
+                                             "status":  "superseded",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "superseded by F02-13 (handoffs/05)",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-6",
+                         "status":  "rejected",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The engine table does not contain an entry for muse.",
+                         "trigger":  "Any attempt to use -Engine muse will fail with \u0027unknown engine\u0027.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                              "observation":  "$script:Engines only contains entries for \u0027codex\u0027 and \u0027agy\u0027."
+                                          }
+                                      ],
+                         "verification":  "Run codex-consult -Engine muse; it will error immediately.",
+                         "remedy":  "Add a muse entry to $script:Engines following the agy pattern, with the appropriate adapter function names.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70c9-75d1-bd91-0a97d36fa4ba",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:51:05+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T03:01:03+02:00",
+                                             "status":  "rejected",
+                                             "by":  "coordinator",
+                                             "note":  "restates an item the design itself lists as work to do; not a defect of the design (handoffs/05)",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-7",
+                         "status":  "rejected",
+                         "severity":  "major",
+                         "locations":  [
+
+                                       ],
+                         "claim":  "No thread resume logic exists for muse.",
+                         "trigger":  "Attempting to resume a muse thread will not pass the --session-id argument correctly.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                              "observation":  "Only New-AgyArgv implements thread resume logic for external engines."
+                                          }
+                                      ],
+                         "verification":  "Run codex-consult -Engine muse -Mode resume -Thread \u003cid\u003e; the argument will not be included in the muse argv.",
+                         "remedy":  "Implement New-MuseArgv that handles new/resume modes and passes --session-id when resuming, and refuses fork mode.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-muse-design-byteplus.md",
+                                        "thread":  "01a0db2c-70c9-75d1-bd91-0a97d36fa4ba",
+                                        "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                        "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T02:51:05+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T03:01:04+02:00",
+                                             "status":  "rejected",
+                                             "by":  "coordinator",
+                                             "note":  "restates an item the design itself lists as work to do; not a defect of the design (handoffs/05)",
+                                             "evidence":  "",
+                                             "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
+                                             "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     }
+                 ]
+}
