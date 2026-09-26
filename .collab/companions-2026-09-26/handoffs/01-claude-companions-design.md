@@ -76,3 +76,30 @@ Q2. Exploration 0.2 per slot: right order of magnitude for a roster of ~10 and a
 Q3. Diversity before rank: any case where it picks a clearly worse lab representative over a
     better second model of the same lab that the coordinator would regret?
 Q4. Should a role change the purpose presets (effort, max words), or stay prompt-only?
+
+## Addendum (2026-09-26, the maintainer's request): availability the operator can act on
+
+The maintainer: the operator should see, briefly, which reviewers are out on a limit and until
+when, because some topics should not be started without a particular reviewer.
+
+9. Availability line, sharpened: the SessionStart hook line (and `codex-providers.ps1 -Short`,
+   new) names only what is OUT, per roster entry (not per provider label), with the reset time
+   in local time and a relative hint: `codex-consult: out - openai :: gpt-6-astra (until Sun
+   20:35, 2d 10h), gemini :: * (until Sun 21:30); 9 of 11 reviewers available`. Every entry
+   available: `codex-consult: all 11 reviewers available`. A quota failure WITHOUT a known reset
+   (e.g. BytePlus 429 at 10:31 today, which the hook still reports as available) marks the
+   endpoint "out (limit hit 10:31, reset unknown - retry after 60 min)" for 60 minutes.
+10. `-Require <lineage[,lineage]>` on `-Panel` (and on a single run with `-Provider`): the run is
+    refused BEFORE anything starts when a required reviewer is unavailable, printing who and
+    until when, exit 5; the dry run shows the same. The roster may carry the default:
+    `"require": { "acceptance": ["openai :: gpt-6-astra"], "framing": [...] }` per purpose.
+11. The consult-codex skill: before a framing, decision, core-contract or acceptance panel the
+    coordinator runs the availability check and, when a reviewer the topic needs is out, tells
+    the operator who is out and until when and asks whether to wait or to proceed without them -
+    never silently proceeds. The bridge's own summary already names skipped members; this rule
+    moves the decision before the run.
+
+Q5. Should "out" be judged per roster entry (two agy models share one quota - both out) or per
+    endpoint group as `Get-PanelPlan` defines it, and how should the hook line stay one line with
+    an 11-entry roster?
+
