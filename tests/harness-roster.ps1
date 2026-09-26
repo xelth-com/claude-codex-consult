@@ -229,7 +229,7 @@ if (Want 'UNIT') {
     $pf = New-ProviderFailure -Texts @($codexLimit)
     $pfWall = New-Object DateTime(2026, 9, 28, 20, 35, 0)
     $pfExpect = Iso (New-Object DateTimeOffset($pfWall, [TimeZoneInfo]::Local.GetUtcOffset($pfWall)))
-    Check 'UNIT' 'New-ProviderFailure: class quota, message keeps the curly apostrophe, retry_after 2026-09-28T20:35 in the offset of its `when`, field order class,code,message,when,retry_after' ($pf.class -eq 'quota' -and $pf.message.Contains("You${apos}ve") -and $pf.retry_after -eq $pfExpect -and (($pf.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'class,code,message,when,retry_after') "$($pf.class) / $($pf.retry_after)"
+    Check 'UNIT' 'New-ProviderFailure: class quota, message keeps the curly apostrophe, retry_after 2026-09-28T20:35 in the offset of its `when`, field order class,kind,code,message,when,retry_after,hint (wave 24c: kind after class, hint last)' ($pf.class -eq 'quota' -and $pf.message.Contains("You${apos}ve") -and $pf.retry_after -eq $pfExpect -and (($pf.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'class,kind,code,message,when,retry_after,hint' -and $pf.kind -eq '' -and $pf.hint -eq '') "$($pf.class) / $($pf.retry_after)"
     $pf2 = New-ProviderFailure -Texts @('the model produced nothing')
     Check 'UNIT' 'New-ProviderFailure without a reset time -> retry_after null' ($pf2.PSObject.Properties['retry_after'] -and $null -eq $pf2.retry_after) ''
 

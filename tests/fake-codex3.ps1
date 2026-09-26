@@ -46,6 +46,11 @@
 #                                any sleep or hang - a killed turn's own stderr
 #   FAKE_CODEX_RESUME_FAIL=<t>   on a `resume <thread>` turn: an `error` event and a `turn.failed`
 #                                event with <t>, "ERROR: <t>" on stderr, exit 1, no reply
+#   (wave 24c, the tree check by content)
+#   FAKE_CODEX_COMMIT=<p>[|<p>]  on a turn that is NOT `resume <thread>`: `git add -f` those paths
+#                                (relative to the working directory) and commit them, after
+#                                FAKE_CODEX_WRITE and before any sleep or hang - a coordinator
+#                                committing while the reviewer runs (HEAD moves)
 $ErrorActionPreference = 'Stop'
 $raw = [string]$env:FAKE_CODEX_ARGS
 # "<model>=<value>|..." -> the value for $Key ('*' or a bare value: the default; $null: none)
@@ -115,6 +120,13 @@ if ($env:FAKE_CODEX_STDERR_FIRST) {
 }
 if ($env:FAKE_CODEX_WRITE -and $raw -notmatch ' resume ') {
     [IO.File]::WriteAllText((Join-Path (Get-Location).Path $env:FAKE_CODEX_WRITE), "written by the fake codex`n")
+}
+if ($env:FAKE_CODEX_COMMIT -and $raw -notmatch ' resume ') {
+    $commitPaths = @($env:FAKE_CODEX_COMMIT.Split('|') | Where-Object { $_ })
+    $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $null = & git add -f -- @commitPaths 2>&1
+    $null = & git -c user.email=fake@example.invalid -c user.name=fake commit -q -m 'fake coordinator commit' 2>&1
+    $ErrorActionPreference = $prevEap
 }
 if ($env:FAKE_CODEX_RESUME_FAIL -and $raw -match ' resume [0-9a-fA-F-]{36}') {
     $fm = ConvertTo-Json -InputObject ([string]$env:FAKE_CODEX_RESUME_FAIL) -Compress

@@ -13,7 +13,9 @@
       * text/JSON I/O    Write-Utf8NoBom, Write-JsonFile, Read-SharedText
       * errors, git      Stop-WithError, Get-GitOutput, Invoke-GitCapture
       * paths            Resolve-RepoRoot, Resolve-CollabRoot, Get-RepoRelativePath
-      * fingerprints     Get-FileSha256, Get-RevisionInfo, Get-ArtifactHashes
+      * fingerprints     Get-FileSha256, Get-RevisionInfo, Get-ArtifactHashes,
+                         Compare-TreeContent (wave 24c: the tree check by content, a moved
+                         HEAD as revision_moved)
       * findings         Read-FindingsFile, Write-FindingsFile, Format-FindingLine,
                          Add-ReplyFindings
       * structured reply ConvertFrom-StructuredReply, Test-StructuredReply,
@@ -40,14 +42,17 @@
                          New-ProviderFailure, Get-EndpointHealth (usage limits with a
                          known reset time block until then), Get-ConsultClock,
                          Test-ContextOverflow and Get-FailureHint (wave 24b: a context-
-                         window limit is capability, with its hint)
+                         window limit is capability, with its hint; wave 24c: quota wording
+                         wins, the hint stored at classification - Get-ClassHint),
+                         Get-FailureKind (wave 24c: a burst 429, out for 10 minutes)
       * continuation     (wave 24b) Get-KilledTurnFailure (the one classifier over a killed
-                         turn's evidence), Test-ContinuationReply (a first reply's checks)
+                         turn's evidence; wave 24c: structured evidence and diagnostic stderr
+                         lines only), Test-ContinuationReply (a first reply's checks)
       * reviewer roster  Get-RosterPath, Read-ReviewerRoster (fail-closed validation),
                          Find-RosterEntry, Get-PreflightVerdict, Format-QuotaWarning,
                          Select-RosterReviewer (the walk), Select-PanelMembers (-Panel),
                          Get-CachedReviewerIdentity / Get-CachedEndpointHealth (wave 24b:
-                         one resolution per listing),
+                         one resolution per listing; wave 24c: New-ListingCache, ordinal),
                          Get-PanelPlan (the panel's endpoint-aware concurrency),
                          Get-PanelIgnorePrefixes (an agy member's siblings),
                          Format-RosterSkips; Find-ThreadEntry (-Thread lookup)
@@ -527,6 +532,14 @@ function Get-GitModeMap {
 # entries, i.e. also without the collaboration directory.
 # git status runs with --no-optional-locks, so computing a fingerprint never writes
 # to the repository (not even an index refresh) - -DryRun stays write-free.
+# (wave 24c) content_sha256 / content: the CONTENT fingerprint the tree check during a run
+# compares (Compare-TreeContent) - every tracked file's blob (`git ls-files -s -z`, the index's
+# blob ids; a path git status lists takes its worktree blob instead, or is gone when deleted) and
+# every untracked file's blob, under the same exclusions (the collab directory, ignored files; a
+# submodule is its gitlink, 'dir' once changed), as "<blob> <path>" lines sorted by path. It
+# depends on file contents only - never on HEAD, the commit id or the index's metadata (what is
+# staged, file modes): a commit, a moved HEAD or a `git add` that leaves every file as it was
+# leaves it unchanged. content_sha256 '' (and content $null) when ls-files fails or without git.
 function Get-RevisionInfo {
     param([string]$Root, [string]$CollabRoot = '')
     $info = [pscustomobject]@{
@@ -538,6 +551,8 @@ function Get-RevisionInfo {
         changed_files     = 0
         fingerprint_note  = 'no git'
         manifest          = ''
+        content_sha256    = ''
+        content           = $null
     }
     $status = Invoke-GitCapture -Root $Root -GitArgs @('--no-optional-locks', 'status', '--porcelain=v1', '-uall', '-z')
     if (-not $status -or $status.ExitCode -ne 0) { return $info }
@@ -634,6 +649,32 @@ function Get-RevisionInfo {
     else { $notes.Add('submodules not recursed') }
     if ($unreadable -gt 0) { $notes.Add("$unreadable files unreadable") }
 
+    # (wave 24c) the content fingerprint: the index's blob of every tracked path, then what git
+    # status says about the worktree (its blob, 'dir', or gone), then the untracked files
+    $ls = Invoke-GitCapture -Root $Root -GitArgs @('--no-optional-locks', 'ls-files', '-s', '-z')
+    if ($ls -and $ls.ExitCode -eq 0) {
+        $content = New-PathMap
+        foreach ($rec in $script:Utf8NoBom.GetString($ls.Bytes).Split([char]0)) {
+            # "<mode> <object> <stage><TAB><path>"
+            $tab = $rec.IndexOf([char]9)
+            if ($tab -lt 0) { continue }
+            $meta = $rec.Substring(0, $tab).Split(' ')
+            $p = $rec.Substring($tab + 1)
+            if ($meta.Length -lt 2 -or -not $p) { continue }
+            if ($collabRel -and ($p.Equals($collabRel, $cmp) -or $p.StartsWith($collabRel + '/', $cmp))) { continue }
+            $content[$p] = $meta[1]
+        }
+        foreach ($e in $entries) {
+            if ($e.Blob -eq 'deleted') { [void]$content.Remove($e.Path) } else { $content[$e.Path] = $e.Blob }
+        }
+        $contentKeys = [string[]]@($content.Keys)
+        [Array]::Sort($contentKeys, [StringComparer]::Ordinal)
+        $csb = New-Object System.Text.StringBuilder
+        foreach ($k in $contentKeys) { [void]$csb.Append($content[$k] + ' ' + (ConvertTo-ManifestPath $k) + "`n") }
+        $info.content_sha256 = Get-Sha256Hex -Bytes ($script:Utf8NoBom.GetBytes($csb.ToString()))
+        $info.content = $content
+    }
+
     $info.manifest = $manifest
     $info.tree_sha256 = Get-Sha256Hex -Bytes ($script:Utf8NoBom.GetBytes($manifest))
     $info.changed_files = $entries.Count
@@ -664,6 +705,44 @@ function Get-ManifestChanges {
     $sorted = [string[]]$paths.ToArray()
     [Array]::Sort($sorted, [StringComparer]::Ordinal)
     return , $sorted
+}
+
+# (wave 24c) Did the working tree change while a reviewer ran? By CONTENT (Get-RevisionInfo
+# content_sha256): the review binding's tree_sha256 also moves with HEAD, the staged state and file
+# modes - a coordinator committing the collab files while a panel member ran failed that member
+# with "the working tree changed during the run ...: 0 files" (the live ledger, 2026-09-26: HEAD
+# moved, no file changed). { Changed; Paths (every path whose content appeared, disappeared or
+# changed, ordinal order); RevisionMoved ('' or "<old base_commit> -> <new base_commit>": HEAD
+# moved - informational (ledger revision_moved), never a tree change by itself) }. Without a
+# content fingerprint on either side (git ls-files failed) the tree fingerprints decide, as before.
+function Compare-TreeContent {
+    param($Before, $After)
+    $r = [pscustomobject]@{ Changed = $false; Paths = [string[]]@(); RevisionMoved = '' }
+    $bc = [string](Get-PropertyValue $Before 'content_sha256' '')
+    $ac = [string](Get-PropertyValue $After 'content_sha256' '')
+    if ($bc -and $ac) {
+        if ($bc -cne $ac) {
+            $r.Changed = $true
+            $names = New-Object System.Collections.Generic.List[string]
+            $b = $Before.content
+            $a = $After.content
+            foreach ($k in @($b.Keys)) {
+                $v = $null
+                if (-not $a.TryGetValue($k, [ref]$v) -or $v -cne $b[$k]) { $names.Add($k) }
+            }
+            foreach ($k in @($a.Keys)) { if (-not $b.ContainsKey($k)) { $names.Add($k) } }
+            $sorted = [string[]]$names.ToArray()
+            [Array]::Sort($sorted, [StringComparer]::Ordinal)
+            $r.Paths = $sorted
+        }
+    } elseif ([string]$Before.tree_sha256 -cne [string]$After.tree_sha256) {
+        $r.Changed = $true
+        $r.Paths = [string[]](Get-ManifestChanges -Before $Before.manifest -After $After.manifest)
+    }
+    $bb = [string](Get-PropertyValue $Before 'base_commit' '')
+    $ab = [string](Get-PropertyValue $After 'base_commit' '')
+    if ($Before.tree_sha256 -and $After.tree_sha256 -and $bb -cne $ab) { $r.RevisionMoved = "$bb -> $ab" }
+    return $r
 }
 
 # Relative path ('/'-separated) -> "<length>|<sha256>" of EVERY file under $Dir, recursively
@@ -4312,22 +4391,58 @@ function Format-PartialBody {
 
 # ---- the timeout continuation's gates (wave 24b)
 
-# (F08-3) Does the killed turn's OWN failure evidence forbid a continuation? Every candidate goes
-# through the ONE classifier (ConvertFrom-ProviderErrorText + Get-ProviderFailureClass - the one
-# provider_failure uses): the adapter's class (an engine's turn rules), its failure texts, the
-# event stream's error and EVERY line of the turn's stderr (an SSE error payload lifted). A quota
-# class (a usage or rate limit; billing, payment, an insufficient balance, exhausted credits) or an
-# auth class forbids it - never a continuation after a quota, auth or billing failure. The bridge's
-# own timeout text is transport and forbids nothing. { Class ('' | quota | auth); Text (the
-# evidence, one line) }.
+# (wave 24c, F15-3) Informational stderr lines of the engines - never failure evidence, whatever
+# words they echo: codex's models refresh ("<time> ERROR codex_models_manager::manager: failed to
+# refresh available models: ... failed to decode models response: ...; body: {...}" - logged at
+# ERROR level with the whole models list in it), its fallback-metadata notice ("Model metadata for
+# `<model>` not found. Defaulting to fallback metadata; ..."), "Reading prompt from stdin...", and
+# muse's workspace root and delegation notices ($script:MuseInfoStderrRe).
+$script:InfoStderrRe = '(?i)failed to (?:refresh available models|decode models response)|\bmodel metadata for\b.*\bnot found\b|^reading prompt from stdin'
+function Test-InformationalStderr {
+    param([string]$Line)
+    return [bool]($Line -match $script:InfoStderrRe -or $Line -match $script:MuseInfoStderrRe)
+}
+# (wave 24c, F15-3) A DIAGNOSTIC stderr line (matched case-sensitively, -cmatch): ERROR or FATAL
+# level - "ERROR: ...", a log line "<time> ERROR <target>: ...", "error: ..." / "Error: ..." at the
+# start, "stream error: ...", "error 429", level=error - or an HTTP status with its message: "429
+# Too Many Requests", "401 Unauthorized", "last status: 429", "status_code=401", "HTTP 403",
+# "Payment required (402)". A plain line that merely contains a word such as auth, billing or 429
+# ("loaded auth.json", "request 429 tracing enabled") is not one.
+$script:DiagnosticStderrRe = '(?:^|[\s\[|])(?:ERROR|FATAL)\b|(?i:^\s*(?:error|fatal)\b\s*(?:\[[^\]]*\])?\s*:)|(?i:\b(?:stream|request|api|provider|upstream|http|response)\s+error\b)|(?i:\berror\s+[45][0-9]{2}\b)|(?i:\blevel\s*[=:]\s*"?(?:error|fatal)\b)|(?i:\bHTTP(?:/[0-9.]+)?\s+[45][0-9]{2}\b)|(?i:\bstatus(?:[ _]code)?\s*[:=]?\s*[45][0-9]{2}\b)|\b[45][0-9]{2}\s+[A-Z][a-z]+|\([45][0-9]{2}\)'
+
+# (F08-3) Does the killed turn's OWN failure evidence forbid a continuation? A quota class (a usage
+# or rate limit; billing, payment, an insufficient balance, exhausted credits) or an auth class
+# forbids it - never a continuation after a quota, auth or billing failure. (wave 24c, F15-3) The
+# evidence, structured first: the adapter's class (an engine's turn rules); then the structured
+# errors - the event stream's error and the adapter's failure texts ($Texts), every provider error
+# payload on stderr (an SSE `data: {"error":...}` line, a bare {"error":...}); then only the
+# DIAGNOSTIC lines of stderr ($script:DiagnosticStderrRe: ERROR level, or an HTTP status with its
+# message). A known informational engine message (Test-InformationalStderr) is never evidence,
+# whatever words it echoes, and neither is a plain line that merely contains one ("loaded
+# auth.json", "request 429 tracing enabled"). A text of $Texts that is a copy of a stderr line (agy
+# keeps its stderr tail there) is judged as that line. Every candidate goes through the ONE
+# classifier (ConvertFrom-ProviderErrorText + Get-ProviderFailureClass - the one provider_failure
+# uses); the bridge's own timeout text is transport and forbids nothing. { Class ('' | quota |
+# auth); Text (the evidence, one line) }.
 function Get-KilledTurnFailure {
     param([string]$AdapterClass = '', [string[]]$Texts = @(), [string]$StderrText = '')
     $r = [pscustomobject]@{ Class = ''; Text = '' }
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($sl in @(([string]$StderrText) -split "`r?`n")) { $slt = $sl.Trim(); if ($slt) { $lines.Add($slt) } }
     $candidates = New-Object System.Collections.Generic.List[string]
-    foreach ($t in @($Texts)) { if ($t -and ([string]$t).Trim()) { $candidates.Add(([string]$t).Trim()) } }
-    # (an engine's informational stderr lines - muse's workspace root, its delegation notice - are
-    # never failure evidence: a workspace path must not read as a class)
-    foreach ($sl in @(([string]$StderrText) -split "`r?`n")) { $slt = $sl.Trim(); if ($slt -and $slt -notmatch $script:MuseInfoStderrRe) { $candidates.Add($slt) } }
+    # 1. the structured errors: the event stream's error, the adapter's failure texts
+    foreach ($t in @($Texts)) {
+        $tt = ([string]$t).Trim()
+        if ($tt -and -not $lines.Contains($tt)) { $candidates.Add($tt) }
+    }
+    # 2. a provider error payload on stderr, 3. a diagnostic stderr line - an informational one never
+    $diagnostic = New-Object System.Collections.Generic.List[string]
+    foreach ($l in $lines) {
+        if (Test-InformationalStderr $l) { continue }
+        if ((ConvertFrom-ProviderErrorText -Text $l).Found) { $candidates.Add($l) }
+        elseif ($l -cmatch $script:DiagnosticStderrRe) { $diagnostic.Add($l) }
+    }
+    foreach ($d in $diagnostic) { $candidates.Add($d) }
     if ($AdapterClass -eq 'quota' -or $AdapterClass -eq 'auth') {
         $r.Class = $AdapterClass
         $r.Text = ConvertTo-OneLine $(if ($candidates.Count -gt 0) { $candidates[0] } else { "the $AdapterClass class of the turn's rules" })
@@ -4387,7 +4502,10 @@ $script:QuotaTextPattern = '(?i)usage[ _]limit|quota|rate[ _]limit|resource_exha
 # auth class would refuse that endpoint for 24 h although its credential is fine. Also "maximum
 # context length is N tokens", context_length_exceeded, "exceeds the context window", "prompt is
 # too long", "input token count ... exceeds the maximum number of tokens". A text that also names
-# a usage limit ($script:QuotaTextPattern) stays quota.
+# a usage limit stays quota - (wave 24c, F15-1) and so does one with ANY other quota-class wording
+# (billing, payment, an insufficient balance, credits, a token plan: the complete quota pattern of
+# $script:FailureClassPatterns): "billing_required: insufficient balance for this context window"
+# is quota, never capability (Test-ContextOverflow).
 $script:ContextOverflowPattern = '(?i)supports?\s+only\b.{0,80}?\b(?:context|tokens?)\b|context[ _-]?(?:length|window)|maximum\s+context|context_length_exceeded|prompt\s+is\s+too\s+long|input\s+(?:is\s+)?too\s+long|input\s+token\s+count|exceeds?\s+the\s+maximum\s+number\s+of\s+tokens'
 $script:FailureClassPatterns = [ordered]@{
     'permission' = '(?i)no output produced|auto-denied|permission that headless mode'
@@ -4410,33 +4528,65 @@ function Get-ProviderFailureClass {
 }
 
 # (wave 24b) The failure text says the prompt outgrew the context window of the plan or the model
-# ($script:ContextOverflowPattern) and names no usage limit.
+# ($script:ContextOverflowPattern) and names no usage limit - (wave 24c, F15-1) no quota-class
+# wording at all: the complete quota pattern (usage or rate limit, billing, payment, an
+# insufficient balance, credits, a token plan, 402/429) wins over the context exception, so a
+# quota or billing failure that also mentions a context window is never capability (no
+# continuation after it, the endpoint out as for any quota).
 function Test-ContextOverflow {
     param([string]$Message)
-    return [bool]($Message -and $Message -match $script:ContextOverflowPattern -and $Message -notmatch $script:QuotaTextPattern)
+    return [bool]($Message -and $Message -match $script:ContextOverflowPattern -and $Message -notmatch $script:FailureClassPatterns['quota'])
 }
 
 # (wave 24b) The operator's next step for a recorded provider failure the bridge can explain - ''
 # or one phrase. A context-window rejection (class capability, Test-ContextOverflow): "context too
 # long for this plan/model - ...". The summary of a failed run prints it (`hint       :`), the
-# handoff header after its `Provider failure:` line.
+# handoff header after its `Provider failure:` line. (wave 24c, F15-4) The hint is decided when the
+# failure is CLASSIFIED: New-ProviderFailure stores it as provider_failure.hint, from the code and
+# the FULL message the class came from - a code-only context_length_exceeded ("Request too
+# large."), a context phrase past the 200 characters the message keeps. Get-FailureHint reads it
+# from there; an entry recorded before wave 24c has none: its class and its code + message decide.
+$script:ContextHint = 'context too long for this plan/model - narrow the brief (fewer or smaller files to read, a smaller -Range, a reading plan) or choose a model with a larger context window'
+function Get-ClassHint {
+    param([string]$Class, [string]$Text)
+    if ($Class -eq 'capability' -and (Test-ContextOverflow $Text)) { return $script:ContextHint }
+    return ''
+}
 function Get-FailureHint {
     param($Failure)
     if ($null -eq $Failure) { return '' }
+    $stored = Get-PropertyValue $Failure 'hint' $null
+    if ($null -ne $stored) { return [string]$stored }
     $class = [string](Get-PropertyValue $Failure 'class' '')
-    $msg = [string](Get-PropertyValue $Failure 'message' '')
-    if ($class -eq 'capability' -and (Test-ContextOverflow $msg)) {
-        return 'context too long for this plan/model - narrow the brief (fewer or smaller files to read, a smaller -Range, a reading plan) or choose a model with a larger context window'
-    }
+    return (Get-ClassHint -Class $class -Text "$([string](Get-PropertyValue $Failure 'code' '')) $([string](Get-PropertyValue $Failure 'message' ''))")
+}
+
+# (wave 24c) A 429 that names no usage window and no quota is a BURST: ModelArk (BytePlus) answers
+# "exceeded retry limit, last status: 429 Too Many Requests, request id: ..." for burst and
+# concurrency limits that recover within minutes, besides the plan's own windows (live ledgers,
+# 2026-09-26). provider_failure.kind 'burst' (after class; '' for every other failure): without a
+# reset time such an endpoint is out for 10 minutes ($script:BurstOutMinutes), not 60. A 429 whose
+# text names a usage limit, a quota, a balance, credits, billing, a token plan, an hour/day/week/
+# month window or a reset keeps the 60-minute rule.
+$script:BurstTextPattern = '(?i)\b429\b|too many requests|concurren'
+$script:QuotaWindowPattern = '(?i)usage[ _]?limit|\bquota|resource_exhausted|insufficient|\bbalance|\bcredits?\b|\bbilling|\bpayment|\b402\b|token[ _]plan|plan exhausted|\b(?:hours?|days?|weeks?|months?)\b|hourly|daily|weekly|monthly|\bwindow|\bresets?\b'
+$script:BurstOutMinutes = 10
+$script:QuotaOutMinutes = 60
+# 'burst' or '' - $Text: the code and the (full) message the class came from.
+function Get-FailureKind {
+    param([string]$Class, [string]$Text)
+    if ($Class -ne 'quota' -or -not $Text) { return '' }
+    if ($Text -match $script:BurstTextPattern -and $Text -notmatch $script:QuotaWindowPattern) { return 'burst' }
     return ''
 }
 
 # The provider's own error inside a failure text: an SSE payload `data:{"error":{...}}`
 # (MiMo sends its rejections that way) or a bare `{"error":{...}}` -> error.message and
-# error.code; otherwise the text itself. { Code; Message }.
+# error.code; otherwise the text itself. { Code; Message; Found (wave 24c: an error payload was
+# found - structured evidence, Get-KilledTurnFailure) }.
 function ConvertFrom-ProviderErrorText {
     param([string]$Text)
-    $r = [pscustomobject]@{ Code = ''; Message = (ConvertTo-OneLine $Text) }
+    $r = [pscustomobject]@{ Code = ''; Message = (ConvertTo-OneLine $Text); Found = $false }
     if (-not $Text) { return $r }
     $candidates = New-Object System.Collections.Generic.List[string]
     foreach ($m in [regex]::Matches($Text, '(?m)data:\s*(\{.*\})\s*$')) { $candidates.Add($m.Groups[1].Value) }
@@ -4447,6 +4597,7 @@ function ConvertFrom-ProviderErrorText {
         try { $o = ConvertFrom-Json -InputObject $json } catch { continue }
         $e = Get-PropertyValue $o 'error' $null
         if ($null -eq $e) { continue }
+        $r.Found = $true
         if ($e -is [string]) { $r.Message = ConvertTo-OneLine $e; return $r }
         $msg = [string](Get-PropertyValue $e 'message' '')
         if ($msg) { $r.Message = ConvertTo-OneLine $msg }
@@ -4682,11 +4833,15 @@ function Format-OffsetIso {
     return ([DateTimeOffset]$Value).ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant)
 }
 
-# The ledger's provider_failure of a failed run: { class; code; message (<= 200); when;
-# retry_after }. $Texts: the evidence in order of preference (the event-stream error,
+# The ledger's provider_failure of a failed run: { class; kind; code; message (<= 200); when;
+# retry_after; hint }. $Texts: the evidence in order of preference (the event-stream error,
 # stderr, the bridge outcome); the first that holds a provider error payload wins, else the
 # first non-empty. retry_after: the reset time the chosen message names (Get-RetryAfter,
 # read from the FULL message before it is cut to 200 characters), ISO with offset, or $null.
+# (wave 24c) Everything the classification decides is decided HERE, from the code and the FULL
+# message, and stored: kind ('burst' - a 429 that names no usage window or quota, out for 10
+# minutes - or ''; Get-FailureKind) and hint (F15-4: the operator's next step, '' or one phrase;
+# Get-ClassHint) - a later reader has only the message cut to 200 characters.
 function New-ProviderFailure {
     param([string[]]$Texts, [string]$Class = '')
     $chosen = $null
@@ -4704,12 +4859,16 @@ function New-ProviderFailure {
     # (RetryInfo.retryDelay), outside error.message.
     if ($null -eq $retryAfter -and $chosenRaw -and $chosenRaw -match '(?i)retryDelay') { $retryAfter = Get-RetryAfter -Message $chosenRaw -Reference ([DateTimeOffset]$now) }
     if ($msg.Length -gt 200) { $msg = $msg.Substring(0, 200) }
+    $evidence = "$($chosen.Code) $($chosen.Message)"
+    $cls = $(if ($Class) { $Class } else { (Get-ProviderFailureClass $evidence) })
     return [pscustomobject]@{
-        class       = $(if ($Class) { $Class } else { (Get-ProviderFailureClass "$($chosen.Code) $($chosen.Message)") })
+        class       = $cls
+        kind        = (Get-FailureKind -Class $cls -Text $evidence)
         code        = [string]$chosen.Code
         message     = $msg
         when        = (Get-IsoTimestamp $now)
         retry_after = $(if ($null -ne $retryAfter) { Format-OffsetIso $retryAfter } else { $null })
+        hint        = (Get-ClassHint -Class $cls -Text $evidence)
     }
 }
 
@@ -4762,8 +4921,9 @@ function ConvertTo-WhenOffset {
 #   Quota        the newest of {success, quota failure} is a quota failure that still
 #                blocks: its RetryAfter lies in the future, or it has no RetryAfter and its
 #                limit was hit less than 60 minutes ago (wave 24, T3: Hit + 60 min lies ahead
-#                - "out (limit hit <t>, reset unknown; retry after <t + 60 min>)"); a
-#                RetryAfter in the past clears it
+#                - "out (limit hit <t>, reset unknown; retry after <t + 60 min>)"; wave 24c:
+#                10 minutes for a burst - FailureKind 'burst', a 429 that names no usage window
+#                or quota); a RetryAfter in the past clears it
 #   QuotaKnown   [bool] Quota is set and names its reset time (RetryAfter)
 #   LastLimit    the newest quota failure <= 24 h old, else (wave 24, T2) the Quota record
 #                that still blocks (a reset days ahead): an endpoint that is out never shows
@@ -4778,7 +4938,9 @@ function ConvertTo-WhenOffset {
 # reference); RetryAfterIso ('' when none); RetryAfterBasis ('ledger' | 'message (reference
 # offset)' | ''); Hit (wave 24: DateTimeOffset - when the failure happened: provider_failure.
 # when, else the entry's `when`; a time in the future counts as now); HitIso; Until
-# (RetryAfter, else Hit + 60 min) }. A usable reply is Test-UsableOutcome (a reply after a
+# (RetryAfter, else Hit + OutMinutes); FailureKind (wave 24c: provider_failure.kind - 'burst' or
+# '' - recorded with the class, else derived from the code and message by Get-FailureKind);
+# OutMinutes (10 for a burst, else 60) }. A usable reply is Test-UsableOutcome (a reply after a
 # timeout continuation counts).
 function Get-EndpointHealth {
     param([object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow)
@@ -4809,12 +4971,14 @@ function Get-EndpointHealth {
         }
         $entryN = 0
         [void][int]::TryParse([string](Get-PropertyValue $c 'n' ''), [ref]$entryN)
-        $rec = [pscustomobject]@{ At = $at; Order = $order; N = $entryN; Ok = (Test-UsableOutcome $outcome); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); Age = $age; RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Hit = $at; HitIso = ''; Until = $at.AddMinutes(60) }
+        $rec = [pscustomobject]@{ At = $at; Order = $order; N = $entryN; Ok = (Test-UsableOutcome $outcome); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); Age = $age; RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Hit = $at; HitIso = ''; Until = $at.AddMinutes(60); FailureKind = ''; OutMinutes = $script:QuotaOutMinutes }
         if (-not $rec.Ok) {
             $reference = $at
             $pf = Get-PropertyValue $c 'provider_failure' $null
+            $recordedClass = ''
             if ($null -ne $pf) {
                 $rec.Class = [string](Get-PropertyValue $pf 'class' 'unknown')
+                $recordedClass = $rec.Class
                 # An entry recorded as auth whose message says usage limit / quota / rate limit
                 # counts as quota (Get-ProviderFailureClass's rule, applied when the ledger is
                 # READ): a 401/403 with a usage-limit text recorded before that rule existed
@@ -4825,8 +4989,19 @@ function Get-EndpointHealth {
                 # (Test-ContextOverflow: Kimi Code's "Your current plan supports only k3 up to 256K
                 # context") counts as capability - it never refuses the endpoint for 24 h
                 elseif ($rec.Class -eq 'auth' -and (Test-ContextOverflow ([string](Get-PropertyValue $pf 'message' '')))) { $rec.Class = 'capability' }
+                # (wave 24c, F15-1) and an entry the context exception recorded as capability although
+                # its text also names a quota class (billing, a balance, credits - recorded before
+                # wave 24c) is read with today's classifier: quota wins
+                elseif ($rec.Class -eq 'capability' -and ([string](Get-PropertyValue $pf 'message' '')) -match $script:ContextOverflowPattern -and -not (Test-ContextOverflow ([string](Get-PropertyValue $pf 'message' '')))) {
+                    $rec.Class = Get-ProviderFailureClass "$([string](Get-PropertyValue $pf 'code' '')) $([string](Get-PropertyValue $pf 'message' ''))"
+                }
                 $rec.Code = [string](Get-PropertyValue $pf 'code' '')
                 $rec.Message = [string](Get-PropertyValue $pf 'message' '')
+                # (wave 24c) the kind recorded with that class ('burst': a 429 that names no usage
+                # window or quota); an entry recorded before wave 24c, or read as another class, gets
+                # it from its code and message
+                $recordedKind = Get-PropertyValue $pf 'kind' $null
+                $rec.FailureKind = $(if ($null -ne $recordedKind -and $rec.Class -eq $recordedClass) { [string]$recordedKind } else { Get-FailureKind -Class $rec.Class -Text "$($rec.Code) $($rec.Message)" })
                 $pfWhen = ConvertTo-WhenOffset (Get-PropertyValue $pf 'when' '')
                 if ($null -ne $pfWhen) { $reference = $pfWhen }
                 $recorded = Get-PropertyValue $pf 'retry_after' $null
@@ -4837,7 +5012,10 @@ function Get-EndpointHealth {
                 $rec.Class = Get-ProviderFailureClass "$($parsedOutcome.Code) $outcome"
                 $rec.Code = $parsedOutcome.Code
                 $rec.Message = $parsedOutcome.Message
+                $rec.FailureKind = Get-FailureKind -Class $rec.Class -Text "$($rec.Code) $($rec.Message)"
             }
+            if ($rec.Class -ne 'quota') { $rec.FailureKind = '' }
+            $rec.OutMinutes = $(if ($rec.FailureKind -eq 'burst') { $script:BurstOutMinutes } else { $script:QuotaOutMinutes })
             # an entry recorded without retry_after: read the reset time from its message now
             if ($null -ne $rec.RetryAfter) { $rec.RetryAfterBasis = 'ledger' }
             else {
@@ -4845,12 +5023,12 @@ function Get-EndpointHealth {
                 if ($null -ne $rec.RetryAfter) { $rec.RetryAfterBasis = 'message (reference offset)' }
             }
             # (wave 24) when the failure happened - a time in the future counts as now (F15-4) -
-            # and, without a reset time, the 60 minutes it stays out
+            # and, without a reset time, the 60 minutes it stays out ((wave 24c) 10 for a burst)
             $hit = $reference
             if ($hit.UtcDateTime -gt $UtcNow) { $hit = $nowOffset.ToOffset($hit.Offset) }
             $rec.Hit = $hit
             $rec.HitIso = Format-OffsetIso $hit
-            $rec.Until = $hit.AddMinutes(60)
+            $rec.Until = $hit.AddMinutes($rec.OutMinutes)
             if ($null -ne $rec.RetryAfter) {
                 $rec.RetryAfterIso = Format-OffsetIso $rec.RetryAfter
                 $rec.Until = $rec.RetryAfter
@@ -5099,8 +5277,10 @@ function Find-RosterEntry {
 # refusal message of a real run); Label (the dry-run line); (wave 24, D14 - what every
 # availability surface shows) Kind ('' | identity | unresolved | credentials | auth | quota |
 # quota-unknown-reset | unknown); Hit and Until (DateTimeOffset or $null: when the recorded
-# failure happened and when the endpoint is expected back - a known reset, or Hit + 60 min);
-# Credential (the credential result, $null before the check) }. In this order:
+# failure happened and when the endpoint is expected back - a known reset, or Hit + 60 min, or
+# (wave 24c) Hit + 10 min for a burst); Credential (the credential result, $null before the
+# check); Burst (wave 24c: the quota-unknown-reset is a burst - a 429 that names no usage window or
+# quota: "burst limit (429) hit <iso>, reset unknown; retry after <iso + 10 min>") }. In this order:
 #   identity error / unresolved  unavailable / unknown
 #   credentials missing          unavailable (Get-ProviderCredential, Get-EngineCredential)
 #   auth failure <= 24 h         unavailable: auth failed <when>: <message>
@@ -5111,13 +5291,15 @@ function Find-RosterEntry {
 #                                explicit -Provider run too, not only the roster walk, the
 #                                panel and the views; -RosterWalk changes the refusal's
 #                                wording only - a direct run names -SkipPreflight)
+#   a burst (wave 24c) without  unavailable: burst limit (429) hit <iso>, reset unknown;
+#   a reset, hit < 10 min ago    retry after <iso + 10 min> (Burst; Kind quota-unknown-reset)
 #   credentials unknown          unknown (wave 24: a recorded auth failure or usage limit
 #                                outranks a sign-in that was not checked - the hook's
 #                                -NoNetwork line names what is out)
 # $Health: Get-EndpointHealth of the identity's endpoint ($null: none known).
 function Get-PreflightVerdict {
     param($Identity, $Config, [string]$Launcher, $Health, [hashtable]$LoginCache = $null, [switch]$Anonymous, [switch]$RosterWalk, [switch]$NoNetwork)
-    $v = [pscustomobject]@{ State = 'available'; Preflight = ''; Reason = ''; Refusal = ''; Label = ''; Kind = ''; Hit = $null; Until = $null; Credential = $null }
+    $v = [pscustomobject]@{ State = 'available'; Preflight = ''; Reason = ''; Refusal = ''; Label = ''; Kind = ''; Hit = $null; Until = $null; Credential = $null; Burst = $false }
     $p = [string]$Identity.Provider
     $engine = [string]$Identity.Engine
     if (-not $engine) { $engine = 'codex' }
@@ -5179,15 +5361,18 @@ function Get-PreflightVerdict {
         $v.Refusal = "provider $p is not usable: its usage limit (hit at $($Health.Quota.When): $($Health.Quota.Message)) lasts until $($Health.Quota.RetryAfterIso); nothing was started (pass -SkipPreflight to launch anyway)"
         $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
     } elseif ($Health -and $Health.Quota) {
-        # (wave 24b, F08-7) the 60-minute rule is the verdict of every caller
+        # (wave 24b, F08-7) the 60-minute rule is the verdict of every caller; (wave 24c) a burst - a
+        # 429 that names no usage window or quota - is out for 10 minutes
         $untilIso = Format-OffsetIso $Health.Quota.Until
         $v.State = 'unavailable'
         $v.Kind = 'quota-unknown-reset'
+        $v.Burst = ([string](Get-PropertyValue $Health.Quota 'FailureKind' '') -eq 'burst')
         $v.Hit = $Health.Quota.Hit
         $v.Until = $Health.Quota.Until
-        $v.Reason = "usage limit hit $($Health.Quota.HitIso), reset unknown; retry after $untilIso"
+        $outMin = Get-PropertyValue $Health.Quota 'OutMinutes' $script:QuotaOutMinutes
+        $v.Reason = "$(if ($v.Burst) { 'burst limit (429)' } else { 'usage limit' }) hit $($Health.Quota.HitIso), reset unknown; retry after $untilIso"
         $v.Preflight = "unavailable: $($v.Reason)"
-        $v.Refusal = "provider $p is not usable: it hit a usage limit at $($Health.Quota.HitIso) ($($Health.Quota.Message)) and named no reset time - out for 60 minutes, until $untilIso; nothing was started$(if (-not $RosterWalk) { ' (pass -SkipPreflight to launch anyway)' })"
+        $v.Refusal = "provider $p is not usable: it hit a $(if ($v.Burst) { 'burst' } else { 'usage' }) limit at $($Health.Quota.HitIso) ($($Health.Quota.Message)$(if ($v.Burst) { ' - a 429 that names no usage limit or quota' })) and named no reset time - out for $outMin minutes, until $untilIso; nothing was started$(if (-not $RosterWalk) { ' (pass -SkipPreflight to launch anyway)' })"
         $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
     } elseif ($cred.State -eq 'unknown') {
         $v.State = 'unknown'
@@ -5211,31 +5396,55 @@ function Format-QuotaWarning {
     if ($Health.QuotaKnown) {
         return "provider $($Identity.Provider) hit a usage limit $($q.AgeMinutes) min ago that lasts until $($q.RetryAfterIso): $($q.Message)"
     }
-    return "provider $($Identity.Provider) hit a usage limit $($q.AgeMinutes) min ago (reset unknown; out until $(Format-OffsetIso $q.Until)): $($q.Message)"
+    return "provider $($Identity.Provider) hit a $(if ([string](Get-PropertyValue $q 'FailureKind' '') -eq 'burst') { 'burst limit (429)' } else { 'usage limit' }) $($q.AgeMinutes) min ago (reset unknown; out until $(Format-OffsetIso $q.Until)): $($q.Message)"
 }
 
 # (wave 24b, F07-3) ONE listing resolves each reviewer's identity and each endpoint's health
 # ONCE: the walk (Select-RosterReviewer), every entry's availability (Get-RosterAvailability,
-# Select-PanelMembers) and the rows of codex-providers.ps1 share $Cache (a hashtable, one per
+# Select-PanelMembers) and the rows of codex-providers.ps1 share $Cache (New-ListingCache, one per
 # invocation - the Codex config, the ledgers and the consult clock are fixed within it; $null = no
 # cache). Keys: the identity's inputs (provider, model, engine, launcher, OPENAI_BASE_URL); the
 # endpoint's fingerprint and the clock. The credential checks have their own cache ($LoginCache:
 # one `codex login status` and one `agy models` per listing).
+# (wave 24c, F15-2) Provider and model identity is case-SENSITIVE (ZAI and zai are two
+# [model_providers] tables, glm-5.3 and GLM-5.3 two models; the roster compares them ordinally), but
+# a PowerShell @{} folds case - two case-distinct entries would share one slot and one entry would
+# get the other's identity, fingerprint and health. The cache is therefore an ORDINAL hashtable
+# (New-ListingCache) with case-preserving keys whose every part is length-prefixed
+# (Get-ListingCacheKey: "<length>:<text>|..."; no separator inside a part can shift the parts). Only
+# a cache made by New-ListingCache is used (its marker entry): any other hashtable is ignored - the
+# identity is then resolved every time, never taken from a case-folded slot.
+$script:ListingCacheMarker = 'cc-listing-cache:ordinal'
+function New-ListingCache {
+    $c = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+    $c[$script:ListingCacheMarker] = $true
+    return $c
+}
+function Test-ListingCache {
+    param([hashtable]$Cache)
+    return [bool]($null -ne $Cache -and $Cache.ContainsKey($script:ListingCacheMarker))
+}
+function Get-ListingCacheKey {
+    param([string[]]$Parts)
+    return ((@($Parts) | ForEach-Object { "$(([string]$_).Length):$_" }) -join '|')
+}
 function Get-CachedReviewerIdentity {
     param([hashtable]$Cache, $Config, [string]$Provider, [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '')
     if (-not $Engine) { $Engine = 'codex' }
-    $key = "identity|$Provider|$Model|$Engine|$Launcher|$OpenAiBaseUrl"
-    if ($null -ne $Cache -and $Cache.ContainsKey($key)) { return $Cache[$key] }
+    $use = Test-ListingCache $Cache
+    $key = Get-ListingCacheKey @('identity', $Provider, $Model, $Engine, $Launcher, $OpenAiBaseUrl)
+    if ($use -and $Cache.ContainsKey($key)) { return $Cache[$key] }
     $id = Resolve-ReviewerIdentity -Config $Config -Provider $Provider -Model $Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $Engine -Launcher $Launcher
-    if ($null -ne $Cache) { $Cache[$key] = $id }
+    if ($use) { $Cache[$key] = $id }
     return $id
 }
 function Get-CachedEndpointHealth {
     param([hashtable]$Cache, [object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow)
-    $key = "health|$Fingerprint|$($UtcNow.Ticks)"
-    if ($null -ne $Cache -and $Cache.ContainsKey($key)) { return $Cache[$key] }
+    $use = Test-ListingCache $Cache
+    $key = Get-ListingCacheKey @('health', $Fingerprint, [string]$UtcNow.Ticks)
+    if ($use -and $Cache.ContainsKey($key)) { return $Cache[$key] }
     $h = Get-EndpointHealth -Consults $Consults -Fingerprint $Fingerprint -UtcNow $UtcNow
-    if ($null -ne $Cache) { $Cache[$key] = $h }
+    if ($use) { $Cache[$key] = $h }
     return $h
 }
 
@@ -5553,7 +5762,8 @@ function Get-FirstClause {
 # <model>', the provider alone without a model); Group; State available | out (unavailable,
 # refused) | not checked (unknown); Kind; Reason (the roster walk's reason); Short (the one-line
 # view's complete phrase, in LOCAL time with a rounded relative hint - "until Sun 20:35, in 2d
-# 10h"; "limit hit 10:31, reset unknown; retry after 11:31, in 52m"; "auth failed Sat 10:31";
+# 10h"; "limit hit 10:31, reset unknown; retry after 11:31, in 52m" ((wave 24c) a burst: "burst
+# limit hit 10:31, reset unknown; retry after 10:41, in 2m"); "auth failed Sat 10:31";
 # the credential's reason ("env MIMO_API_KEY not set", "sign-in not checked"); "refused: <first
 # clause of the launch refusal>"); Hit; Until }.
 function ConvertTo-AvailabilityRecord {
@@ -5572,7 +5782,7 @@ function ConvertTo-AvailabilityRecord {
     $rec.Until = $v.Until
     $now = New-Object DateTimeOffset ([datetime]::SpecifyKind($UtcNow, [DateTimeKind]::Utc))
     if ($rec.Kind -eq 'quota' -and $null -ne $rec.Until) { $rec.Short = "until $(Format-LocalWhen -When $rec.Until -NowUtc $UtcNow), $(Format-RelativeHint ($rec.Until - $now))" }
-    elseif ($rec.Kind -eq 'quota-unknown-reset' -and $null -ne $rec.Until) { $rec.Short = "limit hit $(Format-LocalWhen -When $rec.Hit -NowUtc $UtcNow), reset unknown; retry after $(Format-LocalWhen -When $rec.Until -NowUtc $UtcNow), $(Format-RelativeHint ($rec.Until - $now))" }
+    elseif ($rec.Kind -eq 'quota-unknown-reset' -and $null -ne $rec.Until) { $rec.Short = "$(if ([bool](Get-PropertyValue $v 'Burst' $false)) { 'burst limit hit' } else { 'limit hit' }) $(Format-LocalWhen -When $rec.Hit -NowUtc $UtcNow), reset unknown; retry after $(Format-LocalWhen -When $rec.Until -NowUtc $UtcNow), $(Format-RelativeHint ($rec.Until - $now))" }
     elseif ($rec.Kind -eq 'auth') { $rec.Short = "auth failed $(if ($null -ne $rec.Hit) { Format-LocalWhen -When $rec.Hit -NowUtc $UtcNow } else { 'recently' })" }
     elseif ($rec.Kind -eq 'unresolved') { $rec.Short = 'identity unresolved' }
     elseif ($v.Credential -and $v.Credential.Reason -and @('credentials', 'unknown') -contains $rec.Kind) { $rec.Short = [string]$v.Credential.Reason }

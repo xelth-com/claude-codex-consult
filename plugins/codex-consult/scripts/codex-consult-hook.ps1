@@ -13,7 +13,7 @@
     or `codex-consult: all 11 reviewers available`. Every roster entry is judged with the
     roster walk's own verdict (Select-PanelMembers -All: credentials, the launch invariant,
     the endpoint health of THIS repository's ledgers - an auth failure, a usage limit with a
-    reset ahead, one without a reset for 60 minutes after it was hit); the entries of one
+    reset ahead, one without a reset for 60 minutes after it was hit, a burst 429 for 10); the entries of one
     endpoint group that share the state collapse to `<label> :: *`; reset times are LOCAL
     with a rounded relative hint; nothing is cut. An entry whose check needs the network (the
     agy engine's `agy models`) is `not checked` here - "..., 2 not checked" in the count -

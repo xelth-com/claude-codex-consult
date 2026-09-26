@@ -74,13 +74,17 @@
     recording machine's time zone, daylight saving included - refused until then) -
     otherwise the run is refused; -SkipPreflight bypasses it (and then warns). A
     usage-limit failure WITHOUT a reset time refuses the run for 60 minutes after it was
-    hit (wave 24b, F08-7: an explicit -Provider run too - one verdict for every caller).
+    hit (wave 24b, F08-7: an explicit -Provider run too - one verdict for every caller);
+    (wave 24c) a BURST - a 429 that names no usage window or quota, e.g. ModelArk's
+    "exceeded retry limit, last status: 429 Too Many Requests" - for 10 minutes.
     Failed runs record a classified provider_failure (auth | quota | capability |
-    transport | unknown, plus retry_after; a failure stamped in the future counts as now;
-    wave 24b: a prompt larger than the plan's or the model's context window - "Your
-    current plan supports only k3 up to 256K context", even under a 401 - is capability,
-    never auth, and the summary adds "hint       : context too long for this
-    plan/model - ..."). The endpoint
+    transport | unknown, plus kind - burst or "" -, retry_after and hint; a failure stamped
+    in the future counts as now; wave 24b: a prompt larger than the plan's or the model's
+    context window - "Your current plan supports only k3 up to 256K context", even under a
+    401 - is capability, never auth - unless its text also names a quota class such as
+    billing or credits (wave 24c, F15-1: quota wins) - and the summary adds "hint       :
+    context too long for this plan/model - ...", decided when the failure is classified,
+    from the code and the full message: provider_failure.hint). The endpoint
     health is read at the consult clock
     (CODEX_CONSULT_NOW, a test hook). codex-providers.ps1 lists every provider with
     that verdict. No network call is made for any of it. Codex's stderr, its event
@@ -230,7 +234,10 @@
         quota with its reset time)
     Both engines: a change of the working tree or the collab directory detected after the
     run fails it as class permission - also when it had already failed for another reason
-    (that reason stays in the provider failure's message).
+    (that reason stays in the provider failure's message). (wave 24c) The working tree is
+    compared by file CONTENTS (every tracked file's blob, every untracked file's hash): a
+    commit, a moved HEAD or a staged change that leaves every file as it was is no change -
+    ledger revision_moved "<old> -> <new>" notes a moved HEAD.
 
     Timeouts (0.5.0, wave 24 - a timeout never throws the reviewer's work away):
       * -TimeoutSec unset: the purpose's default - chore 600, checkpoint and none 900, framing
@@ -249,8 +256,12 @@
         usage} (outcome "not attempted: <why>" when none ran: -ContinueSec 0, no known thread,
         surviving processes, "files changed during the run (the working tree | the collab
         directory | the brief | artifact(s))" - wave 24b, F08-2: one tree check for every
-        engine, codex included - or a quota, billing or auth failure in the killed turn's own
-        evidence - F08-3: the adapter's class and texts, the event error and every stderr line
+        engine, codex included; wave 24c: a change of file CONTENTS - a commit or a moved HEAD
+        meanwhile is only noted, ledger revision_moved - or a quota, billing or auth failure in
+        the killed turn's own evidence - F08-3, wave 24c F15-3: the structured evidence first -
+        the adapter's class, the event error, the adapter's texts, a provider error payload on
+        stderr - then only the DIAGNOSTIC stderr lines (ERROR level, or an HTTP status with its
+        message; never a known informational engine message such as codex's models refresh),
         through the one classifier). Never more than one per consultation; never after a
         quota, auth or billing failure (the launch guard - muse: auth.json - is re-read right
         before EVERY start of a turn, the main turn included: Start-EngineProcess, F08-1). On a
@@ -274,8 +285,11 @@
         (explicit), -ContinueSec (not the default), -Effort / -NativeEffort, -MaxWords,
         -SchemaTransport, -CodexConfig, -Artifact (resolved paths), -Range, -Sandbox (not
         read-only), -MaxModelSteps, -FormatRetry 0, -DenialRetry 0, -OffPeakOnly, -CodexExe /
-        -EngineExe. -Thread takes the conversation of a killed agy or muse run (its entry names
-        the partial reply)
+        -EngineExe, and (wave 24c, F15-5) -ReplyName (when given; a panel member's own) and
+        -SkipPreflight. -Thread takes the conversation of a killed agy or muse run (its entry
+        names the partial reply). (wave 24c, F08-4) A continuation reply the checks REJECTED is
+        kept in the partial file under "## continuation reply (rejected: <why>)", and
+        timeout_continue.outcome names it
       * -Range <revision range> (diff-review and acceptance only): `git diff --shortstat
         <range>` once - "the range changes N files, M lines" in the prompt, ledger range
         {spec, files, insertions, deletions, lines}; a range of more than 1500 lines with a
@@ -705,7 +719,8 @@ function Start-EngineProcess {
 # names it in its argv; its stdin is then empty). Right before the start (Start-EngineProcess)
 # the engine's launch invariant (D4; read afresh - wave 24, F15-1) and, for an engine other than
 # codex, the .cmd %-hazard (F02-14) are checked again: a refusal starts nothing (the record gets
-# its previous state back).
+# its previous state back - (wave 24c, F15-6) so does a Start-Process error: every path that
+# starts nothing).
 # Reads the run's $pendingRecord, $pendingPath, $engineLauncher, $engineName and $repoRoot.
 # { Exit (-1 unless it exited); Problem ('' or why the turn did not complete); Wall;
 # KeepPending; Stderr (UTF-8 text); Started (a process was started: one more engine turn -
@@ -722,18 +737,27 @@ function Invoke-EngineTurn {
     $pendingRecord.note = "$Note being started; its pid is not recorded yet"
     try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
         $t.Problem = "could not write the recovery record ($(ConvertTo-OneLine $_.Exception.Message)); the turn was not started"
+        # (the record on disk still has its previous state: so does the one in memory)
+        $pendingRecord.state = $prevState
+        $pendingRecord.note = $prevNote
         return $t
     }
     $launch = Start-EngineProcess -Launcher $engineLauncher -Argv $Argv -StdoutPath $EventsPath -StderrPath $StderrPath -StdinPath $StdinPath
-    if ($launch.Refusal) {
-        $t.Problem = "refused before launch: $($launch.Refusal)"
+    $proc = $launch.Proc
+    if (-not $proc) {
+        # (wave 24c, F15-6) NOTHING was started - a launch refusal or a Start-Process error (a
+        # launcher gone meanwhile): on every such path the record gets its previous state back. A
+        # record left `launching` would tell the next run (after a bridge that died before its
+        # commit) that a process may be starting - it would scan for one that never existed.
         $pendingRecord.state = $prevState
         $pendingRecord.note = $prevNote
         try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
-        return $t
+        if ($launch.Refusal) {
+            $t.Problem = "refused before launch: $($launch.Refusal)"
+            return $t
+        }
+        $t.Problem = "could not start $engineName$(if ($launch.Error) { " - $($launch.Error)" })"
     }
-    $proc = $launch.Proc
-    if ($launch.Error) { $t.Problem = "could not start $engineName - $($launch.Error)" }
     if ($proc) {
         if ($script:LegacyPS) { try { $null = $proc.Handle } catch { } }
         $t.Started = $true
@@ -787,14 +811,17 @@ function Invoke-EngineTurn {
 # does not blame the reviewer (F09-3). Gitignored paths, submodules and files outside the
 # repository stay unmonitored (README "Engines", F12) - and so do reads. $CollabShown: the
 # collab directory as shown in front of its paths ('.collab/' inside the repository, ''
-# otherwise). The closing words are the engine row's TreeNote (D11).
+# otherwise). The closing words are the engine row's TreeNote (D11). (wave 24c) The working tree
+# is compared by CONTENT (Compare-TreeContent): a commit, a moved HEAD or a staged change that
+# leaves every file as it was is no change - only a file whose content appeared, disappeared or
+# changed is.
 function Get-EngineTreeProblem {
     param($RevBefore, $RevAfter, [bool]$BriefChanged, [string[]]$ChangedArtifacts, [hashtable]$CollabBefore, [hashtable]$CollabAfter, [string[]]$OwnPrefixes, [string]$Engine, [string]$CollabShown = '')
     $cut = { param([string[]]$Names) $n = @($Names); $list = (@($n | Select-Object -First 5) -join ', '); if ($n.Count -gt 5) { $list += ', ...' }; "$($n.Count) file$(if ($n.Count -ne 1) { 's' }): $list" }
     $why = New-Object System.Collections.Generic.List[string]
-    if ($RevBefore.tree_sha256 -ne $RevAfter.tree_sha256) {
-        $paths = Get-ManifestChanges -Before $RevBefore.manifest -After $RevAfter.manifest
-        $why.Add("the working tree changed during the run (by the reviewer or anyone else): $(& $cut $paths)")
+    $tree = Compare-TreeContent -Before $RevBefore -After $RevAfter
+    if ($tree.Changed) {
+        $why.Add("the working tree changed during the run (by the reviewer or anyone else): $(& $cut $tree.Paths)")
     }
     $collab = Compare-DirectorySnapshot -Before $CollabBefore -After $CollabAfter -IgnorePrefixes $OwnPrefixes
     if ($collab.Count -gt 0) { $why.Add("the collab directory changed during the run (by the reviewer or anyone else): $(& $cut ([string[]]@($collab | ForEach-Object { $CollabShown + $_ })))") }
@@ -2521,7 +2548,8 @@ try {
             reviewed_revision               = $revBefore.reviewed_revision
             tree_sha256                     = $revBefore.tree_sha256
             tree_sha256_after               = '<computed after the run>'
-            tree_changed_during_review      = '<true|false>'
+            tree_changed_during_review      = '<true|false: a file''s content changed during the run>'
+            revision_moved                  = '<null, or "<old base_commit> -> <new base_commit>" when HEAD moved during the run (informational - not a tree change)>'
             changed_files                   = $revBefore.changed_files
             brief_sha256                    = $briefSha
             brief_sha256_after              = $(if ($briefPath) { '<computed after the run>' } else { '' })
@@ -2530,7 +2558,7 @@ try {
             artifacts                       = [object[]]$previewArtifacts
             artifacts_changed_during_review = '<true|false>'
             bridge_outcome                  = '<usable reply | failed: ...>'
-            provider_failure                = '<null, or {class auth|quota|capability|transport|unknown, code, message, when} of a failed run>'
+            provider_failure                = '<null, or {class auth|quota|capability|transport|unknown, kind burst|"", code, message, when, retry_after, hint} of a failed run>'
             warnings                        = [object[]]$runWarnings.ToArray()
             verdict                         = $(if ($Raw) { '' } else { "<$($verdictRule -replace ', | or ', '|'), or '' when unavailable>" })
             verdict_reason                  = $(if ($Raw) { '' } else { '<one sentence>' })
@@ -2790,7 +2818,11 @@ try {
     $wallSeconds = [math]::Round($stopwatch.Elapsed.TotalSeconds, 1)
 
     $revAfter = Get-RevisionInfo -Root $repoRoot -CollabRoot $collabRoot
-    $treeChanged = ($revBefore.tree_sha256 -ne $revAfter.tree_sha256)
+    # (wave 24c) the tree changed = a file's CONTENT changed (Compare-TreeContent); HEAD moving
+    # (a commit meanwhile) is only noted - ledger revision_moved
+    $treeCompare = Compare-TreeContent -Before $revBefore -After $revAfter
+    $treeChanged = $treeCompare.Changed
+    $revisionMoved = $treeCompare.RevisionMoved
     $briefShaAfter = ''
     if ($briefPath) { $briefShaAfter = Get-FileSha256OrMissing -Path $briefPath }
     $briefChanged = ($briefSha -ne $briefShaAfter)
@@ -3044,6 +3076,10 @@ try {
     # (wave 24b) the continuation answered, but not with a usable reply (F08-5); the evidence of a
     # continuation that failed - { Texts; Class } for provider_failure (F08-4)
     $continueRejected = $false
+    # (wave 24c, F08-4) the text of a continuation reply the checks rejected, and why - kept in the
+    # partial file
+    $continueRejectedText = ''
+    $continueRejectedWhy = ''
     $continueFailure = $null
     $continueEventsRel = $null
     $continueEventsName = "$nn-$enginePrefix-$ReplyName.continue.events.jsonl"
@@ -3135,7 +3171,7 @@ try {
                 if (-not $continueProblem) {
                     # (wave 24b, F08-5) the checks of a first reply before the continuation counts
                     $contCheck = Test-ContinuationReply -Text $contRaw -Raw:$Raw -Purpose $Purpose -PriorFindings $priorInfo
-                    if (-not $contCheck.Usable) { $continueProblem = "not a usable reply - $($contCheck.Reason)"; $continueRejected = $true }
+                    if (-not $contCheck.Usable) { $continueProblem = "not a usable reply - $($contCheck.Reason)"; $continueRejected = $true; $continueRejectedText = $contRaw; $continueRejectedWhy = [string]$contCheck.Reason }
                 }
                 if ($continueProblem -and -not $continueRejected -and $continueTurn.Started) {
                     # (wave 24b, F08-4) the failed continuation's own evidence, best first: an SSE
@@ -3167,7 +3203,7 @@ try {
                 if ($contOut.Ok) {
                     # (wave 24b, F08-5) the checks of a first reply before the continuation counts
                     $contCheck = Test-ContinuationReply -Text ([string]$contOut.Reply) -Raw:$Raw -Purpose $Purpose -PriorFindings $priorInfo
-                    if (-not $contCheck.Usable) { $continueProblem = "not a usable reply - $($contCheck.Reason)"; $continueRejected = $true }
+                    if (-not $contCheck.Usable) { $continueProblem = "not a usable reply - $($contCheck.Reason)"; $continueRejected = $true; $continueRejectedText = [string]$contOut.Reply; $continueRejectedWhy = [string]$contCheck.Reason }
                 } else {
                     $continueProblem = ($contOut.Outcome -replace '^failed:\s*', '')
                     # (wave 24b, F08-4) the failed continuation's own evidence and its class
@@ -3298,17 +3334,28 @@ try {
             if (-not $originalRepoRel) { $originalRepoRel = $originalFull }
             $pendingRecord | Add-Member -NotePropertyName 'original' -NotePropertyValue $originalRepoRel -Force
             $pendingRecord | Add-Member -NotePropertyName 'first_reply' -NotePropertyValue 'usable prose (format repair in progress)' -Force
+            $repairPrevState = [string]$pendingRecord.state
+            $repairPrevNote = [string]$pendingRecord.note
             $pendingRecord.state = 'launching'
             $pendingRecord.note = 'format repair turn being started; its pid is not recorded yet'
             try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
                 $repairProblem = "could not write the recovery record ($(ConvertTo-OneLine $_.Exception.Message)); the repair turn was not started"
+                $pendingRecord.state = $repairPrevState
+                $pendingRecord.note = $repairPrevNote
             }
             if (-not $repairProblem) {
                 # (wave 24b, F08-1) the ONE guarded start
                 $repairLaunch = Start-EngineProcess -Launcher $codexExePath -Argv $repairArgv -StdoutPath $repairEventsPath -StderrPath $repairStderrPath -StdinPath $repairPromptPath
                 $repairProc = $repairLaunch.Proc
                 if ($repairLaunch.Refusal) { $repairProblem = "refused before launch: $($repairLaunch.Refusal)" }
-                elseif ($repairLaunch.Error) { $repairProblem = "could not start codex - $($repairLaunch.Error)" }
+                elseif (-not $repairProc) { $repairProblem = "could not start codex$(if ($repairLaunch.Error) { " - $($repairLaunch.Error)" })" }
+                if (-not $repairProc) {
+                    # (wave 24c, F15-6) nothing was started: the record gets its previous state back
+                    # (it keeps naming the saved prose, `original`)
+                    $pendingRecord.state = $repairPrevState
+                    $pendingRecord.note = $repairPrevNote
+                    try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
+                }
             }
             if ($repairProc) {
                 if ($script:LegacyPS) { try { $null = $repairProc.Handle } catch { } }
@@ -3425,7 +3472,9 @@ try {
     # change forces class permission (D12).
     if (-not $isCodex -and $extraEvents.Count -gt 0 -and -not $treeProblem) {
         $revAfter = Get-RevisionInfo -Root $repoRoot -CollabRoot $collabRoot
-        $treeChanged = ($revBefore.tree_sha256 -ne $revAfter.tree_sha256)
+        $treeCompare = Compare-TreeContent -Before $revBefore -After $revAfter
+        $treeChanged = $treeCompare.Changed
+        $revisionMoved = $treeCompare.RevisionMoved
         if ($briefPath) { $briefShaAfter = Get-FileSha256OrMissing -Path $briefPath }
         $briefChanged = ($briefSha -ne $briefShaAfter)
         $artifactsFinal = @($artifactHashes | ForEach-Object { [pscustomobject]@{ path = $_.path; sha256 = $_.sha256; sha256_after = (Get-FileSha256OrMissing -Path $_.full) } })
@@ -3525,6 +3574,13 @@ try {
             if ($repairKilled) { $killedAt.Add("$repairWall s of $repairTimeout s (the format repair)") }
         }
         $partialBody = Format-PartialBody -Turns $turns.ToArray()
+        # (wave 24c, F08-4) a continuation reply the checks REJECTED (not a provider failure: the
+        # reviewer answered, but not with a review the run can take) is not thrown away: its text
+        # follows the turns under its own heading, and timeout_continue.outcome names where it is
+        if ($continueRejected -and $continueRejectedText.Trim()) {
+            $partialBody = $partialBody.TrimEnd() + "`n`n## continuation reply (rejected: $continueRejectedWhy)`n`n" + ($continueRejectedText.Trim() -replace "`r`n", "`n") + "`n"
+            if ($timeoutContinueRecord) { $timeoutContinueRecord.outcome = "$($timeoutContinueRecord.outcome); its text is kept in $partialRel under ""continuation reply (rejected)""" }
+        }
         # The thread to resume: the run's verified thread, else the killed turn's own (the
         # continuation's thread, an engine's candidate from its own stream)
         $resumeThread = $(if ($threadId) { $threadId } elseif ($continueThread) { $continueThread } elseif (-not $isCodex -and $threadCandidate) { $threadCandidate } else { '' })
@@ -3546,6 +3602,10 @@ try {
             # way is left out: a timeout from the purpose, the default continuation budget). A
             # value with a character outside [A-Za-z0-9._:/\=+@~-] is double-quoted.
             $qa = { param([string]$V) if ($V -match '^[A-Za-z0-9._:/\\=+@~-]+$') { $V } else { '"' + ($V -replace '"', '\"') + '"' } }
+            # (wave 24c, F15-5) the handoff names (-ReplyName, when given - a panel member's is its
+            # own "<name>-<provider>") and the preflight decision (-SkipPreflight: a run that started
+            # unchecked resumes unchecked instead of being refused by the check it skipped)
+            if ($PSBoundParameters.ContainsKey('ReplyName') -or $panelMember) { $resumeParts.Add("-ReplyName $(& $qa $ReplyName)") }
             if ($timeoutSource -eq 'explicit') { $resumeParts.Add("-TimeoutSec $TimeoutSec") }
             if ($ContinueSec -ne [Math]::Min($TimeoutSec, 900)) { $resumeParts.Add("-ContinueSec $ContinueSec") }
             if ($Effort) { $resumeParts.Add("-Effort $Effort") }
@@ -3561,6 +3621,7 @@ try {
             if ($FormatRetry -eq 0 -and -not $Raw) { $resumeParts.Add('-FormatRetry 0') }
             if ($DenialRetry -eq 0 -and $engineSpec.DenialRetry) { $resumeParts.Add('-DenialRetry 0') }
             if ($OffPeakOnly) { $resumeParts.Add('-OffPeakOnly') }
+            if ($SkipPreflight) { $resumeParts.Add('-SkipPreflight') }
             if ($CodexExe) { $resumeParts.Add("-CodexExe $(& $qa $CodexExe)") }
             if ($EngineExe -and -not $isCodex) { $resumeParts.Add("-EngineExe $(& $qa $EngineExe)") }
             $resumeParts.Add('-Prompt "finish your review"')
@@ -3667,6 +3728,8 @@ try {
     $reviewedLine += '.'
     $driftLines = New-Object System.Collections.Generic.List[string]
     if ($treeChanged) { $driftLines.Add('WARNING: working tree changed during the review (fingerprint before/after differ).') }
+    # (wave 24c) HEAD moved (a commit meanwhile): informational - the tree check compares contents
+    if ($revisionMoved) { $driftLines.Add("Note: HEAD moved during the review ($(($revisionMoved -split ' -> ' | ForEach-Object { if ($_ -match '^[0-9a-f]{40}$') { $_.Substring(0, 7) } else { $_ } }) -join ' -> '))$(if (-not $treeChanged) { ' - no file content changed: not a tree change' }).") }
     if ($briefChanged) { $driftLines.Add("WARNING: the brief changed during the review (sha256 $(Format-ShortHash $briefSha) before, $(Format-ShortHash $briefShaAfter) after).") }
     if ($artifactsChanged) { $driftLines.Add("WARNING: artifact(s) changed during the review: $($changedArtifacts -join ', ').") }
     $verdictWarning = ''
@@ -3843,6 +3906,7 @@ try {
         tree_sha256                     = $revBefore.tree_sha256
         tree_sha256_after               = $revAfter.tree_sha256
         tree_changed_during_review      = $treeChanged
+        revision_moved                  = $(if ($revisionMoved) { $revisionMoved } else { $null })
         changed_files                   = $revBefore.changed_files
         brief_sha256                    = $briefSha
         brief_sha256_after              = $briefShaAfter

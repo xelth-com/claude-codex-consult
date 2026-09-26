@@ -397,20 +397,35 @@ continuation turn on thread <id> answered in <w> s`. No continuation (`outcome` 
 <why>`) when the thread is unknown, when processes survived the kill (they may still write to
 it), when files changed during the run (`files changed during the run (the working tree | the
 collab directory | the brief | artifact(s))` - one tree check for every engine, a codex
-`-Sandbox workspace-write` run included), when the killed turn's own evidence names a quota,
-billing or auth failure (its event error, the engine adapter's class and texts and EVERY line of
-its stderr go through the one classifier - `Insufficient balance: ...` or `Payment required
-(402)` stops it as surely as a 429), or with `-ContinueSec 0`. The launch guard (muse: the
+`-Sandbox workspace-write` run included; 0.5.0 wave 24c: the working tree by file CONTENTS - a
+commit or a moved HEAD meanwhile, such as the coordinator committing the collab files, is no
+change and only noted as `revision_moved`), when the killed turn's own evidence names a quota,
+billing or auth failure (wave 24c: its structured evidence first - the engine adapter's class,
+the event stream's error, the adapter's texts, a provider error payload on stderr - then only the
+DIAGNOSTIC lines of its stderr: ERROR (or FATAL) level, or an HTTP status with its message; a
+known informational engine message - codex's models refresh, logged at ERROR level with the whole
+models list in it, its fallback-metadata notice - never counts, and neither does a plain line that
+merely contains a word such as auth, billing or 429; all of it through the one classifier -
+`ERROR: Insufficient balance: ...` or `Payment required (402)` stops it as surely as a 429), or
+with `-ContinueSec 0`. The launch guard (muse: the
 billing guard re-reads `auth.json` and the environment) runs right before EVERY start of a turn -
 the main turn too (0.5.0, wave 24b) - a refusal: `failed: refused before launch: ...`. On a
 prompt-only transport (MiMo, undeclared hosts) the continuation prompt carries the reply format
 and the JSON Schema again. The continuation COUNTS only when its reply passes the checks a first
 reply passes - a valid reply object, else substantive prose (the format repair then converts
 it; `-Raw` and `chore`: substantive prose); a `Done.` is `failed: not a usable reply - ...` and
-the salvage of the killed turn is kept. A continuation that FAILED (a 429, an auth error, its own
+the salvage of the killed turn is kept - (wave 24c) and so is the rejected reply itself: the
+partial file adds it after the turns under `## continuation reply (rejected: <why>)`, and the
+outcome names it (`...; its text is kept in handoffs/<NN>-<engine>-<slug>.partial.md under
+"continuation reply (rejected)"`). A continuation that FAILED (a 429, an auth error, its own
 timeout) supplies the run's `provider_failure` - its class and `retry_after` - so the endpoint
 health sees a limit hit in the continuation. Never more than one per consultation. A `-Panel`
 member continues inside its own process; its kill guard grows by `-ContinueSec`.
+
+**Residual (codex):** the continuation gate of a codex run does not see the collab directory - by
+design, the codex engine never snapshots the collab directory (it cannot tell its own writes from
+others'), so only the working tree, the brief and the artifacts stop a codex continuation; the agy
+and muse engines compare the whole collab directory too (wave 24c, the ruling on F08-2).
 
 **The partial reply.** When a turn was killed on its timeout - the main turn without a usable
 continuation, the continuation, a denial retry, a format repair - the bridge writes
@@ -423,7 +438,9 @@ every replay-relevant option the run was given (wave 24b): `-TimeoutSec` (when e
 `-ContinueSec` (when not the default), `-Effort` / `-NativeEffort`, `-MaxWords`,
 `-SchemaTransport`, `-CodexConfig`, `-Artifact` (the resolved paths), `-Range`, `-Sandbox` (when
 not read-only), `-MaxModelSteps`, `-FormatRetry 0`, `-DenialRetry 0`, `-OffPeakOnly`,
-`-CodexExe` / `-EngineExe`. The ledger names it
+`-CodexExe` / `-EngineExe`, and (wave 24c) `-ReplyName` (when given; a panel member's own
+`<name>-<provider>`) and `-SkipPreflight` (a run that started unchecked resumes unchecked instead of
+being refused by the check it skipped). The ledger names it
 (`partial_reply`), the handoff header too (`Partial reply:`); `bridge_outcome` stays `failed:
 timeout after <T> s (process tree killed)` - the run did not produce a usable reply. The summary
 prints the file and the exact command:
@@ -535,6 +552,7 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "tree_sha256": "9c2a…",
   "tree_sha256_after": "9c2a…",
   "tree_changed_during_review": false,
+  "revision_moved": null,
   "changed_files": 3,
   "brief_sha256": "7b31…",
   "brief_sha256_after": "7b31…",
@@ -596,11 +614,11 @@ This is the only place field meanings are listed; other sections refer to them b
 | `validation_error` | `""`, or every validation message joined with `; `, plus a format-repair note |
 | `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events, schema_transport}` - `events` (0.4.0) the repair turn's event stream, handoffs-relative, when one is kept (agy: `handoffs/NN-agy-<slug>.repair.events.jsonl`; muse: `handoffs/NN-muse-<slug>.repair.events.jsonl`), else `null` (codex: its repair stream is a temp file); `schema_transport` (wave 23b) the repair turn's transport: codex `prompt-only` (its repair never passes `--output-schema`), an engine the main turn's - `native`, or `prompt-only` with no schema flag and the schema in the repair prompt |
 | `denial_retry` | (0.4.0, agy; always `null` for muse, which has no denial retry) `null` (not attempted), else `{attempted, reason, succeeded, thread, wall_seconds, usage, events}`: the one extra turn after a run that produced nothing because a tool was auto-denied (see "Engines"); `events` = that turn's event stream (`handoffs/NN-agy-<slug>.denial-retry.events.jsonl`, `null` when no turn ran) |
-| `timeout_continue` | (0.5.0) `null` unless the main turn was killed on its timeout; else `{thread, wall_seconds, outcome, events, usage}` of the ONE continuation turn - `outcome` `usable reply`, `failed: <why>` or `not attempted: <why>` (then `wall_seconds` 0, `events` and `usage` `null`) |
-| `base_commit` … `fingerprint_note` | revision binding: see "Binding a review to a revision" |
+| `timeout_continue` | (0.5.0) `null` unless the main turn was killed on its timeout; else `{thread, wall_seconds, outcome, events, usage}` of the ONE continuation turn - `outcome` `usable reply`, `failed: <why>` or `not attempted: <why>` (then `wall_seconds` 0, `events` and `usage` `null`); (wave 24c) a reply the checks rejected: `failed: not a usable reply - <why>; its text is kept in handoffs/<NN>-<engine>-<slug>.partial.md under "continuation reply (rejected)"` |
+| `base_commit` … `fingerprint_note` | revision binding: see "Binding a review to a revision"; (wave 24c) `tree_changed_during_review` compares file contents, and `revision_moved` (after it) is `null`, or `"<old base_commit> -> <new>"` when HEAD moved during the run - informational, never a tree change by itself |
 | `artifacts` / `artifacts_changed_during_review` | `[{path, sha256, sha256_after}]` per `-Artifact`; whether any changed during the run |
 | `bridge_outcome` | `usable reply`, (0.5.0) `usable reply (after a timeout continuation)` or `failed: <why>`: only whether the bridge worked |
-| `provider_failure` | `null` on success, else `{class, code, message, when, retry_after}` (see "Preflight and endpoint health") |
+| `provider_failure` | `null` on success, else `{class, kind, code, message, when, retry_after, hint}` (see "Preflight and endpoint health"): (wave 24c) `kind` `burst` - a 429 that names no usage window or quota, out for 10 minutes - or `""`; `hint` the operator's next step, decided when the failure is classified (`""`, or `context too long for this plan/model - ...`) |
 | `warnings` | (0.4.0) notices of the run - a `-Provider` label that names several roster entries (any engine), agy's denial notice and its `warning:` stderr lines that came with a usable reply; `[]` when none |
 | `verdict` / `verdict_reason` | `ACCEPT`, `HOLD`, `REJECT`, `ADVISE`, or `""` (unavailable or invalid); one sentence |
 | `findings` / `finding_ids` | severity counts of the new findings; their ids |
@@ -861,6 +879,18 @@ run: `tree_sha256_after`/`tree_changed_during_review`, `brief_sha256`/
 `sha256`/`sha256_after` with `artifacts_changed_during_review`. Each difference prints its
 own `WARNING: …` header line, independently of the others.
 
+(0.5.0, wave 24c) `tree_changed_during_review` - the `WARNING`, an engine's tree check and the
+continuation gate - compares file CONTENTS: every tracked file's blob (`git ls-files -s`; the
+worktree's blob for a path `git status` lists) and every untracked file's hash, under the same
+exclusions (the collab directory, ignored files, submodules not recursed) - never HEAD, the commit
+id or the index's metadata. A commit, a moved HEAD or a `git add` that leaves every file as it was
+is no change (the coordinator committing the collab files while a reviewer runs used to fail an
+agy or muse member with `the working tree changed during the run ...: 0 files`), so
+`tree_sha256_after` may differ from `tree_sha256` while `tree_changed_during_review` is `false`. A
+moved HEAD is recorded as `revision_moved` (`"<old base_commit> -> <new>"`, informational) and
+noted in the handoff header (`Note: HEAD moved during the review (<old> -> <new>) - no file content
+changed: not a tree change.`); `base_commit` and `reviewed_revision` stay the reviewed revision.
+
 `-Artifact <path>` binds a built artifact (a binary, a bundle) to the review. Pass several
 as ONE comma-separated string (`-Artifact a.exe,b.dll`); the parameter cannot be repeated
 (PowerShell refuses a parameter given twice). Paths resolve against the current directory,
@@ -1053,12 +1083,20 @@ environment refuses the run with and without `-SkipPreflight`):
 | no `auth` failure on this ENDPOINT in the last 24 h (unless a later run there succeeded) | `provider ZAI is not usable: the last run on this endpoint was rejected as unauthenticated at <when> (<message>); if you rotated the credential, pass -SkipPreflight once` |
 | no usage limit whose named reset time lies ahead | `provider ZAI is not usable: its usage limit (hit at <when>: <message>) lasts until <iso>; nothing was started (pass -SkipPreflight to launch anyway)` |
 | (0.5.0, wave 24b) no usage limit WITHOUT a reset time hit in the last 60 minutes | `provider ZAI is not usable: it hit a usage limit at <iso> (<message>) and named no reset time - out for 60 minutes, until <iso + 60 min>; nothing was started (pass -SkipPreflight to launch anyway)` |
+| (wave 24c) no BURST 429 without a reset time hit in the last 10 minutes | `provider ZAI is not usable: it hit a burst limit at <iso> (<message> - a 429 that names no usage limit or quota) and named no reset time - out for 10 minutes, until <iso + 10 min>; nothing was started (pass -SkipPreflight to launch anyway)` |
 
 A usage limit with NO reset time is out for 60 minutes after it was hit (the failure's own
 time; a later successful run on the endpoint clears it) - one verdict for every caller: an
 explicit `-Provider` run is refused (wave 24b; it used to warn and run), a roster walk skips it
 (`usage limit hit <iso>, reset unknown; retry after <iso + 60 min>`), and the providers listing,
-`-Short` and the SessionStart line say the same. With `-SkipPreflight` a usage limit that still
+`-Short` and the SessionStart line say the same. (wave 24c) A BURST - a 429 whose text names no
+usage window or quota: ModelArk (BytePlus) answers `exceeded retry limit, last status: 429 Too
+Many Requests, request id: ...` for burst and concurrency limits that recover within minutes - is
+out for 10 minutes instead (`provider_failure.kind` `burst`; the walk reads `burst limit (429) hit
+<iso>, reset unknown; retry after <iso + 10 min>`, the one-line view `burst limit hit 10:31, reset
+unknown; retry after 10:41, in 2m`); a 429 that names a usage limit, a quota, a balance, credits,
+billing, a token plan, an hour/day/week/month window or a reset keeps the 60 minutes. An entry
+recorded before wave 24c (no `kind`) is judged from its message. With `-SkipPreflight` a usage limit that still
 blocks only warns (console `WARNING:`, ledger `preflight_warning`). `-SkipPreflight` bypasses every refusal
 above (ledger `preflight: "skipped"`; with a roster, the first entry is taken unchecked,
 under `-Panel` every entry). Use it only for an endpoint that genuinely needs no
@@ -1068,8 +1106,9 @@ refuses on it. The credential check sees only what is local (a variable set, a t
 config, a login); it cannot see live quota. A credential's validity is learned only from a
 failed run.
 
-**Failure classes.** A failed run records `provider_failure = {class, code, message
-(<= 200 chars), when, retry_after}` (and a `Provider failure:` header line). The class
+**Failure classes.** A failed run records `provider_failure = {class, kind, code, message
+(<= 200 chars), when, retry_after, hint}` (and a `Provider failure:` header line; `kind` and `hint`
+since wave 24c - see the 10-minute burst above and the context hint below). The class
 comes from word-bounded keywords, tried in this order: `permission` (0.4.0: no output
 produced/auto-denied/"permission that headless mode" - agy's F11 notice; also forced for
 agy's tree-check failure), `capability` (not supported/unsupported/"does not
@@ -1081,7 +1120,13 @@ Kimi Code answers `unexpected status 401 Unauthorized: Your current plan support
 256K context...`, which must never block the endpoint for 24 h as `auth`; the summary adds
 `hint       : context too long for this plan/model - narrow the brief (...) or choose a model
 with a larger context window`, the handoff header a `Hint:`; a ledger entry recorded as `auth`
-with such a text is read as `capability`), then a usage limit said in words (usage
+with such a text is read as `capability`; wave 24c: NOT when the text also names any quota class,
+such as billing, payment, an insufficient balance, credits or a token plan: `billing_required:
+insufficient balance for this context window` is `quota`, never `capability`, and an entry wave 24b recorded as
+`capability` with such a text is read as `quota`; the hint is decided when the failure is
+classified, from the code and the FULL message, and stored as `provider_failure.hint` - a code-only
+`context_length_exceeded` or a context phrase past the 200 characters the message keeps gets it
+too), then a usage limit said in words (usage
 limit/quota/rate limit/RESOURCE_EXHAUSTED/too many requests) is `quota` even under a 401 or
 403 status - Kimi Code answers `unexpected status 403 Forbidden: You've reached your 5-hour
 usage limit...` - then `auth` (401/403/unauthorized/forbidden/invalid api
@@ -1182,12 +1227,14 @@ engine other than codex in the roster. `-Json` returns objects with
 position or `null`), (0.5.0, wave 24b) `roster_positions` (every position of the label, `[]`
 when none - a label with two models has two), `roster_selected`, `verdict` and (0.5.0)
 `health_source`. One listing resolves each entry's identity and each endpoint's health once
-(the walk, the availability line and the rows share them). **`-Short`**
+(the walk, the availability line and the rows share them; wave 24c: in an ORDINAL cache - `ZAI`
+and `zai`, `glm-5.3` and `GLM-5.3` never share an entry). **`-Short`**
 (0.5.0) prints ONE line over EVERY roster entry, each judged with the roster walk's verdict - the
 SessionStart hook's line: `codex-consult: out - <provider> :: <model> (until <local time>, in
 <rounded hint>), <label> :: * (...); <a> of <n> reviewers available` (the entries of one endpoint
 group that share the state collapse to `<label> :: *`; a quota without a reset reads `limit hit
-10:31, reset unknown; retry after 11:31, in 52m`; `..., <o> out, <c> not checked` when an entry was
+10:31, reset unknown; retry after 11:31, in 52m`, a burst 429 (wave 24c) `burst limit hit 10:31,
+reset unknown; retry after 10:41, in 2m`; `..., <o> out, <c> not checked` when an entry was
 not checked; nothing is cut), or `codex-consult: all <n> reviewers available`; without a roster
 the providers (`... (no reviewer roster)`). `-Short -Json` returns `{line, health_source, total,
 available, out, not_checked, roster, entries[{position, provider, model, engine, lineage, group,
@@ -1523,8 +1570,9 @@ a ledger `warnings[]` entry and a `Warnings:` handoff line.
 
 **F12: read-only is NOT enforced by agy.** Its `--sandbox` restricts the terminal only
 (a `write_to_file` call created a file with no prompt; `--mode plan` changes nothing). The
-bridge therefore compares, before and after every agy turn, the working tree (the git
-status manifest: tracked and untracked files), the WHOLE collab directory (every file under
+bridge therefore compares, before and after every agy turn, the working tree (its tracked
+and untracked files, by content - wave 24c: a commit or a moved HEAD that leaves every file as it
+was is no change, only `revision_moved`), the WHOLE collab directory (every file under
 `-CollabDir`, recursively: every task's `findings.json` / `sessions.json` / `state.md` and
 handoffs; the bridge's own `.consult.*` files and this run's own `NN-agy-<slug>.*` files
 excepted - and, for a member of a panel whose members run at the same time, the task's two
@@ -1896,6 +1944,7 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 | `… rejected as unauthenticated at <when> …` | the user rotates or fixes the credential; then pass `-SkipPreflight` once (the 24-hour window cannot tell "fixed" from "still broken") |
 | `… usage limit … lasts until <iso>` / `unavailable (usage limit until <iso>)` | wait, or consult another reviewer (`-Provider`, or let the roster walk pick the next entry) |
 | `unavailable (usage limit hit <iso>, reset unknown; retry after <iso>)` | (0.5.0) the endpoint hit a limit and named no reset time: it counts as out for 60 minutes after the hit (a later successful run clears it) - for every caller, an explicit `-Provider` run too (`... out for 60 minutes, until <iso>; nothing was started (pass -SkipPreflight to launch anyway)`); wait, or consult another reviewer |
+| `unavailable (burst limit (429) hit <iso>, reset unknown; retry after <iso>)` | (wave 24c) a 429 that names no usage window or quota (ModelArk's burst and concurrency limits): out for 10 minutes after the hit, not 60; wait a few minutes or let the roster walk pick the next entry |
 | `hint       : context too long for this plan/model - ...` | (0.5.0) the prompt (the brief and what the reviewer read) outgrew the plan's or the model's context window (class `capability`, never `auth` - the endpoint stays available): narrow the brief (fewer or smaller files, a smaller `-Range`, a reading plan) or choose a model with a larger window |
 | the listing says `available` but a panel skipped the entry | run `codex-providers.ps1` in the repository the panel ran in: health comes from THAT repository's ledgers (0.5.0: its `endpoint health:` line names them) |
 | `failed: timeout after N s (process tree killed)` with `partial    :` / `resume     :` lines | (0.5.0) read the partial reply (what the reviewer produced before the kill), then run the printed `resume` command: the reviewer continues its own thread with what it already read. For the next big review pass `-Range` and leave `-TimeoutSec` to the purpose, or give the brief a reading plan |

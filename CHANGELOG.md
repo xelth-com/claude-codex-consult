@@ -186,6 +186,79 @@ host invariance (R13), opt-out telemetry (R17).
     repository of its own (that limit now keeps the endpoint out for every later run there).
     Assertions (Windows PowerShell 5.1): `harness-visibility` 100 (was 76), `harness-0.3` 229
     (227), `harness-roster` 118 (117); the other harnesses unchanged.
+- **Wave 24c - the wave 24b re-acceptance panel's findings** (`.collab/companions-2026-09-26/`
+  F15-1..6, the F08-4 residual and the F08-2 ruling) **and two defects of the same panel's live
+  ledger**:
+  - F15-1 (major): the context-overflow exception (a 401/403 whose text names a context window ->
+    capability) excluded only the usage-limit wording; billing, payment, an insufficient balance,
+    credits or a token plan next to a context window was forced to capability - a continuation
+    after a billing failure, the endpoint left available. `Test-ContextOverflow` now excludes the
+    COMPLETE quota pattern (quota wins); an entry wave 24b recorded as capability with such a text
+    is read as quota.
+  - F15-2 (major): the listing's identity/health cache was a case-insensitive `@{}` - `ZAI ::
+    glm-5.3` and `zai :: GLM-5.3` shared one slot (identity, fingerprint, health). `New-ListingCache`
+    makes an ORDINAL hashtable, the keys are case-preserving and length-prefixed
+    (`Get-ListingCacheKey`), and only such a cache is used (a plain hashtable is ignored: the
+    identity is then resolved every time); `codex-providers.ps1` uses it.
+  - F15-3: `Get-KilledTurnFailure` classified EVERY stderr line - an informational line with
+    `auth`, `billing` or `429` in it blocked a permitted continuation. Structured evidence first
+    (the adapter's class, the event stream's error, the adapter's texts, a provider error payload
+    on stderr - `ConvertFrom-ProviderErrorText` now says `Found`), then only DIAGNOSTIC stderr
+    lines (`$script:DiagnosticStderrRe`: ERROR/FATAL level, or an HTTP status with its message),
+    never a known informational engine message (`$script:InfoStderrRe`: codex's models refresh -
+    logged at ERROR level with the whole models list in it -, its fallback-metadata notice,
+    `Reading prompt from stdin`; muse's notices); an agy stderr tail copied into the adapter's
+    texts is judged as that line.
+  - F15-4: the context hint was re-derived from the stored message (cut to 200 characters, without
+    the code) - a code-only `context_length_exceeded` lost it. `New-ProviderFailure` decides it at
+    classification from the code and the FULL message and stores it (`provider_failure.hint`,
+    `Get-ClassHint`); `Get-FailureHint` reads it (an entry recorded before: from its code +
+    message).
+  - F15-5: the printed resume command also carries `-ReplyName` (when given; a panel member's own
+    `<name>-<provider>`) and `-SkipPreflight`.
+  - F15-6: `Invoke-EngineTurn` restored the recovery record after a launch refusal only; a
+    Start-Process error (a launcher gone) left it `launching`. Every path that starts nothing now
+    gives it its previous state back (on disk and in memory; a failed record write too), and so
+    does the codex format repair's start.
+  - F08-4 residual: a continuation reply the checks REJECTED (not a provider failure) was
+    discarded. The partial file keeps it after the turns under `## continuation reply (rejected:
+    <why>)`, and `timeout_continue.outcome` ends `; its text is kept in
+    handoffs/<NN>-<engine>-<slug>.partial.md under "continuation reply (rejected)"`.
+  - F08-2 ruling: `.collab` changes stay outside a codex run's continuation gate - by design (the
+    codex engine never snapshots the collab directory: it cannot tell its own writes from others');
+    the README says so (`Residual (codex)`). No code change.
+  - The tree check fired with ZERO changed files (companions n=13, a muse member: `the working tree
+    changed during the run ...: 0 files:`): the coordinator committed the collab files while it
+    ran (HEAD moved, no file changed), and the fingerprint has HEAD (and the staged state) in it. The
+    tree check now compares file CONTENTS (`Get-RevisionInfo` `content_sha256`: every tracked
+    file's blob from `git ls-files -s`, the worktree's blob for a path git status lists, every
+    untracked file's; never HEAD, the commit id or the index's metadata; `Compare-TreeContent`) -
+    for the engines' tree check, the continuation gate and `tree_changed_during_review`. A moved
+    HEAD is ledger `revision_moved` (`"<old base_commit> -> <new>"`, else `null`; right after
+    `tree_changed_during_review`) and a `Note: HEAD moved during the review (<old> -> <new>) - no
+    file content changed: not a tree change.` header line; `tree_sha256` (the review binding),
+    `base_commit` and `reviewed_revision` are unchanged.
+  - A burst 429 is not a 5-hour quota: ModelArk (BytePlus) answers `exceeded retry limit, last
+    status: 429 Too Many Requests, request id: ...` for burst/concurrency limits that recover
+    within minutes (nonblocking n=2, companions n=6 and n=12), and every 429 without a reset time
+    was out for 60 minutes. `provider_failure.kind` (right after `class`; `Get-FailureKind`):
+    `burst` when a quota 429's text names no usage window or quota - out for 10 minutes (the walk:
+    `burst limit (429) hit <iso>, reset unknown; retry after <iso + 10 min>`; the refusal `... it hit
+    a burst limit at <iso> (<message> - a 429 that names no usage limit or quota) and named no reset
+    time - out for 10 minutes, until <iso>; ...`; the one-line view `burst limit hit <t>, ...`); a
+    429 that names a usage limit, a quota, a balance, credits, billing, a token plan, an
+    hour/day/week/month window or a reset keeps the 60-minute rule; an entry recorded without
+    `kind` is judged from its message (`Get-EndpointHealth` `FailureKind`, `OutMinutes`).
+    `provider_failure` is now `{class, kind, code, message, when, retry_after, hint}`.
+  - Tests: `harness-visibility.ps1` sections `UNIT24C` (in-process; F15-6 runs `Invoke-EngineTurn`
+    taken from the AST of `codex-consult.ps1`), `GATES24C` and `BURST` (end to end; fake knobs
+    `FAKE_CODEX_COMMIT`, `FAKE_MUSE_COMMIT`) and two F08-4 residual checks in `GATES`; the
+    60-minute cases of `UNIT`, `AVAIL` and `QUOTA60` use a 429 that names a usage limit (a bare 429
+    is a burst now); the F08-3 cases put the billing line on an ERROR-level stderr line; the resume
+    commands of `CONT`, `CONTAGY`, `PANEL` and `GATES` F08-6 carry `-ReplyName`; the ledger field
+    order (`revision_moved`) in `harness-0.3`, `harness-engines` and `harness-muse`, the
+    provider_failure field order in `harness-roster`. Assertions (Windows PowerShell 5.1):
+    `harness-visibility` 121 (was 100); the other harnesses unchanged.
 - T2 (the providers view disagreed with the roster walk): the listing read the endpoint
   health of the repository it ran in - silently - and its rows used a second implementation
   of the verdict (a quota without a reset time read `available`; a usage limit hit days ago
@@ -206,6 +279,13 @@ host invariance (R13), opt-out telemetry (R17).
 - The listing, `-Short` and the hook read the ledgers of the repository they run in (now
   said on the `endpoint health:` line); a limit recorded in another repository stays invisible
   there until a run in this one hits it.
+- (wave 24c) The tree check compares file contents: a file-mode change (chmod) or a change that
+  is only staged during a run is not a tree change (`tree_sha256`, the review binding, still
+  moves with both).
+- (wave 24c) Whether a 429 is a burst is read from its text: a real quota whose 429 names nothing
+  but the status is out for 10 minutes only - the next run after that hits it again and records
+  it again.
+
 
 ## [0.4.0] - 2026-09-26
 

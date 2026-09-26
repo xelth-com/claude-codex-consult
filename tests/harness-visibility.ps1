@@ -15,6 +15,12 @@
 # end to end - the main turn's guarded start, the continuation's gates (one tree check, one
 # classifier), its failure as provider_failure, a first reply's checks before it counts, the
 # prompt-only schema, the complete resume command, -Range of two revisions, roster_positions.
+# Wave 24c (the re-acceptance panel's F15-1..6, the F08-4 residual, the F08-2 ruling and two ledger
+# facts): UNIT24C in-process, GATES24C and BURST end to end - quota wording beats the context
+# exception, the ordinal listing cache, only diagnostic stderr lines gate the continuation, the hint
+# stored at classification, -ReplyName/-SkipPreflight in the resume command, the record restored
+# after a Start-Process error, a rejected continuation reply kept, the tree check by CONTENT (a
+# commit meanwhile is revision_moved, not a change), the 10-minute burst 429.
 # FAKES ONLY: fake-codex3.cmd, fake-agy.cmd, fake-muse.cmd (CODEX_CONSULT_*_EXE); CODEX_HOME, the
 # roster, USERPROFILE/HOME (a fake muse auth.json) and LOCALAPPDATA point at SCRATCH directories;
 # PATH holds no muse launcher (the harness refuses to run otherwise). Runs under the host it is
@@ -107,7 +113,7 @@ function Write-Roster {
     [IO.File]::WriteAllText($p, $Json, $u8)
     return $p
 }
-$fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_RESUME_REPLY', 'FAKE_CODEX_RESUME_LOG', 'FAKE_CODEX_LOG', 'FAKE_CODEX_HANG_ON', 'FAKE_CODEX_HANG_NEW', 'FAKE_CODEX_ITEMS', 'FAKE_CODEX_PRELINE', 'FAKE_CODEX_SLEEP', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_FAIL_ON', 'FAKE_CODEX_PIDFILE', 'FAKE_CODEX_REPLY_MAP', 'FAKE_CODEX_STDERR', 'FAKE_CODEX_EXIT', 'FAKE_CODEX_WRITE', 'FAKE_CODEX_STDERR_FIRST', 'FAKE_CODEX_RESUME_FAIL', 'FAKE_AGY_STDERR', 'FAKE_AGY_HANG_AFTER', 'FAKE_AGY_STATUS', 'FAKE_AGY_ERROR', 'FAKE_AGY_EXIT', 'FAKE_AGY_REPLY', 'FAKE_AGY_RESUME_REPLY', 'FAKE_AGY_NOSTRUCTURED', 'FAKE_AGY_HANG', 'FAKE_AGY_HANG_ON', 'FAKE_AGY_TEXT', 'FAKE_AGY_DENIED', 'FAKE_AGY_LOG', 'FAKE_AGY_RESUME_LOG', 'FAKE_AGY_MODELS', 'FAKE_AGY_MODELS_LOG', 'FAKE_MUSE_REPLY', 'FAKE_MUSE_RESUME_REPLY', 'FAKE_MUSE_HANG', 'FAKE_MUSE_TEXT', 'FAKE_MUSE_LOG', 'FAKE_MUSE_RESUME_LOG', 'FAKE_MUSE_COUNT')
+$fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_RESUME_REPLY', 'FAKE_CODEX_RESUME_LOG', 'FAKE_CODEX_LOG', 'FAKE_CODEX_HANG_ON', 'FAKE_CODEX_HANG_NEW', 'FAKE_CODEX_ITEMS', 'FAKE_CODEX_PRELINE', 'FAKE_CODEX_SLEEP', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_FAIL_ON', 'FAKE_CODEX_PIDFILE', 'FAKE_CODEX_REPLY_MAP', 'FAKE_CODEX_STDERR', 'FAKE_CODEX_EXIT', 'FAKE_CODEX_WRITE', 'FAKE_CODEX_STDERR_FIRST', 'FAKE_CODEX_RESUME_FAIL', 'FAKE_CODEX_COMMIT', 'FAKE_AGY_STDERR', 'FAKE_AGY_HANG_AFTER', 'FAKE_AGY_STATUS', 'FAKE_AGY_ERROR', 'FAKE_AGY_EXIT', 'FAKE_AGY_REPLY', 'FAKE_AGY_RESUME_REPLY', 'FAKE_AGY_NOSTRUCTURED', 'FAKE_AGY_HANG', 'FAKE_AGY_HANG_ON', 'FAKE_AGY_TEXT', 'FAKE_AGY_DENIED', 'FAKE_AGY_LOG', 'FAKE_AGY_RESUME_LOG', 'FAKE_AGY_MODELS', 'FAKE_AGY_MODELS_LOG', 'FAKE_MUSE_REPLY', 'FAKE_MUSE_RESUME_REPLY', 'FAKE_MUSE_HANG', 'FAKE_MUSE_TEXT', 'FAKE_MUSE_LOG', 'FAKE_MUSE_RESUME_LOG', 'FAKE_MUSE_COUNT', 'FAKE_MUSE_WRITE', 'FAKE_MUSE_COMMIT', 'FAKE_MUSE_STDERR')
 $testVars = @('CODEX_CONSULT_EXE', 'CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS', 'CODEX_CONSULT_AGY_EXE', 'CODEX_CONSULT_MUSE_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_SURVIVORS', 'CODEX_CONSULT_TEST_LOGIN_TIMEOUT', 'META_API_KEY', 'MODEL_API_KEY', 'TBH_CREDENTIAL_BACKEND', 'RT_ZAI_KEY', 'RT_MIMO_KEY')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
@@ -254,10 +260,11 @@ if (Want 'UNIT') {
     $fc2 = Get-FirstClause 'the Muse sign-in is not established as oauth (TBH_CREDENTIAL_BACKEND is not set: the keychain backend cannot be read): a muse run might bill per token'
     Check 'UNIT' 'Get-FirstClause: a launch refusal''s first clause, up to the first ": " outside parentheses (a complete phrase, never a cut)' ($fc1 -eq 'META_API_KEY is set' -and $fc2 -eq 'the Muse sign-in is not established as oauth (TBH_CREDENTIAL_BACKEND is not set: the keychain backend cannot be read)' -and (Get-FirstClause 'no colon') -eq 'no colon') "$fc1 | $fc2"
 
-    # --- T3: a quota failure without a reset time is out for 60 minutes after it was hit
+    # --- T3: a quota failure without a reset time is out for 60 minutes after it was hit (a 429 that
+    # names a usage limit; wave 24c: a bare burst 429 is out for 10 minutes - UNIT24C, BURST)
     $now = [DateTimeOffset]::new(2026, 9, 26, 10, 40, 0, [TimeSpan]::FromHours(2))
     $hit = $now.AddMinutes(-9)
-    $q = New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $now.AddMinutes(-15) 'failed: codex exit 1 - 429 Too Many Requests' (Quota $hit '429 Too Many Requests')
+    $q = New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $now.AddMinutes(-15) 'failed: codex exit 1 - 429 Too Many Requests: usage limit exceeded' (Quota $hit '429 Too Many Requests: usage limit exceeded')
     $h = Get-EndpointHealth -Consults @($q) -Fingerprint $zaiFp -UtcNow $now.UtcDateTime
     Check 'UNIT' 'T3 Get-EndpointHealth: a quota failure without a reset time, hit 9 min ago -> Quota (not QuotaKnown), Hit = provider_failure.when (not the entry''s start), Until = Hit + 60 min' ($h.Quota -and -not $h.QuotaKnown -and $h.Quota.HitIso -eq (Iso $hit) -and (Iso $h.Quota.Until) -eq (Iso $hit.AddMinutes(60))) "hit $($h.Quota.HitIso) until $(Iso $h.Quota.Until)"
     $h59 = Get-EndpointHealth -Consults @($q) -Fingerprint $zaiFp -UtcNow $hit.AddMinutes(59).UtcDateTime
@@ -276,7 +283,7 @@ if (Want 'UNIT') {
     $vS = Get-PreflightVerdict -Identity $idZ -Config $cfg -Launcher $fakeCodex -Health $h
     Check 'UNIT' 'D14 Get-PreflightVerdict -RosterWalk: unavailable, Kind quota-unknown-reset, Reason "usage limit hit <iso>, reset unknown; retry after <iso + 60 min>", Hit and Until' ($vW.State -eq 'unavailable' -and $vW.Kind -eq 'quota-unknown-reset' -and $vW.Reason -eq "usage limit hit $(Iso $hit), reset unknown; retry after $(Iso $hit.AddMinutes(60))" -and (Iso $vW.Until) -eq (Iso $hit.AddMinutes(60))) $vW.Reason
     $qwS = Format-QuotaWarning -Identity $idZ -Health $h -SkipPreflight
-    Check 'UNIT' 'F08-7 the 60-minute rule is unconditional: without -RosterWalk (an explicit -Provider run) the SAME verdict - unavailable, Kind quota-unknown-reset, the same Reason, Hit and Until; only the refusal differs ("... out for 60 minutes, until <iso>; nothing was started (pass -SkipPreflight to launch anyway)"); Format-QuotaWarning is empty without -SkipPreflight and names the reset-unknown window with it' ($vS.State -eq 'unavailable' -and $vS.Kind -eq 'quota-unknown-reset' -and $vS.Reason -eq $vW.Reason -and (Iso $vS.Until) -eq (Iso $vW.Until) -and (Iso $vS.Hit) -eq (Iso $vW.Hit) -and $vS.Refusal.EndsWith('; nothing was started (pass -SkipPreflight to launch anyway)') -and -not $vW.Refusal.Contains('-SkipPreflight') -and (Format-QuotaWarning -Identity $idZ -Health $h) -eq '' -and $qwS -eq "provider ZAI hit a usage limit 15 min ago (reset unknown; out until $(Iso $hit.AddMinutes(60))): 429 Too Many Requests") "$($vS.State) | $qwS"
+    Check 'UNIT' 'F08-7 the 60-minute rule is unconditional: without -RosterWalk (an explicit -Provider run) the SAME verdict - unavailable, Kind quota-unknown-reset, the same Reason, Hit and Until; only the refusal differs ("... out for 60 minutes, until <iso>; nothing was started (pass -SkipPreflight to launch anyway)"); Format-QuotaWarning is empty without -SkipPreflight and names the reset-unknown window with it' ($vS.State -eq 'unavailable' -and $vS.Kind -eq 'quota-unknown-reset' -and $vS.Reason -eq $vW.Reason -and (Iso $vS.Until) -eq (Iso $vW.Until) -and (Iso $vS.Hit) -eq (Iso $vW.Hit) -and $vS.Refusal.EndsWith('; nothing was started (pass -SkipPreflight to launch anyway)') -and -not $vW.Refusal.Contains('-SkipPreflight') -and (Format-QuotaWarning -Identity $idZ -Health $h) -eq '' -and $qwS -eq "provider ZAI hit a usage limit 15 min ago (reset unknown; out until $(Iso $hit.AddMinutes(60))): 429 Too Many Requests: usage limit exceeded") "$($vS.State) | $qwS"
     $idA = Resolve-ReviewerIdentity -Config $cfg -Provider 'gemini' -Model $agyModel -Engine 'agy' -Launcher $fakeAgy
     $qa = New-Entry 1 'gemini' $agyModel $agyFp 'agy' $now.AddMinutes(-30) 'failed: agy exit 3 - Individual quota reached.' (Quota $now.AddMinutes(-30) 'Individual quota reached.' $now.AddDays(2))
     $ha = Get-EndpointHealth -Consults @($qa) -Fingerprint $agyFp -UtcNow $now.UtcDateTime
@@ -363,13 +370,13 @@ if (Want 'UNIT24B') {
     $g6 = Get-RangeStat -Root $rr8 -Range 'HEAD~1..HEAD'
     Check 'UNIT24B' 'F08-8 Get-RangeStat: a single revision (HEAD) is refused ("is not a range of two revisions: pass base..head or base...head ... a single revision would measure the working tree"), so are "..HEAD", "HEAD~1.." and four dots; base...head and base..head are measured' ($g1.Error -match "^-Range 'HEAD' is not a range of two revisions: pass base\.\.head or base\.\.\.head .*a single revision would measure the working tree against it" -and $g3.Error -and $g4.Error -and $g5.Error -and -not $g2.Error -and $g2.Files -eq 1 -and $g2.Lines -eq 2 -and -not $g6.Error -and $g6.Lines -eq 2) "$($g1.Error) | $($g2.Error) $($g2.Lines)"
     # --- F08-3: the killed turn's evidence through the one classifier
-    $k1 = Get-KilledTurnFailure -Texts @('timeout after 5 s (process tree killed)') -StderrText "Reading prompt from stdin...`nInsufficient balance: top up the prepaid plan to continue"
+    $k1 = Get-KilledTurnFailure -Texts @('timeout after 5 s (process tree killed)') -StderrText "Reading prompt from stdin...`nERROR: Insufficient balance: top up the prepaid plan to continue"
     $k2 = Get-KilledTurnFailure -Texts @('', 'timeout after 5 s (process tree killed)') -StderrText 'Payment required (402): the prepaid plan is exhausted'
     $k3 = Get-KilledTurnFailure -StderrText 'data: {"error":{"code":"1113","message":"Insufficient balance or no resource package. Please recharge."}}'
     $k4 = Get-KilledTurnFailure -AdapterClass 'auth' -Texts @('the sign-in expired')
     $k5 = Get-KilledTurnFailure -Texts @('timeout after 5 s (process tree killed)') -StderrText "Reading prompt from stdin...`nwarning: slow network"
     $k6 = Get-KilledTurnFailure -Texts @('You have hit your usage limit. Try again later.', 'timeout after 5 s (process tree killed)')
-    Check 'UNIT24B' 'F08-3 Get-KilledTurnFailure: every stderr line and text through the ONE classifier - billing wording the old keyword filter skipped ("Insufficient balance: ...", "Payment required (402) ...") and an SSE payload are quota, an adapter class auth is auth, a usage limit in the event error is quota; the bridge''s timeout text and plain noise forbid nothing' ($k1.Class -eq 'quota' -and $k1.Text -eq 'Insufficient balance: top up the prepaid plan to continue' -and $k2.Class -eq 'quota' -and $k3.Class -eq 'quota' -and $k4.Class -eq 'auth' -and $k5.Class -eq '' -and $k6.Class -eq 'quota') "$($k1.Class)/$($k2.Class)/$($k3.Class)/$($k4.Class)/'$($k5.Class)'/$($k6.Class)"
+    Check 'UNIT24B' 'F08-3 Get-KilledTurnFailure: every diagnostic stderr line (wave 24c, F15-3: ERROR level or an HTTP status) and text through the ONE classifier - billing wording the old keyword filter skipped ("ERROR: Insufficient balance: ...", "Payment required (402) ...") and an SSE payload are quota, an adapter class auth is auth, a usage limit in the event error is quota; the bridge''s timeout text and plain noise forbid nothing' ($k1.Class -eq 'quota' -and $k1.Text -eq 'ERROR: Insufficient balance: top up the prepaid plan to continue' -and $k2.Class -eq 'quota' -and $k3.Class -eq 'quota' -and $k4.Class -eq 'auth' -and $k5.Class -eq '' -and $k6.Class -eq 'quota') "$($k1.Class)/$($k2.Class)/$($k3.Class)/$($k4.Class)/'$($k5.Class)'/$($k6.Class)"
     # --- F08-5: a continuation's reply passes a first reply's checks before it counts
     $c1 = Test-ContinuationReply -Text 'Done.'
     $c2 = Test-ContinuationReply -Text $adviseJson
@@ -392,7 +399,7 @@ if (Want 'UNIT24B') {
     $bp = 'exceeded retry limit, last status: 429 Too Many Requests, request id: 0217904369195483cb8a93f7287826a4278aac7f0d089f9d37170'
     $raBp = Get-RetryAfter -Message $bp -Reference $now
     $raEcho = Get-RetryAfter -Message 'exceeded retry limit, last status: 429 Too Many Requests, Retry-After: 30' -Reference $now
-    Check 'UNIT24B' 'the byteplus 429 "exceeded retry limit, last status: 429 Too Many Requests, request id: ..." is quota with NO reset time (the request id is not a duration) - the 60-minute rule applies; a Retry-After echoed in such a text is read (+30 s)' ((Get-ProviderFailureClass $bp) -eq 'quota' -and $null -eq $raBp -and $null -ne $raEcho -and $raEcho.UtcDateTime -eq $now.AddSeconds(30).UtcDateTime) "$raBp | $raEcho"
+    Check 'UNIT24B' 'the byteplus 429 "exceeded retry limit, last status: 429 Too Many Requests, request id: ..." is quota with NO reset time (the request id is not a duration) - (wave 24c) a burst: out for 10 minutes (UNIT24C); a Retry-After echoed in such a text is read (+30 s)' ((Get-ProviderFailureClass $bp) -eq 'quota' -and $null -eq $raBp -and $null -ne $raEcho -and $raEcho.UtcDateTime -eq $now.AddSeconds(30).UtcDateTime) "$raBp | $raEcho"
     # --- F07-3: one listing resolves each identity and each endpoint's health once
     $env:RT_ZAI_KEY = 'zai-test-key'
     $rosterC = Roster-Of (Write-Roster 'cache4' ('{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1"},{"provider":"ZAI","model":"glm-5.3"},{"provider":"zai2","model":"glm-5.3"},{"provider":"gemini","engine":"agy","model":"' + $agyModel + '"}]}'))
@@ -404,7 +411,7 @@ if (Want 'UNIT24B') {
     function Resolve-ReviewerIdentity { param($Config, [string]$Provider = '', [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '') $script:idCalls++; & $origIdentity @PSBoundParameters }
     function Get-EndpointHealth { param([object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow) $script:healthCalls++; & $origHealth @PSBoundParameters }
     try {
-        $cacheL = @{}
+        $cacheL = New-ListingCache
         $walkC = Select-RosterReviewer -Roster $rosterC -Config $cfg -Consults $consC -Launcher $fakeCodex -LoginCache @{} -UtcNow $now.UtcDateTime -EngineLaunchers @{ agy = $fakeAgy } -NoNetwork -Cache $cacheL
         $availC = Get-RosterAvailability -Roster $rosterC -Config $cfg -Consults $consC -Launcher $fakeCodex -LoginCache @{} -UtcNow $now.UtcDateTime -EngineLaunchers @{ agy = $fakeAgy } -NoNetwork -Cache $cacheL
         $idWith = $script:idCalls; $hWith = $script:healthCalls
@@ -418,6 +425,119 @@ if (Want 'UNIT24B') {
         Restore-Env
     }
     Check 'UNIT24B' 'F07-3 one listing (the walk + every entry''s availability) sharing -Cache resolves each of the 4 entries'' identity ONCE and each of the 3 endpoints'' health ONCE (without the cache: more); the same selection and the same line either way' ($idWith -eq 4 -and $hWith -eq 3 -and $idWithout -gt $idWith -and $hWithout -gt $hWith -and $walkC.Entry.Position -eq $walkN.Entry.Position -and $walkC.Entry.Position -eq 2 -and (Format-AvailabilityLine -Availability $availC) -eq (Format-AvailabilityLine -Availability $availN)) "with: $idWith identities, $hWith health reads; without: $idWithout, $hWithout"
+}
+
+# =============================================================== UNIT24C: wave 24c, the re-acceptance panel's fixes and two ledger facts (in-process)
+if (Want 'UNIT24C') {
+    $now = [DateTimeOffset]::new(2026, 9, 26, 10, 40, 0, [TimeSpan]::FromHours(2))
+    # --- F15-1: every quota-class wording wins over the context exception
+    $mix1 = 'billing_required: insufficient balance for this context window'
+    $mix2 = 'credits exhausted; prompt is too long'
+    $mix3 = 'unexpected status 402 Payment Required: the prompt exceeds the context window of your token plan'
+    $kimiCtx = 'unexpected status 401 Unauthorized: Your current plan supports only k3 up to 256K context. 1M context is available on higher-tier Kimi Code plans.'
+    $clsMix = @((Get-ProviderFailureClass $mix1), (Get-ProviderFailureClass $mix2), (Get-ProviderFailureClass $mix3), (Get-ProviderFailureClass $kimiCtx))
+    $kMix1 = Get-KilledTurnFailure -Texts @($mix1, 'timeout after 5 s (process tree killed)')
+    $kMix2 = Get-KilledTurnFailure -Texts @('timeout after 5 s (process tree killed)') -StderrText "ERROR: $mix2"
+    $pfMix = New-ProviderFailure -Texts @($mix1)
+    $pfMixAt = [pscustomobject]@{ class = $pfMix.class; kind = $pfMix.kind; code = ''; message = $mix1; when = (Iso $now.AddMinutes(-9)); retry_after = $null; hint = $pfMix.hint }
+    $hMix = Get-EndpointHealth -Consults @((New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $now.AddMinutes(-12) "failed: codex exit 1 - $mix1" $pfMixAt)) -Fingerprint $zaiFp -UtcNow $now.UtcDateTime
+    $old24b = [pscustomobject]@{ class = 'capability'; code = ''; message = $mix2; when = (Iso $now.AddMinutes(-9)); retry_after = $null }
+    $hOld = Get-EndpointHealth -Consults @((New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $now.AddMinutes(-12) "failed: codex exit 1 - $mix2" $old24b)) -Fingerprint $zaiFp -UtcNow $now.UtcDateTime
+    Check 'UNIT24C' 'F15-1 quota wins over the context exception: "billing_required: insufficient balance for this context window", "credits exhausted; prompt is too long" and a 402 naming the context window of a token plan are quota (the kimi plan-context 401 stays capability); a killed turn with that evidence (a text, an ERROR line) reports quota - no continuation; its provider_failure is quota without the context hint and blocks the endpoint 60 minutes; an entry wave 24b recorded as capability with such a text is read as quota' (($clsMix -join ',') -eq 'quota,quota,quota,capability' -and $kMix1.Class -eq 'quota' -and $kMix2.Class -eq 'quota' -and $pfMix.class -eq 'quota' -and $pfMix.kind -eq '' -and $pfMix.hint -eq '' -and $hMix.Quota -and -not $hMix.QuotaKnown -and (Iso $hMix.Quota.Until) -eq (Iso $now.AddMinutes(51)) -and $hOld.Quota -and $hOld.LastFailure.Class -eq 'quota') "$($clsMix -join ',') | killed $($kMix1.Class)/$($kMix2.Class) | recorded $($pfMix.class) | 24b entry read as $($hOld.LastFailure.Class)"
+    # --- F15-2: the listing cache is ordinal - ZAI :: glm-5.3 and zai :: GLM-5.3 never share a slot
+    $cfgCase = Read-CodexConfigSubset -Path (Reply 'config-case.toml' "[model_providers.ZAI]`nbase_url = `"https://api.z.ai/api/v1`"`nenv_key = `"RT_ZAI_KEY`"`nwire_api = `"responses`"`n`n[model_providers.zai]`nbase_url = `"https://open.bigmodel.cn/api/paas/v4`"`nenv_key = `"RT_ZAI_KEY`"`nwire_api = `"responses`"`n")
+    $rosterCase = Roster-Of (Write-Roster 'case' '{"roster_version":1,"reviewers":[{"provider":"ZAI","model":"glm-5.3"},{"provider":"zai","model":"GLM-5.3"}]}')
+    $env:RT_ZAI_KEY = 'zai-test-key'
+    try {
+        $cacheCase = New-ListingCache
+        $idUp = Get-CachedReviewerIdentity -Cache $cacheCase -Config $cfgCase -Provider 'ZAI' -Model 'glm-5.3'
+        $idLow = Get-CachedReviewerIdentity -Cache $cacheCase -Config $cfgCase -Provider 'zai' -Model 'GLM-5.3'
+        $idUp2 = Get-CachedReviewerIdentity -Cache $cacheCase -Config $cfgCase -Provider 'ZAI' -Model 'glm-5.3'
+        $consCase = @((New-Entry 1 'zai' 'GLM-5.3' $idLow.Fingerprint 'codex' $now.AddMinutes(-12) 'failed: codex exit 1 - usage limit reached' (Quota $now.AddMinutes(-9) 'usage limit reached')))
+        $availCase = Get-RosterAvailability -Roster $rosterCase -Config $cfgCase -Consults $consCase -Launcher $fakeCodex -LoginCache @{} -UtcNow $now.UtcDateTime -NoNetwork -Cache (New-ListingCache)
+        $plainCache = @{}
+        $null = Get-CachedReviewerIdentity -Cache $plainCache -Config $cfgCase -Provider 'ZAI' -Model 'glm-5.3'
+    } finally { Restore-Env }
+    Check 'UNIT24C' 'F15-2 ZAI :: glm-5.3 and zai :: GLM-5.3 (two tables, two endpoints) resolve SEPARATELY through one New-ListingCache (ordinal, case-preserving length-prefixed keys: the marker and two identity slots) - each its own provider, model and fingerprint; one listing over both judges each by its OWN endpoint health (zai out for its usage limit, ZAI available); a plain @{} is never used as a cache (nothing written into it)' ($idUp.Provider -ceq 'ZAI' -and $idUp.Model -ceq 'glm-5.3' -and $idLow.Provider -ceq 'zai' -and $idLow.Model -ceq 'GLM-5.3' -and $idUp.Fingerprint -and $idLow.Fingerprint -and $idUp.Fingerprint -ne $idLow.Fingerprint -and $idUp2.Fingerprint -eq $idUp.Fingerprint -and $cacheCase.Count -eq 3 -and $availCase.Records[0].State -eq 'available' -and $availCase.Records[1].State -eq 'out' -and $availCase.Records[1].Kind -eq 'quota-unknown-reset' -and $plainCache.Count -eq 0) "ZAI $([string]$idUp.Fingerprint) / zai $([string]$idLow.Fingerprint); slots $($cacheCase.Count); states $($availCase.Records[0].State)/$($availCase.Records[1].State); plain $($plainCache.Count)"
+    # --- F15-3: only structured evidence and the diagnostic stderr lines are classified
+    $benign = "Reading prompt from stdin...`nloaded auth.json`nrequest 429 tracing enabled`nbilling module ready`n2026-09-26T18:28:36.873087Z ERROR codex_models_manager::manager: failed to refresh available models: stream disconnected before completion: failed to decode models response: missing field ``models`` at line 1 column 27995; body: {""data"":[{""id"":""m"",""billing"":""quota"",""auth"":""429""}]}`nModel metadata for ``k3`` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."
+    $kBenign = Get-KilledTurnFailure -Texts @('timeout after 5 s (process tree killed)') -StderrText $benign
+    $kDiag = @(foreach ($l in @('ERROR: exceeded retry limit, last status: 429 Too Many Requests, request id: 0217904369195483cb8a93f7287826a4278aac7f0d089f9d37170', '2026-09-26T08:30:28Z ERROR codex_core::codex: unexpected status 401 Unauthorized: invalid API key', 'WARN codex_core::client: stream error: exceeded retry limit, last status: 429 Too Many Requests; retrying 1/5', 'Payment required (402): the prepaid plan is exhausted', 'Error: you are not signed in. Run agy to sign in with your Google account.')) { [string](Get-KilledTurnFailure -Texts @('timeout after 5 s (process tree killed)') -StderrText "$benign`n$l").Class })
+    $kTail = Get-KilledTurnFailure -Texts @('', 'loaded auth.json', 'timeout after 5 s (process tree killed)') -StderrText 'loaded auth.json'
+    $kSse = Get-KilledTurnFailure -StderrText "$benign`ndata: {""error"":{""code"":""1113"",""message"":""Insufficient balance or no resource package. Please recharge.""}}"
+    Check 'UNIT24C' 'F15-3 Get-KilledTurnFailure classifies structured evidence and DIAGNOSTIC stderr lines only: plain lines that merely contain auth, billing or 429 ("loaded auth.json", "request 429 tracing enabled"), codex''s models refresh logged at ERROR level with a body naming billing, quota and auth, the fallback-metadata notice -> nothing (the continuation stays permitted); an "ERROR:" line, an ERROR log line with an HTTP status, a WARN "stream error" with "last status: 429", "(402)", "Error: ..." -> quota/auth/quota/quota/auth; an SSE payload is structured evidence; an agy stderr tail copied into the adapter''s texts is judged as that line' ($kBenign.Class -eq '' -and ($kDiag -join ',') -eq 'quota,auth,quota,quota,auth' -and $kTail.Class -eq '' -and $kSse.Class -eq 'quota') "benign '$($kBenign.Class)' | $($kDiag -join ',') | tail '$($kTail.Class)' | sse $($kSse.Class)"
+    # --- F15-4: the hint is decided when the failure is classified
+    $pfCode = New-ProviderFailure -Texts @('data: {"error":{"code":"context_length_exceeded","message":"Request too large."}}')
+    $longCtx = ('The upstream gateway validated every message, tool definition and attachment of the conversation and rejected the request. ' * 2) + 'Reason: the prompt is too long for this model (212000 tokens > 200000).'
+    $pfLong = New-ProviderFailure -Texts @($longCtx)
+    $legacyCtx = [pscustomobject]@{ class = 'capability'; code = 'context_length_exceeded'; message = 'Request too large.' }
+    Check 'UNIT24C' 'F15-4 the hint is decided at classification and stored (provider_failure.hint): a code-only context_length_exceeded ("Request too large.") and a context phrase past the 200 characters the message keeps both get "context too long for this plan/model - ..." (Get-FailureHint reads it: summary and header); an entry recorded before wave 24c (no hint) gets it from its code + message' ($pfCode.class -eq 'capability' -and $pfCode.code -eq 'context_length_exceeded' -and $pfCode.hint -match '^context too long for this plan/model - ' -and (Get-FailureHint $pfCode) -eq $pfCode.hint -and $pfLong.message.Length -eq 200 -and $pfLong.message -notmatch 'too long' -and $pfLong.class -eq 'capability' -and (Get-FailureHint $pfLong) -match '^context too long for this plan/model - ' -and (Get-FailureHint $legacyCtx) -match '^context too long for this plan/model - ') "code $($pfCode.class) hint '$([string]$pfCode.hint)' | long $($pfLong.class)/$($pfLong.message.Length)"
+    # --- F15-6: Invoke-EngineTurn (codex-consult.ps1, taken from its AST) restores the record on every non-start path
+    $astConsult = [System.Management.Automation.Language.Parser]::ParseFile($consultPs, [ref]$null, [ref]$null)
+    foreach ($fd in @($astConsult.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and @('Start-EngineProcess', 'Invoke-EngineTurn') -contains $n.Name }, $true))) { . ([scriptblock]::Create($fd.Extent.Text)) }
+    $turnDir = Join-Path $work 'f15-6'
+    [void][IO.Directory]::CreateDirectory($turnDir)
+    $pendingPath = Join-Path $turnDir '.consult.pending.json'
+    $pendingRecord = New-PendingRecord -State 'running' -N 1 -Nn '01' -Reply 'handoffs/01-codex-x.md' -Started (Iso $now) -Launcher 'x' -ConsultId (Uuid)
+    $pendingRecord.child_pid = 4242
+    $pendingRecord.note = 'the main turn'
+    Write-PendingFile -Path $pendingPath -Record $pendingRecord
+    $engineName = 'codex'
+    $engineLauncher = Join-Path $turnDir 'launcher-gone.cmd'
+    $tErr = Invoke-EngineTurn -Argv @('exec', '-') -StdinText 'x' -EventsPath (Join-Path $turnDir 'c.events.jsonl') -StdinPath (Join-Path $turnDir 'c.stdin') -StderrPath (Join-Path $turnDir 'c.stderr') -Timeout 5 -Note 'timeout continuation turn'
+    $dErr = (Read-PendingFile -Path $pendingPath).Record
+    $memErr = [string]$pendingRecord.state
+    Set-CaseEnv '' @{ META_API_KEY = 'x-not-a-key' }
+    try {
+        $engineName = 'muse'
+        $tRef = Invoke-EngineTurn -Argv @('exec') -StdinText '' -EventsPath (Join-Path $turnDir 'r.events.jsonl') -StdinPath (Join-Path $turnDir 'r.stdin') -StderrPath (Join-Path $turnDir 'r.stderr') -Timeout 5 -Note 'format repair turn' -PromptPath (Join-Path $turnDir 'r.prompt.md') -PromptText 'x'
+    } finally { Restore-Env }
+    $dRef = (Read-PendingFile -Path $pendingPath).Record
+    Check 'UNIT24C' 'F15-6 Invoke-EngineTurn (codex-consult.ps1, taken from its AST): a Start-Process error (the launcher is gone) starts nothing and gives the recovery record its previous state back - on disk and in memory: running, the main turn''s child pid 4242 and note, never "launching"; Problem "could not start codex - ..."; a launch refusal (muse: META_API_KEY set) restores it the same way' ($tErr.Problem -match '^could not start codex - ' -and -not $tErr.Started -and $dErr.state -eq 'running' -and $dErr.note -eq 'the main turn' -and [int]$dErr.child_pid -eq 4242 -and $memErr -eq 'running' -and $tRef.Problem -match '^refused before launch: META_API_KEY is set' -and -not $tRef.Started -and $dRef.state -eq 'running' -and $dRef.note -eq 'the main turn') "$($tErr.Problem) | disk $($dErr.state)/$($dErr.note)/$($dErr.child_pid) | $([string]$tRef.Problem)"
+    Remove-Variable -Name pendingPath, pendingRecord, engineName, engineLauncher -ErrorAction SilentlyContinue
+    # --- the burst 429 (the live ledgers: nonblocking n=2, companions n=6 and n=12) - out for 10 minutes
+    $bpMsgs = @('exceeded retry limit, last status: 429 Too Many Requests, request id: 021790411419329e8a97f786c365ea5f8ca348976dbfcd2d8a713', 'exceeded retry limit, last status: 429 Too Many Requests, request id: 0217904369195483cb8a93f7287826a4278aac7f0d089f9d37170', 'exceeded retry limit, last status: 429 Too Many Requests, request id: 021790447325230e0fa5d59a7b50e9f748f37815b909e289b22b6')
+    $bpPf = @($bpMsgs | ForEach-Object { New-ProviderFailure -Texts @($_) })
+    $pfUse = New-ProviderFailure -Texts @('429 Too Many Requests: usage limit exceeded')
+    $pfWin = New-ProviderFailure -Texts @("unexpected status 403 Forbidden: You've reached your 5-hour usage limit. Your quota will reset when the current 5-hour window ends.")
+    Check 'UNIT24C' 'burst: the three live 429s ("exceeded retry limit, last status: 429 Too Many Requests, request id: ...") are quota, kind burst, no retry_after; a 429 naming a usage limit and a 5-hour window are kind "" (the 60-minute rule); provider_failure fields class,kind,code,message,when,retry_after,hint' (@($bpPf | Where-Object { $_.class -eq 'quota' -and $_.kind -eq 'burst' -and $null -eq $_.retry_after }).Count -eq 3 -and $pfUse.class -eq 'quota' -and $pfUse.kind -eq '' -and $pfWin.class -eq 'quota' -and $pfWin.kind -eq '' -and (($bpPf[0].PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'class,kind,code,message,when,retry_after,hint') "$(@($bpPf | ForEach-Object { "$($_.class)/$($_.kind)" }) -join ' ') | '$($pfUse.kind)'/'$($pfWin.kind)'"
+    $hitB = $now.AddMinutes(-9)
+    $bEntry = New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $now.AddMinutes(-12) "failed: codex exit 1 - $($bpMsgs[1])" (Quota $hitB $bpMsgs[1])
+    $hB9 = Get-EndpointHealth -Consults @($bEntry) -Fingerprint $zaiFp -UtcNow $now.UtcDateTime
+    $hB11 = Get-EndpointHealth -Consults @($bEntry) -Fingerprint $zaiFp -UtcNow $hitB.AddMinutes(11).UtcDateTime
+    $uEntry = New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $now.AddMinutes(-12) 'failed: codex exit 1 - 429 Too Many Requests: usage limit exceeded' (Quota $hitB '429 Too Many Requests: usage limit exceeded')
+    $hU11 = Get-EndpointHealth -Consults @($uEntry) -Fingerprint $zaiFp -UtcNow $hitB.AddMinutes(11).UtcDateTime
+    $kEntry = New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $now.AddMinutes(-12) 'failed: codex exit 1 - rate limited' ([pscustomobject]@{ class = 'quota'; kind = 'burst'; code = ''; message = 'rate limited'; when = (Iso $hitB); retry_after = $null; hint = '' })
+    $hK = Get-EndpointHealth -Consults @($kEntry) -Fingerprint $zaiFp -UtcNow $now.UtcDateTime
+    Check 'UNIT24C' 'burst: Get-EndpointHealth reads a burst 429 recorded WITHOUT kind (as the live ledgers hold it) from its message - FailureKind burst, out 10 minutes: blocking 9 min after the hit (Until = Hit + 10 min), clear 11 min after (LastFailure keeps it); a 429 naming a usage limit is still out 11 min after (Until = Hit + 60 min); a recorded kind is taken as recorded' ($hB9.Quota -and $hB9.Quota.FailureKind -eq 'burst' -and $hB9.Quota.OutMinutes -eq 10 -and (Iso $hB9.Quota.Until) -eq (Iso $hitB.AddMinutes(10)) -and -not $hB11.Quota -and $hB11.LastFailure.Class -eq 'quota' -and $hU11.Quota -and (Iso $hU11.Quota.Until) -eq (Iso $hitB.AddMinutes(60)) -and $hK.Quota.FailureKind -eq 'burst' -and $hK.Quota.OutMinutes -eq 10) "until $(if ($hB9.Quota) { Iso $hB9.Quota.Until }) | blocking 11 min after: $([bool]$hB11.Quota) | usage-limit 429 until $(if ($hU11.Quota) { Iso $hU11.Quota.Until })"
+    $env:RT_ZAI_KEY = 'zai-test-key'
+    try {
+        $idZb = Resolve-ReviewerIdentity -Config $cfg -Provider 'ZAI' -Model 'glm-5.3'
+        $vB = Get-PreflightVerdict -Identity $idZb -Config $cfg -Launcher $fakeCodex -Health $hB9 -RosterWalk
+        $vBs = Get-PreflightVerdict -Identity $idZb -Config $cfg -Launcher $fakeCodex -Health $hB9
+        $qwB = Format-QuotaWarning -Identity $idZb -Health $hB9 -SkipPreflight
+        $recB = ConvertTo-AvailabilityRecord -Position 1 -Provider 'ZAI' -Model 'glm-5.3' -Verdict $vB -UtcNow $now.UtcDateTime
+    } finally { Restore-Env }
+    $m100 = $bpMsgs[1].Substring(0, 100)
+    Check 'UNIT24C' 'burst: the verdict of every caller - unavailable, Kind quota-unknown-reset, Burst, Reason "burst limit (429) hit <iso>, reset unknown; retry after <iso + 10 min>"; the refusal "... it hit a burst limit at <iso> (<message> - a 429 that names no usage limit or quota) and named no reset time - out for 10 minutes, until <iso>; nothing was started (pass -SkipPreflight to launch anyway)"; the -SkipPreflight warning and the one-line view say "burst limit"' ($vB.State -eq 'unavailable' -and $vB.Kind -eq 'quota-unknown-reset' -and $vB.Burst -and $vB.Reason -eq "burst limit (429) hit $(Iso $hitB), reset unknown; retry after $(Iso $hitB.AddMinutes(10))" -and $vBs.Refusal -eq "provider ZAI is not usable: it hit a burst limit at $(Iso $hitB) ($m100 - a 429 that names no usage limit or quota) and named no reset time - out for 10 minutes, until $(Iso $hitB.AddMinutes(10)); nothing was started (pass -SkipPreflight to launch anyway)" -and $qwB -eq "provider ZAI hit a burst limit (429) 12 min ago (reset unknown; out until $(Iso $hitB.AddMinutes(10))): $m100" -and $recB.Short -eq "burst limit hit $(Local-When $hitB $now), reset unknown; retry after $(Local-When $hitB.AddMinutes(10) $now), in 1m") "$($vB.Reason) | $($recB.Short)"
+    # --- the tree check by CONTENT: a commit (HEAD moved) is no tree change
+    $rt = New-Repo 'content-24c'
+    [IO.File]::WriteAllText((Join-Path $rt '.collab\t\state.md'), "coordinator notes`n", $u8)
+    [IO.File]::WriteAllText((Join-Path $rt 'app.txt'), "one`ntwo`n", $u8)
+    [IO.File]::WriteAllText((Join-Path $rt 'new.txt'), "untracked`n", $u8)
+    $collabT = Join-Path $rt '.collab'
+    $cb = Get-RevisionInfo -Root $rt -CollabRoot $collabT
+    $null = G $rt @('add', '-f', '.collab/t/state.md', 'app.txt'); $null = G $rt @('commit', '-q', '-m', 'coordinator')
+    $ca = Get-RevisionInfo -Root $rt -CollabRoot $collabT
+    $cc1 = Compare-TreeContent -Before $cb -After $ca
+    $null = G $rt @('add', 'new.txt')
+    $cc2 = Compare-TreeContent -Before $cb -After (Get-RevisionInfo -Root $rt -CollabRoot $collabT)
+    [IO.File]::WriteAllText((Join-Path $rt 'app.txt'), "changed`n", $u8)
+    $cc3 = Compare-TreeContent -Before $cb -After (Get-RevisionInfo -Root $rt -CollabRoot $collabT)
+    Check 'UNIT24C' 'the tree check compares CONTENTS (Compare-TreeContent): committing the collab files and a file already changed moves HEAD and tree_sha256 but no content - no change, RevisionMoved "<old base_commit> -> <new>"; staging an untracked file (git add) is no change either; a real content change is one, naming its path' (-not $cc1.Changed -and $cb.tree_sha256 -ne $ca.tree_sha256 -and $cb.base_commit -ne $ca.base_commit -and $cc1.RevisionMoved -eq "$($cb.base_commit) -> $($ca.base_commit)" -and $cb.content_sha256 -eq $ca.content_sha256 -and -not $cc2.Changed -and $cc3.Changed -and ($cc3.Paths -join ',') -eq 'app.txt') "commit: $($cc1.Changed) '$($cc1.RevisionMoved)' | add: $($cc2.Changed) | edit: $($cc3.Changed) [$($cc3.Paths -join ',')]"
+    # --- F08-2 ruling: the codex engine's collab exclusion is documented
+    $readme24c = [IO.File]::ReadAllText((Join-Path $repoRoot 'README.md'), $u8) -replace '\s+', ' '
+    Check 'UNIT24C' 'F08-2 ruling (by design, unchanged): the README residual states that a codex run''s continuation gate does not see the collab directory - the codex engine never snapshots it (it cannot tell its own writes from others'')' ($readme24c.Contains('Residual (codex):') -and $readme24c.Contains('never snapshots the collab directory')) ''
 }
 
 # =============================================================== AVAIL: every roster entry judged, the one-line view (in-process)
@@ -445,12 +565,12 @@ if (Want 'AVAIL') {
     # a config with a third label on the ZAI endpoint whose key is not set, and none of a top-level model
     $cfgZ = Read-CodexConfigSubset -Path (Reply 'config-zai.toml' "[model_providers.ZAI]`nbase_url = `"https://api.z.ai/api/v1`"`nenv_key = `"RT_ZAI_KEY`"`nwire_api = `"responses`"`n`n[model_providers.zai2]`nbase_url = `"https://api.z.ai/api/v1`"`nenv_key = `"RT_ZAI_KEY`"`nwire_api = `"responses`"`n`n[model_providers.zai3]`nbase_url = `"https://api.z.ai/api/v1`"`nenv_key = `"RT_ZAI3_KEY`"`nwire_api = `"responses`"`n")
     $hitZ = $now.AddMinutes(-9)
-    $zq = @((New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $now.AddMinutes(-12) 'failed: codex exit 1 - 429 Too Many Requests' (Quota $hitZ '429 Too Many Requests')))
+    $zq = @((New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $now.AddMinutes(-12) 'failed: codex exit 1 - 429 Too Many Requests: usage limit exceeded' (Quota $hitZ '429 Too Many Requests: usage limit exceeded')))
     $rz = Roster-Of (Write-Roster 'avail-zai' '{"roster_version":1,"reviewers":[{"provider":"ZAI","model":"glm-5.3"},{"provider":"zai2","model":"glm-5.3"}]}')
     $az = Get-RosterAvailability -Roster $rz -Config $cfgZ -Consults $zq -Launcher $fakeCodex -LoginCache @{} -UtcNow $now.UtcDateTime -NoNetwork
     $lineZ = Format-AvailabilityLine -Availability $az
     $expZ = "codex-consult: out - ZAI+zai2 :: * (limit hit $(Local-When $hitZ $now), reset unknown; retry after $(Local-When $hitZ.AddMinutes(60) $now), in 51m); 0 of 2 reviewers available"
-    Check 'AVAIL' 'T3/D16: a 429 without a reset time 9 min ago on the ZAI endpoint -> both labels of that endpoint group (ZAI, zai2) out, one clause "ZAI+zai2 :: * (limit hit <local>, reset unknown; retry after <local + 60 min>, in 51m)" - no clause cut at 60 characters' ($lineZ -eq $expZ) $lineZ
+    Check 'AVAIL' 'T3/D16: a 429 naming a usage limit without a reset time 9 min ago on the ZAI endpoint -> both labels of that endpoint group (ZAI, zai2) out, one clause "ZAI+zai2 :: * (limit hit <local>, reset unknown; retry after <local + 60 min>, in 51m)" - no clause cut at 60 characters' ($lineZ -eq $expZ) $lineZ
     $rz3 = Roster-Of (Write-Roster 'avail-zai3' '{"roster_version":1,"reviewers":[{"provider":"ZAI","model":"glm-5.3"},{"provider":"zai3","model":"glm-5.3"},{"provider":"ZAI"}]}')
     $az3 = Get-RosterAvailability -Roster $rz3 -Config $cfgZ -Consults $zq -Launcher $fakeCodex -LoginCache @{} -UtcNow $now.UtcDateTime -NoNetwork
     $lineZ3 = Format-AvailabilityLine -Availability $az3
@@ -490,12 +610,12 @@ if (Want 'AGREE') {
     Check 'AGREE' 'T2 (the cause): run in another repository the listing reads THAT repository''s ledgers - openai available and would be selected - and its "endpoint health:" line says so (0 task ledgers, 0 consultations)' ($pe.Code -eq 0 -and $pe.Out -match '(?m)^available\s+openai\s' -and $pe.Out -match '(?m)^endpoint health: .*\(0 task ledgers, 0 consultations\), read at ' -and $pe.Out -match '-> would select openai :: gpt-5\.1') (Line $pe.Out 'endpoint health:')
 }
 
-# =============================================================== QUOTA60: a quota failure without a reset time is out for 60 minutes - everywhere (T3, D14)
+# =============================================================== QUOTA60: a quota failure without a reset time is out for 60 minutes - everywhere (T3, D14; wave 24c: a 429 that names a usage limit - a bare burst 429 is BURST's)
 if (Want 'QUOTA60') {
     $r = New-Repo 'quota60'
     $nowQ = [DateTimeOffset]::new(2026, 9, 26, 10, 40, 0, [TimeSpan]::FromHours(2))
     $hitQ = $nowQ.AddMinutes(-9)
-    Seed-Ledger $r 'other' @((New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $nowQ.AddMinutes(-12) 'failed: codex exit 1 - exceeded retry limit, last status: 429 Too Many Requests' (Quota $hitQ 'exceeded retry limit, last status: 429 Too Many Requests')))
+    Seed-Ledger $r 'other' @((New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $nowQ.AddMinutes(-12) 'failed: codex exit 1 - 429 Too Many Requests: usage limit exceeded' (Quota $hitQ '429 Too Many Requests: usage limit exceeded')))
     $clockQ = @{ CODEX_CONSULT_NOW = (Iso $nowQ) }
     $reasonQ = "usage limit hit $(Iso $hitQ), reset unknown; retry after $(Iso $hitQ.AddMinutes(60))"
     $rosterZO = Write-Roster 'zai-openai' '{"roster_version":1,"reviewers":[{"provider":"ZAI","model":"glm-5.3"},{"provider":"openai","model":"gpt-5.1"}]}'
@@ -505,7 +625,7 @@ if (Want 'QUOTA60') {
     $expQ = "codex-consult: out - ZAI :: glm-5.3 (limit hit $(Local-When $hitQ $nowQ), reset unknown; retry after $(Local-When $hitQ.AddMinutes(60) $nowQ), in 51m); 1 of 2 reviewers available"
     $sh = Providers $r $rosterZO @('-Short') $clockQ
     $hk = Hook $r $rosterZO $clockQ
-    Check 'QUOTA60' 'T3 a 429 without a reset time, hit 9 min ago (the BytePlus case): the roster walk skips ZAI "usage limit hit <iso>, reset unknown; retry after <iso + 60 min>"; the listing row reads "unavailable (<the same>)"; -Short and the hook say it is out, in local time - one verdict everywhere' ($d.Code -eq 0 -and $d.Preview.roster.position -eq 2 -and $d.Preview.roster.skipped[0].reason -eq $reasonQ -and $zr.verdict -eq "unavailable ($reasonQ)" -and $zr.roster_selected -eq $false -and $sh.Out.Trim() -eq $expQ -and $hk -eq $expQ) "walk='$($d.Preview.roster.skipped[0].reason)' row='$($zr.verdict)' hook='$hk'"
+    Check 'QUOTA60' 'T3 a 429 naming a usage limit without a reset time, hit 9 min ago: the roster walk skips ZAI "usage limit hit <iso>, reset unknown; retry after <iso + 60 min>"; the listing row reads "unavailable (<the same>)"; -Short and the hook say it is out, in local time - one verdict everywhere' ($d.Code -eq 0 -and $d.Preview.roster.position -eq 2 -and $d.Preview.roster.skipped[0].reason -eq $reasonQ -and $zr.verdict -eq "unavailable ($reasonQ)" -and $zr.roster_selected -eq $false -and $sh.Out.Trim() -eq $expQ -and $hk -eq $expQ) "walk='$($d.Preview.roster.skipped[0].reason)' row='$($zr.verdict)' hook='$hk'"
     $later = @{ CODEX_CONSULT_NOW = (Iso $hitQ.AddMinutes(61)) }
     $d2 = Consult $r $rosterZO @('-DryRun', '-Prompt', 'x') $later
     $sh2 = Providers $r $rosterZO @('-Short') $later
@@ -515,8 +635,8 @@ if (Want 'QUOTA60') {
     $n0q = @(Ledger $r).Count
     $xq = Consult $r $rosterZO @('-Prompt', 'x', '-Provider', 'ZAI', '-Model', 'glm-5.3', '-ReplyName', 'refused') ($clockQ + @{ FAKE_CODEX_REPLY = $advise })
     $sq = Consult $r $rosterZO @('-DryRun', '-Prompt', 'x', '-Provider', 'ZAI', '-Model', 'glm-5.3', '-SkipPreflight') $clockQ
-    $refQ = "codex-consult: provider ZAI is not usable: it hit a usage limit at $(Iso $hitQ) (exceeded retry limit, last status: 429 Too Many Requests) and named no reset time - out for 60 minutes, until $(Iso $hitQ.AddMinutes(60)); nothing was started (pass -SkipPreflight to launch anyway)"
-    Check 'QUOTA60' 'F08-7 ... codex-providers -Provider ZAI exits 2 and an explicit -Provider ZAI run is REFUSED too (one verdict for every caller): the dry run reads preflight "unavailable: <the walk''s reason>" with no warning; the real run exits 1 with "... out for 60 minutes, until <iso>; nothing was started (pass -SkipPreflight to launch anyway)", no ledger entry; -SkipPreflight launches and warns "(reset unknown; out until <iso>)"' ($px.Code -eq 2 -and $dx.Code -eq 0 -and $dx.Preview.preflight -eq "unavailable: $reasonQ" -and $dx.Preview.preflight_warning -eq '' -and $xq.Code -eq 1 -and $xq.First -eq $refQ -and @(Ledger $r).Count -eq $n0q -and $sq.Code -eq 0 -and $sq.Preview.preflight -eq 'skipped' -and $sq.Preview.preflight_warning -eq "provider ZAI hit a usage limit 12 min ago (reset unknown; out until $(Iso $hitQ.AddMinutes(60))): exceeded retry limit, last status: 429 Too Many Requests") "exit $($px.Code) | $($xq.First) | $($sq.Preview.preflight_warning)"
+    $refQ = "codex-consult: provider ZAI is not usable: it hit a usage limit at $(Iso $hitQ) (429 Too Many Requests: usage limit exceeded) and named no reset time - out for 60 minutes, until $(Iso $hitQ.AddMinutes(60)); nothing was started (pass -SkipPreflight to launch anyway)"
+    Check 'QUOTA60' 'F08-7 ... codex-providers -Provider ZAI exits 2 and an explicit -Provider ZAI run is REFUSED too (one verdict for every caller): the dry run reads preflight "unavailable: <the walk''s reason>" with no warning; the real run exits 1 with "... out for 60 minutes, until <iso>; nothing was started (pass -SkipPreflight to launch anyway)", no ledger entry; -SkipPreflight launches and warns "(reset unknown; out until <iso>)"' ($px.Code -eq 2 -and $dx.Code -eq 0 -and $dx.Preview.preflight -eq "unavailable: $reasonQ" -and $dx.Preview.preflight_warning -eq '' -and $xq.Code -eq 1 -and $xq.First -eq $refQ -and @(Ledger $r).Count -eq $n0q -and $sq.Code -eq 0 -and $sq.Preview.preflight -eq 'skipped' -and $sq.Preview.preflight_warning -eq "provider ZAI hit a usage limit 12 min ago (reset unknown; out until $(Iso $hitQ.AddMinutes(60))): 429 Too Many Requests: usage limit exceeded") "exit $($px.Code) | $($xq.First) | $($sq.Preview.preflight_warning)"
     Seed-Ledger $r 'other2' @((New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $nowQ.AddMinutes(-3)))
     $sh3 = Providers $r $rosterZO @('-Short') $clockQ
     Check 'QUOTA60' '... a later successful run on that endpoint (another task of the repository) clears it at once: "all 2 reviewers available"' ($sh3.Out.Trim() -eq 'codex-consult: all 2 reviewers available') $sh3.Out.Trim()
@@ -617,9 +737,9 @@ if (Want 'CONT') {
     $e2 = Last-Entry $r
     $pp = Td $r $e2.partial_reply
     $pt = Text $pp
-    $resumeArgs = "-Task t -Mode resume -Thread $($e2.thread) -Provider openai -Model gpt-5.1 -Purpose checkpoint -TimeoutSec 4 -Prompt ""finish your review"""
+    $resumeArgs = "-Task t -Mode resume -Thread $($e2.thread) -Provider openai -Model gpt-5.1 -Purpose checkpoint -ReplyName hh -TimeoutSec 4 -Prompt ""finish your review"""
     Check 'CONT' 'T1 the continuation hangs too: bridge_outcome stays "failed: timeout after 4 s (process tree killed)"; timeout_continue.outcome "failed: timeout after 4 s (process tree killed)"; partial_reply = handoffs/02-codex-hh.partial.md (right after events in the ledger); exit 1; no recovery record left' ($y.Code -eq 1 -and $e2.bridge_outcome -eq 'failed: timeout after 4 s (process tree killed)' -and $e2.timeout_continue.outcome -eq 'failed: timeout after 4 s (process tree killed)' -and $e2.partial_reply -eq 'handoffs/02-codex-hh.partial.md' -and (Test-Path $pp) -and ((@($e2.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -match 'reply_json,events,partial_reply,model') -and -not (Test-Path (Join-Path $r '.collab\t\.consult.pending.json'))) "$($e2.bridge_outcome) | $($e2.partial_reply)"
-    Check 'CONT' '... the partial file: the reply''s header ("Bridge outcome: failed: timeout ..."), "## Turn 1 - the main turn - killed at <t> s of 4 s" with its reasoning, agent message and the shell command line, "## Turn 2 - the timeout continuation - killed at ...", then the footer "killed at ... ; thread <id> - continue with `-Task t -Mode resume -Thread <id> -Provider openai -Model gpt-5.1 -Purpose checkpoint -TimeoutSec 4 -Prompt "finish your review"`" (no roster: the reviewer is named; wave 24b: the explicit -TimeoutSec too)' ($pt -match '(?m)^# Handoff 02 - Codex: hh - partial reply \(a turn was killed on its timeout\)$' -and $pt -match '(?m)^Bridge outcome: failed: timeout after 4 s \(process tree killed\)\.' -and $pt -match '(?m)^## Turn 1 - the main turn - killed at [0-9.]+ s of 4 s$' -and $pt.Contains('Reading the brief (first turn).') -and $pt.Contains('Q1 so far (first turn): the change looks consistent.') -and $pt.Contains('- `shell: git diff --stat HEAD~1 (first)`') -and $pt -match '(?m)^## Turn 2 - the timeout continuation - killed at [0-9.]+ s of 4 s$' -and $pt.Contains('Reading the brief (resume turn).') -and $pt.TrimEnd().EndsWith("; thread $($e2.thread) - continue with ``$resumeArgs``")) (($pt.TrimEnd() -split "`n") | Select-Object -Last 1)
+    Check 'CONT' '... the partial file: the reply''s header ("Bridge outcome: failed: timeout ..."), "## Turn 1 - the main turn - killed at <t> s of 4 s" with its reasoning, agent message and the shell command line, "## Turn 2 - the timeout continuation - killed at ...", then the footer "killed at ... ; thread <id> - continue with `-Task t -Mode resume -Thread <id> -Provider openai -Model gpt-5.1 -Purpose checkpoint -ReplyName hh -TimeoutSec 4 -Prompt "finish your review"`" (no roster: the reviewer is named; wave 24b: the explicit -TimeoutSec too; wave 24c: the -ReplyName given)' ($pt -match '(?m)^# Handoff 02 - Codex: hh - partial reply \(a turn was killed on its timeout\)$' -and $pt -match '(?m)^Bridge outcome: failed: timeout after 4 s \(process tree killed\)\.' -and $pt -match '(?m)^## Turn 1 - the main turn - killed at [0-9.]+ s of 4 s$' -and $pt.Contains('Reading the brief (first turn).') -and $pt.Contains('Q1 so far (first turn): the change looks consistent.') -and $pt.Contains('- `shell: git diff --stat HEAD~1 (first)`') -and $pt -match '(?m)^## Turn 2 - the timeout continuation - killed at [0-9.]+ s of 4 s$' -and $pt.Contains('Reading the brief (resume turn).') -and $pt.TrimEnd().EndsWith("; thread $($e2.thread) - continue with ``$resumeArgs``")) (($pt.TrimEnd() -split "`n") | Select-Object -Last 1)
     Check 'CONT' '... the summary prints the partial file and the exact manual resume command ("resume     : powershell|pwsh ... -File "<codex-consult.ps1>" -Task t -Mode resume -Thread <id> ..."); the handoff names it ("Partial reply: `handoffs/02-codex-hh.partial.md` - killed at ...")' ($y.Out -match ('(?m)^partial    : .*02-codex-hh\.partial\.md \(killed at ') -and $y.Out.Contains("resume     : ") -and $y.Out.Contains("-File ""$consultPs"" $resumeArgs") -and (Text (Td $r $e2.reply)) -match '(?m)^Partial reply: `handoffs/02-codex-hh\.partial\.md` - killed at ') (Line $y.Out 'resume')
     # (c) the manual resume command works: the killed thread continues (a fork-free resume)
     $z = Consult $r '' @('-Mode', 'resume', '-Thread', $e2.thread, '-Provider', 'openai', '-Model', 'gpt-5.1', '-Purpose', 'checkpoint', '-Prompt', 'finish your review', '-ReplyName', 'resumed') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_RESUME_REPLY = $advise }
@@ -669,7 +789,7 @@ if (Want 'CONTAGY') {
     $y = Consult $r $rosterAgy @('-Prompt', 'x', '-ReplyName', 'hh', '-TimeoutSec', '5') @{ FAKE_AGY_REPLY = $advise; FAKE_AGY_HANG = '1'; FAKE_AGY_TEXT = '1' }
     $e2 = Last-Entry $r
     $pt = Text (Td $r $e2.partial_reply)
-    Check 'CONTAGY' 'T1 agy, the continuation hangs too: failed (timeout), the conversation stays a candidate (= timeout_continue.thread); the partial file salvages both turns (the text_delta message, "run_command: git log -1 (first)", the resume turn''s text) and names the conversation to resume (a roster: no -Provider needed)' ($y.Code -eq 1 -and $e2.bridge_outcome -eq 'failed: timeout after 5 s (process tree killed)' -and $e2.thread -eq '' -and $e2.thread_candidate -match $uuidRe -and $e2.thread_candidate -eq $e2.timeout_continue.thread -and $pt.Contains('Reading the brief (first turn).') -and $pt.Contains('- `run_command: git log -1 (first)`') -and $pt.Contains('Reading the brief (resume turn).') -and $pt.TrimEnd().EndsWith("; thread $($e2.thread_candidate) - continue with ``-Task t -Mode resume -Thread $($e2.thread_candidate) -TimeoutSec 5 -Prompt ""finish your review""``")) (($pt.TrimEnd() -split "`n") | Select-Object -Last 1)
+    Check 'CONTAGY' 'T1 agy, the continuation hangs too: failed (timeout), the conversation stays a candidate (= timeout_continue.thread); the partial file salvages both turns (the text_delta message, "run_command: git log -1 (first)", the resume turn''s text) and names the conversation to resume (a roster: no -Provider needed)' ($y.Code -eq 1 -and $e2.bridge_outcome -eq 'failed: timeout after 5 s (process tree killed)' -and $e2.thread -eq '' -and $e2.thread_candidate -match $uuidRe -and $e2.thread_candidate -eq $e2.timeout_continue.thread -and $pt.Contains('Reading the brief (first turn).') -and $pt.Contains('- `run_command: git log -1 (first)`') -and $pt.Contains('Reading the brief (resume turn).') -and $pt.TrimEnd().EndsWith("; thread $($e2.thread_candidate) - continue with ``-Task t -Mode resume -Thread $($e2.thread_candidate) -ReplyName hh -TimeoutSec 5 -Prompt ""finish your review""``")) (($pt.TrimEnd() -split "`n") | Select-Object -Last 1)
     $z = Consult $r $rosterAgy @('-Mode', 'resume', '-Thread', $e2.thread_candidate, '-Prompt', 'finish your review', '-ReplyName', 'resumed') @{ FAKE_AGY_REPLY = $advise; FAKE_AGY_RESUME_REPLY = $advise }
     $e3 = Last-Entry $r
     Check 'CONTAGY' '... the manual resume of that conversation works (-Thread takes the killed run''s own conversation): mode resume, thread = the conversation, usable reply' ($z.Code -eq 0 -and $e3.mode -eq 'resume' -and $e3.thread -eq $e2.thread_candidate -and $e3.bridge_outcome -eq 'usable reply') "$($z.First)"
@@ -728,9 +848,9 @@ if (Want 'GATES') {
     # --- F08-3: billing wording only on the killed turn's stderr (codex) / next to its result (agy)
     $rb = New-Repo 'gates-billing'
     $rlogB = Join-Path $work 'gates-billing-resume.log'
-    $x = Consult $rb '' @('-Prompt', 'x', '-ReplyName', 'bill', '-TimeoutSec', '4', '-Mode', 'new') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_RESUME_REPLY = $advise; FAKE_CODEX_HANG_NEW = '1'; FAKE_CODEX_STDERR_FIRST = 'Insufficient balance: top up the prepaid plan to continue'; FAKE_CODEX_RESUME_LOG = $rlogB }
+    $x = Consult $rb '' @('-Prompt', 'x', '-ReplyName', 'bill', '-TimeoutSec', '4', '-Mode', 'new') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_RESUME_REPLY = $advise; FAKE_CODEX_HANG_NEW = '1'; FAKE_CODEX_STDERR_FIRST = 'ERROR: Insufficient balance: top up the prepaid plan to continue'; FAKE_CODEX_RESUME_LOG = $rlogB }
     $e = Last-Entry $rb
-    Check 'GATES' 'F08-3 codex: the killed turn''s stderr says "Insufficient balance: ..." (no word the old keyword filter knew) -> NO continuation ("not attempted: the killed turn reported a quota failure (Insufficient balance: ...)", no resume turn); provider_failure class quota' ($x.Code -eq 1 -and $e.timeout_continue.outcome -eq 'not attempted: the killed turn reported a quota failure (Insufficient balance: top up the prepaid plan to continue)' -and -not (Test-Path $rlogB) -and $e.provider_failure.class -eq 'quota') "$($e.timeout_continue.outcome) | $($e.provider_failure.class)"
+    Check 'GATES' 'F08-3 codex: the killed turn''s stderr says "ERROR: Insufficient balance: ..." (no word the old keyword filter knew; wave 24c: an ERROR-level line - a diagnostic one) -> NO continuation ("not attempted: the killed turn reported a quota failure (ERROR: Insufficient balance: ...)", no resume turn); provider_failure class quota' ($x.Code -eq 1 -and $e.timeout_continue.outcome -eq 'not attempted: the killed turn reported a quota failure (ERROR: Insufficient balance: top up the prepaid plan to continue)' -and -not (Test-Path $rlogB) -and $e.provider_failure.class -eq 'quota') "$($e.timeout_continue.outcome) | $($e.provider_failure.class)"
     $ra = New-Repo 'gates-agy'
     $rlogA = Join-Path $work 'gates-agy-resume.log'
     $x = Consult $ra $rosterAgy @('-Prompt', 'x', '-ReplyName', 'pay', '-TimeoutSec', '5') @{ FAKE_AGY_REPLY = $advise; FAKE_AGY_RESUME_REPLY = $advise; FAKE_AGY_HANG_AFTER = '1'; FAKE_AGY_STDERR = 'Payment required (402): the prepaid plan is exhausted'; FAKE_AGY_RESUME_LOG = $rlogA }
@@ -757,12 +877,14 @@ if (Want 'GATES') {
     $x = Consult $rc '' @('-Prompt', 'x', '-ReplyName', 'one', '-TimeoutSec', '4', '-Mode', 'new') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_RESUME_REPLY = $done; FAKE_CODEX_HANG_NEW = '1'; FAKE_CODEX_ITEMS = '1' }
     $e = Last-Entry $rc
     $pt = Text (Td $rc $e.partial_reply)
-    Check 'GATES' 'F08-5 codex: the continuation answers "Done." after a rich killed turn -> it does NOT count: timeout_continue.outcome "failed: not a usable reply - not a valid reply object (...) and reply too short (1 words)", bridge_outcome stays "failed: timeout ...", no .reply.json, the partial file keeps the main turn''s reasoning, message and command and shows the continuation''s turn; provider_failure stays the main turn''s (transport); exit 1' ($x.Code -eq 1 -and $e.bridge_outcome -eq 'failed: timeout after 4 s (process tree killed)' -and $e.timeout_continue.outcome -match '^failed: not a usable reply - not a valid reply object \(.+\) and reply too short \(1 words\)$' -and $e.reply_json -eq '' -and $e.partial_reply -eq 'handoffs/01-codex-one.partial.md' -and $pt.Contains('Reading the brief (first turn).') -and $pt.Contains('- `shell: git diff --stat HEAD~1 (first)`') -and $pt -match '(?m)^## Turn 2 - the timeout continuation - failed: not a usable reply' -and $e.provider_failure.class -eq 'transport') "$($e.timeout_continue.outcome)"
+    Check 'GATES' 'F08-5 codex: the continuation answers "Done." after a rich killed turn -> it does NOT count: timeout_continue.outcome "failed: not a usable reply - not a valid reply object (...) and reply too short (1 words)", bridge_outcome stays "failed: timeout ...", no .reply.json, the partial file keeps the main turn''s reasoning, message and command and shows the continuation''s turn; provider_failure stays the main turn''s (transport); exit 1' ($x.Code -eq 1 -and $e.bridge_outcome -eq 'failed: timeout after 4 s (process tree killed)' -and $e.timeout_continue.outcome -match '^failed: not a usable reply - not a valid reply object \(.+\) and reply too short \(1 words\); its text is kept in handoffs/01-codex-one\.partial\.md under "continuation reply \(rejected\)"$' -and $e.reply_json -eq '' -and $e.partial_reply -eq 'handoffs/01-codex-one.partial.md' -and $pt.Contains('Reading the brief (first turn).') -and $pt.Contains('- `shell: git diff --stat HEAD~1 (first)`') -and $pt -match '(?m)^## Turn 2 - the timeout continuation - failed: not a usable reply' -and $e.provider_failure.class -eq 'transport') "$($e.timeout_continue.outcome)"
+    Check 'GATES24C' 'F08-4 residual, codex: the REJECTED continuation reply is not discarded - the partial file keeps its text under "## continuation reply (rejected: <why>)" after the turns, and timeout_continue.outcome names where ("...; its text is kept in handoffs/01-codex-one.partial.md under "continuation reply (rejected)"")' ($pt -match '(?m)^## continuation reply \(rejected: not a valid reply object \(.+\) and reply too short \(1 words\)\)$' -and $pt.Substring($pt.IndexOf('## continuation reply (rejected: ')).Contains("`n`nDone.`n") -and $pt.IndexOf('## continuation reply (rejected: ') -gt $pt.IndexOf('## Turn 2 - the timeout continuation') -and $e.timeout_continue.outcome.EndsWith('; its text is kept in handoffs/01-codex-one.partial.md under "continuation reply (rejected)"')) "$($e.timeout_continue.outcome)"
     $ra5 = New-Repo 'gates-agy-one'
     $x = Consult $ra5 $rosterAgy @('-Prompt', 'x', '-ReplyName', 'one', '-TimeoutSec', '5') @{ FAKE_AGY_REPLY = $advise; FAKE_AGY_RESUME_REPLY = $done; FAKE_AGY_HANG = 'new'; FAKE_AGY_TEXT = '1' }
     $e = Last-Entry $ra5
     $pt = Text (Td $ra5 $e.partial_reply)
     Check 'GATES' 'F08-5 agy: an adapter-OK continuation "Done." is not usable either - "failed: not a usable reply - ...", the salvage of both turns is written, the conversation stays a candidate (thread "")' ($x.Code -eq 1 -and $e.timeout_continue.outcome -match '^failed: not a usable reply - ' -and $e.partial_reply -match '-agy-one\.partial\.md$' -and $pt.Contains('Reading the brief (first turn).') -and $e.thread -eq '' -and $e.thread_candidate -eq $e.timeout_continue.thread) "$($e.timeout_continue.outcome)"
+    Check 'GATES24C' 'F08-4 residual, agy: the rejected "Done." of the --conversation continuation is kept in the partial file under "## continuation reply (rejected: ...)", the outcome names it' ($pt -match '(?m)^## continuation reply \(rejected: ' -and $pt.Substring($pt.IndexOf('## continuation reply (rejected: ')).Contains("`n`nDone.`n") -and $e.timeout_continue.outcome -match '; its text is kept in handoffs/[0-9]{2}-agy-one\.partial\.md under "continuation reply \(rejected\)"$') "$($e.timeout_continue.outcome)"
     # --- F07-1: a prompt-only transport re-sends the reply format and the schema
     $rp = New-Repo 'gates-promptonly'
     $rlogP = Join-Path $work 'gates-po-resume.log'
@@ -785,11 +907,11 @@ if (Want 'GATES') {
     $fileMark = "-File ""$consultPs"" "
     $argText = $(if ($rline.Contains($fileMark)) { $rline.Substring($rline.IndexOf($fileMark) + $fileMark.Length) } else { '' })
     $toks = @([regex]::Matches($argText, '"((?:\\"|[^"])*)"|(\S+)') | ForEach-Object { if ($_.Groups[1].Success) { $_.Groups[1].Value -replace '\\"', '"' } else { $_.Groups[2].Value } })
-    $wantArgs = "-Task t -Mode resume -Thread $($ek.thread) -Provider openai -Model gpt-5.1 -Purpose diff-review -TimeoutSec 4 -ContinueSec 0 -Effort low -MaxWords 321 -SchemaTransport prompt-only -CodexConfig model_verbosity=low -Artifact $((Resolve-Path -LiteralPath $art6).Path) -Range HEAD~1..HEAD -Prompt ""finish your review"""
-    Check 'GATES' 'F08-6 the manual resume command of a killed run names every replay-relevant option it was given: -TimeoutSec, -ContinueSec, -Effort, -MaxWords, -SchemaTransport, -CodexConfig, -Artifact (the resolved path), -Range (the summary line and the partial file''s footer)' ($x.Code -eq 1 -and $argText -eq $wantArgs -and (Text (Td $r6 $ek.partial_reply)).TrimEnd().EndsWith("continue with ``$wantArgs``")) $argText
+    $wantArgs = "-Task t -Mode resume -Thread $($ek.thread) -Provider openai -Model gpt-5.1 -Purpose diff-review -ReplyName full -TimeoutSec 4 -ContinueSec 0 -Effort low -MaxWords 321 -SchemaTransport prompt-only -CodexConfig model_verbosity=low -Artifact $((Resolve-Path -LiteralPath $art6).Path) -Range HEAD~1..HEAD -Prompt ""finish your review"""
+    Check 'GATES' 'F08-6 the manual resume command of a killed run names every replay-relevant option it was given: (wave 24c, F15-5) -ReplyName, -TimeoutSec, -ContinueSec, -Effort, -MaxWords, -SchemaTransport, -CodexConfig, -Artifact (the resolved path), -Range (the summary line and the partial file''s footer)' ($x.Code -eq 1 -and $argText -eq $wantArgs -and (Text (Td $r6 $ek.partial_reply)).TrimEnd().EndsWith("continue with ``$wantArgs``")) $argText
     $runArgs = @()
     for ($ti = 0; $ti -lt $toks.Count; $ti++) { if ($toks[$ti] -eq '-Task') { $ti++; continue }; $runArgs += $toks[$ti] }
-    $z = Consult $r6 '' ($runArgs + @('-ReplyName', 'resumed')) @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_RESUME_REPLY = $advise }
+    $z = Consult $r6 '' $runArgs @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_RESUME_REPLY = $advise }
     $ez = Last-Entry $r6
     Check 'GATES' '... running exactly that command resumes the killed thread with the SAME settings: mode resume on the killed thread, timeout 4 (explicit), continue_sec 0, effort low, max_words 321, schema_transport prompt-only (-SchemaTransport), the same extra_config, the artifact''s hash, range HEAD~1..HEAD (2 files, 4 lines) - a usable reply' ($z.Code -eq 0 -and $ez.mode -eq 'resume' -and $ez.thread -eq $ek.thread -and $ez.bridge_outcome -eq 'usable reply' -and $ez.timeout_sec -eq 4 -and $ez.timeout_source -eq 'explicit' -and $ez.continue_sec -eq 0 -and $ez.effort_requested -eq 'low' -and $ez.max_words -eq 321 -and $ez.schema_transport -eq 'prompt-only' -and $ez.schema_transport_source -eq '-SchemaTransport' -and (@($ez.extra_config) -join ',') -eq (@($ek.extra_config) -join ',') -and @($ek.extra_config).Count -eq 1 -and $ez.artifacts[0].sha256 -eq $ek.artifacts[0].sha256 -and $ez.range.spec -eq 'HEAD~1..HEAD' -and $ez.range.lines -eq $ek.range.lines) "$($z.First) | $($ez.timeout_sec)/$($ez.continue_sec)/$($ez.effort_requested)/$($ez.max_words)/$($ez.schema_transport)/$(@($ez.extra_config) -join ',')/$($ez.range.spec)"
     # --- F08-8: -Range with a single revision is refused before anything starts
@@ -835,6 +957,80 @@ if (Want 'GATES') {
     Check 'GATES' 'the plan''s context limit under a 401 (kimi :: k3): provider_failure class capability (never auth), the summary "hint       : context too long for this plan/model - narrow the brief ... or choose a model with a larger context window", the handoff header "Provider failure: capability - ... Hint: context too long ..."; the next preflight on that endpoint is not refused (no 24-hour auth block)' ($x.Code -eq 1 -and $e.provider_failure.class -eq 'capability' -and $e.bridge_outcome -match '^failed: codex exit 1 - unexpected status 401 Unauthorized: Your current plan supports only k3' -and $x.Out -match '(?m)^hint       : context too long for this plan/model - narrow the brief .+ or choose a model with a larger context window$' -and $mdK -match '(?m)^Provider failure: capability - unexpected status 401 .+\. Hint: context too long for this plan/model - ' -and $dK.Code -eq 0 -and $dK.Preview.preflight -eq 'ok: Logged in using ChatGPT') "$($e.provider_failure.class) | $($dK.Preview.preflight)"
 }
 
+# =============================================================== GATES24C: wave 24c end to end - the tree check by content, the diagnostic stderr filter, the complete resume command
+if (Want 'GATES24C') {
+    # --- the live defect (companions n=13): a commit of the collab files while a muse member runs
+    $rmA = New-Repo 'g24c-muse-commit'
+    [IO.File]::WriteAllText((Join-Path $rmA '.collab\t\state.md'), "coordinator notes`n", $u8)
+    $x = Consult $rmA $rosterMuse @('-Prompt', 'x', '-ReplyName', 'mc') @{ FAKE_MUSE_REPLY = $advise; FAKE_MUSE_COMMIT = '.collab/t/state.md' }
+    $e = Last-Entry $rmA
+    $headA = [string](@(G $rmA @('rev-parse', 'HEAD'))[0])
+    $headA = $headA.Trim()
+    $hdrA = Text (Td $rmA $e.reply)
+    $noteA = "Note: HEAD moved during the review ($(([string]$e.base_commit).Substring(0, [Math]::Min(7, ([string]$e.base_commit).Length))) -> $($headA.Substring(0, [Math]::Min(7, $headA.Length)))) - no file content changed: not a tree change."
+    Check 'GATES24C' 'the live defect (companions n=13): the coordinator COMMITS the collab files while a muse member runs - HEAD moves, no file content changes -> NOT a tree change: usable reply, tree_changed_during_review false, ledger revision_moved "<base_commit> -> <the new HEAD>" (base_commit stays the reviewed one), the handoff notes "Note: HEAD moved during the review (<old> -> <new>) - no file content changed: not a tree change."' ($x.Code -eq 0 -and $e.bridge_outcome -eq 'usable reply' -and $e.tree_changed_during_review -eq $false -and $e.revision_moved -eq "$($e.base_commit) -> $headA" -and $e.base_commit -ne $headA -and $hdrA.Contains($noteA)) "$($e.bridge_outcome) | $($e.revision_moved)"
+    # --- a real content change still fails (the reviewer rewrites a tracked file; it is committed too)
+    $rmB = New-Repo 'g24c-muse-write'
+    $x = Consult $rmB $rosterMuse @('-Prompt', 'x', '-ReplyName', 'mw') @{ FAKE_MUSE_REPLY = $advise; FAKE_MUSE_WRITE = 'app.txt'; FAKE_MUSE_COMMIT = 'app.txt' }
+    $e = Last-Entry $rmB
+    Check 'GATES24C' '... a real content change still fails, committed or not: the tracked app.txt rewritten (and committed) during the run -> "failed: the working tree changed during the run (by the reviewer or anyone else): 1 file: app.txt - muse ran with ...", class permission, tree_changed_during_review true, revision_moved recorded as well' ($x.Code -eq 1 -and $e.bridge_outcome -match '^failed: the working tree changed during the run \(by the reviewer or anyone else\): 1 file: app\.txt - muse ran with' -and $e.provider_failure.class -eq 'permission' -and $e.tree_changed_during_review -eq $true -and [string]$e.revision_moved -match '^[0-9a-f]{40} -> [0-9a-f]{40}$') "$($e.bridge_outcome)"
+    # --- codex: HEAD moved while the main turn hung - the continuation is not blocked
+    $rcC = New-Repo 'g24c-codex-commit'
+    [IO.File]::WriteAllText((Join-Path $rcC 'app.txt'), "one`ntwo`n", $u8)
+    $x = Consult $rcC '' @('-Prompt', 'x', '-ReplyName', 'cc', '-TimeoutSec', '4', '-Mode', 'new') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_RESUME_REPLY = $advise; FAKE_CODEX_HANG_NEW = '1'; FAKE_CODEX_COMMIT = 'app.txt' }
+    $e = Last-Entry $rcC
+    Check 'GATES24C' 'codex: app.txt (changed before the run) is committed while the main turn hangs - HEAD moves, the contents stay -> the timeout continuation is NOT blocked (the old fingerprint said "files changed during the run"): "usable reply (after a timeout continuation)", tree_changed_during_review false, revision_moved "<old> -> <new>", no working-tree WARNING in the handoff' ($x.Code -eq 0 -and $e.bridge_outcome -eq 'usable reply (after a timeout continuation)' -and $e.timeout_continue.outcome -eq 'usable reply' -and $e.tree_changed_during_review -eq $false -and [string]$e.revision_moved -match '^[0-9a-f]{40} -> [0-9a-f]{40}$' -and -not (Text (Td $rcC $e.reply)).Contains('WARNING: working tree changed')) "$($e.bridge_outcome) | $($e.timeout_continue.outcome) | $($e.revision_moved)"
+    # --- F15-3: a killed codex turn whose stderr holds only informational lines is continued
+    $rcD = New-Repo 'g24c-benign'
+    $benignE = "loaded auth.json`nrequest 429 tracing enabled`n2026-09-26T18:28:36.873087Z ERROR codex_models_manager::manager: failed to refresh available models: stream disconnected before completion: failed to decode models response: missing field ``models`` at line 1 column 27995; body: {""data"":[{""id"":""m"",""billing"":""quota""}]}"
+    $x = Consult $rcD '' @('-Prompt', 'x', '-ReplyName', 'bn', '-TimeoutSec', '4', '-Mode', 'new') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_RESUME_REPLY = $advise; FAKE_CODEX_HANG_NEW = '1'; FAKE_CODEX_STDERR_FIRST = $benignE }
+    $e = Last-Entry $rcD
+    Check 'GATES24C' 'F15-3 codex: the killed turn''s stderr holds only informational lines ("loaded auth.json", "request 429 tracing enabled", codex''s models refresh at ERROR level with a body naming billing and quota) -> the continuation is permitted and answers: "usable reply (after a timeout continuation)"' ($x.Code -eq 0 -and $e.bridge_outcome -eq 'usable reply (after a timeout continuation)' -and $e.timeout_continue.outcome -eq 'usable reply') "$($e.timeout_continue.outcome)"
+    # --- F15-5: -ReplyName and -SkipPreflight travel in the resume command
+    $rcE = New-Repo 'g24c-resume'
+    $x = Consult $rcE '' @('-Prompt', 'x', '-ReplyName', 'hold', '-Provider', 'mimo', '-Model', 'mimo-v2.6-pro', '-SkipPreflight', '-TimeoutSec', '4', '-ContinueSec', '0', '-Mode', 'new') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = '--json' }
+    $ek = Last-Entry $rcE
+    $rlineE = [string](Line $x.Out 'resume     :')
+    $fileMarkE = "-File ""$consultPs"" "
+    $argTextE = $(if ($rlineE.Contains($fileMarkE)) { $rlineE.Substring($rlineE.IndexOf($fileMarkE) + $fileMarkE.Length) } else { '' })
+    $wantE = "-Task t -Mode resume -Thread $($ek.thread) -Provider mimo -Model mimo-v2.6-pro -ReplyName hold -TimeoutSec 4 -ContinueSec 0 -SkipPreflight -Prompt ""finish your review"""
+    $z = Consult $rcE '' @('-Mode', 'resume', '-Thread', $ek.thread, '-Provider', 'mimo', '-Model', 'mimo-v2.6-pro', '-ReplyName', 'hold', '-TimeoutSec', '4', '-ContinueSec', '0', '-SkipPreflight', '-Prompt', 'finish your review') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_RESUME_REPLY = $advise }
+    $ez = Last-Entry $rcE
+    $nE = @(Ledger $rcE).Count
+    $zNo = Consult $rcE '' @('-Mode', 'resume', '-Thread', $ek.thread, '-Provider', 'mimo', '-Model', 'mimo-v2.6-pro', '-ReplyName', 'hold', '-TimeoutSec', '4', '-ContinueSec', '0', '-Prompt', 'finish your review') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_RESUME_REPLY = $advise }
+    Check 'GATES24C' 'F15-5 a killed run given -ReplyName hold and -SkipPreflight (mimo, whose key is not set) prints a resume command with both ("... -ReplyName hold -TimeoutSec 4 -ContinueSec 0 -SkipPreflight -Prompt ..."); running it resumes the killed thread unchecked, as the run started (preflight "skipped"), under the same reply name (handoffs/02-codex-hold.md); without -SkipPreflight the same command is refused before anything starts (RT_MIMO_KEY not set)' ($x.Code -eq 1 -and $argTextE -eq $wantE -and $z.Code -eq 0 -and $ez.mode -eq 'resume' -and $ez.thread -eq $ek.thread -and $ez.preflight -eq 'skipped' -and $ez.reply -eq 'handoffs/02-codex-hold.md' -and $zNo.Code -eq 1 -and $zNo.First -match 'RT_MIMO_KEY' -and @(Ledger $rcE).Count -eq $nE) "$argTextE | $($z.First) | $($zNo.First)"
+}
+
+# =============================================================== BURST: a burst 429 is out for 10 minutes, not 60 (wave 24c; the live ledgers' BytePlus 429)
+if (Want 'BURST') {
+    $r = New-Repo 'burst'
+    $nowB = [DateTimeOffset]::new(2026, 9, 26, 10, 40, 0, [TimeSpan]::FromHours(2))
+    $hitB = $nowB.AddMinutes(-9)
+    $bp = 'exceeded retry limit, last status: 429 Too Many Requests, request id: 021790447325230e0fa5d59a7b50e9f748f37815b909e289b22b6'
+    Seed-Ledger $r 'other' @((New-Entry 1 'ZAI' 'glm-5.3' $zaiFp 'codex' $nowB.AddMinutes(-12) "failed: codex exit 1 - $bp" (Quota $hitB $bp)))
+    $clockB = @{ CODEX_CONSULT_NOW = (Iso $nowB) }
+    $rosterZOB = Write-Roster 'zai-openai-burst' '{"roster_version":1,"reviewers":[{"provider":"ZAI","model":"glm-5.3"},{"provider":"openai","model":"gpt-5.1"}]}'
+    $reasonB = "burst limit (429) hit $(Iso $hitB), reset unknown; retry after $(Iso $hitB.AddMinutes(10))"
+    $d = Consult $r $rosterZOB @('-DryRun', '-Prompt', 'x') $clockB
+    $sh = Providers $r $rosterZOB @('-Short') $clockB
+    $expB = "codex-consult: out - ZAI :: glm-5.3 (burst limit hit $(Local-When $hitB $nowB), reset unknown; retry after $(Local-When $hitB.AddMinutes(10) $nowB), in 1m); 1 of 2 reviewers available"
+    Check 'BURST' 'the live BytePlus 429 (recorded without kind), hit 9 min ago: the roster walk skips ZAI "burst limit (429) hit <iso>, reset unknown; retry after <iso + 10 min>"; -Short says "burst limit hit <local>, reset unknown; retry after <local + 10 min>, in 1m"' ($d.Code -eq 0 -and $d.Preview.roster.position -eq 2 -and $d.Preview.roster.skipped[0].reason -eq $reasonB -and $sh.Out.Trim() -eq $expB) "walk='$($d.Preview.roster.skipped[0].reason)' short='$($sh.Out.Trim())'"
+    $laterB = @{ CODEX_CONSULT_NOW = (Iso $hitB.AddMinutes(11)) }
+    $d2 = Consult $r $rosterZOB @('-DryRun', '-Prompt', 'x') $laterB
+    $sh2 = Providers $r $rosterZOB @('-Short') $laterB
+    Check 'BURST' '... 11 minutes after the hit (not 61): the walk selects ZAI again, "all 2 reviewers available"' ($d2.Code -eq 0 -and $d2.Preview.roster.position -eq 1 -and $sh2.Out.Trim() -eq 'codex-consult: all 2 reviewers available') $sh2.Out.Trim()
+    $n0 = @(Ledger $r).Count
+    $xb = Consult $r $rosterZOB @('-Prompt', 'x', '-Provider', 'ZAI', '-Model', 'glm-5.3', '-ReplyName', 'refused') ($clockB + @{ FAKE_CODEX_REPLY = $advise })
+    $refB = "codex-consult: provider ZAI is not usable: it hit a burst limit at $(Iso $hitB) ($($bp.Substring(0, 100)) - a 429 that names no usage limit or quota) and named no reset time - out for 10 minutes, until $(Iso $hitB.AddMinutes(10)); nothing was started (pass -SkipPreflight to launch anyway)"
+    Check 'BURST' '... an explicit -Provider ZAI run inside the 10 minutes is refused: "... it hit a burst limit at <iso> (<message> - a 429 that names no usage limit or quota) and named no reset time - out for 10 minutes, until <iso>; nothing was started (pass -SkipPreflight to launch anyway)", nothing recorded' ($xb.Code -eq 1 -and $xb.First -eq $refB -and @(Ledger $r).Count -eq $n0) $xb.First
+    # a real run whose codex fails with that 429 records kind burst
+    $rb2 = New-Repo 'burst-run'
+    $xr = Consult $rb2 '' @('-Prompt', 'x', '-Provider', 'ZAI', '-Model', 'glm-5.3', '-ReplyName', 'b429') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_STDERR = "ERROR: $bp"; FAKE_CODEX_EXIT = '1' }
+    $er = Last-Entry $rb2
+    $shr = Providers $rb2 $rosterZOB @('-Short')
+    Check 'BURST' '... a run whose codex fails with that 429 records provider_failure {class quota, kind burst, retry_after null} (kind right after class); the one-line view then says ZAI is out with "burst limit hit"' ($xr.Code -eq 1 -and $er.provider_failure.class -eq 'quota' -and $er.provider_failure.kind -eq 'burst' -and $null -eq $er.provider_failure.retry_after -and (($er.provider_failure.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'class,kind,code,message,when,retry_after,hint' -and $shr.Out -match 'ZAI :: glm-5\.3 \(burst limit hit ') "$($er.provider_failure.class)/$($er.provider_failure.kind) | $($shr.Out.Trim())"
+}
+
 # =============================================================== PANEL: members continue in their own process (T1)
 if (Want 'PANEL') {
     $r = New-Repo 'panel'
@@ -844,7 +1040,7 @@ if (Want 'PANEL') {
     $q = Consult $r $rosterCodex @('-Panel', '-Prompt', 'x', '-Purpose', 'checkpoint', '-TimeoutSec', '5', '-ReplyName', 'ph', '-Mode', 'new') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""' }
     $zl = @(Ledger $r | Where-Object { $_.reviewer.provider -eq 'ZAI' }) | Select-Object -Last 1
     $zrow = (($q.Out -split "`n") | Where-Object { $_ -match '^  ZAI :: glm-5\.3\s+failed: timeout' } | Select-Object -First 1)
-    Check 'PANEL' '... one member hangs on both turns: its row "failed: timeout after 5 s (process tree killed)" names its partial reply; its own output (in the panel''s) prints the resume command (-Thread of its thread, -Purpose checkpoint); the other member answers; exit 1' ($q.Code -eq 1 -and $zl.bridge_outcome -eq 'failed: timeout after 5 s (process tree killed)' -and $zl.partial_reply -and $zrow -and $zrow.Contains("partial $($zl.partial_reply)") -and $q.Out.Contains("-Task t -Mode resume -Thread $($zl.thread) -Purpose checkpoint -TimeoutSec 5 -Prompt ""finish your review""")) $zrow
+    Check 'PANEL' '... one member hangs on both turns: its row "failed: timeout after 5 s (process tree killed)" names its partial reply; its own output (in the panel''s) prints the resume command (-Thread of its thread, -Purpose checkpoint, wave 24c: the member''s own -ReplyName); the other member answers; exit 1' ($q.Code -eq 1 -and $zl.bridge_outcome -eq 'failed: timeout after 5 s (process tree killed)' -and $zl.partial_reply -and $zrow -and $zrow.Contains("partial $($zl.partial_reply)") -and $q.Out.Contains("-Task t -Mode resume -Thread $($zl.thread) -Purpose checkpoint -ReplyName $((([string]$zl.reply) -replace '^handoffs/[0-9]+-codex-', '') -replace '\.md$', '') -TimeoutSec 5 -Prompt ""finish your review""")) $zrow
 }
 
 } finally {

@@ -369,7 +369,8 @@ then `roster: <path> -> would select <provider> :: <model>` and `availability: a
 available` (the SessionStart line; `codex-providers.ps1 -Short` prints it alone). Other
 verdicts - the roster walk's own: `unavailable (missing: env <NAME> not set)` (not set, or
 Claude Code not restarted), `unavailable (usage limit until <iso>)`, `unavailable (usage limit
-hit <iso>, reset unknown; retry after <iso>)` (a limit without a reset time, for 60 minutes),
+hit <iso>, reset unknown; retry after <iso>)` (a limit without a reset time, for 60 minutes;
+`burst limit (429) hit ...` - a 429 that names no usage window or quota - for 10, wave 24c),
 `unknown (<reason>)` (login check failed, or the config cannot be scanned). An agy roster label gets its own row: `available  gemini  4,5
 engine agy  agy (<launcher>)  ok: signed in (N models)  agy (tier in the model id)  -`
 (this listing makes one `agy models` call - none, and `ok: signed in (usable reply <m> min

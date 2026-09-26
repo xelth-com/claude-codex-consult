@@ -16,7 +16,9 @@
                                            ("usage limit until <iso>"), or (wave 24) one
                                            without a reset time, for 60 minutes ("usage
                                            limit hit <iso>, reset unknown; retry after
-                                           <iso>")
+                                           <iso>"; wave 24c: a burst - a 429 that names
+                                           no usage window or quota - for 10 minutes,
+                                           "burst limit (429) hit <iso>, ...")
                    unknown (<reason>)      `codex login status` could not run, or the
                                            config cannot be scanned
                    (wave 24, D14) the roster walk's own verdict (Get-PreflightVerdict
@@ -208,8 +210,9 @@ $consultCount = @($consults).Count
 $healthSource = "$collabRoot ($ledgerCount task ledger$(if ($ledgerCount -ne 1) { 's' }), $consultCount consultation$(if ($consultCount -ne 1) { 's' }))"
 $loginCache = @{}
 # (wave 24b, F07-3) each identity and each endpoint's health resolved once for the whole listing:
-# the walk, the availability records and the rows below share it
-$listingCache = @{}
+# the walk, the availability records and the rows below share it - (wave 24c, F15-2) an ORDINAL
+# cache: ZAI and zai, glm-5.3 and GLM-5.3 never share a slot
+$listingCache = New-ListingCache
 $walk = $null
 $avail = $null
 if ($roster.Exists) {

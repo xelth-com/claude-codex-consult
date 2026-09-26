@@ -59,7 +59,8 @@ section for the file's shape and the selection rules. Its verdicts ARE the roste
 (0.5.0): a usage limit without a reset time reads `unavailable (usage limit hit <iso>, reset
 unknown; retry after <iso>)` for 60 minutes, exactly as the walk skips it - and an explicit
 `-Provider` run on that endpoint is refused for the same 60 minutes (wave 24b; `-SkipPreflight`
-launches anyway, with a warning). A failure whose text is the plan's or the model's context
+launches anyway, with a warning); a burst 429 that names no usage window or quota (`burst limit
+(429) hit <iso>, ...`) is out for 10 minutes only (wave 24c). A failure whose text is the plan's or the model's context
 limit (`hint       : context too long for this plan/model - ...` in the summary) is class
 `capability`, never `auth`: the endpoint stays available - narrow the brief or pick a model with
 a larger context window. Run it in the

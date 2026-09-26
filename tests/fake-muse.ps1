@@ -45,6 +45,9 @@
 #   FAKE_MUSE_PARTIAL=1           a truncated JSON line after the terminal (no newline)
 #   FAKE_MUSE_WRITE=<rel path>    writes that file (relative to the working directory) on a
 #                                 turn without --session-id (=<path>|all: on every turn)
+#   FAKE_MUSE_COMMIT=<p>[|<p>]    (wave 24c) on a turn without --session-id, after
+#                                 FAKE_MUSE_WRITE: `git add -f` those paths and commit them - a
+#                                 coordinator committing while the reviewer runs (HEAD moves)
 #   FAKE_MUSE_HANG=1              sleeps 60 s after the first records (a timeout kill); =new:
 #                                 only on a turn without --session-id (wave 24: the main turn
 #                                 hangs, the bridge's timeout continuation answers); =resume:
@@ -229,6 +232,13 @@ if ($env:FAKE_MUSE_WRITE) {
         [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))
         [IO.File]::WriteAllText($target, "written by the fake muse`n", $u8)
     }
+}
+if ($env:FAKE_MUSE_COMMIT -and -not $conv) {
+    $commitPaths = @($env:FAKE_MUSE_COMMIT.Split('|') | Where-Object { $_ })
+    $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $null = & git add -f -- @commitPaths 2>&1
+    $null = & git -c user.email=fake@example.invalid -c user.name=fake commit -q -m 'fake coordinator commit' 2>&1
+    $ErrorActionPreference = $prevEap
 }
 
 # ---- the answer
