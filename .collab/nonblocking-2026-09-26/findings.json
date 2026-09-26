@@ -1,0 +1,692 @@
+{
+    "task_id":  "nonblocking-2026-09-26",
+    "findings":  [
+                     {
+                         "id":  "F02-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".gitignore",
+                                               "line":  23
+                                           },
+                                           {
+                                               "path":  ".collab/nonblocking-2026-09-26/handoffs/01-claude-r12-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The design\u0027s claim that the detached status/log files are gitignored by the existing patterns is false at HEAD: .gitignore lists only .consult.lock, .consult.write.lock, .consult.pending.json and .consult.pending-*.json, so .consult.detached-\u003cid8\u003e.status.json and .log stay untracked and visible in every git status of a repo whose policy deliberately tracks .collab/.",
+                         "trigger":  "Any detached run; git status afterwards shows the two new files, risking accidental commits of full reply logs.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "git check-ignore -v .collab/t/.consult.detached-abc12345.status.json (and .log), repo root at HEAD 46440f3",
+                                              "observation":  "Both exit 1 (not ignored); the .consult.pending-*.json pattern at .gitignore:23 matches its own name, proving the family does not extend to detached-*."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".gitignore lines 16-23",
+                                              "observation":  "Only the four lock/pending patterns exist; the header comment says nothing else under .collab/ is ignored."
+                                          }
+                                      ],
+                         "verification":  "Run git check-ignore -v on a fabricated .consult.detached-\u003cid\u003e.log path under .collab/\u003ctask\u003e/ and observe exit code 1.",
+                         "remedy":  "Add a `.consult.detached-*` pattern (or `.consult.detached-*.status.json` plus `.consult.detached-*.log`) to .gitignore and make the test suite assert it via git check-ignore.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1904
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1201
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1998
+                                           },
+                                           {
+                                               "path":  ".collab/nonblocking-2026-09-26/handoffs/01-claude-r12-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "Foreground validation defined as everything a dry run does is not a superset of the real run\u0027s refusals: launcher-not-on-PATH checks and the active-recovery-record refusal are DryRun-skipped or report-only, and the task lock is never attempted, so -Detach can print success and exit 0 while the background is refused moments later.",
+                         "trigger":  "-Detach invoked when codex/engine CLI is not on PATH, or another consultation holds the task lock or leaves an active pending record in the foreground/background gap.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1904-1909",
+                                              "observation":  "The codex CLI and engine launcher PATH checks are guarded by if (-not $DryRun ...)."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1201-1203, 1216-1221",
+                                              "observation":  "The panel\u0027s launcher checks are likewise DryRun-skipped."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1998 and 1249-1251",
+                                              "observation":  "An active recovery record refuses only when -not $DryRun; a dry run just records the refusal text."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1983-1984, 1241-1242",
+                                              "observation":  "Enter-TaskLock runs only in real runs, so foreground validation never probes lock availability."
+                                          }
+                                      ],
+                         "verification":  "With CODEX_CONSULT_EXE unset and codex off PATH, run the proposed foreground validation; if it exits 0, the gap is real.",
+                         "remedy":  "The -Detach foreground must additionally run the not-DryRun checks (launcher presence via Get-Command, active-record refusal mapped to exit 1) and document that lock acquisition and time-dependent roster/health selection remain a benign TOCTOU resolved by -Status.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  238
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1516
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  3382
+                                           },
+                                           {
+                                               "path":  ".collab/nonblocking-2026-09-26/handoffs/01-claude-r12-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The design gives no mechanism that writes a terminal status on every background exit path: Stop-WithError and the direct exit 0/1 sites bypass any maintain-the-status-file duty, so a background refused after start (lock, active record, launcher, store parse) leaves the file at starting/running forever and -Status then reports it died with a recovery message that is false (nothing was started, nothing to recover).",
+                         "trigger":  "Any Stop-WithError reached by the background process after the foreground has handed over, e.g. lock refusal at codex-consult.ps1:1984 or panel refusal at 1242.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:238-242",
+                                              "observation":  "Stop-WithError prints and calls exit 1 directly; no status hook exists."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1516-1517, 3101, 3382, 3427",
+                                              "observation":  "Multiple direct exit sites inside try blocks; only task-lock/store cleanup runs in finally, no detached-status write is plumbed."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Design items 1-4 of the brief",
+                                              "observation":  "The brief says the background ALSO maintains the file at start/per-member/end but names no interception of refusal exits."
+                                          }
+                                      ],
+                         "verification":  "Kill-test variant: hold the task lock, then -Detach; after the background exits 1, run -Status and check whether the file reached state done with exit 1 or stuck at starting.",
+                         "remedy":  "Wrap the entire background main in a script-scope finally (or extend Stop-WithError to honor -DetachId) that idempotently writes {state done, exit \u003ccode\u003e, summary: the last error/success line} on every exit, and add the refused-after-start test.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-4",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1275
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4865
+                                           },
+                                           {
+                                               "path":  ".collab/nonblocking-2026-09-26/handoffs/01-claude-r12-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "-Wait\u0027s proposed default timeout (timeout + retries + 120 s) is one member\u0027s kill guard, not the run\u0027s budget: panels serialize same-endpoint members, so a legitimate panel outlives the default and -Wait exits 3 still running; moreover the proposed status schema has no field -Wait could read a default from.",
+                         "trigger":  "A detached panel whose largest endpoint group has more members than its limit (the default limit is 1 per endpoint).",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1275-1282",
+                                              "observation":  "The guard is TimeoutSec + 60 + 120 (+ repair/denial budgets) per member."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4853-4926",
+                                              "observation":  "Get-PanelPlan builds endpoint groups whose members run one after another unless the roster raises the limit; -PanelConcurrency can serialize everything."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "Design item 2 status schema {id, started, state, exit, task, kind, members, summary, log}",
+                                              "observation":  "No timeout/budget/plan field exists."
+                                          }
+                                      ],
+                         "verification":  "Detach a fakes panel with two members of one endpoint and -WaitTimeoutSec default; observe exit 3 while members still run.",
+                         "remedy":  "Compute the critical-path bound (ceil(max group size / limit) x guard + slack, capped by -PanelConcurrency) at detach time, store budget_sec in the status file, and default -WaitTimeoutSec to it plus margin.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-5",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/nonblocking-2026-09-26/handoffs/01-claude-r12-design.md",
+                                               "line":  null
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1146
+                                           }
+                                       ],
+                         "claim":  "The status file\u0027s first-write ownership is unspecified and racy: the foreground writes state starting (it cannot know the background pid yet), and if the background\u0027s own first write lands first, a foreground write after Start-Process overwrites running with stale starting; a single run has no intermediate member updates, so the file can read starting until the terminal write, and a background that dies before its first write leaves a pid-less file whose liveness cannot be judged at all.",
+                         "trigger":  "Slow foreground bookkeeping after Start-Process, or a background that fails before parsing -DetachId (bad host, script moved, parameter refusal).",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1144-1155",
+                                              "observation":  "The existing child-launch pattern (Start-Process then slot bookkeeping) shows the write-after-start ordering the design would copy."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Design items 1-2 (foreground writes the first version; the file records the background pid + start time)",
+                                              "observation":  "Two writers with no ordering rule; neither is designated to own the pid."
+                                          }
+                                      ],
+                         "verification":  "Instrument fakes so the background writes running within 50 ms while the foreground sleeps 500 ms before its write; then read the file: state starting.",
+                         "remedy":  "The foreground writes starting (no pid) only BEFORE launching and never after; the background\u0027s first action after parsing -DetachId is an atomic self-report write {state running, pid, start_time, host}; -Status treats starting+no-pid as just started, retry.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-6",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  200
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-hook.ps1",
+                                               "line":  null
+                                           },
+                                           {
+                                               "path":  ".collab/nonblocking-2026-09-26/handoffs/01-claude-r12-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "-List\u0027s new detached line and the SessionStart phrase read status files only, so a detached run whose background died keeps printing running indefinitely (and is never pruned, since -Prune deletes only done files) - the exact stale-liveness problem item 4 fixes for -Status is left open in the two surfaces a new session actually sees first.",
+                         "trigger":  "Kill the detached background (or reboot) and later run codex-findings.ps1 -List or start a session with the hook enabled.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-findings.ps1:200-251, 148-164",
+                                              "observation":  "-List is a pure read of findings/sessions/pending with no process checks; the pending lines it prints come from Write-PendingLine."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-hook.ps1:44-92",
+                                              "observation":  "The hook derives its one line from codex-providers -Json -NoNetwork output only; no pid logic exists."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "Design item 5 (both read status files only)",
+                                              "observation":  "Liveness is deliberately excluded."
+                                          }
+                                      ],
+                         "verification":  "Kill a faked detached run, then run -List and the hook: both should say running although Test-PidAlive would fail.",
+                         "remedy":  "Apply the same Test-PidAlive(pid, start_time) check (codex-consult-common.ps1:5224-5231) in the -List line and the hook phrase, collapsing dead runs to a died wording, and let -Prune also remove died files past the retention window.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-7",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  649
+                                           }
+                                       ],
+                         "claim":  "The Q2 alternative the brief entertains (detached runs under the collab root\u0027s own directory) is unsafe at HEAD: Get-CollabSnapshot ignores .consult.-prefixed file names at any depth but skips only .git and reparse-point directories, so unprefixed files inside e.g. \u003ccollab\u003e/.consult.detached/ would enter snapshots and fail a concurrently running agy member of any task.",
+                         "trigger":  "Creating a collab-root status directory whose contents do not each start with .consult. while any agy member runs.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:635-660",
+                                              "observation":  "File skip at 650 is name-prefix based; the subdir loop (654-657) skips only .git and reparse points."
+                                          }
+                                      ],
+                         "verification":  "Create \u003ccollab\u003e/.consult.detached/x.status.json, snapshot before/after, run Compare-DirectorySnapshot: x.status.json is reported as changed.",
+                         "remedy":  "Keep per-task prefixed files (the design\u0027s choice, verified safe), or extend Get-CollabSnapshot to also skip .consult.-prefixed directories if a root layout is wanted.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-8",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  784
+                                           },
+                                           {
+                                               "path":  ".collab/nonblocking-2026-09-26/handoffs/01-claude-r12-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The detached background parent would not set [Console]::OutputEncoding while panel members explicitly do it for redirected output, so on Windows PowerShell 5.1 the log file (and any summary text captured from it) is written in the OEM codepage and non-ASCII content mojibakes, breaking the verbatim-summary test.",
+                         "trigger":  "A detached run under powershell.exe 5.1 whose reply, warnings or paths contain non-ASCII characters.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:782-784",
+                                              "observation":  "Only the -PanelSpec member sets [Console]::OutputEncoding = UTF8, with a comment saying it exists exactly so the parent can read the file as UTF-8."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "PS 5.1 redirected-output encoding defaults",
+                                              "observation":  "Without the switch, redirected Write-Host output uses the console/OEM encoding; not executed here."
+                                          }
+                                      ],
+                         "verification":  "RC1 in the reply: launch a hidden 5.1 process writing non-ASCII via Write-Host to a redirected file and inspect the bytes.",
+                         "remedy":  "Set [Console]::OutputEncoding (and $OutputEncoding) to UTF-8 as the background\u0027s first action after arg parsing, before any Write-Host; add a non-ASCII test under PS 5.1.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-9",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1173
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5797
+                                           }
+                                       ],
+                         "claim":  "The proposed member state enum pending|running|usable|failed|skipped loses the panel\u0027s distinct outcomes (killed by guard, failed-start, blocked/commit-blocked, ORPHAN commit) that Get-PanelMemberStatus reports today, and the status schema omits host next to pid/start_time although recovery records carry it, so liveness is misjudged when the coordinator returns on another machine or a shared checkout.",
+                         "trigger":  "A member killed by the guard or stopped inside its commit; or -Status run on a different host than the background.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1173-1186, 1364-1368",
+                                              "observation":  "Member statuses distinguish killed/failed-start/commit-blocked/ORPHAN; slot states include blocked and failed-start."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5797-5798",
+                                              "observation":  "Test-PendingActive carries and checks a host field for exactly the cross-host case."
+                                          }
+                                      ],
+                         "verification":  "Detach a fakes panel, kill one member via CODEX_CONSULT_TEST_PANEL_GUARD_SEC, and read members[].state: killed is not representable.",
+                         "remedy":  "Extend the enum (killed, blocked, commit_blocked or a separate outcome field) and add host to the status record; refuse liveness judgement when host differs.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-10",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/nonblocking-2026-09-26/handoffs/01-claude-r12-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "-Status without an id leaves the aggregate exit code undefined when several detached runs of the task mix states (one done-0, one done-1, one running -\u003e 0, 1 or 2?), and 8-hex-char id8 prefixes can collide across guids, making -Status \u003cid8\u003e ambiguous with no defined refusal.",
+                         "trigger":  "Two detached runs on one task, or two guids sharing their first 8 hex characters.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "Design item 3",
+                                              "observation":  "Only per-file exit semantics (0/1/2) are specified; nothing about aggregation or ambiguity."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Birthday-parithmetic on 8 hex chars",
+                                              "observation":  "Collisions become plausible after a few tens of thousands of ids, and tests with fixed seeds can force them."
+                                          }
+                                      ],
+                         "verification":  "Create two status files whose ids share the first 8 chars and run -Status \u003cid8\u003e.",
+                         "remedy":  "Define the aggregate as the worst state (running \u003e failed \u003e ok), print every match, and refuse with a distinct exit code when an id8 prefix matches more than one file.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-11",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1876
+                                           },
+                                           {
+                                               "path":  ".collab/nonblocking-2026-09-26/handoffs/01-claude-r12-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The design contradicts itself on writing (-Status -Wait take no lock and write nothing, yet -Status -Prune deletes files), does not say the background must be started with the foreground\u0027s working directory, and does not refuse -Detach together with the internal -PanelSpec: relative -Brief/-Artifact/-CollabDir resolve against callerCwd, so a background with a different cwd validates against the wrong files.",
+                         "trigger":  "-Detach with relative paths where the launched background inherits a different working directory, or a user passing -Detach -PanelSpec.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1876-1894",
+                                              "observation":  "Brief and artifact resolution walks @($callerCwd, $repoRoot); the panel brief probe does the same at 1192-1196."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "Design items 1, 3, 6",
+                                              "observation":  "Item 3 forbids writes, item 6 adds deletion; neither the working directory nor -PanelSpec refusal is mentioned."
+                                          }
+                                      ],
+                         "verification":  "-Detach with -Brief given as a relative path that only exists under the coordinator\u0027s cwd, launched without -WorkingDirectory: the background refuses brief not found.",
+                         "remedy":  "Say -Prune is the one writing form of -Status, refuse -Detach with -PanelSpec (and -DryRun/-Status/-Wait as planned), and always Start-Process the background with -WorkingDirectory set to the foreground\u0027s cwd.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-r12-design-zai.md",
+                                        "thread":  "01a0dcd1-4094-7fb1-b667-bc0301007f74",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:37:58+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     }
+                 ],
+    "ratings":  [
+                    {
+                        "n":  1,
+                        "consult_id":  "8a3bf0ee-6747-4616-ba3c-b0f275c4792e",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "purpose":  "framing",
+                        "useful":  "yes",
+                        "note":  "design review: 11 concrete defects with code locations (gitignore, foreground checks, terminal status, budget, first-write race, liveness, cwd, encoding); every decision traces to it",
+                        "when":  "2026-09-26T10:40:07+02:00"
+                    }
+                ]
+}
