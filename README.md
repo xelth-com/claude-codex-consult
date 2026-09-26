@@ -84,6 +84,7 @@ Expect:
 | Xiaomi MiMo Token Plan | https://mimo.mi.com/docs/en-US/tokenplan/integration/codex-configuration | `https://token-plan-cn.xiaomimimo.com/v1`; the user's plan console names their region (`token-plan-ams.xiaomimimo.com` exists too); pay-as-you-go: `https://api.xiaomimimo.com/v1` |
 | BytePlus ModelArk Coding Plan (Dola-Seed, GLM, DeepSeek, Kimi, gpt-oss under one subscription) | https://docs.byteplus.com/en/docs/ModelArk/1928261 | `https://ark.ap-southeast.bytepluses.com/api/coding/v3` (the plan quota; `/api/v3` is pay-as-you-go) |
 | Kimi Code membership (Moonshot; K3 from the Plus tier) | https://www.kimi.com/code/docs/en/third-party-tools/codex.html | `https://api.kimi.ai/coding/v1` (the membership quota; `https://api.moonshot.ai/v1` is the pay-as-you-go API) |
+| Alibaba Cloud Model Studio Token Plan (Qwen 3.8, DeepSeek, GLM under one credit subscription; Singapore only) | https://www.alibabacloud.com/help/en/model-studio/codex | `https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1` with the plan's own `sk-sp-` key (a general Model Studio key or base URL bills pay-as-you-go) |
 
 Both pages put the key into the file as `experimental_bearer_token = "<key>"`. Do not copy
 that line; use `env_key`, so the key only lives in the user's environment:
@@ -1045,6 +1046,7 @@ ships (`caps-v1`, ledger `effort_caps`), never inferred from a host or model pre
 | `token-plan-ams.xiaomimimo.com`, `token-plan-cn.xiaomimimo.com`, `api.xiaomimimo.com` | `none\|low\|medium\|high` | `mimo-v2.6-pro`, `mimo-v2.6-flash`, `mimo-v2.6-pro-ultraspeed`, `mimo-v2.5-pro`, `mimo-v2.5` (5, exact) | `xhigh`→`high`, the rest as is (`mimo-v1`) | `prompt-only` |
 | `ark.ap-southeast.bytepluses.com` (BytePlus ModelArk Coding Plan, base URL `/api/coding/v3`) | `low\|medium\|high` | `dola-seed-2.0-pro`, `dola-seed-2.0-lite`, `dola-seed-2.0-code`, `bytedance-seed-code`, `glm-5.3-flash`, `glm-5.2`, `glm-5.1`, `kimi-k2.5`, `gpt-oss-120b`, `deepseek-v4.1-flash`, `deepseek-v4-flash`, `deepseek-v4-pro` (12, exact) | `xhigh`→`high`, the rest as is (`ark-v1`) | `prompt-only` |
 | `api.kimi.ai` (Kimi Code membership, base URL `/coding/v1`) | `low\|high\|max` | `k3`, `k3-256k`, `kimi-for-coding`, `kimi-for-coding-highspeed` (4, exact; the tier decides which the plan unlocks) | `medium`→`high`, `xhigh`→`max`, `low`/`high` as is (`kimi-v1`) | `prompt-only` |
+| `token-plan.ap-southeast-1.maas.aliyuncs.com` (Alibaba Model Studio Token Plan, base URL `/compatible-mode/v1`) | `low\|medium\|high\|xhigh` | `qwen3.8-max`, `qwen3.8-flash`, `qwen3.7-max`, `qwen3.7-plus`, `qwen3.6-flash`, `deepseek-v4.1-flash`, `deepseek-v4-pro`, `deepseek-v4-pro-0813`, `deepseek-v4-flash-0731`, `glm-5.3`, `glm-5.2` (11, exact; the plan's `auto` router is not declared) | all four as is (`alibaba-v1`) | `prompt-only` |
 | any other host | none (needs `-NativeEffort`) | — | — | `prompt-only` (safe default) |
 
 Anything undeclared (another model on a known host, any model on an unknown host, an

@@ -2533,6 +2533,16 @@ function ConvertFrom-CodexConfigItems {
 #   hosts token-plan-ams.xiaomimimo.com, token-plan-cn.xiaomimimo.com, api.xiaomimimo.com
 #       vocabulary mimo (mapping mimo-v1) ONLY for the declared models     none low medium
 #       below (exact): low, medium, high as is, xhigh -> high               high
+#   host ark.ap-southeast.bytepluses.com (BytePlus ModelArk Coding Plan)
+#       vocabulary ark (mapping ark-v1) ONLY for the declared models     low medium high
+#       below (exact): low, medium, high as is, xhigh -> high
+#   host api.kimi.ai (Kimi Code membership)
+#       vocabulary kimi (mapping kimi-v1) ONLY for the declared models   low high max
+#       below (exact): medium -> high, xhigh -> max
+#   host token-plan.ap-southeast-1.maas.aliyuncs.com (Alibaba Model Studio Token Plan)
+#       vocabulary alibaba (mapping alibaba-v1) ONLY for the declared    low medium high
+#       models below (exact), all four as is. The plan's `auto` router   xhigh
+#       is not declared: the endpoint picks its target model, so the accepted effort is unknown.
 #   engine:agy (the agy engine, any model)
 #       vocabulary model-tier (mapping model-tier): NOTHING is sent - the reasoning tier is
 #       part of the agy model id (gemini-3.8-flash-high); effort_sent null. -NativeEffort
@@ -2550,6 +2560,9 @@ $script:EffortVocabularies = @{
     'ark'    = @{ Mapping = 'ark-v1'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'high' } }
     # Kimi Code (Moonshot) on its Codex base URL: K3 takes low | high | max (the Kimi Code Codex doc)
     'kimi'   = @{ Mapping = 'kimi-v1'; Map = @{ 'low' = 'low'; 'medium' = 'high'; 'high' = 'high'; 'xhigh' = 'max' } }
+    # Alibaba Cloud Model Studio Token Plan: every text model takes low | medium | high | xhigh
+    # (the Model Studio Codex doc, 2026-09-26)
+    'alibaba' = @{ Mapping = 'alibaba-v1'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'xhigh' } }
 }
 # The model names Kimi Code accepts on https://api.kimi.ai/coding/v1 (its Codex doc; which of them a
 # membership unlocks depends on the tier: Plus has k3 at 256K context, Pro adds the 1M window and
@@ -2560,6 +2573,10 @@ $script:MimoDeclaredModels = @('mimo-v2.6-pro', 'mimo-v2.6-flash', 'mimo-v2.6-pr
 # The model names the BytePlus ModelArk Coding Plan accepts on its Codex (OpenAI-protocol) base URL
 # https://ark.ap-southeast.bytepluses.com/api/coding/v3 (its quick-start guide, 2026-09-24).
 $script:ArkPlanDeclaredModels = @('dola-seed-2.0-pro', 'dola-seed-2.0-lite', 'dola-seed-2.0-code', 'bytedance-seed-code', 'glm-5.3-flash', 'glm-5.2', 'glm-5.1', 'kimi-k2.5', 'gpt-oss-120b', 'deepseek-v4.1-flash', 'deepseek-v4-flash', 'deepseek-v4-pro')
+# The text models the Alibaba Cloud Model Studio Token Plan (Personal Edition) lists on its
+# subscription page and the Codex doc (2026-09-26), without the plan's `auto` router (its target
+# model - and so the effort it accepts - is chosen by the endpoint).
+$script:AlibabaTokenPlanDeclaredModels = @('qwen3.8-max', 'qwen3.8-flash', 'qwen3.7-max', 'qwen3.7-plus', 'qwen3.6-flash', 'deepseek-v4.1-flash', 'deepseek-v4-pro', 'deepseek-v4-pro-0813', 'deepseek-v4-flash-0731', 'glm-5.3', 'glm-5.2')
 # host -> { Vocabulary; Models ($null = any model); SchemaTransport }. SchemaTransport: how
 # the reply schema reaches the endpoint - 'output-schema' (--output-schema; the built-in
 # openai enforces it, z.ai accepts it without enforcing) or 'prompt-only' (MiMo rejects a
@@ -2578,6 +2595,10 @@ $script:EffortCaps = @{
     # Kimi Code membership (overseas domain; the China domain api.kimi.com is not declared): the
     # schema travels in the prompt (a json_schema response format on this route is not documented).
     'api.kimi.ai'                   = @{ Vocabulary = 'kimi'; Models = $script:KimiDeclaredModels; SchemaTransport = 'prompt-only' }
+    # Alibaba Cloud Model Studio Token Plan (Singapore only): the quota counts only with the plan's own
+    # key (sk-sp-...) on this base URL (/compatible-mode/v1, Responses API); a general Model Studio
+    # key or base URL bills pay-as-you-go. The schema travels in the prompt.
+    'token-plan.ap-southeast-1.maas.aliyuncs.com' = @{ Vocabulary = 'alibaba'; Models = $script:AlibabaTokenPlanDeclaredModels; SchemaTransport = 'prompt-only' }
     'engine:agy'                    = @{ Vocabulary = 'model-tier'; Models = $null; SchemaTransport = 'native' }
 }
 
@@ -2615,7 +2636,10 @@ function Resolve-EffortPlan {
     }
     if (-not $cap) {
         $hostLabel = if ($hostName) { $hostName } else { 'unknown-host' }
-        $declared = @($script:EffortCaps.Keys | Where-Object { $_ -notlike 'engine:*' } | Sort-Object) -join ', '
+        # Ordinal order: the same list on Windows PowerShell 5.1 (NLS ignores '-') and pwsh 7 (ICU).
+        $declaredHosts = [string[]]@($script:EffortCaps.Keys | Where-Object { $_ -notlike 'engine:*' })
+        [Array]::Sort($declaredHosts, [StringComparer]::Ordinal)
+        $declared = $declaredHosts -join ', '
         $plan.Error = "no effort vocabulary declared for $hostLabel ($($script:EffortCapsVersion) declares $declared); pass -NativeEffort <value> to send a value verbatim"
         return $plan
     }

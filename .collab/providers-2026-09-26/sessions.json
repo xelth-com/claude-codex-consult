@@ -1,0 +1,342 @@
+{
+    "task_id":  "providers-2026-09-26",
+    "cwd":  "C:\\Users\\Dmytro\\claude-codex-consult",
+    "codex":  {
+                  "tool":  "codex-cli 0.155.1",
+                  "consults":  [
+                                   {
+                                       "n":  1,
+                                       "when":  "2026-09-26T02:15:02+02:00",
+                                       "purpose":  "checkpoint",
+                                       "consult_id":  "fe2107ae-5748-4f71-8ffd-5a75290facec",
+                                       "reviewer":  {
+                                                        "provider":  "alibaba",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "qwen3.8-max",
+                                                        "model_source":  "-Model",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "347c995d43257bbe4a1821ff31013407f43da6067a4f4f3f78d9eb02096edd55",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+                                                                                "name":  "Alibaba Cloud Model Studio Token Plan (ap-southeast-1)",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "alibaba :: qwen3.8-max",
+                                       "preflight":  "ok: env ALIBABA_API_KEY set",
+                                       "preflight_warning":  "",
+                                       "roster":  null,
+                                       "panel":  null,
+                                       "parent_thread":  "",
+                                       "thread":  "01a0db10-c3f4-7423-82b2-bc949f86c370",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "new",
+                                       "command":  "codex exec --sandbox read-only --color never --json -m qwen3.8-max -c model_reasoning_effort=\"medium\" -c model_provider=\"alibaba\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-cc708d00fc8f48c9b184448b54d1545d.md -",
+                                       "brief":  "",
+                                       "prompt_chars":  6225,
+                                       "reply":  "handoffs/01-codex-qwen38max-smoke.md",
+                                       "reply_json":  "handoffs/01-codex-qwen38max-smoke.reply.json",
+                                       "events":  "handoffs/01-codex-qwen38max-smoke.events.jsonl",
+                                       "model":  "qwen3.8-max",
+                                       "effort":  "medium",
+                                       "effort_requested":  "medium",
+                                       "effort_sent":  "medium",
+                                       "effort_mapping":  "alibaba-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  120,
+                                       "sandbox":  "read-only",
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-09-26T02:15:02+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "base_commit":  "1ff7d88485591acecb462bea4d43f20fd73cf170",
+                                       "reviewed_revision":  "1ff7d88 + uncommitted",
+                                       "tree_sha256":  "81676f178c36ad2788d4362a7f5c51bc8666d20241277d76bb180d623c52503f",
+                                       "tree_sha256_after":  "81676f178c36ad2788d4362a7f5c51bc8666d20241277d76bb180d623c52503f",
+                                       "tree_changed_during_review":  false,
+                                       "changed_files":  2,
+                                       "brief_sha256":  "",
+                                       "brief_sha256_after":  "",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (0 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ADVISE",
+                                       "verdict_reason":  "The new host entry follows the existing caps-v1 shape exactly; the only real exposure is the `auto` router model under a verbatim `xhigh` identity map.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  0,
+                                                        "minor":  1,
+                                                        "note":  1
+                                                    },
+                                       "finding_ids":  [
+                                                           "F01-1",
+                                                           "F01-2"
+                                                       ],
+                                       "prior_findings":  [
+
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  217478,
+                                                     "cached_input_tokens":  113664,
+                                                     "output_tokens":  4147,
+                                                     "reasoning_output_tokens":  2597
+                                                 },
+                                       "wall_seconds":  157.7,
+                                       "finished_at":  "2026-09-26T02:17:40+02:00",
+                                       "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  2,
+                                       "when":  "2026-09-26T02:17:43+02:00",
+                                       "purpose":  "checkpoint",
+                                       "consult_id":  "14570946-09af-4d52-af6c-7d244f5a4cb9",
+                                       "reviewer":  {
+                                                        "provider":  "alibaba",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "deepseek-v4.1-flash",
+                                                        "model_source":  "-Model",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "347c995d43257bbe4a1821ff31013407f43da6067a4f4f3f78d9eb02096edd55",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+                                                                                "name":  "Alibaba Cloud Model Studio Token Plan (ap-southeast-1)",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "alibaba :: deepseek-v4.1-flash",
+                                       "preflight":  "ok: env ALIBABA_API_KEY set",
+                                       "preflight_warning":  "",
+                                       "roster":  null,
+                                       "panel":  null,
+                                       "parent_thread":  "",
+                                       "thread":  "01a0db13-4630-7d33-928c-bf4266d81f37",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "new",
+                                       "command":  "codex exec --sandbox read-only --color never --json -m deepseek-v4.1-flash -c model_reasoning_effort=\"medium\" -c model_provider=\"alibaba\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-f0d27aef587e48128d7386b0c3fbd8a2.md -",
+                                       "brief":  "",
+                                       "prompt_chars":  8212,
+                                       "reply":  "handoffs/02-codex-ds41flash-alibaba.md",
+                                       "reply_json":  "handoffs/02-codex-ds41flash-alibaba.reply.json",
+                                       "events":  "handoffs/02-codex-ds41flash-alibaba.events.jsonl",
+                                       "model":  "deepseek-v4.1-flash",
+                                       "effort":  "medium",
+                                       "effort_requested":  "medium",
+                                       "effort_sent":  "medium",
+                                       "effort_mapping":  "alibaba-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  120,
+                                       "sandbox":  "read-only",
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-09-26T02:17:43+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "base_commit":  "1ff7d88485591acecb462bea4d43f20fd73cf170",
+                                       "reviewed_revision":  "1ff7d88 + uncommitted",
+                                       "tree_sha256":  "81676f178c36ad2788d4362a7f5c51bc8666d20241277d76bb180d623c52503f",
+                                       "tree_sha256_after":  "81676f178c36ad2788d4362a7f5c51bc8666d20241277d76bb180d623c52503f",
+                                       "tree_changed_during_review":  false,
+                                       "changed_files":  2,
+                                       "brief_sha256":  "",
+                                       "brief_sha256_after":  "",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (5 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ADVISE",
+                                       "verdict_reason":  "The alibaba entry matches the table\u0027s shape and vocabulary invariants; the only concrete risk is the pre-existing open F01-1 about the \u0027auto\u0027 router, so this is a checkpoint note, not a block.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  0,
+                                                        "minor":  0,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F01-1",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F01-2",
+                                                                  "status":  "still-open"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  344396,
+                                                     "cached_input_tokens":  286080,
+                                                     "output_tokens":  7098,
+                                                     "reasoning_output_tokens":  5850
+                                                 },
+                                       "wall_seconds":  212.8,
+                                       "finished_at":  "2026-09-26T02:21:16+02:00",
+                                       "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  3,
+                                       "when":  "2026-09-26T02:21:19+02:00",
+                                       "purpose":  "checkpoint",
+                                       "consult_id":  "210b0e8e-dc7d-4c65-976a-3511e1699d60",
+                                       "reviewer":  {
+                                                        "provider":  "byteplus",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "deepseek-v4.1-flash",
+                                                        "model_source":  "-Model",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "ed61f9eb93fef103f009265828cef252fb67d7640b59f08bc7af99c0ca9a801e",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+                                                                                "name":  "BytePlus ModelArk Coding Plan (ap-southeast-1)",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "byteplus :: deepseek-v4.1-flash",
+                                       "preflight":  "ok: env BYTEPLUS_API_KEY set",
+                                       "preflight_warning":  "",
+                                       "roster":  null,
+                                       "panel":  null,
+                                       "parent_thread":  "",
+                                       "thread":  "01a0db16-82de-70b2-bd88-2365300f5c66",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "new",
+                                       "command":  "codex exec --sandbox read-only --color never --json -m deepseek-v4.1-flash -c model_reasoning_effort=\"medium\" -c model_provider=\"byteplus\" -c model_supports_reasoning_summaries=true -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-1c2f219bd0394cac9d6d732035ebda01.md -",
+                                       "brief":  "",
+                                       "prompt_chars":  8212,
+                                       "reply":  "handoffs/03-codex-ds41flash-byteplus.md",
+                                       "reply_json":  "handoffs/03-codex-ds41flash-byteplus.reply.json",
+                                       "events":  "handoffs/03-codex-ds41flash-byteplus.events.jsonl",
+                                       "model":  "deepseek-v4.1-flash",
+                                       "effort":  "medium",
+                                       "effort_requested":  "medium",
+                                       "effort_sent":  "medium",
+                                       "effort_mapping":  "ark-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  120,
+                                       "sandbox":  "read-only",
+                                       "extra_config":  [
+                                                            "model_supports_reasoning_summaries=true"
+                                                        ],
+                                       "extra_config_source":  "-CodexConfig",
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-09-26T02:21:19+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "base_commit":  "1ff7d88485591acecb462bea4d43f20fd73cf170",
+                                       "reviewed_revision":  "1ff7d88 + uncommitted",
+                                       "tree_sha256":  "81676f178c36ad2788d4362a7f5c51bc8666d20241277d76bb180d623c52503f",
+                                       "tree_sha256_after":  "81676f178c36ad2788d4362a7f5c51bc8666d20241277d76bb180d623c52503f",
+                                       "tree_changed_during_review":  false,
+                                       "changed_files":  2,
+                                       "brief_sha256":  "",
+                                       "brief_sha256_after":  "",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (8 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ADVISE",
+                                       "verdict_reason":  "The new alibaba host entry matches the caps-v1 table shape and vocabulary/declared-model conventions, but the `auto` router member and the stale prose header keep two open drifts.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  0,
+                                                        "minor":  0,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F01-1",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F01-2",
+                                                                  "status":  "still-open"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  406906,
+                                                     "cached_input_tokens":  393600,
+                                                     "output_tokens":  3971,
+                                                     "reasoning_output_tokens":  2696
+                                                 },
+                                       "wall_seconds":  58.2,
+                                       "finished_at":  "2026-09-26T02:22:18+02:00",
+                                       "commit_wait_ms":  0
+                                   }
+                               ]
+              }
+}

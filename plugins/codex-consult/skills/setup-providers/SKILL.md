@@ -223,6 +223,46 @@ wire_api = "responses"
   every tool turn - budget the window in tokens, not in calls.
 - Roster entry: `{ "provider": "kimi", "model": "k3", "panel": "weighty" }` (or `"always"`).
 
+## 3e. Alibaba Cloud Model Studio Token Plan (Qwen; a Codex provider)
+
+The Token Plan (Personal Edition; the Singapore region only) is a monthly credit subscription
+whose Codex base URL speaks the Responses API - Qwen 3.8 is sold by subscription only here:
+
+```toml
+[model_providers.alibaba]
+name = "Alibaba Cloud Model Studio Token Plan (ap-southeast-1)"
+base_url = "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+env_key = "ALIBABA_API_KEY"
+wire_api = "responses"
+```
+
+- The user subscribes in the Model Studio console (region Singapore, Token Plan, Personal), then
+  generates the plan's own key on the "My Subscription" page (`sk-sp-...`, shown in full once)
+  and sets `ALIBABA_API_KEY` themselves. Two credentials that do NOT belong here: an AccessKey
+  ID/Secret pair (cloud-management credentials for the whole account - never put one into a
+  coding tool) and a general Model Studio key `sk-...` (it bills pay-as-you-go even while the
+  plan is active). Alibaba's own guide puts the key into `OPENAI_API_KEY`; do not - it would
+  hijack the built-in openai reviewer.
+- caps-v1 declares `token-plan.ap-southeast-1.maas.aliyuncs.com`: vocabulary
+  `low | medium | high | xhigh` (all as is, mapping `alibaba-v1`), 11 exact text models
+  (`qwen3.8-max`, `qwen3.8-flash`, `qwen3.7-max`, `qwen3.7-plus`, `qwen3.6-flash`,
+  `deepseek-v4.1-flash`, `deepseek-v4-pro`, `deepseek-v4-pro-0813`, `deepseek-v4-flash-0731`,
+  `glm-5.3`, `glm-5.2`), schema transport `prompt-only`. The plan's `auto` router is not
+  declared (the endpoint picks its target model, so the effort it accepts is unknown).
+- Quota: credits per subscription month (Lite 11,500), no 5-hour or weekly windows, 1-2
+  concurrent agents on Lite; the qwen3.8 and some DeepSeek models cost less at night, 22:00-08:00
+  UTC+8 (16:00-02:00 in Central European summer time). Credits are charged per token, so Codex's
+  context-resending tool loop costs more here than on a per-request plan. Observed on one narrow
+  checkpoint (daytime rates): qwen3.8-max 158 s, 217k input tokens; deepseek-v4.1-flash 213 s,
+  344k - the two together about 1.7% of the Lite month. The same checkpoint on
+  deepseek-v4.1-flash through the BytePlus plan: 58 s.
+- Terms: the plan is for interactive use in coding tools; automation scripts and
+  non-interactive batch calls are prohibited and can get the key banned. A consultation is one
+  Codex CLI run on request; keep this plan's members few and weighty.
+- Codex logs "Model metadata for `qwen3.8-max` not found. Defaulting to fallback metadata" -
+  harmless in the runs so far.
+- Roster entry: `{ "provider": "alibaba", "model": "qwen3.8-max", "panel": "weighty" }`.
+
 ## 4. Write the roster
 
 `<codex home>/codex-consult-roster.json`, first choice first:

@@ -205,6 +205,22 @@ amendments A1-A20 and the facts F11/F12).
     and the rolling-window wording "reset when the current N-hour window ends" (failure time + N,
     an upper bound). harness-roster 117, harness-panel 52; full suite green.
 
+- **Wave 22 — Alibaba Cloud Model Studio Token Plan declared in caps-v1.** The host
+  `token-plan.ap-southeast-1.maas.aliyuncs.com` (the plan's Codex base URL `/compatible-mode/v1`,
+  Responses API, Singapore only) gets the vocabulary `alibaba` (`low | medium | high | xhigh` as
+  is, mapping `alibaba-v1`), the plan's 11 text models (Qwen 3.8 Max and Flash, 3.7 Max and Plus,
+  3.6 Flash, four DeepSeek, GLM-5.3 and 5.2; the `auto` router is left out - its target model
+  and so the effort it accepts is chosen by the endpoint) and schema transport `prompt-only`.
+  The refusal for an undeclared host lists the declared hosts in ordinal order, the same on
+  Windows PowerShell 5.1 and pwsh 7; the caps-v1 header comment now also describes the BytePlus
+  and Kimi hosts. `setup-providers` 3e and the README tables gain the recipe and its key
+  pitfalls (the plan's own `sk-sp-` key; never an AccessKey pair, a general Model Studio key or
+  `OPENAI_API_KEY`). Live evidence (task `providers-2026-09-26`, the same narrow checkpoint):
+  qwen3.8-max 158 s and deepseek-v4.1-flash 213 s through the plan, structured on the first turn,
+  about 1.7% of the Lite month together at daytime rates; deepseek-v4.1-flash through the
+  BytePlus plan 58 s. qwen3.8-max's own review found the `auto` router and the stale header
+  comment (F01-1, F01-2), both fixed in this wave.
+
 ### Changed
 
 - Wave 21: the panel is parallel (see "Added"); `sessions.json` is no longer created at a
