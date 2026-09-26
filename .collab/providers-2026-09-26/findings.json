@@ -169,5 +169,40 @@
                                                  }
                                              ]
                      }
-                 ]
+                 ],
+    "ratings":  [
+                    {
+                        "n":  1,
+                        "consult_id":  "fe2107ae-5748-4f71-8ffd-5a75290facec",
+                        "lineage":  "alibaba :: qwen3.8-max",
+                        "provider":  "alibaba",
+                        "model":  "qwen3.8-max",
+                        "purpose":  "checkpoint",
+                        "useful":  "yes",
+                        "note":  "checkpoint: caught the auto router declared with a verbatim effort (F01-1) and the stale header comment (F01-2)",
+                        "when":  "2026-09-26T10:08:56+02:00"
+                    },
+                    {
+                        "n":  2,
+                        "consult_id":  "14570946-09af-4d52-af6c-7d244f5a4cb9",
+                        "lineage":  "alibaba :: deepseek-v4.1-flash",
+                        "provider":  "alibaba",
+                        "model":  "deepseek-v4.1-flash",
+                        "purpose":  "checkpoint",
+                        "useful":  "partly",
+                        "note":  "checkpoint: confirmed the table, restated F01-1; slow through this plan",
+                        "when":  "2026-09-26T10:08:58+02:00"
+                    },
+                    {
+                        "n":  3,
+                        "consult_id":  "210b0e8e-dc7d-4c65-976a-3511e1699d60",
+                        "lineage":  "byteplus :: deepseek-v4.1-flash",
+                        "provider":  "byteplus",
+                        "model":  "deepseek-v4.1-flash",
+                        "purpose":  "checkpoint",
+                        "useful":  "partly",
+                        "note":  "checkpoint: confirmed the table, restated the open drifts; fastest of the three",
+                        "when":  "2026-09-26T10:09:00+02:00"
+                    }
+                ]
 }

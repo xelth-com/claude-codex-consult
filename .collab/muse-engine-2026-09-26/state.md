@@ -35,3 +35,28 @@ TBH_CREDENTIAL_BACKEND=file, headless exec verified (see handoffs/01, "Verified 
 - Roster: `meta :: muse-spark-1.3-contributor [muse]` (the maintainer's choice of the contributor
   variant). Next: an acceptance panel on f2c219a.
 
+## Round 3 - acceptance panel on f2c219a (2026-09-26 09:53-10:23)
+
+- Brief: handoffs/07-claude-wave23-acceptance.md. Panel df203d79, 7 of 10 entries at once
+  (openai and both agy entries skipped on known reset times), wall 1802 s.
+
+  | member | outcome | wall |
+  |---|---|---|
+  | ZAI :: glm-5.3 | timeout at 1800 s | 1802 s |
+  | mimo :: mimo-v2.6-pro | HOLD - F09-1 major, F09-2 major, F09-3 minor; 33 priors ruled fixed | 1582 s |
+  | byteplus :: deepseek-v4.1-flash | timeout at 1800 s | 1802 s |
+  | byteplus :: dola-seed-2.0-pro | ACCEPT, no findings, 27 priors fixed | 543 s |
+  | byteplus :: kimi-k2.5 | ACCEPT, no findings, 34 priors fixed | 1567 s |
+  | kimi :: k3 | timeout at 1800 s | 1802 s |
+  | meta :: muse-spark-1.3-contributor [muse] | failed: collab changed (2 files) | 1181 s |
+
+- The muse member failed because the coordinator wrote ratings into OTHER tasks' findings.json
+  during the panel - the accepted D7/F02-2 residual, now a rule for the coordinator: no writes to
+  any task while a panel with agy or muse members runs. Its subscription prompt was spent.
+- Lesson: an acceptance of a wave this size needs -TimeoutSec 3600 for the deep reviewers, or a
+  narrower brief; three of seven members hit 1800 s.
+- Rulings: F02-14, F02-15, F02-21, F03-7 -> verified; F02-8, F02-19, F03-11 -> wontfix (accepted
+  limitations D12/D7). F09-1..3 -> fix round (wave 23b), then re-acceptance and the v0.4.0 tag
+  (the maintainer decided on 2026-09-26 to tag without the openai reviewer).
+- Tag v0.3.0 set at 7f46fe4 and pushed (2026-09-26).
+

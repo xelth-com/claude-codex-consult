@@ -70,6 +70,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "All retry/repair turns use the engine adapter; no hardcoded agy calls remain",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "All turns now use engine adapter Events/Outcome functions",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Adapter Events/Outcome dispatch is used for main, denial and repair turns: codex-consult.ps1:2701-2702,2773-2774,2967-2969.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -138,6 +162,30 @@
                                                      "note":  "New-MuseArgv now takes Turn.PromptFile/Schema/Model/Effort/MaxSteps/Thread; argv contract extended",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "New-EngineTurnOptions includes PromptFile and all required parameters",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Argv receives turn options object with PromptFile",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "New-EngineTurnOptions includes PromptFile and every turn passes its own file: codex-consult-common.ps1:3300-3303; codex-consult.ps1:2219,2764,2958.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -206,6 +254,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Roster accepts engine:muse and billing:api-key",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Roster accepts engine: muse",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Roster accepts engine muse and intentionally rejects unsupported billing keys: codex-consult-common.ps1:4589-4608.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -246,7 +318,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F09-1"
                                            ],
                          "source":  {
                                         "consult":  1,
@@ -274,6 +346,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Billing guard runs even under -SkipPreflight",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Billing guard implemented as launch invariant, checked everywhere",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Billing block is checked under -SkipPreflight, in the walk, panel and listing; residual unknown-mechanism case is finding #1.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -338,6 +434,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint health isolated by billing mode",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accepted limitation per D14: shared fingerprint for all muse entries",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Shared muse endpoint identity is explicit per D14: codex-consult-common.ps1:2461-2472; accepted limitation.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -402,6 +522,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Preflight supports warning outcomes",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Preflight states implemented: unknown refuses unless -SkipPreflight",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Keychain state is unknown and refuses unless -SkipPreflight: codex-consult-common.ps1:3637-3641,4701-4704.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -471,12 +615,36 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "auth.json parsed without materializing secrets",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "auth.json parsed only for mechanism, never logged or persisted",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accepted limitation per D5: local shape/mechanism check at codex-consult-common.ps1:3647-3670; values are not logged.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F02-8",
-                         "status":  "proposed",
+                         "status":  "wontfix",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -525,6 +693,15 @@
                                              "evidence":  "",
                                              "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
                                              "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:24:05+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "accepted limitation: D12: the tree check boundary (gitignored paths, submodules, files outside the repository, reads) is documented in README and the CHANGELOG residuals",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -535,6 +712,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Accepted limitation; documented in SandboxRecord",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accepted limitation per D12: tree check boundary documented",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Boundary is documented and coded: codex-consult.ps1:668-695; accepted limitation for gitignored/submodule/external paths.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -591,6 +792,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Tree check forces class permission even after other failures",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Tree mutation forces permission class even if run already failed",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Tree mutation forces permission even after another failure: codex-consult.ps1:2730-2740.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -651,6 +876,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Updated sandbox text for muse",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Muse has its own sandbox wording from engine row",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Engine-specific TreeNote/SandboxRecord wording is used: codex-consult-common.ps1:3104-3107; codex-consult.ps1:692-694.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -692,7 +941,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F09-3"
                                            ],
                          "source":  {
                                         "consult":  1,
@@ -720,6 +969,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "All MSP invariants enforced",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "MSP invariants implemented: schema_version 1, one session UUID, model check, resume session check",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D6 one-session, UUID, terminal-stream and model checks are implemented at codex-consult-common.ps1:3839-3863,3945-3973; residual split to finding #3.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -780,6 +1053,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Exit code mapping implemented",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Exit classes mapped correctly",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Exit 2 capability, 130/143 transport and step-cap capability are mapped at codex-consult-common.ps1:3922-3927,3950-3955.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -849,12 +1146,36 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Version read from .muse-version",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-MuseHarness reads version from correct sources",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Version is recorded from .muse-version/release info/--version at codex-consult-common.ps1:3721-3749; pinning is not required by D8.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F02-14",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -908,6 +1229,15 @@
                                              "evidence":  "",
                                              "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
                                              "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:24:01+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 23 f2c219a: D3/D15: % in a .cmd launcher argument refused, paths with spaces tested through the fake .cmd chain; the real muse.cmd -\u003e launcher -\u003e binary chain covered by the live run n=4; ruled fixed by kimi-k2.5 and mimo in panel df203d79",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -918,12 +1248,36 @@
                                                      "note":  "quoting/percent-sign handling not examined read-only",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Accepted limitation; documented",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-CmdArgvHazard checks for % in arguments with .cmd launchers",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Spaces are tested and percent arguments are refused before launch: codex-consult-common.ps1:3319-3325; tests/harness-muse.ps1:482-506.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F02-15",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -976,6 +1330,15 @@
                                              "evidence":  "",
                                              "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
                                              "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:23:51+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 23 f2c219a: D2: no denial retry for muse, one format repair at most, never after a quota/auth/billing failure; ledger engine_run.turns counts the prompts; ruled fixed by kimi-k2.5 and mimo in panel df203d79",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -986,6 +1349,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Accepted limitation; retry budgets configurable",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Denial retry disabled for muse, format repair at most once, each turn counted",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Muse denial retry is off, repair is once, and turns are counted: codex-consult-common.ps1:3100; codex-consult.ps1:2748,2958,3046-3050.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1042,6 +1429,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-MaxModelSteps propagated to panel members",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "MaxModelSteps carried through to panel members",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-MaxModelSteps is carried into panel specs and members: codex-consult.ps1:1137,1211-1213,1670-1675.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1102,6 +1513,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-EngineExe binds to selected engine",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-EngineExe bound to selected engine, works for muse",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-providers.ps1 binds -EngineExe to the selected non-codex engine at lines 143-148.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1166,12 +1601,36 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Full harness coverage added",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "tests/harness-muse.ps1 exists covering all required cases",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "harness-muse covers argv, paths, billing, preflight, MSP, failure classes, tree, repair, panel and listing cases at tests/harness-muse.ps1:222-681.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F02-19",
-                         "status":  "proposed",
+                         "status":  "wontfix",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -1217,6 +1676,15 @@
                                              "evidence":  "",
                                              "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
                                              "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:24:07+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "accepted limitation: D12: read_file is not confined to the repository - documented boundary, no OS sandbox in scope",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -1227,6 +1695,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Accepted limitation; outside enforcement boundary",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accepted limitation per D12: read_file not confined, documented",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accepted limitation per D12: reads and external paths are explicitly outside the evidence boundary at codex-consult.ps1:668-678.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1287,12 +1779,36 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Only verified 1.3 models declared",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "caps-v1 declares only verified 1.3 models",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Only live-verified muse-spark-1.3 models are declared at codex-consult-common.ps1:2598-2601.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F02-21",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -1333,6 +1849,15 @@
                                              "evidence":  "",
                                              "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
                                              "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:23:55+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 23 f2c219a: D9: -MaxModelSteps has no default (the vendor default applies), muse only, in the dry run, panel spec and ledger; ruled fixed by kimi-k2.5 and mimo in panel df203d79",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -1343,6 +1868,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Accepted limitation; default set based on measurements",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "No default MaxModelSteps, vendor default applies",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-MaxModelSteps has no bridge default; vendor default applies at codex-consult.ps1:1670-1675.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1412,6 +1961,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "InstallLaunchers fallback added",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "InstallLaunchers includes vendor install path",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Vendor install fallback is implemented at codex-consult-common.ps1:3095-3097,3124-3150.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1489,6 +2062,30 @@
                                                      "note":  "New-MuseArgv param is Turn with PromptFile; three prompt-file paths now reachable",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "PromptFile included in turn options",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Argv receives turn options object with PromptFile",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "PromptFile is part of the turn-options object and all three turns pass distinct files: codex-consult.ps1:2219,2764,2958.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1566,6 +2163,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "No hardcoded agy calls remain",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "All turns use engine adapter Events/Outcome functions",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "No literal agy parser calls remain on engine retry/repair paths; adapter dispatch is at codex-consult.ps1:2701-2702,2773-2774,2967-2969.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1626,6 +2247,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-EngineExe works for muse",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-EngineExe bound to selected engine",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-EngineExe is bound to the selected engine in codex-consult.ps1:911-918 and codex-providers.ps1:143-148.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1695,6 +2340,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "muse effort vocabulary added",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Muse vocabulary added to EffortVocabularies",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "muse-v1 is declared and a missing vocabulary is a plan error: codex-consult-common.ps1:2583-2585,2674-2679.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1764,12 +2433,36 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Preflight warning outcomes supported",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Preflight states implemented correctly",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Keychain unknown is refused by preflight unless -SkipPreflight: codex-consult-common.ps1:3637-3641,4701-4704.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F03-7",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -1805,7 +2498,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F09-1"
                                            ],
                          "source":  {
                                         "consult":  2,
@@ -1823,6 +2516,15 @@
                                              "evidence":  "",
                                              "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
                                              "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:23:58+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 23 f2c219a: D4: the credential mechanism (enum) is recorded in reviewer.provider_config.credential_mechanism and a non-oauth mechanism refuses; F09-1 tightens the unknown case; ruled fixed by kimi-k2.5 and mimo in panel df203d79",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -1833,6 +2535,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Accepted limitation; no API key detection in auth.json",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Billing guard implemented as launch invariant",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Mechanism is read and non-oauth refuses; residual unreadable-mechanism bypass is finding #1: codex-consult-common.ps1:3665-3671,3705-3712.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1906,6 +2632,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resume session verification added",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "MSP invariants implemented including resume session check",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resume mismatch is rejected by ExpectThread at codex-consult-common.ps1:3945-3948; account binding and echoed-id freshness remain accepted limitations.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -1974,6 +2724,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Updated dry run/handoff text",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "All engine-specific wording pulled from engine row",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Engine row supplies prompt transport, reply source and sandbox wording: codex-consult-common.ps1:3099-3108.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -2030,12 +2804,36 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Version read correctly",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-MuseHarness implemented correctly",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "muse-cli version comes from .muse-version/release metadata or --version: codex-consult-common.ps1:3721-3749.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F03-11",
-                         "status":  "proposed",
+                         "status":  "wontfix",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -2080,6 +2878,15 @@
                                              "evidence":  "",
                                              "base_commit":  "37b98b4f7a006902a08e4be6fa228388db367c19",
                                              "tree_sha256":  "d00fa16a06d4f4abea77e808129d19811f75c893429247a54b9f0588bf402f85"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:24:03+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "accepted limitation: D7: Meta quota and step-cap wordings are unknown and recorded verbatim; the shared classifier applies; revisit when a real Meta quota message is seen",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2090,6 +2897,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Accepted limitation; quota wording not in classifier",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Exit classes mapped correctly, step cap detected",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Step-cap classification is fixed at codex-consult-common.ps1:3888,3908,3952, but Meta quota wording is not known to the generic patterns at :3998-4015.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -2146,6 +2977,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Updated tools line for muse",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Muse has its own ToolsLine in prompt",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Muse tools line names read_file and the disabled tools at codex-consult-common.ps1:3107.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -2206,6 +3061,30 @@
                                                      "note":  "outside this checkpoint\u0027s two read scopes",
                                                      "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
                                                      "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 },
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-26T10:01:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Full harness coverage",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  9,
+                                                     "when":  "2026-09-26T10:18:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "tests/harness-muse.ps1 exists",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                                 },
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-09-26T10:18:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "harness-muse adds the missing cases at tests/harness-muse.ps1:222-681; the real launcher chain remains unproven.",
+                                                     "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                                     "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                                  }
                                              ]
                      },
@@ -2596,6 +3475,238 @@
                          "reviewer_checks":  [
 
                                              ]
+                     },
+                     {
+                         "id":  "F09-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3637
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3665
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3705
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1684
+                                           }
+                                       ],
+                         "claim":  "The Muse billing launch invariant is not fail-closed when the credential mechanism cannot be read: the keychain or a credential without providers.meta.mechanism leaves Mechanism empty, Get-MuseLaunchBlock returns no refusal, and -SkipPreflight can launch a potentially API-key-billed run.",
+                         "trigger":  "TBH_CREDENTIAL_BACKEND is not file or auth.json has providers.meta without a readable mechanism, META_API_KEY and MODEL_API_KEY are unset, and the run passes -SkipPreflight.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3637-3641",
+                                              "observation":  "Non-file backend is recorded as keychain with State unknown and Mechanism empty."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3665-3670,3705-3712",
+                                              "observation":  "Missing mechanism does not set a refusal; launch block only rejects a nonempty mechanism other than oauth."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1681-1685",
+                                              "observation":  "-SkipPreflight reaches the same launch-block check, but an empty block allows the run."
+                                          }
+                                      ],
+                         "verification":  "Run the fake keychain/no-mechanism credential with -SkipPreflight and assert that no Muse process starts and no ledger entry is written.",
+                         "remedy":  "Refuse launch whenever oauth billing cannot be established, including unknown/keychain state, even under -SkipPreflight; or require a separate explicit override and record it.",
+                         "supersedes":  [
+                                            "F02-4",
+                                            "F03-7"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/09-codex-wave23-accept-mimo.md",
+                                        "thread":  "01a0dcb3-1b19-7700-8787-a87bd01e9413",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:18:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F09-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2215
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2958
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3759
+                                           }
+                                       ],
+                         "claim":  "A structured run with schema transport prompt-only silently switches the format-repair turn to native schema, so the repair can be rejected by the endpoint or contradict the recorded transport.",
+                         "trigger":  "Run with -SchemaTransport prompt-only, receive substantive prose, and let -FormatRetry 1 attempt repair.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2215-2220",
+                                              "observation":  "Main turn passes Schema only when schemaTransport is native."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2958-2963",
+                                              "observation":  "Repair options always pass schemaPath, independent of schemaTransport."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3757-3766",
+                                              "observation":  "New-MuseArgv emits --output-schema whenever Schema is nonempty."
+                                          }
+                                      ],
+                         "verification":  "Use fake-muse with prompt-only transport and a prose first reply; inspect the repair argv and ledger schema_transport for a mismatch.",
+                         "remedy":  "Pass no schema flag on repair when transport is prompt-only, or explicitly record and validate a separate repair transport.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/09-codex-wave23-accept-mimo.md",
+                                        "thread":  "01a0dcb3-1b19-7700-8787-a87bd01e9413",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:18:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F09-3",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3823
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3961
+                                           }
+                                       ],
+                         "claim":  "MSP session and model evidence are collected from any matching stream records without checking stream provenance, so a nested or substream record can become the accepted session or model evidence.",
+                         "trigger":  "A CLI update emits one nested/substream session record and model evidence on a different stream.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3823-3849",
+                                              "observation":  "Any stream.kind=session id is collected; no record-type or parent-stream provenance is required."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3961-3973",
+                                              "observation":  "Configured model values are compared globally, not bound to the session stream."
+                                          }
+                                      ],
+                         "verification":  "Feed fake MSP with nested session provenance and model evidence off the session stream; inspect whether it is accepted.",
+                         "remedy":  "Bind session and run.model.configured evidence to the expected run/session stream or fail closed on ambiguous provenance.",
+                         "supersedes":  [
+                                            "F02-11"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/09-codex-wave23-accept-mimo.md",
+                                        "thread":  "01a0dcb3-1b19-7700-8787-a87bd01e9413",
+                                        "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                        "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T10:18:21+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
                      }
-                 ]
+                 ],
+    "ratings":  [
+                    {
+                        "n":  6,
+                        "consult_id":  "1517a95e-5571-434e-9382-20827fa4034c",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "purpose":  "acceptance",
+                        "useful":  "yes",
+                        "note":  "acceptance: HOLD with F09-1 (billing not fail-closed on unknown mechanism) and F09-2 (repair transport) - both real; ruled 33 priors",
+                        "when":  "2026-09-26T10:24:08+02:00"
+                    },
+                    {
+                        "n":  8,
+                        "consult_id":  "e0eb0fb5-7ed2-47d4-bd66-41c148273da3",
+                        "lineage":  "byteplus :: dola-seed-2.0-pro",
+                        "provider":  "byteplus",
+                        "model":  "dola-seed-2.0-pro",
+                        "purpose":  "acceptance",
+                        "useful":  "partly",
+                        "note":  "acceptance: ACCEPT, ruled the priors (7 as still-open that were accepted limitations), no new findings; 9 min",
+                        "when":  "2026-09-26T10:24:09+02:00"
+                    },
+                    {
+                        "n":  9,
+                        "consult_id":  "7fca8e3a-a530-4529-aece-6bf0fce62e84",
+                        "lineage":  "byteplus :: kimi-k2.5",
+                        "provider":  "byteplus",
+                        "model":  "kimi-k2.5",
+                        "purpose":  "acceptance",
+                        "useful":  "partly",
+                        "note":  "acceptance: ACCEPT, ruled all 34 priors fixed, no new findings; 26 min",
+                        "when":  "2026-09-26T10:24:11+02:00"
+                    }
+                ]
 }

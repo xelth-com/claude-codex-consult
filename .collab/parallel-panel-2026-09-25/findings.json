@@ -2222,7 +2222,7 @@
                      },
                      {
                          "id":  "F07-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -2281,6 +2281,15 @@
                                              "evidence":  "",
                                              "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
                                              "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:09:02+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 follow-up 1ff7d88: member record rewritten before the parent check (F07-1/F11-6), Test-PendingActive comment (F11-1), MEMBERKILL case (F11-2), commit_wait_ms + NOLOSS contention (F11-3), -Rate refuses on active records (F11-4), sibling-list comment (F11-5); harness-panel 52, roster 117, full suite green",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2289,7 +2298,7 @@
                      },
                      {
                          "id":  "F11-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -2338,6 +2347,15 @@
                                              "evidence":  "",
                                              "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
                                              "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:09:04+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 follow-up 1ff7d88: member record rewritten before the parent check (F07-1/F11-6), Test-PendingActive comment (F11-1), MEMBERKILL case (F11-2), commit_wait_ms + NOLOSS contention (F11-3), -Rate refuses on active records (F11-4), sibling-list comment (F11-5); harness-panel 52, roster 117, full suite green",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2346,7 +2364,7 @@
                      },
                      {
                          "id":  "F11-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -2404,6 +2422,15 @@
                                              "evidence":  "",
                                              "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
                                              "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:09:05+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 follow-up 1ff7d88: member record rewritten before the parent check (F07-1/F11-6), Test-PendingActive comment (F11-1), MEMBERKILL case (F11-2), commit_wait_ms + NOLOSS contention (F11-3), -Rate refuses on active records (F11-4), sibling-list comment (F11-5); harness-panel 52, roster 117, full suite green",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2412,7 +2439,7 @@
                      },
                      {
                          "id":  "F11-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -2462,6 +2489,15 @@
                                              "evidence":  "",
                                              "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
                                              "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:09:07+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 follow-up 1ff7d88: member record rewritten before the parent check (F07-1/F11-6), Test-PendingActive comment (F11-1), MEMBERKILL case (F11-2), commit_wait_ms + NOLOSS contention (F11-3), -Rate refuses on active records (F11-4), sibling-list comment (F11-5); harness-panel 52, roster 117, full suite green",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2470,7 +2506,7 @@
                      },
                      {
                          "id":  "F11-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -2515,6 +2551,15 @@
                                              "evidence":  "",
                                              "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
                                              "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:09:09+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 follow-up 1ff7d88: member record rewritten before the parent check (F07-1/F11-6), Test-PendingActive comment (F11-1), MEMBERKILL case (F11-2), commit_wait_ms + NOLOSS contention (F11-3), -Rate refuses on active records (F11-4), sibling-list comment (F11-5); harness-panel 52, roster 117, full suite green",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2523,7 +2568,7 @@
                      },
                      {
                          "id":  "F11-5",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -2577,6 +2622,15 @@
                                              "evidence":  "",
                                              "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
                                              "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:09:11+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 follow-up 1ff7d88: member record rewritten before the parent check (F07-1/F11-6), Test-PendingActive comment (F11-1), MEMBERKILL case (F11-2), commit_wait_ms + NOLOSS contention (F11-3), -Rate refuses on active records (F11-4), sibling-list comment (F11-5); harness-panel 52, roster 117, full suite green",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2585,7 +2639,7 @@
                      },
                      {
                          "id":  "F11-6",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -2639,11 +2693,99 @@
                                              "evidence":  "",
                                              "base_commit":  "2de15e98fe5b490575ff1bdfd8ae76a102c01793",
                                              "tree_sha256":  "d78eb77b4aea11608cbec24471c43407e2e6d9322f31429165e1dd2fbc24399b"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T10:09:13+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 21 follow-up 1ff7d88: member record rewritten before the parent check (F07-1/F11-6), Test-PendingActive comment (F11-1), MEMBERKILL case (F11-2), commit_wait_ms + NOLOSS contention (F11-3), -Rate refuses on active records (F11-4), sibling-list comment (F11-5); harness-panel 52, roster 117, full suite green",
+                                             "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
+                                             "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
                                          }
                                      ],
                          "reviewer_checks":  [
 
                                              ]
                      }
-                 ]
+                 ],
+    "ratings":  [
+                    {
+                        "n":  1,
+                        "consult_id":  "8a066e87-2b47-408e-b732-22e7e879dd4b",
+                        "lineage":  "kimi :: k3",
+                        "provider":  "kimi",
+                        "model":  "k3",
+                        "purpose":  "framing",
+                        "useful":  "yes",
+                        "note":  "design review: found the commit-window hole after parent death (F02-1) and the multiple-leftovers gap; format repair needed once",
+                        "when":  "2026-09-26T10:08:45+02:00"
+                    },
+                    {
+                        "n":  2,
+                        "consult_id":  "ac3eec69-5df0-422d-adf7-4119aa47da52",
+                        "lineage":  "byteplus :: deepseek-v4.1-flash",
+                        "provider":  "byteplus",
+                        "model":  "deepseek-v4.1-flash",
+                        "purpose":  "framing",
+                        "useful":  "yes",
+                        "note":  "design review: the blocker F03-1 (writer never tested for liveness), endpoint-aware concurrency, finished_at ordering - most decisions trace to it",
+                        "when":  "2026-09-26T10:08:46+02:00"
+                    },
+                    {
+                        "n":  3,
+                        "consult_id":  "24613fa6-c589-4f9c-ad9d-7facbb439318",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "purpose":  "framing",
+                        "useful":  "yes",
+                        "note":  "design review: atomic-write temp files in the agy ignore list (F04-1) and the self-contradictory give-up path (F04-2)",
+                        "when":  "2026-09-26T10:08:47+02:00"
+                    },
+                    {
+                        "n":  4,
+                        "consult_id":  "d73aaeca-2d6f-4c71-bc1b-991420c58771",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "purpose":  "acceptance",
+                        "useful":  "partly",
+                        "note":  "acceptance: ruled all 24 prior findings with locations; one note (F07-1, real, later fixed); 20 minutes",
+                        "when":  "2026-09-26T10:08:49+02:00"
+                    },
+                    {
+                        "n":  8,
+                        "consult_id":  "dc20def0-cf07-446b-bd84-147b128808cb",
+                        "lineage":  "byteplus :: deepseek-v4.1-flash",
+                        "provider":  "byteplus",
+                        "model":  "deepseek-v4.1-flash",
+                        "purpose":  "acceptance",
+                        "useful":  "yes",
+                        "note":  "acceptance: F11-1..6 - the TOCTOU window, missing member-kill test, unproven contention, -Rate asymmetry; all fixed in the follow-up",
+                        "when":  "2026-09-26T10:08:51+02:00"
+                    },
+                    {
+                        "n":  9,
+                        "consult_id":  "9d2e9ebd-82fa-4373-b780-d97a31b854ce",
+                        "lineage":  "byteplus :: dola-seed-2.0-pro",
+                        "provider":  "byteplus",
+                        "model":  "dola-seed-2.0-pro",
+                        "purpose":  "acceptance",
+                        "useful":  "partly",
+                        "note":  "acceptance: ruled the prior findings correctly, found nothing new; fast",
+                        "when":  "2026-09-26T10:08:53+02:00"
+                    },
+                    {
+                        "n":  10,
+                        "consult_id":  "0d09eac3-4ff6-475d-b958-465cf3694c68",
+                        "lineage":  "byteplus :: kimi-k2.5",
+                        "provider":  "byteplus",
+                        "model":  "kimi-k2.5",
+                        "purpose":  "acceptance",
+                        "useful":  "no",
+                        "note":  "acceptance: prose without a verdict, no findings",
+                        "when":  "2026-09-26T10:08:55+02:00"
+                    }
+                ]
 }
