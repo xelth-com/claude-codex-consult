@@ -95,3 +95,10 @@ D17. The line itself (F04-10, F03-4): no per-reason truncation in the short form
      (`available / out / not checked`); reset times converted with ToLocalTime() and a rounded
      relative hint; the hook's parser is updated in the same wave (or `-Short` gets a JSON mode
      the hook reads).
+
+D12. Roster extension point (2026-09-26, for the Rust implementation C3 that shares the roster file):
+     an optional `ext` key - a JSON object - allowed at the top level and per entry, validated only
+     as an object and otherwise ignored by the bridge (never read, never written, preserved as is).
+     `roster_version` stays 1. Documented in README's roster section as "reserved for other
+     implementations; the bridge ignores it".
+
