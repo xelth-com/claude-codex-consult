@@ -282,8 +282,11 @@ optional participant whose "done" is never trusted and who never closes a findin
   that the bridge can be improved when someone the maintainer never hears from uses it, a run
   can report ONE anonymised event per consultation, and the operator can file a complaint, to
   the maintainer's intake (`https://xelth.com/T/v2/...`, the "T-hub" spec kept in that site's
-  roadmap). Off by default; `CODEX_CONSULT_TELEMETRY=on` (or `-Telemetry on|off` per run)
-  switches it; the SessionStart line and the dry run say whether it is on. The event, sent after
+  roadmap). ON by default (the maintainer's decision of 2026-09-26: an opt-in intake collects
+  nothing); the README states that installing the plugin means accepting its terms, what is sent
+  and what never is, and the one-line switch `CODEX_CONSULT_TELEMETRY=off` (or `-Telemetry off`
+  per run); the SessionStart line and the dry run say whether it is on, and the first run after
+  an install prints the notice once. The event, sent after
   the ledger commit from a local spool (`<codex home>/telemetry-spool/`, NDJSON, sent in the
   background with a 3 s timeout and retried on the next run, dropped after 7 days - never
   blocking a consultation): `app_id` (`codex-consult`, `c3` from 1.0.0), the plugin version, an
