@@ -148,6 +148,7 @@ function Ledger { param([string]$Repo, [string]$Task = 't') $f = Join-Path $Repo
 function Last-Entry { param([string]$Repo) return (Ledger $Repo)[-1] }
 function Line { param([string]$Out, [string]$Prefix) return (($Out -split "`n") | Where-Object { $_.StartsWith($Prefix) } | Select-Object -First 1) }
 function Iso { param($Dto) return ([DateTimeOffset]$Dto).ToString('yyyy-MM-ddTHH:mm:sszzz', $inv) }
+function To-Offset { param($V) if ($V -is [DateTimeOffset]) { return $V }; if ($V -is [datetime]) { return [DateTimeOffset]$V }; return [DateTimeOffset]::Parse([string]$V, $inv) }
 function Seed-Task {
     param([string]$Repo, [string]$Task, [object[]]$Entries)
     $dir = Join-Path $Repo ".collab\$Task"
@@ -281,6 +282,49 @@ if (Want 'UNIT') {
     }
     $badC = @($samples.Keys | Where-Object { (Get-ProviderFailureClass $_) -ne $samples[$_] } | ForEach-Object { "$_ -> $(Get-ProviderFailureClass $_)" })
     Check 'F12-2' 'Get-ProviderFailureClass: capability first, auth on word boundaries (8 samples)' ($badC.Count -eq 0) ($badC -join ' | ')
+
+    # Two live provider failures of the parallel panel's ledger (2026-09-26), verbatim: Kimi
+    # Code's 5-hour limit sent with a 403 (recorded as auth, no reset time) and the agy quota
+    # with a relative reset time (recorded as quota, no reset time).
+    $kimiText = "unexpected status 403 Forbidden: You've reached your 5-hour usage limit. Your quota will reset when the current 5-hour window ends. To continue now, purchase extra usage or upgrade your plan: https://www.kimi.com/membership/subscription?tab=quota"
+    $kimiLedgerMsg = "unexpected status 403 Forbidden: You've reached your 5-hour usage limit. Your quota will reset when the current 5-hour window ends. To continue now, purchase extra usage or upgrade your plan: https://"
+    $kimiOutcome = "failed: codex exit 1 - $kimiText, url: https://api.kimi.ai/coding/v1/responses, cf-ray: a40d6d4c38c3d3c1-FRA"
+    $agyText = 'Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 68h58m18s.'
+    $liveC = [ordered]@{ $kimiText = 'quota'; $kimiLedgerMsg = 'quota'; $agyText = 'quota'; '403 Forbidden' = 'auth'; 'unexpected status 401 Unauthorized: invalid api key' = 'auth'; 'unexpected status 403 Forbidden: rate limit reached for this key' = 'quota' }
+    $badL = @($liveC.Keys | Where-Object { (Get-ProviderFailureClass $_) -ne $liveC[$_] } | ForEach-Object { "$($_.Substring(0, [Math]::Min(40, $_.Length))) -> $(Get-ProviderFailureClass $_)" })
+    Check 'LIVE' 'Get-ProviderFailureClass: a usage limit said in words is quota even under a 401/403 status (Kimi Code''s live 403 "You''ve reached your 5-hour usage limit", full and as cut to 200 characters in the ledger); a plain 401/403 stays auth' ($badL.Count -eq 0) ($badL -join ' | ')
+    $kRef = [DateTimeOffset]::Parse('2026-09-26T00:22:57+02:00', $inv)
+    $aRef = [DateTimeOffset]::Parse('2026-09-26T00:32:37+02:00', $inv)
+    $liveR = @(
+        @{ Name = 'Kimi 5-hour window (upper bound)'; Msg = $kimiText; Ref = $kRef; Want = '2026-09-26T05:22:57+02:00' },
+        @{ Name = 'Kimi, the 200-character ledger message'; Msg = $kimiLedgerMsg; Ref = $kRef; Want = '2026-09-26T05:22:57+02:00' },
+        @{ Name = 'agy "Resets in 68h58m18s"'; Msg = $agyText; Ref = $aRef; Want = '2026-09-28T21:30:55+02:00' },
+        @{ Name = 'resets in 2d3h'; Msg = 'Your quota resets in 2d3h.'; Ref = $aRef; Want = '2026-09-28T03:32:37+02:00' },
+        @{ Name = 'try again in 45m'; Msg = 'Please try again in 45m.'; Ref = $aRef; Want = '2026-09-26T01:17:37+02:00' },
+        @{ Name = 'Resets in 30s'; Msg = 'Quota reached. Resets in 30s.'; Ref = $aRef; Want = '2026-09-26T00:33:07+02:00' },
+        @{ Name = 'resets in 1.5h (decimals)'; Msg = 'limit hit; resets in 1.5h'; Ref = $aRef; Want = '2026-09-26T02:02:37+02:00' }
+    )
+    $badR = @()
+    foreach ($c in $liveR) {
+        $got = Get-RetryAfter -Message $c.Msg -Reference $c.Ref -ReferenceOffset
+        $gotText = if ($null -eq $got) { '' } else { Iso $got }
+        if ($gotText -ne $c.Want) { $badR += "$($c.Name): got '$gotText', want '$($c.Want)'" }
+    }
+    Check 'LIVE' "Get-RetryAfter: Kimi's rolling window -> the failure + 5 h (an upper bound); a compact relative duration ""Resets in 68h58m18s"" (also 2d3h, 45m, 30s, 1.5h) -> the failure + it ($($liveR.Count) samples)" ($badR.Count -eq 0) ($badR -join ' | ')
+    $pfK = New-ProviderFailure -Texts @('', ($kimiOutcome -replace '^failed:\s*', ''))
+    $pfA = New-ProviderFailure -Texts @($agyText)
+    $spanK = if ($pfK.retry_after) { ((To-Offset $pfK.retry_after) - (To-Offset $pfK.when)).TotalSeconds } else { -1 }
+    $spanA = if ($pfA.retry_after) { ((To-Offset $pfA.retry_after) - (To-Offset $pfA.when)).TotalSeconds } else { -1 }
+    Check 'LIVE' 'New-ProviderFailure on the live texts: Kimi -> class quota, retry_after = its when + 5 h; agy -> class quota, retry_after = its when + 68h58m18s' ($pfK.class -eq 'quota' -and $spanK -eq 18000 -and $pfA.class -eq 'quota' -and $spanA -eq 248298) "kimi $($pfK.class) +$spanK s; agy $($pfA.class) +$spanA s"
+    # The two entries as the ledger holds them (read-time rules: nobody edits the ledger)
+    $n11 = New-Object PSObject -Property ([ordered]@{ n = 11; when = '2026-09-26T00:19:25+02:00'; purpose = 'acceptance'; reviewer = [pscustomobject]@{ provider = 'kimi'; model = 'k3'; provider_fingerprint = 'fp-kimi-live' }; lineage = 'kimi :: k3'; bridge_outcome = $kimiOutcome; provider_failure = [pscustomobject]@{ class = 'auth'; code = ''; message = $kimiLedgerMsg; when = '2026-09-26T00:22:57+02:00'; retry_after = $null }; wall_seconds = 212.8; finished_at = '2026-09-26T00:22:58+02:00' })
+    $n7 = New-Object PSObject -Property ([ordered]@{ n = 7; when = '2026-09-26T00:27:43+02:00'; purpose = 'acceptance'; reviewer = [pscustomobject]@{ provider = 'gemini'; model = 'gemini-3.1-pro-high'; engine = 'agy'; provider_fingerprint = 'fp-agy-live' }; lineage = 'gemini :: gemini-3.1-pro-high'; bridge_outcome = "failed: agy exit 3 - $agyText"; provider_failure = [pscustomobject]@{ class = 'quota'; code = ''; message = $agyText; when = '2026-09-26T00:32:37+02:00'; retry_after = $null }; wall_seconds = 293.9; finished_at = '2026-09-26T00:32:37+02:00' })
+    $at1 = [DateTimeOffset]::Parse('2026-09-26T01:00:00+02:00', $inv).UtcDateTime
+    $at6 = [DateTimeOffset]::Parse('2026-09-26T06:00:00+02:00', $inv).UtcDateTime
+    $hk1 = Get-EndpointHealth -Consults @($n11) -Fingerprint 'fp-kimi-live' -UtcNow $at1
+    $hk6 = Get-EndpointHealth -Consults @($n11) -Fingerprint 'fp-kimi-live' -UtcNow $at6
+    $ha1 = Get-EndpointHealth -Consults @($n7) -Fingerprint 'fp-agy-live' -UtcNow $at1
+    Check 'LIVE' 'Get-EndpointHealth READS the live entries with the new rules: n=11 (recorded class auth) is no auth failure but a quota one until 05:22:57 (its when + 5 h) and clears after it; n=7 blocks until 2026-09-28T21:30:55+02:00 (its when + 68h58m18s), a known reset time' ($null -eq $hk1.Auth -and $null -ne $hk1.Quota -and $hk1.QuotaKnown -and $hk1.Quota.RetryAfterIso -eq '2026-09-26T05:22:57+02:00' -and $null -eq $hk6.Auth -and $null -eq $hk6.Quota -and $null -eq $ha1.Auth -and $ha1.QuotaKnown -and $ha1.Quota.RetryAfterIso -eq '2026-09-28T21:30:55+02:00') "kimi@01:00 auth=$([bool]$hk1.Auth) quota until $($hk1.Quota.RetryAfterIso); @06:00 quota=$([bool]$hk6.Quota); agy until $($ha1.Quota.RetryAfterIso)"
 }
 
 # =============================================================== FILE: roster file validation (fail-closed)

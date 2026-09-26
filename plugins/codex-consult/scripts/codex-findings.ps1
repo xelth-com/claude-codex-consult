@@ -35,10 +35,10 @@
     takes the task lock like a status change. codex-scoreboard.ps1 sums the marks per
     reviewer and purpose across tasks.
 
-    A status change takes the task lock (<task>/.consult.lock), so it is refused
-    while a consultation (or a -Panel run) for the task runs, and also while an
-    interrupted consultation's bridge or codex process may still be running (every
-    recovery record <task>/.consult.pending.json and .consult.pending-<NN>.json,
+    A status change and a rating take the task lock (<task>/.consult.lock), so they
+    are refused while a consultation (or a -Panel run) for the task runs, and also
+    while an interrupted consultation's bridge or codex process may still be running
+    (every recovery record <task>/.consult.pending.json and .consult.pending-<NN>.json,
     read but never changed here). Its write - like -Rate's - goes through the
     task's store commit (0.4.x wave 21): <task>/.consult.write.lock, findings.json
     RE-READ under it, the change applied to that fresh store, written, released.
@@ -368,6 +368,12 @@ if ($rating) {
     if (-not $lock.Acquired) { Stop-WithError $lock.Message }
     $commit = $null
     try {
+        # Like -Status (D5, F11-4): refused while any recovery record of the task is active -
+        # an interrupted consultation's bridge or codex process, or a panel member (whose panel
+        # run may be gone, leaving the task lock free) still running or committing.
+        $pendingAll = Read-TaskPendingRecords -TaskDir $taskDir
+        if ($pendingAll.Error) { Stop-WithError $pendingAll.Error }
+        if ($pendingAll.Active) { Stop-WithError $pendingAll.Active.Check.Message }
         # The store commit (write lock, both stores re-read under it): the mark goes into the
         # FRESH findings.json.
         $commit = Enter-StoreCommit -TaskDir $taskDir -Task $Task -TimeoutSec (Get-WriteLockTimeout)

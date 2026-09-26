@@ -3382,6 +3382,11 @@ function Get-AgyTurnOutcome {
 # engine): RESOURCE_EXHAUSTED -> quota, UNAUTHENTICATED / PERMISSION_DENIED / "not signed
 # in" -> auth, INVALID_ARGUMENT / "invalid model selection" -> capability, UNAVAILABLE /
 # DEADLINE_EXCEEDED -> transport.
+# A usage limit said in WORDS ($script:QuotaTextPattern: usage limit, quota, rate limit, ...)
+# is quota even under an auth status, and is tried right before auth: Kimi Code answers "403
+# Forbidden: You've reached your 5-hour usage limit..." (live ledger, 2026-09-26), which the
+# 403 must not turn into an auth failure - the preflight would refuse that endpoint for 24 h.
+$script:QuotaTextPattern = '(?i)usage[ _]limit|quota|rate[ _]limit|resource_exhausted|too many requests'
 $script:FailureClassPatterns = [ordered]@{
     'permission' = '(?i)no output produced|auto-denied|permission that headless mode'
     'capability' = '(?i)not supported|unsupported|does(?: not|n[''\u2019]t) support|do not support|feature_not_supported|json_schema|invalid_argument|invalid model selection|conflicts with --effort'
@@ -3395,6 +3400,7 @@ $script:BuiltinOpenAiFingerprint = Get-Sha256Hex ($script:Utf8NoBom.GetBytes('cc
 function Get-ProviderFailureClass {
     param([string]$Message)
     foreach ($k in $script:FailureClassPatterns.Keys) {
+        if ($k -eq 'auth' -and $Message -match $script:QuotaTextPattern) { return 'quota' }
         if ($Message -match $script:FailureClassPatterns[$k]) { return $k }
     }
     return 'unknown'
@@ -3443,6 +3449,13 @@ function ConvertFrom-ProviderErrorText {
 #      durations: h, m, s, ms, decimals), "retry in 90 seconds", and the gRPC RetryInfo
 #      payload "retryDelay":{"seconds":32} / "retryDelay": "32s" / retryDelay: 32s ->
 #      $Reference + it, fractions rounded UP to the next second.
+#   5. a compact duration after resets / try again / retry / available in (0.4.x, the agy
+#      quota "Individual quota reached. ... Resets in 68h58m18s."; also "in 2d3h", "in 45m",
+#      "in 30s"; units w, d, h, m, s, ms, decimals) -> $Reference + it, rounded up.
+#   6. a rolling window (0.4.x, Kimi Code: "You've reached your 5-hour usage limit. Your quota
+#      will reset when the current 5-hour window ends.") -> $Reference + the window's length.
+#      That is an UPPER BOUND, not the provider's own reset time: the window ends at the
+#      latest one window length after the failure (it began at or before it). Tried last.
 # Which offset (F15-1):
 #   write time (New-ProviderFailure, on the machine that saw the failure): a wall-clock
 #     time is read with the rules of -TimeZone (default [TimeZoneInfo]::Local), so a reset
@@ -3471,6 +3484,11 @@ $script:RetryAfterRe = @{
     # gRPC RetryInfo: "retryDelay":{"seconds":32} or "retryDelay": "32s" / retryDelay: 32s
     RetryDelay = [regex]'(?i)retryDelay"?\s*[:=]\s*(?:\{\s*"?seconds"?\s*:\s*"?(?<sec>[0-9]+)|"?(?<dur>(?:[0-9]+(?:\.[0-9]+)?(?:ms|h|m|s))+)(?![A-Za-z0-9]))'
     GoPart = [regex]'(?i)(?<n>[0-9]+(?:\.[0-9]+)?)\s*(?<u>ms|hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)'
+    # a compact duration: "Resets in 68h58m18s", "in 2d3h", "in 45m", "in 30s"
+    Compact = [regex]'(?i)\b(?:try\s+again|resets?|retry|available(?:\s+again)?)\s+in\s+(?<dur>(?:[0-9]+(?:\.[0-9]+)?(?:w|d|h|ms|m|s))+)(?![A-Za-z0-9])'
+    CompactPart = [regex]'(?i)(?<n>[0-9]+(?:\.[0-9]+)?)(?<u>w|d|h|ms|m|s)'
+    # a rolling window: "reset when the current 5-hour window ends" (an UPPER BOUND)
+    Window = [regex]'(?i)\bresets?\s+when\s+the\s+current\s+(?<n>[0-9]+)[- ](?<u>minute|hour|day|week)s?\s+window\s+ends'
 }
 # Seconds of a Go duration ("1m5.3s", "500ms") or a worded one ("90 seconds", "1 hour 30
 # minutes"); decimals allowed; $null when nothing parses.
@@ -3485,6 +3503,27 @@ function ConvertFrom-GoDuration {
         elseif ($u.StartsWith('h')) { $total += $n * 3600 }
         elseif ($u.StartsWith('m')) { $total += $n * 60 }
         else { $total += $n }
+        $any = $true
+    }
+    if (-not $any) { return $null }
+    return $total
+}
+# Seconds of a compact duration ("68h58m18s", "2d3h", "500ms"; units w, d, h, m, s, ms,
+# decimals); $null when nothing parses.
+function ConvertFrom-CompactDuration {
+    param([string]$Text)
+    $total = [double]0
+    $any = $false
+    foreach ($p in $script:RetryAfterRe.CompactPart.Matches([string]$Text)) {
+        $n = [double]::Parse($p.Groups['n'].Value, $script:Invariant)
+        switch ($p.Groups['u'].Value.ToLowerInvariant()) {
+            'w' { $total += $n * 604800 }
+            'd' { $total += $n * 86400 }
+            'h' { $total += $n * 3600 }
+            'm' { $total += $n * 60 }
+            'ms' { $total += $n / 1000 }
+            default { $total += $n }
+        }
         $any = $true
     }
     if (-not $any) { return $null }
@@ -3583,6 +3622,12 @@ function Get-RetryAfter {
         }
         return (ConvertTo-ZoneTime -At ($Reference.AddSeconds($total)) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset)
     }
+    # a compact duration: "Resets in 68h58m18s", "in 2d3h" (5.)
+    $m = $script:RetryAfterRe.Compact.Match($text)
+    if ($m.Success) {
+        $secs = ConvertFrom-CompactDuration -Text $m.Groups['dur'].Value
+        if ($null -ne $secs) { return (ConvertTo-ZoneTime -At ($Reference.AddSeconds([Math]::Ceiling($secs))) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset) }
+    }
     # Google (agy): "retry in 32s", "retry in 1m5.3s", "retry in 90 seconds"
     $m = $script:RetryAfterRe.RetryIn.Match($text)
     if ($m.Success) {
@@ -3596,6 +3641,12 @@ function Get-RetryAfter {
         if ($m.Groups['sec'].Success) { $secs = [double]$m.Groups['sec'].Value }
         else { $secs = ConvertFrom-GoDuration -Text $m.Groups['dur'].Value }
         if ($null -ne $secs) { return (ConvertTo-ZoneTime -At ($Reference.AddSeconds([Math]::Ceiling($secs))) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset) }
+    }
+    # a rolling window (6.): the failure + the window's length - an UPPER BOUND
+    $m = $script:RetryAfterRe.Window.Match($text)
+    if ($m.Success) {
+        $at = $Reference.AddSeconds((ConvertTo-DurationSeconds -N ([long]$m.Groups['n'].Value) -Unit $m.Groups['u'].Value))
+        return (ConvertTo-ZoneTime -At $at -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset)
     }
     return $null
 }
@@ -3718,6 +3769,12 @@ function Get-EndpointHealth {
             $pf = Get-PropertyValue $c 'provider_failure' $null
             if ($null -ne $pf) {
                 $rec.Class = [string](Get-PropertyValue $pf 'class' 'unknown')
+                # An entry recorded as auth whose message says usage limit / quota / rate limit
+                # counts as quota (Get-ProviderFailureClass's rule, applied when the ledger is
+                # READ): a 401/403 with a usage-limit text recorded before that rule existed
+                # (Kimi Code's 5-hour limit) stops refusing the endpoint for 24 h as an auth
+                # failure - without anyone editing the ledger.
+                if ($rec.Class -eq 'auth' -and ([string](Get-PropertyValue $pf 'message' '')) -match $script:QuotaTextPattern) { $rec.Class = 'quota' }
                 $rec.Code = [string](Get-PropertyValue $pf 'code' '')
                 $rec.Message = [string](Get-PropertyValue $pf 'message' '')
                 $pfWhen = ConvertTo-WhenOffset (Get-PropertyValue $pf 'when' '')
@@ -4249,11 +4306,14 @@ function Get-PanelPlan {
 }
 
 # The collab paths an agy panel member's tree check leaves out besides its own handoff files
-# (0.4.x wave 21, D7): the task's two stores and the handoffs of every OTHER member of its
-# panel that may run at the same time ($SiblingNns; none when the panel runs one member at a
-# time), each with its Write-TextAtomic temp variant (.<name>.<guid>.tmp in the same
-# directory). Prefixes relative to the collab root, '/'-separated (Get-CollabSnapshot keys).
-# Everything else in the collab root stays monitored (other tasks, state.md, briefs).
+# (0.4.x wave 21, D7): the task's two stores and the handoffs of the OTHER members of its
+# panel ($SiblingNns; none when the panel runs one member at a time), each with its
+# Write-TextAtomic temp variant (.<name>.<guid>.tmp in the same directory). The caller passes
+# deliberately the union of all other members, not only those that can overlap this one
+# (F11-5): an ignored path that did not change hides nothing, and one that changed was written
+# by a member running meanwhile - or by this member's reviewer, the documented D7 residual.
+# Prefixes relative to the collab root, '/'-separated (Get-CollabSnapshot keys). Everything
+# else in the collab root stays monitored (other tasks, state.md, briefs).
 function Get-PanelIgnorePrefixes {
     param([string]$Task, [string[]]$SiblingNns = @())
     $nns = @($SiblingNns | Where-Object { $_ })
@@ -4489,8 +4549,8 @@ function Select-ParentThread {
 #                                                    reply files it names have no ledger
 #                                                    entry)
 #                                 pid + start_time: the bridge that wrote the record (a
-#                                 panel member rewrites its record with its own as its
-#                                 first act); while THAT process runs the record is active
+#                                 panel member rewrites its record with its own before it
+#                                 checks its parent); while THAT process runs the record is active
 #                                 in every state. panel: { id, position, of, parent_pid,
 #                                 parent_start_time } of a member record. survivors[]:
 #                                   { pid, start_time, name } per process still alive
@@ -4649,8 +4709,9 @@ function Get-WriteLockTimeout {
 
 # Takes <task>/.consult.write.lock (see the section comment): opened like .consult.lock and
 # retried with backoff (50 ms, doubling up to 1 s) while another process holds it, until
-# $TimeoutSec. { Acquired; Path; Stream; Record; Message; Waited (seconds) }; release with
-# Exit-TaskLock (close the handle; the file stays).
+# $TimeoutSec. { Acquired; Path; Stream; Record; Message; Waited (seconds); WaitedMs (whole
+# milliseconds, 0 when the lock was free at once) }; release with Exit-TaskLock (close the
+# handle; the file stays).
 function Enter-WriteLock {
     param([string]$TaskDir, [string]$Task, [double]$TimeoutSec = 60)
     $path = Join-Path $TaskDir '.consult.write.lock'
@@ -4671,6 +4732,7 @@ function Enter-WriteLock {
         } catch [System.IO.DirectoryNotFoundException] {
             $r = New-LockRefusal -Path $path -Message "could not open the write lock '$path': $($_.Exception.Message)"
             $r | Add-Member -NotePropertyName 'Waited' -NotePropertyValue ([math]::Round($watch.Elapsed.TotalSeconds, 1))
+            $r | Add-Member -NotePropertyName 'WaitedMs' -NotePropertyValue ([int]$watch.ElapsedMilliseconds)
             return $r
         } catch [System.IO.IOException] {
             if ($watch.Elapsed.TotalSeconds -ge $TimeoutSec) {
@@ -4683,6 +4745,7 @@ function Enter-WriteLock {
                 }
                 $r = New-LockRefusal -Path $path -Message "the write lock '$path' of task '$Task' was not acquired within $TimeoutSec s: it is held open by $who"
                 $r | Add-Member -NotePropertyName 'Waited' -NotePropertyValue ([math]::Round($watch.Elapsed.TotalSeconds, 1))
+                $r | Add-Member -NotePropertyName 'WaitedMs' -NotePropertyValue ([int]$watch.ElapsedMilliseconds)
                 return $r
             }
             Start-Sleep -Milliseconds $delay
@@ -4690,9 +4753,12 @@ function Enter-WriteLock {
         } catch {
             $r = New-LockRefusal -Path $path -Message "could not open the write lock '$path': $($_.Exception.Message)"
             $r | Add-Member -NotePropertyName 'Waited' -NotePropertyValue ([math]::Round($watch.Elapsed.TotalSeconds, 1))
+            $r | Add-Member -NotePropertyName 'WaitedMs' -NotePropertyValue ([int]$watch.ElapsedMilliseconds)
             return $r
         }
     }
+    # the first attempt succeeded: no wait at all (not the few microseconds of the open)
+    $waitedMs = $(if ($delay -eq 50) { 0 } else { [int]$watch.ElapsedMilliseconds })
     # Informational only (who holds it); nothing recoverable lives here.
     try {
         $bytes = $script:Utf8NoBom.GetBytes((ConvertTo-Json -InputObject $record -Compress) + "`n")
@@ -4701,7 +4767,7 @@ function Enter-WriteLock {
         $fs.Write($bytes, 0, $bytes.Length)
         $fs.Flush($true)
     } catch { }
-    return [pscustomobject]@{ Acquired = $true; Path = $path; Stream = $fs; Record = $record; Message = ''; Waited = [math]::Round($watch.Elapsed.TotalSeconds, 1) }
+    return [pscustomobject]@{ Acquired = $true; Path = $path; Stream = $fs; Record = $record; Message = ''; Waited = [math]::Round($watch.Elapsed.TotalSeconds, 1); WaitedMs = $waitedMs }
 }
 
 # THE way every writer changes a task's stores (D2, F04-3): codex-consult.ps1 (a single run,
@@ -4711,8 +4777,8 @@ function Enter-WriteLock {
 # releases with Exit-StoreCommit in a finally. A store that no longer parses refuses
 # (Read-JsonStore; the lock is released on the way out). Not acquired within $TimeoutSec:
 # Acquired $false and the Message - the caller gives up WITHOUT touching the stores (D3).
-# { Acquired; Message; Waited; Lock; FindingsPath; SessionsPath; Findings (the fresh store,
-# a new one when absent); Sessions (the fresh ledger object, $null when absent) }.
+# { Acquired; Message; Waited; WaitedMs; Lock; FindingsPath; SessionsPath; Findings (the fresh
+# store, a new one when absent); Sessions (the fresh ledger object, $null when absent) }.
 function Enter-StoreCommit {
     param([string]$TaskDir, [string]$Task, [double]$TimeoutSec = 60, [switch]$NoSessions)
     $lock = Enter-WriteLock -TaskDir $TaskDir -Task $Task -TimeoutSec $TimeoutSec
@@ -4720,6 +4786,7 @@ function Enter-StoreCommit {
         Acquired     = [bool]$lock.Acquired
         Message      = [string]$lock.Message
         Waited       = $lock.Waited
+        WaitedMs     = [int](Get-PropertyValue $lock 'WaitedMs' 0)
         Lock         = $lock
         FindingsPath = (Join-Path $TaskDir 'findings.json')
         SessionsPath = (Join-Path $TaskDir 'sessions.json')
@@ -5059,8 +5126,10 @@ function Find-CodexProcesses {
 # reports or consumes such a record says so. '' when the record has no `original`.
 # 0.4.0: a record that names its turn's raw event stream (`events`) says so too - for the agy
 # engine that stream holds the reply itself (A18).
-# 0.4.x wave 21 (D3): a run whose commit was blocked (the write lock never acquired) keeps its
-# record in state committing, naming its kept reply (`reply_json`, `raw_reply`).
+# 0.4.x wave 21 (D3, D4): a run names its reply in the record when it starts its commit
+# (`reply_json`, or `raw_reply` for a raw codex run), so a commit that never completes - the
+# write lock never acquired, or the bridge stopped inside it - leaves the record in state
+# committing, naming the kept reply.
 function Get-PendingOriginalNote {
     param($Record)
     $o = [string](Get-PropertyValue $Record 'original' '')
@@ -5068,7 +5137,7 @@ function Get-PendingOriginalNote {
     $rj = [string](Get-PropertyValue $Record 'reply_json' '')
     $rr = [string](Get-PropertyValue $Record 'raw_reply' '')
     $parts = New-Object System.Collections.Generic.List[string]
-    if ($rj) { $parts.Add("the reply of that run is kept at $rj (its commit was blocked); no ledger entry was written for it") }
+    if ($rj) { $parts.Add("the reply of that run is kept at $rj (its commit did not complete); no ledger entry was written for it") }
     if ($rr) { $parts.Add("the raw last message of that run is kept at $rr") }
     if ($o) { $parts.Add("a usable prose reply of that run exists at $o; no ledger entry was written for it") }
     if ($ev) {
@@ -5079,24 +5148,28 @@ function Get-PendingOriginalNote {
 }
 
 # Decides whether a pending record (from Read-PendingFile) still belongs to a live
-# consultation. Returns { Active; Message; Check }:
-#   the writer (0.4.x wave 21, D1): a record that carries the start time of the bridge that
-#                        wrote it (pid + start_time) is ACTIVE in every state while that
-#                        process runs on this host (never by pid alone, never this very
-#                        process); otherwise:
-#   reserved             never active (codex was not started);
-#   running / survivors / committing
-#                        active while child_pid (with its start time) or any survivor
-#                        pid is alive on this host; with pids from another host:
-#                        active (they cannot be checked from here);
-#   launching            the child may or may not exist: active when
-#                        Find-CodexProcesses finds a codex process started since the
-#                        record's `started` (or cannot scan); from another host (no
-#                        pids to check): treated as dead.
-#   A panel member's record (`panel`) is judged by its RECORDED pids + start times only
-#   (writer, child, survivors) and, on Windows, by the children of the recorded writer and
-#   recorded pids (the ppid rule) - never by the machine-wide "looks like codex" rule, which
-#   would take a live sibling member's reviewer for this record's orphan (F03-2, F04-5).
+# consultation. Returns { Active; Message; Check }. The rules, in this order:
+#   1. THE WRITER (0.4.x wave 21, D1) decides first: a record that names the bridge that
+#      wrote it (pid + start_time) is ACTIVE while that process runs on this host - in EVERY
+#      state, `reserved` included (a panel member building its prompt, running its reviewer,
+#      committing; a panel run whose members have not started yet). Never by pid alone (a
+#      record without start_time - older bridges - skips this rule), never this very
+#      process, not across hosts.
+#   2. When the writer is gone or unknown, the state decides:
+#      reserved            inactive: nothing was started under it;
+#      running / survivors / committing
+#                          active while child_pid (with its start time) or any survivor pid
+#                          is alive on this host; pids from another host: active (they
+#                          cannot be checked from here); all recorded pids gone: the
+#                          process scan below (a dead launcher is no proof of a dead tree);
+#      launching           the child may or may not exist: the process scan below; from
+#                          another host (no pids to check): treated as dead.
+#   3. The process scan: children of the recorded writer and of the recorded pids (Windows
+#      keeps an orphan's parent id), then - for a record OUTSIDE a panel only - the
+#      machine-wide "looks like codex" rule (Find-CodexProcesses; "task not verifiable").
+#      A panel member's record (`panel`) NEVER uses that name rule: a live sibling member's
+#      reviewer looks like codex too (F03-2, F04-5); outside Windows, where orphans are
+#      reparented, it is judged by its recorded pids + start times only.
 function Test-PendingActive {
     param($Record, [string]$Path)
     $state = [string](Get-PropertyValue $Record 'state' '')

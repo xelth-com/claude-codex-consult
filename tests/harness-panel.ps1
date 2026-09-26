@@ -79,7 +79,7 @@ function Write-Roster {
     return $p
 }
 $fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_PIDFILE', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_LOGIN_DELAY_MS', 'FAKE_CODEX_FAIL_ON', 'FAKE_CODEX_HANG_ON', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_REPLY_MAP', 'FAKE_CODEX_SLEEP', 'FAKE_AGY_REPLY', 'FAKE_AGY_WRITE', 'FAKE_AGY_DELAY_MS', 'FAKE_AGY_STATUS', 'FAKE_AGY_ERROR', 'FAKE_AGY_PIDFILE')
-$testVars = @('RT_ZAI_KEY', 'RT_MIMO_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_AGY_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_SURVIVORS', 'CODEX_CONSULT_TEST_WRITE_LOCK_SEC', 'CODEX_CONSULT_TEST_COMMIT_PAUSE_MS', 'CODEX_CONSULT_TEST_PANEL_GUARD_SEC')
+$testVars = @('RT_ZAI_KEY', 'RT_MIMO_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_AGY_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_SURVIVORS', 'CODEX_CONSULT_TEST_WRITE_LOCK_SEC', 'CODEX_CONSULT_TEST_COMMIT_PAUSE_MS', 'CODEX_CONSULT_TEST_PANEL_GUARD_SEC', 'CODEX_CONSULT_TEST_MEMBER_PAUSE_MS')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     Get-ChildItem env: | Where-Object { $_.Name -like 'CODEX_CONSULT_PEAK_*' } | ForEach-Object { Remove-Item "env:$($_.Name)" -ErrorAction SilentlyContinue }
@@ -380,8 +380,9 @@ if (Want 'NOLOSS') {
     $r = New-Repo 'noloss'
     $s = Consult $r $roster3 @('-Provider', 'mimo', '-Prompt', 'seed', '-ReplyName', 'seed') @{ FAKE_CODEX_REPLY = $adviseF }
     $check = Reply 'check-f01.json' ('{"schema_version":"1","verdict":"ADVISE","verdict_reason":"r","reply_markdown":"m","findings":[' + $finding + '],"prior_findings":[{"id":"F01-1","status":"still-open","note":"seen"}],"unproven":[],"first_run_checklist":[]}')
-    # equal delays and a pause inside every commit: the three commits contend for the write lock
-    $p = Consult $r $roster3 @('-Panel', '-Prompt', 'x', '-ReplyName', 'c') @{ FAKE_CODEX_REPLY = $check; FAKE_CODEX_DELAY_MS = '3000'; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS = '1500' }
+    # equal delays and a pause inside every commit (4 s, longer than the members' start spread):
+    # the three commits contend for the write lock
+    $p = Consult $r $roster3 @('-Panel', '-Prompt', 'x', '-ReplyName', 'c') @{ FAKE_CODEX_REPLY = $check; FAKE_CODEX_DELAY_MS = '3000'; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS = '4000' }
     $fs = @(Findings $r)
     $f01 = @($fs | Where-Object { $_.id -eq 'F01-1' })[0]
     $checks = @($f01.reviewer_checks | ForEach-Object { [int]$_.consult } | Sort-Object)
@@ -389,6 +390,8 @@ if (Want 'NOLOSS') {
     Check 'NOLOSS' 'three members commit one after another under the write lock, each on the RE-READ stores: all four findings present (F01-1 seed, F02-1..F04-1 in id order) and the seed finding carries every member''s reviewer check (consults 2, 3, 4) - no lost update' ($s.Code -eq 0 -and $p.Code -eq 0 -and (@($fs | ForEach-Object { $_.id }) -join ',') -eq 'F01-1,F02-1,F03-1,F04-1' -and ($checks -join ',') -eq '2,3,4' -and @($f01.reviewer_checks | Where-Object { $_.status -eq 'still-open' }).Count -eq 3) "ids $(@($fs | ForEach-Object { $_.id }) -join ','); checks by consult $($checks -join ',')"
     $l = Run-Tool $findingsPs $r @('-Task', 't', '-List', '-All')
     Check 'NOLOSS' 'the ledger has all four entries sorted by n, each member''s prior_findings names F01-1 still-open, and -List -All finds no ORPHAN' ((@($led | ForEach-Object { $_.n }) -join ',') -eq '1,2,3,4' -and @($led[1..3] | Where-Object { @($_.prior_findings | Where-Object { $_.id -eq 'F01-1' -and $_.status -eq 'still-open' }).Count -eq 1 }).Count -eq 3 -and $l.Out -match 'orphans: 0 finding\(s\), 0 reviewer check\(s\)') (Line $l.Out 'codex-findings:')
+    $waits = @($led[1..3] | ForEach-Object { [int]$_.commit_wait_ms })
+    Check 'NOLOSS' 'the commits really CONTENDED (F11-3): at least one member waited for the write lock (ledger commit_wait_ms > 0, console "write lock : waited N ms for another commit of this task"); the uncontended seed run waited 0 ms' (@($waits | Where-Object { $_ -gt 0 }).Count -ge 1 -and $p.Out -match '(?m)^write lock : waited [0-9]+ ms for another commit of this task$' -and $led[0].PSObject.Properties['commit_wait_ms'] -and [int]$led[0].commit_wait_ms -eq 0) "commit_wait_ms of members 2-4: $($waits -join ', ')"
 }
 
 # =============================================================== INFLIGHT: the task lock for the whole panel, member records while it runs (D1, D12)
@@ -423,7 +426,8 @@ if (Want 'TIMEOUT') {
         $sum = @(Summary $p.Out)
         Check 'TIMEOUT' 'member 2 times out leaving survivors: its record .consult.pending-02.json is KEPT (state survivors, naming the survivor), members 1 and 3 still ran and are usable (default concurrency - F15-3 applies to -PanelConcurrency 1 only), exit 1' ($p.Code -eq 1 -and $led.Count -eq 3 -and $led[0].bridge_outcome -eq 'usable reply' -and $led[1].bridge_outcome -match '^failed: timeout after 5 s \(process tree killed; 1 processes survived' -and $led[2].bridge_outcome -eq 'usable reply' -and @($recs).Count -eq 1 -and $recs[0].Name -eq '.consult.pending-02.json' -and $recs[0].Record.state -eq 'survivors' -and [int]$recs[0].Record.survivors[0].pid -eq $sleeper.Id -and $sum[2] -match '^  ZAI :: glm-5\.3\s+failed: timeout after 5 s') ($sum[0..3] -join ' | ')
         $x = Consult $r $roster3 @('-Provider', 'mimo', '-Prompt', 'y', '-ReplyName', 'refused') @{ FAKE_CODEX_REPLY = $advise }
-        Check 'TIMEOUT' 'the next run is refused while the survivor lives, naming the member''s record' ($x.Code -eq 1 -and $x.Refusal -match "\(pid $($sleeper.Id)\) is still running" -and $x.Refusal -match 'review panel [0-9a-f]{8} member 2') $x.Refusal
+        $rt = Run-Tool $findingsPs $r @('-Task', 't', '-Rate', '1', '-Useful', 'yes')
+        Check 'TIMEOUT' 'the next run is refused while the survivor lives, naming the member''s record; so is codex-findings -Rate, which judges the recovery records like -Status (D5, F11-4)' ($x.Code -eq 1 -and $x.Refusal -match "\(pid $($sleeper.Id)\) is still running" -and $x.Refusal -match 'review panel [0-9a-f]{8} member 2' -and $rt.Code -eq 1 -and $rt.First -match "^codex-findings: a previous consultation's codex process \(pid $($sleeper.Id)\) is still running" -and -not (Test-Path (Join-Path (Td $r) 'findings.json'))) "$($x.Refusal) | $($rt.First)"
     } finally { Stop-Process -Id $sleeper.Id -Force -ErrorAction SilentlyContinue }
     Start-Sleep -Milliseconds 500
     $y = Consult $r $roster3 @('-Provider', 'mimo', '-Prompt', 'y', '-ReplyName', 'after') @{ FAKE_CODEX_REPLY = $advise }
@@ -508,8 +512,8 @@ if (Want 'SPEC') {
     $recPath = Write-MemberRecord $r $pid0 '2001-01-01T00:00:00.0000000Z' $gid
     $h0 = (Get-FileHash -Algorithm SHA256 -LiteralPath $recPath).Hash
     $a = Consult-Member $r $roster2 (New-Spec $pid0 '2001-01-01T00:00:00.0000000Z' $gid) @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_PIDFILE = $pidFile }
-    Check 'SPEC' 'a member whose panel run is dead refuses (D6): "the review panel run that launched this member (pid N) is gone; this panel member was not started" - no reviewer started, no ledger, its record untouched' ($a.Code -eq 1 -and $a.Refusal -match "^codex-consult: the review panel run that launched this member \(pid $pid0\) is gone; this panel member was not started" -and -not (Test-Path $pidFile) -and @(Ledger $r).Count -eq 0 -and (Get-FileHash -Algorithm SHA256 -LiteralPath $recPath).Hash -eq $h0) $a.Refusal
-    Remove-Item $recPath
+    Check 'SPEC' 'a member whose panel run is dead refuses (D6) - found AFTER it rewrote its record with its own pid (F07-1, F11-6): "the review panel run that launched this member (pid N) is gone; this panel member was not started - nothing was started and its recovery record ''...'' was withdrawn"; no reviewer, no ledger, the record gone' ($a.Code -eq 1 -and $a.Refusal -match "^codex-consult: the review panel run that launched this member \(pid $pid0\) is gone; this panel member was not started - nothing was started and its recovery record '.*\.consult\.pending-01\.json' was withdrawn\.$" -and -not (Test-Path $pidFile) -and @(Ledger $r).Count -eq 0 -and -not (Test-Path $recPath)) $a.Refusal
+    Remove-Item $recPath -ErrorAction SilentlyContinue
     $meStart = Get-ProcessStartIso -ProcessId $PID
     $b = Consult-Member $r $roster2 (New-Spec $PID $meStart $gid) @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_PIDFILE = $pidFile }
     $null = Write-MemberRecord $r $PID $meStart $gid -N 7
@@ -527,6 +531,23 @@ if (Want 'SPEC') {
     [void]$bg.Proc.WaitForExit(90000)
     $out = Bg-Output $bg
     Check 'SPEC' 'the member rewrites its record with its own pid first (D1); its panel run dies during its preflight -> it stops right before launching: "the review panel run that launched this member (pid N) is gone; this member stopped before starting codex - nothing was started", record withdrawn, no reviewer, no ledger' ($rewritten -and $bg.Proc.ExitCode -eq 1 -and $out -match "the review panel run that launched this member \(pid $($parent.Id)\) is gone; this member stopped before starting codex - nothing was started" -and -not (Test-Path $recPath) -and -not (Test-Path $pidFile) -and @(Ledger $r).Count -eq 0) (($out -split "`n" | Where-Object { $_ -match '^codex-consult' }) -join ' | ')
+    # F07-1 / F11-6: the panel run dies AFTER the member rewrote its record and BEFORE the member
+    # checks it (TEST HOOK: a pause there). The record names the live member all the while, so a
+    # new run is refused - no moment in which it reads inactive while the member runs; the
+    # member then finds its parent gone, withdraws the record and stops.
+    $parent2 = Start-Sleeper 120
+    Start-Sleep -Milliseconds 500
+    $p2Start = Get-ProcessStartIso -ProcessId $parent2.Id
+    $recPath2 = Write-MemberRecord $r $parent2.Id $p2Start $gid
+    if (Test-Path $pidFile) { Remove-Item $pidFile }
+    $bg2 = Start-Consult $r $roster2 @('-PanelSpec', (New-Spec $parent2.Id $p2Start $gid)) @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_PIDFILE = $pidFile; CODEX_CONSULT_TEST_MEMBER_PAUSE_MS = '15000' } -Member
+    $rewritten2 = Wait-For { $rd = Read-PendingFile -Path $recPath2; $rd.Record -and [int]$rd.Record.pid -eq $bg2.Proc.Id } 60
+    Stop-Process -Id $parent2.Id -Force
+    $during = Consult $r $roster2 @('-Provider', 'mimo', '-Prompt', 'y', '-ReplyName', 'during') @{ FAKE_CODEX_REPLY = $advise }
+    [void]$bg2.Proc.WaitForExit(90000)
+    $out2 = Bg-Output $bg2
+    $after = Consult $r $roster2 @('-Provider', 'mimo', '-Prompt', 'y', '-ReplyName', 'after') @{ FAKE_CODEX_REPLY = $advise }
+    Check 'SPEC' 'F07-1/F11-6: the parent killed between the member''s rewrite and its parent check: a new run meanwhile is REFUSED by the record (its writer, the member, runs); the member then withdraws the record and stops, nothing started; the next run proceeds (n=1)' ($rewritten2 -and $during.Code -eq 1 -and $during.Refusal -match "a consultation of this task is still running: its bridge \(pid $($bg2.Proc.Id)\) wrote .*\.consult\.pending-01\.json" -and $bg2.Proc.ExitCode -eq 1 -and $out2 -match "the review panel run that launched this member \(pid $($parent2.Id)\) is gone; this panel member was not started - nothing was started and its recovery record '.*' was withdrawn" -and -not (Test-Path $recPath2) -and -not (Test-Path $pidFile) -and $after.Code -eq 0 -and @(Ledger $r).Count -eq 1 -and @(Ledger $r)[0].n -eq 1) "$($during.Refusal) | $(($out2 -split "`n" | Where-Object { $_ -match '^codex-consult' }) -join ' | ')"
 }
 
 # =============================================================== BLOCKED: the write lock never acquired (D3)
@@ -544,7 +565,7 @@ if (Want 'BLOCKED') {
     $l = Run-Tool $findingsPs $r @('-Task', 't', '-List')
     $x = Consult $r $roster2 @('-Provider', 'mimo', '-Prompt', 'y', '-ReplyName', 'next') @{ FAKE_CODEX_REPLY = $advise }
     $e = @(Ledger $r)[-1]
-    Check 'BLOCKED' 'afterwards -List names each kept reply; the next run consumes both records ("recovered reservation n=1, nn=01 (.consult.pending-01.json: state ''committing''...; the reply of that run is kept at ...)"), numbering past them (n=3 / 03), records removed' (@(($l.Out -split "`n") | Where-Object { $_ -match "^pending: state=committing, .*the reply of that run is kept at \.collab/t/handoffs/0\d-codex-b-\w+\.reply\.json \(its commit was blocked\)" }).Count -eq 2 -and $x.Code -eq 0 -and $x.Out -match "recovered reservation n=1, nn=01 \(\.consult\.pending-01\.json: state 'committing' of an interrupted run; .*the reply of that run is kept at \.collab/t/handoffs/01-codex-b-openai\.reply\.json" -and $x.Out -match 'recovered reservation n=2, nn=02' -and $e.n -eq 3 -and $e.reply -eq 'handoffs/03-codex-next.md' -and (Records $r).Count -eq 0) (Line $x.Out 'codex-consult: recovered')
+    Check 'BLOCKED' 'afterwards -List names each kept reply; the next run consumes both records ("recovered reservation n=1, nn=01 (.consult.pending-01.json: state ''committing''...; the reply of that run is kept at ...)"), numbering past them (n=3 / 03), records removed' (@(($l.Out -split "`n") | Where-Object { $_ -match "^pending: state=committing, .*the reply of that run is kept at \.collab/t/handoffs/0\d-codex-b-\w+\.reply\.json \(its commit did not complete\)" }).Count -eq 2 -and $x.Code -eq 0 -and $x.Out -match "recovered reservation n=1, nn=01 \(\.consult\.pending-01\.json: state 'committing' of an interrupted run; .*the reply of that run is kept at \.collab/t/handoffs/01-codex-b-openai\.reply\.json" -and $x.Out -match 'recovered reservation n=2, nn=02' -and $e.n -eq 3 -and $e.reply -eq 'handoffs/03-codex-next.md' -and (Records $r).Count -eq 0) (Line $x.Out 'codex-consult: recovered')
     # a single run and codex-findings -Status take the same write lock
     $r2 = New-Repo 'blocked-single'
     $seed = Consult $r2 $roster2 @('-Provider', 'mimo', '-Prompt', 'seed', '-ReplyName', 'seed') @{ FAKE_CODEX_REPLY = $adviseF }
@@ -573,6 +594,28 @@ if (Want 'ORPHAN') {
     $y = Consult $r $roster2 @('-Provider', 'mimo', '-Prompt', 'y', '-ReplyName', 'next') @{ FAKE_CODEX_REPLY = $advise }
     $e = @(Ledger $r)[-1]
     Check 'ORPHAN' 'the next run recovers the reservation (state committing) and numbers past the orphan: n=2 / 02-codex-next.md' ($y.Code -eq 0 -and $y.Out -match "recovered reservation n=1, nn=01 \(state 'committing' of an interrupted run" -and $e.n -eq 2 -and $e.reply -eq 'handoffs/02-codex-next.md') (Line $y.Out 'codex-consult: recovered')
+}
+
+# =============================================================== MEMBERKILL: a panel member killed inside its commit (F11-2, D4)
+if (Want 'MEMBERKILL') {
+    $r = New-Repo 'memberkill'
+    # only member 2 (mimo) pauses inside its commit (a model-keyed test hook); it gets there first
+    $bg = Start-Consult $r $roster2 @('-Panel', '-Prompt', 'x', '-ReplyName', 'mk') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = 'mimo-v2.6-pro=500|gpt-5.1=6000'; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS = 'mimo-v2.6-pro=60000' }
+    $inCommit = Wait-For { @(Findings $r | Where-Object { $_.id -eq 'F02-1' }).Count -eq 1 } 90
+    $rec2 = (Read-PendingFile -Path (Join-Path (Td $r) '.consult.pending-02.json')).Record
+    $mPid = 0
+    if ($rec2) { $mPid = [int]$rec2.pid }
+    if ($mPid -gt 0) { Stop-Process -Id $mPid -Force -ErrorAction SilentlyContinue }
+    [void]$bg.Proc.WaitForExit(120000)
+    $out = Bg-Output $bg
+    $sum = @(Summary $out)
+    $led = @(Ledger $r)
+    $recs = Records $r
+    $l = Run-Tool $findingsPs $r @('-Task', 't', '-List', '-All')
+    Check 'MEMBERKILL' 'a PANEL MEMBER killed inside its commit (between findings.json and sessions.json): the sibling still commits (n=1 usable), the killed member''s finding stays ORPHAN (F02-1, no ledger entry), its record is kept in state committing naming its kept reply, the summary says "stopped inside its commit", exit 1' ($inCommit -and $rec2 -and $rec2.state -eq 'committing' -and $mPid -ne $bg.Proc.Id -and $bg.Proc.ExitCode -eq 1 -and $led.Count -eq 1 -and $led[0].n -eq 1 -and $led[0].bridge_outcome -eq 'usable reply' -and (@(Findings $r | ForEach-Object { $_.id }) -join ',') -eq 'F01-1,F02-1' -and $l.Out -match 'orphans: 1 finding\(s\)' -and @($recs).Count -eq 1 -and $recs[0].Name -eq '.consult.pending-02.json' -and $recs[0].Record.state -eq 'committing' -and $recs[0].Record.reply_json -eq '.collab/t/handoffs/02-codex-mk-mimo.reply.json' -and $sum[2] -match '^  mimo :: mimo-v2\.6-pro\s+failed: stopped inside its commit') ($sum[0..2] -join ' | ')
+    $y = Consult $r $roster2 @('-Provider', 'mimo', '-Prompt', 'y', '-ReplyName', 'next') @{ FAKE_CODEX_REPLY = $advise }
+    $e = @(Ledger $r)[-1]
+    Check 'MEMBERKILL' 'the next run recovers the killed member''s record ("recovered reservation n=2, nn=02 (.consult.pending-02.json: state ''committing''...; the reply of that run is kept at ... (its commit did not complete)"), numbers past the orphan (n=3 / 03), the record removed' ($y.Code -eq 0 -and $y.Out -match "recovered reservation n=2, nn=02 \(\.consult\.pending-02\.json: state 'committing' of an interrupted run; .*the reply of that run is kept at \.collab/t/handoffs/02-codex-mk-mimo\.reply\.json \(its commit did not complete\)" -and $e.n -eq 3 -and $e.reply -eq 'handoffs/03-codex-next.md' -and (Records $r).Count -eq 0) (Line $y.Out 'codex-consult: recovered')
 }
 
 # =============================================================== GUARD: the parent's kill guard (D11)

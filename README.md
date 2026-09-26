@@ -434,7 +434,8 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "unchecked_prior_blockers": [],
   "usage": { "input_tokens": 18400, "cached_input_tokens": 12000, "output_tokens": 900, "reasoning_output_tokens": 400 },
   "wall_seconds": 11.1,
-  "finished_at": "2026-09-22T11:24:39+02:00"
+  "finished_at": "2026-09-22T11:24:39+02:00",
+  "commit_wait_ms": 0
 }
 ```
 
@@ -484,6 +485,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `unchecked_prior_blockers` | open prior blockers the reviewer did not check while answering `ACCEPT` |
 | `usage` / `wall_seconds` | token counts from the event stream (agy: `cache_read_tokens` -> `cached_input_tokens`, `thinking_tokens` -> `reasoning_output_tokens`, plus `total_tokens`); wall time |
 | `finished_at` | (0.4.x wave 21) when the entry was committed (`when` is the reviewer's start). The endpoint health's "newest wins" orders by it (older entries: `when` + `wall_seconds`), ties by `n` - a panel's members finish in any order |
+| `commit_wait_ms` | (0.4.x wave 21) how long the commit waited for the write lock because another commit of the task held it (`0`: it was free); the console says `write lock : waited N ms for another commit of this task` when it waited |
 
 `bridge_outcome` and `verdict` are separate on purpose: a delivered `HOLD` is a success of
 the bridge. Legacy entries: the pre-0.2.0 field `outcome` (now `bridge_outcome`) is left
@@ -661,8 +663,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.p
   **every** consultation, plain-prose ones included, or the telemetry only counts
   structured reviewers.
 - **Locking:** a status change and `-Rate` take the task lock and are refused while a
-  consultation of the task runs (or an interrupted one's codex process may still run);
-  `-List` and `-Stats` only read and never lock.
+  consultation of the task runs, and - both judging every recovery record of the task - while
+  an interrupted one's bridge or codex process may still run (a panel member whose panel run
+  died included); `-List` and `-Stats` only read and never lock.
 
 ### Write order and atomic stores
 
@@ -684,15 +687,18 @@ and applies only its own delta: this run's findings (`F<NN>-k`, kept in id order
 reviewer checks go into the fresh `findings.json`, the handoff's rendered section is made from
 THAT ingest, the ledger entry is inserted at its place by `n`. Every writer does so - a single
 run, a panel member, `codex-findings.ps1 -Status` and `-Rate` - so no writer replaces a store
-with a snapshot read before it and no concurrent commit is lost. Before it waits, the run
-marks its recovery record `committing`. When the lock cannot be had within 60 s it gives up
-WITHOUT touching the stores: the record stays `committing` and names the kept reply
-(`.reply.json`, the event stream), the run exits non-zero (`codex-consult: commit blocked:
-the write lock '<path>' of task '<task>' was not acquired within 60 s: it is held open by
-...`; a panel's summary says `commit blocked`), and the next run consumes the record like any
-interrupted reservation, naming the kept reply. A kill inside the commit can still leave
-findings without a ledger entry (`codex-findings.ps1 -List` flags them ORPHAN); numbering
-never reuses their ids.
+with a snapshot read before it and no concurrent commit is lost (ledger `commit_wait_ms`: how
+long it waited). Before it waits, the run marks its recovery record `committing` and names
+its reply there (`reply_json`: the `.reply.json`; a raw codex run: its last message's temp
+file), so a commit that never completes leaves a record that says where the reply is. When
+the lock cannot be had within 60 s it gives up WITHOUT touching the stores: the record stays
+`committing`, the run exits non-zero (`codex-consult: commit blocked: the write lock '<path>'
+of task '<task>' was not acquired within 60 s: it is held open by ...`; a panel's summary says
+`commit blocked`), and the next run consumes the record like any interrupted reservation,
+naming the kept reply (`the reply of that run is kept at <path> (its commit did not
+complete)`). A kill inside the commit can still leave findings without a ledger entry
+(`codex-findings.ps1 -List` flags them ORPHAN; a panel's summary says `stopped inside its
+commit`); the record stays `committing` the same way, and numbering never reuses their ids.
 
 `sessions.json` and `findings.json` are written to a temp file in the same directory,
 flushed, and moved over the store in ONE rename that replaces it (`MoveFileEx` with
@@ -938,7 +944,10 @@ comes from word-bounded keywords, tried in this order: `permission` (0.4.0: no o
 produced/auto-denied/"permission that headless mode" - agy's F11 notice; also forced for
 agy's tree-check failure), `capability` (not supported/unsupported/"does not
 support"/feature_not_supported/json_schema/INVALID_ARGUMENT/invalid model
-selection/"conflicts with --effort"), `auth` (401/403/unauthorized/forbidden/invalid api
+selection/"conflicts with --effort"), then a usage limit said in words (usage
+limit/quota/rate limit/RESOURCE_EXHAUSTED/too many requests) is `quota` even under a 401 or
+403 status - Kimi Code answers `unexpected status 403 Forbidden: You've reached your 5-hour
+usage limit...` - then `auth` (401/403/unauthorized/forbidden/invalid api
 key/authentication/PERMISSION_DENIED/UNAUTHENTICATED/not signed in/login required/sign in
 to), `quota` (usage limit/quota/rate limit/`rate_limit`/`usage_limit`/429/insufficient
 balance/too many requests/credits exhausted/credit balance/payment required/402/token
@@ -946,7 +955,10 @@ plan/billing/RESOURCE_EXHAUSTED/rate_limit_exceeded), `transport`
 (timeout/connection/dns/tls/certificate/502-504/network/UNAVAILABLE/DEADLINE_EXCEEDED; a
 bridge-side timeout kill is `transport`, so is agy's malformed event stream), else
 `unknown` (agy's conversation-id failures are forced to `unknown`). An SSE-style `data:{"error":{...}}` payload on stderr (how
-the MiMo endpoint reports rejections) is parsed for `error.message`/`error.code` first.
+the MiMo endpoint reports rejections) is parsed for `error.message`/`error.code` first. The
+same word rule applies when the health READS a ledger: an entry recorded as `auth` whose
+message says usage limit / quota / rate limit counts as `quota`, so an older misclassified
+entry stops refusing its endpoint for 24 h without anyone editing the ledger.
 Codex reports quota, auth and turn failures on the JSON event stream, not on stderr; the
 bridge lifts the message from there. MiMo's exact wording for exhausted credits is not
 confirmed; its keywords are a best guess.
@@ -956,7 +968,11 @@ guessed: Codex's wording (`try again at Sep 28th, 2026 8:35 PM.`), a bare ISO-86
 timestamp, a duration (`retry after 30`, `retry after 2h`, `resets in 2 days`, `try again
 in 3 days 1 hour 7 minutes`), or Google's wordings (`retry in 32s`, `retry in 1m5.3s`,
 `retry in 90 seconds`, the gRPC `"retryDelay":{"seconds":N}` / `"retryDelay": "32s"` - a
-fraction rounds up to the next second). A wall-clock time is interpreted with the recording machine's time-zone rules
+fraction rounds up to the next second), a compact duration after resets / try again / retry /
+available in (agy's `Individual quota reached. ... Resets in 68h58m18s.`; also `in 2d3h`,
+`in 45m`, `in 30s`), or a rolling window (Kimi Code's `Your quota will reset when the current
+5-hour window ends.` -> the failure time + 5 h: an UPPER BOUND, since the window ends at the
+latest 5 h after the failure). A wall-clock time is interpreted with the recording machine's time-zone rules
 at write time, DST included (a spring-forward gap takes the post-transition offset, a
 fall-back overlap the pre-transition one), and stored as an instant with its offset. An
 entry written before that fix has no `retry_after`; reading it reparses the message with
@@ -1173,10 +1189,12 @@ own, so a panel takes about as long as its slowest member instead of the sum of 
   each member's recovery record `<task>/.consult.pending-<NN>.json` (`reserved`, naming the
   panel, n, NN and itself) before it starts any member.
 - *A member proves its parent.* It accepts its spec only when its record names the same
-  panel, n, NN and parent (pid + start time) and that parent is alive; as its first act it
-  rewrites the record with its own pid and start time, so the record reads active as long as
-  the member runs - also when the parent dies. Right before it starts its reviewer it checks
-  the parent again and stops there, nothing started, if the parent is gone. It commits under
+  panel, n, NN and parent (pid + start time); it then rewrites the record with its own pid
+  and start time and only after that checks that the parent is alive - a parent gone by then
+  (even one that died before the rewrite) makes the member withdraw its record and stop,
+  nothing started. So the record never reads inactive while the member runs, also when the
+  parent dies later. Right before it starts its reviewer it checks the parent again and stops
+  there, nothing started, if the parent is gone. It commits under
   the write lock ("Write order and atomic stores"): every member's findings, reviewer checks
   and ledger entry survive whatever order they commit in.
 - *The run.* The panel run polls its members, prints one line per member as it finishes,
@@ -1598,7 +1616,7 @@ pwsh -NoProfile -File tests/run-all.ps1 -Only harness-roster,harness-0.3
 ```
 
 Assertions per harness (Windows PowerShell 5.1, 2026-09-26): `harness-0.3` 227,
-`harness-roster` 113, `harness-format` 37, `harness-engines` 95, `harness-panel` 48 (0.4.x
+`harness-roster` 117, `harness-format` 37, `harness-engines` 95, `harness-panel` 52 (0.4.x
 wave 21, the parallel panel), `harness-pending` 26, `harness-fixes` 45, `harness-lock2` 11,
 `harness-3b` 12. `harness-0.3`, `harness-roster`, `harness-format`, `harness-engines` and
 `harness-panel` also run under pwsh. A full run takes about forty minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`

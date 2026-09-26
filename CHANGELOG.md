@@ -191,6 +191,19 @@ amendments A1-A20 and the facts F11/F12).
     the 1800 s timeout - each with a ledger entry of its own. Afterwards the ledger held n 1..11
     in order with `finished_at` and the panel plan on every entry, findings stayed in id order and
     no recovery record was left.
+  - Follow-up round (findings F07-1, F11-1..6 of that panel and two defects its ledger showed):
+    a member now rewrites its record with its own pid BEFORE it checks the parent and withdraws
+    the record when the parent is gone, so a record can no longer read inactive while its member
+    lives (F07-1, F11-6); ledger field `commit_wait_ms` (after `finished_at`) and a console line
+    when a commit waited for the write lock (F11-3); a record entering `committing` names the
+    kept reply, and a member stopped inside its commit is summarised as such, apart from
+    "commit blocked" (F11-2); `codex-findings.ps1 -Rate` refuses while a recovery record is
+    active (F11-4); comments (F11-1, F11-5). Provider failures: a usage-limit, quota or
+    rate-limit text classifies as `quota` even on 401/403 - Kimi Code's 5-hour limit arrives as
+    403 and was recorded as `auth` - and endpoint health reads older `auth` entries with such a
+    text as quota; `retry_after` also parses relative resets ("Resets in 68h58m18s", "in 2d3h")
+    and the rolling-window wording "reset when the current N-hour window ends" (failure time + N,
+    an upper bound). harness-roster 117, harness-panel 52; full suite green.
 
 ### Changed
 

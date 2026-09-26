@@ -120,8 +120,9 @@
     task lock for the whole panel, judges every recovery record of the task first,
     assigns n and NN to every member up front in roster order and writes each
     member's `reserved` record before any member starts; a member accepts its spec
-    only when that record names its panel, n, NN and the live parent, rewrites it
-    with its own pid as its first act, and commits under the write lock
+    only when that record names its panel, n, NN and parent, rewrites it with its
+    own pid and only then checks that the parent lives (a parent gone: the member
+    withdraws the record and stops, nothing started), and commits under the write lock
     (.consult.write.lock: re-read the stores, apply its own delta - the ledger stays
     sorted by n). A "weighty" entry joins only on framing, decision, core-contract,
     acceptance and stuck. Every member is shown the findings open when the panel
@@ -131,9 +132,11 @@
     every member produced a usable reply. Not with -Provider, -Thread or -Mode
     resume. TEST HOOKS: CODEX_CONSULT_TEST_SURVIVORS=<pid> makes a timeout kill
     report that live pid as a survivor; CODEX_CONSULT_TEST_WRITE_LOCK_SEC=<s>
-    shortens the 60 s write-lock wait; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=<ms> pauses
-    a commit between findings.json and sessions.json;
-    CODEX_CONSULT_TEST_PANEL_GUARD_SEC=<s> replaces a panel member's kill guard.
+    shortens the 60 s write-lock wait; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=<ms> (or
+    <model>=<ms>[|...]: the runs of that model only) pauses a commit between
+    findings.json and sessions.json; CODEX_CONSULT_TEST_PANEL_GUARD_SEC=<s> replaces a
+    panel member's kill guard; CODEX_CONSULT_TEST_MEMBER_PAUSE_MS=<ms> pauses a panel
+    member between the rewrite of its record and the check of its parent.
 
     Engines (0.4.0): the CLI that carries the consultation - `codex` (the default, all of
     the above) or `agy` (Google's Antigravity CLI for the Gemini models), chosen by -Engine or
@@ -505,6 +508,24 @@ function Find-ThreadInRollouts {
     return $found
 }
 
+# A TEST HOOK's milliseconds: "<ms>" for every run, or "<model>=<ms>[|<model>=<ms>...]" (with
+# "*=<ms>" for the other models) for the runs of $Model; 0 when unset or not for this model.
+function Get-TestHookMs {
+    param([string]$Value, [string]$Model)
+    if (-not $Value) { return 0 }
+    $pick = ''
+    foreach ($item in $Value.Split('|')) {
+        $eq = $item.IndexOf('=')
+        if ($eq -lt 0) { if ($item.Trim() -and -not $pick) { $pick = $item.Trim() }; continue }
+        $k = $item.Substring(0, $eq).Trim()
+        if ($k -ceq $Model) { $pick = $item.Substring($eq + 1).Trim(); break }
+        if ($k -eq '*') { $pick = $item.Substring($eq + 1).Trim() }
+    }
+    $ms = 0
+    if ([int]::TryParse($pick, [ref]$ms) -and $ms -gt 0) { return $ms }
+    return 0
+}
+
 function Format-Usage {
     param($Usage)
     if ($null -eq $Usage) { return 'unknown' }
@@ -850,10 +871,14 @@ $runStarted = Get-IsoTimestamp
 # A -Panel member (0.4.x wave 21). Its recovery record .consult.pending-<NN>.json was written
 # `reserved` by the panel run before it launched this member: that record - not the lock file -
 # is the member's proof of a live parent owning the task (D6). It must name this panel, this n
-# and NN and the parent (pid + start time, also as its writer), and that parent must be alive;
-# otherwise the member refuses, nothing started. Then, as its FIRST act, the member rewrites the
-# record with its own pid + start time (D1): from here on the record reads active for as long
-# as this process runs, whatever becomes of the parent. A dry-run member has no record.
+# and NN and the parent (pid + start time, also as its writer); otherwise the member refuses,
+# nothing started. Then the member rewrites the record with its own pid + start time (D1) and
+# only THEN checks that the parent is alive (F07-1, F11-6): from the rewrite on the record reads
+# active for as long as this process runs, and a parent that is gone at the check - even one that
+# died before the rewrite, when a new run may already have read the record as inactive - stops
+# the member right there, its record withdrawn, nothing started. A member that goes on had a
+# live parent AFTER its record named it, so there is no moment in which the record reads
+# inactive while the member runs. A dry-run member has no record.
 $pendingRecord = $null
 if ($panelMember) {
     $pendingPath = Get-MemberPendingPath -TaskDir $taskDir -Nn $memberNn
@@ -878,9 +903,6 @@ if ($panelMember) {
         if ($mismatch.Count -gt 0) {
             Stop-WithError "this panel member's recovery record '$pendingPath' does not match its spec ($($mismatch.ToArray() -join '; ')); this panel member was not started."
         }
-        if (-not (Test-PidAlive -ProcessId $memberParentPid -StartTime $memberParentStart)) {
-            Stop-WithError "the review panel run that launched this member (pid $memberParentPid) is gone; this panel member was not started (its recovery record '$pendingPath' is consumed by the next run)."
-        }
         $ownRecord.pid = $PID
         $ownRecord | Add-Member -NotePropertyName 'start_time' -NotePropertyValue ([string](Get-ProcessStartIso -ProcessId $PID)) -Force
         $ownRecord.host = [Environment]::MachineName
@@ -889,6 +911,14 @@ if ($panelMember) {
             Stop-WithError "could not rewrite this panel member's recovery record '$pendingPath': $(ConvertTo-OneLine $_.Exception.Message); this panel member was not started."
         }
         $pendingRecord = $ownRecord
+        # TEST HOOK: CODEX_CONSULT_TEST_MEMBER_PAUSE_MS=<ms> - a pause between the rewrite and the
+        # parent check (the harness kills the parent inside it).
+        $memberPause = 0
+        if ([int]::TryParse([string]$env:CODEX_CONSULT_TEST_MEMBER_PAUSE_MS, [ref]$memberPause) -and $memberPause -gt 0) { Start-Sleep -Milliseconds $memberPause }
+        if (-not (Test-PidAlive -ProcessId $memberParentPid -StartTime $memberParentStart)) {
+            $rmError = Remove-PendingFile -Path $pendingPath
+            Stop-WithError "the review panel run that launched this member (pid $memberParentPid) is gone; this panel member was not started - nothing was started and its recovery record '$pendingPath' $(if ($rmError) { "could not be withdrawn ($rmError; the next run consumes it)" } else { 'was withdrawn' })."
+        }
     }
 }
 
@@ -922,8 +952,8 @@ $harness = if ($codexVersion -match '^codex-cli\s') { $codexVersion } else { "co
 #   3. assigns n and NN to every member up front, in roster order (member k: n0 + k - 1,
 #      NN0 + k - 1), so the files and the ledger keep the roster order whatever finishes first;
 #   4. writes every member's `reserved` record (the panel, n, NN, this process as writer and
-#      parent) BEFORE it launches any member - a member proves its parent with it and
-#      rewrites it with its own pid as its first act (D6, D1);
+#      parent) BEFORE it launches any member - a member proves its parent with it, rewrites it
+#      with its own pid and only then checks that the parent lives (D6, D1, F07-1);
 #   5. launches the members as processes of their own (Start-Process; console output to files
 #      in a temp directory) along the plan of Get-PanelPlan - members of different endpoints at
 #      once, of one endpoint one after another unless the roster's "parallel" raises it,
@@ -982,6 +1012,12 @@ function Read-PanelMemberOutput {
 function Start-PanelMember {
     param($Slot)
     $pm = $Slot.Pm
+    # The members whose files this member's agy tree check leaves out (D7): deliberately the
+    # UNION of all other slots whenever the plan lets any two members run at once - not only
+    # those the scheduler can actually run beside this one (F11-5). That costs no evidence: an
+    # ignored path that did not change hides nothing, and one that changed was written by a
+    # member running meanwhile (or by this member's own reviewer - the D7 residual the README
+    # names: the ignored paths are the task's stores and the other members' handoff names).
     $siblings = @()
     if ($panelPlan.Effective -gt 1) { $siblings = @($panelSlots | Where-Object { $_.K -ne $Slot.K } | ForEach-Object { [string]$_.Nn }) }
     $spec = [pscustomobject]@{
@@ -1067,7 +1103,12 @@ function Get-PanelMemberStatus {
     if ($Slot.State -eq 'failed-start') { return "failed: could not start the member process - $($Slot.StartError)" }
     if ($DryRun) { if ($Slot.Exit -eq 0) { return 'planned' } else { return "refused: $(ConvertTo-OneLine $Slot.Refusal)" } }
     if ($null -ne $Slot.Entry) { return [string](Get-PropertyValue $Slot.Entry 'bridge_outcome' '') }
-    if ($Slot.RecordState -eq 'committing') { return "commit blocked: $(ConvertTo-OneLine ($Slot.Refusal -replace '^commit blocked:\s*', ''))" }
+    if ($Slot.RecordState -eq 'committing') {
+        # D3: the write lock never acquired (the member says so) - or stopped INSIDE its commit
+        # (a kill, a crash: its findings may be ORPHAN; the record names the kept reply)
+        if ($Slot.Refusal -match '^commit blocked:') { return "commit blocked: $(ConvertTo-OneLine ($Slot.Refusal -replace '^commit blocked:\s*', ''))" }
+        return "failed: stopped inside its commit (exit $($Slot.Exit)); findings it wrote have no ledger entry (ORPHAN)"
+    }
     return "failed: $(ConvertTo-OneLine $Slot.Refusal)"
 }
 
@@ -2191,6 +2232,7 @@ try {
             usage                           = $(if ($isCodex) { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n>'; output_tokens = '<n>'; reasoning_output_tokens = '<n>' } } else { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n (cache_read_tokens)>'; output_tokens = '<n>'; reasoning_output_tokens = '<n (thinking_tokens)>'; total_tokens = '<n>' } })
             wall_seconds                    = 0
             finished_at                     = '<written at the commit>'
+            commit_wait_ms                  = '<ms the commit waited for the write lock>'
         }
         Write-Host "DRY RUN - nothing was executed and no file was written." -ForegroundColor Yellow
         Write-Host ""
@@ -2869,21 +2911,24 @@ try {
     $preCommitState = [string]$pendingRecord.state
     $pendingRecord.state = 'committing'
     $pendingRecord.note = 'the run is over; committing under the write lock'
+    # The reply this commit is about is named in the record from here on: a commit that never
+    # completes - the write lock never had (D3), or the bridge stopped inside it (D4) - leaves a
+    # record that says where the reply is (Get-PendingOriginalNote).
+    $kept = New-Object System.Collections.Generic.List[string]
+    if ($replyJsonRel) {
+        $keptJson = Get-RepoRelativePath -Root $repoRoot -Path $replyJsonPath
+        if (-not $keptJson) { $keptJson = $replyJsonPath }
+        $pendingRecord | Add-Member -NotePropertyName 'reply_json' -NotePropertyValue $keptJson -Force
+        $kept.Add($keptJson)
+    } elseif ($isCodex -and (Test-Path -LiteralPath $lastMsgPath -PathType Leaf)) {
+        # (-Raw, or a reply that could not be copied) the last message is only in its temp file
+        $pendingRecord | Add-Member -NotePropertyName 'raw_reply' -NotePropertyValue $lastMsgPath -Force
+        $kept.Add($lastMsgPath)
+    }
     try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
     $commit = Enter-StoreCommit -TaskDir $taskDir -Task $Task -TimeoutSec (Get-WriteLockTimeout)
     if (-not $commit.Acquired) {
-        $kept = New-Object System.Collections.Generic.List[string]
-        if ($replyJsonRel) {
-            $keptJson = Get-RepoRelativePath -Root $repoRoot -Path $replyJsonPath
-            if (-not $keptJson) { $keptJson = $replyJsonPath }
-            $pendingRecord | Add-Member -NotePropertyName 'reply_json' -NotePropertyValue $keptJson -Force
-            $kept.Add($keptJson)
-        } elseif ($isCodex -and (Test-Path -LiteralPath $lastMsgPath -PathType Leaf)) {
-            # (-Raw, or a reply that could not be copied) the last message stays in its temp file
-            $keepLastMsg = $true
-            $pendingRecord | Add-Member -NotePropertyName 'raw_reply' -NotePropertyValue $lastMsgPath -Force
-            $kept.Add($lastMsgPath)
-        }
+        if ([string](Get-PropertyValue $pendingRecord 'raw_reply' '')) { $keepLastMsg = $true }
         if ([string](Get-PropertyValue $pendingRecord 'events' '')) { $kept.Add([string]$pendingRecord.events) }
         if ([string](Get-PropertyValue $pendingRecord 'original' '')) { $kept.Add([string]$pendingRecord.original) }
         $pendingRecord.note = "commit blocked: $($commit.Message); findings.json and sessions.json were not touched"
@@ -2892,6 +2937,9 @@ try {
         exit 1
     }
     $findingsStore = $commit.Findings
+    # How long this commit waited for the write lock (another commit of the task held it) -
+    # ledger commit_wait_ms, a console line when it waited at all (F11-3).
+    $commitWaitMs = [int]$commit.WaitedMs
 
     if ($parse -and $parse.Valid) {
         try {
@@ -3022,10 +3070,11 @@ try {
     if ($ingest -and $ingest.Changed) {
         Complete-StoreCommit -Commit $commit -Findings
     }
-    # TEST HOOK: CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=<ms> - a pause inside the commit, between
-    # findings.json and sessions.json (the ORPHAN window a kill can hit; write-lock contention).
-    $commitPause = 0
-    if ([int]::TryParse([string]$env:CODEX_CONSULT_TEST_COMMIT_PAUSE_MS, [ref]$commitPause) -and $commitPause -gt 0) { Start-Sleep -Milliseconds $commitPause }
+    # TEST HOOK: CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=<ms> | <model>=<ms>[|...] - a pause inside
+    # the commit, between findings.json and sessions.json (the ORPHAN window a kill can hit;
+    # write-lock contention); a map pauses only the runs of that model.
+    $commitPause = Get-TestHookMs -Value ([string]$env:CODEX_CONSULT_TEST_COMMIT_PAUSE_MS) -Model ([string]$identity.Model)
+    if ($commitPause -gt 0) { Start-Sleep -Milliseconds $commitPause }
 
     # ------------------------------------------------------------------------- 4. sessions.json
 
@@ -3099,6 +3148,7 @@ try {
         usage                           = $usage
         wall_seconds                    = $wallSeconds
         finished_at                     = (Get-IsoTimestamp)
+        commit_wait_ms                  = $commitWaitMs
     }
     # The FRESH ledger (re-read under the write lock): created when absent, the entry
     # inserted at its place by n (a panel member that finishes first still lands after the
@@ -3133,8 +3183,10 @@ try {
     if ($keepPending) {
         $pendingRecord.state = $preCommitState
         $pendingRecord.note = ''
-        # The ledger now holds this run's entry: the saved prose is no longer orphaned.
+        # The ledger now holds this run's entry: the saved prose / reply is no longer orphaned.
         if ($pendingRecord.PSObject.Properties['original']) { $pendingRecord.original = ''; $pendingRecord.first_reply = '' }
+        if ($pendingRecord.PSObject.Properties['reply_json']) { $pendingRecord.reply_json = '' }
+        if ($pendingRecord.PSObject.Properties['raw_reply']) { $pendingRecord.raw_reply = '' }
         $pendingRecord.events = ''
         try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
         $pendingNote = "recovery record kept: $pendingPath (state '$($pendingRecord.state)')"
@@ -3146,9 +3198,12 @@ try {
 
     # ------------------------------------------------------------------------- output
 
+    $commitWaitLine = ''
+    if ($commitWaitMs -gt 0) { $commitWaitLine = "write lock : waited $commitWaitMs ms for another commit of this task" }
     if ($bridgeOutcome -ne 'usable reply') {
         Write-Host "codex-consult: $bridgeOutcome (wall $wallSeconds s)" -ForegroundColor Red
         if ($pendingNote) { Write-Host "pending    : $pendingNote" -ForegroundColor Yellow }
+        if ($commitWaitLine) { Write-Host $commitWaitLine }
         foreach ($d in $driftLines) { Write-Host $d -ForegroundColor Yellow }
         Write-Host "reply file : $replyPath"
         if ($replyJsonRel) { Write-Host "reply json : $replyJsonPath" }
@@ -3192,6 +3247,7 @@ try {
         }
     }
     if ($pendingNote) { Write-Host "pending    : $pendingNote" -ForegroundColor Yellow }
+    if ($commitWaitLine) { Write-Host $commitWaitLine }
     foreach ($d in $driftLines) { Write-Host $d -ForegroundColor Yellow }
     Write-Host "reply file : $replyPath"
     if ($replyJsonRel) { Write-Host "reply json : $replyJsonPath" }
