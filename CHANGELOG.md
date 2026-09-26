@@ -6,7 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - candidate (not tagged)
+## [0.5.0] - candidate (not tagged)
+
+The next candidate. Planned: an automatic continuation turn after a timeout kill and a
+partial salvage, per-purpose default timeouts, one truth about availability (providers
+listing, roster walk, SessionStart line), non-blocking consultation (R12), adaptive companions
+and telemetry routing (R14-R16), host invariance (R13), opt-out telemetry (R17).
+
+## [0.4.0] - 2026-09-26
 
 Implements ROADMAP R10 (engines) with its first engine besides Codex, `agy` (Google's
 Antigravity CLI for the Gemini models), per the design round recorded in

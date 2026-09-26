@@ -2,7 +2,7 @@
   "name": "codex-consult",
   "displayName": "Codex Consult",
   "description": "Runs `codex exec` as a read-only reviewer from Claude Code and records each consultation as files (brief, verbatim reply, JSON ledger, findings tracked by id), with per-reviewer thread lineages, a fail-closed provider preflight, a reviewer roster, a review panel and a second engine (Gemini through Google's Antigravity CLI agy); needs PowerShell 5.1 or 7, git, and the Codex CLI signed in to ChatGPT or given a [model_providers] table whose env key the user sets (agy optional, signed in by the user).",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "xelth.com",
     "url": "https://xelth.com"
