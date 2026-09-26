@@ -22,3 +22,16 @@ TBH_CREDENTIAL_BACKEND=file, headless exec verified (see handoffs/01, "Verified 
 - Next: wave 23 implementation by the wave-21 implementer (fakes only), then a live smoke through
   the subscription and an acceptance panel.
 
+## Round 2 - wave 23 implemented, first live run (2026-09-26)
+
+- Wave 23 committed as f2c219a (a first implementer overflowed its context before editing; a
+  fresh one implemented D1-D16 and ran the full suite green - harness-muse 65 - then stopped on
+  the account's weekly model limit before writing its report; the CHANGELOG entry is its report).
+- Live smoke, n=4: `meta :: muse-spark-1.3-contributor [muse]` through the subscription - usable,
+  structured on the first turn (native schema), ADVISE "bridge argv spellings match the verified
+  facts", 76.7 s wall; harness `muse-cli 1.4.0-R4161.1`; the launcher found at the vendor install
+  path (the running session's PATH predates the install); preflight "signed in (auth.json:
+  providers.meta, mechanism oauth)"; engine_run turns 1, MSP schema 1; tree unchanged.
+- Roster: `meta :: muse-spark-1.3-contributor [muse]` (the maintainer's choice of the contributor
+  variant). Next: an acceptance panel on f2c219a.
+

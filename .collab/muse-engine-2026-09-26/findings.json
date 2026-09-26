@@ -63,7 +63,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -124,7 +131,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "New-MuseArgv now takes Turn.PromptFile/Schema/Model/Effort/MaxSteps/Thread; argv contract extended",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -185,7 +199,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -246,7 +267,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -303,7 +331,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -360,7 +395,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -422,7 +464,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -479,7 +528,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -528,7 +584,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -581,7 +644,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -643,7 +713,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -696,7 +773,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -758,7 +842,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -820,7 +911,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "quoting/percent-sign handling not examined read-only",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -881,7 +979,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -930,7 +1035,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -983,7 +1095,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1040,7 +1159,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1094,7 +1220,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1147,7 +1280,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1196,7 +1336,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1258,7 +1405,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1328,7 +1482,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "New-MuseArgv param is Turn with PromptFile; three prompt-file paths now reachable",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1398,7 +1559,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1451,7 +1619,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1513,7 +1688,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1575,7 +1757,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1637,7 +1826,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1703,7 +1899,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1764,7 +1967,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1813,7 +2023,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1866,7 +2083,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1915,7 +2139,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
@@ -1968,7 +2199,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-26T09:48:50+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "outside this checkpoint\u0027s two read scopes",
+                                                     "base_commit":  "f2c219a901162917acc38a9eee712d81cb99fa36",
+                                                     "tree_sha256":  "c287328b76ba1a530a70c0d4e37022903a67305d0e51f324bdcfba18d0c37372"
+                                                 }
                                              ]
                      },
                      {
