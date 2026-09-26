@@ -278,6 +278,26 @@ optional participant whose "done" is never trusted and who never closes a findin
   historical defects plus clean controls at a fixed budget) on an officially supported route;
   leaderboard rank is not that evidence. Consider replacing a role before adding a reviewer.
 
+- **R17 — Telemetry and complaints to the maintainer's intake, opt-in (planned for 0.5).** So
+  that the bridge can be improved when someone the maintainer never hears from uses it, a run
+  can report ONE anonymised event per consultation, and the operator can file a complaint, to
+  the maintainer's intake (`https://xelth.com/T/v2/...`, the "T-hub" spec kept in that site's
+  roadmap). Off by default; `CODEX_CONSULT_TELEMETRY=on` (or `-Telemetry on|off` per run)
+  switches it; the SessionStart line and the dry run say whether it is on. The event, sent after
+  the ledger commit from a local spool (`<codex home>/telemetry-spool/`, NDJSON, sent in the
+  background with a 3 s timeout and retried on the next run, dropped after 7 days - never
+  blocking a consultation): `app_id` (`codex-consult`, `c3` from 1.0.0), the plugin version, an
+  instance id (`sha256(salt file + machine name)`), `event_type: consultation`, severity, and
+  `details` = engine, provider label, model, purpose, outcome class (`usable`, `failed:<class>`),
+  wall seconds, token counts, findings counts, structured or not, a format retry or not, panel
+  size, PowerShell version, OS. NEVER: task names, prompts, briefs, paths, thread ids, finding
+  texts, keys. `codex-consult.ps1 -Complain "<text>"` prints the exact payload (the text plus the
+  last ledger entry's summary), asks for confirmation unless `-Yes`, sends it and prints the
+  `public_ref` to quote. Tests with a local fake endpoint only (never the real intake in a
+  harness). README "Telemetry (opt-in)" with the exact payload and the privacy statement.
+  Non-goals: any identifying data, any send without the switch, any send that can slow or fail
+  a run.
+
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
 - **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a
