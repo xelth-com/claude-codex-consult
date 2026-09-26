@@ -362,6 +362,11 @@ amendments A1-A20 and the facts F11/F12).
   repository (reads are outside the tree check's evidence). A keychain sign-in cannot be
   checked or its mechanism read (the file backend is required for a checked run). One Meta
   sign-in is one endpoint; a lineage does not bind the signed-in account (T7).
+- Wave 23 live evidence (task `muse-engine-2026-09-26`, n=4): `meta ::
+  muse-spark-1.3-contributor [muse]` through the Muse Code subscription - usable, structured on
+  the first turn, 76.7 s; harness `muse-cli 1.4.0-R4161.1`, the launcher found at the vendor
+  install path, sign-in checked (mechanism oauth), one turn, MSP schema 1, tree unchanged. This
+  covers the real `muse.cmd` -> launcher -> binary chain the fake cannot.
 - Wave 21 (accepted in the decisions): an agy panel member does not catch its own
   reviewer writing its task's `findings.json`/`sessions.json` while members run at the same
   time (F02-2's other half: a consultation on ANOTHER task committing during an agy run
