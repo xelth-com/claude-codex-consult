@@ -154,9 +154,11 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   `muse-spark-1.3-contributor`): the effort goes as `--reasoning-effort`; the default mode is
   `new`; files `handoffs/<NN>-muse-<slug>.*`; no denial retry; `-MaxModelSteps <n>` caps its
   model steps (muse only). A muse run is REFUSED while `META_API_KEY` or `MODEL_API_KEY` is
-  set (it would bill per token) - also under `-SkipPreflight`; never set or unset them
-  yourself, tell the user. Its sign-in is `~/.config/muse/auth.json` (the user runs `muse
-  login` with `TBH_CREDENTIAL_BACKEND=file`); never read that file. The same read-only tree
+  set (it would bill per token), and while no oauth sign-in is established (the keychain
+  backend, no `auth.json`, no mechanism: `the Muse sign-in is not established as oauth
+  (<cause>): ...`) - also under `-SkipPreflight`, in the roster walk and in a panel; never set
+  or unset those variables and never sign in yourself, tell the user (`TBH_CREDENTIAL_BACKEND=file`,
+  then `muse login`). Its sign-in is `~/.config/muse/auth.json`; never read that file. The same read-only tree
   check as agy applies. `-EngineExe <path>` names the launcher of the selected engine
   (`-Engine`'s, else the roster's only engine other than codex).
 - `-NativeEffort <value>` — send an effort value verbatim when the resolved provider's
@@ -227,7 +229,8 @@ cited location, run the build, run the test. Codex proposes; you verify and deci
 A reviewer may answer in plain prose instead of the requested JSON object (most often on
 a route that does not enforce the schema: z.ai, or a `prompt-only` route such as MiMo).
 With `-FormatRetry 1` (the default) the bridge then spends ONE recorded repair turn on
-the same thread when the prose is substantive; when the repair was not attempted
+the same thread when the prose is substantive (in the run's own schema transport - ledger
+`format_retry.schema_transport`); when the repair was not attempted
 (`format_retry` is `null` and `validation_error` says why) or failed, the prose is kept
 with no verdict and no findings, which is not a bridge failure. Only then re-ask once,
 explicitly asking it to "return the JSON object", if you need this consultation's

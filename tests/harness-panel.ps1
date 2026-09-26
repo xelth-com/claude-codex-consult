@@ -5,8 +5,9 @@
 # (reviewer checks of three members on one prior finding), per-member recovery records (the
 # writer's liveness, no name rule for member records, several leftovers), the task lock held for
 # the whole panel, the member's proof of its parent (D6) and its re-check before launching (D1),
-# an agy member beside committing siblings (D7), the parent killed mid-panel, a timeout with
-# survivors, the kill guard (D11), a commit blocked by a held write lock (D3), a kill inside the
+# an agy member beside committing siblings (D7), the parent killed mid-panel, a member's timeout
+# kill without survivors (no orphan process, no kept record - wave 23b) and with survivors, the
+# kill guard (D11), a commit blocked by a held write lock (D3), a kill inside the
 # commit (ORPHAN, D4/F03-11), Get-EndpointHealth by completion (D9). FAKES ONLY: fake-codex3.cmd
 # (CODEX_CONSULT_EXE and -CodexExe) and fake-agy.cmd (CODEX_CONSULT_AGY_EXE); CODEX_HOME and
 # CODEX_CONSULT_ROSTER point at scratch files; the API key variables hold dummy test values.
@@ -78,7 +79,7 @@ function Write-Roster {
     [IO.File]::WriteAllText($p, $Json, $u8)
     return $p
 }
-$fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_PIDFILE', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_LOGIN_DELAY_MS', 'FAKE_CODEX_FAIL_ON', 'FAKE_CODEX_HANG_ON', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_REPLY_MAP', 'FAKE_CODEX_SLEEP', 'FAKE_AGY_REPLY', 'FAKE_AGY_WRITE', 'FAKE_AGY_DELAY_MS', 'FAKE_AGY_STATUS', 'FAKE_AGY_ERROR', 'FAKE_AGY_PIDFILE')
+$fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_PIDFILE', 'FAKE_CODEX_PIDDIR', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_LOGIN_DELAY_MS', 'FAKE_CODEX_FAIL_ON', 'FAKE_CODEX_HANG_ON', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_REPLY_MAP', 'FAKE_CODEX_SLEEP', 'FAKE_AGY_REPLY', 'FAKE_AGY_WRITE', 'FAKE_AGY_DELAY_MS', 'FAKE_AGY_STATUS', 'FAKE_AGY_ERROR', 'FAKE_AGY_PIDFILE')
 $testVars = @('RT_ZAI_KEY', 'RT_MIMO_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_AGY_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_SURVIVORS', 'CODEX_CONSULT_TEST_WRITE_LOCK_SEC', 'CODEX_CONSULT_TEST_COMMIT_PAUSE_MS', 'CODEX_CONSULT_TEST_PANEL_GUARD_SEC', 'CODEX_CONSULT_TEST_MEMBER_PAUSE_MS')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
@@ -417,6 +418,19 @@ if (Want 'INFLIGHT') {
 
 # =============================================================== TIMEOUT: survivors keep the member's record; the others are not stopped
 if (Want 'TIMEOUT') {
+    # (wave 23b) the plain timeout kill of a member - no survivors: its process tree is gone
+    # (no orphan fake codex: every exec turn's pid, checked with its start time) and its
+    # recovery record is removed (nothing kept)
+    $rc = New-Repo 'timeout-clean'
+    $pidDir = Join-Path $work 'timeout-clean-pids'
+    [void][IO.Directory]::CreateDirectory($pidDir)
+    $q = Consult $rc $roster3 @('-Panel', '-Prompt', 'x', '-ReplyName', 'c', '-TimeoutSec', '5') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""'; FAKE_CODEX_PIDDIR = $pidDir }
+    $qled = @(Ledger $rc)
+    $fakes = @(Get-ChildItem -LiteralPath $pidDir -Filter '*.pid' | ForEach-Object { $parts = @(([IO.File]::ReadAllText($_.FullName)).Trim() -split ' '); [pscustomobject]@{ Id = [int]$parts[0]; Ticks = [long]$parts[1] } })
+    # (alive = that pid runs a process started within 2 s of the recorded start: not a reused pid)
+    $alive = @($fakes | Where-Object { $gp = Get-Process -Id $_.Id -ErrorAction SilentlyContinue; $gp -and [Math]::Abs($gp.StartTime.ToUniversalTime().Ticks - $_.Ticks) -lt (2 * [TimeSpan]::TicksPerSecond) })
+    $qrecs = Records $rc   # (the array itself: Records returns it with the unary comma - never @() it)
+    Check 'TIMEOUT' 'a member''s timeout kill with NO survivors (wave 23b): "failed: timeout after 5 s (process tree killed)" and no survivor clause, members 1 and 3 usable, exit 1; no orphan: none of the 3 exec turns'' fake codex processes is alive; no recovery record kept' ($q.Code -eq 1 -and $qled.Count -eq 3 -and $qled[0].bridge_outcome -eq 'usable reply' -and $qled[1].bridge_outcome -eq 'failed: timeout after 5 s (process tree killed)' -and $qled[2].bridge_outcome -eq 'usable reply' -and $fakes.Count -eq 3 -and $alive.Count -eq 0 -and @($qrecs).Count -eq 0) "$(if ($qled.Count -gt 1) { $qled[1].bridge_outcome }) | fakes $($fakes.Count), alive $($alive.Count), records $(@($qrecs).Count)$(foreach ($qr in $qrecs) { " [$($qr.Name): state $($qr.Record.state), n $($qr.Record.n), note $($qr.Record.note)]" })"
     $r = New-Repo 'timeout'
     $sleeper = Start-Sleeper 180
     try {

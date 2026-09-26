@@ -40,7 +40,10 @@
     drift notes compare the two (RC ids, numbered answers, finding ids, verdict, every
     prose sentence of >= 60 characters, at most the 40 longest). Ledger format_retry {attempted, reason, succeeded, thread,
     wall_seconds, usage, drift[], original, events (the repair turn's event stream when
-    one is kept - agy; null for codex)} after validation_error (null otherwise);
+    one is kept - agy, muse; null for codex), schema_transport (wave 23b: the repair
+    turn's transport - codex: prompt-only, it never passes --output-schema; agy and muse:
+    the main turn's, native or prompt-only - a prompt-only run's repair passes no schema
+    flag, the schema travels in the repair prompt)} after validation_error (null otherwise);
     console "format repair: <succeeded|failed> in <s> s; drift: <n> note(s)".
 
     Reviewer identity and lineage (0.3.0): the provider and the model are what Codex
@@ -145,7 +148,9 @@
     ratings, panel, scoreboard, preflight, lock and recovery record as a codex run; every turn
     of such an engine (the main turn, a denial retry, a format repair) goes through the
     engine's adapter (argv from one turn-options object, its own prompt file, its own stream
-    parser and failure rules). What differs for agy:
+    parser and failure rules) in the main turn's schema transport (wave 23b: a prompt-only
+    run's secondary turns pass no schema flag either; the schema travels in their prompt).
+    What differs for agy:
       * argv `agy -p= --input-format stream-json --output-format stream-json --model <m>
         [--json-schema <schema>] --print-timeout 0 --sandbox --disable-slash-commands
         [--conversation <thread>] [--effort <v>]`; the prompt is ONE NDJSON line
@@ -189,19 +194,28 @@
         '%' in an argument (a TEMP path) is refused before launch (cmd.exe would expand it)
       * the stream is MSP JSONL, schema_version 1 only: the reply is the text of the ONE
         run_terminal record, the thread the ONE session stream id; run.model.configured
-        must name the requested model (else "model drift", class capability); no token usage
+        must name the requested model (else "model drift", class capability); no token usage;
+        (wave 23b) the evidence is bound to the session stream and the ONE run it links
+        (session.run.linked): a run.model.configured record off the session stream or of
+        another run, a second linked run or a completed terminal of another run is
+        "ambiguous provenance" - a malformed stream (class transport)
       * effort: vocabulary muse (mapping muse-v1: low medium high xhigh as is) for the
         declared models muse-spark-1.3 and muse-spark-1.3-contributor, sent as
         --reasoning-effort; -MaxModelSteps <n> sends --max-model-steps
-      * billing, a launch invariant that -SkipPreflight never bypasses: META_API_KEY or
-        MODEL_API_KEY set, or a credential mechanism other than oauth, refuses the run (a
+      * billing, a launch invariant that -SkipPreflight never bypasses (fail-closed since
+        wave 23b): a muse run needs an ESTABLISHED oauth sign-in - META_API_KEY or
+        MODEL_API_KEY set, a credential mechanism other than oauth, or no mechanism
+        established at all (the keychain backend, no auth.json, no providers.meta, no
+        mechanism: "the Muse sign-in is not established as oauth (<cause>): ...; set
+        TBH_CREDENTIAL_BACKEND=file and run `muse login`") refuses the run, the dry run too (a
         roster walk or a panel skips the entry: "refused: ..."); ledger
-        reviewer.provider_config.credential_mechanism
+        reviewer.provider_config.credential_mechanism (oauth)
       * preflight: ~/.config/muse/auth.json must hold providers.meta with a mechanism (key
         names and the mechanism only; missing: "run `muse login`"); the keychain backend is
-        not checkable -> refused unless -SkipPreflight
+        not checkable - both states are refused at launch already (the billing guard)
       * no denial retry (the write, shell and web tools are off); a format repair continues
-        the session (--session-id); each turn is one subscription prompt (ledger
+        the session (--session-id) in the main turn's transport (--output-schema only on a
+        native run; ledger format_retry.schema_transport); each turn is one subscription prompt (ledger
         engine_run.turns); the harness is muse-cli <version> (.muse-version next to the
         launcher, else --version); engine_run.msp_schema_version
       * exit 2 (usage error) and a step-cap stop are class capability, 130/143 transport,
@@ -2313,7 +2327,7 @@ try {
             schema_transport                = $schemaTransport
             schema_transport_source         = $schemaTransportSource
             validation_error                = $(if ($Raw) { '' } else { '<"" or the first validation error>' })
-            format_retry                    = $(if (-not $repairEnabled) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events} after a format-repair turn>' })
+            format_retry                    = $(if (-not $repairEnabled) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events, schema_transport} after a format-repair turn>' })
             denial_retry                    = $(if (-not $engineSpec.DenialRetry -or $DenialRetry -ne 1) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, events} after a denial-retry turn>' })
             base_commit                     = $revBefore.base_commit
             reviewed_revision               = $revBefore.reviewed_revision
@@ -2755,12 +2769,19 @@ try {
                 $retryParts.Add($promptParts[0])
                 $retryParts.Add("Your previous turn produced no output: $toolText was auto-denied $permText. Do NOT call it again; answer from what you have read, as the JSON object.")
                 $retryParts.Add(($schemaLines -join $nl))
+                # (wave 23b) a prompt-only run: no schema flag on this turn either - the schema
+                # travels in the retry prompt, as in the main turn's
+                if ($schemaTransport -eq 'prompt-only') {
+                    $retrySchemaText = ([IO.File]::ReadAllText($schemaPath, $script:Utf8NoBom).Trim() -replace "`r`n", "`n") -replace "`n", $nl
+                    $retryParts.Add("JSON Schema of the reply:$nl$retrySchemaText")
+                }
             } else {
                 $retryParts.Add("Your previous turn produced no output: $toolText was auto-denied $permText. Do NOT call it again; answer from what you have read.")
             }
             $retryParts.Add("Consultation id: $consultId")
             $retryPrompt = [string]::Join("$nl$nl", $retryParts.ToArray())
-            $retrySchemaArg = if (-not $Raw) { $schemaPath } else { '' }
+            # the main turn's schema transport (wave 23b): the engine's schema flag on a native run only
+            $retrySchemaArg = if (-not $Raw -and $schemaTransport -eq 'native') { $schemaPath } else { '' }
             $retryOpts = New-EngineTurnOptions -Model $identity.Model -Mode 'denial-retry' -Thread $threadId -PromptFile $denialPromptPath -Schema $retrySchemaArg -Effort $effortSent -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps
             $retryArgv = & $engineSpec.Adapter.Argv -Turn $retryOpts
             $retryEventsName = "$nn-$enginePrefix-$ReplyName.denial-retry.events.jsonl"
@@ -2865,6 +2886,12 @@ try {
         $repairPrompt = 'Your last message was prose, not the required JSON. Reply with exactly one bare JSON object satisfying the JSON Schema below - no fence, nothing before or after it. Convert, do not re-answer: copy your previous content unchanged (the same Q1..Qn answers verbatim inside reply_markdown, the same findings, the same Requested checks, the same prior-finding statuses and the same verdict); add or omit nothing.' +
             "$nl$nl" + "JSON Schema of the reply:$nl$repairSchema" + "$nl$nl" + "Consultation id: $consultId"
         $repairTimeout = [Math]::Min($TimeoutSec, 300)
+        # (wave 23b, F09-2 of the muse acceptance) the repair turn's schema transport: codex
+        # never passes --output-schema on it (prompt-only); an engine uses the main turn's
+        # transport - native: the schema flag; prompt-only: no schema flag, the schema travels
+        # in the repair prompt below as it did in the main turn's. Ledger
+        # format_retry.schema_transport.
+        $repairTransport = $(if ($isCodex) { 'prompt-only' } else { $schemaTransport })
         # format_retry.events (F09-2): the repair turn's event stream when one is kept
         # (agy: handoffs/NN-agy-<slug>.repair.events.jsonl); codex's goes to a temp file that
         # is removed - null (the codex file layout is unchanged).
@@ -2947,15 +2974,16 @@ try {
             if (-not $repairProblem -and -not $repairRaw) { $repairProblem = 'empty reply' }
         } else {
             # An engine (agy, muse): the same repair prompt on the same conversation / session
-            # (agy --conversation, muse --session-id), with the schema natively, through the
-            # engine's adapter (wave 23, D2); the turn must come back on THAT thread (A12) - a
+            # (agy --conversation, muse --session-id), with the schema in the main turn's
+            # transport (native: the engine's schema flag; prompt-only: none - wave 23b), through
+            # the engine's adapter (wave 23, D2); the turn must come back on THAT thread (A12) - a
             # repair in a fresh one has no "last message" to convert and would invent one. At
             # most once; only after a usable reply (never after a quota, auth or billing failure).
             $originalRepoRel = Get-RepoRelativePath -Root $repoRoot -Path $originalFull
             if (-not $originalRepoRel) { $originalRepoRel = $originalFull }
             $pendingRecord | Add-Member -NotePropertyName 'original' -NotePropertyValue $originalRepoRel -Force
             $pendingRecord | Add-Member -NotePropertyName 'first_reply' -NotePropertyValue 'usable prose (format repair in progress)' -Force
-            $repairOpts = New-EngineTurnOptions -Model $identity.Model -Mode 'format-repair' -Thread $threadId -PromptFile $repairPromptPath -Schema $schemaPath -Effort (Get-RepairEffort -Identity $identity -EffortPlan $effortPlan) -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps
+            $repairOpts = New-EngineTurnOptions -Model $identity.Model -Mode 'format-repair' -Thread $threadId -PromptFile $repairPromptPath -Schema $(if ($repairTransport -eq 'native') { $schemaPath } else { '' }) -Effort (Get-RepairEffort -Identity $identity -EffortPlan $effortPlan) -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps
             $repairArgv = & $engineSpec.Adapter.Argv -Turn $repairOpts
             $repairEventsName = "$nn-$enginePrefix-$ReplyName.repair.events.jsonl"
             $repairEngineEvents = Join-Path $handoffsDir $repairEventsName
@@ -2998,15 +3026,16 @@ try {
             $validationError = "$validationError (format repair failed: $(ConvertTo-OneLine $repairProblem))"
         }
         $formatRetryRecord = [pscustomobject]@{
-            attempted    = $true
-            reason       = $repairReason
-            succeeded    = $repairedOk
-            thread       = $repairThread
-            wall_seconds = $repairWall
-            usage        = $repairUsage
-            drift        = [object[]]$drift.ToArray()
-            original     = $originalRel
-            events       = $repairEventsRel
+            attempted        = $true
+            reason           = $repairReason
+            succeeded        = $repairedOk
+            thread           = $repairThread
+            wall_seconds     = $repairWall
+            usage            = $repairUsage
+            drift            = [object[]]$drift.ToArray()
+            original         = $originalRel
+            events           = $repairEventsRel
+            schema_transport = $repairTransport
         }
         $repairConsole = "format repair: $(if ($repairedOk) { 'succeeded' } else { 'failed' }) in $repairWall s; drift: $($drift.Count) note(s)"
     }

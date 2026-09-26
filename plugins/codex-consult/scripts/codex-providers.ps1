@@ -38,7 +38,9 @@
                    "ok: signed in (...mechanism oauth)", "missing: not signed in: ...",
                    "unknown: sign-in not checkable: ..." (the keychain backend). A muse row
                    whose launch the billing guard refuses (META_API_KEY or MODEL_API_KEY set,
-                   or a mechanism other than oauth) is "unavailable (refused: ...)"
+                   a mechanism other than oauth, or - wave 23b - no oauth sign-in established:
+                   the keychain backend, no auth.json, no mechanism) is "unavailable (refused:
+                   ...)"
       effort       the effort vocabulary DECLARED for the endpoint (capability table
                    caps-v1): openai (built-in openai, any model), zai (api.z.ai /
                    open.bigmodel.cn), mimo (*.xiaomimimo.com token-plan / api hosts) -

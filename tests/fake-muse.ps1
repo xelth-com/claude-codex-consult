@@ -35,6 +35,13 @@
 #   FAKE_MUSE_SCHEMA_VERSION=<n>  every record's schema_version (default 1)
 #   FAKE_MUSE_TWOTERMINALS=1      two run_terminal records;  FAKE_MUSE_NOTERMINAL=1: none
 #   FAKE_MUSE_TERMINAL_STREAM=run the terminal record on a run stream (off the session)
+#   (wave 23b, F09-3 - the provenance of the evidence; every record names its run in
+#   payload.run_stream {kind run, id}, like the real CLI's)
+#   FAKE_MUSE_LINK=none | task | two  no session.run.linked record | that record on a task
+#                                 (sub-)stream | a second one linking ANOTHER run
+#   FAKE_MUSE_MODEL_STREAM=task   the run.model.configured record on a task (sub-)stream
+#   FAKE_MUSE_MODEL_RUN=other     the run.model.configured record names ANOTHER run stream
+#   FAKE_MUSE_TERMINAL_RUN=other  the run_terminal record names ANOTHER run stream
 #   FAKE_MUSE_PARTIAL=1           a truncated JSON line after the terminal (no newline)
 #   FAKE_MUSE_WRITE=<rel path>    writes that file (relative to the working directory) on a
 #                                 turn without --session-id (=<path>|all: on every turn)
@@ -144,13 +151,16 @@ $schemaVersion = 1
 if ($env:FAKE_MUSE_SCHEMA_VERSION) { $schemaVersion = [int]$env:FAKE_MUSE_SCHEMA_VERSION }
 $script:seq = 0
 $script:streamId = $session
+# a sub-stream (a task stream) and another run - the F09-3 knobs' foreign provenance
+$subStream = [guid]::NewGuid().ToString()
+$otherRun = [pscustomobject][ordered]@{ kind = 'run'; id = [guid]::NewGuid().ToString() }
 function Rec {
     param([string]$RecordType, [string]$PayloadType, $Payload, [string]$Durability = 'durable', [string]$StreamKind = 'session')
     $script:seq++
     $o = [pscustomobject][ordered]@{
         schema_version         = $schemaVersion
         id                     = ('018f0000-0000-7000-8000-{0:x12}' -f (50000 + 2 * $script:seq))
-        stream                 = [pscustomobject][ordered]@{ kind = $StreamKind; id = $(if ($StreamKind -eq 'session') { $script:streamId } else { $command }) }
+        stream                 = [pscustomobject][ordered]@{ kind = $StreamKind; id = $(if ($StreamKind -eq 'session') { $script:streamId } elseif ($StreamKind -eq 'task') { $subStream } else { $command }) }
         sequence               = $script:seq
         recorded_at            = [long]1780531400000000 + 2 * $script:seq
         record_type            = $RecordType
@@ -181,10 +191,15 @@ function Task-Records {
 Err-Bytes "muse: workspace root: $((Get-Location).Path) (cwd default)"
 Err-Bytes 'muse: Agent delegation: auto unavailable: workspace is untrusted.'
 Rec 'reconciliation' 'runtime.command.accepted' ([pscustomobject][ordered]@{ kind = 'command_accepted'; command_id = $command; client_id = $null; command_kind = 'turn.submit' })
-Rec 'event' 'session.run.linked' ([pscustomobject][ordered]@{ kind = 'session_run_linked'; command_id = $command; run_stream = $runStream })
+if ($env:FAKE_MUSE_LINK -ne 'none') {
+    Rec 'event' 'session.run.linked' ([pscustomobject][ordered]@{ kind = 'session_run_linked'; command_id = $command; run_stream = $runStream }) 'durable' $(if ($env:FAKE_MUSE_LINK -eq 'task') { 'task' } else { 'session' })
+    if ($env:FAKE_MUSE_LINK -eq 'two') { Rec 'event' 'session.run.linked' ([pscustomobject][ordered]@{ kind = 'session_run_linked'; command_id = $command; run_stream = $otherRun }) }
+}
 if ($env:FAKE_MUSE_NOMODEL -ne '1') {
     $served = if ($env:FAKE_MUSE_MODEL) { $env:FAKE_MUSE_MODEL } else { $model }
-    Rec 'event' 'run.model.configured' (P 'run_model_configured' @{ provider_id = 'meta'; profile_id = 'tbh'; model_id = $served; display_label = $served; source = 'startup' })
+    $mp = P 'run_model_configured' @{ provider_id = 'meta'; profile_id = 'tbh'; model_id = $served; display_label = $served; source = 'startup' }
+    if ($env:FAKE_MUSE_MODEL_RUN -eq 'other') { $mp.run_stream = $otherRun }
+    Rec 'event' 'run.model.configured' $mp 'durable' $(if ($env:FAKE_MUSE_MODEL_STREAM -eq 'task') { 'task' } else { 'session' })
 }
 $shown = if ($promptText.Length -gt 200) { $promptText.Substring(0, 200) } else { $promptText }
 Rec 'status' 'turn.input.user' (P 'turn_input_user' @{ prompt = $shown }) 'ephemeral'
@@ -220,6 +235,7 @@ if ($env:FAKE_MUSE_NOTERMINAL -ne '1') {
     $reason = $null
     if ($env:FAKE_MUSE_REASON) { $reason = $env:FAKE_MUSE_REASON }
     $tp = P 'run_terminal' @{ terminal = $terminal; text = $(if ($terminal -eq 'completed') { $text } else { $null }); reason = $reason }
+    if ($env:FAKE_MUSE_TERMINAL_RUN -eq 'other') { $tp.run_stream = $otherRun }
     $kind = if ($env:FAKE_MUSE_TERMINAL_STREAM -eq 'run') { 'run' } else { 'session' }
     Rec 'event' "run.terminal.$terminal" $tp 'durable' $kind
     if ($env:FAKE_MUSE_TWOTERMINALS -eq '1') { Rec 'event' "run.terminal.$terminal" $tp 'durable' $kind }

@@ -31,6 +31,9 @@
 #                                the reply of a turn of that `-m` model (instead of
 #                                FAKE_CODEX_REPLY; a `resume` turn keeps FAKE_CODEX_RESUME_REPLY)
 #   FAKE_CODEX_LOGIN_DELAY_MS=<ms>  `login status` answers after that long
+#   FAKE_CODEX_PIDDIR=<dir>      every exec turn writes <dir>\<pid>.pid ("<pid> <start time,
+#                                UTC ticks>"): one file per process - the members of a
+#                                parallel panel never share one (the no-orphan checks)
 $ErrorActionPreference = 'Stop'
 $raw = [string]$env:FAKE_CODEX_ARGS
 # "<model>=<value>|..." -> the value for $Key ('*' or a bare value: the default; $null: none)
@@ -87,6 +90,7 @@ if ($resumeOf -and $env:FAKE_CODEX_RESUME_LOG) {
     Write-FakeFile $env:FAKE_CODEX_LOG "ARGS: $raw`nPROMPT:`n$prompt"
 }
 if ($env:FAKE_CODEX_PIDFILE) { Write-FakeFile $env:FAKE_CODEX_PIDFILE "$PID" }
+if ($env:FAKE_CODEX_PIDDIR) { Write-FakeFile (Join-Path $env:FAKE_CODEX_PIDDIR "$PID.pid") "$PID $((Get-Process -Id $PID).StartTime.ToUniversalTime().Ticks)" }
 $tid = [guid]::NewGuid().ToString()
 if ($resumeOf -and -not $env:FAKE_CODEX_RESUME_NEWTHREAD) { $tid = $resumeOf }
 if ($env:FAKE_CODEX_PRELINE) { [Console]::Out.Write($env:FAKE_CODEX_PRELINE + "`n") }

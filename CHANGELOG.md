@@ -249,14 +249,16 @@ amendments A1-A20 and the facts F11/F12).
     classifier (quota wording -> quota with `retry_after`). The two informational stderr lines
     every `muse exec` prints never become a failure's detail.
   - **Billing is a launch invariant (D4):** `META_API_KEY` or `MODEL_API_KEY` in the
-    environment, or a credential mechanism other than `oauth`, refuses a muse run - also under
+    environment, or a credential mechanism other than `oauth`, refuses a muse run (fail-closed
+    since wave 23b: no ESTABLISHED oauth sign-in refuses it too, see below) - also under
     `-SkipPreflight`; the roster walk and `-Panel` skip the entry (`refused: ...`), it is
     checked again right before every launch (the main turn and `Invoke-EngineTurn`), and
     `codex-providers.ps1` shows the row `unavailable (refused: ...)`. Names only, never a value.
     Ledger `reviewer.provider_config.credential_mechanism`.
   - **Sign-in (D5):** with `TBH_CREDENTIAL_BACKEND=file` the preflight reads
     `~/.config/muse/auth.json` for `providers.meta` and its `mechanism` only (ok / missing /
-    unknown; the keychain backend is "not checkable" and refused unless `-SkipPreflight`); the
+    unknown; the keychain backend is "not checkable"; since wave 23b missing and unknown refuse
+    the launch itself, `-SkipPreflight` included); the
     check is local, so it also runs under `-NoNetwork` (the SessionStart hook).
   - **Launcher (D3):** `-EngineExe` is bound to the SELECTED engine other than codex (-Engine's,
     else the -Provider's roster entry's, else the only such engine of the roster; ambiguous or
@@ -294,6 +296,62 @@ amendments A1-A20 and the facts F11/F12).
     otherwise).
   - Docs: README ("Engines (wave 23)", the ledger, preflight, providers, caps-v1, roster and
     options tables, the D12 boundary), `setup-providers` 3f.
+
+- **Wave 23b — fixes from the muse engine's acceptance panel** (task `muse-engine-2026-09-26`,
+  round 3: panel df203d79 on f2c219a; mimo-v2.6-pro's HOLD with F09-1..3):
+  - **F09-1 (major) — the billing guard is fail-closed.** `Get-MuseLaunchBlock` refused only a
+    KNOWN mechanism other than `oauth`: with the keychain backend, or a `providers.meta` without
+    a `mechanism`, the mechanism was empty, nothing was refused, and `-SkipPreflight` could
+    launch a run that might bill per token. A muse launch now requires an ESTABLISHED oauth
+    sign-in: the keychain backend, no home, no or an unreadable `auth.json`, no
+    `providers.meta` or no `mechanism` refuse it, naming the cause and the remedy (`` the Muse
+    sign-in is not established as oauth (<cause>): a muse run might bill per token instead of
+    the Muse Code subscription; set TBH_CREDENTIAL_BACKEND=file and run `muse login` ``) - under
+    `-SkipPreflight`, in a dry run, in the roster walk, in panel members and in
+    `codex-providers.ps1`'s listing (`unavailable (refused: ...)`), exactly like the API-key
+    refusal. No override flag. `Get-MuseCredentialInfo` gains `Cause` (the reason without its
+    remedy); ledger `credential_mechanism` is `oauth` in every entry now.
+  - **F09-2 (major) — the secondary turns keep the main turn's schema transport.** An engine's
+    format-repair turn passed the schema natively (`--output-schema` for muse, `--json-schema`
+    for agy) even on a `prompt-only` run; it now uses the main turn's transport (prompt-only: no
+    schema flag, the schema travels in the repair prompt, as in the main turn's). agy's
+    denial-retry turn had the same defect and is fixed the same way (its prompt then carries the
+    schema). Ledger `format_retry.schema_transport` (new, after `events`) states the repair
+    turn's transport: codex `prompt-only` (its repair never passes `--output-schema`,
+    unchanged), an engine the main turn's.
+  - **F09-3 (minor) — MSP evidence provenance.** `Read-MuseEvents` binds the evidence: the
+    session is the ONE stream of kind `session`; its run is the ONE run stream the
+    `session.run.linked` records on that stream name (new field `RunStream`); every
+    `run.model.configured` record must sit on the session stream and name that run in
+    `payload.run_stream`, and so must a completed `run_terminal`. A link off the session stream
+    or naming no run, two linked runs, a model record on a sub-stream, of another run or with no
+    run linked, a reply of another run -> `malformed event stream: ambiguous provenance: ...`
+    (class transport, fail closed; the session a candidate only). These are the real CLI's
+    shapes (every record on the session stream, the run named in the payload): the three probe
+    streams and both live streams of the task (214 and 1762 records) parse unchanged.
+  - **A member's timeout kill leaves nothing behind:** harness-panel TIMEOUT now also asserts
+    the plain case (no survivors): no orphan fake codex (every exec turn's pid, checked with its
+    start time - fake-codex3's new `FAKE_CODEX_PIDDIR`) and no recovery record.
+  - **A latent harness flake fixed:** harness-muse's scratch home had no `AppData\Local`, so
+    Windows PowerShell 5.1's `GetFolderPath(LocalApplicationData)` was empty there and a
+    long-lived 5.1 process wrote its `ModuleAnalysisCache` relative to its working directory -
+    into the test repository, where a muse panel member's tree check failed (seen once in this
+    wave's first run, the PANEL case).
+  - Tests: harness-muse 72 (+7: F09-1 in-process for every sign-in state, end to end for a
+    `providers.meta` without a mechanism under `-SkipPreflight` and in the dry run, for the
+    keychain backend in the roster walk and a real panel, and in the listing; F09-2 a prompt-only
+    run's repair; F09-3 in-process and end to end through the fake's new `FAKE_MUSE_LINK`,
+    `FAKE_MUSE_MODEL_STREAM`, `FAKE_MUSE_MODEL_RUN`, `FAKE_MUSE_TERMINAL_RUN`), harness-engines 97
+    (+2: agy's prompt-only repair and denial retry), harness-panel 53 (+1). Existing assertions
+    changed where the output legitimately changed: the PREFLIGHT cases of the missing and
+    keychain states (now the launch refusal - the keychain case used to run under
+    `-SkipPreflight` with `credential_mechanism` null), the UNIT MSP fixtures (the real shape:
+    `session.run.linked`, `payload.run_stream`), and the `format_retry` field lists of
+    harness-format (REPAIR) and harness-engines (PROSE), which gain `schema_transport`.
+  - Docs: README (muse billing, sign-in, reply and failure rules, agy's secondary turns, the
+    listing, the ledger and environment tables, the install checklist), the help of
+    `codex-consult.ps1` and `codex-providers.ps1`, `consult-codex`, `setup-providers` 3f,
+    `tests/README.md`.
 
 ### Changed
 
@@ -360,7 +418,8 @@ amendments A1-A20 and the facts F11/F12).
   Meta's quota and step-cap wordings are unknown: they are recorded verbatim, classified by
   the shared patterns (a step cap by "max ... steps"). `read_file` is not confined to the
   repository (reads are outside the tree check's evidence). A keychain sign-in cannot be
-  checked or its mechanism read (the file backend is required for a checked run). One Meta
+  checked or its mechanism read (the file backend is required: since wave 23b no muse run
+  launches without a readable oauth sign-in). One Meta
   sign-in is one endpoint; a lineage does not bind the signed-in account (T7).
 - Wave 23 live evidence (task `muse-engine-2026-09-26`, n=4): `meta ::
   muse-spark-1.3-contributor [muse]` through the Muse Code subscription - usable, structured on

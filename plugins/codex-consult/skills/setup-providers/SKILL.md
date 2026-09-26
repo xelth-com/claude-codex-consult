@@ -277,12 +277,13 @@ therefore REFUSES a muse run while either variable is set, and there is no opt-o
    that location by itself. Check without spending a prompt: `muse --version` -> a version
    line (or `Test-Path "$env:LOCALAPPDATA\Programs\muse\muse.cmd"` -> `True`). Elsewhere: the
    user passes `-EngineExe <path>` or sets `CODEX_CONSULT_MUSE_EXE`.
-2. **Credential backend - Windows, the USER sets it BEFORE signing in:** the keychain write
-   fails there, so the credential must go to a file: the user variable
-   `TBH_CREDENTIAL_BACKEND=file` (e.g. `[Environment]::SetEnvironmentVariable('TBH_CREDENTIAL_BACKEND', 'file', 'User')`,
-   then a new shell / a restarted Claude Code). Elsewhere the file backend is recommended too:
-   the bridge cannot read a keychain, so its preflight would say "sign-in not checkable" and
-   refuse the run.
+2. **Credential backend - the USER sets it BEFORE signing in, on every OS:** the keychain
+   write fails on Windows and the bridge cannot read a keychain anywhere, so the credential must
+   go to a file: the user variable `TBH_CREDENTIAL_BACKEND=file` (e.g. `[Environment]::SetEnvironmentVariable('TBH_CREDENTIAL_BACKEND', 'file', 'User')`,
+   then a new shell / a restarted Claude Code). Without a readable oauth sign-in the bridge
+   REFUSES every muse launch (`the muse engine is refused: the Muse sign-in is not established
+   as oauth (TBH_CREDENTIAL_BACKEND is not set: the keychain backend cannot be read): ...`) -
+   `-SkipPreflight` does not change that.
 3. **Sign in - the USER does it:** `muse login` in their own terminal shows a device code they
    approve in the browser. The credential then lives in `~/.config/muse/auth.json`. You never
    read, print or copy that file, and never handle a login, a token or a device code.
@@ -301,10 +302,13 @@ therefore REFUSES a muse run while either variable is set, and there is no opt-o
    limit hit by one blocks them all until its reset.
 7. **Check:** `codex-providers.ps1` -> the row `available  meta  <n>  engine muse  muse
    (<launcher>)  ok: signed in (~/.config/muse/auth.json: providers.meta, mechanism oauth)
-   muse (2 declared models)  -`. Other verdicts: `unavailable (missing: not signed in: ...)`
-   (no file: run `muse login`), `unknown (sign-in not checkable: TBH_CREDENTIAL_BACKEND ...)`
-   (step 2 missing), `unavailable (refused: META_API_KEY is set: ...)` (step 4),
-   `unavailable (muse CLI not found on PATH)` (step 1).
+   muse (2 declared models)  -`. Other verdicts: `unavailable (refused: the Muse sign-in is
+   not established as oauth (~/.config/muse/auth.json does not exist): ...)` (step 3 missing:
+   the user runs `muse login`), `unavailable (refused: the Muse sign-in is not established as
+   oauth (TBH_CREDENTIAL_BACKEND is not set: ...): ...)` (step 2 missing) - the CREDENTIALS
+   column then reads `missing: not signed in: ...` or `unknown: sign-in not checkable: ...` -,
+   `unavailable (refused: META_API_KEY is set: ...)` (step 4), `unavailable (muse CLI not found
+   on PATH)` (step 1).
 8. **Read-only:** muse runs with `--disable-write --disable-shell --disable-web-tools
    --approval-mode never`, and the bridge fails a muse run when the working tree or the
    collab directory changed during it (by evidence; gitignored paths, submodules, files
@@ -399,7 +403,9 @@ in (~/.config/muse/auth.json: providers.meta, mechanism oauth))`, `effort      :
 --output-schema <schema> --model muse-spark-1.3 --reasoning-effort high
 --no-foreign-personal-context --disable-web-tools --disable-write --disable-shell
 --approval-mode never` line (the dry run runs `muse --version` at most, which spends no
-prompt). Only with the user's
+prompt; without an oauth sign-in the dry run itself is refused - `the muse engine is refused:
+the Muse sign-in is not established as oauth (...)` - fix steps 2 and 3 first). Only with the
+user's
 consent, run one live `-Purpose chore` consultation to confirm the route end to end
 (expect `codex-consult: usable reply - <provider> :: <model>, …`).
 

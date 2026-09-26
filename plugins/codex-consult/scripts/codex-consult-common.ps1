@@ -3054,8 +3054,9 @@ function Get-ProviderCredential {
 #         EMPTY stdin: the prompt is the turn's own prompt file. The stream is MSP JSONL
 #         (schema_version 1 only); the reply = the text of the ONE run_terminal record
 #         (run.terminal.completed); the thread = the ONE session stream id. The subscription
-#         bills through the browser sign-in only: an API key in the environment refuses the run
-#         (Get-MuseLaunchBlock, D4). No denial retry (its write, shell and web tools are off);
+#         bills through the browser sign-in only: an API key in the environment refuses the run,
+#         and so does a sign-in not established as oauth (Get-MuseLaunchBlock, D4, wave 23b).
+#         No denial retry (its write, shell and web tools are off);
 #         the same tree check as agy (reads - read_file is not confined to the repository -,
 #         gitignored paths, submodules and files outside the repository stay unmonitored).
 $script:EngineNames = @('codex', 'agy', 'muse')
@@ -3617,7 +3618,8 @@ function Get-AgyTurnOutcome {
 # `mechanism` value only (an enum such as oauth, never a secret); the parsed object is never
 # logged, returned or written, and a parse error is reported without its text. Cached per
 # backend and path for this process. { Backend (file | keychain); State (ok | missing |
-# unknown); Reason; Mechanism ('' when not read; 'unrecognized' for a value that is not a short
+# unknown); Reason; Cause (wave 23b: the reason without its remedy, '' when ok - the billing
+# guard names it); Mechanism ('' when not read; 'unrecognized' for a value that is not a short
 # identifier - never shown) }.
 $script:MuseCredentialCache = @{}
 $script:MuseAuthShown = '~/.config/muse/auth.json'
@@ -3634,14 +3636,17 @@ function Get-MuseCredentialInfo {
     $path = Get-MuseAuthPath
     $key = "$backend|$path"
     if ($script:MuseCredentialCache.ContainsKey($key)) { return $script:MuseCredentialCache[$key] }
-    $info = [pscustomobject]@{ Backend = $(if ($backend -eq 'file') { 'file' } else { 'keychain' }); State = 'unknown'; Reason = ''; Mechanism = '' }
+    $info = [pscustomobject]@{ Backend = $(if ($backend -eq 'file') { 'file' } else { 'keychain' }); State = 'unknown'; Reason = ''; Cause = ''; Mechanism = '' }
     $shown = $script:MuseAuthShown
     if ($backend -ne 'file') {
+        $info.Cause = "TBH_CREDENTIAL_BACKEND is $(if ($backend) { "'$backend'" } else { 'not set' }): the keychain backend cannot be read"
         $info.Reason = "sign-in not checkable: TBH_CREDENTIAL_BACKEND is $(if ($backend) { "'$backend'" } else { 'not set' }) (the keychain backend cannot be read; set TBH_CREDENTIAL_BACKEND=file - required on Windows - and run ``muse login``)"
     } elseif (-not $path) {
+        $info.Cause = 'no home directory (USERPROFILE / HOME)'
         $info.Reason = 'sign-in not checkable: no home directory (USERPROFILE / HOME)'
     } elseif (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         $info.State = 'missing'
+        $info.Cause = "$shown does not exist"
         $info.Reason = "not signed in: $shown does not exist (run ``muse login`` with TBH_CREDENTIAL_BACKEND=file)"
     } else {
         $data = $null
@@ -3653,18 +3658,23 @@ function Get-MuseCredentialInfo {
             if (-not $why -and -not (Test-IsJsonObject $data)) { $why = 'is not a JSON object' }
         }
         $text = $null
-        if ($why) { $info.Reason = "sign-in not checkable: $shown $why" }
-        else {
+        if ($why) {
+            $info.Cause = "$shown $why"
+            $info.Reason = "sign-in not checkable: $shown $why"
+        } else {
             $providers = Get-PropertyValue $data 'providers' $null
             $meta = $null
             if (Test-IsJsonObject $providers) { $meta = Get-PropertyValue $providers 'meta' $null }
             if (-not (Test-IsJsonObject $meta)) {
                 $info.State = 'missing'
+                $info.Cause = "$shown has no Meta sign-in (providers.meta)"
                 $info.Reason = "not signed in: $shown has no Meta sign-in (providers.meta; run ``muse login``)"
             } else {
                 $mech = Get-PropertyValue $meta 'mechanism' $null
-                if (-not ($mech -is [string]) -or -not $mech.Trim()) { $info.Reason = "sign-in not checkable: providers.meta in $shown names no mechanism" }
-                else {
+                if (-not ($mech -is [string]) -or -not $mech.Trim()) {
+                    $info.Cause = "providers.meta in $shown names no mechanism"
+                    $info.Reason = "sign-in not checkable: providers.meta in $shown names no mechanism"
+                } else {
                     $info.State = 'ok'
                     if ($mech -cmatch '^[A-Za-z][A-Za-z0-9_.-]{0,31}$') { $info.Mechanism = $mech } else { $info.Mechanism = 'unrecognized' }
                     $info.Reason = "signed in ($shown`: providers.meta, mechanism $($info.Mechanism))"
@@ -3679,8 +3689,9 @@ function Get-MuseCredentialInfo {
 
 # The preflight's sign-in check of a muse entry (the adapter's Credential; local, nothing is
 # started): ok (providers.meta with a mechanism), missing (no file, no providers.meta), unknown
-# (the keychain backend, a file that does not parse, no mechanism) - unknown refuses the run
-# unless -SkipPreflight (Get-PreflightVerdict).
+# (the keychain backend, a file that does not parse, no mechanism). Since wave 23b (F09-1)
+# missing and unknown refuse the LAUNCH itself (Get-MuseLaunchBlock: no oauth sign-in is
+# established) - with -SkipPreflight too, before this check is ever consulted.
 function Get-MuseSignIn {
     param([string]$Launcher = '', [int]$TimeoutSec = 0)
     $c = Get-MuseCredentialInfo
@@ -3696,11 +3707,15 @@ function Get-MuseIdentityConfig {
     return $o
 }
 
-# The billing invariant of a muse launch (D4): the subscription bills through the browser
-# sign-in only; an API key the child would inherit bills per token instead. '' or the refusal:
-# META_API_KEY or MODEL_API_KEY set (non-empty) in this process, or a readable credential
-# mechanism other than oauth. Names only - a value is never shown. Not a preflight check:
-# -SkipPreflight never bypasses it; there is no roster opt-out in this wave.
+# The billing invariant of a muse launch (D4; fail-closed since wave 23b, F09-1): the
+# subscription bills through the browser sign-in only; an API key the child would inherit bills
+# per token instead. '' ONLY for an established oauth sign-in (auth.json's providers.meta.
+# mechanism read as oauth), else the refusal: META_API_KEY or MODEL_API_KEY set (non-empty) in
+# this process; a readable mechanism other than oauth; or no mechanism established at all - the
+# keychain backend, no home, no or an unreadable auth.json, no providers.meta, no mechanism
+# (the refusal names that cause and the remedy: TBH_CREDENTIAL_BACKEND=file and `muse login`).
+# Names only - a value is never shown. Not a preflight check: -SkipPreflight never bypasses
+# it; there is no roster opt-out and no override flag.
 $script:MuseApiKeyVariables = @('META_API_KEY', 'MODEL_API_KEY')
 function Get-MuseLaunchBlock {
     foreach ($name in $script:MuseApiKeyVariables) {
@@ -3708,8 +3723,10 @@ function Get-MuseLaunchBlock {
         if ($v -and $v.Trim()) { return "$name is set: a muse run would bill per token instead of the Muse Code subscription; unset it (the muse process would inherit it)" }
     }
     $c = Get-MuseCredentialInfo
+    if ($c.State -eq 'ok' -and $c.Mechanism -eq 'oauth') { return '' }
     if ($c.Mechanism -and $c.Mechanism -ne 'oauth') { return "the Muse sign-in in $($script:MuseAuthShown) uses mechanism '$($c.Mechanism)', not oauth: a muse run would not bill the Muse Code subscription; sign in with ``muse login``" }
-    return ''
+    $cause = $(if ($c.Cause) { $c.Cause } else { $c.Reason })
+    return "the Muse sign-in is not established as oauth ($cause): a muse run might bill per token instead of the Muse Code subscription; set TBH_CREDENTIAL_BACKEND=file and run ``muse login``"
 }
 
 # reviewer.harness of a muse run (D8): "muse-cli <version>" from .muse-version next to the
@@ -3780,11 +3797,21 @@ function ConvertTo-MuseStdin {
 #                    LAST line may be partial only with -AllowPartialLast, as for agy), a record
 #                    without an integer schema_version, a schema_version other than 1
 #                    ("unsupported MSP version N"), more than one session stream id, more than one
-#                    run_terminal record, a run_terminal record off the session stream
+#                    run_terminal record, a run_terminal record off the session stream; (wave
+#                    23b, F09-3) "ambiguous provenance: ..." - the evidence is bound to the ONE
+#                    session stream and the ONE run it links: a session.run.linked record off the
+#                    session stream or naming no run stream, more than one run stream linked to
+#                    the session, a run.model.configured record off the session stream or naming
+#                    another run than the linked one (or with no run linked at all), a completed
+#                    run_terminal naming another run (the real CLI puts every record on the
+#                    session stream and names the run in payload.run_stream {kind run, id})
 #   SchemaVersion    the first record's schema_version ($null when none) - ledger
 #                    engine_run.msp_schema_version
 #   Sessions         the distinct stream ids of stream.kind "session" (exactly one expected)
 #   Session / Thread the session id when exactly one ('' otherwise)
+#   RunStream        (wave 23b) the run the session links ("run <id>" from session.run.linked;
+#                    '' when none or the stream is malformed): the model evidence and the reply
+#                    belong to it
 #   TerminalCount, HasTerminal, Terminal (payload.terminal: completed | failed | cancelled ...),
 #   Text (payload.text), Reason (payload.reason, '' when null)
 #   Models           the model_id of every run.model.configured record, in order
@@ -3793,7 +3820,7 @@ function ConvertTo-MuseStdin {
 #                    run block's shared fields)
 function Read-MuseEvents {
     param([string]$Path, [switch]$AllowPartialLast)
-    $r = [pscustomobject]@{ Records = 0; Malformed = ''; SchemaVersion = $null; Sessions = [string[]]@(); Session = ''; Thread = ''; TerminalCount = 0; HasTerminal = $false; Terminal = ''; Text = ''; Reason = ''; Models = [string[]]@(); Error = ''; Usage = $null; ToolName = ''; DeniedAction = '' }
+    $r = [pscustomobject]@{ Records = 0; Malformed = ''; SchemaVersion = $null; Sessions = [string[]]@(); Session = ''; Thread = ''; RunStream = ''; TerminalCount = 0; HasTerminal = $false; Terminal = ''; Text = ''; Reason = ''; Models = [string[]]@(); Error = ''; Usage = $null; ToolName = ''; DeniedAction = '' }
     $text = Read-SharedText -Path $Path
     if (-not $text) { return $r }
     $lines = @($text -split "`r?`n")
@@ -3801,6 +3828,11 @@ function Read-MuseEvents {
     for ($i = $lines.Count - 1; $i -ge 0; $i--) { if ($lines[$i].Trim()) { $lastIdx = $i; break } }
     $sessions = New-Object System.Collections.Generic.List[string]
     $models = New-Object System.Collections.Generic.List[string]
+    # (wave 23b, F09-3) where the evidence sits - { Kind; Id (the record's stream); Line; Run
+    # (payload.run_stream as "<kind> <id>", '' when absent) } of every session.run.linked and
+    # run.model.configured record (and of the run_terminal record)
+    $links = New-Object System.Collections.Generic.List[object]
+    $modelAt = New-Object System.Collections.Generic.List[object]
     $terminal = $null
     $terminalStream = $null
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -3831,15 +3863,23 @@ function Read-MuseEvents {
         $pType = [string](Get-PropertyValue $obj 'payload_type' '')
         $payload = Get-PropertyValue $obj 'payload' $null
         $pKind = ''
-        if (Test-IsJsonObject $payload) { $pKind = [string](Get-PropertyValue $payload 'kind' '') }
+        $pRun = ''
+        if (Test-IsJsonObject $payload) {
+            $pKind = [string](Get-PropertyValue $payload 'kind' '')
+            $rs = Get-PropertyValue $payload 'run_stream' $null
+            if (Test-IsJsonObject $rs) { $pRun = ('{0} {1}' -f [string](Get-PropertyValue $rs 'kind' ''), [string](Get-PropertyValue $rs 'id' '')).Trim() }
+        }
+        $at = [pscustomobject]@{ Kind = $sKind; Id = $sId; Line = $i + 1; Run = $pRun }
+        if ($pType -eq 'session.run.linked' -or $pKind -eq 'session_run_linked') { $links.Add($at) }
         if ($pType -eq 'run.model.configured' -or $pKind -eq 'run_model_configured') {
+            $modelAt.Add($at)
             $mid = [string](Get-PropertyValue $payload 'model_id' '')
             if ($mid) { $models.Add($mid) }
         }
         if ($pKind -eq 'run_terminal' -or $pType -like 'run.terminal.*') {
             $r.TerminalCount++
             $terminal = $payload
-            $terminalStream = [pscustomobject]@{ Kind = $sKind; Id = $sId; Line = $i + 1 }
+            $terminalStream = $at
         }
     }
     $r.Sessions = [string[]]$sessions.ToArray()
@@ -3861,7 +3901,45 @@ function Read-MuseEvents {
         }
         if ($r.Terminal -ne 'completed') { $r.Error = $r.Reason }
     }
+    # (wave 23b, F09-3) the provenance of the evidence, fail closed: the session is the ONE
+    # stream of kind session; its run is the ONE run stream the session.run.linked records ON
+    # that stream name; every run.model.configured record (the model evidence) must sit on the
+    # session stream and name that run, and a completed run_terminal (the reply) must name it
+    # too. A nested or sub-stream record, a second linked run, or evidence bound to no linked
+    # run is "ambiguous provenance" - a malformed stream. (No session: the turn rules fail it.)
+    if (-not $r.Malformed -and $sessions.Count -eq 1) {
+        $sid = $sessions[0]
+        $runs = New-Object System.Collections.Generic.List[string]
+        foreach ($l in $links) {
+            if ($l.Kind -ne 'session' -or $l.Id -ne $sid) { $r.Malformed = "ambiguous provenance: the session.run.linked record at line $($l.Line) is on stream $(Format-MuseStreamRef $l.Kind $l.Id), not on the session stream"; break }
+            if ($l.Run -notmatch '^run \S+$') { $r.Malformed = "ambiguous provenance: the session.run.linked record at line $($l.Line) names no run stream"; break }
+            if (-not $runs.Contains($l.Run)) { $runs.Add($l.Run) }
+        }
+        if (-not $r.Malformed -and $runs.Count -gt 1) { $r.Malformed = "ambiguous provenance: $($runs.Count) run streams linked to the session (exactly one expected): $($runs.ToArray() -join ', ')" }
+        $linkedRun = ''
+        if ($runs.Count -eq 1) { $linkedRun = $runs[0] }
+        if (-not $r.Malformed) {
+            foreach ($m in $modelAt) {
+                $named = $(if ($m.Run) { "stream $($m.Run)" } else { 'no run stream' })
+                if ($m.Kind -ne 'session' -or $m.Id -ne $sid) { $r.Malformed = "ambiguous provenance: the run.model.configured record at line $($m.Line) is on stream $(Format-MuseStreamRef $m.Kind $m.Id), not on the session stream"; break }
+                if (-not $linkedRun) { $r.Malformed = "ambiguous provenance: the run.model.configured record at line $($m.Line) names $named, but no session.run.linked record links a run to the session"; break }
+                if ($m.Run -ne $linkedRun) { $r.Malformed = "ambiguous provenance: the run.model.configured record at line $($m.Line) names $named, not the run linked to the session ($linkedRun)"; break }
+            }
+        }
+        if (-not $r.Malformed -and $linkedRun -and $r.Terminal -eq 'completed' -and $terminalStream.Run -ne $linkedRun) {
+            $r.Malformed = "ambiguous provenance: the run_terminal record at line $($terminalStream.Line) names $(if ($terminalStream.Run) { "stream $($terminalStream.Run)" } else { 'no run stream' }), not the run linked to the session ($linkedRun)"
+        }
+        if (-not $r.Malformed) { $r.RunStream = $linkedRun }
+    }
     return $r
+}
+
+# "<kind> <id>" of a record's stream, "(none)" without one (Read-MuseEvents' messages).
+function Format-MuseStreamRef {
+    param([string]$Kind, [string]$Id)
+    $s = ("$Kind $Id").Trim()
+    if (-not $s) { return '(none)' }
+    return $s
 }
 
 # The failure rules of one muse turn (the main turn, the format repair; D6, D7). The same result

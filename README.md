@@ -16,7 +16,7 @@ making that packaging a parameter is ROADMAP R13.
   - [ ] Codex CLI on PATH: `codex --version` → `codex-cli 0.148` or newer (tested with `codex-cli 0.155.1`)
   - [ ] a reviewer: `codex login status` → `Logged in using ChatGPT`, **or** a `[model_providers.<name>]` table whose `env_key` variable the USER has set. Never create, print or paste an API key.
   - [ ] optional, Gemini through the `agy` engine: `agy models` → lines `<model id><TAB><name>` (the USER installed Google's Antigravity CLI and signed in by running `agy` once; you never handle the login). See "Engines".
-  - [ ] optional, Meta Muse through the `muse` engine: the USER installed Muse Code and signed in with `muse login` (on Windows with the user variable `TBH_CREDENTIAL_BACKEND=file` set first); `codex-providers.ps1` then shows the roster's muse row with `ok: signed in (~/.config/muse/auth.json: providers.meta, mechanism oauth)`. `META_API_KEY` and `MODEL_API_KEY` must NOT be set (a muse run is refused then: it would bill per token). You never read `auth.json` or handle the login. See "Engines (wave 23)".
+  - [ ] optional, Meta Muse through the `muse` engine: the USER installed Muse Code and signed in with `muse login` with the user variable `TBH_CREDENTIAL_BACKEND=file` set first (required on every OS: the bridge launches muse only on an oauth sign-in it can read from `~/.config/muse/auth.json`); `codex-providers.ps1` then shows the roster's muse row with `ok: signed in (~/.config/muse/auth.json: providers.meta, mechanism oauth)`. `META_API_KEY` and `MODEL_API_KEY` must NOT be set (a muse run is refused then: it would bill per token). You never read `auth.json` or handle the login. See "Engines (wave 23)".
 - **Install** (at the Claude Code prompt): `/plugin marketplace add xelth-com/claude-codex-consult`, then `/plugin install codex-consult@claude-codex-consult`.
 - **Verify:** `codex-providers.ps1` → at least one row `available`; then a `-DryRun` consultation → first line `DRY RUN - nothing was executed and no file was written.` and a line `preflight   : available (…)`. Exact commands: "Setup on a new machine", steps 0 and 9.
 - **First consultation:** `/codex-consult:consult-codex <task-id> <question>`, or the command under "Usage".
@@ -474,7 +474,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `structured` / `schema` | whether a valid structured reply was ingested; `consult-reply v1`, or `""` for `-Raw` |
 | `schema_transport` / `schema_transport_source` | `output-schema`, `prompt-only` or `native` (agy: `--json-schema`; muse: `--output-schema`); `caps-v1` or `-SchemaTransport` (`""` for plain-text runs) |
 | `validation_error` | `""`, or every validation message joined with `; `, plus a format-repair note |
-| `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events}` - `events` (0.4.0) the repair turn's event stream, handoffs-relative, when one is kept (agy: `handoffs/NN-agy-<slug>.repair.events.jsonl`; muse: `handoffs/NN-muse-<slug>.repair.events.jsonl`), else `null` (codex: its repair stream is a temp file) |
+| `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events, schema_transport}` - `events` (0.4.0) the repair turn's event stream, handoffs-relative, when one is kept (agy: `handoffs/NN-agy-<slug>.repair.events.jsonl`; muse: `handoffs/NN-muse-<slug>.repair.events.jsonl`), else `null` (codex: its repair stream is a temp file); `schema_transport` (wave 23b) the repair turn's transport: codex `prompt-only` (its repair never passes `--output-schema`), an engine the main turn's - `native`, or `prompt-only` with no schema flag and the schema in the repair prompt |
 | `denial_retry` | (0.4.0, agy; always `null` for muse, which has no denial retry) `null` (not attempted), else `{attempted, reason, succeeded, thread, wall_seconds, usage, events}`: the one extra turn after a run that produced nothing because a tool was auto-denied (see "Engines"); `events` = that turn's event stream (`handoffs/NN-agy-<slug>.denial-retry.events.jsonl`, `null` when no turn ran) |
 | `base_commit` … `fingerprint_note` | revision binding: see "Binding a review to a revision" |
 | `artifacts` / `artifacts_changed_during_review` | `[{path, sha256, sha256_after}]` per `-Artifact`; whether any changed during the run |
@@ -1031,7 +1031,9 @@ keyed by the engine's fingerprint, shared by every agy label). A `"engine": "mus
 providers.meta, mechanism oauth)`, `missing: not signed in: ...`, `unknown: sign-in not
 checkable: ...` - also with `-NoNetwork`, it starts nothing), `EFFORT` `muse (2 declared
 models)`, and the verdict `unavailable (refused: META_API_KEY is set: ...)` while the billing
-guard would refuse it. `-EngineExe` binds to the `-Provider` row's engine, else to the only
+guard would refuse it (wave 23b: also `unavailable (refused: the Muse sign-in is not established
+as oauth (<cause>): ...)` for the keychain backend, no `auth.json` or no mechanism - the
+`CREDENTIALS` column still shows the sign-in state). `-EngineExe` binds to the `-Provider` row's engine, else to the only
 engine other than codex in the roster. `-Json` returns objects with
 `name`, `engine` (`codex`, `agy` or `muse`), `kind`, `endpoint`, `wire_api`, `table`
 (`built in`/`usable`/`unusable: <reason>`), `credentials`, `effort_vocabulary`,
@@ -1332,7 +1334,9 @@ the lineage) or `-Thread <uuid>` sends `--conversation <thread>`.
 is there - the text carries extra keys), extracted atomically to
 `handoffs/NN-agy-<slug>.reply.json` BEFORE any validation, then validated like a codex
 reply; without `structured_output` the `response` text goes through the prose gate and the
-format repair (one turn on `--conversation <thread>` with `--json-schema`). The thread is
+format repair (one turn on `--conversation <thread>`, in the main turn's transport: `--json-schema`
+on a native run, none on a prompt-only one - the schema then travels in the repair prompt,
+wave 23b). The thread is
 `result.conversation_id`.
 
 **A run FAILS** (nothing ingested, the reply kept and named) on: exit code != 0; a
@@ -1356,7 +1360,8 @@ that headless mode cannot prompt for, so it was auto-denied...` on stderr. With
 the output contract, `Your previous turn produced no output: the tool run_command was
 auto-denied (headless print mode has no "command" permission). Do NOT call it again; answer
 from what you have read, as the JSON object.`, the field meanings and the consultation id
-(never the brief), `--json-schema`, `min(-TimeoutSec, 300)` s, same lock and recovery
+(never the brief), `--json-schema` on a native run (wave 23b: none on a prompt-only run, the
+schema then travels in the retry prompt), `min(-TimeoutSec, 300)` s, same lock and recovery
 record, its events in `handoffs/NN-agy-<slug>.denial-retry.events.jsonl`. Ledger
 `denial_retry {attempted, reason, succeeded, thread, wall_seconds, usage, events}` (`events`
 names that stream, as `format_retry.events` names a repair turn's); a handoff line
@@ -1471,24 +1476,33 @@ prompt); an unseen version is recorded, never refused.
 while `META_API_KEY` or `MODEL_API_KEY` is set in the bridge's environment: `the muse engine
 is refused: META_API_KEY is set: a muse run would bill per token instead of the Muse Code
 subscription; unset it (the muse process would inherit it)`; and while the sign-in's
-`providers.meta.mechanism` is anything but `oauth`. It is not a preflight check:
+`providers.meta.mechanism` is anything but `oauth`. Since wave 23b the guard is fail-closed: a
+muse run needs an ESTABLISHED oauth sign-in, so the keychain backend, no `auth.json`, no
+`providers.meta`, no `mechanism` or a file that does not parse refuse it too: `` the muse
+engine is refused: the Muse sign-in is not established as oauth (<the cause>): a muse run might
+bill per token instead of the Muse Code subscription; set TBH_CREDENTIAL_BACKEND=file and run
+`muse login` ``. There is no override flag. It is not a preflight check:
 `-SkipPreflight` never bypasses it; a roster walk and `-Panel` skip the entry (`refused:
 ...`) with and without `-SkipPreflight`; it is checked again right before every launch;
 `codex-providers.ps1` shows the row as `unavailable (refused: ...)`. Only variable names are
 ever shown, never a value. There is no roster opt-out for per-token billing. Ledger
 `reviewer.provider_config.credential_mechanism` records the mechanism (an enum, never a
-secret; `null` when it cannot be read).
+secret; `oauth` in every entry, since no other mechanism launches).
 
 **Sign-in (preflight).** `muse login` shows a device code the USER approves in the browser
-(the bridge never handles it). On Windows the keychain write fails, so the file backend is
-required: the USER sets the user variable `TBH_CREDENTIAL_BACKEND=file` before `muse login`,
+(the bridge never handles it). On Windows the keychain write fails, and the bridge cannot read
+a keychain anywhere, so the file backend is required: the USER sets the user variable
+`TBH_CREDENTIAL_BACKEND=file` before `muse login`,
 and the credential lives in `~/.config/muse/auth.json`. The preflight reads that file for the
 presence of `providers.meta` and its `mechanism` only - the parsed object is never logged or
 written, a parse error is reported without its text, nothing is started (so the check also
 runs under `-NoNetwork` and in the SessionStart hook): `ok: signed in
 (~/.config/muse/auth.json: providers.meta, mechanism oauth)`; no file or no `providers.meta`
--> `missing` (refused: run `muse login`); another backend (the keychain) or no mechanism ->
-`unknown: sign-in not checkable ...` (refused unless `-SkipPreflight`). The file shows the
+-> `missing: not signed in: ...`; another backend (the keychain) or no mechanism -> `unknown:
+sign-in not checkable ...`. Since wave 23b both refuse the LAUNCH (the billing guard above:
+no oauth sign-in is established) - before the preflight, in a dry run, a roster walk and a
+panel too, and `-SkipPreflight` does not change that; the fix is `TBH_CREDENTIAL_BACKEND=file`
+and `muse login`. The file shows the
 shape of a sign-in, not that it is still valid: an expired sign-in shows as a failed run. The
 ledger short-circuit (a usable reply on the endpoint within 60 minutes) and the endpoint
 health apply as for agy. One Meta sign-in is one endpoint: every muse label shares the
@@ -1501,8 +1515,13 @@ The reply is the `text` of the ONE `run_terminal` record (`run.terminal.complete
 extracted atomically to `handoffs/NN-muse-<slug>.reply.json` before any validation; with
 `--output-schema` it is the JSON object (validated locally too), without it (`-SchemaTransport
 prompt-only`) the prose goes through the prose gate and the format repair (at most one turn,
-`--session-id <thread>`, `--output-schema`, its own prompt file; never after a failed run).
-The thread is the ONE session stream id (`stream.kind` `session`). The records carry no token
+`--session-id <thread>`, its own prompt file, in the main turn's transport - wave 23b: a
+prompt-only run's repair passes no `--output-schema` either, its prompt carries the schema;
+never after a failed run). The thread is the ONE session stream id (`stream.kind` `session`);
+the run is the ONE run stream the session links (`session.run.linked`, on the session stream),
+and the evidence is bound to it (wave 23b): every `run.model.configured` record must sit on the
+session stream and name that run in `payload.run_stream`, and so must the completed
+`run_terminal` - the real CLI writes every record that way. The records carry no token
 usage (ledger `usage` `null`); ledger `engine_run {turns, max_model_steps,
 msp_schema_version}` counts the turns started - each one spends a subscription prompt.
 
@@ -1516,7 +1535,10 @@ VERBATIM through the shared classifier (a usage-limit wording is class `quota`, 
 (class `transport`): a line that does not parse (the last one may be partial only after a
 kill or a non-zero exit), a record whose `schema_version` is not `1` (`unsupported MSP version
 <n>` - fail closed), two session streams, two `run_terminal` records, a `run_terminal` off the
-session stream; no `run_terminal` record; no session; on resume or repair a session other than
+session stream, evidence of foreign provenance (`ambiguous provenance: ...`, wave 23b: a
+`session.run.linked` or `run.model.configured` record off the session stream - a nested or
+sub-stream record -, a link naming no run, two linked runs, a model record or a completed
+terminal naming another run, a model record with no run linked); no `run_terminal` record; no session; on resume or repair a session other than
 the requested one (`parent session <p> not found, muse started <s>`, class `unknown` - the new
 session is never a parent); a terminal other than `completed`; a session id that is not a
 uuid; `run.model.configured` naming another model than the one asked (`model drift: asked X,
@@ -1641,7 +1663,7 @@ Environment variables:
 | `CODEX_CONSULT_EXE` | user | codex launcher path |
 | `CODEX_CONSULT_AGY_EXE` | user | agy launcher path (the `agy` engine) |
 | `CODEX_CONSULT_MUSE_EXE` | user | muse launcher path (the `muse` engine) |
-| `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the preflight can check; required on Windows; passed to muse unchanged |
+| `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the bridge can read; required (wave 23b: without a readable oauth sign-in no muse run is launched, `-SkipPreflight` included); passed to muse unchanged |
 | `META_API_KEY`, `MODEL_API_KEY` | nobody, for the bridge | must NOT be set: a muse run is refused while either is (it would bill per token instead of the subscription) |
 | `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS` | tests only | test hooks; never set them in normal use |
 

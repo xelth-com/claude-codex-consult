@@ -9,7 +9,13 @@
 # endpoint health), the tree check and D12's forced class permission (agy too), resume and a
 # session mismatch, -MaxModelSteps (argv, ledger, the panel spec), prompt and schema paths with
 # spaces through the .cmd chain and the %-expansion refusal, the dry-run text, the providers
-# listing. FAKES ONLY: fake-muse.cmd (CODEX_CONSULT_MUSE_EXE), fake-agy.cmd and fake-codex3.cmd.
+# listing. Wave 23b (the acceptance panel's F09-1..3): the billing guard fail-closed (no
+# ESTABLISHED oauth sign-in - the keychain backend, no auth.json, no mechanism - refuses the
+# launch under -SkipPreflight, in the walk, in a panel member and in the listing too), a
+# prompt-only run's format repair keeping the main turn's transport (no --output-schema; ledger
+# format_retry.schema_transport), the MSP evidence bound to the session stream and the run it
+# links ("ambiguous provenance" for a nested or sub-stream record).
+# FAKES ONLY: fake-muse.cmd (CODEX_CONSULT_MUSE_EXE), fake-agy.cmd and fake-codex3.cmd.
 # The real muse is never resolvable: every child gets a scratch USERPROFILE/HOME (a fake
 # auth.json, never the real one), a scratch LOCALAPPDATA (no install location) and a PATH without
 # any directory that holds a muse launcher; the harness refuses to run otherwise. Runs under the
@@ -77,6 +83,12 @@ $codexHome = Join-Path $work 'codexhome'
 $museHome = Join-Path $work 'home'
 $authPath = Join-Path $museHome '.config\muse\auth.json'
 [void][IO.Directory]::CreateDirectory((Split-Path -Parent $authPath))
+# ... with the AppData\Local of a real profile (wave 23b): without it Windows PowerShell 5.1's
+# [Environment]::GetFolderPath('LocalApplicationData') is EMPTY under this USERPROFILE, and a
+# long-lived 5.1 process (a bridge, a panel member) then writes its ModuleAnalysisCache
+# relative to its working directory - into the test repository, where a muse run's tree check
+# sees "Microsoft/Windows/PowerShell/ModuleAnalysisCache" appear (a timing-dependent failure).
+[void][IO.Directory]::CreateDirectory((Join-Path $museHome 'AppData\Local'))
 $tokenMark = 'FAKE-TOKEN-NOT-A-SECRET-7f3a91'
 $authOauth = '{"providers":{"meta":{"access_token":"' + $tokenMark + '","obtained_via":"device_code","mechanism":"oauth","api_base_url":"https://example.invalid"}}}'
 function Write-Auth { param([string]$Json) if ($Json) { [IO.File]::WriteAllText($authPath, $Json, $u8) } elseif (Test-Path -LiteralPath $authPath) { Remove-Item -LiteralPath $authPath -Force } }
@@ -92,7 +104,7 @@ function Write-Roster {
     [IO.File]::WriteAllText($p, $Json, $u8)
     return $p
 }
-$fakeVars = @('FAKE_MUSE_REPLY', 'FAKE_MUSE_RESUME_REPLY', 'FAKE_MUSE_TERMINAL', 'FAKE_MUSE_REASON', 'FAKE_MUSE_EXIT', 'FAKE_MUSE_USAGE_ERROR', 'FAKE_MUSE_STDERR', 'FAKE_MUSE_SESSION', 'FAKE_MUSE_TWOSESSIONS', 'FAKE_MUSE_MODEL', 'FAKE_MUSE_NOMODEL', 'FAKE_MUSE_SCHEMA_VERSION', 'FAKE_MUSE_TWOTERMINALS', 'FAKE_MUSE_NOTERMINAL', 'FAKE_MUSE_TERMINAL_STREAM', 'FAKE_MUSE_PARTIAL', 'FAKE_MUSE_WRITE', 'FAKE_MUSE_HANG', 'FAKE_MUSE_DELAY_MS', 'FAKE_MUSE_LOG', 'FAKE_MUSE_RESUME_LOG', 'FAKE_MUSE_COUNT', 'FAKE_MUSE_PIDFILE', 'FAKE_MUSE_VERSION', 'FAKE_MUSE_VERSION_LOG', 'FAKE_AGY_REPLY', 'FAKE_AGY_WRITE', 'FAKE_AGY_EXIT', 'FAKE_AGY_ERROR', 'FAKE_AGY_LOG', 'FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG')
+$fakeVars = @('FAKE_MUSE_REPLY', 'FAKE_MUSE_RESUME_REPLY', 'FAKE_MUSE_TERMINAL', 'FAKE_MUSE_REASON', 'FAKE_MUSE_EXIT', 'FAKE_MUSE_USAGE_ERROR', 'FAKE_MUSE_STDERR', 'FAKE_MUSE_SESSION', 'FAKE_MUSE_TWOSESSIONS', 'FAKE_MUSE_MODEL', 'FAKE_MUSE_NOMODEL', 'FAKE_MUSE_SCHEMA_VERSION', 'FAKE_MUSE_TWOTERMINALS', 'FAKE_MUSE_NOTERMINAL', 'FAKE_MUSE_TERMINAL_STREAM', 'FAKE_MUSE_LINK', 'FAKE_MUSE_MODEL_STREAM', 'FAKE_MUSE_MODEL_RUN', 'FAKE_MUSE_TERMINAL_RUN', 'FAKE_MUSE_PARTIAL', 'FAKE_MUSE_WRITE', 'FAKE_MUSE_HANG', 'FAKE_MUSE_DELAY_MS', 'FAKE_MUSE_LOG', 'FAKE_MUSE_RESUME_LOG', 'FAKE_MUSE_COUNT', 'FAKE_MUSE_PIDFILE', 'FAKE_MUSE_VERSION', 'FAKE_MUSE_VERSION_LOG', 'FAKE_AGY_REPLY', 'FAKE_AGY_WRITE', 'FAKE_AGY_EXIT', 'FAKE_AGY_ERROR', 'FAKE_AGY_LOG', 'FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG')
 $testVars = @('CODEX_CONSULT_EXE', 'CODEX_CONSULT_AGY_EXE', 'CODEX_CONSULT_MUSE_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_LOGIN_TIMEOUT', 'META_API_KEY', 'MODEL_API_KEY', 'TBH_CREDENTIAL_BACKEND')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
@@ -253,12 +265,17 @@ if (Want 'UNIT') {
         return (ConvertTo-Json -Compress -Depth 10 -InputObject ([pscustomobject][ordered]@{ schema_version = $Sv; id = "018f0000-0000-7000-8000-00000000c3$($script:mspSeq)"; stream = [pscustomobject][ordered]@{ kind = $Kind; id = $Id }; sequence = $script:mspSeq; record_type = 'event'; payload_type = $PayloadType; payload = $Payload }))
     }
     function Msp-File { param([string]$Name, [string[]]$Lines, [string]$Tail = "`n") $p = Join-Path $work $Name; [IO.File]::WriteAllText($p, (($Lines -join "`n") + $Tail), $u8); return $p }
+    # (the real CLI's shape: every record on the session stream, the run named in
+    # payload.run_stream {kind run, id} and linked to the session by session.run.linked)
+    $r1 = Uuid
+    $runRef = [pscustomobject][ordered]@{ kind = 'run'; id = $r1 }
     $mAccept = Msp 'runtime.command.accepted' ([pscustomobject]@{ kind = 'command_accepted'; command_kind = 'turn.submit' })
-    $mModel = Msp 'run.model.configured' ([pscustomobject]@{ kind = 'run_model_configured'; provider_id = 'meta'; model_id = 'muse-spark-1.3'; source = 'startup' })
-    $mDelta = Msp 'run.output.delta' ([pscustomobject]@{ kind = 'run_output_delta'; text = '{"a"' })
-    $mDone = Msp 'run.terminal.completed' ([pscustomobject]@{ kind = 'run_terminal'; terminal = 'completed'; text = '{"a":1}'; reason = $null })
-    $good = Read-MuseEvents -Path (Msp-File 'msp-good.jsonl' @($mAccept, $mModel, $mDelta, $mDone))
-    Check 'UNIT' 'Read-MuseEvents: one session (the stream id of kind session), schema_version 1, one terminal, text = the terminal''s text (never the deltas), models = run.model.configured, usage null' ($good.Records -eq 4 -and -not $good.Malformed -and $good.SchemaVersion -eq 1 -and $good.Session -eq $s1 -and $good.Thread -eq $s1 -and $good.TerminalCount -eq 1 -and $good.Terminal -eq 'completed' -and $good.Text -eq '{"a":1}' -and (@($good.Models) -join ',') -eq 'muse-spark-1.3' -and $null -eq $good.Usage) "$($good.Malformed) $($good.Session)"
+    $mLink = Msp 'session.run.linked' ([pscustomobject][ordered]@{ kind = 'session_run_linked'; run_stream = $runRef })
+    $mModel = Msp 'run.model.configured' ([pscustomobject][ordered]@{ kind = 'run_model_configured'; run_stream = $runRef; provider_id = 'meta'; model_id = 'muse-spark-1.3'; source = 'startup' })
+    $mDelta = Msp 'run.output.delta' ([pscustomobject][ordered]@{ kind = 'run_output_delta'; run_stream = $runRef; text = '{"a"' })
+    $mDone = Msp 'run.terminal.completed' ([pscustomobject][ordered]@{ kind = 'run_terminal'; run_stream = $runRef; terminal = 'completed'; text = '{"a":1}'; reason = $null })
+    $good = Read-MuseEvents -Path (Msp-File 'msp-good.jsonl' @($mAccept, $mLink, $mModel, $mDelta, $mDone))
+    Check 'UNIT' 'Read-MuseEvents: one session (the stream id of kind session), schema_version 1, one terminal, text = the terminal''s text (never the deltas), models = run.model.configured, usage null; RunStream = the run the session links (wave 23b)' ($good.Records -eq 5 -and $good.RunStream -eq "run $r1" -and -not $good.Malformed -and $good.SchemaVersion -eq 1 -and $good.Session -eq $s1 -and $good.Thread -eq $s1 -and $good.TerminalCount -eq 1 -and $good.Terminal -eq 'completed' -and $good.Text -eq '{"a":1}' -and (@($good.Models) -join ',') -eq 'muse-spark-1.3' -and $null -eq $good.Usage) "$($good.Malformed) $($good.Session)"
     $bad = [ordered]@{
         'schema_version 2'      = @(@((Msp 'runtime.command.accepted' ([pscustomobject]@{ kind = 'x' }) 2), $mDone), '^unsupported MSP version 2 \(the bridge reads MSP 1\)$')
         'no schema_version'     = @(@(('{"id":"r","stream":{"kind":"session","id":"' + $s1 + '"},"payload_type":"x","payload":{}}'), $mDone), '^the record at line 1 has no integer schema_version$')
@@ -274,28 +291,55 @@ if (Want 'UNIT') {
         $ev = Read-MuseEvents -Path (Msp-File "msp-bad-$i.jsonl" $bad[$k][0])
         if ($ev.Malformed -notmatch $bad[$k][1]) { $badOut += "$k -> [$($ev.Malformed)]" }
     }
-    $partial = Msp-File 'msp-partial.jsonl' @($mAccept, $mModel, $mDone, '{"schema_version":1,"id":"018f') ''
+    $partial = Msp-File 'msp-partial.jsonl' @($mAccept, $mLink, $mModel, $mDone, '{"schema_version":1,"id":"018f') ''
     $p0 = Read-MuseEvents -Path $partial
     $p1 = Read-MuseEvents -Path $partial -AllowPartialLast
-    Check 'UNIT' "Read-MuseEvents malformed (fail closed): $(@($bad.Keys) -join ', '); a truncated LAST line only with -AllowPartialLast (after a kill or a non-zero exit)" ($badOut.Count -eq 0 -and $p0.Malformed -eq 'line 4 is not a JSON object' -and -not $p1.Malformed -and $p1.Terminal -eq 'completed') (($badOut -join ' | ') + " | partial: [$($p0.Malformed)] [$($p1.Malformed)]")
+    Check 'UNIT' "Read-MuseEvents malformed (fail closed): $(@($bad.Keys) -join ', '); a truncated LAST line only with -AllowPartialLast (after a kill or a non-zero exit)" ($badOut.Count -eq 0 -and $p0.Malformed -eq 'line 5 is not a JSON object' -and -not $p1.Malformed -and $p1.Terminal -eq 'completed') (($badOut -join ' | ') + " | partial: [$($p0.Malformed)] [$($p1.Malformed)]")
+    # --- (wave 23b, F09-3) the provenance of the evidence: the session = the ONE stream of kind
+    # session, its run = the one its session.run.linked record names; the model evidence and the
+    # reply must be bound to that run on that stream
+    $sub = Uuid
+    $r2 = Uuid
+    $otherRef = [pscustomobject][ordered]@{ kind = 'run'; id = $r2 }
+    $prov = [ordered]@{
+        'model on a sub-stream'   = @(@($mAccept, $mLink, (Msp 'run.model.configured' ([pscustomobject][ordered]@{ kind = 'run_model_configured'; run_stream = $runRef; model_id = 'muse-spark-1.3' }) 1 'task' $sub), $mDone), "^ambiguous provenance: the run\.model\.configured record at line 3 is on stream task $sub, not on the session stream$")
+        'model of another run'    = @(@($mAccept, $mLink, (Msp 'run.model.configured' ([pscustomobject][ordered]@{ kind = 'run_model_configured'; run_stream = $otherRef; model_id = 'muse-spark-1.3' })), $mDone), "^ambiguous provenance: the run\.model\.configured record at line 3 names stream run $r2, not the run linked to the session \(run $r1\)$")
+        'model, no run linked'    = @(@($mAccept, $mModel, $mDone), "^ambiguous provenance: the run\.model\.configured record at line 2 names stream run $r1, but no session\.run\.linked record links a run to the session$")
+        'link on a sub-stream'    = @(@($mAccept, (Msp 'session.run.linked' ([pscustomobject][ordered]@{ kind = 'session_run_linked'; run_stream = $runRef }) 1 'task' $sub), $mModel, $mDone), "^ambiguous provenance: the session\.run\.linked record at line 2 is on stream task $sub, not on the session stream$")
+        'link names no run'       = @(@($mAccept, (Msp 'session.run.linked' ([pscustomobject][ordered]@{ kind = 'session_run_linked' })), $mModel, $mDone), '^ambiguous provenance: the session\.run\.linked record at line 2 names no run stream$')
+        'two runs linked'         = @(@($mAccept, $mLink, (Msp 'session.run.linked' ([pscustomobject][ordered]@{ kind = 'session_run_linked'; run_stream = $otherRef })), $mModel, $mDone), "^ambiguous provenance: 2 run streams linked to the session \(exactly one expected\): run $r1, run $r2$")
+        'reply of another run'    = @(@($mAccept, $mLink, $mModel, (Msp 'run.terminal.completed' ([pscustomobject][ordered]@{ kind = 'run_terminal'; run_stream = $otherRef; terminal = 'completed'; text = '{"a":1}'; reason = $null }))), "^ambiguous provenance: the run_terminal record at line 4 names stream run $r2, not the run linked to the session \(run $r1\)$")
+        'a nested session record' = @(@($mAccept, $mLink, $mModel, (Msp 'run.model.configured' ([pscustomobject][ordered]@{ kind = 'run_model_configured'; run_stream = $runRef; model_id = 'muse-spark-1.3' }) 1 'session' $sub), $mDone), "^2 session streams \(exactly one expected\): $s1, $sub$")
+    }
+    $provOut = @()
+    $provEv = $null
+    $i = 0
+    foreach ($k in $prov.Keys) {
+        $i++
+        $ev = Read-MuseEvents -Path (Msp-File "msp-prov-$i.jsonl" $prov[$k][0])
+        if ($ev.Malformed -notmatch $prov[$k][1] -or $ev.RunStream) { $provOut += "$k -> [$($ev.Malformed)] run [$($ev.RunStream)]" }
+        if ($i -eq 1) { $provEv = $ev }
+    }
+    $provO = Get-MuseTurnOutcome -Events $provEv -ExitCode 0 -ExpectModel 'muse-spark-1.3'
+    Check 'UNIT' "F09-3 (wave 23b): evidence of foreign provenance is a malformed stream (fail closed, ""ambiguous provenance: ...""): $(@($prov.Keys) -join ', '); the turn fails as class transport with the session a candidate only" ($provOut.Count -eq 0 -and $provO.Outcome -match '^failed: malformed event stream: ambiguous provenance: the run\.model\.configured record at line 3 is on stream task ' -and $provO.Class -eq 'transport' -and $provO.Thread -eq '' -and $provO.ThreadCandidate -eq $s1) (($provOut -join ' | ') + " | $($provO.Outcome)")
     # --- the failure rules (D6, D7)
     $okEv = $good
     $info = "muse: workspace root: C:\x (cwd default)`nmuse: Agent delegation: auto unavailable: workspace is untrusted."
     $o0 = Get-MuseTurnOutcome -Events $okEv -ExitCode 0 -StderrText "$info`nwarning: something to note" -ExpectModel 'muse-spark-1.3'
     $oDrift = Get-MuseTurnOutcome -Events $okEv -ExitCode 0 -ExpectModel 'muse-spark-1.3-contributor'
-    $oNoModel = Get-MuseTurnOutcome -Events (Read-MuseEvents -Path (Msp-File 'msp-nomodel.jsonl' @($mAccept, $mDone))) -ExitCode 0 -ExpectModel 'muse-spark-1.3'
+    $oNoModel = Get-MuseTurnOutcome -Events (Read-MuseEvents -Path (Msp-File 'msp-nomodel.jsonl' @($mAccept, $mLink, $mDone))) -ExitCode 0 -ExpectModel 'muse-spark-1.3'
     $oExpect = Get-MuseTurnOutcome -Events $okEv -ExitCode 0 -ExpectThread (Uuid) -ExpectModel 'muse-spark-1.3'
     Check 'UNIT' 'Get-MuseTurnOutcome: usable (thread = the session; a `warning:` line is a Warning, the two informational stderr lines are not); served model != asked -> "model drift: asked X, served Y" (capability, candidate only); no run.model.configured -> failed (unknown); another session on resume -> "parent session <p> not found, muse started <s>" (unknown, candidate)' ($o0.Ok -and $o0.Thread -eq $s1 -and (@($o0.Warnings) -join '|') -eq 'warning: something to note' -and -not $o0.DeniedEmpty -and $oDrift.Outcome -eq 'failed: model drift: asked muse-spark-1.3-contributor, served muse-spark-1.3' -and $oDrift.Class -eq 'capability' -and $oDrift.Thread -eq '' -and $oDrift.ThreadCandidate -eq $s1 -and $oNoModel.Outcome -eq 'failed: the muse event stream names no configured model (run.model.configured; asked muse-spark-1.3)' -and $oNoModel.Class -eq 'unknown' -and $oExpect.Outcome -match "^failed: parent session [0-9a-f-]{36} not found, muse started $s1$" -and $oExpect.Class -eq 'unknown' -and $oExpect.ThreadCandidate -eq $s1) "$($o0.Outcome) | $($oDrift.Outcome) | $($oExpect.Outcome)"
     $empty = [pscustomobject]@{ Records = 0; Malformed = ''; SchemaVersion = $null; Sessions = [string[]]@(); Session = ''; Thread = ''; TerminalCount = 0; HasTerminal = $false; Terminal = ''; Text = ''; Reason = ''; Models = [string[]]@(); Error = ''; Usage = $null; ToolName = ''; DeniedAction = '' }
     $e2 = Get-MuseTurnOutcome -Events $empty -ExitCode 2 -StderrText "$info`nerror: unexpected argument '--foo' found`n`nUsage: muse exec [OPTIONS]`n`nFor more information, try '--help'."
     $e130 = Get-MuseTurnOutcome -Events $empty -ExitCode 130 -StderrText $info
     $e143 = Get-MuseTurnOutcome -Events $empty -ExitCode 143
-    $failedEv = Read-MuseEvents -Path (Msp-File 'msp-failed.jsonl' @($mAccept, $mModel, (Msp 'run.terminal.failed' ([pscustomobject]@{ kind = 'run_terminal'; terminal = 'failed'; text = $null; reason = 'max_model_steps reached (40)' }))))
+    $failedEv = Read-MuseEvents -Path (Msp-File 'msp-failed.jsonl' @($mAccept, $mLink, $mModel, (Msp 'run.terminal.failed' ([pscustomobject]@{ kind = 'run_terminal'; run_stream = $runRef; terminal = 'failed'; text = $null; reason = 'max_model_steps reached (40)' }))))
     $eCap = Get-MuseTurnOutcome -Events $failedEv -ExitCode 1 -StderrText $info
     $eCap0 = Get-MuseTurnOutcome -Events $failedEv -ExitCode 0 -StderrText $info
-    $noTerm = Get-MuseTurnOutcome -Events (Read-MuseEvents -Path (Msp-File 'msp-noterm.jsonl' @($mAccept, $mModel))) -ExitCode 0 -StderrText $info
+    $noTerm = Get-MuseTurnOutcome -Events (Read-MuseEvents -Path (Msp-File 'msp-noterm.jsonl' @($mAccept, $mLink, $mModel))) -ExitCode 0 -StderrText $info
     Check 'UNIT' 'D7: exit 2 -> "muse exit 2 (usage error) - error: ..." (capability; the error line, not the usage boilerplate); 130/143 -> transport; a failed terminal naming the step cap -> "max model steps reached" (capability, exit 1 or 0); no terminal -> failed, the informational stderr lines never its detail' ($e2.Outcome -eq "failed: muse exit 2 (usage error) - error: unexpected argument '--foo' found" -and $e2.Class -eq 'capability' -and $e130.Outcome -eq 'failed: muse exit 130 (stopped by a signal)' -and $e130.Class -eq 'transport' -and $e143.Class -eq 'transport' -and $eCap.Outcome -eq 'failed: muse exit 1 - max model steps reached (max_model_steps reached (40))' -and $eCap.Class -eq 'capability' -and $eCap0.Outcome -eq 'failed: muse terminal failed - max model steps reached (max_model_steps reached (40))' -and $eCap0.Class -eq 'capability' -and $noTerm.Outcome -eq 'failed: no run_terminal record in the muse event stream' -and $noTerm.Class -eq '') "$($e2.Outcome) | $($eCap.Outcome) | $($noTerm.Outcome)"
-    $quotaEv = Read-MuseEvents -Path (Msp-File 'msp-quota.jsonl' @($mAccept, $mModel, (Msp 'run.terminal.failed' ([pscustomobject]@{ kind = 'run_terminal'; terminal = 'failed'; text = $null; reason = $quotaReason }))))
+    $quotaEv = Read-MuseEvents -Path (Msp-File 'msp-quota.jsonl' @($mAccept, $mLink, $mModel, (Msp 'run.terminal.failed' ([pscustomobject]@{ kind = 'run_terminal'; run_stream = $runRef; terminal = 'failed'; text = $null; reason = $quotaReason }))))
     $qo = Get-MuseTurnOutcome -Events $quotaEv -ExitCode 1 -StderrText $info
     $qf = New-ProviderFailure -Texts @(@($qo.Texts) + @(($qo.Outcome -replace '^failed:\s*', ''))) -Class $qo.Class
     $qAt = [DateTimeOffset]::Parse([string]$qf.retry_after, [Globalization.CultureInfo]::InvariantCulture)
@@ -326,9 +370,12 @@ if (Want 'UNIT') {
     $cBadJson = & $credCase 'file' ('{"providers":{"meta":{"access_token":"' + $tokenMark + '" BROKEN')
     $cApi = & $credCase 'file' ('{"providers":{"meta":{"api_key":"' + $tokenMark + '","mechanism":"api_key"}}}')
     $cOdd = & $credCase 'file' ('{"providers":{"meta":{"mechanism":"' + $tokenMark + ' with spaces"}}}')
-    $allText = (@($cOk, $cMissing, $cKeychain, $cNoMeta, $cNoMech, $cBadJson, $cApi, $cOdd) | ForEach-Object { "$($_.SignIn.Detail) $($_.Block) $($_.Mechanism)" }) -join ' '
+    $cKc2 = & $credCase 'keychain' $authOauth
+    $allText = (@($cOk, $cMissing, $cKeychain, $cNoMeta, $cNoMech, $cBadJson, $cApi, $cOdd, $cKc2) | ForEach-Object { "$($_.SignIn.Detail) $($_.Block) $($_.Mechanism)" }) -join ' '
     Check 'UNIT' 'D5 sign-in states: ok "signed in (~/.config/muse/auth.json: providers.meta, mechanism oauth)"; no file -> missing ("run `muse login` with TBH_CREDENTIAL_BACKEND=file"); keychain backend -> unknown (not checkable); no providers.meta -> missing; no mechanism / not JSON -> unknown' ($cOk.SignIn.Detail -eq 'ok: signed in (~/.config/muse/auth.json: providers.meta, mechanism oauth)' -and $cOk.Mechanism -eq 'oauth' -and $cMissing.SignIn.Detail -eq 'missing: not signed in: ~/.config/muse/auth.json does not exist (run `muse login` with TBH_CREDENTIAL_BACKEND=file)' -and $cKeychain.SignIn.State -eq 'unknown' -and $cKeychain.SignIn.Reason -match '^sign-in not checkable: TBH_CREDENTIAL_BACKEND is not set \(the keychain backend cannot be read; set TBH_CREDENTIAL_BACKEND=file - required on Windows' -and $null -eq $cKeychain.Mechanism -and $cNoMeta.SignIn.Detail -eq 'missing: not signed in: ~/.config/muse/auth.json has no Meta sign-in (providers.meta; run `muse login`)' -and $cNoMech.SignIn.Detail -eq 'unknown: sign-in not checkable: providers.meta in ~/.config/muse/auth.json names no mechanism' -and $cBadJson.SignIn.Detail -eq 'unknown: sign-in not checkable: ~/.config/muse/auth.json does not parse as JSON') "$($cOk.SignIn.Detail) | $($cKeychain.SignIn.Detail)"
     Check 'UNIT' 'D4: a mechanism other than oauth refuses the launch ("uses mechanism ''api_key'', not oauth"); a value that is no short identifier is "unrecognized" and refused; the credential''s VALUES never appear in any result (only key names and the mechanism enum)' ($cApi.Block -eq "the Muse sign-in in ~/.config/muse/auth.json uses mechanism 'api_key', not oauth: a muse run would not bill the Muse Code subscription; sign in with ``muse login``" -and $cOdd.Mechanism -eq 'unrecognized' -and $cOdd.Block -match "mechanism 'unrecognized'" -and $cOk.Block -eq '' -and -not $allText.Contains($tokenMark)) $cApi.Block
+    $est = 'a muse run might bill per token instead of the Muse Code subscription; set TBH_CREDENTIAL_BACKEND=file and run `muse login`'
+    Check 'UNIT' 'F09-1 (wave 23b, fail-closed): a launch needs an ESTABLISHED oauth sign-in - the keychain backend (not set / ''keychain''), no auth.json, no providers.meta, no mechanism, a file that does not parse -> "the Muse sign-in is not established as oauth (<cause>): a muse run might bill per token ...; set TBH_CREDENTIAL_BACKEND=file and run `muse login`"; oauth -> no refusal' ($cKeychain.Block -eq "the Muse sign-in is not established as oauth (TBH_CREDENTIAL_BACKEND is not set: the keychain backend cannot be read): $est" -and $cKc2.Block -eq "the Muse sign-in is not established as oauth (TBH_CREDENTIAL_BACKEND is 'keychain': the keychain backend cannot be read): $est" -and $cMissing.Block -eq "the Muse sign-in is not established as oauth (~/.config/muse/auth.json does not exist): $est" -and $cNoMeta.Block -eq "the Muse sign-in is not established as oauth (~/.config/muse/auth.json has no Meta sign-in (providers.meta)): $est" -and $cNoMech.Block -eq "the Muse sign-in is not established as oauth (providers.meta in ~/.config/muse/auth.json names no mechanism): $est" -and $cBadJson.Block -eq "the Muse sign-in is not established as oauth (~/.config/muse/auth.json does not parse as JSON): $est" -and $cOk.Block -eq '' -and $null -eq $cKeychain.Mechanism) "$($cKeychain.Block) | $($cNoMech.Block)"
     $blocks = @(foreach ($name in @('META_API_KEY', 'MODEL_API_KEY')) {
             $script:MuseCredentialCache = @{}
             Set-Item "env:$name" 'fake-key-value-4711'
@@ -528,22 +575,45 @@ if (Want 'BILLING') {
     Check 'BILLING' 'D4: an auth.json whose providers.meta.mechanism is not oauth -> refused (with -SkipPreflight too): "uses mechanism ''api_key'', not oauth"' ($m.Code -eq 1 -and $m.First -eq "codex-consult: the muse engine is refused: the Muse sign-in in ~/.config/muse/auth.json uses mechanism 'api_key', not oauth: a muse run would not bill the Muse Code subscription; sign in with ``muse login``; nothing was started.") $m.First
     $lj = Providers $r $rosterMuseCodex @('-Json') @{ META_API_KEY = $val }
     $row = @($lj.Json | Where-Object { $_.name -eq 'meta' })[0]
+    # (wave 23b, F09-1) no ESTABLISHED oauth sign-in: refused like an API key - under
+    # -SkipPreflight, in a dry run, in the walk, in a panel member and in the listing alike
+    $estRun = 'a muse run might bill per token instead of the Muse Code subscription; set TBH_CREDENTIAL_BACKEND=file and run `muse login`; nothing was started.'
+    $bc = Join-Path $work 'billing-count.txt'
+    Write-Auth ('{"providers":{"meta":{"access_token":"' + $tokenMark + '"}}}')
+    $k1 = Consult $r '' ($museArgs + @('-Prompt', 'x', '-SkipPreflight')) @{ FAKE_MUSE_REPLY = $advise; FAKE_MUSE_COUNT = $bc }
+    $k2 = Consult $r '' (@('-DryRun') + $museArgs + @('-Prompt', 'x', '-SkipPreflight'))
+    Write-Auth $authOauth
+    Check 'BILLING' 'F09-1 (wave 23b): providers.meta without a mechanism -> refused under -SkipPreflight too, and in the dry run: "the muse engine is refused: the Muse sign-in is not established as oauth (providers.meta in ~/.config/muse/auth.json names no mechanism): ...; set TBH_CREDENTIAL_BACKEND=file and run `muse login`"; no muse process, no ledger entry, no credential value printed' ($k1.Code -eq 1 -and $k1.First -eq "codex-consult: the muse engine is refused: the Muse sign-in is not established as oauth (providers.meta in ~/.config/muse/auth.json names no mechanism): $estRun" -and $k2.Code -eq 1 -and $k2.First -eq $k1.First -and -not (Test-Path $bc) -and @(Ledger $r).Count -eq 0 -and -not ($k1.Out + $k2.Out).Contains($tokenMark)) $k1.First
+    $kw = Consult $r $rosterMuseCodex @('-DryRun', '-Prompt', 'x', '-SkipPreflight') @{ TBH_CREDENTIAL_BACKEND = '' }
+    $rpn = New-Repo 'billing-panel'
+    $kc = Join-Path $work 'billing-panel-count.txt'
+    $kp = Consult $rpn $rosterMuseCodex @('-Panel', '-Prompt', 'x', '-SkipPreflight', '-ReplyName', 'kp') @{ TBH_CREDENTIAL_BACKEND = ''; FAKE_CODEX_REPLY = $advise; FAKE_MUSE_REPLY = $advise; FAKE_MUSE_COUNT = $kc }
+    $kled = @(Ledger $rpn)
+    Check 'BILLING' 'F09-1: the keychain backend (TBH_CREDENTIAL_BACKEND not set) under -SkipPreflight: the roster walk skips the muse entry ("refused: the Muse sign-in is not established as oauth (TBH_CREDENTIAL_BACKEND is not set: the keychain backend cannot be read): ...") and selects openai; a real panel skips the muse member the same way, the codex member runs (one ledger entry), no muse process' ($kw.Code -eq 0 -and $kw.Preview.reviewer.provider -eq 'openai' -and $kw.Preview.roster.skipped[0].engine -eq 'muse' -and $kw.Preview.roster.skipped[0].reason -match '^refused: the Muse sign-in is not established as oauth \(TBH_CREDENTIAL_BACKEND is not set: the keychain backend cannot be read\): a muse run might bill per token' -and $kp.Code -eq 0 -and $kp.Out -match '(?m)^  #1 meta :: muse-spark-1\.3 \[muse\] - skipped: refused: the Muse sign-in is not established as oauth \(TBH_CREDENTIAL_BACKEND is not set' -and $kp.Out -match '(?m)^  #2 openai :: gpt-5\.1 - member, n=' -and $kled.Count -eq 1 -and $kled[0].reviewer.provider -eq 'openai' -and $kled[0].bridge_outcome -eq 'usable reply' -and -not (Test-Path $kc)) "$(Line $kw.Out 'Roster:') | $(Line $kp.Out '  #1')"
+    $kl = Providers $r $rosterMuseCodex @('-Json') @{ TBH_CREDENTIAL_BACKEND = '' }
+    $krow = @($kl.Json | Where-Object { $_.name -eq 'meta' })[0]
+    $kopen = @($kl.Json | Where-Object { $_.name -eq 'openai' })[0]
+    Check 'BILLING' 'F09-1: codex-providers with the keychain backend: the muse row''s credentials "unknown: sign-in not checkable: ...", its verdict "unavailable (refused: the Muse sign-in is not established as oauth (...): ...)"; the roster line selects openai' ($kl.Code -eq 0 -and $krow.credentials -match '^unknown: sign-in not checkable: TBH_CREDENTIAL_BACKEND is not set' -and $krow.verdict -match '^unavailable \(refused: the Muse sign-in is not established as oauth \(TBH_CREDENTIAL_BACKEND is not set: the keychain backend cannot be read\): a muse run might bill per token' -and $krow.roster_selected -eq $false -and $kopen.roster_selected -eq $true) $krow.verdict
     Check 'BILLING' 'codex-providers: the muse row is "unavailable (refused: META_API_KEY is set: ...)"; the roster line selects openai' ($lj.Code -eq 0 -and $row.verdict -match '^unavailable \(refused: META_API_KEY is set: a muse run would bill per token' -and $row.roster_selected -eq $false -and -not $lj.Out.Contains($val)) $row.verdict
 }
 
 # =============================================================== PREFLIGHT: the three sign-in states end to end (D5)
 if (Want 'PREFLIGHT') {
     $r = New-Repo 'pre'
+    $pc = Join-Path $work 'pre-count.txt'
+    $mMsg = 'codex-consult: the muse engine is refused: the Muse sign-in is not established as oauth (~/.config/muse/auth.json does not exist): a muse run might bill per token instead of the Muse Code subscription; set TBH_CREDENTIAL_BACKEND=file and run `muse login`; nothing was started.'
     Write-Auth ''
     $mdry = Consult $r '' (@('-DryRun') + $museArgs + @('-Prompt', 'x'))
-    $mrun = Consult $r '' ($museArgs + @('-Prompt', 'x')) @{ FAKE_MUSE_REPLY = $advise }
+    $mrun = Consult $r '' ($museArgs + @('-Prompt', 'x')) @{ FAKE_MUSE_REPLY = $advise; FAKE_MUSE_COUNT = $pc }
+    $mskip = Consult $r '' ($museArgs + @('-Prompt', 'x', '-SkipPreflight')) @{ FAKE_MUSE_REPLY = $advise; FAKE_MUSE_COUNT = $pc }
+    $ml = Providers $r $rosterMuseCodex @('-Json')
     Write-Auth $authOauth
-    Check 'PREFLIGHT' 'no auth.json (file backend) -> "missing: not signed in: ~/.config/muse/auth.json does not exist (run `muse login` ...)"; the real run is refused, nothing started' ($mdry.Code -eq 0 -and $mdry.Out -match '(?m)^preflight   : unavailable \(not signed in: ~/\.config/muse/auth\.json does not exist \(run `muse login` with TBH_CREDENTIAL_BACKEND=file\)\) - a real run is refused' -and $mrun.Code -eq 1 -and $mrun.First -match '^codex-consult: provider meta is not usable: not signed in: ' -and @(Ledger $r).Count -eq 0) $mrun.First
+    $mrow = @($ml.Json | Where-Object { $_.name -eq 'meta' })[0]
+    Check 'PREFLIGHT' 'no auth.json (file backend): the sign-in check says "missing: not signed in: ~/.config/muse/auth.json does not exist (run `muse login` with TBH_CREDENTIAL_BACKEND=file)" (the listing''s credentials); since wave 23b (F09-1) the LAUNCH is refused before any preflight - the dry run, the real run and -SkipPreflight alike ("the Muse sign-in is not established as oauth (~/.config/muse/auth.json does not exist): ..."); nothing started, no ledger entry' ($mdry.Code -eq 1 -and $mdry.First -eq $mMsg -and $mrun.Code -eq 1 -and $mrun.First -eq $mMsg -and $mskip.Code -eq 1 -and $mskip.First -eq $mMsg -and $mrow.credentials -eq 'missing: not signed in: ~/.config/muse/auth.json does not exist (run `muse login` with TBH_CREDENTIAL_BACKEND=file)' -and $mrow.verdict -match '^unavailable \(refused: the Muse sign-in is not established as oauth \(~/\.config/muse/auth\.json does not exist\): ' -and -not (Test-Path $pc) -and @(Ledger $r).Count -eq 0) "$($mrun.First) | $($mrow.verdict)"
     $kdry = Consult $r '' (@('-DryRun') + $museArgs + @('-Prompt', 'x')) @{ TBH_CREDENTIAL_BACKEND = '' }
-    $krun = Consult $r '' ($museArgs + @('-Prompt', 'x')) @{ TBH_CREDENTIAL_BACKEND = ''; FAKE_MUSE_REPLY = $advise }
-    $kskip = Consult $r '' ($museArgs + @('-Prompt', 'x', '-SkipPreflight', '-ReplyName', 'skip')) @{ TBH_CREDENTIAL_BACKEND = ''; FAKE_MUSE_REPLY = $advise }
-    $ek = Last-Entry $r
-    Check 'PREFLIGHT' 'the keychain backend (TBH_CREDENTIAL_BACKEND not file) -> "unknown: sign-in not checkable ..." -> refused unless -SkipPreflight; with it the run goes ahead (preflight "skipped", credential_mechanism null)' ($kdry.Code -eq 0 -and $kdry.Out -match '(?m)^preflight   : unknown \(sign-in not checkable: TBH_CREDENTIAL_BACKEND is not set' -and $krun.Code -eq 1 -and $krun.First -match '^codex-consult: provider meta: availability could not be established \(sign-in not checkable' -and $kskip.Code -eq 0 -and $ek.bridge_outcome -eq 'usable reply' -and $ek.preflight -eq 'skipped' -and $null -eq $ek.reviewer.provider_config.credential_mechanism) "$($krun.First) | $($ek.preflight)"
+    $krun = Consult $r '' ($museArgs + @('-Prompt', 'x')) @{ TBH_CREDENTIAL_BACKEND = ''; FAKE_MUSE_REPLY = $advise; FAKE_MUSE_COUNT = $pc }
+    $kskip = Consult $r '' ($museArgs + @('-Prompt', 'x', '-SkipPreflight', '-ReplyName', 'skip')) @{ TBH_CREDENTIAL_BACKEND = 'keychain'; FAKE_MUSE_REPLY = $advise; FAKE_MUSE_COUNT = $pc }
+    Check 'PREFLIGHT' 'the keychain backend (TBH_CREDENTIAL_BACKEND not file): the sign-in is unknown (not checkable) - since wave 23b (F09-1) the launch is refused in the dry run, the real run AND under -SkipPreflight (before: it ran with credential_mechanism null); the message names the cause and the remedy; nothing started, no ledger entry' ($kdry.Code -eq 1 -and $kdry.First -match '^codex-consult: the muse engine is refused: the Muse sign-in is not established as oauth \(TBH_CREDENTIAL_BACKEND is not set: the keychain backend cannot be read\): a muse run might bill per token instead of the Muse Code subscription; set TBH_CREDENTIAL_BACKEND=file and run `muse login`; nothing was started\.$' -and $krun.Code -eq 1 -and $krun.First -eq $kdry.First -and $kskip.Code -eq 1 -and $kskip.First -match "^codex-consult: the muse engine is refused: the Muse sign-in is not established as oauth \(TBH_CREDENTIAL_BACKEND is 'keychain': the keychain backend cannot be read\): " -and -not (Test-Path $pc) -and @(Ledger $r).Count -eq 0) "$($krun.First) | $($kskip.First)"
 }
 
 # =============================================================== FAIL: the extraction invariants and failure classes end to end (D6, D7, D14)
@@ -578,6 +648,26 @@ if (Want 'FAIL') {
         if (-not $ok) { $bad += "$name -> [$($e.bridge_outcome)] class $($e.provider_failure.class)" }
     }
     Check 'FAIL' "every rule fails the run with its class, nothing ingested, one turn: $(@($cases.Keys) -join ', ') (drift: the session is a candidate only; schema 2: engine_run.msp_schema_version 2)" ($bad.Count -eq 0) ($bad -join ' | ')
+    # (wave 23b, F09-3) evidence of foreign provenance end to end: a nested / sub-stream record,
+    # another run, no run linked -> malformed ("ambiguous provenance"), fail closed
+    $provCases = [ordered]@{
+        'model on a sub-stream' = @(@{ FAKE_MUSE_MODEL_STREAM = 'task' }, '^failed: malformed event stream: ambiguous provenance: the run\.model\.configured record at line 3 is on stream task [0-9a-f-]{36}, not on the session stream$')
+        'model of another run'  = @(@{ FAKE_MUSE_MODEL_RUN = 'other' }, '^failed: malformed event stream: ambiguous provenance: the run\.model\.configured record at line 3 names stream run [0-9a-f-]{36}, not the run linked to the session \(run [0-9a-f-]{36}\)$')
+        'no run linked'         = @(@{ FAKE_MUSE_LINK = 'none' }, '^failed: malformed event stream: ambiguous provenance: the run\.model\.configured record at line 2 names stream run [0-9a-f-]{36}, but no session\.run\.linked record links a run to the session$')
+        'link on a sub-stream'  = @(@{ FAKE_MUSE_LINK = 'task' }, '^failed: malformed event stream: ambiguous provenance: the session\.run\.linked record at line 2 is on stream task [0-9a-f-]{36}, not on the session stream$')
+        'two runs linked'       = @(@{ FAKE_MUSE_LINK = 'two' }, '^failed: malformed event stream: ambiguous provenance: 2 run streams linked to the session \(exactly one expected\): run [0-9a-f-]{36}, run [0-9a-f-]{36}$')
+        'reply of another run'  = @(@{ FAKE_MUSE_TERMINAL_RUN = 'other' }, '^failed: malformed event stream: ambiguous provenance: the run_terminal record at line \d+ names stream run [0-9a-f-]{36}, not the run linked to the session \(run [0-9a-f-]{36}\)$')
+    }
+    $badP = @()
+    foreach ($name in $provCases.Keys) {
+        $k++
+        $envK = @{ FAKE_MUSE_REPLY = $adviseF }
+        foreach ($kk in $provCases[$name][0].Keys) { $envK[$kk] = $provCases[$name][0][$kk] }
+        $o = Consult $r '' ($museArgs + @('-Prompt', 'x', '-ReplyName', "f$k")) $envK
+        $e = Last-Entry $r
+        if (-not ($o.Code -eq 1 -and $e.bridge_outcome -match $provCases[$name][1] -and $e.provider_failure.class -eq 'transport' -and @($e.finding_ids).Count -eq 0 -and $e.engine_run.turns -eq 1 -and $e.thread -eq '' -and $e.thread_candidate -match $uuidRe)) { $badP += "$name -> [$($e.bridge_outcome)] class $($e.provider_failure.class) thread [$($e.thread)]" }
+    }
+    Check 'FAIL' "F09-3 (wave 23b): evidence of foreign provenance fails the run as a malformed stream (""ambiguous provenance: ..."", class transport, nothing ingested, the session a candidate only, one turn): $(@($provCases.Keys) -join ', ')" ($badP.Count -eq 0) ($badP -join ' | ')
     $t = Consult $r '' ($museArgs + @('-Prompt', 'x', '-ReplyName', 'hang', '-TimeoutSec', '6')) @{ FAKE_MUSE_HANG = '1' }
     $et = Last-Entry $r
     Check 'FAIL' 'D7: the bridge''s own timeout kills the tree -> "failed: timeout after 6 s (process tree killed)", class transport (not the signal exit)' ($t.Code -eq 1 -and $et.bridge_outcome -match '^failed: timeout after 6 s \(process tree killed' -and $et.provider_failure.class -eq 'transport') $et.bridge_outcome
@@ -640,6 +730,16 @@ if (Want 'REPAIR') {
     $repPf = @(($rt -split "`n") | Where-Object { $_.StartsWith('PROMPT-FILE: ') }) | Select-Object -First 1
     Check 'REPAIR' 'D2: prose first, JSON on the repair turn - the repair''s MSP stream is parsed by the MUSE adapter: structured, format_retry {succeeded, events NN-muse-pr.repair.events.jsonl}, the .reply.json holds the repaired object, engine_run.turns 2 (two subscription prompts), two exec turns' ($x.Code -eq 0 -and $e.structured -eq $true -and $e.format_retry.succeeded -eq $true -and $e.format_retry.events -match '^handoffs/\d\d-muse-pr\.repair\.events\.jsonl$' -and (Test-Path (Td $r $e.format_retry.events)) -and (ConvertFrom-Json (Text (Td $r $e.reply_json))).verdict_reason -eq 'the rules hold' -and $e.engine_run.turns -eq 2 -and (Count-Lines $rc) -eq 2) "$($e.bridge_outcome) turns=$($e.engine_run.turns)"
     Check 'REPAIR' 'D1: the repair turn continues THE session (--session-id <thread>), with the schema, effort low (the route''s lowest), ITS OWN prompt file (not the main turn''s) holding the repair prompt, and an empty stdin' ($rArgs -contains '--session-id' -and $rArgs[$rArgs.Count - 1] -eq $e.thread -and ($rArgs -join ' ') -match "--output-schema $([regex]::Escape($schemaPath)) --model muse-spark-1\.3 --reasoning-effort low " -and $repPf -and $mainPf -and $repPf -ne $mainPf -and $rt -match '(?m)^STDIN-BYTES: 0$' -and $rt.Contains("PROMPT:`nYour last message was prose, not the required JSON.")) "$repPf vs $mainPf"
+    # (wave 23b, F09-2) a prompt-only run: the repair turn keeps the main turn's transport
+    $pl = Join-Path $work 'repair-po-resume-log.txt'
+    $pm = Join-Path $work 'repair-po-main-log.txt'
+    $po = Consult $r '' ($museArgs + @('-Prompt', 'x', '-ReplyName', 'po', '-SchemaTransport', 'prompt-only')) @{ FAKE_MUSE_REPLY = $proseFile; FAKE_MUSE_RESUME_REPLY = $repairedFile; FAKE_MUSE_LOG = $pm; FAKE_MUSE_RESUME_LOG = $pl }
+    $epo = Last-Entry $r
+    $pot = Text $pl
+    $poArgs = @(($pot -split "`n") | Where-Object { $_.StartsWith('ARG: ') } | ForEach-Object { $_.Substring(5) })
+    $pmArgs = @(((Text $pm) -split "`n") | Where-Object { $_.StartsWith('ARG: ') } | ForEach-Object { $_.Substring(5) })
+    $frOrder = (($epo.format_retry.PSObject.Properties | ForEach-Object { $_.Name }) -join ',')
+    Check 'REPAIR' 'F09-2 (wave 23b): -SchemaTransport prompt-only - the main turn AND the repair turn (--session-id) pass no --output-schema, the repair prompt carries the schema as the main prompt does; ledger schema_transport prompt-only, format_retry.schema_transport prompt-only (the native run above: native); format_retry fields ...,original,events,schema_transport' ($po.Code -eq 0 -and $epo.schema_transport -eq 'prompt-only' -and $epo.structured -eq $true -and $epo.format_retry.succeeded -eq $true -and $epo.format_retry.schema_transport -eq 'prompt-only' -and $poArgs.Count -gt 0 -and $poArgs -notcontains '--output-schema' -and $poArgs -contains '--session-id' -and $pmArgs.Count -gt 0 -and $pmArgs -notcontains '--output-schema' -and $pot.Contains('JSON Schema of the reply:') -and $e.format_retry.schema_transport -eq 'native' -and $epo.engine_run.turns -eq 2 -and $frOrder -eq 'attempted,reason,succeeded,thread,wall_seconds,usage,drift,original,events,schema_transport') "repair args: $($poArgs -join ' ') | $frOrder"
     $rc2 = Join-Path $work 'repair-count-2.txt'
     $y = Consult $r '' ($museArgs + @('-Prompt', 'x', '-ReplyName', 'nofr', '-FormatRetry', '0')) @{ FAKE_MUSE_REPLY = $proseFile; FAKE_MUSE_COUNT = $rc2 }
     $ey = Last-Entry $r
