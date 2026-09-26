@@ -278,6 +278,33 @@ optional participant whose "done" is never trusted and who never closes a findin
   historical defects plus clean controls at a fixed budget) on an officially supported route;
   leaderboard rank is not that evidence. Consider replacing a role before adding a reviewer.
 
+## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
+
+- **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a
+  ~4,000-line commit range lost BOTH members to the 900 s default timeout (each killed at
+  ~902 s), while the same reviewers had taken 585 s and 778 s on a framing brief that morning; an
+  acceptance of a large wave later lost three of seven members at 1800 s. Nothing of a killed
+  member's work survives: the reply file holds no prose and the event stream is not salvaged.
+  Planned: (a) per-purpose default timeouts (diff-review, acceptance and core-contract above the
+  900 s of a checkpoint), with `-TimeoutSec` still winning; (b) a preflight WARNING when the
+  reviewed range is large for the timeout (lines changed in the range, files named by the
+  brief), suggesting `-TimeoutSec` or a reading plan in the brief; (c) on a timeout kill, salvage
+  the last agent message and reasoning text of the event stream into
+  `<NN>-<engine>-<slug>.partial.md`, named in the ledger entry and the summary; (d) document
+  rating a failed or timed-out member (`-Rate` is allowed; mark `no` only when the failure was
+  the reviewer's, skip it when it was the bridge's or the plan's).
+- **T2 - the providers view disagrees with the roster walk.** `codex-providers.ps1` showed a
+  reviewer "available", LAST FAILURE "-" and "roster: would select" it, while every panel of the
+  day skipped that same entry with "usage limit until <time>". The listing must reflect the same
+  endpoint health the roster walk uses (the ledgers of the repository the command runs in), or
+  say where its state comes from; otherwise the skill's advice "do not plan on an unavailable
+  provider" cannot be followed from its output.
+- **T3 - a quota failure without a reset time reads as available.** After two members of one
+  plan failed with 429 (class quota, no reset time known), the SessionStart line and the
+  listing still said the plan was available. A fresh quota failure without a reset must count as
+  "out (limit hit <time>, reset unknown)" for a documented window (60 min), see also the
+  companions design's addendum (what is out, per roster entry, one line).
+
 ## Bridge features (earlier help-wanted list)
 
 - **A bash port**, so macOS/Linux users need no `pwsh` at all.
