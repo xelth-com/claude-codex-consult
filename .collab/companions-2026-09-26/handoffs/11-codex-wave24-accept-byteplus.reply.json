@@ -1,0 +1,242 @@
+{
+  "schema_version": "1",
+  "verdict": "ACCEPT",
+  "verdict_reason": "All wave 24 requirements are implemented correctly; no blocker or major defects found in the diff review.",
+  "reply_markdown": "# Wave 24 Acceptance Review (commit 65f5649)\n\n## Summary\nAll wave 24 changes are implemented correctly and match the design brief. No blocker or major defects were found in this diff review.\n\n## Addressed Wave 24 Findings\n| ID | Status | Note |\n|----|--------|------|\n| F02-9 | Fixed | Quota without known reset is now consistently marked out for 60 minutes across all surfaces (roster walk, providers listing, hook) |\n| F02-10 | Fixed | codex-providers now walks every roster entry, not just provider labels; hook correctly displays per-entry availability |\n| F02-11 | Fixed | Endpoint groups are computed over all roster entries; outages propagate across shared credentials/quota even for unselected entries |\n| F03-4 | Fixed | Hook no longer uses regex parsing; reads full availability line directly from codex-providers -Short -Json output |\n| F03-5 | Fixed | codex-providers now uses the same roster walk verdict logic; 60 minute rule applies uniformly everywhere |\n| F04-9 | Fixed | Select-PanelMembers has -NoNetwork parameter; used by codex-providers and hook to get per-entry verdicts without network calls |\n| F04-10 | Fixed | Availability line no longer truncates reasons; correctly counts all three states (available/out/not checked) |\n\n## Verified Implementations\n1. **Timeout continuation**: One continuation turn after timeout kill, same thread, finish-now prompt, -ContinueSec min(timeout, 900), usable reply ingested normally\n2. **Partial salvage**: Writes `NN-<engine>-<slug>.partial.md` with event stream, tool calls, and exact resume command\n3. **Per-purpose timeouts**: Correct defaults (chore 600, checkpoint 900, framing 1800, diff-review 2400, acceptance 3600); -TimeoutSec overrides\n4. **-Range support**: Git diff --shortstat, size warning >1500 lines with timeout <2400s, unknown range refused before start\n5. **F15-1**: Muse billing guard re-reads auth.json right before launch with -Fresh flag\n6. **Availability one truth**: All surfaces use same verdict logic; 60 minute rule for unknown resets; health source displayed; endpoint grouping works correctly\n\n## First Run Checklist\n- Observe `timeout_continue` ledger record after a timeout kill\n- Verify partial reply file is created when continuation fails or is disabled\n- Confirm per-purpose timeouts are correctly inherited by panel members\n- Check that -Range warning appears for large diffs with short timeouts\n- Validate hook availability line correctly groups endpoint outages and shows reset times",
+  "findings": [],
+  "prior_findings": [
+    {
+      "id": "F02-1",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-2",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-3",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-4",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-5",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-6",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-7",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-8",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-9",
+      "status": "fixed",
+      "note": "Quota without reset is now 60 minutes out consistently across all surfaces"
+    },
+    {
+      "id": "F02-10",
+      "status": "fixed",
+      "note": "codex-providers now walks all roster entries, hook uses this output"
+    },
+    {
+      "id": "F02-11",
+      "status": "fixed",
+      "note": "Endpoint groups computed over all entries; outages propagate across shared credentials"
+    },
+    {
+      "id": "F02-12",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-13",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-14",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F02-15",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F03-1",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F03-2",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F03-3",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F03-4",
+      "status": "fixed",
+      "note": "Hook no longer uses regex parsing, reads line directly from JSON output"
+    },
+    {
+      "id": "F03-5",
+      "status": "fixed",
+      "note": "codex-providers now uses roster walk logic, 60 minute rule applies everywhere"
+    },
+    {
+      "id": "F03-6",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F03-7",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F03-8",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F03-9",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F03-10",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F03-11",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F03-12",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-1",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-2",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-3",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-4",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-5",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-6",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-7",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-8",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-9",
+      "status": "fixed",
+      "note": "Select-PanelMembers has -NoNetwork, used by providers and hook for per-entry verdicts"
+    },
+    {
+      "id": "F04-10",
+      "status": "fixed",
+      "note": "Availability line no longer truncates, correctly counts all three states"
+    },
+    {
+      "id": "F04-11",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-12",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-13",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-14",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-15",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-16",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-17",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    },
+    {
+      "id": "F04-18",
+      "status": "not-checked",
+      "note": "Companions wave, not implemented in wave 24"
+    }
+  ],
+  "unproven": [],
+  "first_run_checklist": [
+    "Observe timeout_continue ledger record after a timeout kill",
+    "Verify partial reply file is created when continuation fails or is disabled",
+    "Confirm per-purpose timeouts are correctly inherited by panel members",
+    "Check that -Range warning appears for large diffs with short timeouts",
+    "Validate hook availability line correctly groups endpoint outages and shows reset times"
+  ]
+}
