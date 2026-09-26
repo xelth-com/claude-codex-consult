@@ -4552,7 +4552,7 @@
                      },
                      {
                          "id":  "F07-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -4602,6 +4602,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:27:05+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4610,7 +4619,7 @@
                      },
                      {
                          "id":  "F07-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -4655,6 +4664,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:27:06+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4663,7 +4681,7 @@
                      },
                      {
                          "id":  "F07-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -4717,6 +4735,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:27:07+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4725,7 +4752,7 @@
                      },
                      {
                          "id":  "F08-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -4784,6 +4811,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:26:54+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4792,7 +4828,7 @@
                      },
                      {
                          "id":  "F08-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -4851,6 +4887,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:26:56+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4859,7 +4904,7 @@
                      },
                      {
                          "id":  "F08-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -4918,6 +4963,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:26:57+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4926,7 +4980,7 @@
                      },
                      {
                          "id":  "F08-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -4985,6 +5039,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:26:58+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4993,7 +5056,7 @@
                      },
                      {
                          "id":  "F08-5",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -5052,6 +5115,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:27:00+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -5060,7 +5132,7 @@
                      },
                      {
                          "id":  "F08-6",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -5106,6 +5178,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:27:01+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -5114,7 +5195,7 @@
                      },
                      {
                          "id":  "F08-7",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -5173,6 +5254,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:27:02+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -5181,7 +5271,7 @@
                      },
                      {
                          "id":  "F08-8",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -5231,6 +5321,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:27:03+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -5239,7 +5338,7 @@
                      },
                      {
                          "id":  "F13-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -5284,6 +5383,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:27:09+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -5292,7 +5400,7 @@
                      },
                      {
                          "id":  "F13-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -5333,6 +5441,15 @@
                                              "evidence":  "",
                                              "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                              "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T20:27:10+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
                                      ],
                          "reviewer_checks":  [
