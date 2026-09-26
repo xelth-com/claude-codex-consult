@@ -39,6 +39,13 @@
 #   FAKE_CODEX_PIDDIR=<dir>      every exec turn writes <dir>\<pid>.pid ("<pid> <start time,
 #                                UTC ticks>"): one file per process - the members of a
 #                                parallel panel never share one (the no-orphan checks)
+#   (wave 24b, the continuation gates)
+#   FAKE_CODEX_WRITE=<rel path>  on a turn that is NOT `resume <thread>`: writes that file
+#                                (relative to the working directory) before any sleep or hang
+#   FAKE_CODEX_STDERR_FIRST=<t>  written to stderr (UTF-8 bytes) right after turn.started, before
+#                                any sleep or hang - a killed turn's own stderr
+#   FAKE_CODEX_RESUME_FAIL=<t>   on a `resume <thread>` turn: an `error` event and a `turn.failed`
+#                                event with <t>, "ERROR: <t>" on stderr, exit 1, no reply
 $ErrorActionPreference = 'Stop'
 $raw = [string]$env:FAKE_CODEX_ARGS
 # "<model>=<value>|..." -> the value for $Key ('*' or a bare value: the default; $null: none)
@@ -102,6 +109,22 @@ if ($env:FAKE_CODEX_PRELINE) { [Console]::Out.Write($env:FAKE_CODEX_PRELINE + "`
 if (-not $env:FAKE_CODEX_NOTHREAD) { [Console]::Out.Write("{""type"":""thread.started"",""thread_id"":""$tid""}`n") }
 [Console]::Out.Write("{""type"":""turn.started""}`n")
 [Console]::Out.Flush()
+if ($env:FAKE_CODEX_STDERR_FIRST) {
+    $b = (New-Object System.Text.UTF8Encoding($false)).GetBytes($env:FAKE_CODEX_STDERR_FIRST + "`r`n")
+    $es = [Console]::OpenStandardError(); $es.Write($b, 0, $b.Length); $es.Flush()
+}
+if ($env:FAKE_CODEX_WRITE -and $raw -notmatch ' resume ') {
+    [IO.File]::WriteAllText((Join-Path (Get-Location).Path $env:FAKE_CODEX_WRITE), "written by the fake codex`n")
+}
+if ($env:FAKE_CODEX_RESUME_FAIL -and $raw -match ' resume [0-9a-fA-F-]{36}') {
+    $fm = ConvertTo-Json -InputObject ([string]$env:FAKE_CODEX_RESUME_FAIL) -Compress
+    [Console]::Out.Write('{"type":"error","message":' + $fm + '}' + "`n")
+    [Console]::Out.Write('{"type":"turn.failed","error":{"message":' + $fm + '}}' + "`n")
+    [Console]::Out.Flush()
+    $b = (New-Object System.Text.UTF8Encoding($false)).GetBytes('ERROR: ' + $env:FAKE_CODEX_RESUME_FAIL + "`r`n")
+    $es = [Console]::OpenStandardError(); $es.Write($b, 0, $b.Length); $es.Flush()
+    exit 1
+}
 $delayMs = Get-FakeMapValue $env:FAKE_CODEX_DELAY_MS $model
 if ($delayMs) { Start-Sleep -Milliseconds ([int]$delayMs) }
 if ($env:FAKE_CODEX_ITEMS) {

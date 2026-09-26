@@ -72,10 +72,15 @@
     usage limit whose reset time the provider named (provider_failure.retry_after,
     read from e.g. "try again at Sep 28th, 2026 8:35 PM." with the rules of the
     recording machine's time zone, daylight saving included - refused until then) -
-    otherwise the run is refused; -SkipPreflight bypasses it. A usage-limit failure
-    WITHOUT a reset time within the last hour only warns. Failed runs record a
-    classified provider_failure (auth | quota | capability | transport | unknown,
-    plus retry_after; a failure stamped in the future counts as now). The endpoint
+    otherwise the run is refused; -SkipPreflight bypasses it (and then warns). A
+    usage-limit failure WITHOUT a reset time refuses the run for 60 minutes after it was
+    hit (wave 24b, F08-7: an explicit -Provider run too - one verdict for every caller).
+    Failed runs record a classified provider_failure (auth | quota | capability |
+    transport | unknown, plus retry_after; a failure stamped in the future counts as now;
+    wave 24b: a prompt larger than the plan's or the model's context window - "Your
+    current plan supports only k3 up to 256K context", even under a 401 - is capability,
+    never auth, and the summary adds "hint       : context too long for this
+    plan/model - ..."). The endpoint
     health is read at the consult clock
     (CODEX_CONSULT_NOW, a test hook). codex-providers.ps1 lists every provider with
     that verdict. No network call is made for any of it. Codex's stderr, its event
@@ -102,8 +107,8 @@
         reviewer is unavailable the refusal names what the roster would select for
         a new thread (-Mode new)
       * otherwise the roster is walked in order and the first entry whose preflight
-        is available runs (a usage limit without a reset time <= 60 min old is
-        skipped here); every skipped entry is recorded with its reason; none
+        is available runs (a usage limit without a reset time < 60 min old is
+        skipped, as everywhere); every skipped entry is recorded with its reason; none
         available = refused, nothing started. -Model without -Provider restricts the
         walk to the entries of that model; -SkipPreflight takes the first entry. The
         parent thread is then chosen for the SELECTED lineage as always.
@@ -139,7 +144,9 @@
     <model>=<ms>[|...]: the runs of that model only) pauses a commit between
     findings.json and sessions.json; CODEX_CONSULT_TEST_PANEL_GUARD_SEC=<s> replaces a
     panel member's kill guard; CODEX_CONSULT_TEST_MEMBER_PAUSE_MS=<ms> pauses a panel
-    member between the rewrite of its record and the check of its parent.
+    member between the rewrite of its record and the check of its parent;
+    CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS=<ms> (or <model>=<ms>[|...]) pauses between the
+    main turn's `launching` record and its guarded start (wave 24b).
 
     Engines (0.4.0): the CLI that carries the consultation - `codex` (the default, all of
     the above), `agy` (Google's Antigravity CLI for the Gemini models) or `muse` (Meta's Muse
@@ -240,24 +247,41 @@
         reply is ingested like a first-turn reply, bridge_outcome "usable reply (after a
         timeout continuation)"; ledger timeout_continue {thread, wall_seconds, outcome, events,
         usage} (outcome "not attempted: <why>" when none ran: -ContinueSec 0, no known thread,
-        surviving processes, a quota or auth failure in the killed turn's stream, a changed
-        tree). Never more than one per consultation; never after a quota, auth or billing
-        failure (muse's launch guard re-reads auth.json right before it - F15-1). A panel
-        member continues in its own process (its guard grows by -ContinueSec)
+        surviving processes, "files changed during the run (the working tree | the collab
+        directory | the brief | artifact(s))" - wave 24b, F08-2: one tree check for every
+        engine, codex included - or a quota, billing or auth failure in the killed turn's own
+        evidence - F08-3: the adapter's class and texts, the event error and every stderr line
+        through the one classifier). Never more than one per consultation; never after a
+        quota, auth or billing failure (the launch guard - muse: auth.json - is re-read right
+        before EVERY start of a turn, the main turn included: Start-EngineProcess, F08-1). On a
+        prompt-only transport the continuation prompt carries the reply format and the schema
+        again (F07-1). (wave 24b, F08-5) The continuation counts only when its reply passes a
+        first reply's checks - a valid reply object, else substantive prose (Get-ProseGate;
+        -Raw and chore: substantive prose); otherwise its outcome is "failed: not a usable
+        reply - <why>" and the salvage is kept. (F08-4) A continuation that failed supplies
+        provider_failure (its stderr, event error, class and retry_after - the endpoint health
+        reads it). A panel member continues in its own process (its guard grows by
+        -ContinueSec)
       * salvage: when a turn was killed on its timeout (the main turn without a successful
         continuation, the continuation, a denial retry, a format repair) the bridge writes
         handoffs/NN-<engine>-<slug>.partial.md - the reply's header, then per turn every agent
         message and reasoning text of its event stream in order and its tool calls (the
         command line of a shell command), then "killed at <t> s of <T> s; thread <id> -
-        continue with `-Task <t> -Mode resume -Thread <id> -Purpose <p> -Prompt "finish your
-        review"`" (ledger partial_reply after events; bridge_outcome stays "failed: timeout
-        ..."); the summary prints it and the exact manual resume command. -Thread takes the
-        conversation of a killed agy or muse run (its entry names the partial reply)
+        continue with `-Task <t> -Mode resume -Thread <id> -Purpose <p> [options] -Prompt
+        "finish your review"`" (ledger partial_reply after events; bridge_outcome stays
+        "failed: timeout ..."); the summary prints it and the exact manual resume command -
+        (wave 24b, F08-6) with every replay-relevant option the run was given: -TimeoutSec
+        (explicit), -ContinueSec (not the default), -Effort / -NativeEffort, -MaxWords,
+        -SchemaTransport, -CodexConfig, -Artifact (resolved paths), -Range, -Sandbox (not
+        read-only), -MaxModelSteps, -FormatRetry 0, -DenialRetry 0, -OffPeakOnly, -CodexExe /
+        -EngineExe. -Thread takes the conversation of a killed agy or muse run (its entry names
+        the partial reply)
       * -Range <revision range> (diff-review and acceptance only): `git diff --shortstat
         <range>` once - "the range changes N files, M lines" in the prompt, ledger range
         {spec, files, insertions, deletions, lines}; a range of more than 1500 lines with a
         timeout below 2400 s WARNS (console, handoff header, ledger warnings[]); an unknown
-        range is refused before anything starts
+        range, and (wave 24b, F08-8) a single revision - only base..head or base...head: a
+        single revision would measure the working tree - is refused before anything starts
 
     Invariants:
       * read-only sandbox by default; danger-full-access is refused outright
@@ -353,10 +377,11 @@ param(
     # timeout and 900 s; 0 = no continuation. Ledger continue_sec and timeout_continue.
     [int]$ContinueSec = -1,
 
-    # diff-review and acceptance only (wave 24): the git revision range under review (e.g.
-    # a1b2c3d..HEAD). `git diff --shortstat <range>` runs once: its numbers go into the prompt
-    # and the ledger (range), and a range of more than 1500 lines with a timeout below 2400 s
-    # warns. An unknown range is refused before anything starts.
+    # diff-review and acceptance only (wave 24): the git revision range under review, base..head
+    # or base...head (e.g. a1b2c3d..HEAD; a single revision is refused - wave 24b). `git diff
+    # --shortstat <range>` runs once: its numbers go into the prompt and the ledger (range), and
+    # a range of more than 1500 lines with a timeout below 2400 s warns. An unknown range is
+    # refused before anything starts.
     [string]$Range = '',
 
     # Slug for the reply file: handoffs/<NN>-codex-<slug>.md
@@ -645,15 +670,42 @@ function Format-Usage {
 
 # ----------------------------------------------------------------------------- engine turns (agy, muse)
 
+# (wave 24b, F08-1) The ONE guarded start of an engine process - EVERY Start-Process of a turn goes
+# through it: the main turn, a denial retry, the timeout continuation, a format repair (codex and
+# every other engine). Right before the start the engine's launch invariant is read afresh
+# (Get-EngineLaunchBlock -Fresh, D4 - muse: the billing guard re-reads auth.json and the
+# environment, never a sign-in cached by the preflight minutes earlier) and, for an engine other
+# than codex, the %-hazard of a .cmd launcher (F02-14); a refusal starts nothing. { Proc ($null
+# when nothing was started); Refusal ('' or why the launch was refused); Error ('' or why
+# Start-Process failed) }. Reads the run's $engineName and $repoRoot.
+function Start-EngineProcess {
+    param([string]$Launcher, [string[]]$Argv, [string]$StdoutPath, [string]$StderrPath, [string]$StdinPath)
+    $r = [pscustomobject]@{ Proc = $null; Refusal = ''; Error = '' }
+    $refusal = Get-EngineLaunchBlock -Engine $engineName -Fresh
+    if (-not $refusal -and $engineName -ne 'codex') { $refusal = Get-CmdArgvHazard -Launcher $Launcher -Argv $Argv }
+    if ($refusal) { $r.Refusal = [string]$refusal; return $r }
+    try {
+        $r.Proc = Start-Process -FilePath $Launcher -ArgumentList ((($Argv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')) `
+            -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
+            -RedirectStandardOutput $StdoutPath `
+            -RedirectStandardError $StderrPath `
+            -RedirectStandardInput $StdinPath
+    } catch {
+        $r.Error = ConvertTo-OneLine $_.Exception.Message
+    }
+    return $r
+}
+
 # One more turn (an engine's denial retry and format repair; wave 24: the timeout continuation
 # of every engine, codex included) under the SAME task lock and recovery record as the run: the
 # record goes launching -> running (child pid, start time, `events` = this turn's event stream)
 # before the process is waited on; a timeout kills the process tree, and survivors are recorded
 # (state survivors) and keep the record.
 # -PromptPath / -PromptText (wave 23, D1): the turn's own prompt file, written first (muse
-# names it in its argv; its stdin is then empty). Right before the start the engine's launch
-# invariant (D4; read afresh - wave 24, F15-1) and, for an engine other than codex, the .cmd
-# %-hazard (F02-14) are checked again: a refusal starts nothing.
+# names it in its argv; its stdin is then empty). Right before the start (Start-EngineProcess)
+# the engine's launch invariant (D4; read afresh - wave 24, F15-1) and, for an engine other than
+# codex, the .cmd %-hazard (F02-14) are checked again: a refusal starts nothing (the record gets
+# its previous state back).
 # Reads the run's $pendingRecord, $pendingPath, $engineLauncher, $engineName and $repoRoot.
 # { Exit (-1 unless it exited); Problem ('' or why the turn did not complete); Wall;
 # KeepPending; Stderr (UTF-8 text); Started (a process was started: one more engine turn -
@@ -663,29 +715,25 @@ function Invoke-EngineTurn {
     $t = [pscustomobject]@{ Exit = -1; Problem = ''; Wall = 0; KeepPending = $false; Stderr = ''; Started = $false }
     if ($PromptPath) { Write-Utf8NoBom -Path $PromptPath -Text $PromptText }
     Write-Utf8NoBom -Path $StdinPath -Text $StdinText
-    $refusal = Get-EngineLaunchBlock -Engine $engineName -Fresh
-    if (-not $refusal -and $engineName -ne 'codex') { $refusal = Get-CmdArgvHazard -Launcher $engineLauncher -Argv $Argv }
-    if ($refusal) {
-        $t.Problem = "refused before launch: $refusal"
-        return $t
-    }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    $prevState = [string]$pendingRecord.state
+    $prevNote = [string]$pendingRecord.note
     $pendingRecord.state = 'launching'
     $pendingRecord.note = "$Note being started; its pid is not recorded yet"
     try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
         $t.Problem = "could not write the recovery record ($(ConvertTo-OneLine $_.Exception.Message)); the turn was not started"
         return $t
     }
-    $proc = $null
-    try {
-        $proc = Start-Process -FilePath $engineLauncher -ArgumentList ((($Argv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')) `
-            -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
-            -RedirectStandardOutput $EventsPath `
-            -RedirectStandardError $StderrPath `
-            -RedirectStandardInput $StdinPath
-    } catch {
-        $t.Problem = "could not start $engineName - $(ConvertTo-OneLine $_.Exception.Message)"
+    $launch = Start-EngineProcess -Launcher $engineLauncher -Argv $Argv -StdoutPath $EventsPath -StderrPath $StderrPath -StdinPath $StdinPath
+    if ($launch.Refusal) {
+        $t.Problem = "refused before launch: $($launch.Refusal)"
+        $pendingRecord.state = $prevState
+        $pendingRecord.note = $prevNote
+        try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
+        return $t
     }
+    $proc = $launch.Proc
+    if ($launch.Error) { $t.Problem = "could not start $engineName - $($launch.Error)" }
     if ($proc) {
         if ($script:LegacyPS) { try { $null = $proc.Handle } catch { } }
         $t.Started = $true
@@ -1879,8 +1927,9 @@ if (-not $Raw) {
 # (Get-PreflightVerdict): missing credentials, an availability that cannot be established
 # (an unresolved identity, a `codex login status` that cannot run or times out), a recent
 # authentication failure on this endpoint and a usage limit whose reset time lies ahead all
-# refuse the run - no ledger entry, nothing started - unless -SkipPreflight. A usage limit
-# without a reset time within the last hour only warns (a roster walk skips it instead).
+# refuse the run - no ledger entry, nothing started - unless -SkipPreflight; so does (wave 24b,
+# F08-7) a usage limit without a reset time hit less than 60 minutes ago - the verdict of every
+# caller, the roster walk's too. -SkipPreflight launches anyway and warns (Format-QuotaWarning).
 # -DryRun reports and never refuses.
 $preflight = 'skipped'
 $preflightLabel = 'skipped (-SkipPreflight)'
@@ -2613,18 +2662,10 @@ try {
         Stop-WithError "-OffPeakOnly: $peakProvider entered its peak window before launch ($($peak.Schedule); now $($peak.Local)); nothing was started.$tail"
     }
     if ($peakWarning) { Write-Host $peakWarning -ForegroundColor Yellow }
-    # (wave 23) right before the launch: the engine's launch invariant again (D4) and the
-    # %-expansion hazard of a .cmd launcher (F02-14) - the reservation is withdrawn, nothing
-    # was started, no ledger entry.
-    if (-not $isCodex) {
-        # (wave 24, F15-1) read afresh: never a sign-in mechanism cached minutes ago
-        $preLaunch = Get-EngineLaunchBlock -Engine $engineName -Fresh
-        if (-not $preLaunch) { $preLaunch = $argvHazard }
-        if ($preLaunch) {
-            $rmError = Remove-PendingFile -Path $pendingPath
-            Stop-WithError "the $engineName run is refused before launch: $preLaunch; nothing was started.$(if ($rmError) { " (The recovery record '$pendingPath' could not be removed: $rmError; the next run consumes it.)" })"
-        }
-    }
+    # (wave 23) the engine's launch invariant again (D4) and the %-expansion hazard of a .cmd
+    # launcher (F02-14) are checked right before the start of the main turn itself
+    # (Start-EngineProcess, wave 24b F08-1) - a refusal withdraws the reservation: nothing was
+    # started, no ledger entry.
 
     # agy's --sandbox does not block writes (A17): what the review must not touch is
     # compared after the run - the tree fingerprint (above) and the whole collab directory
@@ -2661,6 +2702,11 @@ try {
     try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
         Stop-WithError "could not write the recovery record '$pendingPath': $(ConvertTo-OneLine $_.Exception.Message); $engineCmd was not started."
     }
+    # TEST HOOK: CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS=<ms> | <model>=<ms>[|...] - a pause between
+    # the `launching` record and the guarded start of the MAIN turn (wave 24b, F08-1: a sign-in
+    # that changes after the preflight is seen by the launch guard).
+    $launchPause = Get-TestHookMs -Value ([string]$env:CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS) -Model ([string]$identity.Model)
+    if ($launchPause -gt 0) { Start-Sleep -Milliseconds $launchPause }
 
     $startedAt = Get-Date
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -2669,18 +2715,15 @@ try {
     # (wave 24) the main turn was killed on the timeout (and how many processes survived it)
     $mainTimedOut = $false
     $mainSurvivors = 0
-    $argStr = (($argv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')
-
-    $proc = $null
-    try {
-        $proc = Start-Process -FilePath $engineLauncher -ArgumentList $argStr `
-            -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
-            -RedirectStandardOutput $eventsPath `
-            -RedirectStandardError $stderrPath `
-            -RedirectStandardInput $stdinPath
-    } catch {
-        $bridgeOutcome = "failed: could not start $engineCmd - $($_.Exception.Message)"
+    # (wave 24b, F08-1) the main turn starts through the ONE guarded start as every other turn:
+    # the launch invariant read afresh (muse: auth.json and the environment) right before it
+    $launch = Start-EngineProcess -Launcher $engineLauncher -Argv $argv -StdoutPath $eventsPath -StderrPath $stderrPath -StdinPath $stdinPath
+    if ($launch.Refusal) {
+        $rmError = Remove-PendingFile -Path $pendingPath
+        Stop-WithError "the $engineName run is refused before launch: $($launch.Refusal); nothing was started.$(if ($rmError) { " (The recovery record '$pendingPath' could not be removed: $rmError; the next run consumes it.)" })"
     }
+    $proc = $launch.Proc
+    if ($launch.Error) { $bridgeOutcome = "failed: could not start $engineCmd - $($launch.Error)" }
     if ($proc) {
         # PS 5.1: touching .Handle before the process exits caches it, otherwise
         # .ExitCode comes back empty on a -PassThru process.
@@ -2983,16 +3026,25 @@ try {
     # `exec ... resume <thread>`, agy --conversation, muse --session-id - asks the reviewer to
     # finish now instead of starting over, within -ContinueSec s, under the same lock and
     # recovery record (Invoke-EngineTurn). Not when the thread is unknown, processes survived
-    # the kill, the run changed files (an engine's tree check), the killed turn's own stream
-    # names a quota or auth failure, or -ContinueSec is 0 (ledger timeout_continue.outcome "not
-    # attempted: <why>"); muse's launch guard (billing) is read afresh right before it. A usable
-    # reply is ingested exactly like a first-turn reply ("usable reply (after a timeout
-    # continuation)"); otherwise the salvage below covers both turns' streams. At most once.
+    # the kill, files changed during the run (wave 24b, F08-2: ONE tree check for every engine -
+    # codex's fingerprints too), the killed turn's own evidence names a quota, billing or auth
+    # failure (F08-3: every candidate through the one classifier, Get-KilledTurnFailure), or
+    # -ContinueSec is 0 (ledger timeout_continue.outcome "not attempted: <why>"); the launch
+    # guard (muse: billing) is read afresh right before it. A prompt-only transport gets the reply
+    # format and the schema again (F07-1). The continuation counts only when its reply passes the
+    # checks of a first reply (F08-5, Test-ContinuationReply) - then it is ingested exactly like
+    # one ("usable reply (after a timeout continuation)"); otherwise the salvage below covers both
+    # turns' streams, and a continuation that FAILED supplies the provider failure (F08-4). At
+    # most once.
     $timeoutContinueRecord = $null
     $continued = $false
     $continueTurn = $null
     $continueThread = ''
     $continueProblem = ''
+    # (wave 24b) the continuation answered, but not with a usable reply (F08-5); the evidence of a
+    # continuation that failed - { Texts; Class } for provider_failure (F08-4)
+    $continueRejected = $false
+    $continueFailure = $null
     $continueEventsRel = $null
     $continueEventsName = "$nn-$enginePrefix-$ReplyName.continue.events.jsonl"
     $continueEventsPath = Join-Path $handoffsDir $continueEventsName
@@ -3002,21 +3054,25 @@ try {
         if ($ContinueSec -le 0) { $continueSkip = '-ContinueSec 0' }
         elseif (-not $continueThread) { $continueSkip = 'the thread of the killed turn is not known' }
         elseif ($mainSurvivors -gt 0) { $continueSkip = "$mainSurvivors process(es) survived the kill" }
-        elseif ($treeProblem) { $continueSkip = 'the run changed files (the tree check)' }
         else {
-            # the killed turn's OWN failure evidence (never the bridge's timeout text): the event
-            # stream's error, an SSE error payload on stderr (codex), stderr lines that name an
-            # error or a limit
-            $killedTexts = New-Object System.Collections.Generic.List[string]
-            if ($eventError) { $killedTexts.Add([string]$eventError) }
-            foreach ($sl in @(([string]$stderrText) -split "`r?`n")) {
-                $slt = $sl.Trim()
-                if ($slt -and ($slt -match '^\s*data:\s*\{' -or $slt -match '(?i)\berror\b|usage[ _]limit|quota|rate[ _]limit|resource_exhausted|\b429\b|unauthenticated|unauthori[sz]ed|not signed in|\b401\b|\b403\b')) { $killedTexts.Add($slt) }
-            }
-            foreach ($kt in $killedTexts) {
-                $cls = Get-ProviderFailureClass (ConvertFrom-ProviderErrorText -Text $kt).Message
-                if ($cls -eq 'quota' -or $cls -eq 'auth') { $continueSkip = "the killed turn reported a $cls failure ($(ConvertTo-OneLine $kt))"; break }
-            }
+            # (wave 24b, F08-2) ONE tree check for every engine: the working tree, the brief or an
+            # artifact changed while the killed turn ran - codex: the fingerprints taken around the
+            # run (a workspace-write run may have written); an engine: its tree check, which covers
+            # the collab directory too. A continuation would answer about another state.
+            $moved = New-Object System.Collections.Generic.List[string]
+            if ($treeChanged) { $moved.Add('the working tree') }
+            if ($treeProblem -and $treeProblem -match 'the collab directory changed') { $moved.Add('the collab directory') }
+            if ($briefChanged) { $moved.Add('the brief') }
+            if ($artifactsChanged) { $moved.Add('artifact(s)') }
+            if ($treeProblem -and $moved.Count -eq 0) { $moved.Add('the tree check') }
+            if ($moved.Count -gt 0) { $continueSkip = "files changed during the run ($($moved.ToArray() -join ', '))" }
+        }
+        if (-not $continueSkip) {
+            # (wave 24b, F08-3) the killed turn's OWN failure evidence (never the bridge's timeout
+            # text) through the ONE classifier: the adapter's class and failure texts (an engine),
+            # the event stream's error, every line of its stderr - quota (billing included) or auth
+            $killed = Get-KilledTurnFailure -AdapterClass $(if ($isCodex) { '' } else { [string]$agyFailureClass }) -Texts ([string[]]@(@([string]$eventError) + @($(if ($isCodex) { @() } else { @($agyFailureTexts) })))) -StderrText $stderrText
+            if ($killed.Class) { $continueSkip = "the killed turn reported a $($killed.Class) failure ($($killed.Text))" }
         }
         if ($continueSkip) {
             $timeoutContinueRecord = [pscustomobject]@{ thread = $continueThread; wall_seconds = 0; outcome = "not attempted: $continueSkip"; events = $null; usage = $null }
@@ -3024,6 +3080,13 @@ try {
             $contParts = New-Object System.Collections.Generic.List[string]
             if (-not $Raw) { $contParts.Add([string]$promptParts[0]) }
             $contParts.Add("Your previous turn was stopped by a time limit after $TimeoutSec s. Do not start over and do not read more files than you must: finish now and output your final answer in the required format.")
+            # (wave 24b, F07-1) a prompt-only transport: the endpoint never receives the schema -
+            # the continuation re-sends the reply format and the schema, as the denial retry does
+            if (-not $Raw -and $schemaTransport -eq 'prompt-only') {
+                $contParts.Add(($schemaLines -join $nl))
+                $contSchemaText = ([IO.File]::ReadAllText($schemaPath, $script:Utf8NoBom).Trim() -replace "`r`n", "`n") -replace "`n", $nl
+                $contParts.Add("JSON Schema of the reply:$nl$contSchemaText")
+            }
             $contParts.Add("Consultation id: $consultId")
             $continuePrompt = [string]::Join("$nl$nl", $contParts.ToArray())
             if ($isCodex) {
@@ -3061,14 +3124,28 @@ try {
                 try { $contThreadSeen = Get-ThreadIdFromEvents -Path $continueEventsPath } catch { $contThreadSeen = '' }
                 try { $contUsage = Get-UsageFromEvents -Path $continueEventsPath } catch { $contUsage = $null }
                 $contRaw = (Read-SharedText -Path $continueLastPath).Trim()
+                $contErr = ''
+                try { $contErr = Get-ErrorFromEvents -Path $continueEventsPath } catch { $contErr = '' }
                 $continueProblem = [string]$continueTurn.Problem
                 if (-not $continueProblem -and $continueTurn.Exit -ne 0) {
-                    $contErr = ''
-                    try { $contErr = Get-ErrorFromEvents -Path $continueEventsPath } catch { $contErr = '' }
                     $continueProblem = "codex exit $($continueTurn.Exit)$(if ($contErr) { " - $contErr" })"
                 }
                 if (-not $continueProblem -and $contThreadSeen -and $contThreadSeen -ne $continueThread) { $continueProblem = "the continuation came back on thread $contThreadSeen, not $continueThread" }
                 if (-not $continueProblem -and -not $contRaw) { $continueProblem = 'empty reply' }
+                if (-not $continueProblem) {
+                    # (wave 24b, F08-5) the checks of a first reply before the continuation counts
+                    $contCheck = Test-ContinuationReply -Text $contRaw -Raw:$Raw -Purpose $Purpose -PriorFindings $priorInfo
+                    if (-not $contCheck.Usable) { $continueProblem = "not a usable reply - $($contCheck.Reason)"; $continueRejected = $true }
+                }
+                if ($continueProblem -and -not $continueRejected -and $continueTurn.Started) {
+                    # (wave 24b, F08-4) the failed continuation's own evidence, best first: an SSE
+                    # error payload on its stderr, its event stream's error, its stderr's last line,
+                    # the bridge's reason
+                    $contStderr = [string]$continueTurn.Stderr
+                    $contSse = @(($contStderr -split "`r?`n") | Where-Object { $_ -match '^\s*data:\s*\{' }) | Select-Object -Last 1
+                    $contTail = (($contStderr.Trim() -split "`r?`n") | Select-Object -Last 1)
+                    $continueFailure = [pscustomobject]@{ Texts = [string[]]@(@([string]$contSse, $contErr, [string]$contTail, $continueProblem) | Where-Object { $_ }); Class = '' }
+                }
                 if (-not $continueProblem) {
                     $continued = $true
                     $bridgeOutcome = 'usable reply'
@@ -3088,6 +3165,15 @@ try {
                 $contOut = & $engineSpec.Adapter.Outcome -Events $contEv -ExitCode $continueTurn.Exit -StderrText $continueTurn.Stderr -Pre $(if ($continueTurn.Problem) { "failed: $($continueTurn.Problem)" } else { '' }) -ExpectThread $continueThread -ExpectModel ([string]$identity.Model)
                 $contUsage = $contEv.Usage
                 if ($contOut.Ok) {
+                    # (wave 24b, F08-5) the checks of a first reply before the continuation counts
+                    $contCheck = Test-ContinuationReply -Text ([string]$contOut.Reply) -Raw:$Raw -Purpose $Purpose -PriorFindings $priorInfo
+                    if (-not $contCheck.Usable) { $continueProblem = "not a usable reply - $($contCheck.Reason)"; $continueRejected = $true }
+                } else {
+                    $continueProblem = ($contOut.Outcome -replace '^failed:\s*', '')
+                    # (wave 24b, F08-4) the failed continuation's own evidence and its class
+                    if ($continueTurn.Started) { $continueFailure = [pscustomobject]@{ Texts = [string[]]@(@($contOut.Texts) + @($continueProblem) | Where-Object { $_ }); Class = [string]$contOut.Class } }
+                }
+                if ($contOut.Ok -and -not $continueRejected) {
                     $continued = $true
                     $bridgeOutcome = 'usable reply'
                     $agyFailureClass = ''
@@ -3106,8 +3192,6 @@ try {
                             $agyFailureClass = 'unknown'; $agyFailureTexts = @($bridgeOutcome -replace '^failed:\s*', ''); $continued = $false; $continueProblem = 'the reply could not be preserved'
                         }
                     }
-                } else {
-                    $continueProblem = ($contOut.Outcome -replace '^failed:\s*', '')
                 }
             }
             $timeoutContinueRecord = [pscustomobject]@{
@@ -3219,15 +3303,13 @@ try {
             try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch {
                 $repairProblem = "could not write the recovery record ($(ConvertTo-OneLine $_.Exception.Message)); the repair turn was not started"
             }
-            if (-not $repairProblem) { try {
-                $repairProc = Start-Process -FilePath $codexExePath -ArgumentList ((($repairArgv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')) `
-                    -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
-                    -RedirectStandardOutput $repairEventsPath `
-                    -RedirectStandardError $repairStderrPath `
-                    -RedirectStandardInput $repairPromptPath
-            } catch {
-                $repairProblem = "could not start codex - $(ConvertTo-OneLine $_.Exception.Message)"
-            } }
+            if (-not $repairProblem) {
+                # (wave 24b, F08-1) the ONE guarded start
+                $repairLaunch = Start-EngineProcess -Launcher $codexExePath -Argv $repairArgv -StdoutPath $repairEventsPath -StderrPath $repairStderrPath -StdinPath $repairPromptPath
+                $repairProc = $repairLaunch.Proc
+                if ($repairLaunch.Refusal) { $repairProblem = "refused before launch: $($repairLaunch.Refusal)" }
+                elseif ($repairLaunch.Error) { $repairProblem = "could not start codex - $($repairLaunch.Error)" }
+            }
             if ($repairProc) {
                 if ($script:LegacyPS) { try { $null = $repairProc.Handle } catch { } }
                 $repairRegistered = $true
@@ -3377,7 +3459,16 @@ try {
         }
     }
     $providerFailure = $null
-    if ($bridgeOutcome -ne 'usable reply' -and $isCodex) {
+    if ($bridgeOutcome -ne 'usable reply' -and -not $isCodex -and $agyFailureClass -eq 'permission') {
+        # the tree check's forced class (D12) outranks the evidence of every turn
+        $providerFailure = New-ProviderFailure -Texts @(@($agyFailureTexts) + @(($bridgeOutcome -replace '^failed:\s*', ''))) -Class $agyFailureClass
+    } elseif ($bridgeOutcome -ne 'usable reply' -and $continueFailure) {
+        # (wave 24b, F08-4) the timeout continuation ran and FAILED: the final failing turn's
+        # complete evidence - its stderr, its event error, its adapter's class - and the reset
+        # time it names (retry_after); the endpoint health reads it, so a 429 in the continuation
+        # marks the endpoint out like one in a first turn
+        $providerFailure = New-ProviderFailure -Texts @($continueFailure.Texts) -Class ([string]$continueFailure.Class)
+    } elseif ($bridgeOutcome -ne 'usable reply' -and $isCodex) {
         $sseLines = @(($stderrText -split "`r?`n") | Where-Object { $_ -match '^\s*data:\s*\{' })
         $stderrTail = (($stderrText.Trim() -split "`r?`n") | Select-Object -Last 1)
         $providerFailure = New-ProviderFailure -Texts @(($sseLines | Select-Object -Last 1), $eventError, $stderrTail, ($bridgeOutcome -replace '^failed:\s*', ''))
@@ -3386,6 +3477,9 @@ try {
         # the turn rules force (permission, transport, unknown), else the classifier's.
         $providerFailure = New-ProviderFailure -Texts @(@($agyFailureTexts) + @(($bridgeOutcome -replace '^failed:\s*', ''))) -Class $agyFailureClass
     }
+    # (wave 24b) the operator's next step for a failure the bridge can explain (Get-FailureHint:
+    # a context-window limit of the plan or the model) - the summary and the handoff header
+    $failureHint = Get-FailureHint $providerFailure
     # (wave 24) a reply of the timeout continuation says so everywhere (ledger, header, summary)
     if ($continued -and $bridgeOutcome -eq 'usable reply') { $bridgeOutcome = 'usable reply (after a timeout continuation)' }
 
@@ -3447,6 +3541,28 @@ try {
             }
             if ($Purpose) { $resumeParts.Add("-Purpose $Purpose") }
             if ($Raw -and $Purpose -ne 'chore') { $resumeParts.Add('-Raw') }
+            # (wave 24b, F08-6) every replay-relevant option of the killed run - the same limits,
+            # endpoint configuration and review scope (what the purpose resolves again the same
+            # way is left out: a timeout from the purpose, the default continuation budget). A
+            # value with a character outside [A-Za-z0-9._:/\=+@~-] is double-quoted.
+            $qa = { param([string]$V) if ($V -match '^[A-Za-z0-9._:/\\=+@~-]+$') { $V } else { '"' + ($V -replace '"', '\"') + '"' } }
+            if ($timeoutSource -eq 'explicit') { $resumeParts.Add("-TimeoutSec $TimeoutSec") }
+            if ($ContinueSec -ne [Math]::Min($TimeoutSec, 900)) { $resumeParts.Add("-ContinueSec $ContinueSec") }
+            if ($Effort) { $resumeParts.Add("-Effort $Effort") }
+            if ($NativeEffort) { $resumeParts.Add("-NativeEffort $(& $qa $NativeEffort)") }
+            if ($MaxWords -gt 0) { $resumeParts.Add("-MaxWords $MaxWords") }
+            if ($transportOverride) { $resumeParts.Add("-SchemaTransport $transportOverride") }
+            $cfgGiven = @(@($CodexConfig) | Where-Object { $_ -and $_.Trim() } | ForEach-Object { $_.Trim() })
+            if ($cfgGiven.Count -gt 0) { $resumeParts.Add("-CodexConfig $(& $qa ($cfgGiven -join ','))") }
+            if (@($artifactHashes).Count -gt 0) { $resumeParts.Add("-Artifact $(& $qa ((@($artifactHashes) | ForEach-Object { [string]$_.full }) -join ','))") }
+            if ($Range) { $resumeParts.Add("-Range $(& $qa $Range)") }
+            if ($isCodex -and $Sandbox -ne 'read-only') { $resumeParts.Add("-Sandbox $Sandbox") }
+            if ($MaxModelSteps -gt 0) { $resumeParts.Add("-MaxModelSteps $MaxModelSteps") }
+            if ($FormatRetry -eq 0 -and -not $Raw) { $resumeParts.Add('-FormatRetry 0') }
+            if ($DenialRetry -eq 0 -and $engineSpec.DenialRetry) { $resumeParts.Add('-DenialRetry 0') }
+            if ($OffPeakOnly) { $resumeParts.Add('-OffPeakOnly') }
+            if ($CodexExe) { $resumeParts.Add("-CodexExe $(& $qa $CodexExe)") }
+            if ($EngineExe -and -not $isCodex) { $resumeParts.Add("-EngineExe $(& $qa $EngineExe)") }
             $resumeParts.Add('-Prompt "finish your review"')
             $resumeArgs = $resumeParts.ToArray() -join ' '
             $partialFooter = "killed at $killedText; thread $resumeThread - continue with ``$resumeArgs``"
@@ -3597,7 +3713,7 @@ try {
     if ($providerFailure) {
         $codeText = ''
         if ($providerFailure.code) { $codeText = " ($($providerFailure.code))" }
-        $headerLines.Add("Provider failure: $($providerFailure.class)$codeText - $($providerFailure.message).")
+        $headerLines.Add("Provider failure: $($providerFailure.class)$codeText - $($providerFailure.message).$(if ($failureHint) { " Hint: $failureHint." })")
     }
     if ($parse) {
         $statusLine = Format-StructuredStatusLine -Parse $parse -Ingest $ingest -ReplyJsonRel $replyJsonRel
@@ -3813,6 +3929,8 @@ try {
     }
     if (-not (Test-UsableOutcome $bridgeOutcome)) {
         Write-Host "codex-consult: $bridgeOutcome (wall $wallSeconds s)" -ForegroundColor Red
+        # (wave 24b) the next step for a failure the bridge can explain (a context-window limit)
+        if ($failureHint) { Write-Host "hint       : $failureHint" -ForegroundColor Yellow }
         if ($continueLine) { Write-Host $continueLine -ForegroundColor Yellow }
         foreach ($pl in $partialLines) { Write-Host $pl -ForegroundColor Yellow }
         if ($pendingNote) { Write-Host "pending    : $pendingNote" -ForegroundColor Yellow }

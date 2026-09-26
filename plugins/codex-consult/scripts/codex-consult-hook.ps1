@@ -29,8 +29,10 @@
     session: the exit code is always 0. No network call, no lock, nothing written: it runs
     `codex-providers.ps1 -Short -Json -NoNetwork` and prints the `line` of its object.
 
-    Cost: about one second (`codex login status` for the built-in openai), once per
-    session. Disable the hook by disabling the plugin's hooks in Claude Code settings.
+    Cost: about one second (one `codex login status` for the built-in openai; wave 24b: each
+    roster entry's identity and each endpoint's health are resolved once per listing - the
+    walk, the availability line and the rows share them - and the ledgers are read once), once
+    per session. Disable the hook by disabling the plugin's hooks in Claude Code settings.
 
     Runs on Windows PowerShell 5.1 and PowerShell 7.
 #>

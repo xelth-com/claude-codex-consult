@@ -101,8 +101,8 @@ host invariance (R13), opt-out telemetry (R17).
   failure without a reset time is out for 60 minutes after it was HIT (the failure's own
   `provider_failure.when`, else the entry's `when`; a time in the future counts as now);
   the roster walk's reason reads `usage limit hit <iso>, reset unknown; retry after <iso + 60
-  min>` (was `usage limit <n> min ago, no reset time given`). An explicit `-Provider` run
-  still only warns on it.
+  min>` (was `usage limit <n> min ago, no reset time given`). (Wave 24b, F08-7: an explicit
+  `-Provider` run is refused by it too - see Fixed.)
 - `codex-providers.ps1` rows are the roster walk's verdict (T3: a quota without a reset time
   now reads `unavailable (usage limit hit ..., reset unknown; retry after ...)` and
   `-Provider` exits 2; an unresolved identity reads `unknown (...)`); `LAST FAILURE` (was
@@ -115,6 +115,77 @@ host invariance (R13), opt-out telemetry (R17).
 
 ### Fixed
 
+- **Wave 24b - the wave 24 acceptance panel's findings** (`.collab/companions-2026-09-26/`
+  F07-1..3, F08-1..8, F13-1/2, and two facts of its ledger):
+  - F08-1 (blocker): the MAIN turn started without the fresh launch guard - only the later
+    turns re-read the muse sign-in. Every Start-Process of an engine turn now goes through ONE
+    guarded start (`Start-EngineProcess`: `Get-EngineLaunchBlock -Fresh`, then the `.cmd`
+    %-hazard, right before the start) - the main turn, a denial retry, the continuation, a
+    format repair, codex and every engine. A refusal of the main turn withdraws the
+    reservation: `the muse run is refused before launch: ...; nothing was started.` Test hook
+    `CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS` (a pause between the `launching` record and the start).
+  - F08-2: the "no continuation after a changed tree" gate saw only an engine's tree check; a
+    codex `-Sandbox workspace-write` run that changed files was continued. ONE tree check for
+    every engine (the fingerprints, the brief, the artifacts; an engine's collab directory):
+    `not attempted: files changed during the run (the working tree | the collab directory | the
+    brief | artifact(s))`.
+  - F08-3: the "no continuation after a quota/auth/billing failure" gate scanned a keyword
+    filter of stderr and ignored the adapter's class and texts - billing wording (`Insufficient
+    balance`, `Payment required`) slipped through. `Get-KilledTurnFailure` runs every candidate
+    (the adapter's class and texts, the event error, EVERY stderr line, an SSE payload lifted)
+    through the one classifier.
+  - F08-4: a failure DURING the continuation (a 429, an auth error) was not the run's
+    `provider_failure` (built from the main turn's evidence), so the endpoint health could call
+    the reviewer available right after its continuation hit a limit. A continuation that FAILED
+    now supplies it - its stderr, its event error, its adapter's class, its `retry_after`.
+  - F08-5: any non-empty continuation counted before the substantive and schema checks - a
+    `Done.` threw the salvage away while `timeout_continue.outcome` said usable. The
+    continuation now counts only after a first reply's checks (`Test-ContinuationReply`: a
+    valid object, else substantive prose; `-Raw` / chore: substantive prose); otherwise
+    `failed: not a usable reply - <why>` and the salvage is kept.
+  - F08-7: the 60-minute rule for a quota without a reset time depended on `-RosterWalk`; an
+    explicit `-Provider` run said available with a warning. `Get-PreflightVerdict` applies it
+    for every caller (`... named no reset time - out for 60 minutes, until <iso>; nothing was
+    started (pass -SkipPreflight to launch anyway)`); `Format-QuotaWarning` warns only under
+    `-SkipPreflight` (`... (reset unknown; out until <iso>): <message>`).
+  - F07-1: on a prompt-only transport the continuation prompt re-sends the reply format and the
+    JSON Schema (as the denial retry does).
+  - F07-2: `Read-CodexSalvage` listed a tool item without an id twice (started + completed); an
+    id-less item.completed now closes the open item of the same command, else the oldest.
+  - F08-6: the printed resume command omitted the run's options; it now carries every
+    replay-relevant one (`-TimeoutSec` when explicit, `-ContinueSec` when not the default,
+    `-Effort` / `-NativeEffort`, `-MaxWords`, `-SchemaTransport`, `-CodexConfig`, `-Artifact`
+    with its resolved paths, `-Range`, `-Sandbox`, `-MaxModelSteps`, `-FormatRetry 0`,
+    `-DenialRetry 0`, `-OffPeakOnly`, `-CodexExe` / `-EngineExe`), double-quoting a value with
+    other characters than `[A-Za-z0-9._:/\=+@~-]`.
+  - F08-8: `-Range` accepted a single revision, which measures the working tree; only
+    `base..head` / `base...head` is measured now (`-Range 'HEAD' is not a range of two
+    revisions: ...`).
+  - F13-1: `codex-providers.ps1 -Json` rows gain `roster_positions` (every position of the
+    label) beside `roster_position` (the first).
+  - F13-2: `Test-UsableOutcome` matches the two known outcomes exactly (a future `usable reply
+    (<x>)` fails closed).
+  - F07-3: one listing resolves each entry's identity and each endpoint's health once
+    (`Get-CachedReviewerIdentity`, `Get-CachedEndpointHealth`; `-Cache` on
+    `Select-RosterReviewer`, `Select-PanelMembers`, `Get-RosterAvailability`); `codex login
+    status` already ran once per listing.
+  - The ledger's kimi :: k3 failure `unexpected status 401 Unauthorized: Your current plan
+    supports only k3 up to 256K context ...` was recorded as `auth` (a 24-hour refusal of the
+    endpoint). A context-window limit of the plan or the model is class `capability` now
+    (`$script:ContextOverflowPattern`, tried before auth; a text that names a usage limit stays
+    quota), an entry recorded as auth with such a text is read as capability, and the summary
+    (`hint       : context too long for this plan/model - narrow the brief ... or choose a model
+    with a larger context window`) and the handoff header (`Hint:`) say what to do
+    (`Get-FailureHint`). The byteplus 429 of the same ledger (`exceeded retry limit, last
+    status: 429 Too Many Requests, request id: ...`) names no reset time - quota, the 60-minute
+    rule; an echoed `Retry-After: N` was already read.
+  - Tests: `harness-visibility.ps1` sections `UNIT24B` and `GATES` (fake knobs
+    `FAKE_CODEX_WRITE`, `FAKE_CODEX_STDERR_FIRST`, `FAKE_CODEX_RESUME_FAIL`); the "only warns"
+    cases of `harness-0.3.ps1` and `harness-roster.ps1` now expect the refusal and the
+    `-SkipPreflight` warning; the CONT case whose killed turn names a usage limit runs in a
+    repository of its own (that limit now keeps the endpoint out for every later run there).
+    Assertions (Windows PowerShell 5.1): `harness-visibility` 100 (was 76), `harness-0.3` 229
+    (227), `harness-roster` 118 (117); the other harnesses unchanged.
 - T2 (the providers view disagreed with the roster walk): the listing read the endpoint
   health of the repository it ran in - silently - and its rows used a second implementation
   of the verdict (a quota without a reset time read `available`; a usage limit hit days ago
@@ -126,8 +197,6 @@ host invariance (R13), opt-out telemetry (R17).
 
 ### Known limitations
 
-- An explicit `-Provider` run is not refused by a quota failure without a reset time (it
-  warns, as before); only the roster walk, the panel and the views treat it as out.
 - A continuation only follows the MAIN turn's kill; a killed denial retry or format repair is
   salvaged and names the resume command, but gets no continuation of its own.
 - No continuation when the thread of the killed turn is unknown (a codex stream without

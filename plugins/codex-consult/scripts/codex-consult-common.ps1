@@ -38,10 +38,16 @@
                          Get-ProviderCredential, Get-ProviderFailureClass,
                          Get-RetryAfter (a provider's named reset time),
                          New-ProviderFailure, Get-EndpointHealth (usage limits with a
-                         known reset time block until then), Get-ConsultClock
+                         known reset time block until then), Get-ConsultClock,
+                         Test-ContextOverflow and Get-FailureHint (wave 24b: a context-
+                         window limit is capability, with its hint)
+      * continuation     (wave 24b) Get-KilledTurnFailure (the one classifier over a killed
+                         turn's evidence), Test-ContinuationReply (a first reply's checks)
       * reviewer roster  Get-RosterPath, Read-ReviewerRoster (fail-closed validation),
                          Find-RosterEntry, Get-PreflightVerdict, Format-QuotaWarning,
                          Select-RosterReviewer (the walk), Select-PanelMembers (-Panel),
+                         Get-CachedReviewerIdentity / Get-CachedEndpointHealth (wave 24b:
+                         one resolution per listing),
                          Get-PanelPlan (the panel's endpoint-aware concurrency),
                          Get-PanelIgnorePrefixes (an agy member's siblings),
                          Format-RosterSkips; Find-ThreadEntry (-Thread lookup)
@@ -326,12 +332,20 @@ function Invoke-GitCapture {
 # -Range (wave 24, T1): `git diff --shortstat <range> --` once, in the repository root - "the
 # range changes N files, M lines" (M = insertions + deletions). { Range; Files; Insertions;
 # Deletions; Lines; Error ('' or why the range is refused: not a revision range git knows here,
-# an argument that could be read as an option, git not runnable) }.
+# an argument that could be read as an option, a single revision, git not runnable) }.
+# (wave 24b, F08-8) Only a range of two revisions - base..head or base...head, both named - is
+# measured: `git diff <revision>` would measure the WORKING TREE against that revision, a size
+# that changes while the review runs and differs from what the reviewer reads.
 function Get-RangeStat {
     param([string]$Root, [string]$Range)
     $r = [pscustomobject]@{ Range = $Range; Files = 0; Insertions = 0; Deletions = 0; Lines = 0; Error = '' }
     if (-not $Range -or $Range.StartsWith('-') -or $Range -match '[\s\x00-\x1f]') {
         $r.Error = "-Range '$Range' is not a git revision range (e.g. a1b2c3d..HEAD; no spaces, not starting with '-')"
+        return $r
+    }
+    $m = [regex]::Match($Range, '^(?<base>.+?)(?<sep>\.\.\.?)(?<head>.+)$')
+    if (-not $m.Success -or $m.Groups['head'].Value.Contains('..') -or $m.Groups['head'].Value.StartsWith('.')) {
+        $r.Error = "-Range '$Range' is not a range of two revisions: pass base..head or base...head (e.g. a1b2c3d..HEAD) - a single revision would measure the working tree against it, which changes while the review runs"
         return $r
     }
     $cap = Invoke-GitCapture -Root $Root -GitArgs @('diff', '--shortstat', $Range, '--')
@@ -4118,7 +4132,10 @@ function New-TurnSalvage {
 # <command>", web_search -> "web_search: <query>", mcp_tool_call -> "mcp: <server>/<tool>",
 # collab_tool_call -> "collab: <tool>", any other item type (not error) -> its type; a tool
 # item is listed once (item.started, completed by item.completed - a command still running at
-# the kill is listed too).
+# the kill is listed too). (wave 24b, F07-2) An item without an id is paired too: its
+# item.started opens it under a key of its own; an id-less item.completed of the same type closes
+# the open one of the same name (the same command line), else the oldest open one; with nothing
+# open it is a tool call of its own.
 function Read-CodexSalvage {
     param([string]$Path)
     $items = New-Object System.Collections.Generic.List[object]
@@ -4126,6 +4143,8 @@ function Read-CodexSalvage {
     $text = $(if ($Path) { Read-SharedText -Path $Path } else { '' })
     if (-not $text) { return (New-TurnSalvage -Items $items -ToolMap $toolMap) }
     $k = 0
+    # item type -> the keys of its id-less items started and not completed yet, oldest first
+    $openIdless = @{}
     foreach ($line in ($text -split "`r?`n")) {
         $t = $line.Trim()
         if (-not $t.StartsWith('{')) { continue }
@@ -4138,7 +4157,6 @@ function Read-CodexSalvage {
         $itype = [string](Get-PropertyValue $it 'type' '')
         $k++
         $id = [string](Get-PropertyValue $it 'id' '')
-        if (-not $id) { $id = "#$k" }
         if ($itype -eq 'agent_message' -or $itype -eq 'reasoning') {
             $tx = [string](Get-PropertyValue $it 'text' '')
             if ($type -eq 'item.completed' -and $tx.Trim()) { $items.Add([pscustomobject]@{ Kind = $(if ($itype -eq 'reasoning') { 'reasoning' } else { 'message' }); Text = $tx }) }
@@ -4153,6 +4171,19 @@ function Read-CodexSalvage {
             $name = "web_search: $(ConvertTo-OneLine $q)".TrimEnd(' ', ':')
         } elseif ($itype -eq 'mcp_tool_call') { $name = "mcp: $([string](Get-PropertyValue $it 'server' ''))/$([string](Get-PropertyValue $it 'tool' ''))" }
         elseif ($itype -eq 'collab_tool_call') { $name = "collab: $([string](Get-PropertyValue $it 'tool' ''))" }
+        if (-not $id) {
+            if (-not $openIdless.ContainsKey($itype)) { $openIdless[$itype] = New-Object System.Collections.Generic.List[string] }
+            $open = $openIdless[$itype]
+            if ($type -eq 'item.completed' -and $open.Count -gt 0) {
+                $at = 0
+                for ($oi = 0; $oi -lt $open.Count; $oi++) { if ([string]$toolMap[$open[$oi]] -ceq $name) { $at = $oi; break } }
+                $id = $open[$at]
+                $open.RemoveAt($at)
+            } else {
+                $id = "#$k"
+                if ($type -eq 'item.started') { $open.Add($id) }
+            }
+        }
         if ($type -eq 'item.completed' -or -not $toolMap.Contains($id)) { $toolMap[$id] = $name }
     }
     return (New-TurnSalvage -Items $items -ToolMap $toolMap)
@@ -4279,6 +4310,64 @@ function Format-PartialBody {
     return ($out.ToArray() -join "`n")
 }
 
+# ---- the timeout continuation's gates (wave 24b)
+
+# (F08-3) Does the killed turn's OWN failure evidence forbid a continuation? Every candidate goes
+# through the ONE classifier (ConvertFrom-ProviderErrorText + Get-ProviderFailureClass - the one
+# provider_failure uses): the adapter's class (an engine's turn rules), its failure texts, the
+# event stream's error and EVERY line of the turn's stderr (an SSE error payload lifted). A quota
+# class (a usage or rate limit; billing, payment, an insufficient balance, exhausted credits) or an
+# auth class forbids it - never a continuation after a quota, auth or billing failure. The bridge's
+# own timeout text is transport and forbids nothing. { Class ('' | quota | auth); Text (the
+# evidence, one line) }.
+function Get-KilledTurnFailure {
+    param([string]$AdapterClass = '', [string[]]$Texts = @(), [string]$StderrText = '')
+    $r = [pscustomobject]@{ Class = ''; Text = '' }
+    $candidates = New-Object System.Collections.Generic.List[string]
+    foreach ($t in @($Texts)) { if ($t -and ([string]$t).Trim()) { $candidates.Add(([string]$t).Trim()) } }
+    # (an engine's informational stderr lines - muse's workspace root, its delegation notice - are
+    # never failure evidence: a workspace path must not read as a class)
+    foreach ($sl in @(([string]$StderrText) -split "`r?`n")) { $slt = $sl.Trim(); if ($slt -and $slt -notmatch $script:MuseInfoStderrRe) { $candidates.Add($slt) } }
+    if ($AdapterClass -eq 'quota' -or $AdapterClass -eq 'auth') {
+        $r.Class = $AdapterClass
+        $r.Text = ConvertTo-OneLine $(if ($candidates.Count -gt 0) { $candidates[0] } else { "the $AdapterClass class of the turn's rules" })
+        return $r
+    }
+    foreach ($c in $candidates) {
+        $p = ConvertFrom-ProviderErrorText -Text $c
+        $cls = Get-ProviderFailureClass "$($p.Code) $($p.Message)"
+        if ($cls -eq 'quota' -or $cls -eq 'auth') { $r.Class = $cls; $r.Text = ConvertTo-OneLine $c; return $r }
+    }
+    return $r
+}
+
+# (F08-5) Is the reply of a timeout continuation a review the run can take - the checks a first
+# reply passes before it is ingested? Structured mode: a valid reply object (ConvertFrom-
+# StructuredReply), else substantive prose (Get-ProseGate - the format repair then converts it, as
+# for a first reply); -Raw and chore: substantive prose. Until it passes, the killed turn's salvage
+# is kept and the continuation is not "usable" (a one-sentence "Done." must not replace the work the
+# killed turn did). { Usable; Reason ('' or why not - the prose gate's reason, after "not a valid
+# reply object (<why>) and" in structured mode) }.
+function Test-ContinuationReply {
+    param([string]$Text, [switch]$Raw, [string]$Purpose = '', $PriorFindings = @())
+    $r = [pscustomobject]@{ Usable = $false; Reason = '' }
+    $t = ([string]$Text).Trim()
+    if (-not $t) { $r.Reason = 'empty reply'; return $r }
+    $invalid = ''
+    if (-not $Raw) {
+        try {
+            $p = ConvertFrom-StructuredReply -Text $t -Purpose $Purpose -PriorFindings $PriorFindings
+            if ($p.Valid) { $r.Usable = $true; return $r }
+            $invalid = ConvertTo-OneLine ([string]$p.ValidationError)
+        } catch { $invalid = "the bridge could not process it: $(ConvertTo-OneLine $_.Exception.Message)" }
+        if ($invalid.Length -gt 120) { $invalid = $invalid.Substring(0, 120) + '...' }
+    }
+    $gate = Get-ProseGate -Text $t
+    if ($gate.Substantive) { $r.Usable = $true; return $r }
+    $r.Reason = $(if ($invalid) { "not a valid reply object ($invalid) and $($gate.Reason)" } else { [string]$gate.Reason })
+    return $r
+}
+
 # Classes of a provider failure, tried in this order (case-insensitive). permission comes
 # first (0.4.0, agy F11: a tool the headless print mode cannot grant was auto-denied and
 # the turn produced nothing). capability comes next: "Your token plan does not support
@@ -4292,6 +4381,14 @@ function Format-PartialBody {
 # Forbidden: You've reached your 5-hour usage limit..." (live ledger, 2026-09-26), which the
 # 403 must not turn into an auth failure - the preflight would refuse that endpoint for 24 h.
 $script:QuotaTextPattern = '(?i)usage[ _]limit|quota|rate[ _]limit|resource_exhausted|too many requests'
+# (wave 24b) A prompt larger than the context window of the plan or the model is capability, tried
+# before auth: Kimi Code answers "401 Unauthorized: Your current plan supports only k3 up to 256K
+# context. 1M context is available on higher-tier Kimi Code plans." (live ledger, 2026-09-26) - an
+# auth class would refuse that endpoint for 24 h although its credential is fine. Also "maximum
+# context length is N tokens", context_length_exceeded, "exceeds the context window", "prompt is
+# too long", "input token count ... exceeds the maximum number of tokens". A text that also names
+# a usage limit ($script:QuotaTextPattern) stays quota.
+$script:ContextOverflowPattern = '(?i)supports?\s+only\b.{0,80}?\b(?:context|tokens?)\b|context[ _-]?(?:length|window)|maximum\s+context|context_length_exceeded|prompt\s+is\s+too\s+long|input\s+(?:is\s+)?too\s+long|input\s+token\s+count|exceeds?\s+the\s+maximum\s+number\s+of\s+tokens'
 $script:FailureClassPatterns = [ordered]@{
     'permission' = '(?i)no output produced|auto-denied|permission that headless mode'
     'capability' = '(?i)not supported|unsupported|does(?: not|n[''\u2019]t) support|do not support|feature_not_supported|json_schema|invalid_argument|invalid model selection|conflicts with --effort'
@@ -4305,10 +4402,33 @@ $script:BuiltinOpenAiFingerprint = Get-Sha256Hex ($script:Utf8NoBom.GetBytes('cc
 function Get-ProviderFailureClass {
     param([string]$Message)
     foreach ($k in $script:FailureClassPatterns.Keys) {
+        if ($k -eq 'capability' -and (Test-ContextOverflow $Message)) { return 'capability' }
         if ($k -eq 'auth' -and $Message -match $script:QuotaTextPattern) { return 'quota' }
         if ($Message -match $script:FailureClassPatterns[$k]) { return $k }
     }
     return 'unknown'
+}
+
+# (wave 24b) The failure text says the prompt outgrew the context window of the plan or the model
+# ($script:ContextOverflowPattern) and names no usage limit.
+function Test-ContextOverflow {
+    param([string]$Message)
+    return [bool]($Message -and $Message -match $script:ContextOverflowPattern -and $Message -notmatch $script:QuotaTextPattern)
+}
+
+# (wave 24b) The operator's next step for a recorded provider failure the bridge can explain - ''
+# or one phrase. A context-window rejection (class capability, Test-ContextOverflow): "context too
+# long for this plan/model - ...". The summary of a failed run prints it (`hint       :`), the
+# handoff header after its `Provider failure:` line.
+function Get-FailureHint {
+    param($Failure)
+    if ($null -eq $Failure) { return '' }
+    $class = [string](Get-PropertyValue $Failure 'class' '')
+    $msg = [string](Get-PropertyValue $Failure 'message' '')
+    if ($class -eq 'capability' -and (Test-ContextOverflow $msg)) {
+        return 'context too long for this plan/model - narrow the brief (fewer or smaller files to read, a smaller -Range, a reading plan) or choose a model with a larger context window'
+    }
+    return ''
 }
 
 # The provider's own error inside a failure text: an SSE payload `data:{"error":{...}}`
@@ -4610,12 +4730,16 @@ function Read-AllTaskConsults {
     return , $all.ToArray()
 }
 
-# A ledger entry's bridge_outcome that counts as a usable reply: 'usable reply' and (wave 24)
-# 'usable reply (after a timeout continuation)' - the reply of the ONE continuation turn the
-# bridge ran on the thread of a turn it had killed on its timeout.
+# A ledger entry's bridge_outcome that counts as a usable reply: EXACTLY 'usable reply' or (wave
+# 24) 'usable reply (after a timeout continuation)' - the reply of the ONE continuation turn the
+# bridge ran on the thread of a turn it had killed on its timeout. (wave 24b, F13-2) Any other
+# string - a future 'usable reply (<something>)' too - is not usable until it is added here: the
+# predicate clears the endpoint health, evidences a sign-in (RecentUsable) and counts on the
+# scoreboard, so it fails closed.
+$script:UsableOutcomes = @('usable reply', 'usable reply (after a timeout continuation)')
 function Test-UsableOutcome {
     param([string]$Outcome)
-    return [bool]($Outcome -ceq 'usable reply' -or $Outcome.StartsWith('usable reply (', [StringComparison]::Ordinal))
+    return [bool]($script:UsableOutcomes -ccontains $Outcome)
 }
 
 function ConvertTo-WhenOffset {
@@ -4697,6 +4821,10 @@ function Get-EndpointHealth {
                 # (Kimi Code's 5-hour limit) stops refusing the endpoint for 24 h as an auth
                 # failure - without anyone editing the ledger.
                 if ($rec.Class -eq 'auth' -and ([string](Get-PropertyValue $pf 'message' '')) -match $script:QuotaTextPattern) { $rec.Class = 'quota' }
+                # (wave 24b) likewise a 401 whose text is a context-window limit of the plan
+                # (Test-ContextOverflow: Kimi Code's "Your current plan supports only k3 up to 256K
+                # context") counts as capability - it never refuses the endpoint for 24 h
+                elseif ($rec.Class -eq 'auth' -and (Test-ContextOverflow ([string](Get-PropertyValue $pf 'message' '')))) { $rec.Class = 'capability' }
                 $rec.Code = [string](Get-PropertyValue $pf 'code' '')
                 $rec.Message = [string](Get-PropertyValue $pf 'message' '')
                 $pfWhen = ConvertTo-WhenOffset (Get-PropertyValue $pf 'when' '')
@@ -4978,10 +5106,11 @@ function Find-RosterEntry {
 #   auth failure <= 24 h         unavailable: auth failed <when>: <message>
 #   usage limit with a known     unavailable: usage limit until <iso>
 #   reset in the future
-#   usage limit without a reset  -RosterWalk: unavailable: usage limit hit <iso>, reset
-#   time, hit < 60 min ago       unknown; retry after <iso + 60 min> (a later roster entry
-#                                exists to fall back to); otherwise available -
-#                                Format-QuotaWarning warns about it
+#   usage limit without a reset  unavailable: usage limit hit <iso>, reset unknown; retry
+#   time, hit < 60 min ago       after <iso + 60 min> - for EVERY caller (wave 24b, F08-7: an
+#                                explicit -Provider run too, not only the roster walk, the
+#                                panel and the views; -RosterWalk changes the refusal's
+#                                wording only - a direct run names -SkipPreflight)
 #   credentials unknown          unknown (wave 24: a recorded auth failure or usage limit
 #                                outranks a sign-in that was not checked - the hook's
 #                                -NoNetwork line names what is out)
@@ -5049,7 +5178,8 @@ function Get-PreflightVerdict {
         $v.Preflight = "unavailable: $($v.Reason)"
         $v.Refusal = "provider $p is not usable: its usage limit (hit at $($Health.Quota.When): $($Health.Quota.Message)) lasts until $($Health.Quota.RetryAfterIso); nothing was started (pass -SkipPreflight to launch anyway)"
         $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
-    } elseif ($RosterWalk -and $Health -and $Health.Quota) {
+    } elseif ($Health -and $Health.Quota) {
+        # (wave 24b, F08-7) the 60-minute rule is the verdict of every caller
         $untilIso = Format-OffsetIso $Health.Quota.Until
         $v.State = 'unavailable'
         $v.Kind = 'quota-unknown-reset'
@@ -5057,7 +5187,7 @@ function Get-PreflightVerdict {
         $v.Until = $Health.Quota.Until
         $v.Reason = "usage limit hit $($Health.Quota.HitIso), reset unknown; retry after $untilIso"
         $v.Preflight = "unavailable: $($v.Reason)"
-        $v.Refusal = "provider $p is not usable: it hit a usage limit at $($Health.Quota.HitIso) ($($Health.Quota.Message)) and named no reset time - out for 60 minutes, until $untilIso; nothing was started"
+        $v.Refusal = "provider $p is not usable: it hit a usage limit at $($Health.Quota.HitIso) ($($Health.Quota.Message)) and named no reset time - out for 60 minutes, until $untilIso; nothing was started$(if (-not $RosterWalk) { ' (pass -SkipPreflight to launch anyway)' })"
         $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
     } elseif ($cred.State -eq 'unknown') {
         $v.State = 'unknown'
@@ -5070,17 +5200,43 @@ function Get-PreflightVerdict {
     return $v
 }
 
-# The warning of a usage limit that does not refuse the run: one without a known reset time
-# (<= 60 min old), or - with -SkipPreflight - one whose reset time lies ahead. '' otherwise.
+# The warning of a usage limit that does not refuse the run - with -SkipPreflight only (wave 24b,
+# F08-7: without it every usage limit that still blocks refuses the run, Get-PreflightVerdict):
+# one whose reset time lies ahead, or one without a reset time hit less than 60 minutes ago. ''
+# otherwise.
 function Format-QuotaWarning {
     param($Identity, $Health, [switch]$SkipPreflight)
-    if (-not $Health -or -not $Health.Quota) { return '' }
+    if (-not $Health -or -not $Health.Quota -or -not $SkipPreflight) { return '' }
     $q = $Health.Quota
     if ($Health.QuotaKnown) {
-        if (-not $SkipPreflight) { return '' }
         return "provider $($Identity.Provider) hit a usage limit $($q.AgeMinutes) min ago that lasts until $($q.RetryAfterIso): $($q.Message)"
     }
-    return "provider $($Identity.Provider) hit a usage limit $($q.AgeMinutes) min ago: $($q.Message)"
+    return "provider $($Identity.Provider) hit a usage limit $($q.AgeMinutes) min ago (reset unknown; out until $(Format-OffsetIso $q.Until)): $($q.Message)"
+}
+
+# (wave 24b, F07-3) ONE listing resolves each reviewer's identity and each endpoint's health
+# ONCE: the walk (Select-RosterReviewer), every entry's availability (Get-RosterAvailability,
+# Select-PanelMembers) and the rows of codex-providers.ps1 share $Cache (a hashtable, one per
+# invocation - the Codex config, the ledgers and the consult clock are fixed within it; $null = no
+# cache). Keys: the identity's inputs (provider, model, engine, launcher, OPENAI_BASE_URL); the
+# endpoint's fingerprint and the clock. The credential checks have their own cache ($LoginCache:
+# one `codex login status` and one `agy models` per listing).
+function Get-CachedReviewerIdentity {
+    param([hashtable]$Cache, $Config, [string]$Provider, [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '')
+    if (-not $Engine) { $Engine = 'codex' }
+    $key = "identity|$Provider|$Model|$Engine|$Launcher|$OpenAiBaseUrl"
+    if ($null -ne $Cache -and $Cache.ContainsKey($key)) { return $Cache[$key] }
+    $id = Resolve-ReviewerIdentity -Config $Config -Provider $Provider -Model $Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $Engine -Launcher $Launcher
+    if ($null -ne $Cache) { $Cache[$key] = $id }
+    return $id
+}
+function Get-CachedEndpointHealth {
+    param([hashtable]$Cache, [object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow)
+    $key = "health|$Fingerprint|$($UtcNow.Ticks)"
+    if ($null -ne $Cache -and $Cache.ContainsKey($key)) { return $Cache[$key] }
+    $h = Get-EndpointHealth -Consults $Consults -Fingerprint $Fingerprint -UtcNow $UtcNow
+    if ($null -ne $Cache) { $Cache[$key] = $h }
+    return $h
 }
 
 # The roster walk: the first entry whose preflight verdict (Get-PreflightVerdict
@@ -5093,7 +5249,7 @@ function Format-QuotaWarning {
 # Considered (entries walked); Error ('' or the refusal: none available / no entry for
 # $Model / the first entry's identity error under -SkipPreflight) }.
 function Select-RosterReviewer {
-    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork)
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null)
     $skipped = New-Object System.Collections.Generic.List[object]
     $r = [pscustomobject]@{ Entry = $null; Identity = $null; Verdict = $null; Skipped = [object[]]@(); Considered = 0; Error = '' }
     $listing = New-Object System.Collections.Generic.List[string]
@@ -5101,7 +5257,7 @@ function Select-RosterReviewer {
         $entryEngine = if ($e.PSObject.Properties['Engine'] -and $e.Engine) { [string]$e.Engine } else { 'codex' }
         if ($Engine -and $entryEngine -ne $Engine) { continue }
         $entryLauncher = Get-EngineLauncher -Engine $entryEngine -Launchers $EngineLaunchers -CodexLauncher $Launcher
-        $id = Resolve-ReviewerIdentity -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher
+        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher
         if ($Model -and $id.Model -cne $Model) { continue }
         $r.Considered++
         $block = Get-EngineLaunchBlock -Engine $entryEngine
@@ -5117,7 +5273,7 @@ function Select-RosterReviewer {
             return $r
         }
         $health = $null
-        if ($id.Resolved) { $health = Get-EndpointHealth -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
+        if ($id.Resolved) { $health = Get-CachedEndpointHealth -Cache $Cache -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
         $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $entryLauncher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk -NoNetwork:$NoNetwork
         if ($verdict.State -eq 'available') {
             $r.Entry = $e; $r.Identity = $id; $r.Verdict = $verdict
@@ -5157,7 +5313,7 @@ $script:WeightyPurposes = @('framing', 'decision', 'core-contract', 'acceptance'
 # when unresolved); Block ('' or the launch refusal) }); Error ('' or the refusal: nobody runs /
 # no entry for $Model) }.
 function Select-PanelMembers {
-    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork)
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null)
     $members = New-Object System.Collections.Generic.List[object]
     $r = [pscustomobject]@{ Members = [object[]]@(); Error = '' }
     $listing = New-Object System.Collections.Generic.List[string]
@@ -5166,13 +5322,13 @@ function Select-PanelMembers {
         $entryEngine = if ($e.PSObject.Properties['Engine'] -and $e.Engine) { [string]$e.Engine } else { 'codex' }
         if ($Engine -and $entryEngine -ne $Engine) { continue }
         $entryLauncher = Get-EngineLauncher -Engine $entryEngine -Launchers $EngineLaunchers -CodexLauncher $Launcher
-        $id = Resolve-ReviewerIdentity -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher
+        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher
         if ($Model -and $id.Model -cne $Model) { continue }
         $state = 'run'
         $reason = ''
         $verdict = $null
         $health = $null
-        if ($id.Resolved) { $health = Get-EndpointHealth -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
+        if ($id.Resolved) { $health = Get-CachedEndpointHealth -Cache $Cache -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
         $block = Get-EngineLaunchBlock -Engine $entryEngine
         if ($block) { $state = 'skipped'; $reason = "refused: $block" }
         elseif (-not $SkipPreflight) {
@@ -5434,8 +5590,8 @@ function ConvertTo-AvailabilityRecord {
 # Total; Available; Out; NotChecked; Selected (the first available record - the entry the
 # single-reviewer walk selects - or $null) }.
 function Get-RosterAvailability {
-    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork)
-    $sel = Select-PanelMembers -Roster $Roster -Config $Config -Consults $Consults -Launcher $Launcher -LoginCache $LoginCache -UtcNow $UtcNow -OpenAiBaseUrl $OpenAiBaseUrl -All -EngineLaunchers $EngineLaunchers -NoNetwork:$NoNetwork
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null)
+    $sel = Select-PanelMembers -Roster $Roster -Config $Config -Consults $Consults -Launcher $Launcher -LoginCache $LoginCache -UtcNow $UtcNow -OpenAiBaseUrl $OpenAiBaseUrl -All -EngineLaunchers $EngineLaunchers -NoNetwork:$NoNetwork -Cache $Cache
     $members = @($sel.Members | Where-Object { $_ })
     $eg = Get-EndpointGroups -Members $members
     $records = New-Object System.Collections.Generic.List[object]

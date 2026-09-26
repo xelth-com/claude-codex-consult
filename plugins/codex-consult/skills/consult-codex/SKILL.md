@@ -57,7 +57,12 @@ would select ...` line show which entry a plain consultation would pick right no
 which ones the walk would skip and why — see the README's "Reviewer roster and panel"
 section for the file's shape and the selection rules. Its verdicts ARE the roster walk's
 (0.5.0): a usage limit without a reset time reads `unavailable (usage limit hit <iso>, reset
-unknown; retry after <iso>)` for 60 minutes, exactly as the walk skips it. Run it in the
+unknown; retry after <iso>)` for 60 minutes, exactly as the walk skips it - and an explicit
+`-Provider` run on that endpoint is refused for the same 60 minutes (wave 24b; `-SkipPreflight`
+launches anyway, with a warning). A failure whose text is the plan's or the model's context
+limit (`hint       : context too long for this plan/model - ...` in the summary) is class
+`capability`, never `auth`: the endpoint stays available - narrow the brief or pick a model with
+a larger context window. Run it in the
 repository whose consultations you mean: health comes from THAT repository's ledgers (its
 `endpoint health:` line names them). For the one-line view of what is out and until when,
 run it with `-Short` (the SessionStart line: `codex-consult: out - openai :: gpt-6-astra
@@ -190,19 +195,24 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   purpose's - chore 600, checkpoint and none 900, framing and decision 1800, diff-review,
   core-contract and stuck 2400, acceptance 3600 s), `-Sandbox read-only|workspace-write`
   (default `read-only`).
-- **A big review** (0.5.0): pass `-Range <from>..<to>` with diff-review and acceptance
+- **A big review** (0.5.0): pass `-Range <from>..<to>` (two revisions: `base..head` or
+  `base...head`; a single revision is refused) with diff-review and acceptance
   (the bridge measures it with `git diff --shortstat`, tells the reviewer its size and
   WARNS when more than 1500 lines meet a timeout below 2400 s) and/or `-TimeoutSec`, or give
   the brief a reading plan (which files first, what to skip). Never leave a big review to
   the 900 s of a checkpoint.
 - A reviewer killed on its timeout gets ONE continuation turn on its own thread (`-ContinueSec
   <s>`, default min(timeout, 900); `0` = off): usable -> `usable reply (after a timeout
-  continuation)`, ingested like any reply. If that fails too, the summary prints a
+  continuation)`, ingested like any reply - but only when it passes a first reply's checks (a
+  valid object or substantive prose; a `Done.` is `failed: not a usable reply - ...` and the
+  salvage is kept). No continuation when files changed during the run or the killed turn
+  reported a quota, billing or auth failure. If it fails too, the summary prints a
   `partial    :` line (the salvaged `handoffs/<NN>-<engine>-<slug>.partial.md`: what the
   reviewer produced before the kill) and `resume     : <the exact command>`. **A timed-out reviewer is RESUMED,
-  not re-asked from scratch** - run that command (`-Mode resume -Thread <id> -Prompt "finish
-  your review"`); it keeps everything the reviewer read. Read the partial file before
-  deciding anything on it: it is unfinished work, not a verdict.
+  not re-asked from scratch** - run that command as printed (`-Mode resume -Thread <id>
+  ... -Prompt "finish your review"`; it carries the run's own options - timeout, effort, word
+  cap, schema transport, config, artifacts, range); it keeps everything the reviewer read.
+  Read the partial file before deciding anything on it: it is unfinished work, not a verdict.
 - `-Artifact <path>` — hash a built artifact (an executable, a bundle) into the ledger
   so the review is bound to it, not just to the source tree. Several paths go in ONE
   comma-separated string (`-Artifact a.exe,b.dll`); the parameter cannot be repeated

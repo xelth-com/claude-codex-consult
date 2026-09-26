@@ -977,7 +977,9 @@ if (Want 'F09') {
     $r5 = New-Repo 'w9-quota'
     Seed-Task $r5 'other-task' @((New-HealthEntry 1 'zai-alias' $zfp 10 'failed: codex exit 1 - credits exhausted' ([pscustomobject]@{ class = 'quota'; code = ''; message = 'credits exhausted'; when = '' })))
     $q = Consult $r5 $h @('-Prompt', 'x', '-Provider', 'ZAI', '-Model', 'glm-5.3', '-ReplyName', 'quota') @{ FAKE_CODEX_REPLY = $advise }
-    Check 'F09-2/4' 'quota failure 10 min ago on the endpoint (other alias, other task) -> WARNING + preflight_warning, the run proceeds' ($q.Code -eq 0 -and $q.Out -match 'WARNING: provider ZAI hit a usage limit 1[01] min ago: credits exhausted' -and (Last-Entry $r5).preflight_warning -match '^provider ZAI hit a usage limit 1[01] min ago: credits exhausted$') (Last-Entry $r5).preflight_warning
+    Check 'F09-2/4' '(wave 24b, F08-7) quota failure without a reset time 10 min ago on the endpoint (other alias, other task) -> the explicit -Provider run is REFUSED for 60 minutes after the hit (exact wording), nothing recorded' ($q.Code -eq 1 -and $q.First -match '^codex-consult: provider ZAI is not usable: it hit a usage limit at \S+ \(credits exhausted\) and named no reset time - out for 60 minutes, until \S+; nothing was started \(pass -SkipPreflight to launch anyway\)$' -and -not (Test-Path (Join-Path $r5 '.collab\t\sessions.json'))) $q.First
+    $q2 = Consult $r5 $h @('-Prompt', 'x', '-Provider', 'ZAI', '-Model', 'glm-5.3', '-ReplyName', 'quota', '-SkipPreflight') @{ FAKE_CODEX_REPLY = $advise }
+    Check 'F09-2/4' '... with -SkipPreflight it runs: WARNING + preflight_warning "provider ZAI hit a usage limit <n> min ago (reset unknown; out until <iso>): credits exhausted"' ($q2.Code -eq 0 -and $q2.Out -match 'WARNING: provider ZAI hit a usage limit 1[01] min ago \(reset unknown; out until [^)]+\): credits exhausted' -and (Last-Entry $r5).preflight_warning -match '^provider ZAI hit a usage limit 1[01] min ago \(reset unknown; out until [^)]+\): credits exhausted$') (Last-Entry $r5).preflight_warning
     $r6 = New-Repo 'w9-capability'
     Seed-Task $r6 'other-task' @((New-HealthEntry 1 'zai-alias' $zfp 10 'failed: codex exit 1 - json_schema not supported' ([pscustomobject]@{ class = 'capability'; code = 'responses_feature_not_supported'; message = 'json_schema not supported'; when = '' })))
     $cc = Consult $r6 $h @('-Prompt', 'x', '-Provider', 'ZAI', '-Model', 'glm-5.3', '-ReplyName', 'cap') @{ FAKE_CODEX_REPLY = $advise }
@@ -1025,9 +1027,12 @@ if (Want 'PREFLIGHT') {
     }
     $r3 = New-Repo 'limit-recent'
     Seed-Limit $r3 10
-    $x3 = Consult $r3 $h @('-Prompt', 'x', '-ReplyName', 'after-limit') @{ FAKE_CODEX_REPLY = $advise }
+    $n3 = @(Ledger $r3).Count
+    $x3r = Consult $r3 $h @('-Prompt', 'x', '-ReplyName', 'after-limit') @{ FAKE_CODEX_REPLY = $advise }
+    Check 'PREFL' '(wave 24b, F08-7) usage-limit failure without a reset time 10 min ago -> refused: "... named no reset time - out for 60 minutes, until <iso>; nothing was started (pass -SkipPreflight to launch anyway)", no ledger entry added' ($x3r.Code -eq 1 -and $x3r.First -match '^codex-consult: provider openai is not usable: it hit a usage limit at .* and named no reset time - out for 60 minutes, until \S+; nothing was started \(pass -SkipPreflight to launch anyway\)$' -and @(Ledger $r3).Count -eq $n3) $x3r.First
+    $x3 = Consult $r3 $h @('-Prompt', 'x', '-ReplyName', 'after-limit', '-SkipPreflight') @{ FAKE_CODEX_REPLY = $advise }
     $e3 = Last-Entry $r3
-    Check 'PREFL' 'usage-limit failure 10 min ago -> WARNING (not a refusal) + ledger preflight_warning' ($x3.Code -eq 0 -and $x3.Out -match "WARNING: provider openai hit a usage limit 1[01] min ago: failed: codex exit 1 - You've hit your usage limit\." -and $e3.preflight_warning -match "^provider openai hit a usage limit 1[01] min ago: failed: codex exit 1 - You've hit your usage limit\." -and $e3.preflight_warning.Length -le 160) $e3.preflight_warning
+    Check 'PREFL' '... -SkipPreflight: WARNING (not a refusal) + ledger preflight_warning (the recorded message cut to 100 characters)' ($x3.Code -eq 0 -and $x3.Out -match "WARNING: provider openai hit a usage limit 1[01] min ago \(reset unknown; out until [^)]+\): failed: codex exit 1 - You've hit your usage limit\." -and $e3.preflight_warning -match "^provider openai hit a usage limit 1[01] min ago \(reset unknown; out until [^)]+\): failed: codex exit 1 - You've hit your usage limit\." -and $e3.preflight_warning.Length -le 210) $e3.preflight_warning
     $r4 = New-Repo 'limit-old'
     Seed-Limit $r4 120
     $x4 = Consult $r4 $h @('-Prompt', 'x', '-ReplyName', 'after-old') @{ FAKE_CODEX_REPLY = $advise }
@@ -1035,9 +1040,9 @@ if (Want 'PREFLIGHT') {
     $r5 = New-Repo 'limit-legacy'
     Seed-Limit $r5 10 -Legacy
     $x5 = Consult $r5 $h @('-DryRun', '-Prompt', 'x')
-    Check 'PREFL' 'a legacy entry (no reviewer) counts as openai; -DryRun shows the warning too' ($x5.Code -eq 0 -and $x5.Out -match 'WARNING: provider openai hit a usage limit' -and $x5.Preview.preflight_warning -match '^provider openai hit a usage limit') (Line $x5.Out 'WARNING')
+    Check 'PREFL' 'a legacy entry (no reviewer) counts as openai; -DryRun shows the verdict: unavailable (usage limit hit <iso>, reset unknown; retry after <iso>), no warning' ($x5.Code -eq 0 -and $x5.Out -match 'preflight   : unavailable \(usage limit hit \S+, reset unknown; retry after \S+\) - a real run is refused' -and $x5.Preview.preflight -match '^unavailable: usage limit hit \S+, reset unknown; retry after \S+$' -and $x5.Preview.preflight_warning -eq '') (Line $x5.Out 'preflight')
     $x6 = Consult $r3 $h @('-DryRun', '-Prompt', 'x', '-Provider', 'ZAI', '-Model', 'glm-5.3')
-    Check 'PREFL' 'the warning is per provider: ZAI is not warned about openai''s limit' ($x6.Code -eq 0 -and $x6.Out -notmatch 'hit a usage limit') ''
+    Check 'PREFL' 'the verdict is per endpoint: ZAI is neither warned about nor refused for openai''s limit' ($x6.Code -eq 0 -and $x6.Out -notmatch 'hit a usage limit' -and $x6.Out -notmatch 'usage limit hit' -and $x6.Preview.preflight -notmatch 'unavailable') (Line $x6.Out 'preflight')
     # a message that names its reset as a duration in days: a KNOWN reset time -> refused
     # until then, even 2 h after the failure (the 60-minute rule is only for no reset time)
     $r7 = New-Repo 'limit-days'

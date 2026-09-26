@@ -444,7 +444,8 @@ if (Want 'QUOTA') {
     $c = Consult $r3 $roster3 @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_NOW = $nowIso }
     Check 'QUOTA' 'retry_after in the past (30 min old failure) -> openai selected, no skip, no warning' ($c.Code -eq 0 -and $c.Preview.reviewer.provider -eq 'openai' -and @($c.Preview.roster.skipped).Count -eq 0 -and $c.Preview.preflight_warning -eq '') (Line $c.Out 'Roster:')
 
-    # (d) quota WITHOUT a reset time, 10 min old: the walk skips, an explicit -Provider warns and runs
+    # (d) quota WITHOUT a reset time, 10 min old: the walk skips; (wave 24b, F08-7) an explicit
+    # -Provider is refused too (one verdict for every caller), -SkipPreflight warns and runs
     $r4 = New-Repo 'quota-noreset'
     Seed-Task $r4 'other' @((New-SeedEntry 1 'openai' 'gpt-5.1' $builtinFp $now 10 'failed: codex exit 1 - credits exhausted' ([pscustomobject]@{ class = 'quota'; code = ''; message = 'credits exhausted'; when = '' })))
     $d = Consult $r4 $roster3 @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_NOW = $nowIso }
@@ -452,15 +453,17 @@ if (Want 'QUOTA') {
     $noResetReason = "usage limit hit $(Iso $now.AddMinutes(-10)), reset unknown; retry after $(Iso $now.AddMinutes(50))"
     Check 'QUOTA' 'quota without a reset time 10 min ago -> the walk skips openai ("usage limit hit <iso>, reset unknown; retry after <iso + 60 min>")' ($d.Code -eq 0 -and $d.Preview.reviewer.provider -eq 'ZAI' -and $d.Preview.roster.skipped[0].reason -eq $noResetReason) (Line $d.Out 'Roster:')
     $dn = Consult $r4 $noRoster @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_NOW = $nowIso }
-    Check 'QUOTA' '... and without a roster: the existing warning only' ($dn.Code -eq 0 -and $dn.Preview.reviewer.provider -eq 'openai' -and $dn.Preview.preflight_warning -eq 'provider openai hit a usage limit 10 min ago: credits exhausted') $dn.Preview.preflight_warning
+    Check 'QUOTA' '... and without a roster: the same verdict (F08-7) - the dry run reads preflight "unavailable: <the walk''s reason>", no warning' ($dn.Code -eq 0 -and $dn.Preview.reviewer.provider -eq 'openai' -and $dn.Preview.preflight -eq "unavailable: $noResetReason" -and $dn.Preview.preflight_warning -eq '') $dn.Preview.preflight
     $dAll = Write-Roster 'openai-only' '{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1"}]}'
     $dz = Consult $r4 $dAll @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_NOW = $nowIso }
     Check 'QUOTA' 'nothing else to fall back to -> refused with that reason' ($dz.Code -eq 1 -and $dz.First.Contains("#1 openai :: gpt-5.1 ($noResetReason)")) $dz.First
     # (a real run records a ledger entry stamped with the REAL clock - later than the frozen
     # one, so it counts as now and would clear the limit: it runs last)
-    $dx = Consult $r4 $roster3 @('-Prompt', 'x', '-Provider', 'openai', '-Model', 'gpt-5.1', '-ReplyName', 'explicit') @{ CODEX_CONSULT_NOW = $nowIso; FAKE_CODEX_REPLY = $advise }
+    $dr = Consult $r4 $roster3 @('-Prompt', 'x', '-Provider', 'openai', '-Model', 'gpt-5.1', '-ReplyName', 'explicit') @{ CODEX_CONSULT_NOW = $nowIso; FAKE_CODEX_REPLY = $advise }
+    Check 'QUOTA' '(wave 24b, F08-7) ... an explicit -Provider openai is REFUSED (exact message: "... named no reset time - out for 60 minutes, until <iso>; nothing was started (pass -SkipPreflight to launch anyway)"), nothing recorded in its task' ($dr.Code -eq 1 -and $dr.First -eq "codex-consult: provider openai is not usable: it hit a usage limit at $(Iso $now.AddMinutes(-10)) (credits exhausted) and named no reset time - out for 60 minutes, until $(Iso $now.AddMinutes(50)); nothing was started (pass -SkipPreflight to launch anyway)" -and -not (Test-Path (Join-Path $r4 '.collab\t\sessions.json'))) $dr.First
+    $dx = Consult $r4 $roster3 @('-Prompt', 'x', '-Provider', 'openai', '-Model', 'gpt-5.1', '-ReplyName', 'explicit', '-SkipPreflight') @{ CODEX_CONSULT_NOW = $nowIso; FAKE_CODEX_REPLY = $advise }
     $de = Last-Entry $r4
-    Check 'QUOTA' '... an explicit -Provider openai only warns and runs; Roster line "entry 1 of 2 for -Provider openai (nothing applied)"' ($dx.Code -eq 0 -and $dx.Out -match 'WARNING: provider openai hit a usage limit 10 min ago: credits exhausted' -and $de.preflight_warning -eq 'provider openai hit a usage limit 10 min ago: credits exhausted' -and $dx.Out.Contains("Roster: $roster3 - entry 1 of 2 for -Provider openai (nothing applied)") -and $de.roster.position -eq 1) (Line $dx.Out 'Roster:')
+    Check 'QUOTA' '... with -SkipPreflight it warns and runs; Roster line "entry 1 of 2 for -Provider openai (nothing applied)"' ($dx.Code -eq 0 -and $dx.Out -match 'WARNING: provider openai hit a usage limit 10 min ago \(reset unknown; out until [^)]+\): credits exhausted' -and $de.preflight_warning -eq "provider openai hit a usage limit 10 min ago (reset unknown; out until $(Iso $now.AddMinutes(50))): credits exhausted" -and $dx.Out.Contains("Roster: $roster3 - entry 1 of 2 for -Provider openai (nothing applied)") -and $de.roster.position -eq 1) (Line $dx.Out 'Roster:')
 
     # (e) F15-4: failures stamped 6 min in the FUTURE count as now
     $r5 = New-Repo 'quota-future'

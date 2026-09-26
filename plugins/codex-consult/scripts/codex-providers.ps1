@@ -75,7 +75,8 @@
                    = no roster - else <codex home>/codex-consult-roster.json when it
                    exists): the ROSTER column (the
                    provider's entry positions, or -; JSON roster_position = the first,
-                   or null; roster_selected = the entry a consultation without -Provider
+                   or null, and (wave 24b) roster_positions = every position of the label,
+                   [] when none; roster_selected = the entry a consultation without -Provider
                    and -Thread would use now) and a final line
                    "roster: <path> -> would select <provider> :: <model> (skipped: ...)"
                    or "roster: <path> -> no entry is available (skipped: ...)". An
@@ -206,14 +207,17 @@ if (Test-Path -LiteralPath $collabRoot -PathType Container) {
 $consultCount = @($consults).Count
 $healthSource = "$collabRoot ($ledgerCount task ledger$(if ($ledgerCount -ne 1) { 's' }), $consultCount consultation$(if ($consultCount -ne 1) { 's' }))"
 $loginCache = @{}
+# (wave 24b, F07-3) each identity and each endpoint's health resolved once for the whole listing:
+# the walk, the availability records and the rows below share it
+$listingCache = @{}
 $walk = $null
 $avail = $null
 if ($roster.Exists) {
     # the single-run walk itself ("would select") and every entry judged with the same verdict
     # (Select-PanelMembers -All: the -Short line, the availability line) - one login cache, so
     # `agy models` runs at most once
-    $walk = Select-RosterReviewer -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork
-    $avail = Get-RosterAvailability -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork
+    $walk = Select-RosterReviewer -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork -Cache $listingCache
+    $avail = Get-RosterAvailability -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork -Cache $listingCache
 }
 
 # A row's verdict text from the shared verdict (Get-PreflightVerdict -RosterWalk, wave 24 D14):
@@ -284,8 +288,8 @@ foreach ($name in $names) {
     $health = $null
     $probe = $null
     if (-not $fileReason -and -not $setProblem -and $tableOk) {
-        $probe = Resolve-ReviewerIdentity -Config $config -Provider $name -Model 'health-probe' -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL)
-        if ($probe.Resolved) { $health = Get-EndpointHealth -Consults $consults -Fingerprint $probe.Fingerprint -UtcNow $utcNow }
+        $probe = Get-CachedReviewerIdentity -Cache $listingCache -Config $config -Provider $name -Model 'health-probe' -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL)
+        if ($probe.Resolved) { $health = Get-CachedEndpointHealth -Cache $listingCache -Consults $consults -Fingerprint $probe.Fingerprint -UtcNow $utcNow }
     }
     $credText = 'not checked (table unusable)'
     $verdict = ''
@@ -326,6 +330,7 @@ foreach ($name in $names) {
             last_limit        = $(if ($limit) { [pscustomobject]@{ when = $limit.When; message = $limit.Message; retry_after = $(if ($limit.RetryAfterIso) { $limit.RetryAfterIso } else { $null }) } } else { $null })
             last_failure      = $(if ($lastFailure) { [pscustomobject]@{ class = $lastFailure.Class; code = $lastFailure.Code; when = $lastFailure.When; message = $lastFailure.Message; retry_after = $(if ($lastFailure.RetryAfterIso) { $lastFailure.RetryAfterIso } else { $null }) } } else { $null })
             roster_position   = $(if ($rosterPositions.Count -gt 0) { [int]$rosterPositions[0] } else { $null })
+            roster_positions  = [object[]]$rosterPositions
             roster_selected   = [bool]($walk -and $walk.Entry -and $walk.Entry.Provider -ceq $name -and $walk.Entry.Engine -eq 'codex')
             verdict           = $verdict
             health_source     = $healthSource
@@ -341,9 +346,9 @@ foreach ($el in $engineLabels) {
     $spec = Get-EngineSpec -Name $el.Engine
     $engineLauncher = Get-EngineLauncher -Engine $el.Engine -Launchers $engineLaunchers
     $model = [string](@($roster.Entries | Where-Object { $_.Provider -ceq $el.Name } | Select-Object -First 1).Model)
-    $probe = Resolve-ReviewerIdentity -Config $config -Provider $el.Name -Model $model -Engine $el.Engine -Launcher $engineLauncher
+    $probe = Get-CachedReviewerIdentity -Cache $listingCache -Config $config -Provider $el.Name -Model $model -Engine $el.Engine -Launcher $engineLauncher
     $health = $null
-    if ($probe.Resolved) { $health = Get-EndpointHealth -Consults $consults -Fingerprint $probe.Fingerprint -UtcNow $utcNow }
+    if ($probe.Resolved) { $health = Get-CachedEndpointHealth -Cache $listingCache -Consults $consults -Fingerprint $probe.Fingerprint -UtcNow $utcNow }
     # (a usable reply on this endpoint within the last 60 minutes evidences the sign-in: no
     # `agy models` call; the auth / quota rules still apply)
     $rowVerdict = Get-PreflightVerdict -Identity $probe -Config $config -Launcher $engineLauncher -Health $health -LoginCache $loginCache -RosterWalk -NoNetwork:$NoNetwork
@@ -382,6 +387,7 @@ foreach ($el in $engineLabels) {
             last_limit        = $(if ($limit) { [pscustomobject]@{ when = $limit.When; message = $limit.Message; retry_after = $(if ($limit.RetryAfterIso) { $limit.RetryAfterIso } else { $null }) } } else { $null })
             last_failure      = $(if ($lastFailure) { [pscustomobject]@{ class = $lastFailure.Class; code = $lastFailure.Code; when = $lastFailure.When; message = $lastFailure.Message; retry_after = $(if ($lastFailure.RetryAfterIso) { $lastFailure.RetryAfterIso } else { $null }) } } else { $null })
             roster_position   = $(if ($rosterPositions.Count -gt 0) { [int]$rosterPositions[0] } else { $null })
+            roster_positions  = [object[]]$rosterPositions
             roster_selected   = [bool]($walk -and $walk.Entry -and $walk.Entry.Provider -ceq $el.Name -and $walk.Entry.Engine -eq $el.Engine)
             verdict           = $verdict
             health_source     = $healthSource
