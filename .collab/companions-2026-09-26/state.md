@@ -40,3 +40,18 @@ preceding wave is accepted (one live panel at a time; never a panel while a work
 - Lesson: K3 on the Plus tier (256K) cannot carry a long acceptance (the Codex loop re-sends the
   whole context); keep k3 on checkpoints and design reviews, or upgrade the plan for 1M.
 
+## Round 3 - wave 24b and its re-acceptance (2026-09-26 21:00-21:45)
+
+- Wave 24b (6b88cc8): F08-1..8, F07-1..3, F13-1..2 and the Kimi 256K classification; full suite
+  green (visibility 100). Re-acceptance panel (mimo, deepseek, muse; brief handoffs/14), 34 min:
+  - mimo HOLD: 11 of 13 ruled fixed (-> verified), F08-2 "still open" only for the codex engine's
+    deliberate .collab exclusion (ruled verified with that note), F08-4 residual (a rejected
+    continuation reply is discarded); new F15-1 major (quota wording forced to capability by the
+    context-overflow exception), F15-2 major (case-insensitive identity cache), F15-3..6 minor.
+  - deepseek: 429 after 103 s with one BytePlus member - the plan's window, not a burst.
+  - muse: failed "the working tree changed during the run: 0 files" - the coordinator committed
+    .collab records while the member ran; HEAD moved with identical contents and the fingerprint
+    counted it. A bridge defect (contents only, never HEAD) and a coordinator rule: no git
+    operations during a panel with agy or muse members.
+- Fix round 24c: F15-1..6, the F08-4 residual, the zero-files tree check, the burst-429 kind.
+

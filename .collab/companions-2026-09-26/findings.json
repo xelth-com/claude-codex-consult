@@ -91,6 +91,14 @@
                                                      "note":  "companions wave (ratings), not implemented at 65f5649",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave scoring finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -197,6 +205,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave telemetry finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -294,6 +310,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave telemetry finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -387,6 +411,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave topic scoring finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -480,6 +512,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave diversity finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -577,6 +617,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave panel-size finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -670,6 +718,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave routing finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -763,6 +819,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave routing finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -1192,6 +1256,14 @@
                                                      "note":  "companions wave (-Require)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave -Require finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -1289,6 +1361,14 @@
                                                      "note":  "companions wave (-Role)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave role finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -1395,6 +1475,14 @@
                                                      "note":  "companions wave test matrix",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave test-scope finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -1488,6 +1576,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave documentation finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -1594,6 +1690,14 @@
                                                      "note":  "companions wave (score formula)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave scoring finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -1691,6 +1795,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave diversity finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -1779,6 +1891,14 @@
                                                      "note":  "companions wave (-Role traversal)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave role finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -2070,6 +2190,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave draw-order finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -2158,6 +2286,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave seeded-draw finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -2246,6 +2382,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave role assignment finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -2339,6 +2483,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave -Require finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -2432,6 +2584,14 @@
                                                      "note":  "companions wave (roster lab/require keys)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave roster-schema finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -2525,6 +2685,14 @@
                                                      "note":  "companions wave (topics)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave topic telemetry finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -2613,6 +2781,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave panel-size finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -2715,6 +2891,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave selection-rule finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -2826,6 +3010,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave telemetry join finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -2928,6 +3120,14 @@
                                                      "note":  "companions wave (lab default)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave lab grouping finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -3035,6 +3235,14 @@
                                                      "note":  "companions wave",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave scoring finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -3137,6 +3345,14 @@
                                                      "note":  "companions wave (seed)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave seeding finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -3239,6 +3455,14 @@
                                                      "note":  "companions wave (draw determinism)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave PRNG portability finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -3341,6 +3565,14 @@
                                                      "note":  "explicit-run warn-vs-refuse asymmetry persists but is documented (README:1038-1042) and was not wave 24\u0027s ask",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave -Require finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -3452,6 +3684,14 @@
                                                      "note":  "companions wave (-Require matcher)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave matcher finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -3803,6 +4043,14 @@
                                                      "note":  "companions wave (PanelSize)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave panel-state finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -3918,6 +4166,14 @@
                                                      "note":  "companions wave test breakage",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave test-compatibility finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -4024,6 +4280,14 @@
                                                      "note":  "companions wave (roster keys)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave roster-schema finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -4126,6 +4390,14 @@
                                                      "note":  "companions wave (exploration pool)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave exploration finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -4228,6 +4500,14 @@
                                                      "note":  "companions wave (exit 5)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave exit-code finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -4330,6 +4610,14 @@
                                                      "note":  "companions wave (-Role)",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave role finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -4436,6 +4724,14 @@
                                                      "note":  "pre-existing OffPeakOnly behavior, untouched by wave 24",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave panel-size finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
@@ -4547,12 +4843,20 @@
                                                      "note":  "companions wave telemetry",
                                                      "base_commit":  "75cfd479f82a76fe01f4b94356af7967add0bb3a",
                                                      "tree_sha256":  "2e28b2f55572053934f1f98185894b19a3e3d6cd48c03c3b5756d53ffa93e6b2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave telemetry finding; outside this wave.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F07-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -4611,15 +4915,31 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:34+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-consult.ps1:3080-3089 resends reply format and schema for prompt-only continuations.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F07-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -4673,15 +4993,31 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:36+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-consult-common.ps1:4135-4187 pairs id-less tools exactly once.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F07-3",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -4744,15 +5080,31 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:37+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-consult-common.ps1:5224-5239 caches identity and health within one listing; case-collision risk is a new finding.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F08-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -4820,15 +5172,31 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:26+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-consult.ps1:681-697 routes every engine turn, including the main turn at :2720, through the fresh launch guard.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F08-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -4896,15 +5264,31 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:04:54+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "fixed at 6b88cc8 for the working tree (one gate for every engine); the .collab exclusion mimo names is by design for the codex engine (it never snapshots the collab root, wave 18) - documented in README residuals in wave 24c",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Codex tracked changes gate continuation at codex-consult.ps1:3062-3068, but `.collab` changes remain excluded at :2685-2689 and codex-consult-common.ps1:557-583.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F08-3",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -4972,10 +5356,26 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:27+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-consult.ps1:3070-3075 and codex-consult-common.ps1:4323-4341 classify all killed-turn evidence; false-positive scanning is a new finding.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
@@ -5051,12 +5451,19 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Non-zero/adapter failures reach provider_failure, but reply-rejected continuation error prose is discarded at codex-consult.ps1:3135-3148,3167-3175.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F08-5",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -5124,15 +5531,31 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:29+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-consult-common.ps1:4351-4368 applies first-reply checks before codex-consult.ps1:3496-3500 suppresses salvage.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F08-6",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -5187,15 +5610,31 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:30+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-consult.ps1:3544-3565 emits every option listed by this finding; remaining omissions are a new finding.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F08-7",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -5263,15 +5702,31 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:32+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-consult-common.ps1:5181-5191 applies the 60-minute unknown-reset refusal to every caller.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F08-8",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -5330,15 +5785,31 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:33+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-consult-common.ps1:339-350 requires two named revisions.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F13-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -5392,15 +5863,31 @@
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:39+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-providers.ps1:332-333 and :389-390 emit every roster position as roster_positions.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F13-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -5448,6 +5935,392 @@
                                              "by":  "coordinator",
                                              "note":  "",
                                              "evidence":  "wave 24b: fixed with harness-visibility cases (UNIT24B, GATES); full suite green",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-26T21:03:40+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "ruled fixed at 6b88cc8 by mimo-v2.6-pro (the reviewer that raised the F08 set) in the re-acceptance panel; harness-visibility 100",
+                                             "base_commit":  "9d792067652aea04a1cc9bad8642d1e685958342",
+                                             "tree_sha256":  "bf084cec91de5cabf94f7b0d1b63740ba177a574be8afc75241e6ecab829d383"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-09-26T21:02:16+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "codex-consult-common.ps1:4733-4743 uses an exact usable-outcome whitelist.",
+                                                     "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                                     "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F15-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4391
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4405
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4416
+                                           }
+                                       ],
+                         "claim":  "The new context-overflow exception excludes only the narrow quota-text pattern, while quota classification also recognizes billing, payment, insufficient-balance, credits and token-plan wording. A billing or quota error that also mentions a context window is forced to capability, so continuation and endpoint health can violate the no-continuation/no-success-after-quota invariants.",
+                         "trigger":  "A continuation or killed turn reports `billing_required: insufficient balance for this context window` or `credits exhausted; prompt is too long`.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 6b88cc8:plugins/codex-consult/scripts/codex-consult-common.ps1:4391-4416",
+                                              "observation":  "Test-ContextOverflow excludes only QuotaTextPattern, while Test-ContextOverflow is checked before ordinary classes."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 6b88cc8:plugins/codex-consult/scripts/codex-consult-common.ps1:4392-4397",
+                                              "observation":  "the quota class includes billing/payment/credits/token-plan terms absent from QuotaTextPattern."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Get-KilledTurnFailure and Get-ProviderFailureClass",
+                                              "observation":  "such text becomes capability, so it cannot trigger the quota/auth continuation gate or quota health."
+                                          }
+                                      ],
+                         "verification":  "Unit-test the combined billing-plus-context messages and assert class quota, no continuation, and quota-blocked endpoint health.",
+                         "remedy":  "Apply the complete quota/billing classifier before the context exception, or make Test-ContextOverflow exclude every quota-class pattern.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/15-codex-wave24b-reaccept-mimo.md",
+                                        "thread":  "01a0def9-ece2-7571-9f6f-c82ca3bf33aa",
+                                        "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                        "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T21:02:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F15-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5224
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5227
+                                           }
+                                       ],
+                         "claim":  "The new identity cache uses a plain case-insensitive PowerShell hashtable key even though provider and model identity matching is case-sensitive. Case-distinct roster entries can therefore reuse another entry\u0027s identity, fingerprint and cached health.",
+                         "trigger":  "A valid roster contains `ZAI :: glm-5.3` and `zai :: glm-5.3`, or two models differing only by case.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 6b88cc8:plugins/codex-consult/scripts/codex-consult-common.ps1:5224-5231",
+                                              "observation":  "the cache key concatenates provider/model into an ordinary PowerShell hashtable."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 6b88cc8:plugins/codex-consult/scripts/codex-consult-common.ps1:5012,5053",
+                                              "observation":  "roster entry matching uses ordinal, case-sensitive comparisons."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "PowerShell hashtable semantics",
+                                              "observation":  "keys differing only by case collide in the default comparer."
+                                          }
+                                      ],
+                         "verification":  "Run one listing over a case-collision roster and assert that each entry resolves to its own fingerprint and health.",
+                         "remedy":  "Use an ordinal dictionary or an unambiguous length-prefixed, case-preserving cache key.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/15-codex-wave24b-reaccept-mimo.md",
+                                        "thread":  "01a0def9-ece2-7571-9f6f-c82ca3bf33aa",
+                                        "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                        "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T21:02:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F15-3",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4323
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4330
+                                           }
+                                       ],
+                         "claim":  "Get-KilledTurnFailure classifies every non-filtered stderr line independently, so benign informational text containing whole words such as `auth`, `billing`, `quota`, `401`, or `429` can falsely suppress an otherwise permitted continuation.",
+                         "trigger":  "A killed turn emits informational stderr such as `loaded auth.json` or `request 429 tracing enabled` without any provider failure.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 6b88cc8:plugins/codex-consult/scripts/codex-consult-common.ps1:4323-4341",
+                                              "observation":  "all stderr lines except Muse\u0027s informational filter are candidates and the first matching quota/auth class wins."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 6b88cc8:plugins/codex-consult/scripts/codex-consult-common.ps1:4395-4397",
+                                              "observation":  "broad whole-word auth and quota regexes match those examples."
+                                          }
+                                      ],
+                         "verification":  "Feed benign diagnostic stderr alongside a clean timeout and assert that the continuation is still attempted.",
+                         "remedy":  "Parse structured provider errors first and classify only telling diagnostic lines, with a denylist for informational engine messages.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/15-codex-wave24b-reaccept-mimo.md",
+                                        "thread":  "01a0def9-ece2-7571-9f6f-c82ca3bf33aa",
+                                        "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                        "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T21:02:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F15-4",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4423
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4707
+                                           }
+                                       ],
+                         "claim":  "New-ProviderFailure classifies from error code plus message and then truncates the message, but Get-FailureHint re-tests only the stored message. Context overflow identified from an error code, or from text removed by truncation, loses the promised operator hint.",
+                         "trigger":  "The provider returns code `context_length_exceeded` with message `Request too large.`, or a long message whose context phrase lies after 200 characters.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 6b88cc8:plugins/codex-consult/scripts/codex-consult-common.ps1:4700-4712",
+                                              "observation":  "classification sees code plus full message; storage keeps only a truncated message."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 6b88cc8:plugins/codex-consult/scripts/codex-consult-common.ps1:4423-4430",
+                                              "observation":  "the hint re-tests only failure.message."
+                                          }
+                                      ],
+                         "verification":  "Create the code-only context failure and assert that the summary still prints the context-too-long hint.",
+                         "remedy":  "Store the classification evidence or derive the hint from code plus untruncated evidence at classification time.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/15-codex-wave24b-reaccept-mimo.md",
+                                        "thread":  "01a0def9-ece2-7571-9f6f-c82ca3bf33aa",
+                                        "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                        "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T21:02:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F15-5",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  3533
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  3544
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  3566
+                                           }
+                                       ],
+                         "claim":  "The new resume serializer still omits replay-relevant `-ReplyName` and `-SkipPreflight`, so the supposedly exact command can produce different handoff names or repeat a preflight and refuse a run that originally started unchecked.",
+                         "trigger":  "A run uses a non-default reply name or `-SkipPreflight`, times out, and the printed resume command is executed.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 6b88cc8:plugins/codex-consult/scripts/codex-consult.ps1:3533-3566",
+                                              "observation":  "the option list covers timeout, continuation, effort, schema, config, artifacts, range and launchers but contains neither option."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "codex-consult parameter surface",
+                                              "observation":  "both options affect output identity or whether the resumed run can start."
+                                          }
+                                      ],
+                         "verification":  "Kill runs using each option, execute their printed commands under fakes, and compare resolved output names and preflight records.",
+                         "remedy":  "Serialize `-ReplyName` and `-SkipPreflight` whenever they were explicitly supplied, or document and enforce equivalent defaults.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/15-codex-wave24b-reaccept-mimo.md",
+                                        "thread":  "01a0def9-ece2-7571-9f6f-c82ca3bf33aa",
+                                        "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                        "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T21:02:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                             "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F15-6",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  719
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  727
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  735
+                                           }
+                                       ],
+                         "claim":  "Invoke-EngineTurn restores the recovery record after a launch refusal but not after a Start-Process error. The record remains `launching` even though no process exists, misleading recovery if the bridge dies before commit.",
+                         "trigger":  "A secondary turn\u0027s launcher disappears or Start-Process throws after the `launching` record is written.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 6b88cc8:plugins/codex-consult/scripts/codex-consult.ps1:719-736",
+                                              "observation":  "the refusal path restores state/note; the Error path only sets Problem."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "pending recovery semantics",
+                                              "observation":  "a crash before commit leaves a state that claims a launch is underway."
+                                          }
+                                      ],
+                         "verification":  "Force Start-Process failure, kill the bridge before commit, and inspect the pending record consumed by the next run.",
+                         "remedy":  "Restore the previous record on every non-start path or mark it explicitly `launch-failed` with no child pid.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/15-codex-wave24b-reaccept-mimo.md",
+                                        "thread":  "01a0def9-ece2-7571-9f6f-c82ca3bf33aa",
+                                        "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
+                                        "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-26T21:02:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
                                              "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                              "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
                                          }
@@ -5545,6 +6418,17 @@
                         "useful":  "yes",
                         "note":  "acceptance of wave 24 by muse: ACCEPT with F13-1 (roster_positions in JSON) and F13-2 (exact outcome match); first substantive muse review",
                         "when":  "2026-09-26T17:36:40+02:00"
+                    },
+                    {
+                        "n":  11,
+                        "consult_id":  "1bb2f756-da9c-4553-b6e0-7d2a677371f9",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "purpose":  "acceptance",
+                        "useful":  "yes",
+                        "note":  "re-acceptance of 24b: 11 of 13 ruled fixed, two still open with reasons, F15-1..6 (two real majors: quota wording forced to capability, case-insensitive identity cache); 34 min",
+                        "when":  "2026-09-26T21:03:25+02:00"
                     }
                 ]
 }
