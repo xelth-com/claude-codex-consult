@@ -60,3 +60,20 @@ TBH_CREDENTIAL_BACKEND=file, headless exec verified (see handoffs/01, "Verified 
   (the maintainer decided on 2026-09-26 to tag without the openai reviewer).
 - Tag v0.3.0 set at 7f46fe4 and pushed (2026-09-26).
 
+## Round 4 - wave 23b and the resumed acceptance (2026-09-26 12:30-13:00)
+
+- Wave 23b (23843df): F09-1..3 fixed by a fresh implementer (also agy's prompt-only denial retry,
+  a timeout-kill assertion in harness-panel); full suite green (0.3 227, roster 117, format 37,
+  engines 97, muse 72, panel 53, pending 26, fixes 45, lock2 11, 3b 12).
+- Continuation experiment (the maintainer's request that a review killed on timeout is not
+  lost): Codex kept the full rollouts of the three members killed at 1800 s in round 3. A
+  `-Mode resume` on glm-5.3's thread with a finish-now prompt and a 900 s budget (n=12) returned
+  a structured ACCEPT in 148 s: 30 prior findings ruled (F09-1..3 fixed at 23843df, which it
+  read), F15-1 minor (the credential cache can serve the pre-launch billing guard a stale
+  mechanism), F15-2 note (the accepted SHA must be the one holding the fixes). Usage 14.2M
+  input, 13.3M cached (94%) - the provider cache held across the kill. This is the evidence for
+  wave 24's automatic continuation turn.
+- Acceptance of the muse engine: glm (resumed) ACCEPT, dola ACCEPT, kimi-k2.5 ACCEPT; mimo's HOLD
+  items fixed and ruled fixed by glm. v0.4.0 tagged at 23843df (F15-2's remedy). F15-1 goes to
+  wave 24.
+
