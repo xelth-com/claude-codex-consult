@@ -133,7 +133,7 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   carries no reviewer identity, so its provenance is unknown: the first 0.3.0
   consultation on such a task always starts a new thread, whatever provider or model
   you use.
-- `-Engine codex|agy` — the CLI that carries the consultation (0.4.0). Omitted, it comes
+- `-Engine codex|agy|muse` — the CLI that carries the consultation (0.4.0). Omitted, it comes
   from the roster entry used (`"engine": "agy"` for Gemini through Google's Antigravity CLI),
   else `codex`. For agy, `-Provider` is a free label (e.g. `gemini`) and `-Model` the full
   model id with its tier (`gemini-3.8-flash-high`); no effort is sent (the tier is in the
@@ -149,7 +149,16 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   auto-denied and the turn produced nothing. `-EngineExe <path>` if `agy` is not on `PATH`.
   `-Provider gemini` without `-Model` on a roster with several `gemini` entries takes the
   first one and warns (`roster: label gemini names 2 entries; ...`) - pass `-Model` for
-  another. See the README section "Engines".
+  another. See the README section "Engines". `muse` (wave 23: Meta's Muse Code CLI for the
+  Muse Code subscription; `"engine": "muse"`, label e.g. `meta`, `-Model muse-spark-1.3` or
+  `muse-spark-1.3-contributor`): the effort goes as `--reasoning-effort`; the default mode is
+  `new`; files `handoffs/<NN>-muse-<slug>.*`; no denial retry; `-MaxModelSteps <n>` caps its
+  model steps (muse only). A muse run is REFUSED while `META_API_KEY` or `MODEL_API_KEY` is
+  set (it would bill per token) - also under `-SkipPreflight`; never set or unset them
+  yourself, tell the user. Its sign-in is `~/.config/muse/auth.json` (the user runs `muse
+  login` with `TBH_CREDENTIAL_BACKEND=file`); never read that file. The same read-only tree
+  check as agy applies. `-EngineExe <path>` names the launcher of the selected engine
+  (`-Engine`'s, else the roster's only engine other than codex).
 - `-NativeEffort <value>` — send an effort value verbatim when the resolved provider's
   endpoint has no known vocabulary (the run refuses `-Effort` in that case and tells you
   to use this instead).
@@ -192,7 +201,7 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   calling Codex. Use it when a call fails and you need to see what would be sent.
 
 The script creates `handoffs/` and `sessions.json` when missing, and writes (with the
-`agy` engine the prefix is `agy` instead of `codex`, and a denial-retry or format-repair
+`agy` or `muse` engine the prefix is `agy` / `muse` instead of `codex`, and a denial-retry or format-repair
 turn keeps its own `.denial-retry.events.jsonl` / `.repair.events.jsonl` next to them):
 
 - `handoffs/<NN>-codex-<slug>.md` — header, the verbatim reply, and (unless `-Raw`)

@@ -25,10 +25,15 @@
       * reviewer         Resolve-ReviewerIdentity, New-ReviewerRecord,
                          Resolve-EffortPlan (effort vocabularies), Get-PeakStatus
                          (peak windows), Select-ParentThread (lineage-scoped parent)
-      * engines          $script:Engines (codex | agy), Get-EngineSpec,
-                         Resolve-EngineLauncher, Get-EngineCredential (agy: `agy
-                         models`), New-AgyArgv, ConvertTo-AgyStdin, Read-AgyEvents,
-                         Get-AgyTurnOutcome, Format-ReviewerLineage
+      * engines          $script:Engines (codex | agy | muse), Get-EngineSpec,
+                         Resolve-EngineLauncher, Resolve-EngineExeBinding,
+                         Get-EngineCredential (agy: `agy models`; muse: auth.json key
+                         names), New-EngineTurnOptions (the adapter contract),
+                         Get-EngineLaunchBlock (muse: the billing guard),
+                         Get-CmdArgvHazard, New-AgyArgv, ConvertTo-AgyStdin,
+                         Read-AgyEvents, Get-AgyTurnOutcome, New-MuseArgv,
+                         Read-MuseEvents, Get-MuseTurnOutcome, Get-MuseHarness,
+                         Format-ReviewerLineage
       * availability     Resolve-CodexLauncher, Get-CodexLoginStatus (UTF-8),
                          Get-ProviderCredential, Get-ProviderFailureClass,
                          Get-RetryAfter (a provider's named reset time),
@@ -2452,6 +2457,11 @@ function Resolve-EngineIdentity {
     $pc = New-Object PSObject
     $pc | Add-Member -NotePropertyName 'engine' -NotePropertyValue $Engine
     $pc | Add-Member -NotePropertyName 'launcher' -NotePropertyValue $(if ($Launcher) { $Launcher } else { '' })
+    # (wave 23) the engine's own fields - muse: credential_mechanism (D4)
+    if ($spec.Adapter -and $spec.Adapter.PSObject.Properties['IdentityConfig'] -and $spec.Adapter.IdentityConfig) {
+        $extra = & $spec.Adapter.IdentityConfig
+        foreach ($k in @($extra.Keys)) { $pc | Add-Member -NotePropertyName ([string]$k) -NotePropertyValue $extra[$k] }
+    }
     $id.ProviderConfig = $pc
     $id.Display = "engine $Engine ($(if ($Launcher) { $Launcher } else { "$($spec.Command) CLI not found" }))"
     $id.ConfigPath = ''
@@ -2464,7 +2474,7 @@ function Resolve-EngineIdentity {
     return $id
 }
 
-# The `reviewer` object of a ledger entry. `engine` (0.4.0): codex | agy; readers treat an
+# The `reviewer` object of a ledger entry. `engine` (0.4.0): codex | agy | muse; readers treat an
 # absent field as codex.
 function New-ReviewerRecord {
     param($Identity, [string]$Harness)
@@ -2548,6 +2558,13 @@ function ConvertFrom-CodexConfigItems {
 #       part of the agy model id (gemini-3.8-flash-high); effort_sent null. -NativeEffort
 #       sends --effort <value> verbatim (agy checks it against the tier itself). The reply
 #       schema travels natively (--json-schema): SchemaTransport 'native'.
+#   engine:muse (the muse engine: Meta's Muse Code CLI, wave 23)
+#       vocabulary muse (mapping muse-v1) ONLY for the live-verified   low medium high
+#       subscription models below (exact): all four as is, sent as      xhigh
+#       --reasoning-effort <v>. The reply schema travels natively (--output-schema):
+#       SchemaTransport 'native'.
+# A vocabulary a caps row names but $script:EffortVocabularies lacks is a plan error (a bridge
+# defect, never a silently empty mapping).
 # Anything else - an undeclared model on a known host, any model on another endpoint -
 # has no vocabulary: the run is refused unless -NativeEffort sends a value verbatim.
 # Codex's events do not report the effort the endpoint applied: effort_confirmed is null.
@@ -2563,6 +2580,8 @@ $script:EffortVocabularies = @{
     # Alibaba Cloud Model Studio Token Plan: every text model takes low | medium | high | xhigh
     # (the Model Studio Codex doc, 2026-09-26)
     'alibaba' = @{ Mapping = 'alibaba-v1'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'xhigh' } }
+    # Meta's Muse Code CLI (--reasoning-effort none|minimal|low|medium|high|xhigh|max|ultra)
+    'muse'    = @{ Mapping = 'muse-v1'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'xhigh' } }
 }
 # The model names Kimi Code accepts on https://api.kimi.ai/coding/v1 (its Codex doc; which of them a
 # membership unlocks depends on the tier: Plus has k3 at 256K context, Pro adds the 1M window and
@@ -2576,6 +2595,10 @@ $script:ArkPlanDeclaredModels = @('dola-seed-2.0-pro', 'dola-seed-2.0-lite', 'do
 # The text models the Alibaba Cloud Model Studio Token Plan (Personal Edition) lists on its
 # subscription page and the Codex doc (2026-09-26), without the plan's `auto` router (its target
 # model - and so the effort it accepts - is chosen by the endpoint).
+# The Muse Code subscription models verified live through `muse exec` (2026-09-25/26): the
+# contributor variant (the CLI default; Meta may train on its inputs) and the standard one. The
+# docs also list the 1.2 pair and 1.1 - not declared until verified.
+$script:MuseDeclaredModels = @('muse-spark-1.3', 'muse-spark-1.3-contributor')
 $script:AlibabaTokenPlanDeclaredModels = @('qwen3.8-max', 'qwen3.8-flash', 'qwen3.7-max', 'qwen3.7-plus', 'qwen3.6-flash', 'deepseek-v4.1-flash', 'deepseek-v4-pro', 'deepseek-v4-pro-0813', 'deepseek-v4-flash-0731', 'glm-5.3', 'glm-5.2')
 # host -> { Vocabulary; Models ($null = any model); SchemaTransport }. SchemaTransport: how
 # the reply schema reaches the endpoint - 'output-schema' (--output-schema; the built-in
@@ -2600,6 +2623,7 @@ $script:EffortCaps = @{
     # key or base URL bills pay-as-you-go. The schema travels in the prompt.
     'token-plan.ap-southeast-1.maas.aliyuncs.com' = @{ Vocabulary = 'alibaba'; Models = $script:AlibabaTokenPlanDeclaredModels; SchemaTransport = 'prompt-only' }
     'engine:agy'                    = @{ Vocabulary = 'model-tier'; Models = $null; SchemaTransport = 'native' }
+    'engine:muse'                   = @{ Vocabulary = 'muse'; Models = $script:MuseDeclaredModels; SchemaTransport = 'native' }
 }
 
 # { Transport ('output-schema' | 'prompt-only'); Basis } for the identity's endpoint;
@@ -2647,7 +2671,13 @@ function Resolve-EffortPlan {
         $plan.Error = "no effort vocabulary declared for model '$model' on $hostName ($($script:EffortCapsVersion) declares: $($cap.Models -join ', ')); pass -NativeEffort <value> to send a value verbatim"
         return $plan
     }
-    $v = $script:EffortVocabularies[$cap.Vocabulary]
+    $v = $null
+    if ($script:EffortVocabularies.ContainsKey([string]$cap.Vocabulary)) { $v = $script:EffortVocabularies[[string]$cap.Vocabulary] }
+    if ($null -eq $v) {
+        # (wave 23, D10) a caps row whose vocabulary is not declared: loud, never an empty mapping
+        $plan.Error = "$($script:EffortCapsVersion) names the effort vocabulary '$($cap.Vocabulary)' for $hostName, but no such vocabulary is declared (a bridge defect); pass -NativeEffort <value> to send a value verbatim"
+        return $plan
+    }
     $plan.Sent = $v.Map[$Requested]
     $plan.Mapping = $v.Mapping
     $plan.Basis = if ($null -eq $cap.Models) { "$($script:EffortCapsVersion): $hostName, any model" } else { "$($script:EffortCapsVersion): $hostName, $model" }
@@ -2979,18 +3009,33 @@ function Get-ProviderCredential {
 # The CLI that carries a consultation (0.4.0, ROADMAP R10). One row per engine; `codex` is
 # the default and its path through codex-consult.ps1 is the 0.3.0 one. Every other engine is
 # driven through the same adapter interface (the Adapter functions named in its row), so a
-# further engine (e.g. `claude`) is one more row plus its adapter functions:
-#   Argv        the argv of a turn (New-AgyArgv)
-#   Stdin       the bytes written to the turn's stdin (ConvertTo-AgyStdin)
-#   Events      the event-stream parser (Read-AgyEvents) -> a normalized turn record
-#   Outcome     the failure rules of a turn (Get-AgyTurnOutcome)
-#   Credential  the sign-in check of the preflight (Get-AgyModelsStatus)
+# further engine (e.g. `claude`) is one more row plus its adapter functions. EVERY turn of an
+# engine - the main turn, a denial retry, a format repair - goes through them (wave 23, D1/D2):
+#   Argv        the argv of a turn, from ONE turn-options object (New-EngineTurnOptions: Model,
+#               Mode, Thread, PromptFile, Schema, Effort, NativeEffort, MaxSteps)
+#   Stdin       the text written to the turn's stdin (agy: the prompt as one NDJSON line; muse:
+#               nothing - its prompt travels in the turn's own prompt file)
+#   Events      the event-stream parser -> a normalized turn record (Thread, Usage, Error, ...)
+#   Outcome     the failure rules of a turn (-Events -ExitCode -StderrText -Pre -ExpectThread
+#               -ExpectModel)
+#   Credential  the sign-in check of the preflight (-Launcher -TimeoutSec)
+#   Harness     (optional) reviewer.harness (-Launcher); else the launcher's file version
+#   IdentityConfig  (optional) extra reviewer.provider_config fields (an ordered hashtable)
+#   LaunchBlock (optional) the launch invariant: '' or the refusal (Get-EngineLaunchBlock)
 # Row fields: Name, Label (handoff header / author), Prefix (handoff file names
 # NN-<prefix>-<slug>.*), Command (first word of the ledger `command`), ExeEnv (launcher
-# override), LauncherNames (PATH lookup, in order), Modes, DefaultMode ('' = automatic:
-# fork when a parent exists), Sandboxes, Transports (-SchemaTransport values), HostName
-# (caps-v1 key), CompatString (the provider fingerprint's input), DefaultProvider (the
-# lineage label without -Provider), ModelExample.
+# override), LauncherNames (PATH lookup, in order), InstallLaunchers (the vendor's install
+# locations, tried after PATH: { Env; Rel }), Modes, DefaultMode ('' = automatic: fork when a
+# parent exists), Sandboxes, Transports (-SchemaTransport values), HostName (caps-v1 key),
+# CompatString (the provider fingerprint's input), DefaultProvider (the lineage label without
+# -Provider), ModelExample, DenialRetry (the engine can take a denial-retry turn),
+# PromptTransport (stdin | file), LocalSignIn (the sign-in check reads local files only: it
+# runs under -NoNetwork too), StepsFlag (the model-step cap flag -MaxModelSteps sends; '' = the
+# engine has none: -MaxModelSteps is refused), HasUsage (its stream reports token usage), and
+# the engine's own wording (D11): PromptVia, ReplySource,
+# SchemaFlag, ThreadFlag, ThreadNoun, ReadOnlyNote (the -Sandbox refusal), SandboxRecord (the
+# ledger's `sandbox`), TreeNote (the tree check's closing words), ToolsLine (the prompt's tools
+# line).
 #
 #   agy   Google's Antigravity CLI: `agy -p= --input-format stream-json --output-format
 #         stream-json --model <m> [--json-schema <schema>] --print-timeout 0 --sandbox
@@ -3001,21 +3046,66 @@ function Get-ProviderCredential {
 #         bridge's tree check fails a run that changed the working tree (tracked or
 #         untracked files) or the collab directory; gitignored paths, submodules and files
 #         outside the repository stay unmonitored.
-$script:EngineNames = @('codex', 'agy')
+#
+#   muse  Meta's Muse Code CLI (wave 23): `muse exec --json --prompt-file <P> [--output-schema
+#         <S>] --model <m> [--reasoning-effort <e>] --no-foreign-personal-context
+#         --disable-web-tools --disable-write --disable-shell --approval-mode never
+#         [--max-model-steps <n>] [--session-id <thread>]`, run in the repository root with an
+#         EMPTY stdin: the prompt is the turn's own prompt file. The stream is MSP JSONL
+#         (schema_version 1 only); the reply = the text of the ONE run_terminal record
+#         (run.terminal.completed); the thread = the ONE session stream id. The subscription
+#         bills through the browser sign-in only: an API key in the environment refuses the run
+#         (Get-MuseLaunchBlock, D4). No denial retry (its write, shell and web tools are off);
+#         the same tree check as agy (reads - read_file is not confined to the repository -,
+#         gitignored paths, submodules and files outside the repository stay unmonitored).
+$script:EngineNames = @('codex', 'agy', 'muse')
 $script:Engines = @{
     'codex' = [pscustomobject]@{
         Name = 'codex'; Label = 'Codex'; Prefix = 'codex'; Command = 'codex'; ExeEnv = 'CODEX_CONSULT_EXE'
         LauncherNames = $(if ($script:OnWindows) { @('codex.exe', 'codex.cmd', 'codex.bat', 'codex') } else { @('codex') })
+        InstallLaunchers = @()
         Modes = @('new', 'resume', 'fork'); DefaultMode = ''; Sandboxes = @('read-only', 'workspace-write')
         Transports = @('output-schema', 'prompt-only'); HostName = ''; CompatString = ''; DefaultProvider = ''; ModelExample = 'gpt-5.1'
+        DenialRetry = $false; PromptTransport = 'stdin'; LocalSignIn = $false; StepsFlag = ''; HasUsage = $true
+        PromptVia = 'prompt on stdin'; ReplySource = ''; SchemaFlag = '--output-schema'; ThreadFlag = ''; ThreadNoun = 'thread'
+        ReadOnlyNote = ''; SandboxRecord = ''; TreeNote = ''; ToolsLine = ''
         Adapter = $null
     }
     'agy'   = [pscustomobject]@{
         Name = 'agy'; Label = 'Gemini (agy)'; Prefix = 'agy'; Command = 'agy'; ExeEnv = 'CODEX_CONSULT_AGY_EXE'
         LauncherNames = $(if ($script:OnWindows) { @('agy.exe', 'agy.cmd', 'agy.bat', 'agy') } else { @('agy') })
+        InstallLaunchers = @()
         Modes = @('new', 'resume'); DefaultMode = 'new'; Sandboxes = @('read-only')
         Transports = @('native', 'prompt-only'); HostName = 'engine:agy'; CompatString = 'cc-engine-v1|agy'; DefaultProvider = 'gemini'; ModelExample = 'gemini-3.8-flash-high'
-        Adapter = [pscustomobject]@{ Argv = 'New-AgyArgv'; Stdin = 'ConvertTo-AgyStdin'; Events = 'Read-AgyEvents'; Outcome = 'Get-AgyTurnOutcome'; Credential = 'Get-AgyModelsStatus' }
+        DenialRetry = $true; PromptTransport = 'stdin'; LocalSignIn = $false; StepsFlag = ''; HasUsage = $true
+        PromptVia = 'prompt on stdin as one NDJSON line'
+        ReplySource = "the result event's structured_output (else its response text)"
+        SchemaFlag = '--json-schema'; ThreadFlag = '--conversation'; ThreadNoun = 'conversation'
+        ReadOnlyNote = "its --sandbox restricts the terminal only; the bridge's tree check fails a run that writes"
+        SandboxRecord = 'read-only (requested; enforced by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules or files outside the repository; agy --sandbox restricts the terminal only)'
+        TreeNote = "agy's sandbox does not block writes"
+        # agy's print mode auto-denies a tool it cannot grant and then ends the turn with no
+        # output (F11), and its --sandbox does not block file writes (F12): say both up front.
+        ToolsLine = 'Tools: you may read files of the repository; you have NO permission to run commands in this consultation - never call run_command; make NO file changes; a check that needs a command belongs under `## Requested checks`.'
+        Adapter = [pscustomobject]@{ Argv = 'New-AgyArgv'; Stdin = 'ConvertTo-AgyStdin'; Events = 'Read-AgyEvents'; Outcome = 'Get-AgyTurnOutcome'; Credential = 'Get-AgyModelsStatus'; Harness = ''; IdentityConfig = ''; LaunchBlock = '' }
+    }
+    'muse'  = [pscustomobject]@{
+        Name = 'muse'; Label = 'Meta Muse (muse)'; Prefix = 'muse'; Command = 'muse'; ExeEnv = 'CODEX_CONSULT_MUSE_EXE'
+        LauncherNames = $(if ($script:OnWindows) { @('muse.cmd', 'muse.exe', 'muse') } else { @('muse') })
+        # The vendor installs muse.cmd into %LOCALAPPDATA%\Programs\muse and adds that directory to
+        # the USER Path - which a bridge started before the install does not see (D3).
+        InstallLaunchers = $(if ($script:OnWindows) { @([pscustomobject]@{ Env = 'LOCALAPPDATA'; Rel = 'Programs\muse\muse.cmd' }) } else { @() })
+        Modes = @('new', 'resume'); DefaultMode = 'new'; Sandboxes = @('read-only')
+        Transports = @('native', 'prompt-only'); HostName = 'engine:muse'; CompatString = 'cc-engine-v1|muse'; DefaultProvider = 'meta'; ModelExample = 'muse-spark-1.3'
+        DenialRetry = $false; PromptTransport = 'file'; LocalSignIn = $true; StepsFlag = '--max-model-steps'; HasUsage = $false
+        PromptVia = 'prompt from a file: --prompt-file'
+        ReplySource = "the run_terminal record's text (run.terminal.completed)"
+        SchemaFlag = '--output-schema'; ThreadFlag = '--session-id'; ThreadNoun = 'session'
+        ReadOnlyNote = "muse runs with --disable-write --disable-shell --disable-web-tools and the bridge's tree check fails a run that changed anything"
+        SandboxRecord = 'read-only (requested; muse --disable-write --disable-shell --disable-web-tools --approval-mode never; checked by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules, files outside the repository or what the reviewer reads)'
+        TreeNote = 'muse ran with --disable-write --disable-shell (the check cannot tell who changed it)'
+        ToolsLine = 'Tools: you may read files of the repository (read_file); writing files, the shell and the web tools are disabled in this consultation (--disable-write --disable-shell --disable-web-tools) - do not try them; make NO file changes; a check that needs a command belongs under `## Requested checks`.'
+        Adapter = [pscustomobject]@{ Argv = 'New-MuseArgv'; Stdin = 'ConvertTo-MuseStdin'; Events = 'Read-MuseEvents'; Outcome = 'Get-MuseTurnOutcome'; Credential = 'Get-MuseSignIn'; Harness = 'Get-MuseHarness'; IdentityConfig = 'Get-MuseIdentityConfig'; LaunchBlock = 'Get-MuseLaunchBlock' }
     }
 }
 
@@ -3027,8 +3117,10 @@ function Get-EngineSpec {
 }
 
 # The launcher of an engine: $Explicit (codex: -CodexExe; others: -EngineExe), then the
-# engine's ExeEnv variable, then its LauncherNames on PATH. An explicit launcher that does not
-# resolve is an error (never a silent fall-through to PATH); $null when none is found.
+# engine's ExeEnv variable, then its LauncherNames on PATH, then (wave 23, D3) its vendor
+# install locations (InstallLaunchers: muse - %LOCALAPPDATA%\Programs\muse\muse.cmd on
+# Windows). An explicit launcher that does not resolve is an error (never a silent
+# fall-through to PATH); $null when none is found.
 function Resolve-EngineLauncher {
     param([string]$Engine, [string]$Explicit = '')
     if (-not $Engine -or $Engine -eq 'codex') { return (Resolve-CodexLauncher -Explicit $Explicit) }
@@ -3048,7 +3140,43 @@ function Resolve-EngineLauncher {
         $cmd = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue
         if ($cmd) { return @($cmd)[0].Source }
     }
+    foreach ($il in @($spec.InstallLaunchers)) {
+        if ($null -eq $il) { continue }
+        $base = [string][Environment]::GetEnvironmentVariable([string]$il.Env)
+        if (-not $base.Trim()) { continue }
+        $candidate = Join-Path $base ([string]$il.Rel)
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return (Resolve-Path -LiteralPath $candidate).Path }
+    }
     return $null
+}
+
+# The engine -EngineExe names (wave 23, D3): the SELECTED engine other than codex - -Engine's
+# when given (codex is refused: it takes -CodexExe); else the one the run can select: the
+# roster entry of -Provider (codex-providers: of the -Provider row), else the only engine other
+# than codex among the roster's entries. None or several -> refused ("pass -Engine <name>").
+# { Engine; Error }.
+function Resolve-EngineExeBinding {
+    param([string]$Engine = '', $Roster = $null, [string]$Provider = '', [string]$Model = '')
+    $r = [pscustomobject]@{ Engine = ''; Error = '' }
+    $others = @($script:EngineNames | Where-Object { $_ -ne 'codex' })
+    if ($Engine) {
+        if ($Engine -eq 'codex') { $r.Error = "-EngineExe names the launcher of an engine other than codex ($($others -join ', ')); codex takes -CodexExe"; return $r }
+        $r.Engine = $Engine
+        return $r
+    }
+    if ($Provider) {
+        $pe = Find-RosterEntry -Roster $Roster -Provider $Provider -Model $Model
+        if ($pe -and $pe.Engine -ne 'codex') { $r.Engine = [string]$pe.Engine; return $r }
+        if ($pe) { $r.Error = "-EngineExe: the roster entry $($pe.Position) for -Provider $Provider is engine codex, which takes -CodexExe"; return $r }
+    }
+    $used = New-Object System.Collections.Generic.List[string]
+    if ($Roster -and $Roster.Exists) {
+        foreach ($e in @($Roster.Entries)) { $en = [string]$e.Engine; if ($en -and $en -ne 'codex' -and -not $used.Contains($en)) { $used.Add($en) } }
+    }
+    if ($used.Count -eq 1) { $r.Engine = $used[0]; return $r }
+    if ($used.Count -gt 1) { $r.Error = "-EngineExe is ambiguous: the reviewer roster has entries of the engines $($used.ToArray() -join ' and '); pass -Engine <$($others -join '|')> to name the one it launches" }
+    else { $r.Error = "-EngineExe names the launcher of an engine other than codex: pass -Engine <$($others -join '|')> with it" }
+    return $r
 }
 
 # The launcher of $Engine for a walk over the roster: codex -> $CodexLauncher; any other engine
@@ -3067,6 +3195,9 @@ function Get-EngineLauncher {
 # carries one: "agy-cli <version>" or "agy-cli (version unknown)". Nothing is started.
 function Get-EngineHarness {
     param([string]$Engine, [string]$Launcher)
+    # (wave 23, D8) an engine that names its own version source (muse: Get-MuseHarness)
+    $spec = Get-EngineSpec -Name $Engine
+    if ($spec -and $spec.Adapter -and $spec.Adapter.PSObject.Properties['Harness'] -and $spec.Adapter.Harness) { return [string](& $spec.Adapter.Harness -Launcher $Launcher) }
     $ver = ''
     if ($Launcher) {
         try { $ver = [string](Get-Item -LiteralPath $Launcher -ErrorAction Stop).VersionInfo.ProductVersion } catch { $ver = '' }
@@ -3132,7 +3263,8 @@ function Get-AgyModelsStatus {
 # -NoNetwork: it is a ledger read). The caller keeps the endpoint health's auth and quota rules
 # in front of it (Get-PreflightVerdict): a recorded auth failure or a usage limit still
 # refuses. -NoNetwork (the SessionStart hook): otherwise nothing is started - "not checked
-# (launcher present; run codex-providers.ps1)", State unknown, Reason "sign-in not checked".
+# (launcher present; run codex-providers.ps1)", State unknown, Reason "sign-in not checked" -
+# unless the engine's check reads local files only (LocalSignIn: muse's auth.json key names).
 # Else the adapter's check (agy: `agy models`, 45 s - TEST HOOK
 # CODEX_CONSULT_TEST_LOGIN_TIMEOUT=<s> shortens it). $LoginCache: one check per launcher per
 # listing.
@@ -3144,7 +3276,7 @@ function Get-EngineCredential {
     if ($Health -and $Health.PSObject.Properties['RecentUsable'] -and $Health.RecentUsable) {
         return (New-CredentialResult 'ok' "signed in (usable reply $($Health.RecentUsable.AgeMinutes) min ago)")
     }
-    if ($NoNetwork) { return [pscustomobject]@{ State = 'unknown'; Reason = 'sign-in not checked'; Detail = 'not checked (launcher present; run codex-providers.ps1)' } }
+    if ($NoNetwork -and -not ($spec.PSObject.Properties['LocalSignIn'] -and $spec.LocalSignIn)) { return [pscustomobject]@{ State = 'unknown'; Reason = 'sign-in not checked'; Detail = 'not checked (launcher present; run codex-providers.ps1)' } }
     if ($TimeoutSec -le 0) {
         $TimeoutSec = $script:AgyModelsTimeoutSec
         $hook = ([string]$env:CODEX_CONSULT_TEST_LOGIN_TIMEOUT).Trim()
@@ -3157,19 +3289,96 @@ function Get-EngineCredential {
     return $r
 }
 
+# ---- engine turns (every engine other than codex)
+
+# One turn of an engine other than codex (wave 23, D1): what its adapter's Argv receives -
+# { Model; Mode (new | resume | denial-retry | format-repair); Thread (the conversation / session
+# to continue, '' = a new one); PromptFile (this turn's own prompt file: muse reads it through
+# --prompt-file, agy's prompt travels on stdin); Schema (the schema path, '' = none); Effort (the
+# value to send, $null = nothing); NativeEffort (-NativeEffort, verbatim); MaxSteps (muse
+# --max-model-steps, 0 = not sent) }.
+function New-EngineTurnOptions {
+    param([string]$Model, [string]$Mode = 'new', [string]$Thread = '', [string]$PromptFile = '', [string]$Schema = '', $Effort = $null, [string]$NativeEffort = '', [int]$MaxSteps = 0)
+    return [pscustomobject]@{ Model = $Model; Mode = $Mode; Thread = $Thread; PromptFile = $PromptFile; Schema = $Schema; Effort = $Effort; NativeEffort = $NativeEffort; MaxSteps = $MaxSteps }
+}
+
+# The launch invariant of an engine (wave 23, D4): '' or the refusal. Checked when a roster
+# entry is selected (the walk and the panel skip it, under -SkipPreflight too), when the run's
+# engine is known (a refusal; -SkipPreflight never bypasses it) and again right before every
+# Start-Process of a turn. muse: Get-MuseLaunchBlock (billing); other engines: none.
+function Get-EngineLaunchBlock {
+    param([string]$Engine)
+    $spec = Get-EngineSpec -Name $Engine
+    if (-not $spec -or -not $spec.Adapter -or -not $spec.Adapter.PSObject.Properties['LaunchBlock'] -or -not $spec.Adapter.LaunchBlock) { return '' }
+    return [string](& $spec.Adapter.LaunchBlock)
+}
+
+# cmd.exe expands %VAR% even inside double quotes when it runs a .cmd / .bat launcher (the
+# reason the codex prompt goes on stdin; F02-14): an engine argument that contains '%' would
+# reach the CLI changed. '' or the refusal (the first two such arguments named).
+function Get-CmdArgvHazard {
+    param([string]$Launcher, [string[]]$Argv)
+    if (-not $Launcher -or [IO.Path]::GetExtension($Launcher) -notmatch '^\.(cmd|bat)$') { return '' }
+    $bad = @(@($Argv) | Where-Object { $_ -and $_.Contains('%') })
+    if ($bad.Count -eq 0) { return '' }
+    return "the launcher $Launcher is a cmd.exe script and $($bad.Count) argument(s) contain '%' ($(@($bad | Select-Object -First 2) -join ', ')): cmd.exe would expand %VAR% in them; set TEMP and TMP to a directory without '%', or point -EngineExe at the CLI's .exe"
+}
+
+# A launcher's output (stdout and stderr as UTF-8) with a timeout, nothing on stdin: { Started;
+# Exit (-1 when it did not exit); TimedOut; Out; Err }.
+function Invoke-LauncherCapture {
+    param([string]$Launcher, [string]$Arguments, [int]$TimeoutSec = 15)
+    $r = [pscustomobject]@{ Started = $false; Exit = -1; TimedOut = $false; Out = ''; Err = '' }
+    $p = $null
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $Launcher
+        $psi.Arguments = $Arguments
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardInput = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.StandardOutputEncoding = $script:Utf8NoBom
+        $psi.StandardErrorEncoding = $script:Utf8NoBom
+        $p = [System.Diagnostics.Process]::Start($psi)
+    } catch { return $r }
+    $r.Started = $true
+    try {
+        try { $p.StandardInput.Close() } catch { }
+        $outTask = $p.StandardOutput.ReadToEndAsync()
+        $errTask = $p.StandardError.ReadToEndAsync()
+        if (-not $p.WaitForExit($TimeoutSec * 1000)) {
+            $null = Stop-ProcessTree -Process $p
+            $r.TimedOut = $true
+            return $r
+        }
+        $p.WaitForExit()
+        $null = $outTask.Wait(5000)
+        $null = $errTask.Wait(5000)
+        $r.Exit = $p.ExitCode
+        $r.Out = [string]$outTask.Result
+        $r.Err = [string]$errTask.Result
+        return $r
+    } finally {
+        $p.Dispose()
+    }
+}
+
 # ---- agy adapter
 
-# The argv of one agy turn (after the launcher). -Schema: the schema path (structured mode
-# with transport native, and every repair / denial-retry turn); -Thread: --conversation (resume,
-# repair, denial retry); -NativeEffort: --effort <v> verbatim (never otherwise: the tier is part
-# of the model id).
+# The argv of one agy turn (after the launcher), from the turn options (New-EngineTurnOptions).
+# Schema: --json-schema (structured mode with transport native, and every repair / denial-retry
+# turn); Thread: --conversation (resume, repair, denial retry); NativeEffort: --effort <v>
+# verbatim (never otherwise: the tier is part of the model id). PromptFile is not used: the
+# prompt travels on stdin (ConvertTo-AgyStdin).
 function New-AgyArgv {
-    param([string]$Model, [string]$Schema = '', [string]$Thread = '', [string]$NativeEffort = '')
-    $a = @('-p=', '--input-format', 'stream-json', '--output-format', 'stream-json', '--model', $Model)
-    if ($Schema) { $a += @('--json-schema', $Schema) }
+    param($Turn)
+    $a = @('-p=', '--input-format', 'stream-json', '--output-format', 'stream-json', '--model', [string]$Turn.Model)
+    if ($Turn.Schema) { $a += @('--json-schema', [string]$Turn.Schema) }
     $a += @('--print-timeout', '0', '--sandbox', '--disable-slash-commands')
-    if ($Thread) { $a += @('--conversation', $Thread) }
-    if ($NativeEffort) { $a += @('--effort', $NativeEffort) }
+    if ($Turn.Thread) { $a += @('--conversation', [string]$Turn.Thread) }
+    if ($Turn.NativeEffort) { $a += @('--effort', [string]$Turn.NativeEffort) }
     return , ([string[]]$a)
 }
 
@@ -3298,7 +3507,8 @@ function Read-AgyEvents {
 #                    otherwise failed: empty reply
 #   usable           a denial notice and every `warning:` line of stderr become Warnings
 function Get-AgyTurnOutcome {
-    param($Events, [int]$ExitCode, [string]$StderrText = '', [string]$Pre = '', [string]$ExpectThread = '')
+    # (-ExpectModel: the adapter contract; agy's result names no served model - not checked)
+    param($Events, [int]$ExitCode, [string]$StderrText = '', [string]$Pre = '', [string]$ExpectThread = '', [string]$ExpectModel = '')
     $o = [pscustomobject]@{ Ok = $false; Outcome = ''; Class = ''; Texts = [string[]]@(); Thread = ''; ThreadCandidate = ''; Reply = ''; Structured = $false; DeniedEmpty = $false; DenialLine = ''; Permission = ''; NotFound = ''; Warnings = [string[]]@() }
     $lines = @(([string]$StderrText) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     $denial = @($lines | Where-Object { $_ -match '(?i)no output produced|auto-denied' }) | Select-Object -First 1
@@ -3395,6 +3605,381 @@ function Get-AgyTurnOutcome {
     if ($denial) { $w.Add("denial notice: $(ConvertTo-OneLine $denial)") }
     foreach ($wl in $warnLines) { $w.Add((ConvertTo-OneLine $wl)) }
     $o.Warnings = [string[]]$w.ToArray()
+    return $o
+}
+
+# ---- muse adapter (wave 23: Meta's Muse Code CLI, headless `muse exec`; decisions D1-D16)
+
+# The Muse sign-in (D5). With TBH_CREDENTIAL_BACKEND=file the CLI keeps it in
+# ~/.config/muse/auth.json (home: USERPROFILE on Windows, else HOME); any other backend is the OS
+# keychain, which the bridge cannot read (on Windows the keychain write fails anyway: the file
+# backend is required there). The file is read for the presence of providers.meta and its
+# `mechanism` value only (an enum such as oauth, never a secret); the parsed object is never
+# logged, returned or written, and a parse error is reported without its text. Cached per
+# backend and path for this process. { Backend (file | keychain); State (ok | missing |
+# unknown); Reason; Mechanism ('' when not read; 'unrecognized' for a value that is not a short
+# identifier - never shown) }.
+$script:MuseCredentialCache = @{}
+$script:MuseAuthShown = '~/.config/muse/auth.json'
+function Get-MuseAuthPath {
+    $h = ''
+    if ($script:OnWindows) { $h = [string]$env:USERPROFILE }
+    if (-not $h) { $h = [string]$env:HOME }
+    if (-not $h) { $h = [string]$HOME }
+    if (-not $h) { return '' }
+    return (Join-Path (Join-Path (Join-Path $h '.config') 'muse') 'auth.json')
+}
+function Get-MuseCredentialInfo {
+    $backend = ([string]$env:TBH_CREDENTIAL_BACKEND).Trim().ToLowerInvariant()
+    $path = Get-MuseAuthPath
+    $key = "$backend|$path"
+    if ($script:MuseCredentialCache.ContainsKey($key)) { return $script:MuseCredentialCache[$key] }
+    $info = [pscustomobject]@{ Backend = $(if ($backend -eq 'file') { 'file' } else { 'keychain' }); State = 'unknown'; Reason = ''; Mechanism = '' }
+    $shown = $script:MuseAuthShown
+    if ($backend -ne 'file') {
+        $info.Reason = "sign-in not checkable: TBH_CREDENTIAL_BACKEND is $(if ($backend) { "'$backend'" } else { 'not set' }) (the keychain backend cannot be read; set TBH_CREDENTIAL_BACKEND=file - required on Windows - and run ``muse login``)"
+    } elseif (-not $path) {
+        $info.Reason = 'sign-in not checkable: no home directory (USERPROFILE / HOME)'
+    } elseif (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        $info.State = 'missing'
+        $info.Reason = "not signed in: $shown does not exist (run ``muse login`` with TBH_CREDENTIAL_BACKEND=file)"
+    } else {
+        $data = $null
+        $why = ''
+        $text = Read-SharedText -Path $path
+        if (-not $text -or -not $text.Trim()) { $why = 'is empty or could not be read' }
+        else {
+            try { $data = ConvertFrom-Json -InputObject $text } catch { $why = 'does not parse as JSON' }
+            if (-not $why -and -not (Test-IsJsonObject $data)) { $why = 'is not a JSON object' }
+        }
+        $text = $null
+        if ($why) { $info.Reason = "sign-in not checkable: $shown $why" }
+        else {
+            $providers = Get-PropertyValue $data 'providers' $null
+            $meta = $null
+            if (Test-IsJsonObject $providers) { $meta = Get-PropertyValue $providers 'meta' $null }
+            if (-not (Test-IsJsonObject $meta)) {
+                $info.State = 'missing'
+                $info.Reason = "not signed in: $shown has no Meta sign-in (providers.meta; run ``muse login``)"
+            } else {
+                $mech = Get-PropertyValue $meta 'mechanism' $null
+                if (-not ($mech -is [string]) -or -not $mech.Trim()) { $info.Reason = "sign-in not checkable: providers.meta in $shown names no mechanism" }
+                else {
+                    $info.State = 'ok'
+                    if ($mech -cmatch '^[A-Za-z][A-Za-z0-9_.-]{0,31}$') { $info.Mechanism = $mech } else { $info.Mechanism = 'unrecognized' }
+                    $info.Reason = "signed in ($shown`: providers.meta, mechanism $($info.Mechanism))"
+                }
+            }
+        }
+        $data = $null
+    }
+    $script:MuseCredentialCache[$key] = $info
+    return $info
+}
+
+# The preflight's sign-in check of a muse entry (the adapter's Credential; local, nothing is
+# started): ok (providers.meta with a mechanism), missing (no file, no providers.meta), unknown
+# (the keychain backend, a file that does not parse, no mechanism) - unknown refuses the run
+# unless -SkipPreflight (Get-PreflightVerdict).
+function Get-MuseSignIn {
+    param([string]$Launcher = '', [int]$TimeoutSec = 0)
+    $c = Get-MuseCredentialInfo
+    return (New-CredentialResult $c.State $c.Reason)
+}
+
+# reviewer.provider_config's muse fields (D4): credential_mechanism = providers.meta.mechanism
+# (the file backend), $null when it cannot be read.
+function Get-MuseIdentityConfig {
+    $c = Get-MuseCredentialInfo
+    $o = [ordered]@{}
+    $o['credential_mechanism'] = $(if ($c.Mechanism) { $c.Mechanism } else { $null })
+    return $o
+}
+
+# The billing invariant of a muse launch (D4): the subscription bills through the browser
+# sign-in only; an API key the child would inherit bills per token instead. '' or the refusal:
+# META_API_KEY or MODEL_API_KEY set (non-empty) in this process, or a readable credential
+# mechanism other than oauth. Names only - a value is never shown. Not a preflight check:
+# -SkipPreflight never bypasses it; there is no roster opt-out in this wave.
+$script:MuseApiKeyVariables = @('META_API_KEY', 'MODEL_API_KEY')
+function Get-MuseLaunchBlock {
+    foreach ($name in $script:MuseApiKeyVariables) {
+        $v = [Environment]::GetEnvironmentVariable($name)
+        if ($v -and $v.Trim()) { return "$name is set: a muse run would bill per token instead of the Muse Code subscription; unset it (the muse process would inherit it)" }
+    }
+    $c = Get-MuseCredentialInfo
+    if ($c.Mechanism -and $c.Mechanism -ne 'oauth') { return "the Muse sign-in in $($script:MuseAuthShown) uses mechanism '$($c.Mechanism)', not oauth: a muse run would not bill the Muse Code subscription; sign in with ``muse login``" }
+    return ''
+}
+
+# reviewer.harness of a muse run (D8): "muse-cli <version>" from .muse-version next to the
+# launcher (the vendor's install directory), else the `version` of .muse-release-info.json
+# there, else `<launcher> --version` (local, no prompt spent; 15 s), else "muse-cli (version
+# unknown)". An unseen version is recorded, never refused. Cached per launcher.
+$script:MuseHarnessCache = @{}
+$script:MuseVersionRe = '^v?[0-9]+\.[0-9]+[0-9A-Za-z.+_-]{0,48}$'
+function Get-MuseHarness {
+    param([string]$Launcher)
+    if (-not $Launcher) { return 'muse-cli (version unknown)' }
+    if ($script:MuseHarnessCache.ContainsKey($Launcher)) { return $script:MuseHarnessCache[$Launcher] }
+    $ver = ''
+    $dir = Split-Path -Parent $Launcher
+    if ($dir) {
+        $vf = Join-Path $dir '.muse-version'
+        if (Test-Path -LiteralPath $vf -PathType Leaf) { $ver = [string](@((Read-SharedText -Path $vf) -split "`r?`n")[0]).Trim() }
+        if ($ver -notmatch $script:MuseVersionRe) {
+            $ver = ''
+            $rf = Join-Path $dir '.muse-release-info.json'
+            if (Test-Path -LiteralPath $rf -PathType Leaf) {
+                try { $ver = ([string](Get-PropertyValue (ConvertFrom-Json -InputObject (Read-SharedText -Path $rf)) 'version' '')).Trim() } catch { $ver = '' }
+            }
+        }
+    }
+    if ($ver -notmatch $script:MuseVersionRe) {
+        $ver = ''
+        $cap = Invoke-LauncherCapture -Launcher $Launcher -Arguments '--version' -TimeoutSec 15
+        if ($cap.Started -and -not $cap.TimedOut -and $cap.Exit -eq 0) {
+            foreach ($tok in @(($cap.Out + "`n" + $cap.Err) -split '\s+')) {
+                if ($tok -match $script:MuseVersionRe) { $ver = $tok; break }
+            }
+        }
+    }
+    $h = $(if ($ver) { "muse-cli $($ver -replace '^v', '')" } else { 'muse-cli (version unknown)' })
+    $script:MuseHarnessCache[$Launcher] = $h
+    return $h
+}
+
+# The argv of one muse turn (after the launcher), from the turn options: the prompt through
+# --prompt-file (the turn's own file; stdin stays empty), the schema through --output-schema
+# (structured mode with transport native, and the repair turn), --reasoning-effort only when
+# an effort is sent, the read-only flags always, --max-model-steps only with -MaxModelSteps,
+# --session-id to continue a session (resume, the format repair).
+function New-MuseArgv {
+    param($Turn)
+    $a = @('exec', '--json', '--prompt-file', [string]$Turn.PromptFile)
+    if ($Turn.Schema) { $a += @('--output-schema', [string]$Turn.Schema) }
+    $a += @('--model', [string]$Turn.Model)
+    if ($null -ne $Turn.Effort -and ([string]$Turn.Effort).Trim()) { $a += @('--reasoning-effort', [string]$Turn.Effort) }
+    $a += @('--no-foreign-personal-context', '--disable-web-tools', '--disable-write', '--disable-shell', '--approval-mode', 'never')
+    if ([int]$Turn.MaxSteps -gt 0) { $a += @('--max-model-steps', [string][int]$Turn.MaxSteps) }
+    if ($Turn.Thread) { $a += @('--session-id', [string]$Turn.Thread) }
+    return , ([string[]]$a)
+}
+
+# The stdin of a muse turn: nothing (the prompt is the turn's prompt file).
+function ConvertTo-MuseStdin {
+    param([string]$Prompt)
+    return ''
+}
+
+# One muse stream (stdout of `muse exec --json`: MSP JSONL records {schema_version, id,
+# stream{kind,id}, sequence, record_type, payload_type, payload, ...}), parsed into the
+# normalized turn record (D6):
+#   Records          the records read
+#   Malformed        '' or why the stream is malformed: a line that is not a JSON object (the
+#                    LAST line may be partial only with -AllowPartialLast, as for agy), a record
+#                    without an integer schema_version, a schema_version other than 1
+#                    ("unsupported MSP version N"), more than one session stream id, more than one
+#                    run_terminal record, a run_terminal record off the session stream
+#   SchemaVersion    the first record's schema_version ($null when none) - ledger
+#                    engine_run.msp_schema_version
+#   Sessions         the distinct stream ids of stream.kind "session" (exactly one expected)
+#   Session / Thread the session id when exactly one ('' otherwise)
+#   TerminalCount, HasTerminal, Terminal (payload.terminal: completed | failed | cancelled ...),
+#   Text (payload.text), Reason (payload.reason, '' when null)
+#   Models           the model_id of every run.model.configured record, in order
+#   Error            the reason of a terminal other than completed
+#   Usage            $null (MSP records carry no token usage); ToolName, DeniedAction '' (the
+#                    run block's shared fields)
+function Read-MuseEvents {
+    param([string]$Path, [switch]$AllowPartialLast)
+    $r = [pscustomobject]@{ Records = 0; Malformed = ''; SchemaVersion = $null; Sessions = [string[]]@(); Session = ''; Thread = ''; TerminalCount = 0; HasTerminal = $false; Terminal = ''; Text = ''; Reason = ''; Models = [string[]]@(); Error = ''; Usage = $null; ToolName = ''; DeniedAction = '' }
+    $text = Read-SharedText -Path $Path
+    if (-not $text) { return $r }
+    $lines = @($text -split "`r?`n")
+    $lastIdx = -1
+    for ($i = $lines.Count - 1; $i -ge 0; $i--) { if ($lines[$i].Trim()) { $lastIdx = $i; break } }
+    $sessions = New-Object System.Collections.Generic.List[string]
+    $models = New-Object System.Collections.Generic.List[string]
+    $terminal = $null
+    $terminalStream = $null
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $t = $lines[$i].Trim()
+        if (-not $t) { continue }
+        $obj = $null
+        try { $obj = ConvertFrom-Json -InputObject $t } catch { $obj = $null }
+        if ($null -eq $obj -or -not ($obj -is [System.Management.Automation.PSCustomObject])) {
+            if (($i -ne $lastIdx -or -not $AllowPartialLast) -and -not $r.Malformed) { $r.Malformed = "line $($i + 1) is not a JSON object" }
+            continue
+        }
+        $r.Records++
+        $sv = Get-PropertyValue $obj 'schema_version' $null
+        if (-not (Test-IsJsonInteger $sv)) {
+            if (-not $r.Malformed) { $r.Malformed = "the record at line $($i + 1) has no integer schema_version" }
+        } else {
+            if ($null -eq $r.SchemaVersion) { $r.SchemaVersion = [int]$sv }
+            if ([long]$sv -ne 1 -and -not $r.Malformed) { $r.Malformed = "unsupported MSP version $sv (the bridge reads MSP 1)" }
+        }
+        $stream = Get-PropertyValue $obj 'stream' $null
+        $sKind = ''
+        $sId = ''
+        if (Test-IsJsonObject $stream) {
+            $sKind = [string](Get-PropertyValue $stream 'kind' '')
+            $sId = [string](Get-PropertyValue $stream 'id' '')
+        }
+        if ($sKind -eq 'session' -and $sId -and -not $sessions.Contains($sId)) { $sessions.Add($sId) }
+        $pType = [string](Get-PropertyValue $obj 'payload_type' '')
+        $payload = Get-PropertyValue $obj 'payload' $null
+        $pKind = ''
+        if (Test-IsJsonObject $payload) { $pKind = [string](Get-PropertyValue $payload 'kind' '') }
+        if ($pType -eq 'run.model.configured' -or $pKind -eq 'run_model_configured') {
+            $mid = [string](Get-PropertyValue $payload 'model_id' '')
+            if ($mid) { $models.Add($mid) }
+        }
+        if ($pKind -eq 'run_terminal' -or $pType -like 'run.terminal.*') {
+            $r.TerminalCount++
+            $terminal = $payload
+            $terminalStream = [pscustomobject]@{ Kind = $sKind; Id = $sId; Line = $i + 1 }
+        }
+    }
+    $r.Sessions = [string[]]$sessions.ToArray()
+    $r.Models = [string[]]$models.ToArray()
+    if ($sessions.Count -gt 1 -and -not $r.Malformed) { $r.Malformed = "$($sessions.Count) session streams (exactly one expected): $($sessions.ToArray() -join ', ')" }
+    if ($r.TerminalCount -gt 1 -and -not $r.Malformed) { $r.Malformed = "$($r.TerminalCount) run_terminal records (exactly one expected)" }
+    if ($sessions.Count -eq 1) { $r.Session = $sessions[0]; $r.Thread = $sessions[0] }
+    if ($null -ne $terminal) {
+        $r.HasTerminal = $true
+        if (Test-IsJsonObject $terminal) {
+            $r.Terminal = [string](Get-PropertyValue $terminal 'terminal' '')
+            $tx = Get-PropertyValue $terminal 'text' $null
+            if ($null -eq $tx) { $r.Text = '' } elseif ($tx -is [string]) { $r.Text = $tx } else { $r.Text = ConvertTo-Json -InputObject $tx -Compress -Depth 30 }
+            $rs = Get-PropertyValue $terminal 'reason' $null
+            if ($null -eq $rs) { $r.Reason = '' } elseif ($rs -is [string]) { $r.Reason = $rs } else { $r.Reason = ConvertTo-Json -InputObject $rs -Compress -Depth 10 }
+        } elseif (-not $r.Malformed) { $r.Malformed = "the run_terminal record at line $($terminalStream.Line) has no payload object" }
+        if (-not $r.Malformed -and ($terminalStream.Kind -ne 'session' -or ($r.Session -and $terminalStream.Id -ne $r.Session))) {
+            $r.Malformed = "the run_terminal record at line $($terminalStream.Line) is on stream $(if ($terminalStream.Kind) { $terminalStream.Kind } else { '(none)' }) $($terminalStream.Id), not on the session stream"
+        }
+        if ($r.Terminal -ne 'completed') { $r.Error = $r.Reason }
+    }
+    return $r
+}
+
+# The failure rules of one muse turn (the main turn, the format repair; D6, D7). The same result
+# object as Get-AgyTurnOutcome (DeniedEmpty is always $false: there is no denial retry):
+#   $Pre             a failure the bridge already knows (its own timeout, could not start) wins
+#   (detail: the terminal's reason, else the first `error:` line of stderr, else its last line)
+#   exit 2           failed: muse exit 2 (usage error) - <detail>, class capability
+#   exit 130 / 143   failed: muse exit <n> (stopped by a signal) - <detail>, class transport
+#   other exit != 0  failed: muse exit <n> - <terminal reason | stderr>; a reason that names the
+#                    step cap -> "max model steps reached", class capability; else the texts'
+#                    classifier (quota wording -> quota, with retry_after when a reset is named)
+#   malformed        failed: malformed event stream: <why>, class transport
+#   no terminal      failed: no run_terminal record in the muse event stream, classified text
+#   no session       failed (class unknown)
+#   $ExpectThread    (resume, repair) a session other than the requested one -> failed: parent
+#                    session <p> not found, muse started <s> (class unknown; a candidate only)
+#   terminal != completed  failed: muse terminal <t> - <reason> (step cap: capability)
+#   session not a uuid     failed (class unknown)
+#   $ExpectModel     run.model.configured must name exactly the requested model: none -> failed
+#                    (class unknown), another -> failed: model drift: asked X, served Y (class
+#                    capability); the session is then a candidate only, never a parent
+#   empty text       failed: empty reply
+#   usable           every `warning:` line of stderr becomes a Warning
+$script:MuseStepCapRe = '(?i)\bmax(?:imum)?[ _-]?(?:model[ _-]?)?steps?\b|\bstep (?:cap|limit|budget)\b'
+# The informational lines every `muse exec` prints on stderr (the workspace root; "Agent
+# delegation: auto unavailable: workspace is untrusted.") - never a failure's detail (the second
+# would read as class transport).
+$script:MuseInfoStderrRe = '(?i)^muse:\s*(workspace root:|agent delegation:)'
+function Get-MuseTurnOutcome {
+    param($Events, [int]$ExitCode, [string]$StderrText = '', [string]$Pre = '', [string]$ExpectThread = '', [string]$ExpectModel = '')
+    $o = [pscustomobject]@{ Ok = $false; Outcome = ''; Class = ''; Texts = [string[]]@(); Thread = ''; ThreadCandidate = ''; Reply = ''; Structured = $false; DeniedEmpty = $false; DenialLine = ''; Permission = ''; NotFound = ''; Warnings = [string[]]@() }
+    $lines = @(([string]$StderrText) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -notmatch $script:MuseInfoStderrRe })
+    $warnLines = @($lines | Where-Object { $_ -match '(?i)^(muse:\s*)?warning:' })
+    # the telling stderr line: the first `error:` line (a usage error ends with its usage
+    # boilerplate), else the last line
+    $errLine = @($lines | Where-Object { $_ -match '(?i)^(muse:\s*)?error\b' }) | Select-Object -First 1
+    $stderrTail = if ($errLine) { [string]$errLine } elseif ($lines.Count -gt 0) { $lines[-1] } else { '' }
+    $session = [string]$Events.Session
+    $isUuid = ($session -match $script:UuidRe)
+    if ($Events.Terminal -eq 'completed') { $o.Reply = [string]$Events.Text }
+    if ($o.Reply.Trim().StartsWith('{')) { try { $o.Structured = (Test-IsJsonObject (ConvertFrom-Json -InputObject $o.Reply)) } catch { $o.Structured = $false } }
+    $reason = [string]$Events.Reason
+    $detail = if ($reason) { $reason } else { $stderrTail }
+    $stepCap = ($detail -and $detail -match $script:MuseStepCapRe)
+    $fail = {
+        param([string]$Why, [string]$Class = '', [string[]]$Texts = @())
+        $o.Ok = $false
+        $o.Outcome = "failed: $Why"
+        $o.Class = $Class
+        $o.Texts = [string[]]@(@($Texts) + @($Why) | Where-Object { $_ })
+    }
+    if ($Pre) {
+        $o.Outcome = $Pre
+        $o.Texts = [string[]]@(@($reason, $detail, ($Pre -replace '^failed:\s*', '')) | Where-Object { $_ })
+        if ($isUuid) { $o.ThreadCandidate = $session }
+        return $o
+    }
+    if ($ExitCode -ne 0) {
+        $tail = $(if ($detail) { " - $(ConvertTo-OneLine $detail)" } else { '' })
+        if ($ExitCode -eq 2) { & $fail "muse exit 2 (usage error)$tail" 'capability' @($detail) }
+        elseif ($ExitCode -eq 130 -or $ExitCode -eq 143) { & $fail "muse exit $ExitCode (stopped by a signal)$tail" 'transport' @($detail) }
+        elseif ($stepCap) { & $fail "muse exit $ExitCode - max model steps reached$(if ($detail) { " ($(ConvertTo-OneLine $detail))" })" 'capability' @($detail) }
+        else { & $fail "muse exit $ExitCode$tail" '' @($reason, $stderrTail) }
+        if ($isUuid -and (-not $ExpectThread -or $session -eq $ExpectThread)) { $o.Thread = $session } elseif ($isUuid) { $o.ThreadCandidate = $session }
+        return $o
+    }
+    if ($Events.Malformed) {
+        & $fail "malformed event stream: $($Events.Malformed)" 'transport'
+        if ($isUuid) { $o.ThreadCandidate = $session }
+        return $o
+    }
+    if (-not $Events.HasTerminal) {
+        & $fail "no run_terminal record in the muse event stream$(if ($stderrTail) { " - $(ConvertTo-OneLine $stderrTail)" })" '' @($stderrTail)
+        if ($isUuid) { $o.ThreadCandidate = $session }
+        return $o
+    }
+    if (-not $session) {
+        & $fail 'the muse event stream names no session (no stream of kind session)' 'unknown'
+        return $o
+    }
+    if ($ExpectThread -and $session -ne $ExpectThread) {
+        & $fail "parent session $ExpectThread not found, muse started $session" 'unknown'
+        if ($isUuid) { $o.ThreadCandidate = $session }
+        return $o
+    }
+    if ($Events.Terminal -ne 'completed') {
+        $t = if ($Events.Terminal) { $Events.Terminal } else { '(none)' }
+        if ($stepCap) { & $fail "muse terminal $t - max model steps reached$(if ($detail) { " ($(ConvertTo-OneLine $detail))" })" 'capability' @($detail) }
+        else { & $fail "muse terminal $t$(if ($detail) { " - $(ConvertTo-OneLine $detail)" })" '' @($reason, $stderrTail) }
+        if ($isUuid) { $o.Thread = $session }
+        return $o
+    }
+    if (-not $isUuid) {
+        & $fail "the session id '$session' is not a uuid" 'unknown'
+        return $o
+    }
+    if ($ExpectModel) {
+        $served = @($Events.Models)
+        if ($served.Count -eq 0) {
+            & $fail "the muse event stream names no configured model (run.model.configured; asked $ExpectModel)" 'unknown'
+            $o.ThreadCandidate = $session
+            return $o
+        }
+        $other = @($served | Where-Object { $_ -cne $ExpectModel }) | Select-Object -First 1
+        if ($other) {
+            & $fail "model drift: asked $ExpectModel, served $other" 'capability'
+            $o.ThreadCandidate = $session
+            return $o
+        }
+    }
+    $o.Thread = $session
+    if (-not $o.Reply.Trim()) {
+        & $fail 'empty reply' ''
+        return $o
+    }
+    $o.Ok = $true
+    $o.Outcome = 'usable reply'
+    $o.Warnings = [string[]]@($warnLines | ForEach-Object { ConvertTo-OneLine $_ })
     return $o
 }
 
@@ -4156,7 +4741,9 @@ function Format-QuotaWarning {
 
 # The roster walk: the first entry whose preflight verdict (Get-PreflightVerdict
 # -RosterWalk) is available. $Model (an explicit -Model without -Provider) restricts the walk
-# to the entries that resolve to that model. -SkipPreflight takes the first entry unchecked.
+# to the entries that resolve to that model. -SkipPreflight takes the first entry unchecked -
+# except for an engine's launch invariant (wave 23, D4: muse's billing guard), which skips an
+# entry ("refused: ...") with and without -SkipPreflight.
 # { Entry; Identity; Verdict; Skipped (object[] of { provider; model; reason }, in roster
 # order - never a List: @() over a List property fails on Windows PowerShell 5.1);
 # Considered (entries walked); Error ('' or the refusal: none available / no entry for
@@ -4173,9 +4760,16 @@ function Select-RosterReviewer {
         $id = Resolve-ReviewerIdentity -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher
         if ($Model -and $id.Model -cne $Model) { continue }
         $r.Considered++
+        $block = Get-EngineLaunchBlock -Engine $entryEngine
+        if ($block) {
+            $skipped.Add([pscustomobject]@{ provider = $e.Provider; model = $id.Model; engine = $entryEngine; reason = "refused: $block" })
+            $listing.Add("#$($e.Position) $(Format-ReviewerLineage -Provider $id.Provider -Model $id.Model -Engine $entryEngine) (refused: $block)")
+            continue
+        }
         if ($SkipPreflight) {
             if ($id.Error) { $r.Error = $id.Error; return $r }
             $r.Entry = $e; $r.Identity = $id
+            $r.Skipped = [object[]]$skipped.ToArray()
             return $r
         }
         $health = $null
@@ -4209,7 +4803,8 @@ $script:WeightyPurposes = @('framing', 'decision', 'core-contract', 'acceptance'
 # The members of a review panel (-Panel): the roster walked like Select-RosterReviewer
 # without stopping at the first available entry. Every entry whose preflight verdict is
 # available (with -SkipPreflight: every entry) runs, unless it is "weighty" and $Purpose is
-# light (not in $script:WeightyPurposes) and -All (-PanelAll) is not given. $Model: as for
+# light (not in $script:WeightyPurposes) and -All (-PanelAll) is not given, or its engine's
+# launch invariant refuses it (wave 23, D4 - with -SkipPreflight too). $Model: as for
 # the walk. { Members (object[], roster order, of { Entry; Identity; State 'run'|'skipped';
 # Reason ('' when it runs) }); Error ('' or the refusal: nobody runs / no entry for $Model) }.
 function Select-PanelMembers {
@@ -4226,7 +4821,9 @@ function Select-PanelMembers {
         if ($Model -and $id.Model -cne $Model) { continue }
         $state = 'run'
         $reason = ''
-        if (-not $SkipPreflight) {
+        $block = Get-EngineLaunchBlock -Engine $entryEngine
+        if ($block) { $state = 'skipped'; $reason = "refused: $block" }
+        elseif (-not $SkipPreflight) {
             $health = $null
             if ($id.Resolved) { $health = Get-EndpointHealth -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
             $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $entryLauncher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk
@@ -4936,7 +5533,7 @@ function Read-PendingFile {
 
 # consult_id (0.3.0): the run's consultation id - the last line of its prompt - so an
 # interrupted run's rollout file can be identified later. Informational only.
-# engine (0.4.0): the CLI of the run (codex | agy; absent in older records = codex), so the
+# engine (0.4.0): the CLI of the run (codex | agy | muse; absent in older records = codex), so the
 # messages name the right process. events (0.4.0): the raw event stream of the turn that
 # runs (repo-relative when inside the repository), set when its process is registered:
 # for agy it holds the reply itself, so a run that stops before its ledger entry leaves it

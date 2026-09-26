@@ -1,8 +1,8 @@
 ---
 name: setup-providers
-description: Wire reviewers for the codex-consult bridge on a machine - verify the Codex CLI and its login, add a [model_providers.<name>] table for a third-party plan (z.ai GLM, Xiaomi MiMo or any Responses-API provider) with an env_key the user sets, supply per-run model catalogs, wire Gemini through the agy engine (Google's Antigravity CLI, signed in by the user), write the reviewer roster with panel weights, and verify with codex-providers.ps1 and a dry run. Use when a provider is missing or unavailable, on a new machine, or when the user asks to add a reviewer.
+description: Wire reviewers for the codex-consult bridge on a machine - verify the Codex CLI and its login, add a [model_providers.<name>] table for a third-party plan (z.ai GLM, Xiaomi MiMo or any Responses-API provider) with an env_key the user sets, supply per-run model catalogs, wire Gemini through the agy engine (Google's Antigravity CLI, signed in by the user), wire Meta Muse through the muse engine (Muse Code CLI, the subscription signed in by the user with muse login, never an API key), write the reviewer roster with panel weights, and verify with codex-providers.ps1 and a dry run. Use when a provider is missing or unavailable, on a new machine, or when the user asks to add a reviewer.
 argument-hint: "[provider name, e.g. ZAI or mimo]"
-allowed-tools: Bash(powershell:*), Bash(pwsh:*), Bash(codex:*), Bash(agy models), Read, Write, Edit, Glob, Grep, WebFetch
+allowed-tools: Bash(powershell:*), Bash(pwsh:*), Bash(codex:*), Bash(agy models), Bash(muse --version), Read, Write, Edit, Glob, Grep, WebFetch
 disable-model-invocation: false
 ---
 
@@ -10,8 +10,8 @@ disable-model-invocation: false
 
 This procedure wires one or more reviewers so `codex-consult.ps1` can reach them. A
 reviewer goes through `codex exec` (the default engine) or, per roster entry, through
-Google's Antigravity CLI `agy` (the `agy` engine, section 3b); the bridge itself never makes
-an HTTP call. Scripts:
+Google's Antigravity CLI `agy` (the `agy` engine, section 3b) or Meta's Muse Code CLI `muse`
+(the `muse` engine, section 3f); the bridge itself never makes an HTTP call. Scripts:
 `${CLAUDE_PLUGIN_ROOT}/scripts/`. Commands are shown for Windows PowerShell; on macOS/Linux
 use `pwsh -NoProfile -File` in place of `powershell -NoProfile -ExecutionPolicy Bypass -File`.
 `<codex home>` is `$CODEX_HOME` when set, else `~/.codex`.
@@ -263,6 +263,55 @@ wire_api = "responses"
   harmless in the runs so far.
 - Roster entry: `{ "provider": "alibaba", "model": "qwen3.8-max", "panel": "weighty" }`.
 
+## 3f. Meta Muse through the muse engine (Muse Code CLI, the subscription)
+
+The Muse Code subscription (the Everyday plan: 10-50 prompts per 5 hours; every muse turn of a
+consultation is one prompt) works only through Meta's own CLI signed in by browser. An API
+key (`META_API_KEY`, `MODEL_API_KEY`) overrides that sign-in and bills per token - the bridge
+therefore REFUSES a muse run while either variable is set, and there is no opt-out.
+
+1. **Install** (ask the user): the official Muse Code installer. On Windows it puts `muse.cmd`
+   (a launcher for the versioned binary, which it may update) into
+   `%LOCALAPPDATA%\Programs\muse` and adds that directory to the USER Path - a shell (and a
+   Claude Code session) started before the install does not see it; the bridge falls back to
+   that location by itself. Check without spending a prompt: `muse --version` -> a version
+   line (or `Test-Path "$env:LOCALAPPDATA\Programs\muse\muse.cmd"` -> `True`). Elsewhere: the
+   user passes `-EngineExe <path>` or sets `CODEX_CONSULT_MUSE_EXE`.
+2. **Credential backend - Windows, the USER sets it BEFORE signing in:** the keychain write
+   fails there, so the credential must go to a file: the user variable
+   `TBH_CREDENTIAL_BACKEND=file` (e.g. `[Environment]::SetEnvironmentVariable('TBH_CREDENTIAL_BACKEND', 'file', 'User')`,
+   then a new shell / a restarted Claude Code). Elsewhere the file backend is recommended too:
+   the bridge cannot read a keychain, so its preflight would say "sign-in not checkable" and
+   refuse the run.
+3. **Sign in - the USER does it:** `muse login` in their own terminal shows a device code they
+   approve in the browser. The credential then lives in `~/.config/muse/auth.json`. You never
+   read, print or copy that file, and never handle a login, a token or a device code.
+4. **Never an API key.** Confirm with the user that neither `META_API_KEY` nor `MODEL_API_KEY`
+   is set (ask; do not print the environment). If one is, the user removes it - it would bill
+   per token, and the bridge refuses every muse run meanwhile (`the muse engine is refused:
+   META_API_KEY is set: ...`, also under `-SkipPreflight`).
+5. **The model - the USER decides:** caps-v1 declares the two subscription models verified
+   live: `muse-spark-1.3-contributor` (the CLI's default; Meta may train on its inputs) and
+   `muse-spark-1.3` (the standard one). Ask which one; never pick the contributor variant
+   silently. The effort goes as `--reasoning-effort` (`low`, `medium`, `high`, `xhigh` as is,
+   mapping `muse-v1`).
+6. **Roster entry** (section 4): `{ "provider": "meta", "engine": "muse", "model":
+   "muse-spark-1.3" }` - `provider` is a free label, the model is required, `codex_config`
+   and `auth` are refused. Every muse entry shares one endpoint (one Meta sign-in): a usage
+   limit hit by one blocks them all until its reset.
+7. **Check:** `codex-providers.ps1` -> the row `available  meta  <n>  engine muse  muse
+   (<launcher>)  ok: signed in (~/.config/muse/auth.json: providers.meta, mechanism oauth)
+   muse (2 declared models)  -`. Other verdicts: `unavailable (missing: not signed in: ...)`
+   (no file: run `muse login`), `unknown (sign-in not checkable: TBH_CREDENTIAL_BACKEND ...)`
+   (step 2 missing), `unavailable (refused: META_API_KEY is set: ...)` (step 4),
+   `unavailable (muse CLI not found on PATH)` (step 1).
+8. **Read-only:** muse runs with `--disable-write --disable-shell --disable-web-tools
+   --approval-mode never`, and the bridge fails a muse run when the working tree or the
+   collab directory changed during it (by evidence; gitignored paths, submodules, files
+   outside the repository and reads - its `read_file` is not confined to the repository - are
+   not covered). Tell the user not to edit the repository or run another consultation there
+   while a muse consultation runs.
+
 ## 4. Write the roster
 
 `<codex home>/codex-consult-roster.json`, first choice first:
@@ -279,17 +328,18 @@ wire_api = "responses"
       "codex_config": ["model_catalog_json=~/.codex/model-catalogs.json"]
     },
     { "provider": "gemini", "engine": "agy", "model": "gemini-3.8-flash-high" },
-    { "provider": "gemini", "engine": "agy", "model": "gemini-3.1-pro-high", "panel": "weighty" }
+    { "provider": "gemini", "engine": "agy", "model": "gemini-3.1-pro-high", "panel": "weighty" },
+    { "provider": "meta", "engine": "muse", "model": "muse-spark-1.3" }
   ]
 }
 ```
 
 - Allowed keys only: `roster_version` (must be `1`), `reviewers[]` with `provider`
   (required), `model`, `codex_config` (array of `key=value` strings), `auth`, `panel`,
-  `engine` (`codex`, the default, or `agy`), and the optional top-level `parallel`
+  `engine` (`codex`, the default, `agy` or `muse`), and the optional top-level `parallel`
   (`{"<provider label>": n}`, n >= 1: how many `-Panel` members of that label may run at
   once; the default is one at a time per endpoint). An unknown key, an unknown engine, an
-  agy entry without a model or with `codex_config`/`auth`, one label with two engines, a
+  agy or muse entry without a model or with `codex_config`/`auth`, one label with two engines, a
   duplicate `(provider, model)`, a `parallel` value that is not an integer >= 1 or names a
   label the roster does not use, or invalid JSON refuses EVERY run.
 - `"panel": "weighty"` for the expensive reviewer: it joins a `-Panel` run only on
@@ -319,7 +369,8 @@ ago)`, after a usable agy reply in this repository within the last 60 minutes; w
 `-NoNetwork` the row otherwise reads `not checked (launcher present; run
 codex-providers.ps1)` / `unknown (sign-in not checked)`, which is what the SessionStart hook
 shows); `unavailable (agy CLI not found on PATH)` or
-`unavailable (missing: ``agy models``: <sign-in message>)` otherwise. Exit `1` means an
+`unavailable (missing: ``agy models``: <sign-in message>)` otherwise. A muse label's row: see
+section 3f, step 7 (its sign-in check is local, so it runs with `-NoNetwork` too). Exit `1` means an
 unusable roster, or a `CODEX_CONSULT_ROSTER` file that does not exist; the message names
 it.
 Per provider: `-Provider <name>` (exit `0` available, `2` unavailable, `3` unknown, `1`
@@ -340,7 +391,15 @@ Gemini (agy) (from -Engine)`, `preflight   : available (ok: signed in (N models)
 `effort      : nothing sent (requested high, mapping model-tier, ...)`, `transport   :
 native (...)` and a `command     : agy -p= --input-format stream-json --output-format
 stream-json --model gemini-3.8-flash-high --json-schema <schema> --print-timeout 0 --sandbox
---disable-slash-commands` line. Only with the user's
+--disable-slash-commands` line. For muse: `-DryRun -Engine muse -Model muse-spark-1.3` ->
+`engine      : muse - Meta Muse (muse) (from -Engine)`, `preflight   : available (ok: signed
+in (~/.config/muse/auth.json: providers.meta, mechanism oauth))`, `effort      : high sent
+(requested high, mapping muse-v1, ...)`, `transport   : native (...): passed as
+--output-schema ...` and a `command     : muse exec --json --prompt-file <temp file>
+--output-schema <schema> --model muse-spark-1.3 --reasoning-effort high
+--no-foreign-personal-context --disable-web-tools --disable-write --disable-shell
+--approval-mode never` line (the dry run runs `muse --version` at most, which spends no
+prompt). Only with the user's
 consent, run one live `-Purpose chore` consultation to confirm the route end to end
 (expect `codex-consult: usable reply - <provider> :: <model>, …`).
 

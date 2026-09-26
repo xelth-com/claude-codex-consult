@@ -23,7 +23,10 @@
     limit still shows), and the roster walk skips it - unless THIS repository's ledgers
     hold a usable reply on that engine's endpoint from the last 60 minutes, which evidences
     the sign-in without any call (`gemini available`). `codex-providers.ps1` without
-    -NoNetwork and the consultation's own preflight do check it.
+    -NoNetwork and the consultation's own preflight do check it. The muse engine's sign-in
+    check (wave 23) reads ~/.config/muse/auth.json locally and so runs here too (`meta
+    available`), as does its billing guard (`meta unavailable (refused: META_API_KEY is
+    set: ...)`).
 
     Cost: about one second (`codex login status` for the built-in openai), once per
     session. Disable the hook by disabling the plugin's hooks in Claude Code settings.

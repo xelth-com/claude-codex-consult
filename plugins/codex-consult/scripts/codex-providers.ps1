@@ -6,7 +6,8 @@
     Reads the Codex config (<codex home>/config.toml, the constrained scanner of
     codex-consult-common.ps1) and reports the built-in openai plus every
     [model_providers.<name>] table - and (0.4.0) one row per provider label that the
-    reviewer roster declares with another engine than codex (e.g. "engine": "agy"):
+    reviewer roster declares with another engine than codex (e.g. "engine": "agy" or, wave
+    23, "engine": "muse"):
 
       verdict      available               credentials present and the table usable
                    unavailable (<reason>)  credentials missing, the table unusable, an
@@ -17,7 +18,7 @@
                                            config cannot be scanned
       kind         builtin | custom | engine <name> (JSON `engine`: codex for the first two)
       endpoint     canonical base_url, or builtin:openai[+OPENAI_BASE_URL <url>], or
-                   "agy (<launcher>)" for an agy row
+                   "<engine> (<launcher>)" for an engine row
       table        built in | usable | unusable: <scanner reason> | n/a (an engine row)
       credentials  openai (and tables with requires_openai_auth = true): the output of
                    `codex login status` (timeout 15 s) - "ok: Logged in ..." or
@@ -31,15 +32,22 @@
                    "ok: signed in (usable reply <m> min ago)" (with -NoNetwork too; a
                    recorded auth failure or usage limit still makes the verdict
                    unavailable); otherwise with -NoNetwork "not checked (launcher present;
-                   run codex-providers.ps1)" and the verdict "unknown (sign-in not checked)"
+                   run codex-providers.ps1)" and the verdict "unknown (sign-in not checked)";
+                   a muse row (wave 23): ~/.config/muse/auth.json with TBH_CREDENTIAL_BACKEND=file
+                   (local, also with -NoNetwork; key names and providers.meta.mechanism only) -
+                   "ok: signed in (...mechanism oauth)", "missing: not signed in: ...",
+                   "unknown: sign-in not checkable: ..." (the keychain backend). A muse row
+                   whose launch the billing guard refuses (META_API_KEY or MODEL_API_KEY set,
+                   or a mechanism other than oauth) is "unavailable (refused: ...)"
       effort       the effort vocabulary DECLARED for the endpoint (capability table
                    caps-v1): openai (built-in openai, any model), zai (api.z.ai /
                    open.bigmodel.cn), mimo (*.xiaomimimo.com token-plan / api hosts) -
                    those two for their declared models only (JSON effort_models) - or
-                   "unknown (needs -NativeEffort)"; an agy row: "agy (tier in the model id)"
+                   "unknown (needs -NativeEffort)"; an agy row: "agy (tier in the model id)";
+                   a muse row: "muse (2 declared models)" (JSON effort_models)
       transport    (JSON schema_transport) how the reply schema reaches the endpoint:
                    output-schema (--output-schema) or prompt-only (MiMo, undeclared hosts);
-                   native for an agy row (--json-schema)
+                   native for an engine row (agy --json-schema, muse --output-schema)
       last failure the newest failed consultation of this provider's ENDPOINT
                    (provider_fingerprint, whatever alias ran it) in THIS repository's
                    <CollabDir>/*/sessions.json within the last 24 h, with its class
@@ -92,10 +100,13 @@ param(
     # CODEX_CONSULT_EXE.
     [string]$CodexExe = '',
 
-    # Explicit path to the agy launcher (for `agy models`). Env override: CODEX_CONSULT_AGY_EXE.
+    # Explicit path to the launcher of an engine other than codex (for `agy models`, the muse
+    # rows' launcher): the engine of the -Provider row, else the only such engine of the roster
+    # (several: pass -Provider). Env overrides: CODEX_CONSULT_AGY_EXE, CODEX_CONSULT_MUSE_EXE.
     [string]$EngineExe = '',
 
-    # No network call at all: an agy row's sign-in is "not checked" (the SessionStart hook).
+    # No network call at all: an agy row's sign-in is "not checked" (the SessionStart hook); a
+    # muse row's check is local and still runs.
     [switch]$NoNetwork
 )
 
@@ -129,7 +140,12 @@ $roster = Read-ReviewerRoster
 if ($roster.Error) { Stop-WithError $roster.Error }
 # The provider labels of the other engines (0.4.0): one row each, in roster order.
 $engineLaunchers = @{}
-if ($EngineExe) { $engineLaunchers['agy'] = [string](Resolve-EngineLauncher -Engine 'agy' -Explicit $EngineExe) }
+if ($EngineExe) {
+    # (wave 23, D3) -EngineExe names the launcher of the SELECTED engine other than codex
+    $exeBinding = Resolve-EngineExeBinding -Roster $roster -Provider $Provider
+    if ($exeBinding.Error) { Stop-WithError "$($exeBinding.Error)." }
+    $engineLaunchers[$exeBinding.Engine] = [string](Resolve-EngineLauncher -Engine $exeBinding.Engine -Explicit $EngineExe)
+}
 $engineLabels = New-Object System.Collections.Generic.List[object]
 foreach ($e in @($roster.Entries)) {
     if ($e.Engine -eq 'codex') { continue }
@@ -275,6 +291,20 @@ foreach ($el in $engineLabels) {
     else { $verdict = "unknown ($($cred.Reason))" }
     if ($health -and $health.Auth -and $verdict -ne "unavailable ($($cred.Reason))") { $verdict = "unavailable (auth failed $($health.Auth.When): $($health.Auth.Message))" }
     elseif ($health -and $health.Quota -and $health.QuotaKnown -and $verdict -ne "unavailable ($($cred.Reason))") { $verdict = "unavailable (usage limit until $($health.Quota.RetryAfterIso))" }
+    # (wave 23, D4) the engine's launch invariant (muse: billing) outranks everything above
+    $launchBlock = Get-EngineLaunchBlock -Engine $el.Engine
+    if ($launchBlock) { $verdict = "unavailable (refused: $launchBlock)" }
+    # caps-v1 of the engine: its effort vocabulary, declared models and schema transport
+    $engineCap = $null
+    if ($script:EffortCaps.ContainsKey("engine:$($el.Engine)")) { $engineCap = $script:EffortCaps["engine:$($el.Engine)"] }
+    $engineVocab = "$($el.Engine) (tier in the model id)"
+    $engineModels = 'any'
+    $engineTransport = 'native'
+    if ($engineCap) {
+        if ($engineCap.Vocabulary -ne 'model-tier') { $engineVocab = [string]$engineCap.Vocabulary }
+        if ($null -ne $engineCap.Models) { $engineModels = [object[]]$engineCap.Models }
+        $engineTransport = [string]$engineCap.SchemaTransport
+    }
     $limit = $null
     $lastFailure = $null
     if ($health) { $limit = $health.LastLimit; $lastFailure = $health.LastFailure }
@@ -287,9 +317,9 @@ foreach ($el in $engineLabels) {
             wire_api          = ''
             table             = 'n/a'
             credentials       = $credText
-            effort_vocabulary = "$($el.Engine) (tier in the model id)"
-            effort_models     = 'any'
-            schema_transport  = 'native'
+            effort_vocabulary = $engineVocab
+            effort_models     = $engineModels
+            schema_transport  = $engineTransport
             last_limit        = $(if ($limit) { [pscustomobject]@{ when = $limit.When; message = $limit.Message; retry_after = $(if ($limit.RetryAfterIso) { $limit.RetryAfterIso } else { $null }) } } else { $null })
             last_failure      = $(if ($lastFailure) { [pscustomobject]@{ class = $lastFailure.Class; code = $lastFailure.Code; when = $lastFailure.When; message = $lastFailure.Message; retry_after = $(if ($lastFailure.RetryAfterIso) { $lastFailure.RetryAfterIso } else { $null }) } } else { $null })
             roster_position   = $(if ($rosterPositions.Count -gt 0) { [int]$rosterPositions[0] } else { $null })
@@ -319,7 +349,7 @@ if ($Json) {
                 kind        = $_.kind
                 endpoint    = $(if ($_.endpoint) { $_.endpoint } else { '-' })
                 credentials = $_.credentials
-                effort      = $(if ($_.engine -ne 'codex') { $_.effort_vocabulary } elseif ($_.effort_models -eq 'any') { "$($_.effort_vocabulary) (any model)" } elseif ($null -ne $_.effort_models) { "$($_.effort_vocabulary) ($(@($_.effort_models).Count) declared models)" } else { $_.effort_vocabulary })
+                effort      = $(if ($_.engine -ne 'codex' -and $_.effort_models -ne 'any' -and $null -ne $_.effort_models) { "$($_.effort_vocabulary) ($(@($_.effort_models).Count) declared models)" } elseif ($_.engine -ne 'codex') { $_.effort_vocabulary } elseif ($_.effort_models -eq 'any') { "$($_.effort_vocabulary) (any model)" } elseif ($null -ne $_.effort_models) { "$($_.effort_vocabulary) ($(@($_.effort_models).Count) declared models)" } else { $_.effort_vocabulary })
                 limit       = $(if ($_.last_failure) { "$($failureLabel): $($_.last_failure.when) - $($_.last_failure.message)" } else { '-' })
             }
         })

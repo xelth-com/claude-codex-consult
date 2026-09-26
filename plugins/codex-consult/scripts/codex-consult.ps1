@@ -139,10 +139,13 @@
     member between the rewrite of its record and the check of its parent.
 
     Engines (0.4.0): the CLI that carries the consultation - `codex` (the default, all of
-    the above) or `agy` (Google's Antigravity CLI for the Gemini models), chosen by -Engine or
-    by the roster entry's `engine`. An agy run has the same ledger, handoff files
-    (handoffs/NN-agy-<slug>.*), findings, ratings, panel, scoreboard, preflight, lock and
-    recovery record as a codex run; what differs:
+    the above), `agy` (Google's Antigravity CLI for the Gemini models) or `muse` (Meta's Muse
+    Code CLI, wave 23), chosen by -Engine or by the roster entry's `engine`. An agy or muse run
+    has the same ledger, handoff files (handoffs/NN-agy-<slug>.*, NN-muse-<slug>.*), findings,
+    ratings, panel, scoreboard, preflight, lock and recovery record as a codex run; every turn
+    of such an engine (the main turn, a denial retry, a format repair) goes through the
+    engine's adapter (argv from one turn-options object, its own prompt file, its own stream
+    parser and failure rules). What differs for agy:
       * argv `agy -p= --input-format stream-json --output-format stream-json --model <m>
         [--json-schema <schema>] --print-timeout 0 --sandbox --disable-slash-commands
         [--conversation <thread>] [--effort <v>]`; the prompt is ONE NDJSON line
@@ -175,6 +178,38 @@
         repository's ledgers hold a usable reply on the agy endpoint from the last 60
         minutes ("ok: signed in (usable reply <m> min ago)"; a recorded auth failure or
         usage limit still refuses)
+    What differs for muse (the Muse Code subscription, signed in by browser with `muse login`;
+    TBH_CREDENTIAL_BACKEND=file is required on Windows):
+      * argv `muse exec --json --prompt-file <P> [--output-schema <S>] --model <m>
+        [--reasoning-effort <e>] --no-foreign-personal-context --disable-web-tools
+        --disable-write --disable-shell --approval-mode never [--max-model-steps <n>]
+        [--session-id <thread>]` in the repository root; the prompt is the turn's own
+        prompt file (stdin stays empty); the launcher: -EngineExe, CODEX_CONSULT_MUSE_EXE,
+        PATH, then %LOCALAPPDATA%\Programs\muse\muse.cmd (Windows); a .cmd launcher with a
+        '%' in an argument (a TEMP path) is refused before launch (cmd.exe would expand it)
+      * the stream is MSP JSONL, schema_version 1 only: the reply is the text of the ONE
+        run_terminal record, the thread the ONE session stream id; run.model.configured
+        must name the requested model (else "model drift", class capability); no token usage
+      * effort: vocabulary muse (mapping muse-v1: low medium high xhigh as is) for the
+        declared models muse-spark-1.3 and muse-spark-1.3-contributor, sent as
+        --reasoning-effort; -MaxModelSteps <n> sends --max-model-steps
+      * billing, a launch invariant that -SkipPreflight never bypasses: META_API_KEY or
+        MODEL_API_KEY set, or a credential mechanism other than oauth, refuses the run (a
+        roster walk or a panel skips the entry: "refused: ..."); ledger
+        reviewer.provider_config.credential_mechanism
+      * preflight: ~/.config/muse/auth.json must hold providers.meta with a mechanism (key
+        names and the mechanism only; missing: "run `muse login`"); the keychain backend is
+        not checkable -> refused unless -SkipPreflight
+      * no denial retry (the write, shell and web tools are off); a format repair continues
+        the session (--session-id); each turn is one subscription prompt (ledger
+        engine_run.turns); the harness is muse-cli <version> (.muse-version next to the
+        launcher, else --version); engine_run.msp_schema_version
+      * exit 2 (usage error) and a step-cap stop are class capability, 130/143 transport,
+        a failed terminal's reason goes through the classifier verbatim (quota wording ->
+        quota with its reset time)
+    Both engines: a change of the working tree or the collab directory detected after the
+    run fails it as class permission - also when it had already failed for another reason
+    (that reason stays in the provider failure's message).
 
     Invariants:
       * read-only sandbox by default; danger-full-access is refused outright
@@ -337,18 +372,27 @@ param(
     # that leaves surviving processes then stops the rest); k = at most k at a time.
     [int]$PanelConcurrency = 0,
 
-    # The CLI that carries the consultation: codex | agy. Empty (the default): the engine of
+    # The CLI that carries the consultation: codex | agy | muse. Empty (the default): the engine of
     # the roster entry used (the thread's with -Thread), else codex. With a roster and no
     # -Provider/-Thread, only the entries of that engine are walked (-Panel: members).
     [string]$Engine = '',
 
-    # Explicit path to the agy launcher (the -Engine agy CLI). Env override:
-    # CODEX_CONSULT_AGY_EXE. (codex: -CodexExe)
+    # Explicit path to the launcher of the SELECTED engine other than codex (wave 23, D3):
+    # -Engine's; without -Engine the engine of the -Provider's roster entry, else the only such
+    # engine among the roster's entries (several: pass -Engine). Env overrides:
+    # CODEX_CONSULT_AGY_EXE, CODEX_CONSULT_MUSE_EXE. (codex: -CodexExe)
     [string]$EngineExe = '',
+
+    # muse only (wave 23, D9): the model-step cap, sent as --max-model-steps <n> (a positive
+    # integer); 0 (the default) = not sent - the muse CLI's own default applies. The bridge's
+    # -TimeoutSec stays the outer bound. Refused with another engine; a -Panel passes it to its
+    # muse members. Ledger engine_run.max_model_steps.
+    [int]$MaxModelSteps = 0,
 
     # agy only: 1 (the default) = a run that produced nothing because a tool was auto-denied
     # (headless print mode cannot grant it) gets ONE more turn on the same conversation that
-    # tells the model not to call it again; 0 = off. Ledger denial_retry.
+    # tells the model not to call it again; 0 = off. Ledger denial_retry. (muse has none: its
+    # write, shell and web tools are disabled.)
     [int]$DenialRetry = 1,
 
     # Print the plan (argv, prompt, paths, ledger entry) without calling codex and
@@ -537,19 +581,30 @@ function Format-Usage {
     return "in $($v.input_tokens) (cached $($v.cached_input_tokens)), out $($v.output_tokens), reasoning $($v.reasoning_output_tokens)"
 }
 
-# ----------------------------------------------------------------------------- engine turns (agy)
+# ----------------------------------------------------------------------------- engine turns (agy, muse)
 
 # One more turn of a non-codex engine (the denial retry, the format repair) under the SAME
 # task lock and recovery record as the run: the record goes launching -> running (child pid,
 # start time, `events` = this turn's event stream) before the process is waited on; a timeout
 # kills the process tree, and survivors are recorded (state survivors) and keep the record.
+# -PromptPath / -PromptText (wave 23, D1): the turn's own prompt file, written first (muse
+# names it in its argv; its stdin is then empty). Right before the start the engine's launch
+# invariant (D4) and the .cmd %-hazard (F02-14) are checked again: a refusal starts nothing.
 # Reads the run's $pendingRecord, $pendingPath, $engineLauncher, $engineName and $repoRoot.
 # { Exit (-1 unless it exited); Problem ('' or why the turn did not complete); Wall;
-# KeepPending; Stderr (UTF-8 text) }.
+# KeepPending; Stderr (UTF-8 text); Started (a process was started: one more engine turn -
+# for muse one more subscription prompt) }.
 function Invoke-EngineTurn {
-    param([string[]]$Argv, [string]$StdinText, [string]$EventsPath, [string]$StdinPath, [string]$StderrPath, [int]$Timeout, [string]$Note)
-    $t = [pscustomobject]@{ Exit = -1; Problem = ''; Wall = 0; KeepPending = $false; Stderr = '' }
+    param([string[]]$Argv, [string]$StdinText, [string]$EventsPath, [string]$StdinPath, [string]$StderrPath, [int]$Timeout, [string]$Note, [string]$PromptPath = '', [string]$PromptText = '')
+    $t = [pscustomobject]@{ Exit = -1; Problem = ''; Wall = 0; KeepPending = $false; Stderr = ''; Started = $false }
+    if ($PromptPath) { Write-Utf8NoBom -Path $PromptPath -Text $PromptText }
     Write-Utf8NoBom -Path $StdinPath -Text $StdinText
+    $refusal = Get-EngineLaunchBlock -Engine $engineName
+    if (-not $refusal) { $refusal = Get-CmdArgvHazard -Launcher $engineLauncher -Argv $Argv }
+    if ($refusal) {
+        $t.Problem = "refused before launch: $refusal"
+        return $t
+    }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     $pendingRecord.state = 'launching'
     $pendingRecord.note = "$Note being started; its pid is not recorded yet"
@@ -569,6 +624,7 @@ function Invoke-EngineTurn {
     }
     if ($proc) {
         if ($script:LegacyPS) { try { $null = $proc.Handle } catch { } }
+        $t.Started = $true
         $registered = $true
         try {
             $pendingRecord.state = 'running'
@@ -609,15 +665,17 @@ function Invoke-EngineTurn {
     return $t
 }
 
-# The agy engine's read-only check (A17, widened in wave 18 - F09-1/F10-1): '' when nothing the
+# The read-only check of an engine other than codex (agy A17, widened in wave 18 - F09-1/F10-1;
+# muse wave 23, D12): '' when nothing the
 # review must not touch changed during the run, else the reason - the working tree (tracked
 # or untracked files; the paths that changed), the collab directory (EVERY file under it,
 # recursively: every task's stores and handoffs - outside the tree fingerprint; the run's own
 # <task>/handoffs/NN-<prefix>-<slug>.* files and the .consult.* lock and recovery files
 # excepted), the brief, an artifact. The check cannot tell who changed a file, so the text
 # does not blame the reviewer (F09-3). Gitignored paths, submodules and files outside the
-# repository stay unmonitored (README "Engines", F12). $CollabShown: the collab directory as
-# shown in front of its paths ('.collab/' inside the repository, '' otherwise).
+# repository stay unmonitored (README "Engines", F12) - and so do reads. $CollabShown: the
+# collab directory as shown in front of its paths ('.collab/' inside the repository, ''
+# otherwise). The closing words are the engine row's TreeNote (D11).
 function Get-EngineTreeProblem {
     param($RevBefore, $RevAfter, [bool]$BriefChanged, [string[]]$ChangedArtifacts, [hashtable]$CollabBefore, [hashtable]$CollabAfter, [string[]]$OwnPrefixes, [string]$Engine, [string]$CollabShown = '')
     $cut = { param([string[]]$Names) $n = @($Names); $list = (@($n | Select-Object -First 5) -join ', '); if ($n.Count -gt 5) { $list += ', ...' }; "$($n.Count) file$(if ($n.Count -ne 1) { 's' }): $list" }
@@ -631,7 +689,9 @@ function Get-EngineTreeProblem {
     if ($BriefChanged) { $why.Add('the brief changed during the run (by the reviewer or anyone else)') }
     if (@($ChangedArtifacts).Count -gt 0) { $why.Add("artifact(s) changed during the run (by the reviewer or anyone else): $(@($ChangedArtifacts) -join ', ')") }
     if ($why.Count -eq 0) { return '' }
-    return (($why.ToArray() -join '; ') + " - $Engine's sandbox does not block writes")
+    $note = [string](Get-EngineSpec -Name $Engine).TreeNote
+    if (-not $note) { $note = "$Engine's sandbox does not block writes" }
+    return (($why.ToArray() -join '; ') + " - $note")
 }
 
 # ----------------------------------------------------------------------------- presets + prompt text
@@ -707,6 +767,7 @@ if ($PanelSpec) {
     if ($null -ne $pa.PSObject.Properties['engine']) { $Engine = [string]$pa.engine }
     if ($null -ne $pa.PSObject.Properties['engine_exe']) { $EngineExe = [string]$pa.engine_exe }
     if ($null -ne $pa.PSObject.Properties['denial_retry']) { $DenialRetry = [int]$pa.denial_retry }
+    if ($null -ne $pa.PSObject.Properties['max_model_steps']) { $MaxModelSteps = [int]$pa.max_model_steps }
     $DryRun = [bool]$pa.dry_run
     # (0.4.x wave 21) the numbers, the consultation id and the parent come from the panel run
     $memberNn = [string](Get-PropertyValue $panelMember 'nn' '')
@@ -818,10 +879,12 @@ if ($DenialRetry -ne 0 -and $DenialRetry -ne 1) {
     Stop-WithError "-DenialRetry must be 0 or 1 (got $DenialRetry): at most one denial-retry turn per consultation."
 }
 $EngineExe = $EngineExe.Trim()
+if ($MaxModelSteps -lt 0) { Stop-WithError "-MaxModelSteps must be a positive integer (got $MaxModelSteps); omit it for the muse CLI's own default." }
 # The launchers of the engines other than codex (engine -> path, '' = not found), resolved on
-# first use; -EngineExe names the agy launcher (codex has -CodexExe).
+# first use; -EngineExe names the launcher of the SELECTED engine (wave 23, D3 - bound once the
+# roster is read, below; codex has -CodexExe).
 $engineLaunchers = @{}
-if ($EngineExe) { $engineLaunchers['agy'] = [string](Resolve-EngineLauncher -Engine 'agy' -Explicit $EngineExe) }
+$engineExeEngine = ''
 # (never $formatRetry: PowerShell names are case-insensitive)
 $repairEnabled = ($FormatRetry -eq 1 -and -not $Raw)
 
@@ -844,6 +907,15 @@ if ($Provider -and -not $Model) {
     if (-not ($providerEntry -and $providerEntry.Model)) {
         Stop-WithError "-Provider needs -Model: the bridge cannot know which model a provider serves by default (e.g. -Provider $Provider -Model <model>)."
     }
+}
+# -EngineExe names the launcher of the SELECTED engine other than codex (wave 23, D3;
+# Resolve-EngineExeBinding): -Engine's, else the -Provider's roster entry's, else the only such
+# engine of the roster. A -Thread run checks it against the thread's engine below.
+if ($EngineExe) {
+    $exeBinding = Resolve-EngineExeBinding -Engine $Engine -Roster $roster -Provider $Provider -Model $Model
+    if ($exeBinding.Error) { Stop-WithError "$($exeBinding.Error)." }
+    $engineExeEngine = [string]$exeBinding.Engine
+    $engineLaunchers[$engineExeEngine] = [string](Resolve-EngineLauncher -Engine $engineExeEngine -Explicit $EngineExe)
 }
 
 # Explicit -Effort / -MaxWords win over the purpose preset.
@@ -1062,6 +1134,7 @@ function Start-PanelMember {
             engine           = $Engine
             engine_exe       = $EngineExe
             denial_retry     = $DenialRetry
+            max_model_steps  = $MaxModelSteps
             dry_run          = [bool]$DryRun
         }
     }
@@ -1135,6 +1208,10 @@ if ($panelRun) {
     if ($panelSelection.Error) { Stop-WithError $panelSelection.Error }
     $panelEntries = @($panelSelection.Members)
     $panelRunners = @($panelEntries | Where-Object { $_.State -eq 'run' })
+    # -MaxModelSteps goes to the members whose engine has a step cap (muse); none -> refused.
+    if ($MaxModelSteps -gt 0 -and @($panelRunners | Where-Object { (Get-EngineSpec ([string]$_.Entry.Engine)).StepsFlag }).Count -eq 0) {
+        Stop-WithError "-MaxModelSteps applies to the muse members of a panel (--max-model-steps); no member of this panel runs the muse engine."
+    }
     # A launcher every member of an engine would miss is refused once, up front.
     if (-not $DryRun) {
         foreach ($panelEngine in @($panelRunners | ForEach-Object { [string]$_.Identity.Engine } | Select-Object -Unique)) {
@@ -1196,11 +1273,12 @@ if ($panelRun) {
             if (-not $engineK) { $engineK = 'codex' }
             $nnK = '{0:D2}' -f ([int]$panelNumbers.Nn + $k - 1)
             # The kill guard from the member's own budgets (D11): its timeout, one format-repair
-            # turn and (agy) one denial-retry turn of min(timeout, 300) s when enabled, the 60 s
-            # write-lock wait, 120 s slack. TEST HOOK: CODEX_CONSULT_TEST_PANEL_GUARD_SEC.
+            # turn and (an engine with a denial retry: agy) one denial-retry turn of
+            # min(timeout, 300) s when enabled, the 60 s write-lock wait, 120 s slack. TEST HOOK:
+            # CODEX_CONSULT_TEST_PANEL_GUARD_SEC.
             $guard = $TimeoutSec + 60 + 120
             if ($repairEnabled) { $guard += [Math]::Min($TimeoutSec, 300) }
-            if ($engineK -ne 'codex' -and $DenialRetry -eq 1) { $guard += [Math]::Min($TimeoutSec, 300) }
+            if ((Get-EngineSpec $engineK).DenialRetry -and $DenialRetry -eq 1) { $guard += [Math]::Min($TimeoutSec, 300) }
             if ($guardHook -gt 0) { $guard = $guardHook }
             $slot = [pscustomobject]@{
                 Pm = $pm; K = $k; N = ($panelNumbers.N + $k - 1); Nn = $nnK; Engine = $engineK
@@ -1581,17 +1659,34 @@ $anonymous = [bool]($rosterEntry -and $rosterEntry.Auth -eq 'none')
 # What an engine does not support is refused with one message each (nothing started).
 if (-not $isCodex) {
     if ($Mode -eq 'fork') { Stop-WithError "the $engineName engine has no fork; use -Mode resume or new." }
-    if ($Sandbox -ne 'read-only') { Stop-WithError "-Sandbox $Sandbox is refused for the $engineName engine: consultations are read-only there (its --sandbox restricts the terminal only; the bridge's tree check fails a run that writes)." }
+    if ($Sandbox -ne 'read-only') { Stop-WithError "-Sandbox $Sandbox is refused for the $engineName engine: consultations are read-only there ($($engineSpec.ReadOnlyNote))." }
     if (@($CodexConfig | Where-Object { $_ -and $_.Trim() }).Count -gt 0) { Stop-WithError "-CodexConfig does not apply to the $engineName engine (it configures codex exec)." }
-    if ($transportOverride -and $engineSpec.Transports -notcontains $transportOverride) { Stop-WithError "-SchemaTransport $transportOverride is refused for the $engineName engine: it takes $($engineSpec.Transports -join ' or ') (native = the schema is passed as --json-schema)." }
+    if ($transportOverride -and $engineSpec.Transports -notcontains $transportOverride) { Stop-WithError "-SchemaTransport $transportOverride is refused for the $engineName engine: it takes $($engineSpec.Transports -join ' or ') (native = the schema is passed as $($engineSpec.SchemaFlag))." }
     # agy: default mode new (a conversation is resumed only on request); -Thread resumes it.
     if (-not $Mode) { $Mode = $(if ($Thread) { 'resume' } else { $engineSpec.DefaultMode }) }
 } else {
-    if ($transportOverride -and $engineSpec.Transports -notcontains $transportOverride) { Stop-WithError "-SchemaTransport $transportOverride is for the agy engine; codex takes output-schema or prompt-only." }
+    if ($transportOverride -and $engineSpec.Transports -notcontains $transportOverride) { Stop-WithError "-SchemaTransport $transportOverride is for the agy and muse engines; codex takes output-schema or prompt-only." }
 }
-# The ledger's `sandbox`: what was requested - and for agy how it is enforced (A17).
+# -MaxModelSteps: an engine with a model-step cap only (muse, D9); a panel member of another
+# engine ignores the panel's value.
+if ($MaxModelSteps -gt 0 -and -not $engineSpec.StepsFlag) {
+    if ($panelMember) { $MaxModelSteps = 0 }
+    else { Stop-WithError "-MaxModelSteps is for the muse engine (--max-model-steps); the $engineName engine has no model-step cap." }
+}
+# -EngineExe was bound to one engine (D3): a run of another engine other than codex would
+# silently use that engine's default launcher - refused.
+if ($engineExeEngine -and -not $isCodex -and $engineExeEngine -ne $engineName) {
+    Stop-WithError "-EngineExe names the $engineExeEngine launcher, but this run's engine is $engineName (from $engineFrom); pass -Engine $engineName with -EngineExe."
+}
+# (wave 23, D4) the engine's launch invariant - muse: an API key in the environment would bill
+# per token instead of the subscription. Never bypassed by -SkipPreflight; checked again right
+# before every launch.
+$launchBlock = Get-EngineLaunchBlock -Engine $engineName
+if ($launchBlock) { Stop-WithError "the $engineName engine is refused: $launchBlock; nothing was started." }
+# The ledger's `sandbox`: what was requested - and for another engine how it is enforced (A17;
+# the engine row's own words).
 $sandboxRecord = $Sandbox
-if (-not $isCodex) { $sandboxRecord = "read-only (requested; enforced by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules or files outside the repository; $engineName --sandbox restricts the terminal only)" }
+if (-not $isCodex) { $sandboxRecord = [string]$engineSpec.SandboxRecord }
 $engineLauncher = [string]$codexExePath
 if (-not $isCodex) {
     $engineLauncher = Get-EngineLauncher -Engine $engineName -Launchers $engineLaunchers
@@ -1827,6 +1922,11 @@ $repairPromptPath = Join-Path $tmpRoot "codex-consult-repair-prompt-$tmpId.txt"
 # goes to handoffs/, like the run's)
 $denialPromptPath = Join-Path $tmpRoot "codex-consult-denial-prompt-$tmpId.txt"
 $denialStderrPath = Join-Path $tmpRoot "codex-consult-denial-stderr-$tmpId.txt"
+# (wave 23, D1) an engine whose prompt travels in a file (muse: --prompt-file <the turn's prompt
+# file>) reads an EMPTY stdin from here; codex and agy read their prompt file as stdin.
+$engineStdinPath = Join-Path $tmpRoot "codex-consult-stdin-$tmpId.txt"
+$promptByFile = (-not $isCodex -and $engineSpec.PromptTransport -eq 'file')
+$stdinPath = $(if ($promptByFile) { $engineStdinPath } else { $promptPath })
 
 # ----------------------------------------------------------------------------- lock + run
 #
@@ -2045,9 +2145,10 @@ try {
         [void]$promptParts.Add("Read the brief at ``$briefRef`` (path relative to the repository root, which is your working directory) and answer every numbered question in it.")
     }
     if (-not $isCodex) {
-        # agy's print mode auto-denies a tool it cannot grant and then ends the turn with no
-        # output (F11), and its --sandbox does not block file writes (F12): say both up front.
-        [void]$promptParts.Add('Tools: you may read files of the repository; you have NO permission to run commands in this consultation - never call run_command; make NO file changes; a check that needs a command belongs under `## Requested checks`.')
+        # The engine's own tools line (D11): agy's print mode auto-denies a tool it cannot grant
+        # and its --sandbox does not block file writes (F11, F12); muse runs with its write,
+        # shell and web tools disabled.
+        [void]$promptParts.Add([string]$engineSpec.ToolsLine)
     }
     if ($Raw) {
         # (a plain -Raw consultation carries no purpose paragraph, as in 0.1; a chore does)
@@ -2108,13 +2209,15 @@ try {
     # ------------------------------------------------------------------------- argv
 
     if (-not $isCodex) {
-        # The engine's own argv (New-AgyArgv): the schema natively unless prompt-only, the
-        # conversation on resume, --effort only with -NativeEffort.
+        # The engine's own argv from ONE turn-options object (wave 23, D1): the schema natively
+        # unless prompt-only, the thread on resume, the effort (agy: only -NativeEffort; muse:
+        # the mapped value), this turn's prompt file (muse), -MaxModelSteps (muse).
         $engineSchemaArg = ''
         if (-not $Raw -and $schemaTransport -eq 'native') { $engineSchemaArg = $schemaPath }
         $engineThreadArg = ''
         if ($Mode -eq 'resume') { $engineThreadArg = $parentThread }
-        $argv = & $engineSpec.Adapter.Argv -Model $identity.Model -Schema $engineSchemaArg -Thread $engineThreadArg -NativeEffort $NativeEffort
+        $mainTurn = New-EngineTurnOptions -Model $identity.Model -Mode $Mode -Thread $engineThreadArg -PromptFile $promptPath -Schema $engineSchemaArg -Effort $effortSent -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps
+        $argv = & $engineSpec.Adapter.Argv -Turn $mainTurn
     } else {
         # Exec-level options MUST precede the fork|resume subcommand: `codex exec fork --help`
         # has no --sandbox/--color, and placing them after the subcommand fails with
@@ -2143,9 +2246,13 @@ try {
     }
 
     $commandStr = "$($engineSpec.Command) " + (Format-Argv $argv)
-    # What the engine reads on stdin: codex the prompt itself, agy one NDJSON line.
+    # What the engine reads on stdin: codex the prompt itself, agy one NDJSON line, muse nothing
+    # (its prompt is the prompt file named in its argv).
     $stdinText = $promptText
     if (-not $isCodex) { $stdinText = & $engineSpec.Adapter.Stdin -Prompt $promptText }
+    # A .cmd launcher expands %VAR% inside quoted arguments (F02-14): a real run is refused.
+    $argvHazard = ''
+    if (-not $isCodex) { $argvHazard = Get-CmdArgvHazard -Launcher $engineLauncher -Argv $argv }
 
     # ------------------------------------------------------------------------- bindings
 
@@ -2207,7 +2314,7 @@ try {
             schema_transport_source         = $schemaTransportSource
             validation_error                = $(if ($Raw) { '' } else { '<"" or the first validation error>' })
             format_retry                    = $(if (-not $repairEnabled) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events} after a format-repair turn>' })
-            denial_retry                    = $(if ($isCodex -or $DenialRetry -ne 1) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, events} after a denial-retry turn>' })
+            denial_retry                    = $(if (-not $engineSpec.DenialRetry -or $DenialRetry -ne 1) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, events} after a denial-retry turn>' })
             base_commit                     = $revBefore.base_commit
             reviewed_revision               = $revBefore.reviewed_revision
             tree_sha256                     = $revBefore.tree_sha256
@@ -2229,7 +2336,8 @@ try {
             finding_ids                     = [object[]]$previewIds
             prior_findings                  = [object[]]@($listedIds | ForEach-Object { [pscustomobject]@{ id = $_; status = '<fixed|still-open|not-checked|unknown-id>' } })
             unchecked_prior_blockers        = [object[]]@()
-            usage                           = $(if ($isCodex) { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n>'; output_tokens = '<n>'; reasoning_output_tokens = '<n>' } } else { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n (cache_read_tokens)>'; output_tokens = '<n>'; reasoning_output_tokens = '<n (thinking_tokens)>'; total_tokens = '<n>' } })
+            usage                           = $(if ($isCodex) { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n>'; output_tokens = '<n>'; reasoning_output_tokens = '<n>' } } elseif (-not $engineSpec.HasUsage) { $null } else { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n (cache_read_tokens)>'; output_tokens = '<n>'; reasoning_output_tokens = '<n (thinking_tokens)>'; total_tokens = '<n>' } })
+            engine_run                      = $(if ($isCodex) { $null } else { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $(if ($engineSpec.PromptTransport -eq 'file') { '<the MSP schema_version of the stream: 1>' } else { $null }) } })
             wall_seconds                    = 0
             finished_at                     = '<written at the commit>'
             commit_wait_ms                  = '<ms the commit waited for the write lock>'
@@ -2270,18 +2378,21 @@ try {
         else {
             Write-Host "schema      : $schemaPath"
             if ($schemaTransport -eq 'output-schema') { Write-Host "transport   : output-schema ($schemaTransportBasis): passed as --output-schema" }
-            elseif ($schemaTransport -eq 'native') { Write-Host "transport   : native ($schemaTransportBasis): passed as --json-schema, the reply is result.structured_output (validated locally too)" }
+            elseif ($schemaTransport -eq 'native') { Write-Host "transport   : native ($schemaTransportBasis): passed as $($engineSpec.SchemaFlag), the reply is $($engineSpec.ReplySource) (validated locally too)" }
             elseif ($isCodex) { Write-Host "transport   : prompt-only ($schemaTransportBasis): --output-schema is NOT passed; the schema travels in the prompt, the reply is validated locally" }
-            else { Write-Host "transport   : prompt-only ($schemaTransportBasis): --json-schema is NOT passed; the schema travels in the prompt, the reply is validated locally" }
+            else { Write-Host "transport   : prompt-only ($schemaTransportBasis): $($engineSpec.SchemaFlag) is NOT passed; the schema travels in the prompt, the reply is validated locally" }
         }
         if ($repairEnabled) { Write-Host 'format retry : 1 attempt if the reply is not valid JSON' } else { Write-Host 'format retry : 0 (off)' }
         if (-not $isCodex) {
-            if ($DenialRetry -eq 1) { Write-Host 'denial retry: 1 attempt if a tool was auto-denied and the turn produced nothing' } else { Write-Host 'denial retry: 0 (off)' }
+            if (-not $engineSpec.DenialRetry) { Write-Host "denial retry: n/a (the $engineName engine runs with its write, shell and web tools disabled - nothing is auto-denied)" }
+            elseif ($DenialRetry -eq 1) { Write-Host 'denial retry: 1 attempt if a tool was auto-denied and the turn produced nothing' } else { Write-Host 'denial retry: 0 (off)' }
+            if ($engineSpec.StepsFlag) { Write-Host "max steps   : $(if ($MaxModelSteps -gt 0) { "$MaxModelSteps ($($engineSpec.StepsFlag))" } else { "the $engineName CLI's default (no $($engineSpec.StepsFlag))" })" }
             Write-Host "sandbox     : $sandboxRecord"
+            if ($argvHazard) { Write-Host "launch      : a real run is refused before launch - $argvHazard" -ForegroundColor Yellow }
         }
         Write-Host "mode        : $Mode"
         if ($Mode -eq 'new') { Write-Host "thread      : (a new thread will be created)" }
-        elseif (-not $isCodex) { Write-Host "thread      : $parentThread (conversation resumed with --conversation)" }
+        elseif (-not $isCodex) { Write-Host "thread      : $parentThread ($($engineSpec.ThreadNoun) resumed with $($engineSpec.ThreadFlag))" }
         else { Write-Host "thread      : $parentThread (parent for $Mode)" }
         if ($parentNote) { Write-Host "parent      : $parentNote" }
         Write-Host "consult id  : $consultId (the prompt's last line)"
@@ -2297,8 +2408,13 @@ try {
         $argv | ForEach-Object { Write-Host "    $_" }
         Write-Host ""
         Write-Host "command     : $commandStr"
-        if (-not $isCodex) { Write-Host "stdin       : one NDJSON line {""event"":""user"",""message"":{""content"":<the prompt>}} ($($stdinText.Length) chars, UTF-8, LF)" }
-        Write-Host "prompt (stdin, $($promptText.Length) chars):"
+        if ($promptByFile) {
+            Write-Host "prompt file : $promptPath (the prompt below, UTF-8 without BOM, written at launch; stdin is empty)"
+            Write-Host "prompt (--prompt-file, $($promptText.Length) chars):"
+        } else {
+            if (-not $isCodex) { Write-Host "stdin       : one NDJSON line {""event"":""user"",""message"":{""content"":<the prompt>}} ($($stdinText.Length) chars, UTF-8, LF)" }
+            Write-Host "prompt (stdin, $($promptText.Length) chars):"
+        }
         Write-Host "----"
         Write-Host $promptText
         Write-Host "----"
@@ -2307,7 +2423,7 @@ try {
         if (-not $Raw) { Write-Host "reply json  : $replyJsonPath" }
         Write-Host "events file : $eventsPath"
         if ($isCodex) { Write-Host "last message: $lastMsgPath (temp)" }
-        else { Write-Host "reply source: the result event's structured_output (else its response text), extracted to the reply json before validation" }
+        else { Write-Host "reply source: $($engineSpec.ReplySource), extracted to the reply json before validation" }
         Write-Host ""
         Write-Host "sessions.json entry preview:"
         Write-Host (ConvertTo-Json -InputObject $preview -Depth 10)
@@ -2316,7 +2432,14 @@ try {
 
     # ------------------------------------------------------------------------- run
 
-    Write-Utf8NoBom -Path $promptPath -Text $stdinText
+    # The prompt file and the stdin (D1): codex and agy read the prompt file as stdin; muse
+    # reads it through --prompt-file and gets an empty stdin.
+    if ($promptByFile) {
+        Write-Utf8NoBom -Path $promptPath -Text $promptText
+        Write-Utf8NoBom -Path $stdinPath -Text $stdinText
+    } else {
+        Write-Utf8NoBom -Path $promptPath -Text $stdinText
+    }
 
     # Peak status AT LAUNCH (the one the ledger records). Under -OffPeakOnly a window
     # entered since the early check stops the run here: no child exists yet, this run's
@@ -2335,6 +2458,17 @@ try {
         Stop-WithError "-OffPeakOnly: $peakProvider entered its peak window before launch ($($peak.Schedule); now $($peak.Local)); nothing was started.$tail"
     }
     if ($peakWarning) { Write-Host $peakWarning -ForegroundColor Yellow }
+    # (wave 23) right before the launch: the engine's launch invariant again (D4) and the
+    # %-expansion hazard of a .cmd launcher (F02-14) - the reservation is withdrawn, nothing
+    # was started, no ledger entry.
+    if (-not $isCodex) {
+        $preLaunch = Get-EngineLaunchBlock -Engine $engineName
+        if (-not $preLaunch) { $preLaunch = $argvHazard }
+        if ($preLaunch) {
+            $rmError = Remove-PendingFile -Path $pendingPath
+            Stop-WithError "the $engineName run is refused before launch: $preLaunch; nothing was started.$(if ($rmError) { " (The recovery record '$pendingPath' could not be removed: $rmError; the next run consumes it.)" })"
+        }
+    }
 
     # agy's --sandbox does not block writes (A17): what the review must not touch is
     # compared after the run - the tree fingerprint (above) and the whole collab directory
@@ -2384,7 +2518,7 @@ try {
             -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
             -RedirectStandardOutput $eventsPath `
             -RedirectStandardError $stderrPath `
-            -RedirectStandardInput $promptPath
+            -RedirectStandardInput $stdinPath
     } catch {
         $bridgeOutcome = "failed: could not start $engineCmd - $($_.Exception.Message)"
     }
@@ -2474,6 +2608,10 @@ try {
     $agyEvents = $null
     $agyFailureClass = ''
     $agyFailureTexts = @()
+    # (wave 23) engine turns started (ledger engine_run.turns; for muse each one is a
+    # subscription prompt) and the MSP schema version of the stream (muse)
+    $engineTurns = $(if ($proc) { 1 } else { 0 })
+    $mspVersion = $null
     $denialRetryRecord = $null
     $treeProblem = ''
     $extraEvents = New-Object System.Collections.Generic.List[string]
@@ -2553,14 +2691,16 @@ try {
     }
 
     } else {
-        # ---------------------------------------------------------------- agy: the turn
-        # The event stream is already saved (handoffs/NN-agy-<slug>.events.jsonl, stdout by
-        # redirection); the LAST and only `result` event carries the reply (A6, A19).
-        # A truncated last line is a partial line only when the process was killed or exited
-        # non-zero (F10-2); after exit 0 trailing garbage makes the stream malformed.
+        # ---------------------------------------------------------------- engine: the turn
+        # The event stream is already saved (handoffs/NN-<prefix>-<slug>.events.jsonl, stdout by
+        # redirection); the engine's adapter parses it (agy: the LAST and only `result` event
+        # carries the reply, A6, A19; muse: the ONE run_terminal record, D6). A truncated last
+        # line is a partial line only when the process was killed or exited non-zero (F10-2);
+        # after exit 0 trailing garbage makes the stream malformed.
         $allowPartial = [bool]($bridgeOutcome -or $exitCode -ne 0)
-        try { $agyEvents = & $engineSpec.Adapter.Events -Path $eventsPath -AllowPartialLast:$allowPartial } catch { $agyEvents = Read-AgyEvents -Path '' }
-        $agyTurn = & $engineSpec.Adapter.Outcome -Events $agyEvents -ExitCode $exitCode -StderrText $stderrText -Pre $bridgeOutcome -ExpectThread $(if ($Mode -eq 'resume') { $parentThread } else { '' })
+        try { $agyEvents = & $engineSpec.Adapter.Events -Path $eventsPath -AllowPartialLast:$allowPartial } catch { $agyEvents = & $engineSpec.Adapter.Events -Path '' }
+        $agyTurn = & $engineSpec.Adapter.Outcome -Events $agyEvents -ExitCode $exitCode -StderrText $stderrText -Pre $bridgeOutcome -ExpectThread $(if ($Mode -eq 'resume') { $parentThread } else { '' }) -ExpectModel ([string]$identity.Model)
+        if ($agyEvents.PSObject.Properties['SchemaVersion']) { $mspVersion = $agyEvents.SchemaVersion }
         $bridgeOutcome = $agyTurn.Outcome
         $rawReplyFull = [string]$agyTurn.Reply
         $rawReply = $rawReplyFull.Trim()
@@ -2586,12 +2726,14 @@ try {
             }
         }
 
-        # Read-only check (A17): the tree, the collab directory, the brief, the artifacts.
+        # Read-only check (A17): the tree, the collab directory, the brief, the artifacts. A
+        # detected change forces class permission (wave 23, D12) - also when the run had already
+        # failed for another reason: that reason stays in the provider failure's message.
         $treeProblem = Get-EngineTreeProblem -RevBefore $revBefore -RevAfter $revAfter -BriefChanged $briefChanged -ChangedArtifacts $changedArtifacts -CollabBefore $collabBefore -CollabAfter (Get-CollabSnapshot -Dir $collabRoot) -OwnPrefixes $ownPrefixes -Engine $engineName -CollabShown $collabShown
         if ($treeProblem) {
+            $agyFailureClass = 'permission'
             if ($bridgeOutcome -eq 'usable reply') {
                 $bridgeOutcome = "failed: $treeProblem"
-                $agyFailureClass = 'permission'
                 $agyFailureTexts = @($treeProblem)
             } else {
                 $bridgeOutcome += "; also: $treeProblem"
@@ -2601,8 +2743,9 @@ try {
         # ---------------------------------------------------------------- denial retry (A3)
         # The turn produced nothing because a tool was auto-denied (F11), on a verified
         # conversation: ONE more turn there, told not to call it again (the output contract,
-        # the field meanings and the consultation id - never the brief).
-        if ($DenialRetry -eq 1 -and $agyTurn.DeniedEmpty -and $threadId -and -not $treeProblem) {
+        # the field meanings and the consultation id - never the brief). Only an engine with a
+        # denial retry (agy; muse has none - its tools are off, D2); parsed through the adapter.
+        if ($engineSpec.DenialRetry -and $DenialRetry -eq 1 -and $agyTurn.DeniedEmpty -and $threadId -and -not $treeProblem) {
             $deniedTool = [string]$agyEvents.ToolName
             if (-not $deniedTool) { $deniedTool = [string]$agyEvents.DeniedAction }
             $toolText = if ($deniedTool) { "the tool $deniedTool" } else { 'a tool' }
@@ -2618,15 +2761,17 @@ try {
             $retryParts.Add("Consultation id: $consultId")
             $retryPrompt = [string]::Join("$nl$nl", $retryParts.ToArray())
             $retrySchemaArg = if (-not $Raw) { $schemaPath } else { '' }
-            $retryArgv = & $engineSpec.Adapter.Argv -Model $identity.Model -Schema $retrySchemaArg -Thread $threadId -NativeEffort $NativeEffort
+            $retryOpts = New-EngineTurnOptions -Model $identity.Model -Mode 'denial-retry' -Thread $threadId -PromptFile $denialPromptPath -Schema $retrySchemaArg -Effort $effortSent -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps
+            $retryArgv = & $engineSpec.Adapter.Argv -Turn $retryOpts
             $retryEventsName = "$nn-$enginePrefix-$ReplyName.denial-retry.events.jsonl"
             $retryEventsPath = Join-Path $handoffsDir $retryEventsName
             $extraEvents.Add("handoffs/$retryEventsName")
             $retryTimeout = [Math]::Min($TimeoutSec, 300)
-            $retryTurn = Invoke-EngineTurn -Argv $retryArgv -StdinText (& $engineSpec.Adapter.Stdin -Prompt $retryPrompt) -EventsPath $retryEventsPath -StdinPath $denialPromptPath -StderrPath $denialStderrPath -Timeout $retryTimeout -Note 'denial retry turn'
+            $retryTurn = Invoke-EngineTurn -Argv $retryArgv -StdinText (& $engineSpec.Adapter.Stdin -Prompt $retryPrompt) -EventsPath $retryEventsPath -StdinPath $(if ($promptByFile) { $stdinPath } else { $denialPromptPath }) -StderrPath $denialStderrPath -Timeout $retryTimeout -Note 'denial retry turn' -PromptPath $(if ($promptByFile) { $denialPromptPath } else { '' }) -PromptText $retryPrompt
             if ($retryTurn.KeepPending) { $keepPending = $true }
-            $retryEvents = Read-AgyEvents -Path $retryEventsPath -AllowPartialLast:([bool]($retryTurn.Problem -or $retryTurn.Exit -ne 0))
-            $retryOut = Get-AgyTurnOutcome -Events $retryEvents -ExitCode $retryTurn.Exit -StderrText $retryTurn.Stderr -Pre $(if ($retryTurn.Problem) { "failed: $($retryTurn.Problem)" } else { '' }) -ExpectThread $threadId
+            if ($retryTurn.Started) { $engineTurns++ }
+            $retryEvents = & $engineSpec.Adapter.Events -Path $retryEventsPath -AllowPartialLast:([bool]($retryTurn.Problem -or $retryTurn.Exit -ne 0))
+            $retryOut = & $engineSpec.Adapter.Outcome -Events $retryEvents -ExitCode $retryTurn.Exit -StderrText $retryTurn.Stderr -Pre $(if ($retryTurn.Problem) { "failed: $($retryTurn.Problem)" } else { '' }) -ExpectThread $threadId -ExpectModel ([string]$identity.Model)
             $retryReason = [string]$agyTurn.DenialLine
             if ($retryReason.Length -gt 200) { $retryReason = $retryReason.Substring(0, 200) }
             $denialRetryRecord = [pscustomobject]@{
@@ -2801,23 +2946,27 @@ try {
             if (-not $repairProblem -and $repairExit -ne 0) { $repairProblem = "codex exit $repairExit" }
             if (-not $repairProblem -and -not $repairRaw) { $repairProblem = 'empty reply' }
         } else {
-            # agy: the same repair prompt on the same conversation (--conversation), with the
-            # schema natively; the turn must come back on THAT conversation (A12) - a repair
-            # in a fresh conversation has no "last message" to convert and would invent one.
+            # An engine (agy, muse): the same repair prompt on the same conversation / session
+            # (agy --conversation, muse --session-id), with the schema natively, through the
+            # engine's adapter (wave 23, D2); the turn must come back on THAT thread (A12) - a
+            # repair in a fresh one has no "last message" to convert and would invent one. At
+            # most once; only after a usable reply (never after a quota, auth or billing failure).
             $originalRepoRel = Get-RepoRelativePath -Root $repoRoot -Path $originalFull
             if (-not $originalRepoRel) { $originalRepoRel = $originalFull }
             $pendingRecord | Add-Member -NotePropertyName 'original' -NotePropertyValue $originalRepoRel -Force
             $pendingRecord | Add-Member -NotePropertyName 'first_reply' -NotePropertyValue 'usable prose (format repair in progress)' -Force
-            $repairArgv = & $engineSpec.Adapter.Argv -Model $identity.Model -Schema $schemaPath -Thread $threadId -NativeEffort $NativeEffort
+            $repairOpts = New-EngineTurnOptions -Model $identity.Model -Mode 'format-repair' -Thread $threadId -PromptFile $repairPromptPath -Schema $schemaPath -Effort (Get-RepairEffort -Identity $identity -EffortPlan $effortPlan) -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps
+            $repairArgv = & $engineSpec.Adapter.Argv -Turn $repairOpts
             $repairEventsName = "$nn-$enginePrefix-$ReplyName.repair.events.jsonl"
             $repairEngineEvents = Join-Path $handoffsDir $repairEventsName
             $extraEvents.Add("handoffs/$repairEventsName")
-            $repairTurn = Invoke-EngineTurn -Argv $repairArgv -StdinText (& $engineSpec.Adapter.Stdin -Prompt $repairPrompt) -EventsPath $repairEngineEvents -StdinPath $repairPromptPath -StderrPath $repairStderrPath -Timeout $repairTimeout -Note 'format repair turn'
+            $repairTurn = Invoke-EngineTurn -Argv $repairArgv -StdinText (& $engineSpec.Adapter.Stdin -Prompt $repairPrompt) -EventsPath $repairEngineEvents -StdinPath $(if ($promptByFile) { $stdinPath } else { $repairPromptPath }) -StderrPath $repairStderrPath -Timeout $repairTimeout -Note 'format repair turn' -PromptPath $(if ($promptByFile) { $repairPromptPath } else { '' }) -PromptText $repairPrompt
             if ($repairTurn.KeepPending) { $keepPending = $true }
+            if ($repairTurn.Started) { $engineTurns++ }
             $repairWall = $repairTurn.Wall
-            $repairEv = Read-AgyEvents -Path $repairEngineEvents -AllowPartialLast:([bool]($repairTurn.Problem -or $repairTurn.Exit -ne 0))
+            $repairEv = & $engineSpec.Adapter.Events -Path $repairEngineEvents -AllowPartialLast:([bool]($repairTurn.Problem -or $repairTurn.Exit -ne 0))
             if (Test-Path -LiteralPath $repairEngineEvents -PathType Leaf) { $repairEventsRel = "handoffs/$repairEventsName" }
-            $repairOut = Get-AgyTurnOutcome -Events $repairEv -ExitCode $repairTurn.Exit -StderrText $repairTurn.Stderr -Pre $(if ($repairTurn.Problem) { "failed: $($repairTurn.Problem)" } else { '' }) -ExpectThread $threadId
+            $repairOut = & $engineSpec.Adapter.Outcome -Events $repairEv -ExitCode $repairTurn.Exit -StderrText $repairTurn.Stderr -Pre $(if ($repairTurn.Problem) { "failed: $($repairTurn.Problem)" } else { '' }) -ExpectThread $threadId -ExpectModel ([string]$identity.Model)
             $repairThread = [string]$repairEv.Thread
             $repairUsage = $repairEv.Usage
             $repairRawFull = [string]$repairOut.Reply
@@ -2862,8 +3011,9 @@ try {
         $repairConsole = "format repair: $(if ($repairedOk) { 'succeeded' } else { 'failed' }) in $repairWall s; drift: $($drift.Count) note(s)"
     }
 
-    # agy: a denial-retry or format-repair turn may have written too - the read-only check
-    # again over the whole run (A17); a run that changed anything ingests nothing.
+    # An engine's denial-retry or format-repair turn may have written too - the read-only check
+    # again over the whole run (A17); a run that changed anything ingests nothing, and the
+    # change forces class permission (D12).
     if (-not $isCodex -and $extraEvents.Count -gt 0 -and -not $treeProblem) {
         $revAfter = Get-RevisionInfo -Root $repoRoot -CollabRoot $collabRoot
         $treeChanged = ($revBefore.tree_sha256 -ne $revAfter.tree_sha256)
@@ -2873,18 +3023,32 @@ try {
         $changedArtifacts = @($artifactsFinal | Where-Object { $_.sha256 -ne $_.sha256_after } | ForEach-Object { $_.path })
         $artifactsChanged = ($changedArtifacts.Count -gt 0)
         $treeProblem = Get-EngineTreeProblem -RevBefore $revBefore -RevAfter $revAfter -BriefChanged $briefChanged -ChangedArtifacts $changedArtifacts -CollabBefore $collabBefore -CollabAfter (Get-CollabSnapshot -Dir $collabRoot) -OwnPrefixes $ownPrefixes -Engine $engineName -CollabShown $collabShown
-        if ($treeProblem -and $bridgeOutcome -eq 'usable reply') {
-            $bridgeOutcome = "failed: $treeProblem"
+        if ($treeProblem) {
             $agyFailureClass = 'permission'
-            $agyFailureTexts = @($treeProblem)
-            # the reply stays named (reply json, handoff), nothing of it is ingested
-            $parse = $null
+            if ($bridgeOutcome -eq 'usable reply') {
+                $bridgeOutcome = "failed: $treeProblem"
+                $agyFailureTexts = @($treeProblem)
+                # the reply stays named (reply json, handoff), nothing of it is ingested
+                $parse = $null
+            } else {
+                $bridgeOutcome += "; also: $treeProblem"
+            }
         }
     }
 
     # Classified provider failure (null on success): what the endpoint said - an SSE
     # `data:{"error":...}` line, the event-stream error, stderr - or the bridge's own reason.
     # Later preflights read it back per endpoint (Get-EndpointHealth).
+    # (wave 23) ledger engine_run: null for codex; for an engine the turns started, the model-step
+    # cap sent (muse) and the MSP schema version of the stream (muse).
+    $engineRunRecord = $null
+    if (-not $isCodex) {
+        $engineRunRecord = [pscustomobject]@{
+            turns              = $engineTurns
+            max_model_steps    = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null })
+            msp_schema_version = $mspVersion
+        }
+    }
     $providerFailure = $null
     if ($bridgeOutcome -ne 'usable reply' -and $isCodex) {
         $sseLines = @(($stderrText -split "`r?`n") | Where-Object { $_ -match '^\s*data:\s*\{' })
@@ -2996,7 +3160,7 @@ try {
     $headerLines.Add("# Handoff $nn - $($engineSpec.Label): $ReplyName")
     $headerLines.Add('')
     if ($isCodex) { $headerLines.Add("Date: $($startedAt.ToString('yyyy-MM-dd HH:mm', $script:Invariant)) local. Author: Codex (model $modelLabel, effort $effortSent), Codex CLI $codexVersionShort.") }
-    else { $headerLines.Add("Date: $($startedAt.ToString('yyyy-MM-dd HH:mm', $script:Invariant)) local. Author: $($engineSpec.Label) (model $modelLabel, effort $(if ($null -eq $effortSent) { 'tier in the model id' } else { "$effortSent (-NativeEffort)" })), $harness.") }
+    else { $headerLines.Add("Date: $($startedAt.ToString('yyyy-MM-dd HH:mm', $script:Invariant)) local. Author: $($engineSpec.Label) (model $modelLabel, effort $(if ($null -eq $effortSent) { 'tier in the model id' } elseif ($effortPlan.Mapping -eq 'native') { "$effortSent (-NativeEffort)" } else { $effortSent })), $harness.") }
     $headerLines.Add($reviewerLine)
     $preflightLine = "Preflight: $preflight."
     if ($preflightWarning) { $preflightLine += " WARNING: $preflightWarning." }
@@ -3005,11 +3169,12 @@ try {
     $headerLines.Add("Effort: $(if ($null -eq $effortSent) { 'nothing' } else { $effortSent }) sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis); not confirmed by the provider). Consultation id: $consultId.")
     if ($peakWarning) { $headerLines.Add(($peakWarning -replace 'this consultation runs at', 'this consultation ran at')) }
     foreach ($rl in $recoveredLines) { $headerLines.Add("Recovery record: $rl") }
-    $headerLines.Add("Invocation: ``codex-consult.ps1`` (mode: $Mode, sandbox: $sandboxRecord, purpose: $purposeLabel). Argv: ``$commandStr`` (prompt on stdin$(if (-not $isCodex) { ' as one NDJSON line' })).")
+    $headerLines.Add("Invocation: ``codex-consult.ps1`` (mode: $Mode, sandbox: $sandboxRecord, purpose: $purposeLabel). Argv: ``$commandStr`` ($($engineSpec.PromptVia)).")
     $headerLines.Add("$parentLine Result thread: $resultThread (source: $threadSourceText).")
     $headerLines.Add("$briefLine $reviewedLine")
     foreach ($d in $driftLines) { $headerLines.Add($d) }
-    $headerLines.Add("Bridge outcome: $bridgeOutcome. Wall time: $wallSeconds s. Tokens: $(Format-Usage $usage).")
+    $headerLines.Add("Bridge outcome: $bridgeOutcome. Wall time: $wallSeconds s. Tokens: $(if (-not $engineSpec.HasUsage) { "not reported by $engineName" } else { Format-Usage $usage }).")
+    if ($engineRunRecord) { $headerLines.Add("Engine turns: $($engineRunRecord.turns)$(if ($engineName -eq 'muse') { ' (each one a Muse Code subscription prompt)' })$(if ($null -ne $engineRunRecord.max_model_steps) { "; --max-model-steps $($engineRunRecord.max_model_steps)" })$(if ($null -ne $engineRunRecord.msp_schema_version) { "; MSP schema_version $($engineRunRecord.msp_schema_version)" }).") }
     if ($engineWarnings.Count -gt 0) { $headerLines.Add("Warnings: $(($engineWarnings.ToArray() | ForEach-Object { ConvertTo-OneLine $_ }) -join '; ').") }
     if ($denialRetryRecord) {
         if ($denialRetryRecord.succeeded) { $headerLines.Add("Denial retry: succeeded in $($denialRetryRecord.wall_seconds) s - the first turn produced nothing (a tool was auto-denied); one more turn on conversation ``$threadId`` answered without it. Tokens of that turn: $(Format-Usage $denialRetryRecord.usage).") }
@@ -3146,6 +3311,7 @@ try {
         prior_findings                  = [object[]]$priorForLedger
         unchecked_prior_blockers        = [object[]]$uncheckedPrior
         usage                           = $usage
+        engine_run                      = $engineRunRecord
         wall_seconds                    = $wallSeconds
         finished_at                     = (Get-IsoTimestamp)
         commit_wait_ms                  = $commitWaitMs
@@ -3260,7 +3426,7 @@ try {
     }
     exit 0
 } finally {
-    foreach ($tmp in @($promptPath, $stderrPath, $repairLastPath, $repairEventsPath, $repairStderrPath, $repairPromptPath, $denialPromptPath, $denialStderrPath)) {
+    foreach ($tmp in @($promptPath, $stderrPath, $repairLastPath, $repairEventsPath, $repairStderrPath, $repairPromptPath, $denialPromptPath, $denialStderrPath, $engineStdinPath)) {
         if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
     }
     if (-not $keepLastMsg -and (Test-Path -LiteralPath $lastMsgPath)) {

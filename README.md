@@ -9,17 +9,18 @@ making that packaging a parameter is ROADMAP R13.
 
 ## For the agent installing this
 
-- **What it is:** a dependency-free PowerShell bridge that runs `codex exec` for a review (or, per roster entry, another CLI "engine": Google's Antigravity CLI `agy` for the Gemini models - see "Engines"), records the consultation as files (brief, verbatim reply, JSON ledger), and manages reviewer identity, availability, a roster/panel and structured findings.
+- **What it is:** a dependency-free PowerShell bridge that runs `codex exec` for a review (or, per roster entry, another CLI "engine": Google's Antigravity CLI `agy` for the Gemini models, Meta's Muse Code CLI `muse` for the Muse Code subscription - see "Engines"), records the consultation as files (brief, verbatim reply, JSON ledger), and manages reviewer identity, availability, a roster/panel and structured findings.
 - **Prerequisites.** Check each with the command; do not assume:
   - [ ] Windows PowerShell 5.1 or PowerShell 7: `powershell -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` or `pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` → `5.1.…` or `7.…`
   - [ ] git: `git --version` → `git version …`
   - [ ] Codex CLI on PATH: `codex --version` → `codex-cli 0.148` or newer (tested with `codex-cli 0.155.1`)
   - [ ] a reviewer: `codex login status` → `Logged in using ChatGPT`, **or** a `[model_providers.<name>]` table whose `env_key` variable the USER has set. Never create, print or paste an API key.
   - [ ] optional, Gemini through the `agy` engine: `agy models` → lines `<model id><TAB><name>` (the USER installed Google's Antigravity CLI and signed in by running `agy` once; you never handle the login). See "Engines".
+  - [ ] optional, Meta Muse through the `muse` engine: the USER installed Muse Code and signed in with `muse login` (on Windows with the user variable `TBH_CREDENTIAL_BACKEND=file` set first); `codex-providers.ps1` then shows the roster's muse row with `ok: signed in (~/.config/muse/auth.json: providers.meta, mechanism oauth)`. `META_API_KEY` and `MODEL_API_KEY` must NOT be set (a muse run is refused then: it would bill per token). You never read `auth.json` or handle the login. See "Engines (wave 23)".
 - **Install** (at the Claude Code prompt): `/plugin marketplace add xelth-com/claude-codex-consult`, then `/plugin install codex-consult@claude-codex-consult`.
 - **Verify:** `codex-providers.ps1` → at least one row `available`; then a `-DryRun` consultation → first line `DRY RUN - nothing was executed and no file was written.` and a line `preflight   : available (…)`. Exact commands: "Setup on a new machine", steps 0 and 9.
 - **First consultation:** `/codex-consult:consult-codex <task-id> <question>`, or the command under "Usage".
-- **More reviewers** (z.ai GLM, Xiaomi MiMo, any Responses-API provider; Gemini through the `agy` engine): follow the `setup-providers` skill.
+- **More reviewers** (z.ai GLM, Xiaomi MiMo, any Responses-API provider; Gemini through the `agy` engine; Meta Muse through the `muse` engine): follow the `setup-providers` skill.
 
 ---
 
@@ -236,8 +237,8 @@ verdicts with the date, and anything left unavailable and why.
 | Component | What it does |
 |---|---|
 | skill `consult-codex` (`/codex-consult:consult-codex <task-id> <ask>`) | the consultation process: when to consult, reconciling findings, the brief, the one command, verifying and recording findings, rating the consultation, the panel and the council rules |
-| skill `setup-providers` (`/codex-consult:setup-providers [provider]`) | wiring reviewers on a machine: Codex login, `[model_providers.*]` tables with `env_key`, per-run catalogs, the `agy` engine (install, the user's sign-in, `agy models`, roster entries), the roster, peak windows, verification |
-| hook `SessionStart` (`hooks/hooks.json` → `scripts/codex-consult-hook.ps1`) | at every session start (`startup`, `resume`) in a project where the plugin is enabled, adds ONE line to the agent's context: `codex-consult: reviewers - openai available \| ZAI available \| mimo unavailable (missing: env MIMO_API_KEY not set); roster -> would select openai` — the same local check as `codex-providers.ps1` (credentials, table usability, endpoint health from THIS repository's ledgers, the roster walk); `codex-consult: codex CLI not found on PATH - follow the setup-providers skill ...` when Codex is missing. No network call (it runs `codex-providers.ps1 -Json -NoNetwork`: an `agy` engine row reads `gemini not checked (launcher present)` - or `gemini available` when THIS repository's ledgers hold a usable agy reply from the last 60 minutes - and a missing launcher `gemini unavailable (agy CLI not found on PATH)`), nothing written, exit code always 0, about one second (`codex login status`), timeout 30 s; `pwsh` when present, else `powershell`. Disable it with the plugin (`/plugin disable codex-consult`) — hooks have no per-plugin switch |
+| skill `setup-providers` (`/codex-consult:setup-providers [provider]`) | wiring reviewers on a machine: Codex login, `[model_providers.*]` tables with `env_key`, per-run catalogs, the `agy` engine (install, the user's sign-in, `agy models`, roster entries), the `muse` engine (install, `muse login` with the file credential backend, never an API key, the contributor vs standard model), the roster, peak windows, verification |
+| hook `SessionStart` (`hooks/hooks.json` → `scripts/codex-consult-hook.ps1`) | at every session start (`startup`, `resume`) in a project where the plugin is enabled, adds ONE line to the agent's context: `codex-consult: reviewers - openai available \| ZAI available \| mimo unavailable (missing: env MIMO_API_KEY not set); roster -> would select openai` — the same local check as `codex-providers.ps1` (credentials, table usability, endpoint health from THIS repository's ledgers, the roster walk); `codex-consult: codex CLI not found on PATH - follow the setup-providers skill ...` when Codex is missing. No network call (it runs `codex-providers.ps1 -Json -NoNetwork`: an `agy` engine row reads `gemini not checked (launcher present)` - or `gemini available` when THIS repository's ledgers hold a usable agy reply from the last 60 minutes - and a missing launcher `gemini unavailable (agy CLI not found on PATH)`; a `muse` row runs its local sign-in check - `meta available` when `~/.config/muse/auth.json` holds the Meta sign-in), nothing written, exit code always 0, about one second (`codex login status`), timeout 30 s; `pwsh` when present, else `powershell`. Disable it with the plugin (`/plugin disable codex-consult`) — hooks have no per-plugin switch |
 | evals `evals/` (`claude plugin eval <plugin dir> --ablation none --allow-tools Bash` — the `--allow-tools Bash` operator grant is REQUIRED for the two cases that run the bridge; they are silently downgraded without it) | the install test: two cases a fresh agent must pass with only this plugin loaded — `dry-run-consultation` (reach the bridge through the `consult-codex` skill, run `-DryRun` for task `eval-smoke`, report the fixed first line, the preflight and reviewer lines, write nothing) and `providers-listing` (use `codex-providers.ps1`, one verdict per provider, no invented verdict). Graders: `tool_used`, `regex` on the trace, `file_exists: false`, an `llm` rubric. A machine with no usable reviewer still passes when reported honestly. The third case `command-plan` (tag `readonly`) needs no shell grant and runs everywhere: the agent must produce the exact dry-run command and the files a real run writes, from the skill, without executing anything. Shell-granted cases need a sandbox backend: Linux/macOS have one; on Windows the eval runner refuses to run a shell tool unconfined (`sandbox required but unavailable`), so there run `--case command-plan` only. Results land in `evals/results/` (ignored by git) |
 
 Per-provider alias skills a user may keep in `~/.claude/skills/` (say, one that maps "ask
@@ -450,9 +451,9 @@ This is the only place field meanings are listed; other sections refer to them b
 | `consult_id` | a fresh guid per run; also the prompt's last line `Consultation id: <guid>` and the key that verifies a rollout-file thread id |
 | `reviewer.provider` / `reviewer.provider_source` | the provider that answered; how it was decided: `-Provider`, `config`, `codex default`, `roster`, `-Thread` or `unknown` |
 | `reviewer.model` / `reviewer.model_source` | the model that answered (`unknown` when unresolvable); `-Model`, `config`, `roster`, `-Thread` or `unknown` |
-| `reviewer.engine` | (0.4.0) the CLI that carried the run: `codex` or `agy` (see "Engines"); an entry without it is `codex`. A thread never mixes engines |
-| `reviewer.harness` | `codex-cli <version>` (`agy-cli <version>` or `agy-cli (version unknown)` for agy); audit only, never compared |
-| `reviewer.provider_fingerprint` / `reviewer.provider_config` | SHA-256 of the canonical endpoint (`""` when identity is unresolved); `{base_url, wire_api}` of the table (no `wire_api` key when the table has none), or `{builtin: "openai"}`; for the agy engine SHA-256 of `cc-engine-v1\|agy` and `{engine, launcher}` |
+| `reviewer.engine` | (0.4.0) the CLI that carried the run: `codex`, `agy` or (wave 23) `muse` (see "Engines"); an entry without it is `codex`. A thread never mixes engines |
+| `reviewer.harness` | `codex-cli <version>` (`agy-cli <version>` or `agy-cli (version unknown)` for agy; `muse-cli <version>` for muse, from `.muse-version` next to the launcher, else `muse --version`); audit only, never compared |
+| `reviewer.provider_fingerprint` / `reviewer.provider_config` | SHA-256 of the canonical endpoint (`""` when identity is unresolved); `{base_url, wire_api}` of the table (no `wire_api` key when the table has none), or `{builtin: "openai"}`; for the agy engine SHA-256 of `cc-engine-v1\|agy` and `{engine, launcher}`; for the muse engine SHA-256 of `cc-engine-v1\|muse` and `{engine, launcher, credential_mechanism}` (the sign-in's `providers.meta.mechanism`, e.g. `oauth`; `null` when it cannot be read) |
 | `reviewer.identity_note` | why identity is unresolved, or how it was derived (e.g. a user-defined `[model_providers.openai]` table); `""` otherwise |
 | `lineage` | `<provider> :: <model>`, display only; matching never compares this string |
 | `preflight` | `ok: <credential detail>` or `skipped` (`-SkipPreflight`); any other verdict refuses the run |
@@ -466,15 +467,15 @@ This is the only place field meanings are listed; other sections refer to them b
 | `brief` / `prompt_chars` | the brief path (`""` without one); the prompt length |
 | `reply` / `reply_json` / `events` | handoff paths relative to the task directory (`reply_json` is `""` for plain-text runs) |
 | `model` / `effort` | kept for 0.2 readers and `-Stats`: the resolved model; `effort` equals `effort_sent` |
-| `effort_requested` / `effort_sent` / `effort_mapping` / `effort_caps` / `effort_confirmed` | the preset, `-Effort` or `-NativeEffort` value; the value put into argv (`null` for agy: the tier is part of the model id); `openai`, `zai-v1`, `mimo-v1`, `model-tier` (agy) or `native`; the capability-table version (`caps-v1`); always `null` (Codex does not report the effort it used) |
-| `max_words` / `sandbox` | the resolved word cap; `read-only` or `workspace-write` (agy: `read-only (requested; enforced by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules or files outside the repository; agy --sandbox restricts the terminal only)`) |
+| `effort_requested` / `effort_sent` / `effort_mapping` / `effort_caps` / `effort_confirmed` | the preset, `-Effort` or `-NativeEffort` value; the value put into argv (`null` for agy: the tier is part of the model id); `openai`, `zai-v1`, `mimo-v1`, `model-tier` (agy), `muse-v1` (muse) or `native`; the capability-table version (`caps-v1`); always `null` (Codex does not report the effort it used) |
+| `max_words` / `sandbox` | the resolved word cap; `read-only` or `workspace-write` (agy: `read-only (requested; enforced by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules or files outside the repository; agy --sandbox restricts the terminal only)`; muse: `read-only (requested; muse --disable-write --disable-shell --disable-web-tools --approval-mode never; checked by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules, files outside the repository or what the reviewer reads)`) |
 | `extra_config` / `extra_config_source` | the `-CodexConfig` or roster `codex_config` items as sent (expanded); `""` (none), `-CodexConfig` or `roster` |
 | `peak` / `peak_schedule` / `peak_source` / `peak_evaluated_at` | `true`, `false` or `null` (no schedule) at launch; the schedule; `env`, `env (CODEX_CONSULT_NOW)` or `none`; when that decisive check ran |
 | `structured` / `schema` | whether a valid structured reply was ingested; `consult-reply v1`, or `""` for `-Raw` |
-| `schema_transport` / `schema_transport_source` | `output-schema`, `prompt-only` or `native` (agy: `--json-schema`); `caps-v1` or `-SchemaTransport` (`""` for plain-text runs) |
+| `schema_transport` / `schema_transport_source` | `output-schema`, `prompt-only` or `native` (agy: `--json-schema`; muse: `--output-schema`); `caps-v1` or `-SchemaTransport` (`""` for plain-text runs) |
 | `validation_error` | `""`, or every validation message joined with `; `, plus a format-repair note |
-| `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events}` - `events` (0.4.0) the repair turn's event stream, handoffs-relative, when one is kept (agy: `handoffs/NN-agy-<slug>.repair.events.jsonl`), else `null` (codex: its repair stream is a temp file) |
-| `denial_retry` | (0.4.0, agy) `null` (not attempted), else `{attempted, reason, succeeded, thread, wall_seconds, usage, events}`: the one extra turn after a run that produced nothing because a tool was auto-denied (see "Engines"); `events` = that turn's event stream (`handoffs/NN-agy-<slug>.denial-retry.events.jsonl`, `null` when no turn ran) |
+| `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events}` - `events` (0.4.0) the repair turn's event stream, handoffs-relative, when one is kept (agy: `handoffs/NN-agy-<slug>.repair.events.jsonl`; muse: `handoffs/NN-muse-<slug>.repair.events.jsonl`), else `null` (codex: its repair stream is a temp file) |
+| `denial_retry` | (0.4.0, agy; always `null` for muse, which has no denial retry) `null` (not attempted), else `{attempted, reason, succeeded, thread, wall_seconds, usage, events}`: the one extra turn after a run that produced nothing because a tool was auto-denied (see "Engines"); `events` = that turn's event stream (`handoffs/NN-agy-<slug>.denial-retry.events.jsonl`, `null` when no turn ran) |
 | `base_commit` … `fingerprint_note` | revision binding: see "Binding a review to a revision" |
 | `artifacts` / `artifacts_changed_during_review` | `[{path, sha256, sha256_after}]` per `-Artifact`; whether any changed during the run |
 | `bridge_outcome` | `usable reply` or `failed: <why>`: only whether the bridge worked |
@@ -484,7 +485,8 @@ This is the only place field meanings are listed; other sections refer to them b
 | `findings` / `finding_ids` | severity counts of the new findings; their ids |
 | `prior_findings` | the reviewer's reports on earlier ids: `{id, status}` with `fixed`, `still-open`, `not-checked` or `unknown-id` |
 | `unchecked_prior_blockers` | open prior blockers the reviewer did not check while answering `ACCEPT` |
-| `usage` / `wall_seconds` | token counts from the event stream (agy: `cache_read_tokens` -> `cached_input_tokens`, `thinking_tokens` -> `reasoning_output_tokens`, plus `total_tokens`); wall time |
+| `usage` / `wall_seconds` | token counts from the event stream (agy: `cache_read_tokens` -> `cached_input_tokens`, `thinking_tokens` -> `reasoning_output_tokens`, plus `total_tokens`; muse: `null` - its records carry no usage); wall time |
+| `engine_run` | (wave 23) `null` for codex; for an engine `{turns, max_model_steps, msp_schema_version}`: the engine turns started (the main turn, a denial retry, a format repair - each muse turn spends one Muse Code subscription prompt), `-MaxModelSteps` as sent (`null` when not), the MSP `schema_version` of a muse stream (`null` for agy); right after `usage` |
 | `finished_at` | (0.4.x wave 21) when the entry was committed (`when` is the reviewer's start). The endpoint health's "newest wins" orders by it (older entries: `when` + `wall_seconds`), ties by `n` - a panel's members finish in any order |
 | `commit_wait_ms` | (0.4.x wave 21) how long the commit waited for the write lock because another commit of the task held it (`0`: it was free); the console says `write lock : waited N ms for another commit of this task` when it waited |
 
@@ -919,7 +921,9 @@ empty, `thread_source = "unknown"`, and the newest candidate is kept as
 Before anything is locked or started, the bridge checks the resolved provider locally
 (the same check as `codex-providers.ps1`; no network call for a codex provider - an agy
 engine's sign-in check is one `agy models` call, or none after a usable agy reply within
-the last 60 minutes, see "Engines") and fails CLOSED:
+the last 60 minutes; a muse engine's reads `~/.config/muse/auth.json` locally, see "Engines")
+and fails CLOSED. An engine's launch invariant is NOT part of it (muse: an API key in the
+environment refuses the run with and without `-SkipPreflight`):
 
 | Check | Refusal |
 |---|---|
@@ -1021,8 +1025,15 @@ hold a usable agy reply from the last 60 minutes - also with `-NoNetwork`; other
 `-NoNetwork` `not checked (launcher present; run codex-providers.ps1)` and the verdict
 `unknown (sign-in not checked)`), `EFFORT` `agy (tier in the model id)`, transport
 `native`; health, `LAST FAILURE` and the roster columns as for any provider (health is
-keyed by the engine's fingerprint, shared by every agy label). `-Json` returns objects with
-`name`, `engine` (`codex` or `agy`), `kind`, `endpoint`, `wire_api`, `table`
+keyed by the engine's fingerprint, shared by every agy label). A `"engine": "muse"` label
+(wave 23) gets the same kind of row: `KIND` `engine muse`, `ENDPOINT` `muse (<launcher>)`,
+`CREDENTIALS` from the local sign-in check (`ok: signed in (~/.config/muse/auth.json:
+providers.meta, mechanism oauth)`, `missing: not signed in: ...`, `unknown: sign-in not
+checkable: ...` - also with `-NoNetwork`, it starts nothing), `EFFORT` `muse (2 declared
+models)`, and the verdict `unavailable (refused: META_API_KEY is set: ...)` while the billing
+guard would refuse it. `-EngineExe` binds to the `-Provider` row's engine, else to the only
+engine other than codex in the roster. `-Json` returns objects with
+`name`, `engine` (`codex`, `agy` or `muse`), `kind`, `endpoint`, `wire_api`, `table`
 (`built in`/`usable`/`unusable: <reason>`), `credentials`, `effort_vocabulary`,
 `effort_models`, `schema_transport`, `last_limit` (the newest quota failure),
 `last_failure` (`{class, code, when, message, retry_after}`), `roster_position` (first
@@ -1047,6 +1058,8 @@ ships (`caps-v1`, ledger `effort_caps`), never inferred from a host or model pre
 | `ark.ap-southeast.bytepluses.com` (BytePlus ModelArk Coding Plan, base URL `/api/coding/v3`) | `low\|medium\|high` | `dola-seed-2.0-pro`, `dola-seed-2.0-lite`, `dola-seed-2.0-code`, `bytedance-seed-code`, `glm-5.3-flash`, `glm-5.2`, `glm-5.1`, `kimi-k2.5`, `gpt-oss-120b`, `deepseek-v4.1-flash`, `deepseek-v4-flash`, `deepseek-v4-pro` (12, exact) | `xhigh`→`high`, the rest as is (`ark-v1`) | `prompt-only` |
 | `api.kimi.ai` (Kimi Code membership, base URL `/coding/v1`) | `low\|high\|max` | `k3`, `k3-256k`, `kimi-for-coding`, `kimi-for-coding-highspeed` (4, exact; the tier decides which the plan unlocks) | `medium`→`high`, `xhigh`→`max`, `low`/`high` as is (`kimi-v1`) | `prompt-only` |
 | `token-plan.ap-southeast-1.maas.aliyuncs.com` (Alibaba Model Studio Token Plan, base URL `/compatible-mode/v1`) | `low\|medium\|high\|xhigh` | `qwen3.8-max`, `qwen3.8-flash`, `qwen3.7-max`, `qwen3.7-plus`, `qwen3.6-flash`, `deepseek-v4.1-flash`, `deepseek-v4-pro`, `deepseek-v4-pro-0813`, `deepseek-v4-flash-0731`, `glm-5.3`, `glm-5.2` (11, exact; the plan's `auto` router is not declared) | all four as is (`alibaba-v1`) | `prompt-only` |
+| `engine:agy` (the agy engine) | none: the tier is part of the model id | any model | nothing sent (`model-tier`) | `native` (`--json-schema`) |
+| `engine:muse` (the muse engine, wave 23) | `low\|medium\|high\|xhigh` (`--reasoning-effort`; the CLI also takes none, minimal, max, ultra) | `muse-spark-1.3`, `muse-spark-1.3-contributor` (2, exact: the live-verified subscription models) | all four as is (`muse-v1`) | `native` (`--output-schema`) |
 | any other host | none (needs `-NativeEffort`) | — | — | `prompt-only` (safe default) |
 
 Anything undeclared (another model on a known host, any model on an unknown host, an
@@ -1059,8 +1072,9 @@ glm-4.5, glm-4.5-air, glm-4.6, glm-4.7, glm-5, glm-5-turbo, glm-5.1, glm-5.2, gl
 glm-5.3-flash, glm-5.3-flashx); pass -NativeEffort <value> to send a value verbatim
 ```
 
-`-NativeEffort <value>` (a plain token) is sent as `-c model_reasoning_effort="<value>"`
-verbatim, mapping `native`. `-Effort` and `-NativeEffort` exclude each other. The console
+A caps row whose vocabulary the bridge does not declare is a plan error (a bridge defect),
+never an empty mapping. `-NativeEffort <value>` (a plain token) is sent as `-c model_reasoning_effort="<value>"`
+verbatim (agy: `--effort <value>`, muse: `--reasoning-effort <value>`), mapping `native`. `-Effort` and `-NativeEffort` exclude each other. The console
 shows the triple in one line, e.g.
 `effort      : max sent (requested xhigh, mapping zai-v1, by host api.z.ai)`.
 
@@ -1131,7 +1145,7 @@ a fabricated one is `examples/codex-consult-roster.json`.
 | `reviewers[].codex_config` | optional array of `key=value` strings, `-CodexConfig` rules |
 | `reviewers[].auth` | optional `"none"`: the endpoint needs no credential, so a table with no `env_key` and no bearer token passes the check. No effect on a table that names an `env_key`, nor on `openai`/`requires_openai_auth` providers (always `codex login status`) |
 | `reviewers[].panel` | `"always"` (default) or `"weighty"`: joins a `-Panel` run only on `framing`, `decision`, `core-contract`, `acceptance` and `stuck`, or under `-PanelAll` |
-| `reviewers[].engine` | (0.4.0) `"codex"` (default) or `"agy"`: the CLI that carries it (see "Engines"). For `agy`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster |
+| `reviewers[].engine` | (0.4.0) `"codex"` (default), `"agy"` or (wave 23) `"muse"`: the CLI that carries it (see "Engines"). For `agy` and `muse`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster |
 | `parallel` | (0.4.x wave 21) optional top-level object `{"<provider label>": <n>}`: a `-Panel` runs the members of one endpoint one after another; n >= 1 lets n members of that label run at once (see "The panel"). Every key must be a label the roster uses, every value an integer >= 1 |
 
 An unusable roster (an unknown key, `roster_version` other than 1, an empty or non-array
@@ -1162,8 +1176,10 @@ every run, `-DryRun` included, naming the path**; an existing roster is never ig
 complete, independent consultation: its own preflight, recovery record, parent thread (the
 newest of its own lineage, or a new one; `-Mode new` starts fresh threads for all; an agy
 member starts a new conversation), consultation id, reply file
-`handoffs/<NN>-<engine>-<ReplyName>-<provider lowercased>.md` (`codex` or `agy`) and ledger
-entry (`panel`). A roster may mix engines; `-Panel -Engine agy` runs only the agy entries.
+`handoffs/<NN>-<engine>-<ReplyName>-<provider lowercased>.md` (`codex`, `agy` or `muse`) and
+ledger entry (`panel`). A roster may mix engines; `-Panel -Engine agy` runs only the agy
+entries. `-MaxModelSteps` travels in the panel spec to the muse members (refused when the
+panel has none); a muse member whose billing guard refuses is skipped (`refused: ...`).
 Every member sees the findings that were open when the panel started, not a later
 member's answer; a later panel on the same task does see this panel's findings (members are
 not blind across waves). `-PanelAll` includes `weighty` entries whatever the purpose.
@@ -1399,6 +1415,136 @@ by the recorded launcher's name as well as by the launcher in a command line.
 lineage as `gemini :: gemini-3.8-flash-high [agy]`; the panel summary and the roster lines
 do too.
 
+**A change forces class `permission` (wave 23).** For agy and muse alike, a change the tree
+check detects fails the run as class `permission` even when the run had ALREADY failed for
+another reason: that reason stays the provider failure's message and the outcome adds `;
+also: <the change>` (before wave 23 an already failed run kept its first class).
+
+## Engines (wave 23): Meta's Muse Code CLI (`muse`)
+
+`muse` drives Meta's Muse Code CLI headless for the **Muse Code subscription** (the Everyday
+plan: 10-50 prompts per 5 hours). The subscription works only through Meta's own CLI signed
+in by browser; an API key bills per token instead - so, as with `agy` for Gemini, the bridge
+drives the vendor's CLI. Everything the engines share (ledger, handoffs, findings, ratings,
+the panel, the scoreboards, the preflight, the lock, the recovery record, the tree check) is
+as described for agy above; what differs:
+
+**Choosing it.** A roster entry `{ "provider": "meta", "engine": "muse", "model":
+"muse-spark-1.3" }`, or `-Engine muse -Model muse-spark-1.3` (the label defaults to `meta`).
+caps-v1 declares the two live-verified subscription models: `muse-spark-1.3-contributor` (the
+CLI's default; Meta may train on its inputs) and `muse-spark-1.3` - which one a roster uses
+is the installing USER's decision (the `setup-providers` skill asks). Another model (the docs
+also list the 1.2 pair and 1.1) needs `-NativeEffort <value>`.
+
+**The invocation.** From the repository root: `muse exec --json --prompt-file <P>
+[--output-schema <plugin>/schemas/consult-reply.schema.json] --model <m> [--reasoning-effort
+<e>] --no-foreign-personal-context --disable-web-tools --disable-write --disable-shell
+--approval-mode never [--max-model-steps <n>] [--session-id <thread>]`. The prompt is written
+to the turn's OWN prompt file (UTF-8, no BOM) and named by `--prompt-file`; stdin stays
+empty. Every turn - the main turn and a format repair - builds its argv from one turn-options
+object through the engine's adapter and parses its stream through the engine's own parser
+and failure rules (wave 23 routes agy's denial retry and format repair through its adapter
+the same way). Effort: vocabulary `muse` (mapping `muse-v1`: `low`, `medium`, `high`, `xhigh`
+as is) sent as `--reasoning-effort`; the repair turn sends `low`. `-MaxModelSteps <n>` sends
+`--max-model-steps <n>` (muse only; without it the CLI's own default applies; the bridge's
+`-TimeoutSec` stays the outer bound; a `-Panel` passes it to its muse members). The prompt's
+tools line: `Tools: you may read files of the repository (read_file); writing files, the shell
+and the web tools are disabled in this consultation (--disable-write --disable-shell
+--disable-web-tools) - do not try them; make NO file changes; a check that needs a command
+belongs under ## Requested checks.`
+
+**The launcher.** `-EngineExe <path>` (it names the launcher of the SELECTED engine other
+than codex: `-Engine`'s, else the `-Provider`'s roster entry's, else the only such engine of
+the roster - two such engines without `-Engine` are refused as ambiguous;
+`codex-providers.ps1 -EngineExe` binds the same way), then `CODEX_CONSULT_MUSE_EXE`, then
+`muse.cmd` / `muse.exe` / `muse` on PATH, then the vendor's install location
+`%LOCALAPPDATA%\Programs\muse\muse.cmd` on Windows (the installer adds that directory to the
+USER Path, which a bridge started before the install does not see). `muse.cmd` runs a
+PowerShell launcher that runs the versioned binary (and may update it). cmd.exe expands
+`%VAR%` even inside quotes, so a turn whose arguments contain `%` (a `TEMP` path) through a
+`.cmd` launcher is refused before launch - set `TEMP`/`TMP` elsewhere or point `-EngineExe`
+at the `.exe`. `reviewer.harness` is `muse-cli <version>` from `.muse-version` next to the
+launcher (else `.muse-release-info.json`'s `version`, else `muse --version`, which spends no
+prompt); an unseen version is recorded, never refused.
+
+**Billing is a launch invariant.** A muse run is REFUSED - nothing started, no ledger entry -
+while `META_API_KEY` or `MODEL_API_KEY` is set in the bridge's environment: `the muse engine
+is refused: META_API_KEY is set: a muse run would bill per token instead of the Muse Code
+subscription; unset it (the muse process would inherit it)`; and while the sign-in's
+`providers.meta.mechanism` is anything but `oauth`. It is not a preflight check:
+`-SkipPreflight` never bypasses it; a roster walk and `-Panel` skip the entry (`refused:
+...`) with and without `-SkipPreflight`; it is checked again right before every launch;
+`codex-providers.ps1` shows the row as `unavailable (refused: ...)`. Only variable names are
+ever shown, never a value. There is no roster opt-out for per-token billing. Ledger
+`reviewer.provider_config.credential_mechanism` records the mechanism (an enum, never a
+secret; `null` when it cannot be read).
+
+**Sign-in (preflight).** `muse login` shows a device code the USER approves in the browser
+(the bridge never handles it). On Windows the keychain write fails, so the file backend is
+required: the USER sets the user variable `TBH_CREDENTIAL_BACKEND=file` before `muse login`,
+and the credential lives in `~/.config/muse/auth.json`. The preflight reads that file for the
+presence of `providers.meta` and its `mechanism` only - the parsed object is never logged or
+written, a parse error is reported without its text, nothing is started (so the check also
+runs under `-NoNetwork` and in the SessionStart hook): `ok: signed in
+(~/.config/muse/auth.json: providers.meta, mechanism oauth)`; no file or no `providers.meta`
+-> `missing` (refused: run `muse login`); another backend (the keychain) or no mechanism ->
+`unknown: sign-in not checkable ...` (refused unless `-SkipPreflight`). The file shows the
+shape of a sign-in, not that it is still valid: an expired sign-in shows as a failed run. The
+ledger short-circuit (a usable reply on the endpoint within 60 minutes) and the endpoint
+health apply as for agy. One Meta sign-in is one endpoint: every muse label shares the
+fingerprint `cc-engine-v1|muse`, so a usage limit hit by one muse entry blocks all of them
+until its reset.
+
+**The reply.** stdout (`handoffs/NN-muse-<slug>.events.jsonl`) is MSP JSONL - every record
+`{schema_version, id, stream{kind, id}, sequence, record_type, payload_type, payload, ...}`.
+The reply is the `text` of the ONE `run_terminal` record (`run.terminal.completed`),
+extracted atomically to `handoffs/NN-muse-<slug>.reply.json` before any validation; with
+`--output-schema` it is the JSON object (validated locally too), without it (`-SchemaTransport
+prompt-only`) the prose goes through the prose gate and the format repair (at most one turn,
+`--session-id <thread>`, `--output-schema`, its own prompt file; never after a failed run).
+The thread is the ONE session stream id (`stream.kind` `session`). The records carry no token
+usage (ledger `usage` `null`); ledger `engine_run {turns, max_model_steps,
+msp_schema_version}` counts the turns started - each one spends a subscription prompt.
+
+**A run FAILS** (nothing ingested; the reply kept and named when there is one) on: exit 2
+(`muse exit 2 (usage error) - <the error line>`, class `capability`); exit 130 or 143
+(`stopped by a signal`, class `transport`; the bridge's own timeout kill reads `timeout after
+<n> s`); any other non-zero exit, with the terminal's reason as the message - a reason that
+names the step cap is `max model steps reached` (class `capability`), anything else goes
+VERBATIM through the shared classifier (a usage-limit wording is class `quota`, with
+`retry_after` when it names a reset; Meta's own wording is not known yet); a malformed stream
+(class `transport`): a line that does not parse (the last one may be partial only after a
+kill or a non-zero exit), a record whose `schema_version` is not `1` (`unsupported MSP version
+<n>` - fail closed), two session streams, two `run_terminal` records, a `run_terminal` off the
+session stream; no `run_terminal` record; no session; on resume or repair a session other than
+the requested one (`parent session <p> not found, muse started <s>`, class `unknown` - the new
+session is never a parent); a terminal other than `completed`; a session id that is not a
+uuid; `run.model.configured` naming another model than the one asked (`model drift: asked X,
+served Y`, class `capability`) or none. A resume whose CLI silently started a fresh session
+under the requested id cannot be told apart from a real resume (the stream would echo the id).
+
+**Mode and refusals.** `new` by default; `-Mode resume` or `-Thread <uuid>` sends
+`--session-id <thread>`; `-Mode fork`, `-Sandbox workspace-write`, `-CodexConfig` and
+`-SchemaTransport output-schema` are refused. There is no denial retry: the write, shell and
+web tools are off, so nothing is auto-denied (ledger `denial_retry` `null`).
+
+**Read-only: flags plus evidence.** Muse runs with `--disable-write --disable-shell
+--disable-web-tools --approval-mode never`, and the bridge runs the agy tree check (the
+working tree's tracked and untracked files, the WHOLE collab directory, the brief, the
+artifacts): a change fails the run as class `permission` - `... - muse ran with
+--disable-write --disable-shell (the check cannot tell who changed it)`. The boundary is
+agy's: read-only is **enforced by evidence for tracked and untracked files and the collab
+directory; not for gitignored paths, submodules or files outside the repository** - and not
+for reads: the native `read_file` tool is not confined to the repository, so the bridge does
+not keep a file outside it from being read. Ledger `sandbox`: `read-only (requested; muse
+--disable-write --disable-shell --disable-web-tools --approval-mode never; checked by evidence
+for tracked and untracked files and the collab directory, not for gitignored paths,
+submodules, files outside the repository or what the reviewer reads)`.
+
+**Listings.** `codex-providers.ps1` shows one row per muse label (`KIND` `engine muse`,
+`ENDPOINT` `muse (<launcher>)`, `EFFORT` `muse (2 declared models)`, transport `native`); the
+scoreboards and the panel summary show `meta :: muse-spark-1.3 [muse]`.
+
 ---
 
 ## Usefulness telemetry: codex-scoreboard.ps1
@@ -1456,7 +1602,7 @@ nor writes it.
 | `-Task <id>` | *required* | slug; groups one conversation under `<CollabDir>/<id>/` |
 | `-Brief <path>` / `-Prompt <text>` | — | at least one; the brief must exist (resolved against the current directory, then the repo root) |
 | `-Purpose <purpose>` | *(none)* | prompt paragraph, preset effort and word cap: "Review purposes" |
-| `-Mode new\|fork\|resume` | `fork` when a thread of this run's lineage is known, else `new` (agy: `new`; `resume` with `-Thread`) | `fork` branches, `resume` appends; agy has no `fork` |
+| `-Mode new\|fork\|resume` | `fork` when a thread of this run's lineage is known, else `new` (agy, muse: `new`; `resume` with `-Thread`) | `fork` branches, `resume` appends; agy and muse have no `fork` |
 | `-Thread <uuid>` | the newest verified thread of this lineage in this task | needs `fork`/`resume`; must belong to this lineage |
 | `-Provider <name>` | first available roster entry; without a roster, the config's `model_provider`, else `openai` | case-sensitive table name; needs `-Model` unless its roster entry names one |
 | `-Model <name>` | the roster entry's model, else the config's top-level `model` | the resolved model is always passed as `-m`; without `-Provider` it restricts the roster walk |
@@ -1464,12 +1610,12 @@ nor writes it.
 | `-NativeEffort <token>` | — | sent verbatim; excludes `-Effort`; required where caps-v1 declares nothing |
 | `-MaxWords <n>` | the purpose preset (`700` without one) | prose only |
 | `-Sandbox read-only\|workspace-write` | `read-only` | `danger-full-access` is refused, with no flag to force it |
-| `-TimeoutSec <n>` | `900` | the codex (agy) process TREE is killed past it |
-| `-ReplyName <slug>` | `reply` | names `handoffs/<NN>-codex-<slug>.*` (`<NN>-agy-<slug>.*` for the agy engine) |
+| `-TimeoutSec <n>` | `900` | the codex (agy, muse) process TREE is killed past it |
+| `-ReplyName <slug>` | `reply` | names `handoffs/<NN>-codex-<slug>.*` (`<NN>-agy-<slug>.*`, `<NN>-muse-<slug>.*` for the engines) |
 | `-Artifact <path>[,<path>…]` | — | one comma-separated string; hashes built artifacts into the ledger; a missing path refuses the run |
 | `-Raw` | off | 0.1-style plain-text reply: no schema, no findings, no format repair |
 | `-FormatRetry 0\|1` | `1` | one recorded repair turn for a substantive prose reply; any other value refuses |
-| `-SchemaTransport output-schema\|prompt-only\|native` | caps-v1's declared transport | one run only; not with `-Raw`; `native` (agy's `--json-schema`) only for agy, `output-schema` only for codex |
+| `-SchemaTransport output-schema\|prompt-only\|native` | caps-v1's declared transport | one run only; not with `-Raw`; `native` (agy's `--json-schema`, muse's `--output-schema`) only for agy and muse, `output-schema` only for codex |
 | `-CodexConfig key=value[,…]` | — (roster `codex_config` when empty) | one comma-separated string; refused keys: "Per-run Codex overrides (-CodexConfig)" |
 | `-OffPeakOnly` | off | refuses at peak and when no schedule is set |
 | `-SkipPreflight` | off | bypasses every preflight refusal; ledger `preflight: "skipped"` |
@@ -1477,9 +1623,10 @@ nor writes it.
 | `-PanelConcurrency <n>` | `0` | `-Panel` only: at most n members at a time on top of the per-endpoint plan; `0` no cap, `1` strictly one after another |
 | `-CollabDir <path>` | `.collab` | relative to the git repo root |
 | `-CodexExe <path>` | the launcher on PATH | env override `CODEX_CONSULT_EXE` |
-| `-Engine codex\|agy` | the roster entry's engine (the thread's with `-Thread`), else `codex` | "Engines"; with a roster and no `-Provider`/`-Thread` it restricts the walk (and `-Panel`) to that engine |
-| `-EngineExe <path>` | `agy.exe` on PATH | the agy launcher; env override `CODEX_CONSULT_AGY_EXE` |
-| `-DenialRetry 0\|1` | `1` | agy: one more turn on the same conversation after a run that produced nothing because a tool was auto-denied; ledger `denial_retry` |
+| `-Engine codex\|agy\|muse` | the roster entry's engine (the thread's with `-Thread`), else `codex` | "Engines"; with a roster and no `-Provider`/`-Thread` it restricts the walk (and `-Panel`) to that engine |
+| `-EngineExe <path>` | the engine's launcher on PATH (muse: then `%LOCALAPPDATA%\Programs\muse\muse.cmd`) | the launcher of the SELECTED engine other than codex: `-Engine`'s, else the `-Provider`'s roster entry's, else the only such engine of the roster (several: refused - pass `-Engine`); env overrides `CODEX_CONSULT_AGY_EXE`, `CODEX_CONSULT_MUSE_EXE` |
+| `-MaxModelSteps <n>` | not sent (the CLI's default) | muse only (wave 23): `--max-model-steps <n>`; refused with another engine; passed to a panel's muse members; ledger `engine_run.max_model_steps` |
+| `-DenialRetry 0\|1` | `1` | agy: one more turn on the same conversation after a run that produced nothing because a tool was auto-denied; ledger `denial_retry` (muse has none) |
 | `-DryRun` | off | prints the plan (argv, prompt, paths, preflight, roster pick, ledger entry); calls nothing, writes nothing |
 
 Environment variables:
@@ -1493,6 +1640,9 @@ Environment variables:
 | `CODEX_CONSULT_PEAK_<PROVIDER>`, `CODEX_CONSULT_PEAK_<PROVIDER>_EXCEPT` | user | peak windows |
 | `CODEX_CONSULT_EXE` | user | codex launcher path |
 | `CODEX_CONSULT_AGY_EXE` | user | agy launcher path (the `agy` engine) |
+| `CODEX_CONSULT_MUSE_EXE` | user | muse launcher path (the `muse` engine) |
+| `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the preflight can check; required on Windows; passed to muse unchanged |
+| `META_API_KEY`, `MODEL_API_KEY` | nobody, for the bridge | must NOT be set: a muse run is refused while either is (it would bill per token instead of the subscription) |
 | `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS` | tests only | test hooks; never set them in normal use |
 
 ---
@@ -1588,14 +1738,15 @@ anything not listed, rerun with `-DryRun` and compare the argv.
   usefulness telemetry) in 0.3.0. Per-item status lines: [ROADMAP.md](ROADMAP.md),
   [TECH_DEBT.md](TECH_DEBT.md).
 - 0.4.0 (candidate): R10 **engines**, first row `agy` (Google's Antigravity CLI for the
-  Gemini models, native structured output) - see "Engines". Next: the `claude` engine
+  Gemini models, native structured output), wave 23 the `muse` row (Meta's Muse Code CLI for
+  the Muse Code subscription) - see "Engines". Next: the `claude` engine
   (Claude Code headless, `claude -p --json-schema`) as the second row of the same table,
   R11 (a parallel panel) and the rest of R9 (corroboration/contradiction links `-Link`,
   blind baseline isolation across waves, canonical issues, grouped stats).
 - Open tech debt: T5 (a credential rotated inside the 24-hour auth window still needs
   `-SkipPreflight` once), T6 (a legacy entry without `retry_after` can be off by a time-zone
-  difference), T7 (an agy lineage binds engine + label + model, not the signed-in Google
-  account), T8 (agy's read-only rule is enforced by evidence: gitignored paths, submodules
+  difference), T7 (an agy or muse lineage binds engine + label + model, not the signed-in
+  Google or Meta account), T8 (agy's read-only rule is enforced by evidence: gitignored paths, submodules
   and files outside the repository are not seen, and a change cannot be attributed).
 - Help wanted: runs on macOS; a bash port; a `UserPromptSubmit` hook injector; the reverse
   direction (a Codex-side tool that consults Claude); an MCP server variant with
@@ -1605,8 +1756,11 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 
 ## Tests
 
-`tests/run-all.ps1` runs the nine harnesses one at a time against a FAKE `codex` shim (and
-a FAKE `agy` for `harness-engines` and `harness-panel`): no real `codex` or `agy`, no quota spent, your own `~/.codex/config.toml` never changed (`harness-0.3`
+`tests/run-all.ps1` runs the ten harnesses one at a time against a FAKE `codex` shim (and
+a FAKE `agy` for `harness-engines` and `harness-panel`, a FAKE `muse` for `harness-muse`): no
+real `codex`, `agy` or `muse`, no quota spent, no real credential read (`harness-muse` gives
+every child a scratch home with a fake `auth.json`, a scratch `LOCALAPPDATA` and a PATH
+without a muse launcher, and refuses to run when a real muse would still resolve), your own `~/.codex/config.toml` never changed (`harness-0.3`
 points `CODEX_HOME` at scratch directories and compares your config's hash before and
 after; every harness sets `CODEX_CONSULT_ROSTER` to a scratch file or `none`). The fake
 codex is a `.cmd` shim, so the suite needs Windows and `git` on PATH. Never run two

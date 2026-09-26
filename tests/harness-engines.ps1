@@ -299,7 +299,7 @@ if (Want 'UNIT') {
 if (Want 'ROSTER') {
     $r = New-Repo 'roster'
     $bad = [ordered]@{
-        'unknown'   = @('{"roster_version":1,"reviewers":[{"provider":"gemini","engine":"gemini-cli","model":"m"}]}', 'entry 1: engine must be one of: codex, agy \(got "gemini-cli"\)')
+        'unknown'   = @('{"roster_version":1,"reviewers":[{"provider":"gemini","engine":"gemini-cli","model":"m"}]}', 'entry 1: engine must be one of: codex, agy, muse \(got "gemini-cli"\)')
         'nomodel'   = @('{"roster_version":1,"reviewers":[{"provider":"gemini","engine":"agy"}]}', 'entry 1: engine agy needs a model')
         'cfg'       = @('{"roster_version":1,"reviewers":[{"provider":"gemini","engine":"agy","model":"m","codex_config":["a=b"]}]}', 'entry 1: codex_config does not apply to engine agy')
         'auth'      = @('{"roster_version":1,"reviewers":[{"provider":"gemini","engine":"agy","model":"m","auth":"none"}]}', 'entry 1: auth does not apply to engine agy')
@@ -360,7 +360,7 @@ if (Want 'DRYRUN') {
         if (-not ($o.Code -eq 1 -and $o.First -match $refusals[$k][1])) { $badR += "$k -> $($o.First)" }
     }
     $nat = Consult $r '' @('-DryRun', '-Prompt', 'x', '-SchemaTransport', 'native')
-    if (-not ($nat.Code -eq 1 -and $nat.First -match '^codex-consult: -SchemaTransport native is for the agy engine')) { $badR += "codex native -> $($nat.First)" }
+    if (-not ($nat.Code -eq 1 -and $nat.First -match '^codex-consult: -SchemaTransport native is for the agy and muse engines')) { $badR += "codex native -> $($nat.First)" }
     Check 'DRYRUN' "refused, one message each: $(@($refusals.Keys) -join ', '), and -SchemaTransport native for codex" ($badR.Count -eq 0) ($badR -join ' | ')
     # resume: --conversation <the parent>
     $t0 = Uuid
@@ -392,7 +392,7 @@ if (Want 'RUN') {
     $tl = [IO.File]::ReadAllText($log, $u8)
     Check 'RUN' 'the fake saw the argv: --model, --json-schema, --print-timeout 0, --sandbox, --disable-slash-commands, no --conversation, no --effort' ($tl -match "ARGS: -p= --input-format stream-json --output-format stream-json --model $([regex]::Escape($model)) --json-schema \S+ --print-timeout 0 --sandbox --disable-slash-commands\s*`n" -and $tl -notmatch '--conversation|--effort') (($tl -split "`n")[0])
     Check 'RUN' 'thread = result.conversation_id (uuid), source events; usage mapped (in 13000, cached 4000, out 500, reasoning 120, total 13500); effort null, mapping model-tier; warnings [], denial_retry null' ($e.thread -match $uuidRe -and $e.thread_source -eq 'events' -and $e.usage.input_tokens -eq 13000 -and $e.usage.cached_input_tokens -eq 4000 -and $e.usage.output_tokens -eq 500 -and $e.usage.reasoning_output_tokens -eq 120 -and $e.usage.total_tokens -eq 13500 -and $null -eq $e.effort -and $e.effort_mapping -eq 'model-tier' -and @($e.warnings).Count -eq 0 -and $null -eq $e.denial_retry) ($e.usage | ConvertTo-Json -Compress)
-    $order = 'n,when,purpose,consult_id,reviewer,lineage,preflight,preflight_warning,roster,panel,parent_thread,thread,thread_source,thread_candidate,mode,command,brief,prompt_chars,reply,reply_json,events,model,effort,effort_requested,effort_sent,effort_mapping,effort_caps,effort_confirmed,max_words,sandbox,extra_config,extra_config_source,peak,peak_schedule,peak_source,peak_evaluated_at,structured,schema,schema_transport,schema_transport_source,validation_error,format_retry,denial_retry,base_commit,reviewed_revision,tree_sha256,tree_sha256_after,tree_changed_during_review,changed_files,brief_sha256,brief_sha256_after,brief_changed_during_review,fingerprint_note,artifacts,artifacts_changed_during_review,bridge_outcome,provider_failure,warnings,verdict,verdict_reason,findings,finding_ids,prior_findings,unchecked_prior_blockers,usage,wall_seconds,finished_at,commit_wait_ms'
+    $order = 'n,when,purpose,consult_id,reviewer,lineage,preflight,preflight_warning,roster,panel,parent_thread,thread,thread_source,thread_candidate,mode,command,brief,prompt_chars,reply,reply_json,events,model,effort,effort_requested,effort_sent,effort_mapping,effort_caps,effort_confirmed,max_words,sandbox,extra_config,extra_config_source,peak,peak_schedule,peak_source,peak_evaluated_at,structured,schema,schema_transport,schema_transport_source,validation_error,format_retry,denial_retry,base_commit,reviewed_revision,tree_sha256,tree_sha256_after,tree_changed_during_review,changed_files,brief_sha256,brief_sha256_after,brief_changed_during_review,fingerprint_note,artifacts,artifacts_changed_during_review,bridge_outcome,provider_failure,warnings,verdict,verdict_reason,findings,finding_ids,prior_findings,unchecked_prior_blockers,usage,engine_run,wall_seconds,finished_at,commit_wait_ms'
     Check 'RUN' 'ledger fields in the same order as a codex entry' ((($e.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq $order) ''
     $rj = Td $r $e.reply_json
     $rjText = Text $rj

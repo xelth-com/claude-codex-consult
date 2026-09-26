@@ -221,6 +221,80 @@ amendments A1-A20 and the facts F11/F12).
   BytePlus plan 58 s. qwen3.8-max's own review found the `auto` router and the stale header
   comment (F01-1, F01-2), both fixed in this wave.
 
+- **Wave 23 — the `muse` engine (Meta's Muse Code CLI; R10, the third engine)**, per the design
+  round recorded in `.collab/muse-engine-2026-09-26/` (`handoffs/01` the design and the verified
+  CLI facts, `02`-`04` the reviews by glm-5.3, deepseek-v4.1-flash and dola-seed-2.0-pro,
+  `handoffs/05` the decisions D1-D16). The Muse Code subscription works only through Meta's own
+  CLI signed in by browser, so the bridge drives `muse exec` headless:
+  - **Engine row `muse`** (label `Meta Muse (muse)`, prefix `muse`, command `muse`,
+    `CODEX_CONSULT_MUSE_EXE`, launchers `muse.cmd`/`muse.exe`/`muse`, fingerprint
+    `cc-engine-v1|muse`, default label `meta`, modes new/resume, transports native/prompt-only);
+    the roster accepts `"engine": "muse"` (D13). Argv (D1): `muse exec --json --prompt-file <P>
+    [--output-schema <S>] --model <m> [--reasoning-effort <e>] --no-foreign-personal-context
+    --disable-web-tools --disable-write --disable-shell --approval-mode never [--max-model-steps
+    <n>] [--session-id <thread>]` in the repository root; the prompt in the turn's own prompt
+    file, an empty stdin.
+  - **The adapter contract (D1).** An engine's `Argv` now receives ONE turn-options object
+    (`New-EngineTurnOptions`: Model, Mode, Thread, PromptFile, Schema, Effort, NativeEffort,
+    MaxSteps); every turn - main, denial retry, format repair - writes and passes its own prompt
+    file; agy keeps its NDJSON stdin through the same contract. New optional adapter entries:
+    `Harness`, `IdentityConfig`, `LaunchBlock`.
+  - **MSP parsing and the turn rules (D6, D7):** `Read-MuseEvents` / `Get-MuseTurnOutcome`.
+    Every record's `schema_version` must be 1 (`unsupported MSP version N`, fail closed);
+    exactly one session stream id (UUID) and one `run_terminal` record, on the session stream;
+    `run.model.configured` must name the requested model (`model drift: asked X, served Y`,
+    class capability); on resume and repair the session must be the requested one. Exit 2 ->
+    capability (the `error:` line), 130/143 -> transport, a step-cap reason -> capability
+    (`max model steps reached`), any other failure reason verbatim through the shared
+    classifier (quota wording -> quota with `retry_after`). The two informational stderr lines
+    every `muse exec` prints never become a failure's detail.
+  - **Billing is a launch invariant (D4):** `META_API_KEY` or `MODEL_API_KEY` in the
+    environment, or a credential mechanism other than `oauth`, refuses a muse run - also under
+    `-SkipPreflight`; the roster walk and `-Panel` skip the entry (`refused: ...`), it is
+    checked again right before every launch (the main turn and `Invoke-EngineTurn`), and
+    `codex-providers.ps1` shows the row `unavailable (refused: ...)`. Names only, never a value.
+    Ledger `reviewer.provider_config.credential_mechanism`.
+  - **Sign-in (D5):** with `TBH_CREDENTIAL_BACKEND=file` the preflight reads
+    `~/.config/muse/auth.json` for `providers.meta` and its `mechanism` only (ok / missing /
+    unknown; the keychain backend is "not checkable" and refused unless `-SkipPreflight`); the
+    check is local, so it also runs under `-NoNetwork` (the SessionStart hook).
+  - **Launcher (D3):** `-EngineExe` is bound to the SELECTED engine other than codex (-Engine's,
+    else the -Provider's roster entry's, else the only such engine of the roster; ambiguous or
+    codex -> refused), in `codex-consult.ps1` and `codex-providers.ps1` alike; after PATH the
+    vendor install location `%LOCALAPPDATA%\Programs\muse\muse.cmd` (Windows). A `.cmd`
+    launcher whose arguments contain `%` (cmd.exe would expand it) is refused before launch
+    (F02-14).
+  - **Version (D8):** `reviewer.harness` = `muse-cli <version>` from `.muse-version` next to the
+    launcher, else `.muse-release-info.json`, else `muse --version`; ledger
+    `engine_run.msp_schema_version`.
+  - **`-MaxModelSteps` (D9):** optional, positive, muse only (`--max-model-steps`), carried
+    through the dry run, the panel spec (to the muse members; refused when a panel has none)
+    and the ledger (`engine_run.max_model_steps`).
+  - **caps-v1 (D10):** vocabulary `muse` (mapping `muse-v1`: low, medium, high, xhigh as is) for
+    the live-verified `muse-spark-1.3` and `muse-spark-1.3-contributor`, SchemaTransport
+    `native`; a caps row naming an undeclared vocabulary is now a loud plan error.
+  - **Engine wording from the row (D11):** the prompt's tools line, the transport and
+    reply-source lines of the dry run, the `-Sandbox` refusal, the ledger `sandbox`, the tree
+    check's closing words and the handoff's prompt transport come from the engine row (agy's
+    unchanged).
+  - **No denial retry for muse (D2);** a format repair continues the session at most once; each
+    muse turn is one subscription prompt - ledger `engine_run.turns` counts them.
+  - **Tests (D15):** `tests/fake-muse.ps1` + `.cmd` (MSP records shaped like a sanitized real
+    probe; strict about the real flags; knobs for reply, failed/cancelled terminals, exits 1/2/
+    130, a usage error, a file write, hang, two terminals, two sessions, a wrong model, no
+    model, schema_version 2, a partial last line, a terminal off the session stream) and
+    `tests/harness-muse.ps1` (65 assertions, registered in `run-all.ps1`): argv against the real
+    flags, paths with spaces through the `.cmd` chain and the `%` refusal, the billing guard
+    (with `-SkipPreflight`, the walk, a panel member, the mechanism, the listing), the three
+    sign-in states, the extraction invariants and failure classes end to end, D14's shared
+    endpoint, the tree check and D12 for muse and agy, resume and a session mismatch, the
+    format repair served through the muse adapter, `-MaxModelSteps` in the panel spec,
+    `-EngineExe` bound to muse, the dry-run text, the providers listing. It never lets a real
+    muse resolve (scratch home, LOCALAPPDATA and PATH for every child; it refuses to run
+    otherwise).
+  - Docs: README ("Engines (wave 23)", the ledger, preflight, providers, caps-v1, roster and
+    options tables, the D12 boundary), `setup-providers` 3f.
+
 ### Changed
 
 - Wave 21: the panel is parallel (see "Added"); `sessions.json` is no longer created at a
@@ -246,6 +320,24 @@ amendments A1-A20 and the facts F11/F12).
   `DEADLINE_EXCEEDED`). `Get-RetryAfter` reads `retry in 32s`, `retry in 1m5.3s`, `retry in
   90 seconds` and gRPC `retryDelay` (`{"seconds":N}` or `"32s"`, also from an error
   payload's details).
+- Wave 23 (D2): the denial-retry and format-repair turns of an engine parse their streams
+  through `$engineSpec.Adapter.Events` / `.Outcome` (and build their argv through `.Argv`),
+  never agy's functions by name - `codex-consult.ps1` names no engine's function any more (a
+  static check in `harness-muse`). The panel's kill guard adds the denial-retry budget only for
+  an engine that has one.
+- Wave 23 (D12): a change detected by the tree check forces class `permission` for agy AND muse
+  even when the run had already failed for another reason (that reason stays the provider
+  failure's message; the outcome adds `; also: <the change>`) - before, an already failed run
+  kept its first class.
+- Wave 23: ledger `engine_run` after `usage` for every entry (`null` for codex;
+  `{turns, max_model_steps, msp_schema_version}` for an engine). Existing assertions changed
+  where the output legitimately changed: the ledger field order (`harness-0.3` LEDGER,
+  `harness-engines` RUN: `engine_run` after `usage`), the roster's engine list (`harness-engines`
+  ROSTER: "codex, agy, muse"), and `-SchemaTransport native` for codex now says "is for the agy
+  and muse engines" (`harness-engines` DRYRUN).
+- Wave 23: `codex-providers.ps1` engine rows take their effort vocabulary, declared models and
+  schema transport from caps-v1 (agy's row is unchanged: `agy (tier in the model id)`); the
+  handoff's Author line shows a mapped effort for an engine that sends one.
 - Handoff names, the handoff header (`# Handoff NN - Gemini (agy): <slug>`), the ledger
   `command` (`agy ...`), the pending-record notes and the `.original.md` of a format repair
   take the engine's prefix and label instead of a literal `codex`.
@@ -261,6 +353,15 @@ amendments A1-A20 and the facts F11/F12).
   launcher's file metadata names one.
 - The harness runs against the fake only; the live runs are listed under "Live evidence"
   above (the F11 denial retry has not fired live through the bridge yet).
+- Wave 23 (muse): every case runs against the fake only - the real `muse.cmd` ->
+  `.muse-launcher.ps1` -> binary chain (its quoting of paths with spaces, its reaction to an
+  empty stdin) is not covered. A resume whose CLI silently started a fresh session under the
+  requested `--session-id` cannot be told from a real resume (the stream echoes the id).
+  Meta's quota and step-cap wordings are unknown: they are recorded verbatim, classified by
+  the shared patterns (a step cap by "max ... steps"). `read_file` is not confined to the
+  repository (reads are outside the tree check's evidence). A keychain sign-in cannot be
+  checked or its mechanism read (the file backend is required for a checked run). One Meta
+  sign-in is one endpoint; a lineage does not bind the signed-in account (T7).
 - Wave 21 (accepted in the decisions): an agy panel member does not catch its own
   reviewer writing its task's `findings.json`/`sessions.json` while members run at the same
   time (F02-2's other half: a consultation on ANOTHER task committing during an agy run
