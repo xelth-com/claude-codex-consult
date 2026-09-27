@@ -1,0 +1,1343 @@
+{
+    "task_id":  "host-2026-09-26",
+    "findings":  [
+                     {
+                         "id":  "F02-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "Root resolution fallback (c) \u0027\u003cskill dir\u003e/../..\u0027 silently resolves to the wrong directory for the exact Codex install path the design creates: skills copied into ~/.codex/skills/\u003cname\u003e/ have ../.. = ~/.codex, not the plugin, so every script path built from it fails with a confusing not-found instead of a diagnostic.",
+                         "trigger":  "Codex CLI host installs via the documented copy recipe without setting CODEX_CONSULT_ROOT (or the var is lost in a new shell), then invokes any script per the skill.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md design item 1",
+                                              "observation":  "Fallback (c) documented as \u0027\u003cskill dir\u003e/../..\u0027 with no validation that the resolved root contains scripts/."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/skills/consult-codex/SKILL.md:15,37",
+                                              "observation":  "Every script invocation builds its path from the plugin root variable; a wrong root breaks all of them."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "install layout ~/.codex/skills/consult-codex/SKILL.md",
+                                              "observation":  "Two levels up from the skill dir is ~/.codex, never the plugin directory."
+                                          }
+                                      ],
+                         "verification":  "Run RC1: copy the skill to a temp two-level-deep location with no env vars set and observe what root resolution (c) yields and whether any existence check fires.",
+                         "remedy":  "Have install-codex-host.ps1 rewrite the copied skills\u0027 root line to the absolute plugin path (bake at install); additionally the skills should mandate validating that $CODEX_CONSULT_ROOT/scripts/codex-consult.ps1 exists and printing the fix when it does not.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-reply-kimi.md",
+                                        "thread":  "01a0e4bc-0cb5-7fd1-8057-0f6b2caa1ab2",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:24:00+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-2",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "\u0027Resolved once at the top of each skill\u0027 has no enforcement mechanism: SKILL.md is prose, so the host model must substitute the variable correctly on every one of the ~10 embedded invocations, and nothing detects a missed substitution.",
+                         "trigger":  "A coordinator model paraphrases or partially substitutes the variable in one of the skill\u0027s many command lines.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/skills/consult-codex/SKILL.md:37,45,90,104,318,328,348,488",
+                                              "observation":  "At least eight separate command lines embed ${CLAUDE_PLUGIN_ROOT}; each is a substitution site."
+                                          }
+                                      ],
+                         "verification":  "After a dry-run Codex-host session, grep the session transcript for any literal \u0027$CODEX_CONSULT_ROOT\u0027 reaching a shell.",
+                         "remedy":  "Bake the absolute path into copied skills at install time so no runtime substitution exists; extend the harness grep to the copied skills.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-reply-kimi.md",
+                                        "thread":  "01a0e4bc-0cb5-7fd1-8057-0f6b2caa1ab2",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:24:00+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-3",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "Copied skills drift from plugin updates: nothing stamps a version or warns when the copy and the plugin\u0027s scripts disagree, so a Codex host silently runs stale instructions against newer scripts.",
+                         "trigger":  "Plugin upgraded via Claude Code marketplace while the Codex-side copies in ~/.codex/skills/ are not refreshed.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md design item 2",
+                                              "observation":  "install-codex-host.ps1 specified as idempotent copy with no version stamp or mismatch check."
+                                          }
+                                      ],
+                         "verification":  "Bump the plugin version, rerun the availability one-liner on the Codex host, and check whether any staleness warning appears.",
+                         "remedy":  "Write a version file beside the copied skills at install; have codex-consult-hook.ps1\u0027s one-liner append a \u0027skills out of date - rerun install\u0027 phrase on mismatch.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-reply-kimi.md",
+                                        "thread":  "01a0e4bc-0cb5-7fd1-8057-0f6b2caa1ab2",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:24:00+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F02-4",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  416
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/skills/consult-codex/SKILL.md",
+                                               "line":  104
+                                           }
+                                       ],
+                         "claim":  "The wording-neutralization plan and its harness grep cover ${CLAUDE_PLUGIN_ROOT} but not the coordinator-named brief prefix NN-claude-\u003cslug\u003e used throughout doc examples, so the Claude-host naming survives the pass.",
+                         "trigger":  "Acceptance harness run that greps only for CLAUDE_PLUGIN_ROOT.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:416-436",
+                                              "observation":  "Four examples name briefs NN-claude-\u003cslug\u003e."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/skills/consult-codex/SKILL.md:104,364",
+                                              "observation":  "Skill embeds the same prefix and \u0027Claude (this coordinator)\u0027."
+                                          }
+                                      ],
+                         "verification":  "Grep repo-wide for \u0027NN-claude\u0027 and \u0027this coordinator\u0027 after the wording pass; expect zero outside the changelog.",
+                         "remedy":  "Add \u0027NN-claude\u0027 and \u0027Claude (this coordinator)\u0027 patterns to the harness checks; rename example prefixes to NN-\u003ccoordinator\u003e-\u003cslug\u003e.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-reply-kimi.md",
+                                        "thread":  "01a0e4bc-0cb5-7fd1-8057-0f6b2caa1ab2",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:24:00+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  20
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/skills/consult-codex/SKILL.md",
+                                               "line":  37
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/skills/setup-providers/SKILL.md",
+                                               "line":  15
+                                           }
+                                       ],
+                         "claim":  "The proposed Codex install is not self-contained: copying only the two SKILL.md files leaves the documented fallback root at `~/.codex`, while the skills require scripts, schemas, and templates from the plugin payload.",
+                         "trigger":  "A Codex host install with `CODEX_CONSULT_ROOT` unset or pointed at a skill-only directory.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/skills/consult-codex/SKILL.md:37,90,104",
+                                              "observation":  "Script and template paths are expressed through `${CLAUDE_PLUGIN_ROOT}`."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-ChildItem -File -Recurse plugins/codex-consult",
+                                              "observation":  "`scripts`, `schemas`, `templates`, and `skills` are separate payload directories."
+                                          }
+                                      ],
+                         "verification":  "In a throwaway HOME run the proposed installer with `CODEX_CONSULT_ROOT` unset, then `Test-Path` the three referenced payload paths.",
+                         "remedy":  "Install or link the full runtime payload under a versioned root with a root manifest; reserve AGENTS-only for an existing payload root.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-reply-mimo.md",
+                                        "thread":  "01a0e4bc-09b4-7a70-a231-06e9f2daa85b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:31:55+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  30
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  49
+                                           }
+                                       ],
+                         "claim":  "Coordinator identity is structurally incompatible with reviewer lineage: `provider :: model` omits engine, endpoint/account, and alias normalization, so “lineage equals” is undefined.",
+                         "trigger":  "The same model name is reached through different endpoints, provider labels, or aliases.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md:30-33",
+                                              "observation":  "The design defines coordinator identity as provider and model only."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:49-57",
+                                              "observation":  "Reviewer identity includes provider, model, and endpoint fingerprint semantics."
+                                          }
+                                      ],
+                         "verification":  "Compare two reviewer records with equal provider/model but different endpoint fingerprints and observe whether the warning fires.",
+                         "remedy":  "Define a canonical identity tuple and explicit comparator semantics, including alias normalization and endpoint/account policy.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-reply-mimo.md",
+                                        "thread":  "01a0e4bc-09b4-7a70-a231-06e9f2daa85b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:31:55+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  54
+                                           }
+                                       ],
+                         "claim":  "Inferring coordinator identity from `CLAUDECODE` or `CODEX_*` markers is unreliable and must not replace an explicit identity value.",
+                         "trigger":  "Nested hosts or shells expose multiple markers, or the coordinator model changes mid-session.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md:54-55",
+                                              "observation":  "The proposal treats host environment markers as identity evidence."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "host-marker semantics",
+                                              "observation":  "Those markers identify host products, not a stable provider/model pair."
+                                          }
+                                      ],
+                         "verification":  "Run the bridge from a nested host with both marker families set and compare inferred identity with an explicit `CODEX_CONSULT_COORDINATOR` override.",
+                         "remedy":  "Make the explicit variable authoritative; use inference only as a labeled fallback with provenance.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-reply-mimo.md",
+                                        "thread":  "01a0e4bc-09b4-7a70-a231-06e9f2daa85b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:31:55+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-4",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  3
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-hook.ps1",
+                                               "line":  6
+                                           }
+                                       ],
+                         "claim":  "Host-neutral wording is contradicted by Claude-specific script help and hook documentation.",
+                         "trigger":  "A Codex or shell user reads the script help or hook description.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:3",
+                                              "observation":  "The synopsis says the bridge runs from Claude Code."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-hook.ps1:6-8,42",
+                                              "observation":  "The hook description assumes Claude Code injects stdout and configures hooks."
+                                          }
+                                      ],
+                         "verification":  "Run `Select-String -Path scripts/*.ps1 -Pattern Claude` and inspect the resulting help text.",
+                         "remedy":  "Neutralize wording and document the hook as an optional Claude adapter.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-reply-mimo.md",
+                                        "thread":  "01a0e4bc-09b4-7a70-a231-06e9f2daa85b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:31:55+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-5",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  66
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/skills/consult-codex/SKILL.md",
+                                               "line":  482
+                                           }
+                                       ],
+                         "claim":  "R19 mixes portable discipline with host-specific mechanisms such as `-Kick`, prompt-cache TTL, scheduled wakes, subagents, and auto-compaction, without a host mapping, so Codex cannot implement the rules uniformly.",
+                         "trigger":  "A Codex coordinator reads `coordinate` and tries to run a multi-wave delegated task.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md:66-76",
+                                              "observation":  "The rules name Claude-style mechanisms alongside general policy."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/skills/consult-codex/SKILL.md:482-520",
+                                              "observation":  "The bridge already has portable `-Detach`, `-Status`, and `-Wait` primitives."
+                                          }
+                                      ],
+                         "verification":  "Ask a Codex coordinator to schedule a detached watchdog and log which primitive it uses for waking and compaction.",
+                         "remedy":  "State invariants once and provide a per-host capability mapping; remove universal prompt-cache TTL language.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-reply-mimo.md",
+                                        "thread":  "01a0e4bc-09b4-7a70-a231-06e9f2daa85b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:31:55+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-6",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  77
+                                           }
+                                       ],
+                         "claim":  "Shipping worker agent definitions with concrete host model names creates silent cost and quality drift and risks upgrade conflicts.",
+                         "trigger":  "A host renames or deprecates a model, or the plugin installer regenerates agent files.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md:77-80",
+                                              "observation":  "The proposal embeds host model names in plugin-owned agent definitions."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "model lifecycle",
+                                              "observation":  "Model identifiers change faster than plugin releases and affect cost and capability."
+                                          }
+                                      ],
+                         "verification":  "Change the host\u0027s model alias and rerun installation; confirm no plugin-owned file silently changes the selected model.",
+                         "remedy":  "Ship tier contracts and generate user-owned host mappings; never auto-rewrite model names on upgrades.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-reply-mimo.md",
+                                        "thread":  "01a0e4bc-09b4-7a70-a231-06e9f2daa85b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:31:55+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F03-7",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  34
+                                           },
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  81
+                                           }
+                                       ],
+                         "claim":  "The coordinator-rules pointer is emitted only by the Claude SessionStart hook, so hookless Codex sessions may never discover `coordinate`.",
+                         "trigger":  "A Codex host runs without hooks and delegates work without consulting first.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md:34-36,81-83",
+                                              "observation":  "The pointer is attached to the hook output, while the hookless path documents only availability."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-hook.ps1:6-8",
+                                              "observation":  "The hook assumes Claude Code context injection."
+                                          }
+                                      ],
+                         "verification":  "Start a fresh hookless Codex session and ask for a delegated wave without naming the skill; observe whether `coordinate` is found.",
+                         "remedy":  "Put the pointer and a short mandatory rule in the AGENTS snippet and README; keep the hook line optional.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-reply-mimo.md",
+                                        "thread":  "01a0e4bc-09b4-7a70-a231-06e9f2daa85b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:31:55+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-1",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  24
+                                           },
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  50
+                                           }
+                                       ],
+                         "claim":  "R13\u0027s premise that the packaging is what is Claude-Code-specific is false for the Codex host: Codex CLI already installs this exact Claude-layout plugin from its GitHub marketplace, mirrors `.claude-plugin/plugin.json`, `hooks/hooks.json`, `scripts/`, `skills/` and `templates/` verbatim into its plugin cache, and exposes both skills namespaced. Designing the Codex install as \u0027copy the two SKILL.md into ~/.codex/skills/\u0027 therefore builds a second, unversioned, duplicate delivery channel for something the host already delivers.",
+                         "trigger":  "A Codex CLI user follows the README\u0027s proposed Codex tab and copies the skills while the plugin is also installed and enabled.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "rg -n \u0027marketplace|plugin\u0027 C:/Users/Dmytro/.codex/config.toml",
+                                              "observation":  "Lines 42-44 and 76-77: `[marketplaces.claude-codex-consult] source_type = \"git\", source = \"https://github.com/xelth-com/claude-codex-consult.git\"` and `[plugins.\"codex-consult@claude-codex-consult\"] enabled = true`."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-ChildItem -Recurse C:/Users/Dmytro/.codex/plugins/cache/claude-codex-consult",
+                                              "observation":  "The full plugin tree is mirrored at .../codex-consult/0.5.0/ including .claude-plugin/plugin.json, hooks/hooks.json, scripts/*.ps1, skills/{consult-codex,setup-providers}/SKILL.md, templates/, schemas/, evals/."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "this session\u0027s skill roots table (r2 = C:/Users/Dmytro/.codex/plugins/cache/claude-codex-consult/codex-consult/0.5.0/skills)",
+                                              "observation":  "`codex-consult:consult-codex` and `codex-consult:setup-providers` are loaded and available to a Codex CLI session right now, with Claude-style front matter (argument-hint, allowed-tools, disable-model-invocation) accepted."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "rg -a -o -e \u0027.codex-plugin\u0027 -e \u0027.claude-plugin\u0027 -e \u0027hooks.json\u0027 codex.exe",
+                                              "observation":  "The Codex CLI binary contains `.claude-plugin` (12 hits) and `hooks.json` (7 hits) alongside `.codex-plugin` (35), i.e. Claude-layout plugins are a supported ingestion path, not an accident."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-ChildItem C:/Users/Dmytro/.agents/skills",
+                                              "observation":  "A hand-written personal skill `astra` already aliases the same plugin functionality, showing duplicate-skill drift is a live hazard on this machine."
+                                          }
+                                      ],
+                         "verification":  "RC3: install the marketplace plugin into a clean CODEX_HOME and confirm `codex-consult:consult-codex` is listed without copying any SKILL.md.",
+                         "remedy":  "Make the Codex tab of the README a marketplace install (`codex plugin marketplace add https://github.com/xelth-com/claude-codex-consult.git`, then enable `codex-consult@claude-codex-consult`), demote the `~/.codex/skills/` copy to an explicit fallback for hosts with no plugin concept, and make `install-codex-host.ps1` refuse to copy when the plugin-provided skill is already present.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-2",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  28
+                                           },
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  42
+                                           }
+                                       ],
+                         "claim":  "The proposed install script writes into `$HOME` (`~/.codex/skills/`, `~/.codex/agents/`, `AGENTS.snippet.md`) and the verification plan asks a `codex exec` session to run it \u0027from the README alone\u0027 — but a Codex coordinator\u0027s sandbox confines writes to the workspace and requires explicit escalation for anything outside it, so the headline acceptance scenario fails for a reason unrelated to R13.",
+                         "trigger":  "A Codex CLI coordinator with the default/workspace-write sandbox runs `install-codex-host.ps1`, or the reviewer runs the brief\u0027s verification prompt verbatim.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:/Users/Dmytro/.codex/skills/.system/openai-docs/references/codex-self-knowledge.md",
+                                              "observation":  "\u0027Sandbox or network denials require narrowly scoped escalation ... destructive commands, writes outside the workspace, and broad access changes require explicit approval.\u0027"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "this session\u0027s permission profile (environment_context)",
+                                              "observation":  "`\u003cfile_system type=\"restricted\"\u003e\u003centry access=\"read\"\u003e\u003cspecial\u003e:root\u003c/special\u003e\u003c/entry\u003e\u003c/file_system\u003e` — a bridge-spawned Codex process gets read-only access to everything, so it could never write `~/.codex/skills`."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md:42",
+                                              "observation":  "The verification is `codex exec` with a prompt that includes \u0027install the bridge for this host\u0027, i.e. the install is delegated to a sandboxed agent that also has to write .collab/ ledger files."
+                                          }
+                                      ],
+                         "verification":  "RC5: `codex exec --sandbox workspace-write \"create $env:TEMP\\r13-probe.txt\"` — a denial proves the $HOME write needs escalation.",
+                         "remedy":  "Split the install into (a) a human-run terminal step or an explicitly escalated coordinator step for anything touching `$HOME`, and (b) a workspace-only step (AGENTS.md snippet) the coordinator may do itself; state the required `sandbox_mode`/approval settings in the Codex README tab, and name the exact flags in the verification prompt so the acceptance run cannot fail on sandbox policy.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  21
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/skills/consult-codex/SKILL.md",
+                                               "line":  104
+                                           }
+                                       ],
+                         "claim":  "Design 1 labels fallback (b) `${CLAUDE_PLUGIN_ROOT}` as \u0027(Claude Code)\u0027, but the Codex CLI binary knows that variable (and `CLAUDE_PLUGIN_DATA`) for Claude-layout plugins, so (b) is likely a both-hosts path and (c) the skill-dir-relative fallback is the real minority case. Meanwhile the variable is demonstrably NOT present in a bridge-spawned Codex process, so which of (b)/(c) actually carries a Codex session is unverified and the ordering in the docs may be wrong.",
+                         "trigger":  "A Codex coordinator loads the plugin skill and copies the documented `${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1` command into a shell.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "rg -a -o \u0027.{0,120}CLAUDE_PLUGIN_ROOT.{0,120}\u0027 codex.exe",
+                                              "observation":  "Single hit in a string table adjacent to `CLAUDE_PLUGIN_DATA` and \u0027failed to parse TOML hooks in\u0027 — i.e. the plugin loader, not a Claude-only leftover; `CODEX_PLUGIN_ROOT` has zero hits."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-ChildItem env: | Where Name -match \u0027PLUGIN|CLAUDE|CODEX\u0027",
+                                              "observation":  "This Codex reviewer process has CLAUDECODE, AI_AGENT, CLAUDE_CODE_*, CODEX_SESSION_ID, CODEX_VERSION — but no CLAUDE_PLUGIN_ROOT, so a literal `${CLAUDE_PLUGIN_ROOT}` would expand to empty and the command would target `/scripts/codex-consult.ps1`."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/skills/consult-codex/SKILL.md:104 (10 hits total)",
+                                              "observation":  "Every script invocation in the skill is written as `\"${CLAUDE_PLUGIN_ROOT}/scripts/...\"`, relying on the host to export the variable into the model\u0027s shell."
+                                          }
+                                      ],
+                         "verification":  "RC1: echo `$env:CLAUDE_PLUGIN_ROOT` from a shell inside a fresh Codex session with the plugin enabled; non-empty settles it in favour of (b).",
+                         "remedy":  "Keep the three-step chain but re-document it as: (a) `CODEX_CONSULT_ROOT`, (b) `CLAUDE_PLUGIN_ROOT` — set by either host\u0027s plugin loader, (c) `\u003cskill dir\u003e/../..` for plugin-less installs; have the skills fail loudly with an actionable message when the resolved root has no `scripts/codex-consult.ps1`, so an empty expansion cannot silently produce `/scripts/...`.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-4",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  30
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2463
+                                           }
+                                       ],
+                         "claim":  "Design 3 defines the coordinator identity as one string `CODEX_CONSULT_COORDINATOR=\u003cprovider\u003e :: \u003cmodel\u003e` and compares it with a reviewer\u0027s lineage, which contradicts an explicit invariant in the codebase: the lineage form is display-only and identities are always compared field by field because a provider name or a model may itself contain `::` or `/`. A string comparison is both ambiguous to parse and weaker than the existing `provider_fingerprint` identity.",
+                         "trigger":  "A user sets `CODEX_CONSULT_COORDINATOR=openai :: gpt-6-astra` while a roster entry\u0027s provider or model contains `::`, or the same model is reachable under two provider names.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:2463-2465",
+                                              "observation":  "\u0027Display form of a lineage ... Display metadata only - a provider name or a model may itself contain \"/\" or \"::\", so identities are always compared field by field (reviewer.provider, reviewer.model, provider_fingerprint), never by this string.\u0027"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:2466-2477",
+                                              "observation":  "`Format-Lineage` returns `\"$Provider :: $Model\"` and `Format-ReviewerLineage` appends ` [\u003cengine\u003e]` for non-codex engines, so the display string also carries an engine suffix the design\u0027s comparison does not mention."
+                                          }
+                                      ],
+                         "verification":  "Grep for existing identity comparisons (`provider_fingerprint`, `Get-ReviewerIdentity`) and confirm the new coordinator check uses the same field-by-field helper rather than string equality.",
+                         "remedy":  "Take two variables (`CODEX_CONSULT_COORDINATOR_PROVIDER`, `_MODEL`) or one structured value, compare provider and model as fields (and consider the fingerprint so the same model behind a different provider name still warns), and keep the lineage string for display only.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-5",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  54
+                                           }
+                                       ],
+                         "claim":  "Q3\u0027s \u0027infer instead of a variable\u0027 cannot produce the warning design 3 wants: the environment markers identify the host and even its version, but no marker carries the coordinator\u0027s model, which is the half the \u0027reviewer is the coordinator\u0027s own model\u0027 check needs. Inference is also only valid coordinator-side, because the markers are inherited by every child — including the reviewer process, where they describe the parent, not the speaker.",
+                         "trigger":  "A Codex-first coordinator consults its own model with no `CODEX_CONSULT_COORDINATOR` set, expecting the warning.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-ChildItem env: (this reviewer process)",
+                                              "observation":  "`AI_AGENT=claude-code_2-1-283_agent`, `CLAUDECODE=1`, `CLAUDE_CODE_ENTRYPOINT=cli`, `CLAUDE_CODE_CHILD_SESSION=1` are present in a process whose own host is Codex CLI 0.155.1 — markers propagate to children and can misdescribe them; no model marker of any kind exists."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "rg -e \u0027CODEX_SESSION_ID\u0027 -e \u0027AI_AGENT\u0027 -e \u0027CLAUDECODE\u0027 plugins/codex-consult/scripts/",
+                                              "observation":  "Zero hits: the scripts neither read nor scrub host markers today, so any inference must be added deliberately and captured once."
+                                          }
+                                      ],
+                         "verification":  "Set `AI_AGENT`/`CLAUDECODE` in a test shell, run `codex-consult.ps1` in dry-run and confirm the recorded coordinator plus its source.",
+                         "remedy":  "Hybrid: explicit variable wins for the model; env markers fill only the host name as a default; record `coordinator` and `coordinator_source = explicit|inferred|unknown` in the ledger; capture once at entry in `codex-consult.ps1` and never re-infer downstream; keep the outcome a warning, never a refusal.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-6",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  34
+                                           },
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  81
+                                           }
+                                       ],
+                         "claim":  "Design 4 and addendum item 8 both assume Codex is a \u0027host without hooks\u0027. Codex has the same hook event names as Claude Code, including `SessionStart`, and its binary references `hooks.json`, so the real gap is at most a format/loader question. If the SessionStart hook does fire under Codex, the documented one-liner is dead weight and the R19 pointer line needs no second channel; if it does not, then both the availability line AND the new pointer line must be delivered by the AGENTS snippet, which the brief does not say.",
+                         "trigger":  "A Codex coordinator session starts: either the hook fires (making design 4 redundant) or it does not (and the coordinator never sees the availability line or the pointer to `coordinate`).",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "rg -a -o -e \u0027SessionStart\u0027 -e \u0027PreCompact\u0027 -e \u0027SubagentStop\u0027 -e \u0027UserPromptSubmit\u0027 -e \u0027PreToolUse\u0027 -e \u0027PostToolUse\u0027 codex.exe",
+                                              "observation":  "Counts 53, 28, 29, 37, 53, 40 — Codex implements the Claude-compatible hook event vocabulary, including SessionStart."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "rg -a -o -e \u0027hooks.json\u0027 -e \u0027hooks.toml\u0027 codex.exe",
+                                              "observation":  "`hooks.json` 7 hits, `hooks.toml` 0 hits, next to the string \u0027failed to parse TOML hooks in\u0027 — the loader knows the JSON hooks file."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:/Users/Dmytro/.codex/plugins/cache/openai-bundled/computer-use/26.924.22138/.codex-plugin/plugin.json",
+                                              "observation":  "A Codex-native plugin declares hooks inline under `hooks.hooks` with events Interrupt/Stop/SubagentStop and type `mcp_tool`, i.e. Codex\u0027s own convention differs in shape from our `hooks/hooks.json` SessionStart/command entry."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-hook.ps1",
+                                              "observation":  "The script is host-neutral in behaviour (it prints one line, `exit 0`, no network, no lock, nothing written), so it can serve any host; only its `.DESCRIPTION` says \u0027Claude Code session\u0027 and \u0027Claude Code settings\u0027."
+                                          }
+                                      ],
+                         "verification":  "RC2: start a Codex session in a scratch clone and see whether the availability line appears without an explicit run of the script.",
+                         "remedy":  "Verify first, then pick exactly one delivery channel per host: if SessionStart fires under Codex, drop the one-liner from the Codex tab (keep it for shell/Cursor); if it does not, put BOTH the availability line and the `coordinate` pointer into `AGENTS.snippet.md` as the primary Codex channel, and reword the hook script\u0027s description to \u0027the coordinator\u0027s session\u0027.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-7",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  4079
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  3381
+                                           }
+                                       ],
+                         "claim":  "The bridge spawns the reviewer `codex exec` with the coordinator\u0027s environment inherited and no scrubbing of `CODEX_*`/host markers. That is invisible while the coordinator is Claude Code, but R13 makes a Codex-first coordinator a supported case, where the reviewer becomes a nested `codex` inheriting `CODEX_SESSION_ID`, `CODEX_THREAD_ID`, `CODEX_CI`, `CODEX_SANDBOX_NETWORK_DISABLED` and `CODEX_CONSULT_ROSTER` from its own coordinator.",
+                         "trigger":  "A Codex CLI coordinator runs one consultation; the child `codex exec` sees the parent\u0027s session/thread/CI markers and roster.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-ChildItem env: in this bridge-spawned reviewer",
+                                              "observation":  "`CODEX_SESSION_ID=01a0e4bc-...`, `CODEX_THREAD_ID=` same value, `CODEX_CI=1`, `CODEX_SANDBOX_NETWORK_DISABLED=1`, and `CODEX_CONSULT_ROSTER=C:/Users/Dmytro/AppData/Local/Temp/claude/.../scratchpad/roster-companions-design.json` — all inherited from the coordinator."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "rg -e \u0027CODEX_SESSION_ID\u0027 -e \u0027CODEX_THREAD_ID\u0027 -e \u0027CODEX_CI\u0027 -e \u0027EnvironmentVariables\u0027 -e \u0027Remove-Item Env:\u0027 plugins/codex-consult/scripts/",
+                                              "observation":  "Zero hits: no code path builds or sanitises a child environment; only `CODEX_HOME`, `CODEX_CONSULT_EXE`, `CODEX_CONSULT_ROSTER` and test hooks are read."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:4079 and :3381",
+                                              "observation":  "The reviewer argv is assembled as `exec --sandbox \u003cs\u003e --color never --json ...` and launched without an explicit environment block."
+                                          }
+                                      ],
+                         "verification":  "RC4: run one consultation from a Codex coordinator and inspect the child\u0027s launch plus the handoff\u0027s `Invocation:` argv line for session-id reuse or a failed login/preflight.",
+                         "remedy":  "Capture the coordinator identity once at entry, then launch the reviewer with an explicit environment that drops inherited `CODEX_SESSION_ID`, `CODEX_THREAD_ID`, `CODEX_CI`, `AI_AGENT` and `CLAUDECODE` (keeping `CODEX_HOME`, the roster and the exe overrides), so a nested Codex reviewer cannot mistake itself for its coordinator\u0027s session.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-8",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  35
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/hooks/hooks.json",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The one-liner design 4 documents (`powershell -NoProfile -File \u003croot\u003e/scripts/codex-consult-hook.ps1`) omits `-ExecutionPolicy Bypass`, which every other invocation in the repository carries. On a default Windows machine the process-scope policy falls back to LocalMachine Restricted and `-File` refuses to load the script, so the documented fallback for hook-less hosts fails exactly where it is needed.",
+                         "trigger":  "A user on a stock Windows machine copies the documented one-liner into a terminal or an AGENTS.md snippet.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/hooks/hooks.json",
+                                              "observation":  "The Windows branch is `powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult-hook.ps1\"`."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "rg -n \u0027claude\u0027 plugins/codex-consult/scripts/codex-consult.ps1",
+                                              "observation":  "All help examples use `powershell -NoProfile -ExecutionPolicy Bypass -File codex-consult.ps1`; the skills do the same at every invocation."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-ExecutionPolicy -List",
+                                              "observation":  "On this machine only Process=Bypass is set (injected by the harness); CurrentUser and LocalMachine are Undefined, i.e. the fallback is the OS default, not Bypass."
+                                          }
+                                      ],
+                         "verification":  "Run `powershell -ExecutionPolicy Restricted -NoProfile -File \u003croot\u003e/scripts/codex-consult-hook.ps1` and observe the load refusal.",
+                         "remedy":  "Document the one-liner with `-ExecutionPolicy Bypass`, matching hooks.json and every skill example.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-9",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  26
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/skills/consult-codex/SKILL.md",
+                                               "line":  90
+                                           }
+                                       ],
+                         "claim":  "A bare copy of the two SKILL.md files is not self-sufficient: the skills reference `templates/brief-framing.md`, `templates/brief-review.md` and four scripts through the root variable, and none of those siblings live under `skills/\u003cname\u003e/`. Under fallback (c) from `~/.codex/skills/consult-codex/SKILL.md`, `\u003cskill dir\u003e/../..` is `~/.codex`, so every templated brief and every script path resolves into a tree that does not exist. The brief lists `set CODEX_CONSULT_ROOT` as one step among several; for the copy route it is mandatory.",
+                         "trigger":  "A user follows the copy route without setting `CODEX_CONSULT_ROOT` and runs a framing consultation.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/skills/consult-codex/SKILL.md:90-91",
+                                              "observation":  "`... ${CLAUDE_PLUGIN_ROOT}/templates/brief-framing.md` for framing, `.../templates/brief-review.md` for checkpoint — the skill needs the plugin\u0027s templates, not just its scripts."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-ChildItem -Recurse (repository file listing)",
+                                              "observation":  "`plugins/codex-consult/skills/consult-codex/` and `.../setup-providers/` each contain only SKILL.md; scripts, templates and schemas live in sibling directories of the plugin root."
+                                          }
+                                      ],
+                         "verification":  "Copy only the two SKILL.md files into a scratch `$CODEX_HOME/skills`, start a session and ask for a framing consultation; observe the failed template/script path.",
+                         "remedy":  "In the copy route make `CODEX_CONSULT_ROOT` a required, validated step (the installer sets it and prints a verification command), or ship the copy as a directory that keeps `scripts/` and `templates/` reachable — and state in the skill that fallback (c) is only valid when the skill directory sits inside a full bridge tree.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-10",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  902
+                                           }
+                                       ],
+                         "claim":  "The ledger already uses the key `host` to mean the machine name (for detached-run liveness across hosts). Adding a `coordinator` key that means the agent host, in the very wave that makes \u0027host\u0027 a parameter, invites conflation in the docs, the readers and any future schema check.",
+                         "trigger":  "A reader of `sessions.json` or of R20\u0027s machine-wide endpoint health interprets `host` as the coordinator\u0027s agent host.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:902, :1183, :2031",
+                                              "observation":  "`host = [Environment]::MachineName` in the detached-run record and `$dRec.host`/`$ownRecord.host` self-reports; the comment at :387 says a background \u0027on another host is never judged\u0027, meaning another machine."
+                                          }
+                                      ],
+                         "verification":  "Grep the readers (`codex-findings.ps1`, `codex-scoreboard.ps1`, `codex-providers.ps1`) for `host` usage before adding `coordinator`.",
+                         "remedy":  "Name the new key `coordinator` (as designed) and add one sentence to the ledger documentation stating `host` = machine, `coordinator` = agent host and model; do not rename `host` in this wave.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F04-11",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/host-2026-09-26/handoffs/01-claude-r13-design.md",
+                                               "line":  77
+                                           }
+                                       ],
+                         "claim":  "Addendum item 7\u0027s conditional (\u0027when that host supports agent files\u0027) is already answered for Codex, and the observed format has no model key — so shipping agent definitions with pinned model names would rot immediately, while shipping tier-named definitions without models is what actually works. The installer must also not overwrite an operator\u0027s existing files, which on this machine are hand-tuned.",
+                         "trigger":  "R19 ships `agents/` with model names, or `install-codex-host.ps1` overwrites `~/.codex/agents/*.toml`.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-Content C:/Users/Dmytro/.codex/agents/{haiku,sonnet,opus}-worker.toml",
+                                              "observation":  "Each file has exactly `name`, `description`, `developer_instructions` — no model key — and the descriptions carry tier guidance in prose; the three files already exist and are personalised (they reference `eckSnapshot` and `.Codex/rules/`)."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "this session\u0027s AGENTS.md instructions",
+                                              "observation":  "\u0027Haiku 4.5 is a generation older than the 5-family workers — use it opportunistically, don\u0027t force work onto it\u0027, i.e. the tier names already drift from the models behind them."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "rg -a -o -e \u0027SubagentStop\u0027 codex.exe",
+                                              "observation":  "29 hits: Codex has a subagent lifecycle, so the worker-tier discipline has a real counterpart on that host."
+                                          }
+                                      ],
+                         "verification":  "Create a throwaway `~/.codex/agents/probe.toml` with a `model` key and see whether Codex accepts or rejects it.",
+                         "remedy":  "Ship the tier contract (purpose, read-only vs write, report shape) in the `coordinate` skill as the single source of truth; ship Claude `agents/*.md` because that host expects files; have the installer emit Codex TOML only when the target file is absent, with no model key, and print rather than apply any change to an existing one.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/04-codex-reply-alibaba.md",
+                                        "thread":  "01a0e4bc-1504-7341-9ed8-0059b348bf0b",
+                                        "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                        "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:44:07+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "3360cb9c85daaf2d8e75c52393791a307e9f7999",
+                                             "tree_sha256":  "d18c2bb48637825795e1c8a41a2f49dcf2782e0ac3bca070cc7b78bfdec13cde"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     }
+                 ],
+    "ratings":  [
+                    {
+                        "n":  1,
+                        "consult_id":  "40e1149f-fa64-4e57-8d81-d451d8953ad9",
+                        "lineage":  "kimi :: k3",
+                        "provider":  "kimi",
+                        "model":  "k3",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-09-27T23:18:42+02:00",
+                        "useful":  "yes",
+                        "note":  "R13+R19 design review: kimi: the root fallback hole, bake-at-install and -Explain options, tier aliases",
+                        "when":  "2026-09-27T23:53:41+02:00"
+                    },
+                    {
+                        "n":  2,
+                        "consult_id":  "945fc6ae-b1a5-41db-a0bd-e2fd51e5b18a",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-09-27T23:18:43+02:00",
+                        "useful":  "yes",
+                        "note":  "R13+R19 design review: mimo: four separable concerns, identity tuple, invariants vs mechanisms",
+                        "when":  "2026-09-27T23:53:43+02:00"
+                    },
+                    {
+                        "n":  3,
+                        "consult_id":  "60a62f42-fec6-4f89-8cec-85e08988d346",
+                        "lineage":  "alibaba :: qwen3.8-max",
+                        "provider":  "alibaba",
+                        "model":  "qwen3.8-max",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-09-27T23:18:42+02:00",
+                        "useful":  "yes",
+                        "note":  "R13+R19 design review: qwen: Codex installs Claude-layout plugins (verified), env marker contamination, hooks on Codex, sandbox vs $HOME",
+                        "when":  "2026-09-27T23:53:44+02:00"
+                    }
+                ]
+}
