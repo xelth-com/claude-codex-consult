@@ -108,6 +108,30 @@
                                                      "note":  "Companions-wave scoring finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Beta smoothed scoring eliminates volume sensitivity",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "prior-based score Get-RoutingRate (common.ps1:5811-5816)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-RoutingRate replaces the additive score with the specified prior-based rate at common.ps1:5810-5815.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -231,6 +255,30 @@
                                                      "note":  "Companions-wave telemetry finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Ratings keyed by consult_id, cross-task collisions impossible",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "ratings keyed by consult_id; task#n only for legacy (5789)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Ratings are normalized and keyed by consult_id across tasks at common.ps1:5735-5807.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -345,6 +393,30 @@
                                                      "note":  "Companions-wave telemetry finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: 90-day window uses consult_when, re-rating does not affect recency",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "90-day window by consult_when; latest rating wins (5784-5800)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The window uses consultation time and latest-rating replacement; residual rating-selection bias is listed as unproven.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -446,6 +518,30 @@
                                                      "note":  "Companions-wave topic scoring finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Topic pooling implemented with fractional credit",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "topic pooling with 1/t credit, never mean of means (5840-5852)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Topic slugs are deduplicated and fractional topic evidence is pooled at common.ps1:5839-5852.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -556,6 +652,30 @@
                                                      "note":  "Companions-wave diversity finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Lab reserve correctly implemented",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "diversity is a reserve; below-neutral never earns a lab seat (5919-5931)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D1 reserves diversity only for qualifying labs and otherwise draws by weight at common.ps1:5903-5955.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -670,6 +790,30 @@
                                                      "note":  "Companions-wave panel-size finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: All panel size semantics defined",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "size table, -PanelSize/-PanelAll refusal, not-picked state, asked/started/usable",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Purpose sizes, precedence, capped sizes and started-member counting are defined and tested.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -780,6 +924,30 @@
                                                      "note":  "Companions-wave routing finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Seed computed before selection, dry run uses same seed",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "SHA-256 seed with -PanelSeed/env nonce; same-day dry run = real pick (5867-5875, 2202-2205)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The explicit nonce and SHA-256 seed precede selection at common.ps1:5865-5900.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -890,6 +1058,30 @@
                                                      "note":  "Companions-wave routing finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: No ratings = roster order; with ratings = draw",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "routed default; \u0027no ratings\u0027 fallback to roster (6005)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Routed mode falls back to roster order only when no eligible lineage has three marks at common.ps1:6003-6017.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -1336,6 +1528,30 @@
                                                      "note":  "Companions-wave -Require finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: -Require contract complete; exit 5 on failure",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-Require contract, exit 5, allowlists, load-time matcher validation",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Required matchers, roster defaults, pinning and exit 5 are implemented and tested.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -1450,6 +1666,30 @@
                                                      "note":  "Companions-wave role finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Role slug validation prevents traversal; assignment by score rank",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "slug validation, precedence, score-rank assignment, surplus refused",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Role slugs, repository precedence, prompt placement, conflict and count rules are implemented; symlink containment is a new finding.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -1573,6 +1813,30 @@
                                                      "note":  "Companions-wave test-scope finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Not part of wave 26",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "harness-companions 42 incl. golden draw, boundaries; registered in run-all",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "harness-companions adds deterministic score, draw, route, require, role, rate and scoreboard boundaries.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -1683,6 +1947,30 @@
                                                      "note":  "Companions-wave documentation finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Not part of wave 26",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "UNIQ column + heuristic labelled (D10)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The five-member statement is labelled a heuristic and UNIQ supplies a measurement.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -1806,6 +2094,30 @@
                                                      "note":  "Companions-wave scoring finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Beta smoothed score eliminates volume bias",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D3 formula as decided",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The rate prior, hierarchy and consultation-time window replace the additive score.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -1920,6 +2232,30 @@
                                                      "note":  "Companions-wave diversity finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Labs from model prefix/vendor, not provider label",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "vendor-table labs, never the provider label; singleton warning",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Lab reserve excludes below-neutral entries and uses vendor-derived labs.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -2025,6 +2361,30 @@
                                                      "note":  "Companions-wave role finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Role slug validation before path construction",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "SlugPattern checked before any path join (6080)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Slugs are validated before path construction at common.ps1:6077-6083.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -2333,6 +2693,30 @@
                                                      "note":  "Companions-wave draw-order finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Correct behavior implemented and documented",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "no shuffle without \u003e=3 ratings; first rating does not flip panels",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "No-evidence routing is explicit roster order with recorded fallback at common.ps1:6003-6017.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -2438,6 +2822,30 @@
                                                      "note":  "Companions-wave seeded-draw finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: SHA-256 draw deterministic across runtimes",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "SHA-256 seed, no GetHashCode; rating-drift caveat declared",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "SHA-256, canonical sorting and fixed golden sequences replace runtime RNG behavior.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -2543,6 +2951,30 @@
                                                      "note":  "Companions-wave role assignment finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Roles assigned by score rank, not draw order",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "roles by score rank, willingness honoured (6111-6131)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Roles are assigned by score rank and willingness at common.ps1:6106-6132.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -2653,6 +3085,30 @@
                                                      "note":  "Companions-wave -Require finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Required member failure stops panel with exit 5",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "required failure stops the panel at the next member, exit 5 (2431-2469, 2636)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "A required member without a usable reply blocks later starts and exits 5 at codex-consult.ps1:2431-2470,2635-2637.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -2763,6 +3219,30 @@
                                                      "note":  "Companions-wave roster-schema finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: lab and require keys added to allowlists",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "lab/roles/require/ext allowlisted; require matchers resolved at load (5348-5363)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Roster allowlists and require validation accept and validate the new keys at common.ps1:5243-5365.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -2873,6 +3353,30 @@
                                                      "note":  "Companions-wave topic telemetry finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Ratings carry topics; consult_id join used",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "topics copied onto the rating; one shared scoring function",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-Rate copies topics and Read-AllTaskRatings uses the denormalized record or consult_id completion.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -2978,6 +3482,30 @@
                                                      "note":  "Companions-wave panel-size finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: No backfill; floor warning only on framing/decision",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "size bounds STARTED; floor suppressed on explicit -PanelSize; no backfill documented",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Started-member semantics and no-backfill are explicit; explicit -PanelSize suppresses the floor warning.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -3097,6 +3625,30 @@
                                                      "note":  "Companions-wave selection-rule finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Composition rule defined: lab pass before draw",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "one selection rule (D1) in Select-PanelRouting/Invoke-PanelDraw",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Select-PanelRouting composes required pins, lab reserve and one weighted draw.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -3225,6 +3777,30 @@
                                                      "note":  "Companions-wave telemetry join finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Ratings keyed by consult_id",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "consult_id keying end to end (findings 449-455, common 5756-5789)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Consult_id keying removes cross-task n joins.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -3344,6 +3920,30 @@
                                                      "note":  "Companions-wave lab grouping finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Labs from model prefix/vendor",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "vendor prefix table (5062)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-ModelLab derives labs from model prefixes, never provider labels.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -3468,6 +4068,30 @@
                                                      "note":  "Companions-wave scoring finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Beta score ranks correctly",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "prior formula as decided in D3",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The bounded prior rate avoids floor collapse and volume dominance.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -3587,6 +4211,30 @@
                                                      "note":  "Companions-wave seeding finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Seed computed before selection",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "nonce = date/-PanelSeed; dry run and real run share it",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The nonce and seed are computed before the draw and recorded in routing.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -3706,6 +4354,30 @@
                                                      "note":  "Companions-wave PRNG portability finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: SHA-256 draw identical across PowerShell versions",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "SHA-256 counter stream, top 53 bits; no Random/GetHashCode in the diff",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Big-endian SHA-256 uniforms and golden sequences specify cross-runtime behavior.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -3825,6 +4497,30 @@
                                                      "note":  "Companions-wave -Require finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: -Require uses roster walk semantics",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-Require judged with roster-walk semantics on panel and single runs (2791)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Single -Provider requirements use roster-walk availability semantics.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -3953,6 +4649,30 @@
                                                      "note":  "Companions-wave matcher finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Matcher correctly ignores engine suffix",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "matcher on resolved identity with optional [engine]; label/position for model-less",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Matchers compare provider/model/engine fields and cover model-less entries by position or label.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -4321,6 +5041,30 @@
                                                      "note":  "Companions-wave panel-state finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: not-picked state implemented",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "\u0027not-picked\u0027 state, excluded from skip reporting (2238-2239)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Eligible non-seated members have the explicit not-picked state and are excluded from skips.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -4453,6 +5197,30 @@
                                                      "note":  "Companions-wave test-compatibility finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Not part of wave 26",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "harness roster 119 / panel 54 rewritten to routing.picked and seat order",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Order-sensitive assertions were rewritten around routing.picked and seat order.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -4576,6 +5344,30 @@
                                                      "note":  "Companions-wave roster-schema finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Keys added to allowlists",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "allowlists updated (5243, 5263)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "lab, roles, require and ext are allowlisted and validated fail-closed.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -4695,6 +5487,30 @@
                                                      "note":  "Companions-wave exploration finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Exploration post-gate",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "exploration draws from the post-gate eligible pool only (5925-5931)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Ranking, draw and exploration share the post-gate eligible set.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -4814,6 +5630,30 @@
                                                      "note":  "Companions-wave exit-code finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Exit 5 documented",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "exit 5 in README (1699-1703) and the skill (76, 248)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Exit 5 is implemented and documented in README and the skill.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -4933,6 +5773,30 @@
                                                      "note":  "Companions-wave role finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Role slug validation; assignment by score rank",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "slug validation, templates resolution, surplus roles refused, score-rank pairing",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Role names, precedence, count checks and score-rank assignment are explicit.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -5056,6 +5920,30 @@
                                                      "note":  "Companions-wave panel-size finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Peak checked per member at launch; no top-up",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "size bounds started members; no backfill documented as residual",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The peak code fact is corrected and the declared no-backfill behavior is documented.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -5184,6 +6072,30 @@
                                                      "note":  "Companions-wave telemetry finding; outside this wave.",
                                                      "base_commit":  "6b88cc8c4c0cd7c63eef59970709cf76ac62734f",
                                                      "tree_sha256":  "04b2be0befce8a008ac586f691eddc2dd6e0ac3aa6e6421b463d00d8a9dfa9ab"
+                                                 },
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Ratings carry topics; consult_id keyed",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "topics denormalized on ratings; shared scoring; scoreboard reads stores once (bridge cost is finding #2)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Topics are copied to marks, stores are read once, and warnings use the ledger warnings field.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                                  }
                                              ]
                      },
@@ -6374,7 +7286,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Context-overflow classification fixed",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "fixed in wave 24c (50dbddd), before this range; not re-verified here",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Failure classification prioritizes complete quota/billing evidence before context capability.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 }
                                              ]
                      },
                      {
@@ -6446,7 +7381,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Identity cache uses case-sensitive keys",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "ordinal listing cache with length-prefixed keys verified in tree (5534-5545)",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Listing identity/health caches use unambiguous cache keys through New-ListingCache.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 }
                                              ]
                      },
                      {
@@ -6513,7 +7471,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Only whole failure lines classified",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c, before this range",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Informational stderr filtering prevents benign auth/quota words from suppressing continuation.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 }
                                              ]
                      },
                      {
@@ -6580,7 +7561,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Hint uses original message, not truncated",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c, before this range",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Class hints use classification evidence rather than only truncated message text.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 }
                                              ]
                      },
                      {
@@ -6651,7 +7655,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Resume serializer includes -ReplyName and -SkipPreflight",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c, before this range",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The resume serializer includes ReplyName and SkipPreflight with the other replay options.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 }
                                              ]
                      },
                      {
@@ -6719,6 +7746,565 @@
                                              "evidence":  "wave 24c: fixed with harness-visibility UNIT24C/GATES24C cases; suite green except two environment-bound survivor checks",
                                              "base_commit":  "50dbdddf1e42843345117c2f951ef0a48616966e",
                                              "tree_sha256":  "23dcb8b96d432f80ab3369493c4b78b0ff6f09283a93f039fdf38f2c6ac57174"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  16,
+                                                     "when":  "2026-09-27T22:15:21+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolved: Recovery record restored on Start-Process error",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  14,
+                                                     "when":  "2026-09-27T22:32:01+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c, before this range",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-09-27T23:09:53+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Every no-process launch path restores the prior recovery record state.",
+                                                     "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                                     "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F19-1",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6001
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2593
+                                           }
+                                       ],
+                         "claim":  "The recorded and reported panel size is the adjusted k, not what the operator asked: k is silently raised to the required count and clamped down to the eligible count, while routing.size_source stays \u0027-PanelSize\u0027 and the summary\u0027s \u0027asked k\u0027 reports the seated count — so `-PanelSize 2` with 3 required reviewers seats 3, and `-PanelSize 5` with 3 eligible reports \u0027asked 3\u0027, in both cases without a warning or a record of the requested number.",
+                         "trigger":  "`-Panel -PanelSize 2 -Require a,b,c` (3 required available), or `-PanelSize 5` with only 3 eligible entries.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5998-6002",
+                                              "observation":  "k is clamped to [pinned.Count, eligible.Count] after being taken from Size/PanelSize"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:6023-6031",
+                                              "observation":  "the warnings list contains only the singleton-lab and floor warnings — nothing about an adjusted size"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2587-2593",
+                                              "observation":  "\u0027asked\u0027 prints $panelRunners.Count (the seated members), not the requested size"
+                                          }
+                                      ],
+                         "verification":  "Dry-run a fake panel with -PanelSize 2 and three required available reviewers; observe 3 seats, size_source \u0027-PanelSize\u0027, and no warning naming the raise.",
+                         "remedy":  "Record routing.requested_size (and size_source) separately, and warn when an explicit -PanelSize is raised by the required count or clamped by eligibility.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  14,
+                                        "reply":  "handoffs/19-codex-reply-zai.md",
+                                        "thread":  "01a0e475-6ca1-77e1-b104-945fc2b309ce",
+                                        "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                        "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T22:32:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                             "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F19-2",
+                         "status":  "wontfix",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5748
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2208
+                                           }
+                                       ],
+                         "claim":  "Every `-Panel` invocation — including dry runs — reads and JSON-parses every task\u0027s findings.json to build routing scores, with no cache or size guard, so panel startup cost grows linearly with the repository\u0027s whole rating/findings history (already ~1.2 MB across tasks here); correctness is unaffected and the scoreboard reads each store once per run as D2 requires.",
+                         "trigger":  "A routed panel (or its dry run) in a repository with many tasks and large findings.json stores, under Windows PowerShell 5.1.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5741-5751",
+                                              "observation":  "Read-AllTaskRatings enumerates every task directory and parses findings.json when no Stores cache is passed"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:2208",
+                                              "observation":  "the panel run calls it before selection with no Stores argument, on every run and dry run"
+                                          }
+                                      ],
+                         "verification":  "Time `codex-consult.ps1 -Panel -Purpose framing -DryRun` in this repository under powershell.exe before and after adding several large findings.json stores.",
+                         "remedy":  "Reuse the scoreboard\u0027s read-once pattern for the bridge too, or cache normalized ratings per run keyed by file mtime; at minimum document the per-run cost.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  14,
+                                        "reply":  "handoffs/19-codex-reply-zai.md",
+                                        "thread":  "01a0e475-6ca1-77e1-b104-945fc2b309ce",
+                                        "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                        "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T22:32:01+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                             "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T23:13:38+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "by design: a routed panel reads the repository\u0027s findings stores once per run (a handful of files); a cache would go stale across sessions",
+                                             "evidence":  "",
+                                             "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                             "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6077
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6082
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6085
+                                           }
+                                       ],
+                         "claim":  "Resolve-RoleFile validates only the role slug and then follows `\u003cCollabDir\u003e/roles/\u003cslug\u003e.md` through Test-Path and Read-SharedText without requiring the resolved file to remain under the roles directory or rejecting reparse points. A repository-controlled symlink or junction can therefore make an arbitrary local file\u0027s contents become the role block sent to third-party reviewers.",
+                         "trigger":  "An untrusted repository contains `.collab/roles/security.md` as a symlink or junction to a local secret and the operator runs `-Role security`.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:6077-6088",
+                                              "observation":  "the slug is checked, but the repository candidate is joined, tested and read without containment or no-follow validation."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:6071-6075",
+                                              "observation":  "the selected text is intended for insertion into the prompt sent to external reviewers."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Windows NTFS symlink/junction semantics",
+                                              "observation":  "Test-Path and ordinary file reads follow reparse points to the target."
+                                          }
+                                      ],
+                         "verification":  "Create a role symlink to a marker file outside the roles directory, run `-Role` under fakes, and confirm refusal before any prompt or ledger write.",
+                         "remedy":  "Resolve the candidate path, require it to remain under the canonical roles root, reject every reparse-point component, and read with no-follow semantics where supported.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  17,
+                                        "reply":  "handoffs/22-codex-reply-mimo.md",
+                                        "thread":  "01a0e475-5a51-7963-8365-e341cfd32148",
+                                        "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                        "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:09:53+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                             "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-2",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5129
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5285
+                                           }
+                                       ],
+                         "claim":  "Provider labels may contain the matcher separators ` :: ` and ` [engine]`, but Resolve-ReviewerMatcher reserves both without escaping, so such valid labels cannot be required by their label.",
+                         "trigger":  "A roster provider is `a :: b` or `foo [agy]` and roster `require` names that bare label.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5285-5287",
+                                              "observation":  "provider validation permits any non-empty trimmed string."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5129-5157",
+                                              "observation":  "the matcher parser treats those substrings as structural syntax."
+                                          }
+                                      ],
+                         "verification":  "Load such a roster and require its provider label; observe an erroneous parse or no-match refusal despite position matching.",
+                         "remedy":  "Restrict provider labels to an unambiguous grammar or add escaped/quoted matcher syntax.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  17,
+                                        "reply":  "handoffs/22-codex-reply-mimo.md",
+                                        "thread":  "01a0e475-5a51-7963-8365-e341cfd32148",
+                                        "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                        "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:09:53+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                             "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-3",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6126
+                                           }
+                                       ],
+                         "claim":  "Role assignment greedily assigns each role immediately, so it can violate roster willingness even when a complete willing assignment exists.",
+                         "trigger":  "Higher-ranked member m1 accepts roles A and B, lower-ranked m2 accepts only A, and `-Roles A,B` is requested.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:6106-6132",
+                                              "observation":  "each role takes the first willing member left, then removes that member before considering later constraints."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "bipartite matching semantics",
+                                              "observation":  "m2-\u003eA and m1-\u003eB is feasible, but greedy A-\u003em1 forces B onto unwilling m2."
+                                          }
+                                      ],
+                         "verification":  "Run Select-RoleAssignment with that willingness matrix and inspect the resulting map.",
+                         "remedy":  "Use constrained bipartite matching, assigning the most constrained roles first, and fall back to unwilling members only after proving no willing matching exists.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  17,
+                                        "reply":  "handoffs/22-codex-reply-mimo.md",
+                                        "thread":  "01a0e475-5a51-7963-8365-e341cfd32148",
+                                        "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                        "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:09:53+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                             "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-4",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5865
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5871
+                                           }
+                                       ],
+                         "claim":  "The routing seed joins unescaped fields with `|` and lineages with commas, while roster provider and model strings allow those characters, so distinct eligible sets or nonces can produce identical seed text and identical draws.",
+                         "trigger":  "Eligible lineages or `-PanelSeed` contain delimiter characters that make two different inputs serialize identically.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5865-5874",
+                                              "observation":  "seed text is a plain delimiter concatenation of task, purpose, hash, joined lineages and nonce."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5285-5292",
+                                              "observation":  "provider and model values reject blanks but do not forbid delimiter characters."
+                                          }
+                                      ],
+                         "verification":  "Construct two distinct input tuples with identical concatenated seed text and compare their hashes and draws.",
+                         "remedy":  "Use length-prefixed or JSON canonical encoding, or reject delimiter characters in seed components.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  17,
+                                        "reply":  "handoffs/22-codex-reply-mimo.md",
+                                        "thread":  "01a0e475-5a51-7963-8365-e341cfd32148",
+                                        "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                        "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:09:53+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                             "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-5",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5917
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5919
+                                           }
+                                       ],
+                         "claim":  "Required pins consume seats before the lab-reserve loop, so the stated minimum number of represented qualifying labs can become unreachable while the reserve target still counts those labs.",
+                         "trigger":  "Two required members share one qualifying lab and panel size is three with three qualifying labs.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5915-5931",
+                                              "observation":  "pinned candidates are seated first, while reserve is computed from all qualifying labs and only the remaining seats can cover them."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "D1 lab reserve plus D7 required-first ordering",
+                                              "observation":  "the two rules can consume the diversity budget before diversity selection begins."
+                                          }
+                                      ],
+                         "verification":  "Run the trigger through Invoke-PanelDraw and count distinct qualifying labs in the final seats versus `min(K, goodLabs)`.",
+                         "remedy":  "Compute the achievable diversity target after pins, or enlarge/refuse the size when required pins make the declared target impossible.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  17,
+                                        "reply":  "handoffs/22-codex-reply-mimo.md",
+                                        "thread":  "01a0e475-5a51-7963-8365-e341cfd32148",
+                                        "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                        "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:09:53+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                             "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-6",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5756
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5758
+                                           }
+                                       ],
+                         "claim":  "Legacy-rating completion joins the ledger only when selected fields are absent; a record containing `provider` but lacking `model` or `purpose` is accepted without completion and therefore routes under an incomplete identity or purpose.",
+                         "trigger":  "An old rating has consult_id and provider but omits model or purpose.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5756-5785",
+                                              "observation":  "the needJoin predicate omits model and purpose, while later code accepts a non-empty provider with empty remaining identity fields."
+                                          }
+                                      ],
+                         "verification":  "Feed such a legacy mark with a matching ledger entry and inspect the normalized Model and Purpose.",
+                         "remedy":  "Join whenever any routing-required denormalized field is absent or invalid, and discard records that remain unresolvable.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  17,
+                                        "reply":  "handoffs/22-codex-reply-mimo.md",
+                                        "thread":  "01a0e475-5a51-7963-8365-e341cfd32148",
+                                        "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                        "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:09:53+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                             "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-7",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-scoreboard.ps1",
+                                               "line":  162
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-scoreboard.ps1",
+                                               "line":  251
+                                           }
+                                       ],
+                         "claim":  "UNIQ location matching normalizes only backslashes, not case, `./` prefixes or other equivalent path spellings, so the same location can be counted as unique on Windows.",
+                         "trigger":  "Two panel members record `src\\App.ps1:10` and `./src/app.ps1:10` for the same defect.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-scoreboard.ps1:162-171,251-255",
+                                              "observation":  "location keys replace separators but preserve case and spelling, then compare exactly."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Windows path semantics",
+                                              "observation":  "those spellings can name the same file and line."
+                                          }
+                                      ],
+                         "verification":  "Add the trigger findings to a synthetic panel and inspect unique/panel_raised.",
+                         "remedy":  "Canonicalize relative paths with the repository-aware comparable-path rule and apply platform-correct case folding before comparison.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  17,
+                                        "reply":  "handoffs/22-codex-reply-mimo.md",
+                                        "thread":  "01a0e475-5a51-7963-8365-e341cfd32148",
+                                        "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                        "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T23:09:53+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
+                                             "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -6825,6 +8411,54 @@
                         "useful":  "yes",
                         "note":  "re-acceptance of 24b: 11 of 13 ruled fixed, two still open with reasons, F15-1..6 (two real majors: quota wording forced to capability, case-insensitive identity cache); 34 min",
                         "when":  "2026-09-26T21:03:25+02:00"
+                    },
+                    {
+                        "n":  14,
+                        "consult_id":  "51b41695-264d-4291-a9e9-76fbb3186bf3",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-09-27T22:01:28+02:00",
+                        "useful":  "yes",
+                        "note":  "wave 26 acceptance: verified the implemented findings; F19-1 minor and a perf note",
+                        "when":  "2026-09-27T23:13:32+02:00"
+                    },
+                    {
+                        "n":  16,
+                        "consult_id":  "2697308a-3042-4e52-9d13-fa796d77abe8",
+                        "lineage":  "byteplus :: dola-seed-2.0-pro",
+                        "provider":  "byteplus",
+                        "model":  "dola-seed-2.0-pro",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-09-27T22:01:28+02:00",
+                        "useful":  "yes",
+                        "note":  "wave 26 acceptance: verified the implemented findings; clean ACCEPT with 41 prior findings checked",
+                        "when":  "2026-09-27T23:13:34+02:00"
+                    },
+                    {
+                        "n":  17,
+                        "consult_id":  "7db4dc21-f3bb-45e5-8bb9-664fc09f289c",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-09-27T22:01:28+02:00",
+                        "useful":  "yes",
+                        "note":  "wave 26 acceptance: verified the implemented findings; F22-1 major (role file symlink) and six minors",
+                        "when":  "2026-09-27T23:13:36+02:00"
                     }
                 ]
 }
