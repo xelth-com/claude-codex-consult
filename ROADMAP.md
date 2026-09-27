@@ -242,7 +242,9 @@ optional participant whose "done" is never trusted and who never closes a findin
   certain protocol droid that translates between parties and never stops advising) - the
   plugin and marketplace ids change only then, with a migration note for installed copies.
   Measured by one fresh Codex-CLI-coordinated consultation from the README alone.
-- **R14 — Adaptive companions: panel size and diversity follow the stakes (planned for 0.5).**
+- **R14 — Adaptive companions: panel size and diversity follow the stakes (implemented in the 0.5.0
+  candidate, wave 26, f29f5ca, with R15 and R16; the acceptance panel of 2026-09-27 - the first live
+  routed panel - held on one major, fixed in wave 26b together with R18/R20 below).**
   The coordinator never takes a non-trivial step alone, and a panel grows with the stakes instead of
   always taking every available reviewer. This project's own evidence: in the R11 design review
   (`.collab/parallel-panel-2026-09-25/`, three reviewers from three labs) the most serious hole - a
@@ -260,8 +262,8 @@ optional participant whose "done" is never trusted and who never closes a findin
   seeing each other inside a wave (blindness stays). When every model shares a blind spot a
   unanimous panel is confidently wrong; the remedy is evidence - findings say what was verified in
   code and what was inferred, and the coordinator checks them (R9) - not more votes.
-- **R15 — Telemetry routing: companions chosen by their track record, with exploration (planned
-  for 0.5, after R14).** The scoreboard (`codex-scoreboard.ps1`, the `-Rate` usefulness marks,
+- **R15 — Telemetry routing: companions chosen by their track record, with exploration (implemented
+  in wave 26 with R14; see the CHANGELOG for what the draw and the score became).** The scoreboard (`codex-scoreboard.ps1`, the `-Rate` usefulness marks,
   reviewer x purpose) becomes the router's input. Selection is a weighted draw, not a fixed order: a
   reviewer's weight grows with its rated usefulness on this purpose - and on topic tags a brief
   carries (`-Topic concurrency,powershell`) - while a small exploration share keeps less-used or
@@ -270,7 +272,7 @@ optional participant whose "done" is never trusted and who never closes a findin
   allow. Pieces: `-Topic`, a routing record in the ledger (weights, the draw, why each member was
   picked), `codex-scoreboard.ps1 -By topic`. Measured by the share of findings the coordinator rates
   useful per consultation, before and after.
-- **R16 — Companion roles (idea).** Besides a general review a companion can take one narrow role:
+- **R16 — Companion roles (implemented in wave 26: `-Role`, `-Roles`, `templates/role-*.md`).** Besides a general review a companion can take one narrow role:
   edge-case hunter, security reviewer, test designer who proposes failing tests as text, docs
   checker. Expressed as brief templates and purpose presets; members stay read-only and the
   coordinator applies what survives verification.
@@ -300,6 +302,38 @@ optional participant whose "done" is never trusted and who never closes a findin
   harness). README "Telemetry (opt-in)" with the exact payload and the privacy statement.
   Non-goals: any identifying data, any send without the switch, any send that can slow or fail
   a run.
+- **R18 — Member control: stall auto-cut, `-Kick`, per-entry timeouts (wave 26b, from live use on
+  2026-09-27).** A coordinator watching a panel could not shorten one slow member: a reviewer that
+  had stopped producing events held the panel for its whole budget (1800 s plus the 900 s
+  continuation), and the only manual remedy was killing its process by hand. Pieces: (a) a stall
+  detector - a member whose event stream has been silent for `-StallSec` (default 900; roster
+  `stall_sec` per entry; 0 off) while its process lives is stopped like a timeout, with the same
+  continuation turn and salvage, `bridge_outcome` `failed: stalled after N s without an event`;
+  (b) `-Kick <nn>` for one member of a running panel (`-Kick -Id <id8> -Member <nn>` on a detached
+  panel; a kick file the foreground parent polls otherwise): the member is stopped, its partial
+  output salvaged, the member recorded `failed: stopped by the operator (-Kick)` (class `operator`),
+  the panel goes on; (c) a roster entry's `timeout_sec` replacing the purpose default for that
+  member (an explicit `-TimeoutSec` still wins for all). Non-goal: restarting a kicked member.
+- **R19 — The coordinator's manual ships with the bridge (wave 27, with R13).** The rules a
+  coordinator needs to run consultations well - waves and briefs, a fresh worker per wave, reports
+  as files, non-blocking waits (`-Detach`, background runs, a watchdog wake below the prompt-cache
+  TTL that reads the worker's state file and messages or kicks it), context hygiene (the
+  auto-compaction threshold, compaction at wave boundaries), never redoing a worker's work, the
+  language rule, the live-member rule (no writes under the collab directory or the working tree
+  while an agy or muse member runs) - live today in one operator's private CLAUDE.md. A plugin
+  cannot ship a CLAUDE.md, so the manual becomes a skill (`coordinate`, host-neutral, English),
+  the worker agent definitions ship in the plugin's `agents/` (the Codex host gets its
+  counterparts from the R13 install script), and the SessionStart hook prints one pointer line
+  beside the availability line. Reviewed with R13 in one design panel.
+- **R20 — Machine-wide endpoint health (wave 26b).** Endpoint health lives in the ledgers of one
+  repository, so two repositories consulting the same endpoint at once cannot see each other's
+  bursts: on 2026-09-27 a BytePlus member of this repository's acceptance panel failed with 429
+  after 2568 s while another repository's panels used the same endpoint. A small store under the
+  codex home (`codex-consult-health.json`, path overridable by `CODEX_CONSULT_HEALTH`, written under
+  a lock) records provider failures and usable replies per endpoint and the members running per
+  endpoint (pid + start time liveness); every roster walk reads it beside the repository's ledgers,
+  and the endpoint parallel limit counts running members of every repository. Absent or unreadable
+  = today's behaviour.
 
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
