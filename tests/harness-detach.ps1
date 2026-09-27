@@ -10,7 +10,9 @@
 # SessionStart hook, and the next run recovers as always; the budget (D4), the cwd rule (D8), the
 # id8 collision (D7), an agy member of a detached panel not failing on the status file and the log
 # (D1 / F02-7), a non-ASCII summary (D10), git check-ignore on the .gitignore pattern (D1); and
-# ROADMAP T4 - the -ScriptsDir / CODEX_CONSULT_SCRIPTS_DIR override of the harnesses and run-all.
+# ROADMAP T4 - the -ScriptsDir / CODEX_CONSULT_SCRIPTS_DIR override of the harnesses and run-all; (wave 26,
+# CARRY) the wave 25 acceptance's carry-overs: -Prune and an unreadable file, the never-started text,
+# the prompt file of a detached run, the retried final write and exit 6.
 # FAKES ONLY: fake-codex3.cmd (CODEX_CONSULT_EXE, -CodexExe and a `codex` shim first on PATH) and
 # fake-agy.cmd (CODEX_CONSULT_AGY_EXE); PATH holds no real codex, agy or muse launcher; CODEX_HOME
 # and CODEX_CONSULT_ROSTER point at scratch files; the API key variables hold dummy test values.
@@ -49,7 +51,7 @@ $realConfigHash = ''
 if (Test-Path -LiteralPath $realConfig -PathType Leaf) { $realConfigHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $realConfig).Hash }
 # The process environment the cases change and the end restores (values are never printed).
 $savedEnv = @{}
-foreach ($k in @('CODEX_HOME', 'Path', 'RT_ZAI_KEY', 'RT_MIMO_KEY')) { $savedEnv[$k] = [Environment]::GetEnvironmentVariable($k) }
+foreach ($k in @('CODEX_HOME', 'Path', 'RT_ZAI_KEY', 'RT_MIMO_KEY', 'ComSpec')) { $savedEnv[$k] = [Environment]::GetEnvironmentVariable($k) }
 $script:fails = 0
 $script:passes = 0
 $cleanup = New-Object System.Collections.Generic.List[int]
@@ -373,7 +375,7 @@ if (Want 'REFUSE') {
     Write-PendingFile -Path (Join-Path (Td $r) '.consult.pending.json') -Record $rec
     $ar = Consult $r '' @('-Detach', '-Prompt', 'x')
     $ard = Consult $r '' @('-DryRun', '-Prompt', 'x')
-    $arp = Consult $r $roster2 @('-Detach', '-Panel', '-Prompt', 'x')
+    $arp = Consult $r $roster2 @('-Detach', '-Panel', '-PanelSize', '2', '-Prompt', 'x')
     Stop-Process -Id $sl.Id -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath (Join-Path (Td $r) '.consult.pending.json') -Force
     Check 'REFUSE' 'D2: an ACTIVE recovery record (its writer lives) - the dry run reports "the next run would be REFUSED" (exit 0); -Detach is refused in the foreground (exit 1, "a consultation of this task is still running"), single run and panel; no status file, no background' ($ard.Code -eq 0 -and $ard.Out -match 'the next run would be REFUSED' -and $ar.Code -eq 1 -and $ar.Refusal -match "a consultation of this task is still running: its bridge \(pid $($sl.Id)\)" -and $arp.Code -eq 1 -and $arp.Refusal -match 'still running' -and @(Runs $r).Count -eq 0) "$($ar.Refusal) | $($arp.Refusal)"
@@ -429,7 +431,7 @@ if (Want 'SINGLE') {
 if (Want 'PANEL') {
     $r = New-Repo 'panel'
     $repos.Add($r)
-    $f = Consult $r $roster3 @('-Detach', '-Panel', '-Prompt', 'x', '-ReplyName', 'pd') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = 'gpt-5.1=14000|glm-5.3=4000|mimo-v2.6-pro=4000'; CODEX_CONSULT_TEST_PANEL_GUARD_SEC = '200' }
+    $f = Consult $r $roster3 @('-Detach', '-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'pd') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = 'gpt-5.1=14000|glm-5.3=4000|mimo-v2.6-pro=4000'; CODEX_CONSULT_TEST_PANEL_GUARD_SEC = '200' }
     $id8 = Id8Of $f.Out
     $run0 = Run8 $r $id8
     Check 'PANEL' 'the foreground of a panel returns at once (exit 0): "Detached <id8>: a review panel of 3 of 3 roster entries, at once (...)", budget_sec 320 (D4: three endpoints at once, the test guard 200 + 120), three members pending with their lineage in roster order' ($f.Code -eq 0 -and $f.Sec -lt 10 -and $f.First -match "^Detached $id8`: a review panel of 3 of 3 roster entries, at once \(purpose none, timeout 900 s per member\) - it runs in the background \(detach id .*; budget 320 s\)\.$" -and $run0.Record.kind -eq 'panel' -and $run0.Record.budget_sec -eq 320 -and (@($run0.Record.members | ForEach-Object { "$($_.position):$($_.lineage)" }) -join ',') -eq '1:openai :: gpt-5.1,2:ZAI :: glm-5.3,3:mimo :: mimo-v2.6-pro') "$($f.Sec) s; $($f.First)"
@@ -441,16 +443,16 @@ if (Want 'PANEL') {
     $sum = @(([string]$done.Record.summary) -split "`n")
     $logSum = PanelSummary (Read-SharedText -Path $done.Log)
     $wSum = PanelSummary $w.Out
-    Check 'PANEL' '-Wait: exit 0, the summary block "Panel <id8>: 3 of 3 entries ran (wall clock <t> s; at once)" + one row per member - VERBATIM the block the background printed last in its log; members usable with their numbers' ($w.Code -eq 0 -and $sum[0] -match '^Panel [0-9a-f]{8}: 3 of 3 entries ran \(wall clock [0-9.]+ s; at once\)$' -and $sum.Count -eq 4 -and ($wSum -join "`n") -eq ($sum -join "`n") -and ($logSum -join "`n") -eq ($sum -join "`n") -and (@($done.Record.members | ForEach-Object { "$($_.state):$($_.n):$($_.handoff)" }) -join ',') -eq 'usable:1:01,usable:2:02,usable:3:03') ($sum -join ' / ')
+    Check 'PANEL' '-Wait: exit 0, the summary block "Panel <id8>: 3 of 3 entries ran (asked 3, started 3, usable 3; wall clock <t> s; at once)" + one row per member - VERBATIM the block the background printed last in its log; members usable with their numbers' ($w.Code -eq 0 -and $sum[0] -match '^Panel [0-9a-f]{8}: 3 of 3 entries ran \(asked 3, started 3, usable 3; wall clock [0-9.]+ s; at once\)$' -and $sum.Count -eq 4 -and ($wSum -join "`n") -eq ($sum -join "`n") -and ($logSum -join "`n") -eq ($sum -join "`n") -and (@($done.Record.members | ForEach-Object { "$($_.state):$($_.n):$($_.handoff)" }) -join ',') -eq 'usable:1:01,usable:2:02,usable:3:03') ($sum -join ' / ')
     $rb = New-Repo 'panel-blocking'
-    $bl = Consult $rb $roster3 @('-Panel', '-Prompt', 'x', '-ReplyName', 'pd') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = '1000' }
+    $bl = Consult $rb $roster3 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'pd') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = '1000' }
     $nb = Norm (PanelSummary $bl.Out) ''
     $nd = Norm $sum ''
     Check 'PANEL' 'a blocking panel of the same fakes prints the same summary block (panel id and times normalised); the detached panel''s ledger has the three entries, findings F01-1..F03-1' ($bl.Code -eq 0 -and ($nb -join "`n") -eq ($nd -join "`n") -and @(Ledger $r).Count -eq 3) "$($nb[1]) || $($nd[1])"
     # the budget with two members of one endpoint one after another (D4): 2 x 200 + 120
     $rz = New-Repo 'panel-zai2'
     $repos.Add($rz)
-    $fz = Consult $rz $rosterZai2 @('-Detach', '-Panel', '-Prompt', 'x', '-ReplyName', 'pz') @{ FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_TEST_PANEL_GUARD_SEC = '200' }
+    $fz = Consult $rz $rosterZai2 @('-Detach', '-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'pz') @{ FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_TEST_PANEL_GUARD_SEC = '200' }
     $idz = Id8Of $fz.Out
     $okz = Wait-Done $rz $idz 120
     $rzr = Run8 $rz $idz
@@ -461,7 +463,7 @@ if (Want 'PANEL') {
 if (Want 'WAITTIME') {
     $r = New-Repo 'waittime'
     $repos.Add($r)
-    $f = Consult $r $roster2 @('-Detach', '-Panel', '-Prompt', 'x', '-ReplyName', 'wt') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DELAY_MS = '15000'; FAKE_CODEX_FAIL_ON = 'model_provider=""mimo""' }
+    $f = Consult $r $roster2 @('-Detach', '-Panel', '-PanelSize', '2', '-Prompt', 'x', '-ReplyName', 'wt') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DELAY_MS = '15000'; FAKE_CODEX_FAIL_ON = 'model_provider=""mimo""' }
     $id8 = Id8Of $f.Out
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $w1 = WaitRun $r @('-Id', $id8, '-WaitTimeoutSec', '2')
@@ -508,7 +510,7 @@ if (Want 'REFUSEDBG') {
 if (Want 'KILL') {
     $r = New-Repo 'kill'
     $repos.Add($r)
-    $f = Consult $r $roster2 @('-Detach', '-Panel', '-Prompt', 'x', '-ReplyName', 'kd') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = '25000' }
+    $f = Consult $r $roster2 @('-Detach', '-Panel', '-PanelSize', '2', '-Prompt', 'x', '-ReplyName', 'kd') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = '25000' }
     $id8 = Id8Of $f.Out
     $bothRun = Wait-For { $x = Run8 $r $id8; $recs = Records $r; $x -and @($x.Record.members | Where-Object { $_.state -eq 'running' }).Count -eq 2 -and @($recs | Where-Object { $_.Record -and $_.Record.state -eq 'running' }).Count -eq 2 } 90
     $x = Run8 $r $id8
@@ -593,6 +595,80 @@ if (Want 'FABRIC') {
     $rEmpty = New-Repo 'fabric-empty'
     $q8 = Status $rEmpty
     Check 'FABRIC' 'the query''s options: -Status -Wait = -Wait; -WaitTimeoutSec without -Wait, -Wait -Prune, -WaitTimeoutSec 0, -Status with a run option (-Brief) -> exit 4; `-Status abcd1234` (the id bound positionally to -CollabDir, which does not exist) -> exit 4 with the -Id hint; -Prune alone -> refused (exit 1); a task without detached runs -> "codex-consult: no detached consultation in task ''t'' (...)" exit 0' ($q1.Code -ne 4 -and $q2.Code -eq 4 -and $q2.First -eq 'codex-consult: -WaitTimeoutSec goes with -Wait.' -and $q3.Code -eq 4 -and $q4.Code -eq 4 -and $q5.Code -eq 4 -and $q5.First -match 'not -Brief\.$' -and $q6.Code -eq 4 -and $q6.First -match "^codex-consult: -CollabDir 'abcd1234' does not exist .*the id of a detached run goes with -Id" -and $q7.Code -eq 1 -and $q8.Code -eq 0 -and $q8.First -match "^codex-consult: no detached consultation in task 't' ") "$($q5.First) | $($q6.First) | $($q8.First)"
+}
+
+# =============================================================== CARRY: wave 26 - the wave 25 acceptance's carry-overs
+# F07-1/F08-1/F11-1: -Status -Prune removes an UNREADABLE status file 7 days after the file's last
+# write (a younger one stays, and -Status names the command that removes it by hand); F07-2: a
+# never-started run is pruned only when its log was not written in those 7 days either; F11-2: an
+# inline -Prompt of a detached run lives in a prompt file, the `starting` record names only that file;
+# F08-2: the background's final status write is retried, and when it still fails the background
+# exits 6 saying that the result exists only in its log.
+if (Want 'CARRY') {
+    $r = New-Repo 'carry'
+    $repos.Add($r)
+    $td = Td $r
+    $old = (Get-Date).AddDays(-9)
+    $pU1 = Get-DetachedPaths -TaskDir $td -Id 'dddd0001-0000-4000-8000-000000000001'
+    $pU2 = Get-DetachedPaths -TaskDir $td -Id 'dddd0002-0000-4000-8000-000000000002'
+    [IO.File]::WriteAllText($pU1.Status, '{ not json', $u8); [IO.File]::WriteAllText($pU1.Log, "old log`n", $u8)
+    [IO.File]::WriteAllText($pU2.Status, '', $u8); [IO.File]::WriteAllText($pU2.Log, "young log`n", $u8)
+    foreach ($f in @($pU1.Status, $pU1.Log)) { [IO.File]::SetLastWriteTime($f, $old) }
+    $now = [DateTimeOffset]::Now
+    $pN1 = New-Fabricated -TaskDir $td -Id 'dddd0003-0000-4000-8000-000000000003' -State 'starting' -Started $now.AddDays(-9) -Updated $now.AddDays(-9)
+    [IO.File]::WriteAllText($pN1.Prompt, 'left-over prompt', $u8)
+    foreach ($f in @($pN1.Log, $pN1.Prompt)) { [IO.File]::SetLastWriteTime($f, $old) }
+    $pN2 = New-Fabricated -TaskDir $td -Id 'dddd0004-0000-4000-8000-000000000004' -State 'starting' -Started $now.AddDays(-9) -Updated $now.AddDays(-9)
+    $s2 = Status $r @('-Id', 'dddd0002')
+    $pr = Status $r @('-Prune')
+    $gone1 = -not (Test-Path -LiteralPath $pU1.Status) -and -not (Test-Path -LiteralPath $pU1.Log)
+    $kept2 = (Test-Path -LiteralPath $pU2.Status) -and (Test-Path -LiteralPath $pU2.Log)
+    $goneN1 = -not (Test-Path -LiteralPath $pN1.Status) -and -not (Test-Path -LiteralPath $pN1.Log) -and -not (Test-Path -LiteralPath $pN1.Prompt)
+    $keptN2 = (Test-Path -LiteralPath $pN2.Status) -and (Test-Path -LiteralPath $pN2.Log)
+    Check 'CARRY' 'F07-1/F11-1: -Status -Prune removes an UNREADABLE status file (and its log) last written 9 days ago ("pruned     : detached dddd0001 (unreadable, ...)"); a young unreadable file stays, and -Status names the command that removes it ("-Status -Prune removes it 7 days after its last write; to remove it now: Remove-Item -LiteralPath ...")' ($gone1 -and $kept2 -and $pr.Out -match '(?m)^pruned     : detached dddd0001 \(unreadable, last written ' -and $s2.Code -eq 1 -and $s2.Out -match "(?m)^  -Status -Prune removes it 7 days after its last write; to remove it now: Remove-Item -LiteralPath '.*\.consult\.detached-dddd0002\.status\.json', '.*\.consult\.detached-dddd0002\.log'") "$($pr.Out -replace "`n", ' / ')"
+    Check 'CARRY' 'F07-2: a never-started run 9 days old goes with its prompt file when its log is old too (dddd0003); one whose log was written recently (a late background may have started) stays (dddd0004); the never-started text is conditional ("if one starts late it still reports and the run reads running again")' ($goneN1 -and $keptN2 -and $pr.Out -match '(?m)^pruned     : detached dddd0003 \(never-started' -and $pr.Out -notmatch 'detached dddd0004 \(never' -and $pr.Out -match 'never started - no background process reported within 60 s of \S+; if one starts late it still reports and the run reads running again \(its log may say why\)') ''
+    # F11-2: a background that never starts (ComSpec is where.exe, which refuses the command line and
+    # exits) leaves the `starting` record - with the prompt's FILE, never the prompt text
+    $rp = New-Repo 'carry-prompt'
+    $repos.Add($rp)
+    $secret = 'the inline ask 7f3c'
+    # (-SkipPreflight: no `codex login status` through a .cmd launcher while ComSpec is not cmd.exe)
+    $fp = Consult $rp '' @('-Detach', '-SkipPreflight', '-Prompt', $secret, '-ReplyName', 'pf') @{ FAKE_CODEX_REPLY = $advise; ComSpec = (Join-Path $env:SystemRoot 'System32\where.exe') }
+    $id8 = Id8Of $fp.Out
+    $run = Run8 $rp $id8
+    $pp = Get-DetachedPaths -TaskDir (Td $rp) -Id $id8
+    $spec = $null
+    try { $spec = ConvertFrom-DetachArgs -Text ([string]$run.Record.args) } catch { }
+    $statusText = [IO.File]::ReadAllText($pp.Status, $u8)
+    $xml = ''
+    try { $xml = $u8.GetString([Convert]::FromBase64String([string]$run.Record.args)) } catch { }
+    Check 'CARRY' 'F11-2: the `starting` record of a detached run with an inline -Prompt names only its prompt file (args: PromptFile = <task>/.consult.detached-<id8>.prompt.txt, no Prompt); the file holds the prompt (UTF-8); neither the status file nor the decoded args contain the prompt text' ($fp.Code -eq 0 -and $run -and $run.Record.state -eq 'starting' -and $spec -and $spec.ContainsKey('PromptFile') -and -not $spec.ContainsKey('Prompt') -and $spec['PromptFile'] -eq $pp.Prompt -and [IO.File]::ReadAllText($pp.Prompt, $u8) -eq $secret -and -not $statusText.Contains($secret) -and -not $xml.Contains($secret)) "$($fp.First) | $(if ($spec) { ($spec.Keys | Sort-Object) -join ',' })"
+    Remove-Item -LiteralPath $pp.Status, $pp.Prompt -Force -ErrorAction SilentlyContinue
+    $flog = Join-Path $work 'carry-fake.log'
+    $fr = Consult $rp '' @('-Detach', '-Prompt', $secret, '-ReplyName', 'pg') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $flog }
+    $id8b = Id8Of $fr.Out
+    $doneB = Wait-Done $rp $id8b 120
+    $pb = Get-DetachedPaths -TaskDir (Td $rp) -Id $id8b
+    $runB = Run8 $rp $id8b
+    Check 'CARRY' 'F11-2: the background reads its prompt from the file and removes the file - the reviewer got the ask (fake log), the run is done (exit 0), no prompt file is left' ($fr.Code -eq 0 -and $doneB -and $runB.Record.exit -eq 0 -and -not (Test-Path -LiteralPath $pb.Prompt) -and (Test-Path -LiteralPath $flog) -and [IO.File]::ReadAllText($flog).Contains($secret)) "done=$doneB exit=$($runB.Record.exit)"
+    # F08-2: the status file read-only after the self-report: the final write fails 3 times -> exit 6
+    $r6 = New-Repo 'carry-exit6'
+    $repos.Add($r6)
+    $f6 = Consult $r6 '' @('-Detach', '-Prompt', 'x', '-ReplyName', 'e6') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DELAY_MS = '6000' }
+    $id86 = Id8Of $f6.Out
+    $p6 = Get-DetachedPaths -TaskDir (Td $r6) -Id $id86
+    $isRunning = Wait-For { $x = Run8 $r6 $id86; $x -and $x.Record -and $x.Record.state -eq 'running' -and $x.Record.members[0].state -eq 'running' } 60
+    $bgPid = [int](Run8 $r6 $id86).Record.pid
+    $bg = $null
+    try { $bg = [Diagnostics.Process]::GetProcessById($bgPid); $null = $bg.Handle } catch { $bg = $null }
+    (Get-Item -LiteralPath $p6.Status).IsReadOnly = $true
+    $exit6 = $null
+    if ($bg) { if ($bg.WaitForExit(180000)) { try { $exit6 = $bg.ExitCode } catch { $exit6 = $null } } }
+    else { $null = Wait-For { -not (Get-Process -Id $bgPid -ErrorAction SilentlyContinue) } 180 }
+    (Get-Item -LiteralPath $p6.Status).IsReadOnly = $false
+    $log6 = [IO.File]::ReadAllText($p6.Log, $u8)
+    $rec6 = Run8 $r6 $id86
+    Check 'CARRY' 'F08-2: the status file cannot be written after the self-report -> the final write is tried 3 times, then the background says "... its status file could not be made final - the result exists only in this log (<log>) ... (exit 6)" and exits 6; the record stays running (-Status judges it by its background: died); the run itself committed its ledger entry' ($isRunning -and $log6 -match 'the detached run [0-9a-f]{8} ended with exit 0, but its status file could not be made final - the result exists only in this log' -and $log6 -match '\(exit 6\)' -and ($null -eq $exit6 -or $exit6 -eq 6) -and $rec6.Record.state -eq 'running' -and @(Ledger $r6).Count -eq 1) "exit=$exit6 state=$($rec6.Record.state)"
 }
 
 # =============================================================== OUTER: the background's own try/finally (D3, D5)

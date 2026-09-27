@@ -119,8 +119,9 @@
     Ledger: roster {path, position, skipped[{provider, model, reason}], applied[]}
     after preflight_warning ($null without a roster); one line "Roster: ..." on the
     console, in the dry run and in the handoff header.
-    -Panel (-PanelAll: "weighty" entries too, whatever the purpose) sends the same
-    brief to EVERY available roster entry, each a consultation of its own (own
+    -Panel (-PanelAll: every eligible entry, "weighty" ones too, whatever the purpose) sends the
+    same brief to the roster entries it seats (wave 26: as many as the purpose needs, seated by
+    their track record - "Companions" below), each a consultation of its own (own
     preflight, recovery record .consult.pending-<NN>.json, parent thread, consultation
     id, handoffs/NN-codex-<ReplyName>-<provider>.md and ledger entry with panel {id,
     position, of, members[{provider, model, state run|skipped, reason}], concurrency,
@@ -130,7 +131,7 @@
     another unless the roster's top-level "parallel" raises it; -PanelConcurrency
     caps the total (0 none, 1 strictly one after another). The -Panel run holds the
     task lock for the whole panel, judges every recovery record of the task first,
-    assigns n and NN to every member up front in roster order and writes each
+    assigns n and NN to every member up front in seat order and writes each
     member's `reserved` record before any member starts; a member accepts its spec
     only when that record names its panel, n, NN and parent, rewrites it with its
     own pid and only then checks that the parent lives (a parent gone: the member
@@ -151,6 +152,63 @@
     member between the rewrite of its record and the check of its parent;
     CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS=<ms> (or <model>=<ms>[|...]) pauses between the
     main turn's `launching` record and its guarded start (wave 24b).
+
+    Companions (0.5.0, wave 26 - ROADMAP R14-R16):
+      * size: a panel STARTS as many members as its purpose needs - chore, none and checkpoint
+        1, diff-review 2, framing and decision 3, core-contract and acceptance 4, stuck every
+        eligible member; -PanelSize <n> overrides (not with -PanelAll, which takes every
+        eligible member). Eligible = available (the roster walk's verdict), past the weighty
+        gate, matching -Engine/-Model - one set for the size, the ranking, the draw and the
+        exploration. An eligible entry without a seat is `not-picked` (reason "panel size k"),
+        never a skip. No backfill: a member that fails is not replaced. The summary and the
+        ledger's panel record say `asked k, started j, usable i` (started/usable are written
+        into every member's entry when the panel ends). A framing or decision panel of fewer
+        than 2 members warns (console, ledger warnings[]) unless -PanelSize was given
+      * routing (-PanelOrder routed, the default): the seats are drawn by the members' routing
+        scores - the judge's marks (codex-findings.ps1 -Rate) of every task of the repository
+        from the last 90 days by the consultation's time, a rate with a prior
+        (yes + 0.5 partly + 1) / (n + 2) scaled into [0.25, 2] (neutral 1.125), per (lineage,
+        purpose[, topics]) with >= 3 marks, else the lineage's all-purpose rate with >= 3, else
+        neutral. While NO eligible member has 3 marks the panel keeps the roster order
+        (panel.routing.fallback "no ratings"); -PanelOrder roster always does. The draw: a seed
+        = SHA-256 of "<task>|<purpose>|<brief sha256>|<sorted eligible lineages>|<nonce>" (the
+        nonce: -PanelSeed, else CODEX_CONSULT_TEST_PANEL_SEED, else today's UTC date - a dry run
+        and the real run of the same day draw the same seats); per seat SHA-256(seed || seat as 4
+        bytes big-endian): its first 8 bytes (the top 53 bits / 2^53) pick by weight, the next 8
+        explore (< 0.2: a uniform pick) - identical on Windows PowerShell 5.1 and PowerShell 7.
+        Lab diversity: while fewer than min(k, labs with an entry scoring >= neutral) labs are
+        seated, a seat draws only from labs not yet seated whose entries score >= neutral (a lab:
+        the roster entry's "lab", else the vendor of the model id's prefix - qwen alibaba,
+        deepseek, kimi/k3 moonshot, glm zhipu, dola/seed bytedance, mimo xiaomi, gemini google,
+        muse meta, gpt openai - else a lab of its own, with a warning). Members get their n and
+        NN in seat order. Ledger panel.routing {mode, order, fallback, seed, nonce, nonce_source,
+        size, size_source, eligible[{position, lineage, lab, lab_source, score, basis, ratings,
+        required}], picked[{slot, position, lineage, lab, rule: required | roster | lab-draw |
+        lab-explore | rank-draw | rank-explore}], explored[], required[]}; the dry run prints it
+      * -Topic a,b: the consultation's topics (slugs; ledger topics[], copied onto a rating);
+        a routed panel scores on (purpose, topics) first - a mark credits each of its t topics
+        1/t, the counts pooled
+      * -Require <reviewer>[,...] (-Panel, or a single run with -Provider): a roster position
+        (#5), a provider label (every entry of it) or '<provider> :: <model>' with an optional
+        ' [<engine>]' - compared on what the roster names, never on a display string. A panel
+        takes its default from the roster's "require": {"<purpose>": [...]} (validated at load:
+        every matcher names an entry); -Require none drops it. A required reviewer is judged
+        with the roster walk's verdict (a usage limit without a reset time is out); one that is
+        out refuses the run before anything starts - who, why and when it is back - EXIT 5 (the
+        dry run too); in a panel it takes a seat first (past the weighty gate), and when it
+        produces no usable reply no further member starts: exit 5
+      * -Role <name> (a single run, or every member of a panel) / -Roles a,b (a panel: by score
+        rank, highest first; a roster entry's "roles": [...] says which it is willing to take -
+        a role goes to a willing member when one is left): the block <CollabDir>/roles/<name>.md,
+        else the plugin's templates/role-<name>.md (edge-cases, security, tests, docs), goes into
+        the prompt after the ask and before the brief (never inside the output contract; the
+        reply format, the verdict rules and the read-only rules stay). Names are slugs; an
+        unknown role and more roles than members are refused. Ledger role
+      * the roster's "ext" (top level and per entry) is an object reserved for other
+        implementations: validated as an object, never read, never written
+    Exit codes: 0 usable (a panel: every member), 1 a refusal or a failure, 5 a required
+    reviewer is not available (or failed in a panel), 6 a detached background whose final status
+    could not be written (its result is only in its log); -Status / -Wait: 0, 1, 2, 3, 4.
 
     Engines (0.4.0): the CLI that carries the consultation - `codex` (the default, all of
     the above), `agy` (Google's Antigravity CLI for the Gemini models) or `muse` (Meta's Muse
@@ -323,8 +381,13 @@
     (budget_sec: per endpoint group ceil(members / limit) x the member guard, the largest group;
     with -PanelConcurrency also ceil(N / cap) x the guard; + 120 s); still running after it: exit
     3, the run untouched. -Status -Prune (the one writing form) deletes the files of runs that are
-    done or died and were last written more than 7 days ago. A background on another host is
-    never judged. codex-findings.ps1 -List prints one line per detached run that is not done, the
+    done or died and were last written more than 7 days ago - (wave 26) and an unreadable status
+    file 7 days after the file's own last write (-Status names the command that removes a younger
+    one by hand); a never-started run only when its log was not written in those 7 days either. A
+    background on another host is never judged. (wave 26) An inline -Prompt of a detached run goes
+    to <task>/.consult.detached-<id8>.prompt.txt: the `starting` record names only that file, the
+    background reads and removes it. The background's final status write is retried (3 x 250 ms);
+    when it still fails the background exits 6 and says that the result exists only in its log. codex-findings.ps1 -List prints one line per detached run that is not done, the
     SessionStart hook one phrase for the repository. TEST HOOK: CODEX_CONSULT_TEST_DETACH_GUIDS=
     <guid>[,<guid>] - the detach ids tried first.
 
@@ -490,7 +553,8 @@ param(
     # Ignored with -Raw and -Purpose chore. Ledger format_retry.
     [int]$FormatRetry = 1,
 
-    # Review panel: the same brief goes to EVERY available reviewer of the roster, each as a
+    # Review panel: the same brief goes to the reviewers of the roster the panel seats (wave 26:
+    # the purpose's size - -PanelSize -, drawn by the ratings - -PanelOrder), each as a
     # consultation of its own in a process of its own (own preflight, recovery record,
     # parent thread, handoff files handoffs/NN-codex-<ReplyName>-<provider>.md and ledger
     # entry with a `panel` record); members of different endpoints run at once (see
@@ -499,7 +563,7 @@ param(
     # stuck. Exit 0 only when every member produced a usable reply.
     [switch]$Panel,
 
-    # -Panel with every available entry, "weighty" ones included whatever the purpose.
+    # -Panel with every eligible entry (no size), "weighty" ones included whatever the purpose.
     [switch]$PanelAll,
 
     # INTERNAL: set by -Panel for each member run (the member and the panel's parameters,
@@ -511,6 +575,44 @@ param(
     # it). 0 (the default) = no cap; 1 = strictly one after another in roster order (a member
     # that leaves surviving processes then stops the rest); k = at most k at a time.
     [int]$PanelConcurrency = 0,
+
+    # (wave 26, R14) -Panel only: how many members the panel starts (n >= 1; capped at the
+    # eligible members, raised to the required ones). 0 (the default) = the purpose's size: chore,
+    # none and checkpoint 1, diff-review 2, framing and decision 3, core-contract and acceptance 4,
+    # stuck every eligible member. Not with -PanelAll (every eligible member).
+    [int]$PanelSize = 0,
+
+    # (wave 26, R15) -Panel only: routed (the default) = the seats are drawn by the reviewers'
+    # usefulness ratings (-Rate) with a lab-diversity reserve and 20 % exploration - in roster
+    # order while no eligible reviewer has 3 ratings in 90 days (ledger panel.routing.fallback);
+    # roster = the roster order, no draw.
+    [string]$PanelOrder = '',
+
+    # (wave 26, D4) -Panel only: the nonce of the routing seed (a number or a token); default
+    # CODEX_CONSULT_TEST_PANEL_SEED, else today's UTC date - a dry run and the real run of the
+    # same day draw the same seats.
+    [string]$PanelSeed = '',
+
+    # (wave 26, R15) the topics of this consultation (slugs, e.g. -Topic security,tests): ledger
+    # topics[], copied onto a rating; a routed panel scores its members on them.
+    [string[]]$Topic = @(),
+
+    # (wave 26, D7) reviewers that MUST take part - -Panel, or a single run with -Provider: a
+    # roster position (#5), a provider label (every entry of it) or '<provider> :: <model>'
+    # [' [<engine>]'], comma-separated. A required reviewer that is not available refuses the run
+    # before anything starts (exit 5); in a panel it takes a seat first, and its failure after
+    # the start stops the panel at the next member (exit 5). Default: the roster's "require" for
+    # the purpose (a panel); -Require none drops it.
+    [string[]]$Require = @(),
+
+    # (wave 26, R16) a role for the reviewer (a single run) or for every member (-Panel): the
+    # block <CollabDir>/roles/<name>.md, else the plugin's templates/role-<name>.md (edge-cases,
+    # security, tests, docs), goes into the prompt after the ask. Not with -Roles.
+    [string]$Role = '',
+
+    # (wave 26, R16) -Panel only: roles for the members, by score rank (a member's roster
+    # "roles" says which it is willing to take); at most one per member. Not with -Role.
+    [string[]]$Roles = @(),
 
     # The CLI that carries the consultation: codex | agy | muse. Empty (the default): the engine of
     # the roster entry used (the thread's with -Thread), else codex. With a roster and no
@@ -615,9 +717,28 @@ function Write-Summary {
     $script:SummaryLines.Add($Text)
 }
 
-# Writes this detached run's status file. Best effort: a status write never stops the run.
+# (wave 26, F08-2) A TERMINAL status write (the run's own final write, the background's
+# confirmation): up to 3 attempts, 250 ms apart. Returns '' when written, else the last error.
+function Write-DetachedStatusRetry {
+    param([string]$Path, $Record)
+    $last = ''
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try { Write-DetachedStatus -Path $Path -Record $Record; return '' } catch { $last = ConvertTo-OneLine $_.Exception.Message }
+        if ($attempt -lt 3) { Start-Sleep -Milliseconds 250 }
+    }
+    return $last
+}
+
+# Writes this detached run's status file. Best effort: a status write never stops the run
+# (-Final: the terminal write, retried - Write-DetachedStatusRetry).
 function Save-DetachedRun {
+    param([switch]$Final)
     if (-not $script:DetachRun) { return }
+    if ($Final) {
+        $why = Write-DetachedStatusRetry -Path $script:DetachRun.Path -Record $script:DetachRun.Record
+        if ($why) { Write-Host "codex-consult: could not write the final status to $($script:DetachRun.Path) ($why)" -ForegroundColor Yellow }
+        return
+    }
     try { Write-DetachedStatus -Path $script:DetachRun.Path -Record $script:DetachRun.Record } catch {
         Write-Host "codex-consult: could not update the status file $($script:DetachRun.Path) ($(ConvertTo-OneLine $_.Exception.Message))" -ForegroundColor Yellow
     }
@@ -650,20 +771,22 @@ function Set-DetachedFinal {
     $summary = $Line
     if ($script:SummaryLines.Count -gt 0) { $summary = $script:SummaryLines.ToArray() -join "`n" }
     Complete-DetachedRecord -Record $script:DetachRun.Record -Exit $Exit -Summary $summary
-    Save-DetachedRun
+    Save-DetachedRun -Final
 }
 
 # The background's final write (D3), after the run returned or threw: the status file as the run
-# left it (else $Fallback, the self-report), made final with the run's real exit code.
+# left it (else $Fallback, the self-report), made final with the run's real exit code. (wave 26,
+# F08-2) Retried (Write-DetachedStatusRetry); returns '' when written, else the error - the
+# background then exits 6: the run's result exists only in its log.
 function Complete-DetachedRun {
     param([string]$Path, $Fallback, [int]$Exit, [string]$Line = '')
     $rec = $Fallback
     $rd = Read-DetachedStatus -Path $Path
     if ($rd.Record -and [string]$rd.Record.id -eq [string]$Fallback.id) { $rec = $rd.Record }
     Complete-DetachedRecord -Record $rec -Exit $Exit -Line $Line
-    try { Write-DetachedStatus -Path $Path -Record $rec } catch {
-        Write-Host "codex-consult: could not write the final status to $Path ($(ConvertTo-OneLine $_.Exception.Message))" -ForegroundColor Red
-    }
+    $why = Write-DetachedStatusRetry -Path $Path -Record $rec
+    if ($why) { Write-Host "codex-consult: could not write the final status to $Path ($why)" -ForegroundColor Red }
+    return $why
 }
 
 # -Artifact a,b arrives as ONE string through `powershell -File`: each value is split on commas
@@ -718,12 +841,25 @@ function Start-DetachedRun {
     $paths = $null
     foreach ($cand in $tries) {
         $p = Get-DetachedPaths -TaskDir $taskDir -Id $cand
-        if ((Test-Path -LiteralPath $p.Status) -or (Test-Path -LiteralPath $p.Log)) { continue }
+        if ((Test-Path -LiteralPath $p.Status) -or (Test-Path -LiteralPath $p.Log) -or (Test-Path -LiteralPath $p.Prompt)) { continue }
         $newId = $cand
         $paths = $p
         break
     }
     if (-not $newId) { Stop-WithError "no free detach id for task '$Task' (the status or log file of every candidate exists); nothing was started." }
+    # (wave 26, F11-2) an inline -Prompt goes to <task>/.consult.detached-<id8>.prompt.txt (UTF-8,
+    # gitignored like the log); the record's args name only that file (PromptFile), so a run that
+    # never starts leaves no prompt text in its status file - the background reads the file and
+    # removes it; -Status -Prune removes a left-over one with the run's other files
+    $promptFile = ''
+    if ($bgArgs.ContainsKey('Prompt') -and [string]$bgArgs['Prompt']) {
+        $promptFile = $paths.Prompt
+        try { Write-Utf8NoBom -Path $promptFile -Text ([string]$bgArgs['Prompt']) } catch {
+            Stop-WithError "could not write the prompt file '$promptFile' ($(ConvertTo-OneLine $_.Exception.Message)); nothing was started."
+        }
+        $bgArgs.Remove('Prompt')
+        $bgArgs['PromptFile'] = $promptFile
+    }
     # The background's command line.
     $hostExe = (Get-Process -Id $PID).Path
     $bgLine = ''
@@ -748,7 +884,9 @@ function Start-DetachedRun {
         brief = $BriefFull; members = [object[]]@($Members | Where-Object { $_ }); log = $paths.Log; args = (ConvertTo-DetachArgs -Arguments $bgArgs)
     }
     try { Write-DetachedStatus -Path $paths.Status -Record $rec } catch {
-        Stop-WithError "could not write the status file '$($paths.Status)' ($(ConvertTo-OneLine $_.Exception.Message)); nothing was started."
+        $why = ConvertTo-OneLine $_.Exception.Message
+        if ($promptFile) { $null = Remove-PendingFile -Path $promptFile }
+        Stop-WithError "could not write the status file '$($paths.Status)' ($why); nothing was started."
     }
     try {
         if ($script:OnWindows) {
@@ -769,6 +907,7 @@ function Start-DetachedRun {
     } catch {
         $why = ConvertTo-OneLine $_.Exception.Message
         $rmError = Remove-PendingFile -Path $paths.Status
+        if ($promptFile) { $null = Remove-PendingFile -Path $promptFile }
         Stop-WithError "could not start the background process ($why); nothing was started$(if ($rmError) { " (the status file '$($paths.Status)' could not be removed: $rmError)" })."
     }
     foreach ($w in @($Warnings | Where-Object { $_ })) { Write-Host "WARNING: $w" -ForegroundColor Yellow }
@@ -796,7 +935,15 @@ function Write-DetachedReport {
         $first = $false
         $j = Get-DetachedJudgement -Record $run.Record -Problem ([string]$run.Error) -Now $Now
         $rec = $run.Record
-        if (-not $rec) { Write-Host "detached $($run.Id8): $($j.Text)"; continue }
+        if (-not $rec) {
+            Write-Host "detached $($run.Id8): $($j.Text)"
+            # (wave 26, F07-1) how it goes away: -Status -Prune 7 days after its last write, or by hand
+            $fileAge = $null
+            try { $fileAge = $Now - [DateTimeOffset]([IO.File]::GetLastWriteTimeUtc($run.Path)) } catch { }
+            if ($fileAge -and $fileAge.TotalDays -ge $script:DetachedPruneDays) { Write-Host "  -Status -Prune removes it (last written $(Format-DetachedSpan $fileAge) ago)" }
+            else { Write-Host "  -Status -Prune removes it $($script:DetachedPruneDays) days after its last write; to remove it now: Remove-Item -LiteralPath '$($run.Path)', '$($run.Log)' (the log may say what happened)" }
+            continue
+        }
         $what = $(if ($rec.kind -eq 'panel') { 'review panel' } else { 'single run' })
         if ($rec.purpose) { $what += ", purpose $($rec.purpose)" }
         if ($rec.reply_name) { $what += ", reply name $($rec.reply_name)" }
@@ -865,15 +1012,27 @@ if ($Status -or $Wait) {
     }
     if ($Prune) {
         # D6: the files of runs that are done or died (never started included), last written more
-        # than 7 days ago - a running run, one on another host and an unreadable file stay
+        # than 7 days ago - a running run and one on another host stay. (wave 26, F07-1) An
+        # UNREADABLE status file goes too once the file itself was last written more than 7 days
+        # ago (a younger one stays; -Status names the command that removes it by hand); (F07-2) a
+        # never-started run only when its log was not written in those 7 days either.
         $nowP = [DateTimeOffset]::Now
         foreach ($run in $runs) {
             $j = Get-DetachedJudgement -Record $run.Record -Problem ([string]$run.Error) -Now $nowP
-            if (@('done', 'died', 'never-started') -notcontains $j.State) { continue }
+            if (@('done', 'died', 'never-started', 'unreadable') -notcontains $j.State) { continue }
             $last = $null
-            foreach ($f in @('finished', 'updated', 'started')) { if (-not $last -and $run.Record.$f) { $last = ConvertTo-WhenOffset $run.Record.$f } }
+            if ($j.State -eq 'unreadable') {
+                try { $last = [DateTimeOffset]([IO.File]::GetLastWriteTimeUtc($run.Path)) } catch { $last = $null }
+            } else {
+                foreach ($f in @('finished', 'updated', 'started')) { if (-not $last -and $run.Record.$f) { $last = ConvertTo-WhenOffset $run.Record.$f } }
+            }
             if (-not $last -or ($nowP - $last).TotalDays -lt $script:DetachedPruneDays) { continue }
-            $errs = @(foreach ($f in @($run.Path, $run.Log)) { $e = Remove-PendingFile -Path $f; if ($e) { $e } })
+            if ($j.State -eq 'never-started' -and (Test-Path -LiteralPath $run.Log -PathType Leaf)) {
+                $logLast = $null
+                try { $logLast = [DateTimeOffset]([IO.File]::GetLastWriteTimeUtc($run.Log)) } catch { }
+                if ($logLast -and ($nowP - $logLast).TotalDays -lt $script:DetachedPruneDays) { continue }
+            }
+            $errs = @(foreach ($f in @($run.Path, $run.Log, (Get-DetachedPaths -TaskDir $stTaskDir -Id $run.Id8).Prompt)) { $e = Remove-PendingFile -Path $f; if ($e) { $e } })
             if ($errs.Count -gt 0) { Write-Host "codex-consult: could not prune detached $($run.Id8): $($errs -join '; ')" -ForegroundColor Yellow }
             else { Write-Host "pruned     : detached $($run.Id8) ($($j.State), last written $($last.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant))): its status file and log were removed" }
         }
@@ -966,6 +1125,15 @@ if ($DetachId) {
         try {
             $dSpec = ConvertFrom-DetachArgs -Text $argsText
             if ([string]$dSpec['Task'] -cne $Task) { throw "its arguments name task '$($dSpec['Task'])', not '$Task'" }
+            # (wave 26, F11-2) the prompt from its file (the record names only the file), then the
+            # file goes
+            if ($dSpec.ContainsKey('PromptFile')) {
+                $dPromptFile = [string]$dSpec['PromptFile']
+                $dSpec.Remove('PromptFile')
+                if (-not (Test-Path -LiteralPath $dPromptFile -PathType Leaf)) { throw "its prompt file '$dPromptFile' is gone" }
+                $dSpec['Prompt'] = Read-SharedText -Path $dPromptFile
+                $null = Remove-PendingFile -Path $dPromptFile
+            }
             $global:LASTEXITCODE = 0
             & $script:SelfPath @dSpec -DetachId $DetachId
             $dCode = [int]$LASTEXITCODE
@@ -974,7 +1142,12 @@ if ($DetachId) {
             $dLine = "codex-consult: the detached run stopped on an error: $(ConvertTo-OneLine $_.Exception.Message)"
             Write-Host $dLine -ForegroundColor Red
         } finally {
-            Complete-DetachedRun -Path $dPaths.Status -Fallback $dRec -Exit $dCode -Line $dLine
+            $dFinalError = Complete-DetachedRun -Path $dPaths.Status -Fallback $dRec -Exit $dCode -Line $dLine
+        }
+        if ($dFinalError) {
+            # (wave 26, F08-2) a distinct exit: the status file does not say how the run ended
+            Write-Host "codex-consult: the detached run $($dPaths.Id8) ended with exit $dCode, but its status file could not be made final - the result exists only in this log ($($dPaths.Log)); -Status will judge the run by its background (exit 6)." -ForegroundColor Red
+            exit 6
         }
         exit $dCode
     }
@@ -984,10 +1157,10 @@ if ($DetachId) {
     # THE RUN (invoked by the background above, in the same process): it keeps the status file.
     $script:DetachRun = [pscustomobject]@{ Path = $dPaths.Status; Record = $dRec }
     $script:StopWithErrorHook = {
-        param([string]$Line)
+        param([string]$Line, [int]$Code = 1)
         if ($script:DetachRun) {
-            Complete-DetachedRecord -Record $script:DetachRun.Record -Exit 1 -Summary $Line
-            Save-DetachedRun
+            Complete-DetachedRecord -Record $script:DetachRun.Record -Exit $Code -Summary $Line
+            Save-DetachedRun -Final
         }
     }
 }
@@ -1333,7 +1506,7 @@ function Get-EngineTreeProblem {
 
 # ----------------------------------------------------------------------------- presets + prompt text
 
-$validPurposes = @('framing', 'decision', 'checkpoint', 'core-contract', 'acceptance', 'diff-review', 'stuck', 'chore')
+$validPurposes = $script:ConsultPurposes
 $presetEffort = @{
     ''              = 'high'
     'framing'       = 'high'
@@ -1429,6 +1602,11 @@ if ($PanelSpec) {
     if ($null -ne $pa.PSObject.Properties['denial_retry']) { $DenialRetry = [int]$pa.denial_retry }
     if ($null -ne $pa.PSObject.Properties['max_model_steps']) { $MaxModelSteps = [int]$pa.max_model_steps }
     $DryRun = [bool]$pa.dry_run
+    # (wave 26) the topics and this member's role come from the panel run (-Roles: assigned there)
+    $Topic = [string[]]@(@(Get-PropertyValue $pa 'topics' @()) | Where-Object { $_ } | ForEach-Object { [string]$_ })
+    $Role = [string](Get-PropertyValue $panelMember 'role' '')
+    $Roles = [string[]]@()
+    $Require = [string[]]@()
     # (0.4.x wave 21) the numbers, the consultation id and the parent come from the panel run
     $memberNn = [string](Get-PropertyValue $panelMember 'nn' '')
     $memberN = 0
@@ -1450,6 +1628,40 @@ if ($PSBoundParameters.ContainsKey('PanelConcurrency') -and -not $panelRun) {
 if ($PanelConcurrency -lt 0) {
     Stop-WithError "-PanelConcurrency must be 0 (no cap) or a positive number (got $PanelConcurrency)."
 }
+# (wave 26, R14-R16) the companions' options
+if (-not $panelRun -and -not $panelMember) {
+    foreach ($pn in @('PanelSize', 'PanelOrder', 'PanelSeed', 'Roles')) {
+        if ($PSBoundParameters.ContainsKey($pn)) { Stop-WithError "-$pn goes with -Panel (or -PanelAll) only." }
+    }
+}
+if ($PSBoundParameters.ContainsKey('PanelSize')) {
+    if ($PanelAll) { Stop-WithError "-PanelSize does not go with -PanelAll: -PanelAll runs every eligible member (drop one of them)." }
+    if ($PanelSize -lt 1) { Stop-WithError "-PanelSize must be 1 or more (got $PanelSize); leave it out for the purpose's size." }
+}
+$PanelOrder = $PanelOrder.Trim().ToLowerInvariant()
+if ($PanelOrder -and @('roster', 'routed') -notcontains $PanelOrder) { Stop-WithError "-PanelOrder must be roster or routed (got '$PanelOrder')." }
+if (-not $PanelOrder) { $PanelOrder = 'routed' }
+$PanelSeed = $PanelSeed.Trim()
+if ($PanelSeed -and $PanelSeed -notmatch '^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$') { Stop-WithError "-PanelSeed must be a number or a token (letters, digits, dot, dash, underscore, colon; got '$PanelSeed')." }
+$topicParse = ConvertTo-SlugList -Values $Topic -What '-Topic'
+if ($topicParse.Error) { Stop-WithError "$($topicParse.Error)." }
+$topicList = [string[]]$topicParse.Items
+$Role = $Role.Trim()
+$roleList = [string[]]@()
+$rolesGiven = (@($Roles | Where-Object { $_ -and $_.Trim() }).Count -gt 0)
+if ($Role -and $rolesGiven) { Stop-WithError "-Role and -Roles exclude each other: -Role gives the reviewer (every member) one role, -Roles one role per member." }
+if ($Role) {
+    $roleParse = ConvertTo-SlugList -Values @($Role) -What 'role'
+    if ($roleParse.Error) { Stop-WithError "-Role: $($roleParse.Error)." }
+    if (@($roleParse.Items).Count -ne 1) { Stop-WithError "-Role takes one role (one role per member: -Panel -Roles <a>,<b>)." }
+    $Role = $roleParse.Items[0]
+}
+if ($rolesGiven) {
+    $roleParse = ConvertTo-SlugList -Values $Roles -What 'role'
+    if ($roleParse.Error) { Stop-WithError "-Roles: $($roleParse.Error)." }
+    $roleList = [string[]]$roleParse.Items
+}
+$requireGiven = (@($Require | Where-Object { $_ -and $_.Trim() }).Count -gt 0)
 
 # ----------------------------------------------------------------------------- validation
 
@@ -1572,11 +1784,15 @@ if ($roster.Error) { Stop-WithError $roster.Error }
 if ($panelRun) {
     if ($roster.Disabled) { Stop-WithError "-Panel needs a reviewer roster, and CODEX_CONSULT_ROSTER=none switches it off." }
     if (-not $roster.Exists) { Stop-WithError "-Panel needs a reviewer roster: '$($roster.Path)' does not exist (CODEX_CONSULT_ROSTER, else <codex home>/codex-consult-roster.json)." }
-    if ($Provider) { Stop-WithError "-Panel runs every available reviewer of the roster and does not take -Provider (for one reviewer, drop -Panel)." }
+    if ($Provider) { Stop-WithError "-Panel seats reviewers of the roster and does not take -Provider (for one reviewer, drop -Panel; to insist on one in the panel: -Require)." }
     if ($Thread) { Stop-WithError "-Panel does not take -Thread: each member forks the newest thread of its own lineage (or starts one)." }
     if ($Mode -eq 'resume') { Stop-WithError "-Panel does not take -Mode resume: each member forks the newest thread of its own lineage (or starts one); -Mode new starts fresh threads for all." }
 }
 if ($panelMember -and -not $roster.Exists) { Stop-WithError "the reviewer roster '$($roster.Path)' is gone; this panel member was not started." }
+# (wave 26, D7) -Require: a panel, or a single run of a chosen reviewer (-Provider)
+if ($requireGiven -and -not $panelRun -and -not $Provider) {
+    Stop-WithError "-Require goes with -Panel, or with -Provider (a single run of a chosen reviewer); a roster walk takes whichever reviewer is available."
+}
 if ($Provider -and -not $Model) {
     # The roster entry of that provider may supply the model.
     $providerEntry = Find-RosterEntry -Roster $roster -Provider $Provider
@@ -1610,6 +1826,18 @@ $collabRoot = Resolve-CollabRoot -RepoRoot $repoRoot -CollabDir $CollabDir
 
 $taskDir = Join-Path $collabRoot $Task
 $handoffsDir = Join-Path $taskDir 'handoffs'
+# (wave 26, R16) the role blocks - <CollabDir>/roles/<name>.md, else the plugin's
+# templates/role-<name>.md - are resolved now: an unknown role refuses the run, nothing started
+$pluginRoot = Split-Path -Parent $PSScriptRoot
+$roleInfo = $null
+if ($Role) {
+    $roleInfo = Resolve-RoleFile -Name $Role -CollabRoot $collabRoot -PluginRoot $pluginRoot
+    if ($roleInfo.Error) { Stop-WithError "-Role: $($roleInfo.Error)$(if ($panelMember) { '; this panel member was not started' })." }
+}
+foreach ($rn in $roleList) {
+    $ri = Resolve-RoleFile -Name $rn -CollabRoot $collabRoot -PluginRoot $pluginRoot
+    if ($ri.Error) { Stop-WithError "-Roles: $($ri.Error)." }
+}
 $sessionsPath = Join-Path $taskDir 'sessions.json'
 $findingsPath = Join-Path $taskDir 'findings.json'
 $lockPath = Join-Path $taskDir '.consult.lock'
@@ -1717,8 +1945,9 @@ $harness = if ($codexVersion -match '^codex-cli\s') { $codexVersion } else { "co
 #      between (D12);
 #   2. judges EVERY recovery record of the task first: an active one refuses the panel, the
 #      inactive ones are consumed (numbering skips past them; D5);
-#   3. assigns n and NN to every member up front, in roster order (member k: n0 + k - 1,
-#      NN0 + k - 1), so the files and the ledger keep the roster order whatever finishes first;
+#   3. assigns n and NN to every member up front, in seat order (wave 26: panel.routing.picked -
+#      the roster order unless the panel is routed; member k: n0 + k - 1, NN0 + k - 1), so the
+#      files and the ledger keep that order whatever finishes first;
 #   4. writes every member's `reserved` record (the panel, n, NN, this process as writer and
 #      parent) BEFORE it launches any member - a member proves its parent with it, rewrites it
 #      with its own pid and only then checks that the parent lives (D6, D1, F07-1);
@@ -1808,6 +2037,10 @@ function Start-PanelMember {
         sibling_nns       = [object[]]$siblings
         concurrency       = $panelPlan.Effective
         limits            = $panelLimits
+        asked             = $panelRunners.Count
+        routing           = $panelRoute.Routing
+        role              = $(if ($panelRoleOf.ContainsKey([int]$pm.Entry.Position)) { [string]$panelRoleOf[[int]$pm.Entry.Position] } else { '' })
+        panel_warnings    = [object[]]@($panelWarnings)
         args              = [pscustomobject]@{
             collab_dir       = $CollabDir
             mode             = $Mode
@@ -1836,6 +2069,7 @@ function Start-PanelMember {
             engine_exe       = $EngineExe
             denial_retry     = $DenialRetry
             max_model_steps  = $MaxModelSteps
+            topics           = [object[]]@($topicList)
             dry_run          = [bool]$DryRun
         }
     }
@@ -1886,6 +2120,13 @@ function Get-PanelMemberStatus {
     return "failed: $(ConvertTo-OneLine $Slot.Refusal)"
 }
 
+# (wave 26) Did a member produce a usable reply (it ran, was not killed, its ledger entry says so)?
+function Test-PanelSlotUsable {
+    param($Slot)
+    if ($Slot.State -ne 'done' -or $null -eq $Slot.Entry) { return $false }
+    return (Test-UsableOutcome ([string](Get-PropertyValue $Slot.Entry 'bridge_outcome' '')))
+}
+
 # (wave 25, D11) A member's state in a detached panel's status file - the classes behind
 # Get-PanelMemberStatus: pending | running | usable | failed | killed | blocked | commit_blocked |
 # orphan (a roster-skipped entry is `skipped` from the start; a member never started, at the end).
@@ -1929,10 +2170,56 @@ if ($panelRun) {
     $panelConfig = Read-CodexConfigSubset -Path (Get-CodexConfigPath)
     $panelClock = Get-ConsultClock -Peek
     if ($panelClock.Error) { Stop-WithError $panelClock.Error }
-    $panelSelection = Select-PanelMembers -Roster $roster -Config $panelConfig -Consults (Read-AllTaskConsults -CollabRoot $collabRoot) -Launcher ([string]$codexExePath) -LoginCache @{} -UtcNow $panelClock.Now.UtcDateTime -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Model $Model -Purpose $Purpose -All:$PanelAll -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers
-    if ($panelSelection.Error) { Stop-WithError $panelSelection.Error }
+    $panelAllConsults = Read-AllTaskConsults -CollabRoot $collabRoot
+    $panelSelection = Select-PanelMembers -Roster $roster -Config $panelConfig -Consults $panelAllConsults -Launcher ([string]$codexExePath) -LoginCache @{} -UtcNow $panelClock.Now.UtcDateTime -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Model $Model -Purpose $Purpose -All:$PanelAll -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers
     $panelEntries = @($panelSelection.Members)
-    $panelRunners = @($panelEntries | Where-Object { $_.State -eq 'run' })
+    if ($panelEntries.Count -eq 0) { Stop-WithError $panelSelection.Error }
+    # (wave 26, D7) the required reviewers - -Require, else the roster's "require" for the purpose -
+    # judged with the roster walk's verdict: one that is out (or not in this panel) refuses the
+    # panel before anything starts, exit 5; one that only the weighty gate held back takes part.
+    $panelRequired = Resolve-RequiredReviewers -Roster $roster -Require $Require -Purpose $Purpose -Explicit:$requireGiven -UseRoster
+    if ($panelRequired.Error) { Stop-WithError "$($panelRequired.Error)." }
+    $requiredProblems = New-Object System.Collections.Generic.List[string]
+    foreach ($reqPos in $panelRequired.Positions) {
+        $reqPm = @($panelEntries | Where-Object { [int]$_.Entry.Position -eq [int]$reqPos }) | Select-Object -First 1
+        if (-not $reqPm) {
+            $reqEntry = @($roster.Entries | Where-Object { [int]$_.Position -eq [int]$reqPos }) | Select-Object -First 1
+            $reqFilters = @(@($(if ($Engine) { "-Engine $Engine" }), $(if ($Model) { "-Model $Model" })) | Where-Object { $_ }) -join ' '
+            $requiredProblems.Add("#$reqPos $(if ($reqEntry.Model) { Format-ReviewerLineage -Provider $reqEntry.Provider -Model $reqEntry.Model -Engine $reqEntry.Engine } else { $reqEntry.Provider }) (not in this panel: $reqFilters)")
+            continue
+        }
+        if ($reqPm.State -eq 'skipped' -and [string]$reqPm.SkipKind -ne 'weighty') { $requiredProblems.Add((Format-RequiredOutage -Member $reqPm -UtcNow $panelClock.Now.UtcDateTime)) }
+    }
+    if ($requiredProblems.Count -gt 0) {
+        Stop-WithError "required reviewer$(if ($requiredProblems.Count -ne 1) { 's' }) not available ($($panelRequired.Source)): $($requiredProblems.ToArray() -join '; '); nothing was started - wait for $(if ($requiredProblems.Count -ne 1) { 'them' } else { 'it' }), or run without $(if ($panelRequired.Source -eq '-Require') { 'that -Require' } else { 'the requirement (-Require none)' }) (exit 5)." -Code 5
+    }
+    # (wave 26, R14/R15, D1-D6) the panel's seats: the size (the purpose's, -PanelSize, -PanelAll),
+    # the required first, then the draw over the ratings - or the roster order
+    $panelSizeSource = 'purpose'
+    $panelSizeWanted = Get-PanelDefaultSize $Purpose
+    if ($PanelAll) { $panelSizeWanted = 0; $panelSizeSource = '-PanelAll' }
+    elseif ($PSBoundParameters.ContainsKey('PanelSize')) { $panelSizeWanted = $PanelSize; $panelSizeSource = '-PanelSize' }
+    $panelNonce = $panelClock.Now.UtcDateTime.ToString('yyyy-MM-dd', $script:Invariant)
+    $panelNonceSource = 'date'
+    if ($PanelSeed) { $panelNonce = $PanelSeed; $panelNonceSource = '-PanelSeed' }
+    elseif (([string]$env:CODEX_CONSULT_TEST_PANEL_SEED).Trim()) { $panelNonce = ([string]$env:CODEX_CONSULT_TEST_PANEL_SEED).Trim(); $panelNonceSource = 'CODEX_CONSULT_TEST_PANEL_SEED' }
+    $panelBriefSha = ''
+    if ($Brief) { $panelBriefSha = Get-FileSha256OrMissing -Path $briefProbe }
+    $panelRatings = Read-AllTaskRatings -CollabRoot $collabRoot -Consults $panelAllConsults
+    $panelRoute = Select-PanelRouting -Members $panelEntries -Size $panelSizeWanted -SizeSource $panelSizeSource -Order $PanelOrder -Ratings $panelRatings -Purpose $Purpose -Topics $topicList -UtcNow $panelClock.Now.UtcDateTime -Task $Task -BriefSha $panelBriefSha -Nonce $panelNonce -NonceSource $panelNonceSource -Required ([int[]]$panelRequired.Positions)
+    $panelRunners = @($panelRoute.Picked)
+    if ($panelRunners.Count -eq 0) {
+        Stop-WithError $(if ($panelSelection.Error) { $panelSelection.Error } else { "no reviewer of the roster '$($roster.Path)' is eligible for this panel; nothing was started (run codex-providers.ps1 for the full picture)" })
+    }
+    $panelWarnings = [string[]]@($panelRoute.Warnings)
+    # (wave 26, R16) the members' roles: -Role for every member, -Roles by score rank (D8)
+    $panelRoleOf = @{}
+    if ($Role) { foreach ($pm in $panelRunners) { $panelRoleOf[[int]$pm.Entry.Position] = $Role } }
+    elseif ($roleList.Count -gt 0) {
+        $roleAssign = Select-RoleAssignment -Members $panelRunners -Roles $roleList
+        if ($roleAssign.Error) { Stop-WithError "$($roleAssign.Error); nothing was started." }
+        $panelRoleOf = $roleAssign.Of
+    }
     # -MaxModelSteps goes to the members whose engine has a step cap (muse); none -> refused.
     if ($MaxModelSteps -gt 0 -and @($panelRunners | Where-Object { (Get-EngineSpec ([string]$_.Entry.Engine)).StepsFlag }).Count -eq 0) {
         Stop-WithError "-MaxModelSteps applies to the muse members of a panel (--max-model-steps); no member of this panel runs the muse engine."
@@ -1948,7 +2235,8 @@ if ($panelRun) {
     $panelId = [guid]::NewGuid().ToString()
     $panelShort = $panelId.Substring(0, 8)
     $panelMembersRecord = [object[]]@($panelEntries | ForEach-Object { [pscustomobject]@{ provider = $_.Entry.Provider; model = $_.Identity.Model; state = $_.State; reason = $_.Reason } })
-    $panelSkippedRecord = [object[]]@($panelEntries | Where-Object { $_.State -ne 'run' } | ForEach-Object { [pscustomobject]@{ provider = $_.Entry.Provider; model = $_.Identity.Model; engine = [string]$_.Entry.Engine; reason = $_.Reason } })
+    # (wave 26, D6) an entry that is eligible but got no seat ('not-picked') is no skip
+    $panelSkippedRecord = [object[]]@($panelEntries | Where-Object { $_.State -eq 'skipped' } | ForEach-Object { [pscustomobject]@{ provider = $_.Entry.Provider; model = $_.Identity.Model; engine = [string]$_.Entry.Engine; reason = $_.Reason } })
     # The plan (D8): endpoint groups, the roster's "parallel", -PanelConcurrency.
     $panelPlan = Get-PanelPlan -Runners $panelRunners -Parallel $roster.Parallel -Cap $PanelConcurrency
     $panelLimits = [pscustomobject]$panelPlan.Limits
@@ -2023,7 +2311,7 @@ if ($panelRun) {
             $detachGuards = @{}
             foreach ($s in $panelSlots) { $detachGuards[[int]$s.Pm.Entry.Position] = [int]$s.Guard }
             $detachBudget = Get-DetachedBudget -Groups $panelPlan.Groups -GuardOf $detachGuards -Cap $PanelConcurrency
-            $detachMembers = @(foreach ($pm in $panelEntries) {
+            $detachMembers = @(foreach ($pm in @($panelEntries | Where-Object { $_.State -ne 'not-picked' })) {
                     $detachShown = Format-ReviewerLineage -Provider $pm.Identity.Provider -Model $pm.Identity.Model -Engine ([string]$pm.Identity.Engine)
                     if ($pm.State -eq 'run') { New-DetachedMember -Position ([int]$pm.Entry.Position) -Lineage $detachShown }
                     else { New-DetachedMember -Position ([int]$pm.Entry.Position) -Lineage $detachShown -State 'skipped' -Outcome ([string]$pm.Reason) }
@@ -2033,11 +2321,11 @@ if ($panelRun) {
             $detachBrief = ''
             if ($Brief) { $detachBrief = (Resolve-Path -LiteralPath $briefProbe).Path }
             $detachPlan = "a review panel of $($panelRunners.Count) of $($panelEntries.Count) roster entries, $($panelPlan.Text) (purpose $purposeLabel, timeout $TimeoutSec s per member)"
-            Start-DetachedRun -Kind 'panel' -Members $detachMembers -Budget $detachBudget -Plan $detachPlan -BriefFull $detachBrief -ArtifactFull @($detachArtifacts | ForEach-Object { $_.full }) -Warnings @($rangeWarning)
+            Start-DetachedRun -Kind 'panel' -Members $detachMembers -Budget $detachBudget -Plan $detachPlan -BriefFull $detachBrief -ArtifactFull @($detachArtifacts | ForEach-Object { $_.full }) -Warnings (@($rangeWarning) + @($panelWarnings))
         }
         # (wave 25) a detached panel: its members with their numbers, in roster order
         if ($script:DetachRun) {
-            Set-DetachedMembers @(foreach ($pm in $panelEntries) {
+            Set-DetachedMembers @(foreach ($pm in @($panelEntries | Where-Object { $_.State -ne 'not-picked' })) {
                     $detachShown = Format-ReviewerLineage -Provider $pm.Identity.Provider -Model $pm.Identity.Model -Engine ([string]$pm.Identity.Engine)
                     if ($pm.State -eq 'run') {
                         $ds = $slotOf[[int]$pm.Entry.Position]
@@ -2052,8 +2340,14 @@ if ($panelRun) {
         foreach ($pm in $panelEntries) { $pm | Add-Member -NotePropertyName 'Shown' -NotePropertyValue (Format-ReviewerLineage -Provider $pm.Identity.Provider -Model $pm.Identity.Model -Engine ([string]$pm.Identity.Engine)) -Force }
         foreach ($pm in $panelEntries) {
             $slot = $slotOf[[int]$pm.Entry.Position]
-            Write-Host ("  #{0} {1} - {2}" -f $pm.Entry.Position, $pm.Shown, $(if ($pm.State -eq 'run') { "member, n=$($slot.N), handoff $($slot.Nn)" } else { "skipped: $($pm.Reason)" }))
+            $roleShown = $(if ($panelRoleOf.ContainsKey([int]$pm.Entry.Position)) { ", role $($panelRoleOf[[int]$pm.Entry.Position])" } else { '' })
+            $stateShown = $(if ($pm.State -eq 'run') { "member, n=$($slot.N), handoff $($slot.Nn)$roleShown$(if ($pm.Required) { ', required' })" } elseif ($pm.State -eq 'not-picked') { "not picked: $($pm.Reason)" } else { "skipped: $($pm.Reason)" })
+            Write-Host ("  #{0} {1} - {2}" -f $pm.Entry.Position, $pm.Shown, $stateShown)
         }
+        # (wave 26) the routing record, as the members' ledger entries carry it (panel.routing)
+        foreach ($rl in (Format-RoutingLines -Routing $panelRoute.Routing -Purpose $Purpose)) { Write-Host $rl }
+        if ($topicList.Count -gt 0) { Write-Host "Topics: $($topicList -join ', ')" }
+        foreach ($pw in $panelWarnings) { Write-Host "WARNING: $pw" -ForegroundColor Yellow }
         $groupTexts = @(foreach ($g in $panelPlan.Groups) {
                 $cnt = @($g.Positions).Count
                 $t = "$(@($g.Labels) -join '+') x$cnt"
@@ -2108,6 +2402,7 @@ if ($panelRun) {
         [void][IO.Directory]::CreateDirectory($panelTmp)
         Write-Utf8NoBom -Path $panelEmptyIn -Text ''
         $panelBlocked = ''
+        $panelRequiredFailed = $false
         while ($true) {
             $progress = $false
             foreach ($slot in $panelSlots) {
@@ -2133,6 +2428,12 @@ if ($panelRun) {
                 Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = (Get-PanelSlotDetachState $slot); outcome = $memberStatus; wall_seconds = $slot.Wall }
                 if ($memberStatus.Length -gt 110) { $memberStatus = $memberStatus.Substring(0, 110) + '...' }
                 Write-Host "  panel member $($slot.K) of $($panelRunners.Count) finished: $($slot.Pm.Shown) - $memberStatus ($($slot.Wall) s)"
+                # (wave 26, D7) a REQUIRED member without a usable reply stops the panel at the next
+                # slot boundary: no further member starts; exit 5
+                if (-not $DryRun -and $slot.Pm.Required -and -not $panelRequiredFailed -and -not (Test-PanelSlotUsable $slot)) {
+                    $panelRequiredFailed = $true
+                    if (-not $panelBlocked) { $panelBlocked = "not started: the required member $($slot.Pm.Shown) produced no usable reply - the panel stops (exit 5)" }
+                }
                 # -PanelConcurrency 1: a member that left surviving processes stops the rest - one
                 # member after another is the old order, and its rule stays (F15-3).
                 if (-not $DryRun -and $PanelConcurrency -eq 1 -and -not $panelBlocked) {
@@ -2161,7 +2462,13 @@ if ($panelRun) {
                 Start-PanelMember $slot
                 $progress = $true
                 if ($slot.State -eq 'running') { $running++; Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = 'running' } }
-                elseif ($slot.State -eq 'failed-start') { Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = 'failed'; outcome = (Get-PanelMemberStatus $slot) } }
+                elseif ($slot.State -eq 'failed-start') {
+                    Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = 'failed'; outcome = (Get-PanelMemberStatus $slot) }
+                    if (-not $DryRun -and $slot.Pm.Required -and -not $panelRequiredFailed) {
+                        $panelRequiredFailed = $true
+                        $panelBlocked = "not started: the required member $($slot.Pm.Shown) could not be started - the panel stops (exit 5)"
+                    }
+                }
             }
             if (@($panelSlots | Where-Object { $_.State -eq 'waiting' -or $_.State -eq 'running' }).Count -eq 0) { break }
             if (-not $progress) { Start-Sleep -Milliseconds 500 }
@@ -2197,7 +2504,7 @@ if ($panelRun) {
         $rows = New-Object System.Collections.Generic.List[object]
         $allUsable = ($panelRunners.Count -gt 0)
         $panelStarted = @($panelSlots | Where-Object { @('done', 'killed') -contains $_.State }).Count
-        foreach ($pm in $panelEntries) {
+        foreach ($pm in @($panelEntries | Where-Object { $_.State -ne 'not-picked' })) {
             $row = [pscustomobject]@{ Lineage = $pm.Shown; Status = ''; Counts = ''; Prior = ''; Tail = ''; Wide = $false }
             if ($pm.State -ne 'run') {
                 $row.Status = 'skipped'
@@ -2277,8 +2584,15 @@ if ($panelRun) {
                 Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = $dState; outcome = $dOutcome; wall_seconds = $(if (@('done', 'killed') -contains $slot.State) { $slot.Wall } else { $null }) } -NoSave
             }
         }
+        # (wave 26, D6) asked k (the seats), started j, usable i - the ledger's panel record gets
+        # the same numbers below
+        $panelUsable = @($panelSlots | Where-Object { Test-PanelSlotUsable $_ }).Count
+        $requiredMissing = @($panelSlots | Where-Object { $_.Pm.Required -and -not (Test-PanelSlotUsable $_) })
         Write-Host ""
-        Write-Summary "Panel $($panelShort): $(if ($DryRun) { "$($panelRunners.Count) of $($panelEntries.Count) entries would run (dry run)" } else { "$panelStarted of $($panelEntries.Count) entries ran" }) (wall clock $panelWall s; $($panelPlan.Text))"
+        # (a "(" inside a string nested in "$(...)" would end the subexpression early: built in pieces)
+        $panelHead = "$panelStarted of $($panelEntries.Count) entries ran " + '(' + "asked $($panelRunners.Count), started $panelStarted, usable $panelUsable; wall clock $panelWall s; $($panelPlan.Text)" + ')'
+        if ($DryRun) { $panelHead = "$($panelRunners.Count) of $($panelEntries.Count) entries would run " + '(dry run) (' + "wall clock $panelWall s; $($panelPlan.Text)" + ')' }
+        Write-Summary "Panel $($panelShort): $panelHead"
         foreach ($row in $rows) {
             $parts = New-Object System.Collections.Generic.List[string]
             $parts.Add($row.Lineage.PadRight($wLineage))
@@ -2292,6 +2606,35 @@ if ($panelRun) {
             }
             if ($row.Tail) { $parts.Add($row.Tail) }
             Write-Summary ('  ' + (($parts.ToArray() -join '  ').TrimEnd()))
+        }
+        $notPicked = @($panelEntries | Where-Object { $_.State -eq 'not-picked' })
+        if ($notPicked.Count -gt 0) { Write-Summary "  not picked (panel size $($panelRoute.K)): $(@($notPicked | ForEach-Object { $_.Shown }) -join ', ')" }
+        if (-not $DryRun) {
+            # (wave 26, D6) every member's ledger entry learns how the panel ended: panel.started and
+            # panel.usable (a member commits before the panel ends; best effort - a failure warns)
+            $countCommit = $null
+            try {
+                $countCommit = Enter-StoreCommit -TaskDir $taskDir -Task $Task -TimeoutSec (Get-WriteLockTimeout)
+                if (-not $countCommit.Acquired) { Write-Host "codex-consult: the panel's counts were not written to the ledger ($($countCommit.Message))" -ForegroundColor Yellow }
+                elseif ($null -ne $countCommit.Sessions) {
+                    $countChanged = $false
+                    foreach ($ce in @(Get-PropertyValue (Get-PropertyValue $countCommit.Sessions 'codex' $null) 'consults' @())) {
+                        $cp = Get-PropertyValue $ce 'panel' $null
+                        if ($null -eq $cp -or [string](Get-PropertyValue $cp 'id' '') -ne $panelId) { continue }
+                        $cp | Add-Member -NotePropertyName 'started' -NotePropertyValue $panelStarted -Force
+                        $cp | Add-Member -NotePropertyName 'usable' -NotePropertyValue $panelUsable -Force
+                        $countChanged = $true
+                    }
+                    if ($countChanged) { Complete-StoreCommit -Commit $countCommit -Sessions }
+                }
+            } catch {
+                Write-Host "codex-consult: the panel's counts were not written to the ledger ($(ConvertTo-OneLine $_.Exception.Message))" -ForegroundColor Yellow
+            } finally { Exit-StoreCommit -Commit $countCommit }
+        }
+        if (-not $DryRun -and $requiredMissing.Count -gt 0) {
+            Write-Summary "  required member$(if ($requiredMissing.Count -ne 1) { 's' }) without a usable reply: $(@($requiredMissing | ForEach-Object { $_.Pm.Shown }) -join ', ') - exit 5"
+            Set-DetachedFinal -Exit 5
+            exit 5
         }
         if ($allUsable) { Set-DetachedFinal -Exit 0; exit 0 }
         Set-DetachedFinal -Exit 1
@@ -2339,6 +2682,8 @@ $rosterApplied = New-Object System.Collections.Generic.List[string]
 $runWarnings = New-Object System.Collections.Generic.List[string]
 # (wave 24, T1) a big -Range for the timeout
 if ($rangeWarning) { $runWarnings.Add($rangeWarning) }
+# (wave 26) the panel run's routing warnings (a lab of its own, the floor) - every member's ledger
+if ($panelMember) { foreach ($pw in @(Get-PropertyValue $panelMember 'panel_warnings' @())) { if ($pw) { $runWarnings.Add([string]$pw) } } }
 $identityProvider = $Provider
 $identityModel = $Model
 $providerSourceOverride = ''
@@ -2431,6 +2776,23 @@ if ($roster.Exists) {
         foreach ($ci in @($rosterEntry.CodexConfig)) { $extraConfig.Add($ci) }
         $extraConfigSource = 'roster'
         $rosterApplied.Add('codex_config')
+    }
+}
+# (wave 26, D7) -Require on a single run (with -Provider): every required reviewer must be available
+# by the roster walk's verdict (stricter than a plain -Provider run: a usage limit without a reset
+# time is out) - else the run is refused before anything starts, exit 5 (a dry run too).
+$singleRequired = $null
+if ($requireGiven -and -not $panelRun -and -not $panelMember) {
+    if (-not $roster.Exists) { Stop-WithError "-Require names reviewers of the roster, and there is no reviewer roster$(if ($roster.Disabled) { ' (CODEX_CONSULT_ROSTER=none)' })." }
+    $singleRequired = Resolve-RequiredReviewers -Roster $roster -Require $Require -Explicit
+    if ($singleRequired.Error) { Stop-WithError "$($singleRequired.Error)." }
+    if (@($singleRequired.Positions).Count -gt 0) {
+        $reqRoster = [pscustomobject]@{ Exists = $true; Path = $roster.Path; Entries = [object[]]@($roster.Entries | Where-Object { $singleRequired.Positions -contains [int]$_.Position }) }
+        $reqSel = Select-PanelMembers -Roster $reqRoster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -All -EngineLaunchers $engineLaunchers
+        $reqOut = @(@($reqSel.Members) | Where-Object { $_.State -ne 'run' } | ForEach-Object { Format-RequiredOutage -Member $_ -UtcNow $healthNow })
+        if ($reqOut.Count -gt 0) {
+            Stop-WithError "required reviewer$(if ($reqOut.Count -ne 1) { 's' }) not available (-Require, judged like the roster walk): $($reqOut -join '; '); nothing was started - wait for $(if ($reqOut.Count -ne 1) { 'them' } else { 'it' }), or run without -Require (exit 5)." -Code 5
+        }
     }
 }
 if (-not $engineName) { $engineName = 'codex' }
@@ -2597,6 +2959,10 @@ if ($panelMember) {
         members     = [object[]]@(@($panelMember.members) | Where-Object { $_ } | ForEach-Object { [pscustomobject]@{ provider = [string]$_.provider; model = [string]$_.model; state = [string]$_.state; reason = [string]$_.reason } })
         concurrency = [int](Get-PropertyValue $panelMember 'concurrency' 1)
         limits      = (Get-PropertyValue $panelMember 'limits' $null)
+        asked       = [int](Get-PropertyValue $panelMember 'asked' ([int]$panelMember.of))
+        started     = $null
+        usable      = $null
+        routing     = (Get-PropertyValue $panelMember 'routing' $null)
     }
 }
 if ($rosterLine -and -not $DryRun) { Write-Host $rosterLine }
@@ -2920,6 +3286,11 @@ try {
         [void]$promptParts.Add('FINAL OUTPUT CONTRACT: your ENTIRE final message must be exactly one bare JSON object (schema_version "1") - no code fence, no text before or after it. The Markdown answer lives only inside its reply_markdown string; each defect goes in findings[]. A prose final message cannot be ingested, however good the answer is.')
     }
     if ($Prompt) { [void]$promptParts.Add($Prompt.Trim()) }
+    if ($roleInfo) {
+        # (wave 26, R16, D8) the role: after the ask, before the brief - never inside the output
+        # contract; it narrows what the reviewer looks at, nothing else changes
+        [void]$promptParts.Add("Your role in this review: $($roleInfo.Name). Focus on what it asks for; the reply format, the verdict rules and the read-only rule stay as stated.$nl$(($roleInfo.Text -replace "`r`n", "`n") -replace "`n", $nl)")
+    }
     if ($briefRef) {
         [void]$promptParts.Add("Read the brief at ``$briefRef`` (path relative to the repository root, which is your working directory) and answer every numbered question in it.")
     }
@@ -3069,6 +3440,8 @@ try {
             n                               = $consultN
             when                            = (Get-IsoTimestamp)
             purpose                         = $Purpose
+            topics                          = [object[]]@($topicList)
+            role                            = $(if ($roleInfo) { $roleInfo.Name } else { '' })
             consult_id                      = $consultId
             reviewer                        = $reviewerRecord
             lineage                         = $lineage
@@ -3172,6 +3545,9 @@ try {
         if ($preflightWarning) { Write-Host "WARNING: $preflightWarning" -ForegroundColor Yellow }
         Write-Host "model       : $modelLabel"
         Write-Host "purpose     : $purposeLabel (effort $(if ($null -eq $effortSent) { 'none sent' } else { $effortSent }), max words $maxWordsResolved)"
+        if ($topicList.Count -gt 0) { Write-Host "topics      : $($topicList -join ', ')" }
+        if ($roleInfo) { Write-Host "role        : $($roleInfo.Name) ($($roleInfo.Source): $($roleInfo.Path)) - in the prompt after the ask" }
+        if ($singleRequired -and @($singleRequired.Positions).Count -gt 0) { Write-Host "required    : $(@($singleRequired.Positions | ForEach-Object { "#$_" }) -join ', ') available (-Require)" }
         Write-Host "effort      : $(if ($null -eq $effortSent) { 'nothing' } else { $effortSent }) sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis))"
         Write-Host "timeout     : $TimeoutSec s ($(if ($timeoutSource -eq 'purpose') { "the default of purpose $purposeLabel; -TimeoutSec overrides" } else { '-TimeoutSec' })); continuation after a timeout kill: $(if ($ContinueSec -gt 0) { "one turn of up to $ContinueSec s on the same thread (-ContinueSec; 0 = off)" } else { 'off (-ContinueSec 0)' })"
         if ($rangeStat) { Write-Host "range       : $Range - $rangeText ($($rangeStat.Insertions) insertions, $($rangeStat.Deletions) deletions)" }
@@ -4430,6 +4806,8 @@ try {
         n                               = $consultN
         when                            = (Get-IsoTimestamp $startedAt)
         purpose                         = $Purpose
+        topics                          = [object[]]@($topicList)
+        role                            = $(if ($roleInfo) { $roleInfo.Name } else { '' })
         consult_id                      = $consultId
         reviewer                        = $reviewerRecord
         lineage                         = $lineage

@@ -67,13 +67,20 @@
                          Read-TaskPendingRecords (.consult.pending.json and the panel
                          members' .consult.pending-<NN>.json)
       * processes        Stop-ProcessTree, ConvertTo-ProcArg, Format-Argv
-      * detached runs    (wave 25, R12) Get-DetachedPaths, New-DetachedMember,
-                         ConvertTo-DetachedRecord, Read-DetachedStatus, Write-DetachedStatus,
+      * detached runs    (wave 25, R12) Write-DetachedStatus, Get-DetachedBudget (D4),
+                         Complete-DetachedRecord (D3), ConvertTo-DetachArgs /
+                         ConvertFrom-DetachArgs; (wave 26, F07-3) the readers - Get-DetachedPaths,
+                         New-DetachedMember, ConvertTo-DetachedRecord, Read-DetachedStatus,
                          Read-DetachedRuns, Get-DetachedJudgement (liveness: D5, D6, D11),
-                         Get-DetachedBudget (D4), Complete-DetachedRecord (D3),
-                         ConvertTo-DetachArgs / ConvertFrom-DetachArgs,
-                         Format-DetachedListLine (codex-findings.ps1 -List),
-                         Get-DetachedPhrase (the SessionStart hook)
+                         Format-DetachedListLine (codex-findings.ps1 -List), Get-DetachedPhrase
+                         (the SessionStart hook) - and the small helpers they need live in
+                         codex-consult-detached.ps1, dot-sourced below
+      * companions       (wave 26, R14-R16) Get-PanelDefaultSize, ConvertTo-SlugList,
+                         Get-EntryLab (the vendor table), Resolve-ReviewerMatcher and
+                         Resolve-RequiredReviewers (-Require), Read-AllTaskRatings and
+                         Get-RoutingScore (shared with codex-scoreboard.ps1), Get-PanelSeed,
+                         Get-SlotUniforms, Invoke-PanelDraw, Select-PanelRouting,
+                         Format-RoutingLines, Resolve-RoleFile, Select-RoleAssignment
 
     Windows PowerShell 5.1 and PowerShell 7 compatible, no external dependencies.
     Keep this file ASCII: Windows PowerShell reads a BOM-less script in the ANSI
@@ -87,6 +94,12 @@ $script:LegacyPS = ($PSVersionTable.PSVersion.Major -lt 6)
 $script:Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $script:Invariant = [System.Globalization.CultureInfo]::InvariantCulture
 if (-not $script:ToolName) { $script:ToolName = 'codex-consult' }
+# (wave 26, F07-3) the small helpers and the detached-run readers, shared with the SessionStart
+# hook (which dot-sources that file alone): Read-SharedText, Get-PropertyValue, ConvertTo-OneLine,
+# Test-IsJsonObject, ConvertTo-JsonText, ConvertTo-WhenOffset, Get-GitOutput, Resolve-RepoRoot,
+# Resolve-CollabRoot, Get-ProcessStartIso, Test-SameStartTime, Test-PidAlive, Read-DetachedRuns,
+# Get-DetachedJudgement, Get-DetachedPhrase & co.
+. (Join-Path $PSScriptRoot 'codex-consult-detached.ps1')
 
 # Closed sets of the consult-reply v1 schema (schemas/consult-reply.schema.json).
 $script:ReplyFields = @('schema_version', 'verdict', 'verdict_reason', 'reply_markdown', 'findings', 'prior_findings', 'unproven', 'first_run_checklist')
@@ -228,62 +241,22 @@ function Read-JsonStore {
     return $data
 }
 
-# Start-Process holds the stdout/stderr redirection handles for a short while after
-# the child exits, so a plain Get-Content can fail with "the process cannot access
-# the file ... because it is being used by another process" - observed on a
-# fast-failing codex run. Read with FileShare.ReadWrite (+ Delete, so an atomic
-# replace of the file is not blocked by this reader) and retry briefly.
-function Read-SharedText {
-    param([string]$Path)
-    if (-not (Test-Path -LiteralPath $Path)) { return '' }
-    for ($attempt = 1; $attempt -le 6; $attempt++) {
-        try {
-            $fs = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
-            try {
-                $sr = New-Object System.IO.StreamReader($fs, (New-Object System.Text.UTF8Encoding($false)), $true)
-                try { return $sr.ReadToEnd() } finally { $sr.Dispose() }
-            } finally { $fs.Dispose() }
-        } catch {
-            Start-Sleep -Milliseconds 250
-        }
-    }
-    return ''
-}
-
 function Get-IsoTimestamp {
     param([datetime]$When = (Get-Date))
     return $When.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant)
 }
 
+# Prints the refusal and exits $Code: 1, or (wave 26, D7) 5 - a required reviewer is not
+# available.
 function Stop-WithError {
-    param([string]$Message)
+    param([string]$Message, [int]$Code = 1)
     Write-Host "$($script:ToolName): $Message" -ForegroundColor Red
     # (wave 25, R12, D3) a detached run records the refusal as its final status before it exits
-    if ($script:StopWithErrorHook) { try { & $script:StopWithErrorHook "$($script:ToolName): $Message" } catch { } }
-    exit 1
+    if ($script:StopWithErrorHook) { try { & $script:StopWithErrorHook "$($script:ToolName): $Message" $Code } catch { } }
+    exit $Code
 }
 
 # ----------------------------------------------------------------------------- git
-
-# Git is optional and every call here is allowed to fail (no repo, no commits yet,
-# git not installed). Windows PowerShell turns a native command's stderr into a
-# terminating NativeCommandError while $ErrorActionPreference is 'Stop', so relax it
-# for the duration of the call and report failure as $null.
-function Get-GitOutput {
-    param([string]$Root, [string[]]$GitArgs)
-    $all = @('-C', $Root) + $GitArgs
-    $previous = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $out = & git @all 2>$null
-        if ($LASTEXITCODE -ne 0) { return $null }
-        return $out
-    } catch {
-        return $null
-    } finally {
-        $ErrorActionPreference = $previous
-    }
-}
 
 # Argument quoting: bare token when it is safe, otherwise wrap in double quotes and
 # double any embedded quote. This is the Windows CRT rule, which is also what
@@ -380,29 +353,6 @@ function Get-RangeStat {
 }
 
 # ----------------------------------------------------------------------------- paths
-
-# The working directory of the caller is the project being discussed, not the
-# directory the scripts live in (a plugin installs them outside the project).
-function Resolve-RepoRoot {
-    param([string]$Cwd)
-    $top = Get-GitOutput -Root $Cwd -GitArgs @('rev-parse', '--show-toplevel')
-    if ($top) {
-        $first = ([string]@($top)[0]).Trim()
-        if ($first -and (Test-Path -LiteralPath $first)) {
-            return (Resolve-Path -LiteralPath $first).Path
-        }
-    }
-    # Not a git repository: fall back to the current directory.
-    return $Cwd
-}
-
-# Relative -CollabDir resolves against the repository root.
-function Resolve-CollabRoot {
-    param([string]$RepoRoot, [string]$CollabDir)
-    $p = $CollabDir
-    if (-not [IO.Path]::IsPathRooted($p)) { $p = Join-Path $RepoRoot $p }
-    return [IO.Path]::GetFullPath($p)
-}
 
 # '/'-separated path of $Path relative to $Root; '' when they are the same
 # directory; $null when $Path is not under $Root.
@@ -952,12 +902,6 @@ function Get-NextNumbers {
     }
 }
 
-function Get-PropertyValue {
-    param($Object, [string]$Name, $Default = '')
-    if ($null -ne $Object -and $Object.PSObject.Properties[$Name] -and $null -ne $Object.$Name) { return $Object.$Name }
-    return $Default
-}
-
 # Appends $Item to the array property $Name of $Object (creating it when missing) and
 # keeps the value an [object[]] - a one-element array must stay an array in JSON.
 function Add-ArrayItem {
@@ -968,12 +912,6 @@ function Add-ArrayItem {
     } else {
         $Object | Add-Member -NotePropertyName $Name -NotePropertyValue ([object[]]@($Item))
     }
-}
-
-function ConvertTo-OneLine {
-    param([string]$Text)
-    if (-not $Text) { return '' }
-    return (($Text -replace '\s+', ' ').Trim())
 }
 
 # "claim" -> "claim." ; leaves text that already ends in . ! ? alone.
@@ -1036,11 +974,6 @@ function Test-IsJsonArray {
     return (($null -ne $Value) -and ($Value -is [array]))
 }
 
-function Test-IsJsonObject {
-    param($Value)
-    return ($Value -is [System.Management.Automation.PSCustomObject])
-}
-
 function Test-IsJsonInteger {
     param($Value)
     if ($null -eq $Value) { return $false }
@@ -1049,14 +982,6 @@ function Test-IsJsonInteger {
     if ($Value.GetType().FullName -eq 'System.Numerics.BigInteger') { return $true }
     if ($Value -is [double] -or $Value -is [decimal] -or $Value -is [single]) { return ($Value -eq [math]::Floor($Value)) }
     return $false
-}
-
-function ConvertTo-JsonText {
-    param($Value)
-    if ($null -eq $Value) { return '' }
-    if ($Value -is [datetime]) { return $Value.ToString('o', $script:Invariant) }
-    if ($Value -is [DateTimeOffset]) { return $Value.ToString('yyyy-MM-ddTHH:mm:ss.FFFFFFFzzz', $script:Invariant) }
-    return [string]$Value
 }
 
 # Checks the exact object/field/enum structure of schemas/consult-reply.schema.json
@@ -4912,15 +4837,6 @@ function Test-UsableOutcome {
     return [bool]($script:UsableOutcomes -ccontains $Outcome)
 }
 
-function ConvertTo-WhenOffset {
-    param($Value)
-    if ($Value -is [DateTimeOffset]) { return $Value }
-    if ($Value -is [datetime]) { return [DateTimeOffset]$Value }
-    $at = [DateTimeOffset]::MinValue
-    if ([DateTimeOffset]::TryParse([string]$Value, $script:Invariant, [System.Globalization.DateTimeStyles]::None, [ref]$at)) { return $at }
-    return $null
-}
-
 # Health of one ENDPOINT (provider_fingerprint - never the alias) from the ledgers of all
 # tasks. Entries recorded before 0.3.0 count as the built-in openai endpoint; entries with
 # an unresolved identity (empty fingerprint) are ignored. A failure's class comes from its
@@ -5121,12 +5037,157 @@ function Get-EndpointHealth {
 #   otherwise         the roster is walked in order and the first entry whose preflight is
 #                     available is used (Select-RosterReviewer); every skipped entry is
 #                     recorded with its reason. None available: refused.
-#   -Panel            every available entry (Select-PanelMembers) runs the same brief, each
+#   -Panel            the entries the panel seats (Select-PanelMembers, then (wave 26)
+#                     Select-PanelRouting: the purpose's size, the draw) run the same brief, each
 #                     as a consultation of its own; members of different endpoints at once,
 #                     of one endpoint one after another (Get-PanelPlan, roster "parallel").
 
 # Where the roster comes from: { Path ('' when none); FromEnv (CODEX_CONSULT_ROSTER named
 # it: it must exist); Disabled (CODEX_CONSULT_ROSTER=none) }.
+# ----------------------------------------------------------------------------- companions (wave 26: R14-R16)
+#
+# Decisions D1-D12 of the companions design round (.collab-independent summary): a panel takes as
+# many members as its purpose needs (Get-PanelDefaultSize, -PanelSize), from as many LABS as it can
+# (a lab-diversity reserve, D1), chosen by the reviewers' usefulness ratings (-Rate) with a share
+# of exploration (D3, D4) - or in roster order until there is evidence (D5); required reviewers
+# (-Require, the roster's `require`) take their seats first (D7); a member may take a narrow ROLE
+# (D8). The roster gains `lab`, `roles`, `require` and the extension point `ext` (D12).
+
+# The consultation purposes (codex-consult.ps1 -Purpose; the keys of the roster's `require`).
+$script:ConsultPurposes = @('framing', 'decision', 'checkpoint', 'core-contract', 'acceptance', 'diff-review', 'stuck', 'chore')
+# D8 / D3: a role or topic name is a lowercase slug, checked before any path join.
+$script:SlugPattern = '^[a-z0-9][a-z0-9._-]{0,40}$'
+# D1: the lab of a model whose roster entry names none, keyed on the model id's PREFIX (never the
+# provider label - one label may serve several labs, one lab several labels). First match wins.
+$script:LabVendors = @('qwen=alibaba', 'deepseek=deepseek', 'kimi=moonshot', 'k3=moonshot', 'glm=zhipu', 'dola=bytedance', 'seed=bytedance', 'mimo=xiaomi', 'gemini=google', 'muse=meta', 'gpt=openai')
+# D6: the default panel size per purpose ('' = no purpose; 0 = every eligible member).
+$script:PanelSizes = @{ '' = 1; 'chore' = 1; 'checkpoint' = 1; 'diff-review' = 2; 'framing' = 3; 'decision' = 3; 'core-contract' = 4; 'acceptance' = 4; 'stuck' = 0 }
+# D6: the purposes whose panel should hear at least two members (the floor warning).
+$script:PanelFloorPurposes = @('framing', 'decision')
+
+# The default size of a panel for $Purpose (D6): chore, none and checkpoint 1, diff-review 2,
+# framing and decision 3, core-contract and acceptance 4, stuck every eligible member (0).
+function Get-PanelDefaultSize {
+    param([string]$Purpose = '')
+    if ($script:PanelSizes.ContainsKey($Purpose)) { return [int]$script:PanelSizes[$Purpose] }
+    return 1
+}
+
+# Names given on the command line or in the roster as canonical slugs (D3, D8): every value split
+# at commas (powershell -File binds a [string[]] as ONE string), trimmed, lowercased, empty ones
+# dropped, duplicates removed (first one kept). { Items (string[]); Error ('' or the refusal) }.
+function ConvertTo-SlugList {
+    param([string[]]$Values, [string]$What = 'name')
+    $items = New-Object System.Collections.Generic.List[string]
+    foreach ($v in @($Values)) {
+        if ($null -eq $v) { continue }
+        foreach ($piece in ([string]$v).Split(',')) {
+            $s = $piece.Trim().ToLowerInvariant()
+            if (-not $s) { continue }
+            if ($s -notmatch $script:SlugPattern) {
+                return [pscustomobject]@{ Items = [string[]]@(); Error = "$What '$($piece.Trim())' is not a slug (lowercase letters, digits, dot, dash, underscore; at most 41 characters, starting with a letter or digit)" }
+            }
+            if (-not $items.Contains($s)) { $items.Add($s) }
+        }
+    }
+    return [pscustomobject]@{ Items = [string[]]$items.ToArray(); Error = '' }
+}
+
+# The lab a model id belongs to by the vendor table (D1), '' when its prefix is unknown.
+function Get-ModelLab {
+    param([string]$Model)
+    $m = ([string]$Model).Trim().ToLowerInvariant()
+    if (-not $m) { return '' }
+    foreach ($pair in $script:LabVendors) {
+        $kv = $pair.Split('=')
+        if ($m.StartsWith($kv[0])) { return $kv[1] }
+    }
+    return ''
+}
+
+# The lab of a roster entry (D1): its `lab` (canonical lowercase), else the vendor table on the
+# model it resolves to, else a lab of its own - its lineage, lowercased (Source 'singleton'; a
+# routed panel warns). { Lab; Source ('roster' | 'vendor' | 'singleton') }.
+function Get-EntryLab {
+    param($Entry, [string]$Model = '', [string]$Lineage = '')
+    $declared = [string](Get-PropertyValue $Entry 'Lab' '')
+    if ($declared) { return [pscustomobject]@{ Lab = $declared; Source = 'roster' } }
+    $m = $Model
+    if (-not $m) { $m = [string](Get-PropertyValue $Entry 'Model' '') }
+    $v = Get-ModelLab $m
+    if ($v) { return [pscustomobject]@{ Lab = $v; Source = 'vendor' } }
+    $own = $Lineage
+    if (-not $own) { $own = Format-ReviewerLineage -Provider ([string]$Entry.Provider) -Model $m -Engine ([string](Get-PropertyValue $Entry 'Engine' '')) }
+    return [pscustomobject]@{ Lab = $own.ToLowerInvariant(); Source = 'singleton' }
+}
+
+# A reviewer matcher (-Require, the roster's `require`; D7) against roster entries: `#<n>` (the
+# entry at roster position n), a bare provider label (every entry of it), or `<provider> ::
+# <model>` - either form with an optional ` [<engine>]` suffix. Compared field by field on what
+# the roster names (provider and model ordinal, the engine), never on a display string; a model-
+# less entry is named by its position or its label. { Positions (int[], roster order); Error }.
+function Resolve-ReviewerMatcher {
+    param([object[]]$Entries, [string]$Matcher)
+    $t = ([string]$Matcher).Trim()
+    $fail = { param($why) [pscustomobject]@{ Positions = [int[]]@(); Error = $why } }
+    if (-not $t) { return (& $fail 'an empty reviewer matcher') }
+    if ($t -match '^#(\d+)$') {
+        $pos = [int]$Matches[1]
+        $hit = @($Entries | Where-Object { [int]$_.Position -eq $pos })
+        if ($hit.Count -eq 0) { return (& $fail "'$t' names no roster position (the roster has $(@($Entries).Count) entries)") }
+        return [pscustomobject]@{ Positions = [int[]]@($pos); Error = '' }
+    }
+    $engine = ''
+    if ($t -match '^(.*\S)\s+\[([A-Za-z0-9_-]+)\]$') {
+        $t = $Matches[1]
+        $engine = $Matches[2].ToLowerInvariant()
+        if ($script:EngineNames -notcontains $engine) { return (& $fail "'$Matcher' names the engine '$engine' (known: $($script:EngineNames -join ', '))") }
+    }
+    $provider = $t
+    $model = $null
+    $sep = $t.IndexOf(' :: ')
+    if ($sep -ge 0) {
+        $provider = $t.Substring(0, $sep).Trim()
+        $model = $t.Substring($sep + 4).Trim()
+        if (-not $provider -or -not $model) { return (& $fail "'$Matcher' is not '<provider> :: <model>'") }
+    }
+    $hits = @($Entries | Where-Object {
+            $_.Provider -ceq $provider -and ($null -eq $model -or [string]$_.Model -ceq $model) -and (-not $engine -or [string]$_.Engine -eq $engine)
+        })
+    if ($hits.Count -eq 0) { return (& $fail "'$Matcher' matches no roster entry") }
+    return [pscustomobject]@{ Positions = [int[]]@($hits | ForEach-Object { [int]$_.Position }); Error = '' }
+}
+
+# The required roster positions of a run (D7): -Require's matchers (explicit - `none` alone means
+# no requirement), else the roster's `require` for $Purpose (a -Panel run only: $UseRoster). {
+# Positions (int[], roster order, unique); Matchers (string[]); Source ('' | '-Require' | 'roster
+# require.<purpose>'); Error }.
+function Resolve-RequiredReviewers {
+    param($Roster, [string[]]$Require = @(), [string]$Purpose = '', [switch]$Explicit, [switch]$UseRoster)
+    $r = [pscustomobject]@{ Positions = [int[]]@(); Matchers = [string[]]@(); Source = ''; Error = '' }
+    $matchers = New-Object System.Collections.Generic.List[string]
+    if ($Explicit) {
+        foreach ($v in @($Require)) { foreach ($p in ([string]$v).Split(',')) { if ($p.Trim()) { $matchers.Add($p.Trim()) } } }
+        if ($matchers.Count -eq 1 -and $matchers[0] -ieq 'none') { $r.Source = '-Require none'; return $r }
+        if (@($matchers | Where-Object { $_ -ieq 'none' }).Count -gt 0) { $r.Error = "-Require none stands alone (it drops the roster's requirement); do not combine it with reviewers"; return $r }
+        $r.Source = '-Require'
+    } elseif ($UseRoster -and $Roster -and $Roster.PSObject.Properties['Require'] -and $null -ne $Roster.Require -and $Roster.Require.ContainsKey($Purpose)) {
+        foreach ($m in @($Roster.Require[$Purpose])) { $matchers.Add([string]$m) }
+        $r.Source = "roster require.$Purpose"
+    }
+    if ($matchers.Count -eq 0) { return $r }
+    if (-not $Roster -or -not $Roster.Exists) { $r.Error = '-Require names reviewers of the roster, and there is no reviewer roster'; return $r }
+    $set = New-Object System.Collections.Generic.List[int]
+    foreach ($m in $matchers) {
+        $res = Resolve-ReviewerMatcher -Entries @($Roster.Entries) -Matcher $m
+        if ($res.Error) { $r.Error = "$($r.Source): $($res.Error)"; return $r }
+        foreach ($p in $res.Positions) { if (-not $set.Contains([int]$p)) { $set.Add([int]$p) } }
+    }
+    $r.Positions = [int[]]@($set.ToArray() | Sort-Object)
+    $r.Matchers = [string[]]$matchers.ToArray()
+    return $r
+}
+
 function Get-RosterPath {
     $p = ([string]$env:CODEX_CONSULT_ROSTER).Trim()
     if ($p -ieq 'none') { return [pscustomobject]@{ Path = ''; FromEnv = $true; Disabled = $true } }
@@ -5143,15 +5204,20 @@ function Get-RosterPath {
 # { Exists; Path; Disabled (CODEX_CONSULT_ROSTER=none); Entries ({ Position; Provider; Model
 # ('' = not given); CodexConfig (string[], already expanded and quoted); Auth ('' | 'none');
 # Panel ('always' | 'weighty'); Engine ('codex' | 'agy'); EngineDeclared (the entry names
-# its engine) }); Parallel (hashtable, ordinal keys: provider label -> n from the top-level
-# "parallel"; empty when absent); Error }. Error is the whole refusal message; the caller
-# stops on it.
+# its engine); (wave 26) Lab ('' = not given; canonical lowercase - D1); Roles (string[]: the
+# roles it is willing to take - D8) }); Parallel (hashtable, ordinal keys: provider label -> n
+# from the top-level "parallel"; empty when absent); (wave 26) Require (hashtable, ordinal keys:
+# purpose -> string[] of reviewer matchers from the top-level "require", each resolved to an
+# entry at load - D7); Error }. Error is the whole refusal message; the caller stops on it.
+# (wave 26, D12) "ext" - an object at the top level and in any entry - is the extension point of
+# other implementations that share the file: validated as an object only, never read, never
+# written.
 # $Location: Get-RosterPath (the default).
 function Read-ReviewerRoster {
     param($Location = $null)
     if ($null -eq $Location) { $Location = Get-RosterPath }
     $Path = [string]$Location.Path
-    $r = [pscustomobject]@{ Exists = $false; Path = $Path; Disabled = [bool]$Location.Disabled; Entries = [object[]]@(); Parallel = (New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)); Error = '' }
+    $r = [pscustomobject]@{ Exists = $false; Path = $Path; Disabled = [bool]$Location.Disabled; Entries = [object[]]@(); Parallel = (New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)); Require = (New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)); Error = '' }
     if ($r.Disabled) { return $r }
     if ($Path -and $Location.FromEnv -and -not (Test-Path -LiteralPath $Path)) {
         $r.Error = "the reviewer roster '$Path' named by CODEX_CONSULT_ROSTER does not exist; unset CODEX_CONSULT_ROSTER to use <codex home>/codex-consult-roster.json when it exists, or set it to none for no roster."
@@ -5174,9 +5240,10 @@ function Read-ReviewerRoster {
     $entries = New-Object System.Collections.Generic.List[object]
     if (-not $why) {
         foreach ($prop in $data.PSObject.Properties) {
-            if (@('roster_version', 'reviewers', 'parallel') -cnotcontains $prop.Name) { $why = "unknown key '$($prop.Name)' at the top level (allowed: roster_version, reviewers, parallel)"; break }
+            if (@('roster_version', 'reviewers', 'parallel', 'require', 'ext') -cnotcontains $prop.Name) { $why = "unknown key '$($prop.Name)' at the top level (allowed: roster_version, reviewers, parallel, require, ext)"; break }
         }
     }
+    if (-not $why -and $data.PSObject.Properties['ext'] -and -not (Test-IsJsonObject $data.ext)) { $why = "ext must be an object (the extension point of other implementations; got $(ConvertTo-Json -InputObject $data.ext -Compress))" }
     if (-not $why) {
         if (-not $data.PSObject.Properties['roster_version']) { $why = 'roster_version is missing (expected 1)' }
         elseif (-not (Test-IsJsonInteger $data.roster_version) -or [long]$data.roster_version -ne 1) { $why = "roster_version must be 1 (got $(ConvertTo-Json -InputObject $data.roster_version -Compress))" }
@@ -5193,9 +5260,28 @@ function Read-ReviewerRoster {
             $at = "entry $pos"
             if (-not (Test-IsJsonObject $item)) { $why = "$at is not an object"; break }
             foreach ($prop in $item.PSObject.Properties) {
-                if (@('provider', 'model', 'codex_config', 'auth', 'panel', 'engine') -cnotcontains $prop.Name) { $why = "$at has an unknown key '$($prop.Name)' (allowed: provider, model, codex_config, auth, panel, engine)"; break }
+                if (@('provider', 'model', 'codex_config', 'auth', 'panel', 'engine', 'lab', 'roles', 'ext') -cnotcontains $prop.Name) { $why = "$at has an unknown key '$($prop.Name)' (allowed: provider, model, codex_config, auth, panel, engine, lab, roles, ext)"; break }
             }
             if ($why) { break }
+            if ($item.PSObject.Properties['ext'] -and -not (Test-IsJsonObject $item.ext)) { $why = "${at}: ext must be an object (the extension point of other implementations; got $(ConvertTo-Json -InputObject $item.ext -Compress))"; break }
+            # (wave 26, D1) the lab: a non-empty string, canonical lowercase
+            $lab = ''
+            if ($item.PSObject.Properties['lab']) {
+                $lv = $item.lab
+                if (-not ($lv -is [string]) -or -not $lv.Trim() -or $lv -cne $lv.Trim()) { $why = "${at}: lab must be a non-empty string without surrounding blanks (e.g. ""moonshot""; omit it to take the lab from the model id)"; break }
+                $lab = $lv.ToLowerInvariant()
+            }
+            # (wave 26, D8) the roles the entry is willing to take: an array of role slugs
+            $entryRoles = [string[]]@()
+            if ($item.PSObject.Properties['roles']) {
+                $rv = $item.roles
+                $allStrings = (Test-IsJsonArray $rv)
+                if ($allStrings) { foreach ($x in @($rv)) { if (-not ($x -is [string])) { $allStrings = $false } } }
+                if (-not $allStrings) { $why = "${at}: roles must be an array of role names (e.g. [""security"", ""tests""])"; break }
+                $rl = ConvertTo-SlugList -Values ([string[]]@($rv)) -What 'role'
+                if ($rl.Error) { $why = "${at}: roles: $($rl.Error)"; break }
+                $entryRoles = $rl.Items
+            }
             $provider = $null
             if ($item.PSObject.Properties['provider']) { $provider = $item.provider }
             if (-not ($provider -is [string]) -or -not $provider.Trim() -or $provider -cne $provider.Trim()) { $why = "$at needs a provider: a non-empty string without surrounding blanks"; break }
@@ -5244,7 +5330,7 @@ function Read-ReviewerRoster {
                 $label = if ($model) { Format-Lineage -Provider $provider -Model $model } else { "$provider (no model)" }
                 $why = "entries $($dup.Position) and $pos are the same reviewer $label"; break
             }
-            $entries.Add([pscustomobject]@{ Position = $pos; Provider = $provider; Model = $model; CodexConfig = $cfgItems; Auth = $auth; Panel = $panelWeight; Engine = $engine; EngineDeclared = $engineDeclared })
+            $entries.Add([pscustomobject]@{ Position = $pos; Provider = $provider; Model = $model; CodexConfig = $cfgItems; Auth = $auth; Panel = $panelWeight; Engine = $engine; EngineDeclared = $engineDeclared; Lab = $lab; Roles = $entryRoles })
         }
     }
     if (-not $why -and $data.PSObject.Properties['parallel']) {
@@ -5256,6 +5342,26 @@ function Read-ReviewerRoster {
                 if (@($entries | Where-Object { $_.Provider -ceq $prop.Name }).Count -eq 0) { $why = "parallel names the provider label '$($prop.Name)', which no entry of the roster uses"; break }
                 if (-not (Test-IsJsonInteger $prop.Value) -or [double]$prop.Value -lt 1) { $why = "parallel.$($prop.Name) must be an integer >= 1 (got $(ConvertTo-Json -InputObject $prop.Value -Compress))"; break }
                 $r.Parallel[$prop.Name] = [int]$prop.Value
+            }
+        }
+    }
+    # (wave 26, D7) the required reviewers per purpose: every matcher must name an entry
+    if (-not $why -and $data.PSObject.Properties['require']) {
+        $qv = $data.require
+        if (-not (Test-IsJsonObject $qv)) {
+            $why = "require must be an object {""<purpose>"": [""<reviewer>"", ...]} (got $(ConvertTo-Json -InputObject $qv -Compress))"
+        } else {
+            foreach ($prop in $qv.PSObject.Properties) {
+                if ($script:ConsultPurposes -cnotcontains $prop.Name) { $why = "require names the purpose '$($prop.Name)' (known: $($script:ConsultPurposes -join ', '))"; break }
+                $ok = (Test-IsJsonArray $prop.Value) -and @($prop.Value).Count -gt 0
+                if ($ok) { foreach ($x in @($prop.Value)) { if (-not ($x -is [string]) -or -not $x.Trim()) { $ok = $false } } }
+                if (-not $ok) { $why = "require.$($prop.Name) must be a non-empty array of reviewers (""#<position>"", ""<provider>"" or ""<provider> :: <model>"", optionally with "" [<engine>]"")"; break }
+                foreach ($x in @($prop.Value)) {
+                    $res = Resolve-ReviewerMatcher -Entries ([object[]]$entries.ToArray()) -Matcher $x
+                    if ($res.Error) { $why = "require.$($prop.Name): $($res.Error)"; break }
+                }
+                if ($why) { break }
+                $r.Require[$prop.Name] = [string[]]@($prop.Value | ForEach-Object { $_.Trim() })
             }
         }
     }
@@ -5530,8 +5636,10 @@ $script:WeightyPurposes = @('framing', 'decision', 'core-contract', 'acceptance'
 # (Get-RosterAvailability) judges EVERY entry this way. { Members (object[], roster order, of {
 # Entry; Identity; State 'run'|'skipped'; Reason ('' when it runs); Verdict (the preflight
 # verdict, $null under -SkipPreflight or a launch refusal); Health (the endpoint health, $null
-# when unresolved); Block ('' or the launch refusal) }); Error ('' or the refusal: nobody runs /
-# no entry for $Model) }.
+# when unresolved); Block ('' or the launch refusal); SkipKind (wave 26: '' | refused |
+# unavailable | weighty - why it is skipped) }); Error ('' or the refusal: nobody runs / no entry
+# for $Model) }. (wave 26) Select-PanelRouting then seats the panel among the members that run
+# (State 'not-picked' for the rest).
 function Select-PanelMembers {
     param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null)
     $members = New-Object System.Collections.Generic.List[object]
@@ -5546,20 +5654,22 @@ function Select-PanelMembers {
         if ($Model -and $id.Model -cne $Model) { continue }
         $state = 'run'
         $reason = ''
+        $skipKind = ''
         $verdict = $null
         $health = $null
         if ($id.Resolved) { $health = Get-CachedEndpointHealth -Cache $Cache -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
         $block = Get-EngineLaunchBlock -Engine $entryEngine
-        if ($block) { $state = 'skipped'; $reason = "refused: $block" }
+        if ($block) { $state = 'skipped'; $reason = "refused: $block"; $skipKind = 'refused' }
         elseif (-not $SkipPreflight) {
             $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $entryLauncher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk -NoNetwork:$NoNetwork
-            if ($verdict.State -ne 'available') { $state = 'skipped'; $reason = $verdict.Reason }
+            if ($verdict.State -ne 'available') { $state = 'skipped'; $reason = $verdict.Reason; $skipKind = 'unavailable' }
         }
         if ($state -eq 'run' -and $e.Panel -eq 'weighty' -and -not $All -and $script:WeightyPurposes -notcontains $Purpose) {
             $state = 'skipped'
             $reason = "weighty reviewer; purpose $purposeLabel is light (use -PanelAll)"
+            $skipKind = 'weighty'
         }
-        $members.Add([pscustomobject]@{ Entry = $e; Identity = $id; State = $state; Reason = $reason; Verdict = $verdict; Health = $health; Block = [string]$block })
+        $members.Add([pscustomobject]@{ Entry = $e; Identity = $id; State = $state; Reason = $reason; Verdict = $verdict; Health = $health; Block = [string]$block; SkipKind = $skipKind })
         $listing.Add("#$($e.Position) $(Format-ReviewerLineage -Provider $id.Provider -Model $id.Model -Engine $entryEngine) ($(if ($state -eq 'run') { 'runs' } else { $reason }))")
     }
     $r.Members = [object[]]$members.ToArray()
@@ -5572,6 +5682,452 @@ function Select-PanelMembers {
         }
     } elseif (@($members | Where-Object { $_.State -eq 'run' }).Count -eq 0) {
         $r.Error = "no reviewer of the roster '$($Roster.Path)' is available; nothing was started: $($listing.ToArray() -join '; ') (run codex-providers.ps1 for the full picture)"
+    }
+    return $r
+}
+
+# One required reviewer that is out, for the exit-5 refusal (D7): "#3 openai :: gpt-6-astra (usage
+# limit until <iso>; back Sun 20:35, in 2d 10h)" - the roster walk's reason, then when it is
+# expected back, in local time (a verdict that names it).
+function Format-RequiredOutage {
+    param($Member, [datetime]$UtcNow = [datetime]::UtcNow)
+    $shown = Format-ReviewerLineage -Provider ([string]$Member.Identity.Provider) -Model ([string]$Member.Identity.Model) -Engine ([string]$Member.Entry.Engine)
+    $text = "#$($Member.Entry.Position) $shown ($($Member.Reason)"
+    $until = $null
+    if ($Member.Verdict) { $until = $Member.Verdict.Until }
+    if ($null -ne $until) {
+        $now = New-Object DateTimeOffset ([datetime]::SpecifyKind($UtcNow, [DateTimeKind]::Utc))
+        $text += "; back $(Format-LocalWhen -When $until -NowUtc $UtcNow), $(Format-RelativeHint ($until - $now))"
+    }
+    return $text + ')'
+}
+
+# ----------------------------------------------------------------------------- telemetry routing (wave 26, R15)
+#
+# The judge's marks (codex-findings.ps1 -Rate) of EVERY task of the repository, scored per
+# reviewer (D2, D3) - one function for the bridge's panel routing and codex-scoreboard.ps1:
+#   evidence   the ratings of the last 90 days by the CONSULTATION's time (rating.consult_when,
+#              else - a rating recorded before wave 26 - the ledger entry with its consult_id,
+#              else the rating's own time); the latest rating of a consultation wins (keyed by
+#              consult_id; a rating without one by task and n); every field is read from the
+#              rating record itself (denormalised at -Rate time) - no join by n across tasks
+#   rate       w = (yes + 0.5 partly + 2p) / (n + 4p), p = 0.5 - a rate with a prior that pulls
+#              few ratings to 0.5; the score = 0.25 + 1.75 w, in [0.25, 2]; neutral = 1.125
+#   hierarchy  (lineage, purpose, topics) when the pooled topic evidence reaches 3 ratings, else
+#              (lineage, purpose) with >= 3, else the lineage's all-purpose rate with >= 3, else
+#              neutral. A rating credits each of its t topics 1/t; a request with topics pools the
+#              credited counts over its topics (never a mean of means)
+$script:RoutingWindowDays = 90
+$script:RoutingMinRatings = 3
+$script:RoutingPrior = 0.5
+$script:RoutingExplore = 0.2
+$script:RoutingNeutral = 0.25 + 1.75 * 0.5
+
+# Every rating of every task under $CollabRoot, normalised: { Key; Task; N; ConsultId; Provider;
+# Model; Engine; Lineage; Purpose; Topics (string[]); ConsultWhen (DateTimeOffset or $null);
+# RatedWhen; Useful (yes | partly | no) }. A findings.json that does not parse is left out (read
+# tolerantly, like Read-AllTaskConsults); a rating without a provider (unknown provenance) or with
+# another mark is left out. $Consults (Read-AllTaskConsults; read here when $null) resolves a
+# pre-wave-26 rating's missing fields by its consult_id - never by n. Duplicates: the latest
+# rating (RatedWhen) of a consultation wins. $Stores (hashtable: task directory name -> its parsed
+# findings.json, $null when none): stores the caller already read (the scoreboard reads each
+# findings.json once per run - D2); without it every task's findings.json is read here.
+function Read-AllTaskRatings {
+    param([string]$CollabRoot, [object[]]$Consults = $null, [hashtable]$Stores = $null)
+    $out = New-Object System.Collections.Generic.List[object]
+    if (-not $CollabRoot -or -not (Test-Path -LiteralPath $CollabRoot -PathType Container)) { return , ([object[]]$out.ToArray()) }
+    $byId = $null
+    $byKey = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+    foreach ($dir in @(Get-ChildItem -LiteralPath $CollabRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        $store = $null
+        if ($null -ne $Stores) {
+            if (-not $Stores.ContainsKey($dir.Name)) { continue }
+            $store = $Stores[$dir.Name]
+            if ($null -eq $store) { continue }
+        } else {
+            $f = Join-Path $dir.FullName 'findings.json'
+            if (-not (Test-Path -LiteralPath $f -PathType Leaf)) { continue }
+            try { $store = ConvertFrom-JsonKeepOffset -Text (Read-SharedText -Path $f) } catch { continue }
+        }
+        foreach ($rt in @(Get-PropertyValue $store 'ratings' @())) {
+            if ($null -eq $rt) { continue }
+            $useful = [string](Get-PropertyValue $rt 'useful' '')
+            if (@('yes', 'partly', 'no') -cnotcontains $useful) { continue }
+            $cid = [string](Get-PropertyValue $rt 'consult_id' '')
+            $entry = $null
+            $needJoin = $cid -and (-not $rt.PSObject.Properties['consult_when'] -or -not $rt.PSObject.Properties['engine'] -or -not $rt.PSObject.Properties['topics'] -or -not [string](Get-PropertyValue $rt 'provider' ''))
+            if ($needJoin) {
+                if ($null -eq $byId) {
+                    $byId = New-Object System.Collections.Hashtable ([StringComparer]::OrdinalIgnoreCase)
+                    if ($null -eq $Consults) { $Consults = Read-AllTaskConsults -CollabRoot $CollabRoot }
+                    foreach ($c in @($Consults)) { $ci = [string](Get-PropertyValue $c 'consult_id' ''); if ($ci -and -not $byId.ContainsKey($ci)) { $byId[$ci] = $c } }
+                }
+                if ($byId.ContainsKey($cid)) { $entry = $byId[$cid] }
+            }
+            $rev = $null
+            if ($null -ne $entry) { $rev = Get-PropertyValue $entry 'reviewer' $null }
+            $provider = [string](Get-PropertyValue $rt 'provider' '')
+            if (-not $provider -and $null -ne $rev) { $provider = [string](Get-PropertyValue $rev 'provider' '') }
+            if (-not $provider) { continue }
+            $model = [string](Get-PropertyValue $rt 'model' '')
+            if (-not $model -and $null -ne $rev) { $model = [string](Get-PropertyValue $rev 'model' '') }
+            $engine = [string](Get-PropertyValue $rt 'engine' '')
+            if (-not $engine -and $null -ne $rev) { $engine = [string](Get-PropertyValue $rev 'engine' '') }
+            if (-not $engine -and [string](Get-PropertyValue $rt 'lineage' '') -match '\s\[([a-z]+)\]$') { $engine = $Matches[1] }
+            if (-not $engine) { $engine = 'codex' }
+            $purpose = [string](Get-PropertyValue $rt 'purpose' '')
+            if (-not $rt.PSObject.Properties['purpose'] -and $null -ne $entry) { $purpose = [string](Get-PropertyValue $entry 'purpose' '') }
+            $topicsRaw = @()
+            if ($rt.PSObject.Properties['topics']) { $topicsRaw = @(Get-PropertyValue $rt 'topics' @()) }
+            elseif ($null -ne $entry) { $topicsRaw = @(Get-PropertyValue $entry 'topics' @()) }
+            $topics = (ConvertTo-SlugList -Values ([string[]]@($topicsRaw | Where-Object { $_ } | ForEach-Object { [string]$_ })) -What 'topic').Items
+            $cwhen = ConvertTo-WhenOffset (Get-PropertyValue $rt 'consult_when' $null)
+            if ($null -eq $cwhen -and $null -ne $entry) { $cwhen = ConvertTo-WhenOffset (Get-PropertyValue $entry 'when' $null) }
+            $rwhen = ConvertTo-WhenOffset (Get-PropertyValue $rt 'when' $null)
+            if ($null -eq $cwhen) { $cwhen = $rwhen }
+            $n = [string](Get-PropertyValue $rt 'n' '')
+            $key = $(if ($cid) { $cid.ToLowerInvariant() } else { "$($dir.Name)#n$n" })
+            $rec = [pscustomobject]@{
+                Key = $key; Task = $dir.Name; N = $n; ConsultId = $cid; Provider = $provider; Model = $model; Engine = $engine
+                Lineage = (Format-ReviewerLineage -Provider $provider -Model $model -Engine $engine); Purpose = $purpose; Topics = [string[]]$topics
+                ConsultWhen = $cwhen; RatedWhen = $rwhen; Useful = $useful
+            }
+            if ($byKey.ContainsKey($key)) {
+                $old = $byKey[$key]
+                $newer = ($null -ne $rwhen -and ($null -eq $old.RatedWhen -or $rwhen -ge $old.RatedWhen))
+                if (-not $newer) { continue }
+                $byKey[$key] = $rec
+                for ($i = 0; $i -lt $out.Count; $i++) { if ($out[$i].Key -ceq $key) { $out[$i] = $rec; break } }
+                continue
+            }
+            $byKey[$key] = $rec
+            $out.Add($rec)
+        }
+    }
+    return , ([object[]]$out.ToArray())
+}
+
+# w = (yes + 0.5 partly + 2p) / (n + 4p), scaled into [0.25, 2] (D3).
+function Get-RoutingRate {
+    param([double]$Yes, [double]$Partly, [double]$Count)
+    $p = $script:RoutingPrior
+    $w = ($Yes + 0.5 * $Partly + 2 * $p) / ($Count + 4 * $p)
+    return (0.25 + 1.75 * $w)
+}
+
+# The routing score of one reviewer (D3) at the consult clock $UtcNow: { Score; Basis
+# ('purpose+topics' | 'purpose' | 'all-purpose' | 'neutral'); Ratings (the count behind the basis,
+# topic credit pooled - fractional); All (its ratings of every purpose in the window - the
+# evidence D5 asks for: >= 3); Yes; Partly; No (at the basis) }. -AllPurpose: the all-purpose rate
+# only (the scoreboard's lineage total).
+function Get-RoutingScore {
+    param([object[]]$Ratings, [string]$Provider, [string]$Model, [string]$Engine = 'codex', [string]$Purpose = '', [string[]]$Topics = @(), [datetime]$UtcNow = [datetime]::UtcNow, [switch]$AllPurpose)
+    if (-not $Engine) { $Engine = 'codex' }
+    $now = New-Object DateTimeOffset ([datetime]::SpecifyKind($UtcNow, [DateTimeKind]::Utc))
+    $from = $now.AddDays(-$script:RoutingWindowDays)
+    $mine = @($Ratings | Where-Object { $_ -and $_.Provider -ceq $Provider -and $_.Model -ceq $Model -and $_.Engine -eq $Engine -and $null -ne $_.ConsultWhen -and $_.ConsultWhen -ge $from })
+    $count = {
+        param([object[]]$List)
+        $c = @{ yes = 0.0; partly = 0.0; no = 0.0; n = 0.0 }
+        foreach ($x in $List) { $c[$x.Useful] += 1.0; $c.n += 1.0 }
+        $c
+    }
+    $all = & $count $mine
+    $res = [pscustomobject]@{ Score = $script:RoutingNeutral; Basis = 'neutral'; Ratings = 0.0; All = [int]$all.n; Yes = 0.0; Partly = 0.0; No = 0.0 }
+    $onPurpose = @($mine | Where-Object { $_.Purpose -ceq $Purpose })
+    if ($AllPurpose) { $onPurpose = @() }
+    $want = @($Topics | Where-Object { $_ })
+    if ($want.Count -gt 0) {
+        $c = @{ yes = 0.0; partly = 0.0; no = 0.0; n = 0.0 }
+        foreach ($x in $onPurpose) {
+            $t = @($x.Topics).Count
+            if ($t -eq 0) { continue }
+            foreach ($topic in $want) {
+                if (@($x.Topics) -ccontains $topic) { $c[$x.Useful] += 1.0 / $t; $c.n += 1.0 / $t }
+            }
+        }
+        if ($c.n -ge $script:RoutingMinRatings - 1e-9) {
+            $res.Score = Get-RoutingRate -Yes $c.yes -Partly $c.partly -Count $c.n; $res.Basis = 'purpose+topics'; $res.Ratings = $c.n; $res.Yes = $c.yes; $res.Partly = $c.partly; $res.No = $c.no
+            return $res
+        }
+    }
+    $p = & $count $onPurpose
+    if ($p.n -ge $script:RoutingMinRatings) {
+        $res.Score = Get-RoutingRate -Yes $p.yes -Partly $p.partly -Count $p.n; $res.Basis = 'purpose'; $res.Ratings = $p.n; $res.Yes = $p.yes; $res.Partly = $p.partly; $res.No = $p.no
+        return $res
+    }
+    if ($all.n -ge $script:RoutingMinRatings) {
+        $res.Score = Get-RoutingRate -Yes $all.yes -Partly $all.partly -Count $all.n; $res.Basis = 'all-purpose'; $res.Ratings = $all.n; $res.Yes = $all.yes; $res.Partly = $all.partly; $res.No = $all.no
+    }
+    return $res
+}
+
+# The routing seed (D4): SHA-256 over the UTF-8 text `<task>|<purpose>|<brief sha256>|<the eligible
+# lineages, sorted ordinally, joined by ','>|<nonce>`. { Hex; Bytes; Text }.
+function Get-PanelSeed {
+    param([string]$Task, [string]$Purpose, [string]$BriefSha, [string[]]$Lineages, [string]$Nonce)
+    $sorted = [string[]]@($Lineages | ForEach-Object { [string]$_ })
+    [Array]::Sort($sorted, [StringComparer]::Ordinal)
+    $text = "$Task|$Purpose|$BriefSha|$($sorted -join ',')|$Nonce"
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $bytes = $sha.ComputeHash($script:Utf8NoBom.GetBytes($text)) } finally { $sha.Dispose() }
+    return [pscustomobject]@{ Hex = (ConvertTo-HexString $bytes); Bytes = [byte[]]$bytes; Text = $text }
+}
+
+# A uniform in [0, 1) from 8 bytes of $Hash at $Offset (D4): their top 53 bits (big-endian) / 2^53
+# - exact in a double, so both runtimes agree to the bit.
+function ConvertTo-Uniform53 {
+    param([byte[]]$Hash, [int]$Offset = 0)
+    $v = [long]0
+    for ($i = 0; $i -lt 6; $i++) { $v = $v * 256 + [long]$Hash[$Offset + $i] }
+    $v = $v * 32 + ([long]$Hash[$Offset + 6] -shr 3)
+    return ([double]$v / 9007199254740992.0)
+}
+
+# The two uniforms of draw slot $Slot (1-based over the panel's seats; D4): SHA-256(seed ||
+# the slot as 4 bytes big-endian) - bytes 0..7 pick (the weighted draw), bytes 8..15 decide
+# exploration (< 0.2). { Pick; Explore; Hex }.
+function Get-SlotUniforms {
+    param([byte[]]$Seed, [int]$Slot)
+    $buf = New-Object byte[] ($Seed.Length + 4)
+    [Array]::Copy($Seed, $buf, $Seed.Length)
+    $buf[$Seed.Length] = [byte](($Slot -shr 24) -band 255)
+    $buf[$Seed.Length + 1] = [byte](($Slot -shr 16) -band 255)
+    $buf[$Seed.Length + 2] = [byte](($Slot -shr 8) -band 255)
+    $buf[$Seed.Length + 3] = [byte]($Slot -band 255)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $h = $sha.ComputeHash($buf) } finally { $sha.Dispose() }
+    return [pscustomobject]@{ Pick = (ConvertTo-Uniform53 -Hash $h -Offset 0); Explore = (ConvertTo-Uniform53 -Hash $h -Offset 8); Hex = (ConvertTo-HexString $h) }
+}
+
+# The seats of a routed panel (D1, D4): $Candidates (roster order) of { Position; Lab; Weight;
+# Pinned }; $K seats. Pinned candidates take the first seats (rule `required`, roster order); then
+# slot by slot: while fewer than min(K, number of labs with a candidate weighing >= $Neutral) of
+# those labs are seated, the draw is restricted to candidates of a lab not yet seated that weigh
+# >= $Neutral (rule lab-draw / lab-explore); otherwise it draws from every candidate left
+# (rank-draw / rank-explore). A slot explores (a uniform pick from the same pool) when its second
+# uniform is below $Explore; else the weighted pick: the first candidate, in roster order, whose
+# running weight sum exceeds uniform x the pool's weight sum. The winner leaves the pool.
+# Returns the seats in order: { Slot; Candidate; Rule }.
+function Invoke-PanelDraw {
+    param([object[]]$Candidates, [int]$K, [byte[]]$Seed, [double]$Neutral = $script:RoutingNeutral, [double]$Explore = $script:RoutingExplore)
+    $seats = New-Object System.Collections.Generic.List[object]
+    $left = New-Object System.Collections.Generic.List[object]
+    foreach ($c in @($Candidates | Where-Object { $_ })) {
+        if ($c.Pinned) { $seats.Add([pscustomobject]@{ Slot = $seats.Count + 1; Candidate = $c; Rule = 'required' }) } else { $left.Add($c) }
+    }
+    $goodLabs = @(@($Candidates | Where-Object { $_ -and [double]$_.Weight -ge $Neutral }) | ForEach-Object { [string]$_.Lab } | Select-Object -Unique)
+    $reserve = [Math]::Min($K, $goodLabs.Count)
+    while ($seats.Count -lt $K -and $left.Count -gt 0) {
+        $slot = $seats.Count + 1
+        $seatedLabs = @($seats | ForEach-Object { [string]$_.Candidate.Lab } | Select-Object -Unique)
+        $covered = @($seatedLabs | Where-Object { $goodLabs -contains $_ }).Count
+        $pool = @()
+        $kind = 'rank'
+        if ($covered -lt $reserve) {
+            $pool = @($left | Where-Object { $seatedLabs -notcontains [string]$_.Lab -and [double]$_.Weight -ge $Neutral })
+            if ($pool.Count -gt 0) { $kind = 'lab' }
+        }
+        if ($pool.Count -eq 0) { $pool = @($left.ToArray()); $kind = 'rank' }
+        $u = Get-SlotUniforms -Seed $Seed -Slot $slot
+        $winner = $null
+        $rule = ''
+        if ($u.Explore -lt $Explore) {
+            $idx = [int][Math]::Floor($u.Pick * $pool.Count)
+            if ($idx -ge $pool.Count) { $idx = $pool.Count - 1 }
+            $winner = $pool[$idx]
+            $rule = "$kind-explore"
+        } else {
+            $total = 0.0
+            foreach ($c in $pool) { $total += [double]$c.Weight }
+            $target = $u.Pick * $total
+            $acc = 0.0
+            foreach ($c in $pool) {
+                $acc += [double]$c.Weight
+                if ($target -lt $acc) { $winner = $c; break }
+            }
+            if ($null -eq $winner) { $winner = $pool[$pool.Count - 1] }
+            $rule = "$kind-draw"
+        }
+        $seats.Add([pscustomobject]@{ Slot = $slot; Candidate = $winner; Rule = $rule })
+        [void]$left.Remove($winner)
+    }
+    return , ([object[]]$seats.ToArray())
+}
+
+# The panel's routing (wave 26; D1, D4-D7): who of Select-PanelMembers' members takes a seat.
+#   eligible   State 'run' (available, the weighty gate passed, -Engine/-Model matched) - one set
+#              for the ranking, the draw and exploration (D1, D11); a REQUIRED entry that only the
+#              weighty gate held back is eligible too (the caller refuses a required entry that is
+#              out, exit 5)
+#   size       $Size (0 = every eligible member: -PanelAll, stuck), at least the required count,
+#              at most the eligible count; the size bounds the members STARTED - no backfill
+#   mode       $Order 'roster': the required, then the rest in roster order, no draw (D5); 'routed':
+#              the seeded draw of Invoke-PanelDraw over the scores (Get-RoutingScore) - unless NO
+#              eligible reviewer has >= 3 ratings in the window: then roster order, fallback
+#              'no ratings' (no shuffle without evidence)
+# Members that are eligible but get no seat: State 'not-picked', Reason 'panel size <k>'. Every
+# member gains Lineage, Lab, LabSource, Score (Get-RoutingScore), Required, Rule, Slot.
+# { Members (roster order); Picked (seat order); K; Routing (the ledger's panel.routing: mode,
+# order, fallback, seed, nonce, nonce_source, size, size_source, eligible[{position, lineage, lab,
+# lab_source, score, basis, ratings, required}], picked[{slot, position, lineage, lab, rule}],
+# explored[lineage], required[lineage]); Warnings (string[]: a singleton lab in a routed panel,
+# the floor) }.
+function Select-PanelRouting {
+    param([object[]]$Members, [int]$Size = 0, [string]$SizeSource = 'purpose', [string]$Order = 'routed', [object[]]$Ratings = @(), [string]$Purpose = '', [string[]]$Topics = @(), [datetime]$UtcNow = [datetime]::UtcNow, [string]$Task = '', [string]$BriefSha = '', [string]$Nonce = '', [string]$NonceSource = 'date', [int[]]$Required = @())
+    $neutral = $script:RoutingNeutral
+    $req = @($Required | ForEach-Object { [int]$_ })
+    foreach ($m in @($Members | Where-Object { $_ })) {
+        $isReq = ($req -contains [int]$m.Entry.Position)
+        if ($isReq -and $m.State -eq 'skipped' -and [string](Get-PropertyValue $m 'SkipKind' '') -eq 'weighty') { $m.State = 'run'; $m.Reason = '' }
+        $engine = [string]$m.Identity.Engine
+        if (-not $engine) { $engine = [string]$m.Entry.Engine }
+        if (-not $engine) { $engine = 'codex' }
+        $lineage = Format-ReviewerLineage -Provider ([string]$m.Identity.Provider) -Model ([string]$m.Identity.Model) -Engine $engine
+        $lab = Get-EntryLab -Entry $m.Entry -Model ([string]$m.Identity.Model) -Lineage $lineage
+        $score = Get-RoutingScore -Ratings $Ratings -Provider ([string]$m.Identity.Provider) -Model ([string]$m.Identity.Model) -Engine $engine -Purpose $Purpose -Topics $Topics -UtcNow $UtcNow
+        $m | Add-Member -NotePropertyName 'Lineage' -NotePropertyValue $lineage -Force
+        $m | Add-Member -NotePropertyName 'Lab' -NotePropertyValue ([string]$lab.Lab) -Force
+        $m | Add-Member -NotePropertyName 'LabSource' -NotePropertyValue ([string]$lab.Source) -Force
+        $m | Add-Member -NotePropertyName 'Score' -NotePropertyValue $score -Force
+        $m | Add-Member -NotePropertyName 'Required' -NotePropertyValue ([bool]$isReq) -Force
+        $m | Add-Member -NotePropertyName 'Rule' -NotePropertyValue '' -Force
+        $m | Add-Member -NotePropertyName 'Slot' -NotePropertyValue 0 -Force
+    }
+    $eligible = @($Members | Where-Object { $_ -and $_.State -eq 'run' })
+    $k = $Size
+    if ($k -le 0) { $k = $eligible.Count }
+    $pinned = @($eligible | Where-Object { $_.Required })
+    if ($k -lt $pinned.Count) { $k = $pinned.Count }
+    if ($k -gt $eligible.Count) { $k = $eligible.Count }
+    $mode = $Order
+    $fallback = ''
+    if ($mode -eq 'routed' -and @($eligible | Where-Object { $_.Score.All -ge $script:RoutingMinRatings }).Count -eq 0) { $mode = 'roster'; $fallback = 'no ratings' }
+    $seed = Get-PanelSeed -Task $Task -Purpose $Purpose -BriefSha $BriefSha -Lineages ([string[]]@($eligible | ForEach-Object { $_.Lineage })) -Nonce $Nonce
+    $seats = New-Object System.Collections.Generic.List[object]
+    if ($mode -eq 'routed') {
+        $cands = @($eligible | ForEach-Object { [pscustomobject]@{ Position = [int]$_.Entry.Position; Lab = [string]$_.Lab; Weight = [double]$_.Score.Score; Pinned = [bool]$_.Required; Member = $_ } })
+        foreach ($s in (Invoke-PanelDraw -Candidates $cands -K $k -Seed $seed.Bytes)) { $seats.Add([pscustomobject]@{ Slot = $s.Slot; Member = $s.Candidate.Member; Rule = $s.Rule }) }
+    } else {
+        $chosen = New-Object System.Collections.Generic.List[object]
+        foreach ($m in $pinned) { $chosen.Add($m) }
+        foreach ($m in @($eligible | Where-Object { -not $_.Required })) { if ($chosen.Count -ge $k) { break }; $chosen.Add($m) }
+        # the required take the first seats (D7), then the roster order
+        $slot = 0
+        foreach ($m in $chosen) { $slot++; $seats.Add([pscustomobject]@{ Slot = $slot; Member = $m; Rule = $(if ($m.Required) { 'required' } else { 'roster' }) }) }
+    }
+    foreach ($s in $seats) { $s.Member.Rule = $s.Rule; $s.Member.Slot = $s.Slot }
+    foreach ($m in $eligible) {
+        if ($m.Slot -le 0) { $m.State = 'not-picked'; $m.Reason = "panel size $k" }
+    }
+    $warnings = New-Object System.Collections.Generic.List[string]
+    if ($mode -eq 'routed') {
+        foreach ($m in @($eligible | Where-Object { $_.LabSource -eq 'singleton' })) {
+            $warnings.Add("routing: no lab known for #$($m.Entry.Position) $($m.Lineage) (its model id has no known vendor prefix) - it counts as a lab of its own; give its roster entry a ""lab""")
+        }
+    }
+    if ($SizeSource -ne '-PanelSize' -and $script:PanelFloorPurposes -contains $Purpose -and $seats.Count -lt 2) {
+        $warnings.Add("panel floor: a $Purpose panel runs $($seats.Count) member$(if ($seats.Count -ne 1) { 's' }) - $Purpose questions should hear at least 2 reviewers (pass -PanelSize to choose the size explicitly)")
+    }
+    $round = { param([double]$x, [int]$d) [Math]::Round($x, $d) }
+    $routing = [pscustomobject]@{
+        mode         = $mode
+        order        = $Order
+        fallback     = $fallback
+        seed         = $seed.Hex
+        nonce        = $Nonce
+        nonce_source = $NonceSource
+        size         = $k
+        size_source  = $SizeSource
+        eligible     = [object[]]@($eligible | ForEach-Object { [pscustomobject]@{ position = [int]$_.Entry.Position; lineage = $_.Lineage; lab = $_.Lab; lab_source = $_.LabSource; score = (& $round $_.Score.Score 4); basis = $_.Score.Basis; ratings = (& $round $_.Score.Ratings 2); required = [bool]$_.Required } })
+        picked       = [object[]]@($seats | ForEach-Object { [pscustomobject]@{ slot = $_.Slot; position = [int]$_.Member.Entry.Position; lineage = $_.Member.Lineage; lab = $_.Member.Lab; rule = $_.Rule } })
+        explored     = [object[]]@($seats | Where-Object { $_.Rule -like '*-explore' } | ForEach-Object { $_.Member.Lineage })
+        required     = [object[]]@($pinned | ForEach-Object { $_.Lineage })
+    }
+    return [pscustomobject]@{ Members = [object[]]@($Members); Picked = [object[]]@($seats | ForEach-Object { $_.Member }); K = $k; Routing = $routing; Warnings = [string[]]$warnings.ToArray() }
+}
+
+# The routing record as console lines (the panel run and its dry run print the same).
+function Format-RoutingLines {
+    param($Routing, [string]$Purpose = '')
+    $lines = New-Object System.Collections.Generic.List[string]
+    $sizeText = "size $($Routing.size) ($(if ($Routing.size_source -eq 'purpose') { "the default of purpose $(if ($Purpose) { $Purpose } else { 'none' })" } else { $Routing.size_source }))"
+    if ($Routing.mode -eq 'routed') {
+        $lines.Add("Routing: routed by the ratings - $sizeText; seed $($Routing.seed.Substring(0, 12)) (nonce $($Routing.nonce) from $($Routing.nonce_source)); exploration $($script:RoutingExplore) per slot")
+    } else {
+        $why = $(if ($Routing.fallback) { "fallback: $($Routing.fallback) - no eligible reviewer has $($script:RoutingMinRatings) ratings in $($script:RoutingWindowDays) days" } else { '-PanelOrder roster' })
+        $lines.Add("Routing: roster order ($why) - $sizeText")
+    }
+    $el = @($Routing.eligible | ForEach-Object { "#$($_.position) $($_.lineage) (lab $($_.lab)$(if ($_.lab_source -ne 'roster') { " by $($_.lab_source)" }); score $(([double]$_.score).ToString('0.###', $script:Invariant)) $($_.basis)$(if ([double]$_.ratings -gt 0) { " of $(([double]$_.ratings).ToString('0.##', $script:Invariant))" })$(if ($_.required) { '; required' }))" })
+    $lines.Add("  eligible: $(if ($el.Count -gt 0) { $el -join ', ' } else { '(none)' })")
+    $pk = @($Routing.picked | ForEach-Object { "$($_.slot). #$($_.position) $($_.lineage) ($($_.rule))" })
+    $lines.Add("  picked  : $(if ($pk.Count -gt 0) { $pk -join ', ' } else { '(none)' })")
+    if (@($Routing.required).Count -gt 0) { $lines.Add("  required: $(@($Routing.required) -join ', ')") }
+    return , ([string[]]$lines.ToArray())
+}
+
+# ----------------------------------------------------------------------------- roles (wave 26, R16)
+#
+# A role narrows what a reviewer looks at (D8): a Markdown block inserted into the prompt after the
+# ask and before the brief - never inside the output contract; the verdict rules, the read-only
+# sandbox and the reply format stay as they are. A role name is a slug (checked before any path is
+# built); `<CollabDir>/roles/<name>.md` of the repository wins over the plugin's
+# `templates/role-<name>.md` (edge-cases, security, tests, docs ship). { Name; Path; Source
+# ('repository' | 'plugin'); Text; Error }.
+function Resolve-RoleFile {
+    param([string]$Name, [string]$CollabRoot = '', [string]$PluginRoot = '')
+    $r = [pscustomobject]@{ Name = $Name; Path = ''; Source = ''; Text = ''; Error = '' }
+    if ($Name -cnotmatch $script:SlugPattern) { $r.Error = "role '$Name' is not a slug (lowercase letters, digits, dot, dash, underscore)"; return $r }
+    $candidates = New-Object System.Collections.Generic.List[object]
+    if ($CollabRoot) { $candidates.Add(@((Join-Path (Join-Path $CollabRoot 'roles') "$Name.md"), 'repository')) }
+    if ($PluginRoot) { $candidates.Add(@((Join-Path (Join-Path $PluginRoot 'templates') "role-$Name.md"), 'plugin')) }
+    foreach ($c in $candidates) {
+        if (Test-Path -LiteralPath $c[0] -PathType Leaf) {
+            $text = (Read-SharedText -Path $c[0]).Trim()
+            if (-not $text) { $r.Error = "the role file '$($c[0])' is empty"; return $r }
+            $r.Path = $c[0]; $r.Source = $c[1]; $r.Text = $text
+            return $r
+        }
+    }
+    $known = New-Object System.Collections.Generic.List[string]
+    foreach ($c in $candidates) {
+        $dir = Split-Path -Parent $c[0]
+        if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
+        foreach ($f in @(Get-ChildItem -LiteralPath $dir -File -Filter '*.md' -ErrorAction SilentlyContinue)) {
+            $n = $f.BaseName
+            if ($c[1] -eq 'plugin') { if ($n -notlike 'role-*') { continue }; $n = $n.Substring(5) }
+            if ($n -cmatch $script:SlugPattern -and -not $known.Contains($n)) { $known.Add($n) }
+        }
+    }
+    $r.Error = "unknown role '$Name' (no $(if ($CollabRoot) { "$(Join-Path (Join-Path $CollabRoot 'roles') "$Name.md") nor " })templates/role-$Name.md; known: $(if ($known.Count -gt 0) { ($known.ToArray() | Sort-Object) -join ', ' } else { 'none' }))"
+    return $r
+}
+
+# -Roles a,b,c over a panel's picked members (D8): the roles go by SCORE RANK (the routing score,
+# highest first; ties by seat), each role in the order given to the best-ranked member left that
+# is willing to take it (its roster entry's `roles`) when any member left is, else to the best-
+# ranked member left. More roles than members is refused. { Of (hashtable roster position ->
+# role); Error }.
+function Select-RoleAssignment {
+    param([object[]]$Members, [string[]]$Roles)
+    $r = [pscustomobject]@{ Of = @{}; Error = '' }
+    $list = @($Members | Where-Object { $_ })
+    if (@($Roles).Count -gt $list.Count) { $r.Error = "-Roles names $(@($Roles).Count) roles for $($list.Count) panel member$(if ($list.Count -ne 1) { 's' }) (at most one role each)"; return $r }
+    $ranked = New-Object System.Collections.Generic.List[object]
+    $i = 0
+    foreach ($m in $list) {
+        $i++
+        $sc = $script:RoutingNeutral
+        if ($m.PSObject.Properties['Score'] -and $null -ne $m.Score) { $sc = [double]$m.Score.Score }
+        $ranked.Add([pscustomobject]@{ Member = $m; Score = $sc; Seat = $i })
+    }
+    $left = New-Object System.Collections.Generic.List[object]
+    foreach ($x in @($ranked | Sort-Object -Property @{ Expression = { $_.Score }; Descending = $true }, @{ Expression = { $_.Seat }; Descending = $false })) { $left.Add($x) }
+    foreach ($role in @($Roles)) {
+        $willing = @($left | Where-Object { @(Get-PropertyValue $_.Member.Entry 'Roles' @()) -ccontains $role })
+        $take = $(if ($willing.Count -gt 0) { $willing[0] } else { $left[0] })
+        $r.Of[[int]$take.Member.Entry.Position] = $role
+        [void]$left.Remove($take)
     }
     return $r
 }
@@ -6136,44 +6692,6 @@ function Select-ParentThread {
 #                                 only then is the file replaced by the new run's record
 #                                 (a member record: removed). An unparseable pending file
 #                                 is corruption and refuses.
-
-# Process start time as a UTC round-trip string. $null: no such process. '': the
-# process exists but its start time cannot be read (e.g. another user's process).
-function Get-ProcessStartIso {
-    param([int]$ProcessId)
-    $p = $null
-    try { $p = Get-Process -Id $ProcessId -ErrorAction Stop } catch { return $null }
-    try { return $p.StartTime.ToUniversalTime().ToString('o', $script:Invariant) } catch { return '' }
-}
-
-# Do two start times (UTC round-trip strings from Get-ProcessStartIso) name the same
-# process start? Windows reports a process's start time exactly. .NET on Linux derives
-# Process.StartTime from a boot time that every process computes for itself
-# (CLOCK_REALTIME_COARSE - CLOCK_BOOTTIME), so two processes reading the SAME pid get
-# values a few milliseconds apart. Outside Windows, less than one second apart counts
-# as the same start (a pid is not handed out again that fast).
-function Test-SameStartTime {
-    param([string]$A, [string]$B)
-    if ($A -eq $B) { return $true }
-    if ($script:OnWindows) { return $false }
-    $ta = [DateTimeOffset]::MinValue
-    $tb = [DateTimeOffset]::MinValue
-    $styles = [System.Globalization.DateTimeStyles]::AssumeUniversal
-    if (-not [DateTimeOffset]::TryParse($A, $script:Invariant, $styles, [ref]$ta)) { return $false }
-    if (-not [DateTimeOffset]::TryParse($B, $script:Invariant, $styles, [ref]$tb)) { return $false }
-    return ([math]::Abs($ta.UtcTicks - $tb.UtcTicks) -lt [TimeSpan]::TicksPerSecond)
-}
-
-# A pid counts as alive when a process with that id exists and - if a start time was
-# recorded for it - still has that start time (otherwise the pid was reused).
-function Test-PidAlive {
-    param([int]$ProcessId, [string]$StartTime = '')
-    if ($ProcessId -le 0) { return $false }
-    $live = Get-ProcessStartIso -ProcessId $ProcessId
-    if ($null -eq $live) { return $false }
-    if ($StartTime -and $live -and -not (Test-SameStartTime -A $live -B $StartTime)) { return $false }
-    return $true
-}
 
 function New-LockRefusal {
     param([string]$Path, [string]$Message)
@@ -6950,141 +7468,11 @@ function Stop-ProcessTree {
     return , ([int[]]$alive.ToArray())
 }
 
-# ----------------------------------------------------------------------------- detached runs (wave 25, R12)
+# ----------------------------------------------------------------------------- detached runs (wave 25, R12): the writers
 #
-# codex-consult.ps1 -Detach checks a consultation like a real run in the caller's process (the
-# dry run's checks plus those a real run makes before it takes the task lock - D2), then runs it
-# in a BACKGROUND process and returns at once. The run's state is its status file
-# <task>/.consult.detached-<id8>.status.json (atomic replace; <id8> = the first 8 hex digits of
-# the detach id, a guid), its console output (stdout and stderr) the log
-# <task>/.consult.detached-<id8>.log. Both names start with .consult.: Get-CollabSnapshot leaves
-# them out (an agy or muse member's tree check never sees them), the collab directory is outside
-# the tree fingerprint, and .gitignore carries .consult.detached-* (D1).
-# Writers (D5): the foreground writes `starting` (no pid) ONCE, before it launches the
-# background, never after; from then on only the background writes - its self-report `running`
-# {pid, start_time, host} first, the members as they start and finish, `done` {exit, summary} on
-# EVERY exit path (D3); `codex-consult.ps1 -Status -Prune` deletes the files of runs that are done
-# or died, 7 days after (D6). Readers - -Status, -Wait, codex-findings.ps1 -List, the SessionStart
-# hook - judge a record that is not done by its background's liveness (Get-DetachedJudgement, D6);
-# a background on another host is never judged (D11).
-#
-# The record (status_version 1), fields in this order: status_version, id (the guid), id8, task,
-# kind (run | panel), state (starting | running | done), exit (null until done), started (the
-# foreground's clock), updated, finished, wall_seconds, pid, start_time (the background's: UTC
-# round trip), host, budget_sec (D4 - -Wait's default timeout), purpose, reply_name, brief,
-# members[{position (the roster position; 1 without a roster), lineage, state (D11: pending |
-# running | usable | failed | skipped | killed | blocked | commit_blocked | orphan), outcome (the
-# panel's Get-PanelMemberStatus phrase; a single run: its bridge outcome), wall_seconds, n,
-# handoff (NN), reply}], summary (the summary block the run printed - a single run: its outcome
-# lines up to `events file:`; a panel: its `Panel <id8>: ...` block - else its last error line),
-# log, args (only in the foreground's `starting` record: the background's parameters, base64 of
-# UTF-8 PowerShell CLIXML; the self-report drops it).
-
-$script:DetachedStatusVersion = 1
-# D5: a `starting` record without a pid reads "starting" this long, then "never started"
-$script:DetachedStartGraceSec = 60
-# D6: -Status -Prune removes the runs that are done or died after this many days
-$script:DetachedPruneDays = 7
-# D11: a member's state
-$script:DetachedMemberStates = @('pending', 'running', 'usable', 'failed', 'skipped', 'killed', 'blocked', 'commit_blocked', 'orphan')
-# "k of N members finished": the member states that count as finished (a skipped entry never ran)
-$script:DetachedMemberDone = @('usable', 'failed', 'killed', 'blocked', 'commit_blocked', 'orphan')
-
-# The files of a detached run: { Id8; Status; Log }.
-function Get-DetachedPaths {
-    param([string]$TaskDir, [string]$Id)
-    $id8 = ([string]$Id).Replace('-', '')
-    if ($id8.Length -gt 8) { $id8 = $id8.Substring(0, 8) }
-    $id8 = $id8.ToLowerInvariant()
-    return [pscustomobject]@{ Id8 = $id8; Status = (Join-Path $TaskDir ".consult.detached-$id8.status.json"); Log = (Join-Path $TaskDir ".consult.detached-$id8.log") }
-}
-
-# One entry of a record's members[] (every field, in order).
-function New-DetachedMember {
-    param([int]$Position, [string]$Lineage, [string]$State = 'pending', [string]$Outcome = '', $Wall = $null, $N = $null, [string]$Handoff = '', [string]$Reply = '')
-    return [pscustomobject]@{ position = $Position; lineage = $Lineage; state = $State; outcome = $Outcome; wall_seconds = $Wall; n = $N; handoff = $Handoff; reply = $Reply }
-}
-
-# A timestamp field back as text ($null for none): a [datetime] or [DateTimeOffset] that
-# ConvertFrom-Json made of it (PowerShell 7) returns to the bridge's own form - the local ISO
-# form of Get-IsoTimestamp, or (-RoundTrip) the UTC round trip of Get-ProcessStartIso.
-function ConvertTo-DetachedTime {
-    param($Value, [switch]$RoundTrip)
-    if ($null -eq $Value -or ($Value -is [string] -and -not $Value)) { return $null }
-    if ($RoundTrip) { return (ConvertTo-JsonText $Value) }
-    $at = ConvertTo-WhenOffset $Value
-    if ($null -eq $at) { return [string]$Value }
-    return $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant)
-}
-
-# The record in its canonical form (every field, in order, timestamps as text) from a parsed
-# status file or a hashtable of fields: a record read and written back keeps its form under
-# PowerShell 7 too.
-function ConvertTo-DetachedRecord {
-    param($Record)
-    if ($Record -is [System.Collections.IDictionary]) { $Record = [pscustomobject]$Record }
-    $members = New-Object System.Collections.Generic.List[object]
-    foreach ($m in @(Get-PropertyValue $Record 'members' @())) {
-        if ($null -eq $m) { continue }
-        $nValue = $null
-        $nParsed = 0
-        if ([int]::TryParse([string](Get-PropertyValue $m 'n' ''), [ref]$nParsed)) { $nValue = $nParsed }
-        $members.Add((New-DetachedMember -Position ([int](Get-PropertyValue $m 'position' 0)) -Lineage ([string](Get-PropertyValue $m 'lineage' '')) -State ([string](Get-PropertyValue $m 'state' 'pending')) -Outcome ([string](Get-PropertyValue $m 'outcome' '')) -Wall (Get-PropertyValue $m 'wall_seconds' $null) -N $nValue -Handoff ([string](Get-PropertyValue $m 'handoff' '')) -Reply ([string](Get-PropertyValue $m 'reply' ''))))
-    }
-    $pidValue = $null
-    $parsed = 0
-    if ([int]::TryParse([string](Get-PropertyValue $Record 'pid' ''), [ref]$parsed) -and $parsed -gt 0) { $pidValue = $parsed }
-    $exitValue = $null
-    if ([int]::TryParse([string](Get-PropertyValue $Record 'exit' ''), [ref]$parsed)) { $exitValue = $parsed }
-    $budget = 0
-    [void][int]::TryParse([string](Get-PropertyValue $Record 'budget_sec' ''), [ref]$budget)
-    $version = $script:DetachedStatusVersion
-    if ([int]::TryParse([string](Get-PropertyValue $Record 'status_version' ''), [ref]$parsed)) { $version = $parsed }
-    return [pscustomobject]@{
-        status_version = $version
-        id             = [string](Get-PropertyValue $Record 'id' '')
-        id8            = [string](Get-PropertyValue $Record 'id8' '')
-        task           = [string](Get-PropertyValue $Record 'task' '')
-        kind           = [string](Get-PropertyValue $Record 'kind' 'run')
-        state          = [string](Get-PropertyValue $Record 'state' '')
-        exit           = $exitValue
-        started        = (ConvertTo-DetachedTime (Get-PropertyValue $Record 'started' $null))
-        updated        = (ConvertTo-DetachedTime (Get-PropertyValue $Record 'updated' $null))
-        finished       = (ConvertTo-DetachedTime (Get-PropertyValue $Record 'finished' $null))
-        wall_seconds   = (Get-PropertyValue $Record 'wall_seconds' $null)
-        pid            = $pidValue
-        start_time     = (ConvertTo-DetachedTime (Get-PropertyValue $Record 'start_time' $null) -RoundTrip)
-        host           = [string](Get-PropertyValue $Record 'host' '')
-        budget_sec     = $budget
-        purpose        = [string](Get-PropertyValue $Record 'purpose' '')
-        reply_name     = [string](Get-PropertyValue $Record 'reply_name' '')
-        brief          = [string](Get-PropertyValue $Record 'brief' '')
-        members        = [object[]]$members.ToArray()
-        summary        = [string](Get-PropertyValue $Record 'summary' '')
-        log            = [string](Get-PropertyValue $Record 'log' '')
-        args           = $(if ([string](Get-PropertyValue $Record 'args' '')) { [string]$Record.args } else { $null })
-    }
-}
-
-# { Exists; Record (canonical); Error }. Absent -> Exists $false. Present but empty,
-# unparseable, not an object, without an id or with a state other than starting | running |
-# done -> Error.
-function Read-DetachedStatus {
-    param([string]$Path)
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return [pscustomobject]@{ Exists = $false; Record = $null; Error = '' } }
-    $text = Read-SharedText -Path $Path
-    $obj = $null
-    $why = ''
-    if (-not $text.Trim()) { $why = 'it is empty or could not be read' }
-    else {
-        try { $obj = ConvertFrom-Json -InputObject $text } catch { $why = "it does not parse: $(ConvertTo-OneLine $_.Exception.Message)" }
-        if (-not $why -and -not (Test-IsJsonObject $obj)) { $why = 'it is not a JSON object' }
-        if (-not $why -and -not [string](Get-PropertyValue $obj 'id' '')) { $why = 'it names no id' }
-        if (-not $why -and @('starting', 'running', 'done') -notcontains [string](Get-PropertyValue $obj 'state' '')) { $why = "its state '$(Get-PropertyValue $obj 'state' '')' is not one of starting|running|done" }
-    }
-    if ($why) { return [pscustomobject]@{ Exists = $true; Record = $null; Error = "the status file '$Path' cannot be used: $why" } }
-    return [pscustomobject]@{ Exists = $true; Record = (ConvertTo-DetachedRecord $obj); Error = '' }
-}
+# (wave 26, F07-3) The readers of the detached runs - the status record, its judgement, the -List
+# line and the SessionStart hook's phrase - live in codex-consult-detached.ps1, which this file
+# dot-sources at the top (the hook dot-sources it alone). The writers stay here.
 
 # Replaces the status file atomically (Write-JsonFile: temp + rename; readers never see a
 # partial file); `updated` is set here. Throws on failure - the caller decides what it means.
@@ -7092,88 +7480,6 @@ function Write-DetachedStatus {
     param([string]$Path, $Record)
     $Record.updated = Get-IsoTimestamp
     Write-JsonFile -Path $Path -Object $Record
-}
-
-# Every detached run of a task, newest first (by `started`, else the file time; then by id8):
-# { Path; Id8; Record; Error; When; Log }. An atomic-write temp is not a run.
-function Read-DetachedRuns {
-    param([string]$TaskDir)
-    $runs = New-Object System.Collections.Generic.List[object]
-    if (-not $TaskDir -or -not [IO.Directory]::Exists($TaskDir)) { return , ([object[]]@()) }
-    foreach ($f in [IO.Directory]::GetFiles($TaskDir, '.consult.detached-*.status.json')) {
-        $name = [IO.Path]::GetFileName($f)
-        if ($name -notmatch '^\.consult\.detached-([0-9A-Za-z]+)\.status\.json$') { continue }
-        $id8 = $Matches[1].ToLowerInvariant()
-        $rd = Read-DetachedStatus -Path $f
-        $when = $null
-        if ($rd.Record) { $when = ConvertTo-WhenOffset $rd.Record.started }
-        if ($null -eq $when) { try { $when = [DateTimeOffset]([IO.File]::GetLastWriteTimeUtc($f)) } catch { $when = [DateTimeOffset]::MinValue } }
-        $runs.Add([pscustomobject]@{ Path = $f; Id8 = $id8; Record = $rd.Record; Error = $rd.Error; When = $when; Log = (Join-Path $TaskDir ".consult.detached-$id8.log") })
-    }
-    $sorted = @($runs | Sort-Object -Property @{ Expression = { $_.When }; Descending = $true }, @{ Expression = { $_.Id8 }; Descending = $false })
-    return , ([object[]]$sorted)
-}
-
-# "45 s" | "12 min" | "2 h 05 min" | "3 d 04 h"
-function Format-DetachedSpan {
-    param([TimeSpan]$Span)
-    if ($Span.TotalSeconds -lt 0) { $Span = [TimeSpan]::Zero }
-    if ($Span.TotalSeconds -lt 90) { return "$([int][Math]::Floor($Span.TotalSeconds)) s" }
-    if ($Span.TotalMinutes -lt 90) { return "$([int][Math]::Floor($Span.TotalMinutes)) min" }
-    if ($Span.TotalHours -lt 48) { return ('{0} h {1:D2} min' -f [int][Math]::Floor($Span.TotalHours), $Span.Minutes) }
-    return ('{0} d {1:D2} h' -f [int][Math]::Floor($Span.TotalDays), $Span.Hours)
-}
-
-# The verdict on one detached run (D5, D6, D11): { State; Exit; Text; Finished; Of }
-#   done           the run ended: Exit 0 when its exit was 0, else 1
-#   running        not done, its background (pid + start time, on this host) is alive: Exit 2
-#   elsewhere      not done, its background runs on another host: liveness cannot be checked
-#                  from here and is never judged: Exit 2
-#   starting       written by the foreground (no pid yet) less than 60 s ago: Exit 2
-#   died           not done, and its background is gone: Exit 1 (its recovery records are
-#                  judged by the next run of the task as usual)
-#   never-started  still `starting` without a pid after 60 s: Exit 1
-#   unreadable     the status file cannot be used ($Problem): Exit 1
-# Finished / Of: its members that finished / that run (a roster-skipped entry does not run; a
-# member the run never started - skipped "not started: ..." - counts as run and finished).
-function Get-DetachedJudgement {
-    param($Record, [string]$Problem = '', [DateTimeOffset]$Now = [DateTimeOffset]::Now)
-    if ($Problem -or $null -eq $Record) {
-        $text = $Problem
-        if (-not $text) { $text = 'no status record' }
-        return [pscustomobject]@{ State = 'unreadable'; Exit = 1; Text = $text; Finished = 0; Of = 0 }
-    }
-    $members = @($Record.members | Where-Object { $_ })
-    $notStarted = { param($m) [string]$m.state -eq 'skipped' -and [string]$m.outcome -match '^not started' }
-    $of = @($members | Where-Object { [string]$_.state -ne 'skipped' -or (& $notStarted $_) }).Count
-    $finished = @($members | Where-Object { $script:DetachedMemberDone -contains [string]$_.state -or (& $notStarted $_) }).Count
-    $started = ConvertTo-WhenOffset $Record.started
-    $startedText = $(if ($Record.started) { [string]$Record.started } else { '(unknown)' })
-    $state = [string]$Record.state
-    if ($state -eq 'done') {
-        $code = $Record.exit
-        $exitText = $(if ($null -eq $code) { 'unknown' } else { [string]$code })
-        $ok = ($null -ne $code -and [int]$code -eq 0)
-        return [pscustomobject]@{ State = 'done'; Exit = $(if ($ok) { 0 } else { 1 }); Text = "done, exit $exitText"; Finished = $finished; Of = $of }
-    }
-    $bgPid = 0
-    if ($null -ne $Record.pid) { $bgPid = [int]$Record.pid }
-    if ($bgPid -le 0) {
-        $age = $(if ($started) { $Now - $started } else { [TimeSpan]::MaxValue })
-        if ($age.TotalSeconds -lt $script:DetachedStartGraceSec) {
-            return [pscustomobject]@{ State = 'starting'; Exit = 2; Text = "starting - the background has not reported yet (started $(Format-DetachedSpan $age) ago)"; Finished = $finished; Of = $of }
-        }
-        return [pscustomobject]@{ State = 'never-started'; Exit = 1; Text = "never started - no background process reported within $($script:DetachedStartGraceSec) s of $startedText; nothing was run (its log may say why)"; Finished = $finished; Of = $of }
-    }
-    $recordHost = [string]$Record.host
-    if ($recordHost -and $recordHost -ine [Environment]::MachineName) {
-        return [pscustomobject]@{ State = 'elsewhere'; Exit = 2; Text = "running on host $recordHost since $startedText (pid $bgPid) - its liveness cannot be checked from this host"; Finished = $finished; Of = $of }
-    }
-    if (Test-PidAlive -ProcessId $bgPid -StartTime ([string]$Record.start_time)) {
-        $since = $(if ($started) { " ($(Format-DetachedSpan ($Now - $started)))" } else { '' })
-        return [pscustomobject]@{ State = 'running'; Exit = 2; Text = "running since $startedText$since, $finished of $of members finished"; Finished = $finished; Of = $of }
-    }
-    return [pscustomobject]@{ State = 'died'; Exit = 1; Text = "died - its background process (pid $bgPid) is gone without a final status, $finished of $of members finished; its recovery records are judged by the next run of the task as usual"; Finished = $finished; Of = $of }
 }
 
 # The budget of a detached run (D4) - -Wait's default timeout: per endpoint group ceil(members /
@@ -7200,58 +7506,6 @@ function Get-DetachedBudget {
     $byCap = 0
     if ($Cap -gt 0 -and $count -gt 0) { $byCap = [int][Math]::Ceiling($count / [double]$Cap) * $longest }
     return [int]([Math]::Max($byGroups, $byCap) + $Slack)
-}
-
-# The line codex-findings.ps1 -List prints for a detached run of the task that is not done ('' for
-# a done one): `detached <id8>: running since <t>, k of N members finished`, or its died,
-# starting, never-started or other-host wording (D6), with the command that shows it.
-function Format-DetachedListLine {
-    param($Run, [string]$Task, [DateTimeOffset]$Now = [DateTimeOffset]::Now)
-    $j = Get-DetachedJudgement -Record $Run.Record -Problem ([string]$Run.Error) -Now $Now
-    if ($j.State -eq 'done') { return '' }
-    return "detached $($Run.Id8): $($j.Text) (codex-consult.ps1 -Task $Task -Status -Id $($Run.Id8))"
-}
-
-# The SessionStart hook's phrase over every task of the collab root (D6): '' when no detached run
-# is running, died or finished in the last $FinishedHours hours; else e.g. "; 1 detached
-# consultation running (task t)" or "; detached consultations: 1 running (task t), 1 finished
-# (task u)". Status files only; nothing is written.
-function Get-DetachedPhrase {
-    param([string]$CollabRoot, [DateTimeOffset]$Now = [DateTimeOffset]::Now, [int]$FinishedHours = 24)
-    if (-not $CollabRoot -or -not [IO.Directory]::Exists($CollabRoot)) { return '' }
-    $tasksOf = @{ running = (New-Object System.Collections.Generic.List[string]); finished = (New-Object System.Collections.Generic.List[string]); died = (New-Object System.Collections.Generic.List[string]) }
-    $counts = @{ running = 0; finished = 0; died = 0 }
-    foreach ($dir in [IO.Directory]::GetDirectories($CollabRoot)) {
-        $task = [IO.Path]::GetFileName($dir)
-        foreach ($run in (Read-DetachedRuns -TaskDir $dir)) {
-            $j = Get-DetachedJudgement -Record $run.Record -Problem ([string]$run.Error) -Now $Now
-            $cat = ''
-            if (@('running', 'elsewhere', 'starting') -contains $j.State) { $cat = 'running' }
-            elseif (@('died', 'never-started', 'unreadable') -contains $j.State) { $cat = 'died' }
-            else {
-                $fin = ConvertTo-WhenOffset $run.Record.finished
-                if ($fin -and ($Now - $fin).TotalHours -lt $FinishedHours) { $cat = 'finished' }
-            }
-            if (-not $cat) { continue }
-            $counts[$cat]++
-            if (-not $tasksOf[$cat].Contains($task)) { $tasksOf[$cat].Add($task) }
-        }
-    }
-    $parts = New-Object System.Collections.Generic.List[string]
-    foreach ($cat in @('running', 'finished', 'died')) {
-        if ($counts[$cat] -eq 0) { continue }
-        $tasks = @($tasksOf[$cat])
-        $shown = ($tasks | Select-Object -First 3) -join ', '
-        if ($tasks.Count -gt 3) { $shown += ', ...' }
-        $parts.Add("$cat ($(if ($tasks.Count -eq 1) { 'task' } else { 'tasks' }) $shown)")
-    }
-    if ($parts.Count -eq 0) { return '' }
-    $total = $counts.running + $counts.finished + $counts.died
-    if ($parts.Count -eq 1) {
-        return "; $total detached consultation$(if ($total -ne 1) { 's' }) $($parts[0])"
-    }
-    $withCounts = @(foreach ($cat in @('running', 'finished', 'died')) { if ($counts[$cat] -gt 0) { "$($counts[$cat]) " + (@($parts | Where-Object { $_.StartsWith("$cat ") }) | Select-Object -First 1) } })
-    return "; detached consultations: $($withCounts -join ', ')"
 }
 
 # Makes a record final (D3): state done, the exit code, finished and wall_seconds (from `started`)

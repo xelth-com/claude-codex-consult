@@ -10,11 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The next candidate. Wave 24 (the "operator visibility" wave, ROADMAP T1-T3 and the
 availability decisions D14-D17 of the companions design review,
-`.collab/companions-2026-09-26/handoffs/05-claude-companions-decisions.md`) and wave 25
+`.collab/companions-2026-09-26/handoffs/05-claude-companions-decisions.md`), wave 25
 (non-blocking consultation, ROADMAP R12, decisions D1-D12 of
-`.collab/nonblocking-2026-09-26/handoffs/05-claude-r12-decisions.md`; and T4) are in; planned
-next: adaptive companions and telemetry routing (R14-R16), host invariance (R13), opt-out
-telemetry (R17).
+`.collab/nonblocking-2026-09-26/handoffs/05-claude-r12-decisions.md`; and T4) and wave 26
+(adaptive companions, telemetry routing and roles - ROADMAP R14-R16, decisions D1-D12 of the
+companions design review; and the wave 25 acceptance's carry-overs) are in; planned next: host
+invariance (R13), opt-out telemetry (R17).
 
 ### Added
 
@@ -173,8 +174,103 @@ telemetry (R17).
   first line and in its summary line (`run-all: 12 harness(es), 0 failed; scripts: <dir>`).
   `harness-detach` proves it with a marked copy of the scripts (run-all, the variable, neither).
 
+- **Wave 26 - companions: size by stakes, telemetry routing, required reviewers, roles (ROADMAP
+  R14-R16; decisions D1-D12).**
+  - Size (D6): a `-Panel` starts as many members as its purpose needs - chore, no purpose and
+    checkpoint 1, diff-review 2, framing and decision 3, core-contract and acceptance 4, stuck
+    every eligible member; `-PanelSize <n>` (new, `-Panel` only, n >= 1; refused with
+    `-PanelAll`) overrides; `-PanelAll` seats every eligible member. Eligible = available by the
+    roster walk's verdict, past the weighty gate, matching `-Engine`/`-Model` - one set for the
+    size, the ranking, the draw and the exploration (D1, D11). The size bounds the members
+    STARTED (no backfill). An eligible entry without a seat is the new member state `not-picked`
+    (`not picked: panel size k`; never in `roster.skipped` or a skip line). The summary reads
+    `Panel <id8>: j of M entries ran (asked k, started j, usable i; wall clock ...)` plus `not
+    picked (panel size k): ...`; every member's ledger `panel` record gains `asked`, `started` and
+    `usable` (the last two written into the members' entries when the panel ends). A framing or
+    decision panel that seats fewer than 2 members warns (`panel floor: ...`; console, ledger
+    `warnings[]`) unless `-PanelSize` was given.
+  - Routing (R15; D2-D5): `-PanelOrder routed|roster` (new; default `routed`). The routing score
+    (`Get-RoutingScore` in `codex-consult-common.ps1`, shared with the scoreboard) reads the
+    judge's marks of EVERY task of the repository (`Read-AllTaskRatings`, keyed by `consult_id`,
+    the latest mark of a consultation wins, no join by `n`) from the last 90 days by the
+    CONSULTATION's time: `w = (yes + 0.5 partly + 2p) / (n + 4p)`, p = 0.5, scaled `0.25 + 1.75 w`
+    into [0.25, 2] (neutral 1.125); per (lineage, purpose, topics) with >= 3 marks (a mark credits
+    each of its t topics 1/t, the counts pooled), else (lineage, purpose) >= 3, else the
+    all-purpose rate >= 3, else neutral. While NO eligible reviewer has 3 marks the panel keeps the
+    roster order (`routing.fallback: "no ratings"`). The draw (D4) is exact and portable: seed =
+    SHA-256 of `<task>|<purpose>|<brief sha256>|<sorted eligible lineages>|<nonce>` (nonce:
+    `-PanelSeed` - new -, else `CODEX_CONSULT_TEST_PANEL_SEED`, else the UTC date: a dry run and
+    the real run of the same day seat the same members); per seat SHA-256(seed || seat, 4 bytes
+    big-endian) - the top 53 bits of bytes 0..7 pick by weight, of bytes 8..15 explore (< 0.2: a
+    uniform pick from the same pool). Lab diversity is a reserve (D1): while fewer than min(k, labs
+    with an entry >= neutral) labs are seated, a seat draws only from labs not yet seated whose
+    entries score >= neutral. Members get n and NN in seat order. Ledger `panel.routing {mode,
+    order, fallback, seed, nonce, nonce_source, size, size_source, eligible[{position, lineage,
+    lab, lab_source, score, basis, ratings, required}], picked[{slot, position, lineage, lab, rule}],
+    explored[], required[]}`; the panel run and its dry run print it (`Routing: ...`).
+  - Labs (D1): roster entries gain an optional `lab` (canonical lowercase); without it the lab is
+    the vendor of the model id's prefix (qwen alibaba, deepseek, kimi/k3 moonshot, glm zhipu,
+    dola/seed bytedance, mimo xiaomi, gemini google, muse meta, gpt openai) - never the provider
+    label - else a lab of its own (a routed panel warns: `routing: no lab known for ...`).
+  - `-Topic a,b` (new; any run): lowercase slugs, ledger `topics[]` (after `purpose`), copied onto
+    the rating; a routed panel scores on them.
+  - Required reviewers (D7): `-Require <reviewer>[,...]` (new; `-Panel`, or a single run with
+    `-Provider`) - a roster position `#5`, a provider label (every entry of it) or `<provider> ::
+    <model>` with an optional ` [<engine>]`, compared on the roster's provider, model and engine;
+    the roster's top-level `"require": {"<purpose>": [...]}` is a panel's default (every matcher
+    must name an entry at load, else the roster is unusable); `-Require none` drops it. A required
+    reviewer is judged with the roster walk's verdict; one that is out refuses the run BEFORE
+    anything starts with **exit 5** (the dry run too), naming who, why and when it is back
+    (`Format-RequiredOutage`). In a panel the required take the first seats (a weighty one on a
+    light purpose included), and a required member without a usable reply stops the panel at the
+    next member (no further member starts), exit 5. `Stop-WithError -Code` (default 1).
+  - Roles (R16; D8): `-Role <name>` (a single run; a panel: every member) and `-Roles a,b` (a panel
+    only; not with `-Role`) - by SCORE RANK among the seated members, each role to the best-ranked
+    member left that is willing to take it (the roster entry's new `roles: [...]`) when one is;
+    more roles than members is refused. The role file: `<CollabDir>/roles/<name>.md` of the
+    repository, else the plugin's new `templates/role-<name>.md` (`edge-cases`, `security`,
+    `tests`, `docs`); names are slugs checked before any path is built; an unknown role refuses
+    the run. The block goes into the prompt after the ask and before the brief (never inside the
+    output contract); ledger `role` (after `topics`).
+  - The roster extension point (D12): an optional `ext` object at the top level and in any entry,
+    validated as an object only, never read or written; `roster_version` stays 1.
+  - `codex-findings.ps1 -Rate` (D2): the mark is keyed by the consultation's `consult_id` (re-rating
+    replaces by it; a pre-wave-26 mark without one by n) and carries `engine`, `topics` and
+    `consult_when` (the consultation's own time) besides the old fields: `{n, consult_id, lineage,
+    provider, model, engine, purpose, topics, consult_when, useful, note, when}`.
+  - `codex-scoreboard.ps1`: `SCORE` (the routing score of the row's purpose; a lineage's total row
+    its all-purpose score; JSON `score`), `UNIQ` (D10: findings a reviewer raised as a panel member
+    that no other member of the same panel raised at the same location, of all it raised in
+    panels; JSON `unique`, `panel_raised`) and `-By purpose|topic` (rows per topic; a consultation
+    counts once on its lineage's total row); marks join their consultation by `consult_id`.
+  - Docs: README "Companions (0.5.0, wave 26)" (size, routing, topics, required reviewers, roles;
+    "about five members" labelled an operational heuristic), the roster table, the ledger fields,
+    the options, a new exit-code table (`0`, `1`, `5`, `6`); both skills (consult-codex: the
+    framing/decision floor, rating every consultation, exit 5 and asking the operator before going
+    on without a required reviewer; setup-providers: `lab`, `roles`, `require`, `ext`).
+  - `tests/harness-companions.ps1` (registered in `run-all.ps1`): 42 assertions - see
+    `tests/README.md`; the draw's golden sequences come from an independent reference
+    implementation. Rewritten for the smaller default panels and the seat order (D9): the panel
+    cases of `harness-roster` (+1: the ledger order is `panel.routing.picked`), `harness-panel` (+1),
+    `harness-engines`, `harness-muse`, `harness-visibility` and `harness-detach` pass `-PanelSize`
+    where they mean every member; the summary line's `(asked k, started j, usable i; ...)`; the
+    ledger field order (`topics`, `role`) in `harness-0.3`, `harness-engines`, `harness-muse`; the
+    rating record in `harness-roster` and `harness-engines`; the scoreboard's header (`SCORE`,
+    `UNIQ`) in `harness-roster`. Assertions (Windows PowerShell 5.1): `harness-roster` 119,
+    `harness-panel` 54, `harness-detach` 51, `harness-companions` 42; the others unchanged.
+
 ### Changed
 
+- (wave 26) Panels are smaller by default: a `-Panel` without `-PanelSize` now starts the
+  purpose's size (see Added) instead of every available entry - pass `-PanelAll` (or `-PanelSize
+  <n>`) for the old "everyone" panel. Members are numbered in seat order (the roster order unless
+  the panel is routed with evidence). The roster validator's allowlists gain `lab`, `roles`,
+  `ext` (entry) and `require`, `ext` (top level): a roster that uses them is refused by an older
+  bridge (fail-closed, as always).
+- (wave 26, F07-3) The detached-run readers (`Read-DetachedRuns`, `Get-DetachedJudgement`,
+  `Get-DetachedPhrase` & co.) and the small helpers they need moved to the new
+  `codex-consult-detached.ps1`, which `codex-consult-common.ps1` dot-sources; the SessionStart
+  hook dot-sources that file alone instead of the whole common script.
 - `Get-PreflightVerdict` gains `Kind`, `Hit`, `Until`, `Credential` and a new order: a
   recorded auth failure or usage limit now outranks a credential that could not be checked
   (an agy entry under `-NoNetwork` with a recorded limit is out, not "not checked"). A quota
@@ -355,8 +451,38 @@ telemetry (R17).
   shows a still-blocking limit.
 - T3: the SessionStart line and the listing said available after a 429 without a reset time.
 
+- **Wave 26 - the wave 25 acceptance's carry-overs** (`.collab/nonblocking-2026-09-26/`, findings
+  F07-1..3, F08-1..2, F11-1..2):
+  - F07-1, F08-1, F11-1: an unreadable status file (empty, unparseable, no id, bad state) was never
+    pruned and failed every aggregate `-Status`/`-Wait`, `-List` and the hook forever. `-Status
+    -Prune` now removes it (and its log) once the FILE was last written more than 7 days ago; for
+    a younger one `-Status` prints the command that removes it by hand.
+  - F07-2: the never-started judgement no longer says `nothing was run`: "... if one starts late it
+    still reports and the run reads running again (its log may say why)"; `-Prune` removes a
+    never-started run only when its log was not written in the last 7 days either.
+  - F08-2: the background's final status write (and the run's own final write) is retried 3 x 250
+    ms; when it still fails the background prints "... its status file could not be made final -
+    the result exists only in this log (<log>) ..." and exits 6 (a distinct code).
+  - F11-2: a never-started `starting` record kept an inline `-Prompt` in its `args`: the prompt now
+    goes to `<task>/.consult.detached-<id8>.prompt.txt` (git-ignored), the record's args name only
+    that file (`PromptFile`); the background reads and removes it; `-Prune` removes a left-over one.
+  - Tests: `harness-detach.ps1` section `CARRY` (6 assertions).
+  - F10-1 (killing only the background panel parent leaves its members running) stays an accepted
+    residual (Known limitations).
+
 ### Known limitations
 
+- (wave 26) A panel's size bounds the members STARTED; a member that fails, is refused at launch
+  (its peak window, a limit hit meanwhile) or is killed is not replaced (no backfill).
+- (wave 26) The routing score depends on the marks recorded with `-Rate`: an unrated consultation
+  counts nothing, and marks are missing-not-at-random (a structured reviewer is easier to rate).
+  Reproducibility of a draw holds for the same eligible set and scores - a new mark changes the
+  weights, so the same seed may seat differently later (the ledger's `panel.routing` records what
+  was used).
+- (wave 26) `-Require` on a single run is a gate only (the run is still the `-Provider`'s); a
+  roster walk (no `-Provider`) refuses `-Require`.
+- (wave 26) `panel.started`/`panel.usable` are written by the panel run after the last member; a
+  panel run that dies first leaves them `null`.
 - A continuation only follows the MAIN turn's kill; a killed denial retry or format repair is
   salvaged and names the resume command, but gets no continuation of its own.
 - No continuation when the thread of the killed turn is unknown (a codex stream without

@@ -340,7 +340,8 @@ therefore REFUSES a muse run while either variable is set, and there is no opt-o
 
 - Allowed keys only: `roster_version` (must be `1`), `reviewers[]` with `provider`
   (required), `model`, `codex_config` (array of `key=value` strings), `auth`, `panel`,
-  `engine` (`codex`, the default, `agy` or `muse`), and the optional top-level `parallel`
+  `engine` (`codex`, the default, `agy` or `muse`), `lab`, `roles`, `ext`, the optional
+  top-level `require` and `ext` (below), and the optional top-level `parallel`
   (`{"<provider label>": n}`, n >= 1: how many `-Panel` members of that label may run at
   once; the default is one at a time per endpoint). An unknown key, an unknown engine, an
   agy or muse entry without a model or with `codex_config`/`auth`, one label with two engines, a
@@ -349,6 +350,17 @@ therefore REFUSES a muse run while either variable is set, and there is no opt-o
 - `"panel": "weighty"` for the expensive reviewer: it joins a `-Panel` run only on
   `framing`, `decision`, `core-contract`, `acceptance` and `stuck` (or `-PanelAll`). The
   default is `"always"`.
+- (0.5.0, companions) optional per entry: `"lab"` - the lab behind the model for a panel's lab
+  diversity (e.g. `"moonshot"`; omitted, the bridge takes the vendor of the model id's prefix -
+  qwen alibaba, deepseek, kimi/k3 moonshot, glm zhipu, dola/seed bytedance, mimo xiaomi, gemini
+  google, muse meta, gpt openai - never the provider label; set it for a model id outside that
+  table, or a routed panel warns); `"roles": ["security", ...]` - the roles the entry is willing
+  to take under `-Roles`. Optional top level: `"require": {"acceptance": ["#1"], ...}` - the
+  reviewers a panel of that purpose must include (`#<position>`, a label, or `<provider> ::
+  <model>` with ` [agy]`/` [muse]` for an engine entry; each must name an entry, else the roster
+  is refused); while one is out such a panel is refused with exit 5. `"ext"` (top level and per
+  entry) is an object reserved for other implementations that share the file; the bridge
+  validates it as an object and ignores it. `roster_version` stays `1`.
 - `codex_config` must not set `model`, `model_provider`, `model_reasoning_effort`,
   `profile` or `model_providers.*` (refused).
 - Another file: the user sets `CODEX_CONSULT_ROSTER=<path>` (it must exist).

@@ -611,13 +611,16 @@ if (Want 'PANEL') {
     $roster6 = Write-Roster 'panel3' '{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1"},{"provider":"ZAI","model":"glm-5.3"},{"provider":"mimo","model":"mimo-v2.6-pro"}]}'
     $r = New-Repo 'panel'
     $log = Join-Path $work 'panel-log.txt'
-    $p1 = Consult $r $roster6 @('-Panel', '-Prompt', 'x', '-ReplyName', 'x') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_LOG = $log; RT_ZAI_KEY = '' }
+    $p1 = Consult $r $roster6 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'x') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_LOG = $log; RT_ZAI_KEY = '' }
     $led = @(Ledger $r)
     $e1 = $led[0]; $e2 = $led[1]
     $pid1 = [string]$e1.panel.id
     $m1 = ($e1.panel.members | ConvertTo-Json -Compress -Depth 5)
     $m2 = ($e2.panel.members | ConvertTo-Json -Compress -Depth 5)
     Check 'PANEL' '3 entries, ZAI unavailable -> 2 ledger entries, same panel.id, positions 1 and 2 of 2, identical members lists, exit 0' ($p1.Code -eq 0 -and $led.Count -eq 2 -and $pid1 -and [string]$e2.panel.id -eq $pid1 -and $e1.panel.position -eq 1 -and $e2.panel.position -eq 2 -and $e1.panel.of -eq 2 -and $e2.panel.of -eq 2 -and $m1 -eq $m2) $m1
+    # (wave 26, D9) the order invariant is the recorded seat order: routing.picked (no ratings: the
+    # roster order, fallback "no ratings"), the ledger sorted by n in that order
+    Check 'PANEL' 'D9: the ledger order is panel.routing.picked - mode roster (fallback "no ratings"), picked #1 then #3 (ZAI unavailable is skipped, not seated), n 1 and 2 in that order' ($e1.panel.routing.mode -eq 'roster' -and $e1.panel.routing.fallback -eq 'no ratings' -and (@($e1.panel.routing.picked | ForEach-Object { "$($_.position)/$($_.rule)" }) -join ',') -eq '1/roster,3/roster' -and (@($led | ForEach-Object { "$($_.n):$($_.reviewer.provider)" }) -join ',') -eq '1:openai,2:mimo') (@($e1.panel.routing.picked | ForEach-Object { "$($_.position)/$($_.rule)" }) -join ',')
     $mem = @($e1.panel.members)
     Check 'PANEL' 'members: openai run, ZAI skipped (missing: env RT_ZAI_KEY not set), mimo run - in roster order, fields provider/model/state/reason' ($mem.Count -eq 3 -and $mem[0].provider -eq 'openai' -and $mem[0].state -eq 'run' -and $mem[0].reason -eq '' -and $mem[1].provider -eq 'ZAI' -and $mem[1].state -eq 'skipped' -and $mem[1].reason -eq 'missing: env RT_ZAI_KEY not set' -and $mem[2].provider -eq 'mimo' -and $mem[2].model -eq 'mimo-v2.6-pro' -and $mem[2].state -eq 'run' -and (($mem[0].PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'provider,model,state,reason') ''
     Check 'PANEL' 'each member is its own consultation: reviewer from its roster entry, reply files suffixed by provider, own consult ids, roster record (position, skipped ZAI)' ($e1.reviewer.provider -eq 'openai' -and $e2.reviewer.provider -eq 'mimo' -and $e1.reply -match '^handoffs/\d\d-codex-x-openai\.md$' -and $e2.reply -match '^handoffs/\d\d-codex-x-mimo\.md$' -and $e1.consult_id -ne $e2.consult_id -and $e1.roster.position -eq 1 -and $e2.roster.position -eq 3 -and $e2.roster.skipped[0].provider -eq 'ZAI' -and $e1.reviewer.provider_source -eq 'roster' -and (Test-Path (Join-Path $r ".collab\t\$($e2.reply)"))) "$($e1.reply) / $($e2.reply)"
@@ -633,10 +636,10 @@ if (Want 'PANEL') {
     $tOpen = [string]$e1.thread; $tMimo = [string]$e2.thread
 
     # a second panel: every member forks the newest thread of its OWN lineage; -Mode new: new for all
-    $p2 = Consult $r $roster6 @('-Panel', '-Prompt', 'x', '-ReplyName', 'y') @{ FAKE_CODEX_REPLY = $advise; RT_ZAI_KEY = '' }
+    $p2 = Consult $r $roster6 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'y') @{ FAKE_CODEX_REPLY = $advise; RT_ZAI_KEY = '' }
     $led2 = @(Ledger $r)
     Check 'PANEL' 'second panel: openai forks the openai thread, mimo the mimo thread' ($p2.Code -eq 0 -and $led2.Count -eq 4 -and $led2[2].mode -eq 'fork' -and $led2[2].parent_thread -eq $tOpen -and $led2[3].mode -eq 'fork' -and $led2[3].parent_thread -eq $tMimo -and [string]$led2[2].panel.id -ne $pid1) "$($led2[2].parent_thread) / $($led2[3].parent_thread)"
-    $p3 = Consult $r $roster6 @('-Panel', '-Prompt', 'x', '-ReplyName', 'z', '-Mode', 'new') @{ FAKE_CODEX_REPLY = $advise; RT_ZAI_KEY = '' }
+    $p3 = Consult $r $roster6 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'z', '-Mode', 'new') @{ FAKE_CODEX_REPLY = $advise; RT_ZAI_KEY = '' }
     $led3 = @(Ledger $r)
     Check 'PANEL' '-Mode new -> new threads for all members' ($p3.Code -eq 0 -and $led3.Count -eq 6 -and $led3[4].mode -eq 'new' -and $led3[5].mode -eq 'new') ''
     $p4 = Consult $r $roster6 @('-Prompt', 'x', '-ReplyName', 'single') @{ FAKE_CODEX_REPLY = $advise; RT_ZAI_KEY = ''; FAKE_CODEX_LOG = $log }
@@ -644,7 +647,7 @@ if (Want 'PANEL') {
 
     # one member fails: the other still runs, exit 1
     $rf = New-Repo 'panel-fail'
-    $pf = Consult $rf $roster6 @('-Panel', '-Prompt', 'x', '-ReplyName', 'f') @{ FAKE_CODEX_REPLY = $advise; RT_ZAI_KEY = ''; FAKE_CODEX_FAIL_ON = 'model_provider=""openai""' }
+    $pf = Consult $rf $roster6 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'f') @{ FAKE_CODEX_REPLY = $advise; RT_ZAI_KEY = ''; FAKE_CODEX_FAIL_ON = 'model_provider=""openai""' }
     $lf = @(Ledger $rf)
     $pfShort = if ($lf.Count -gt 0) { ([string]$lf[0].panel.id).Substring(0, 8) } else { '?' }
     $pfSum = @(($pf.Out.Substring([Math]::Max(0, $pf.Out.LastIndexOf("Panel ${pfShort}: 2 of 3 entries ran")))) -split "`n")
@@ -674,7 +677,7 @@ if (Want 'PANEL') {
     $rs = New-Repo 'panel-survivors'
     $sleeper = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep -Seconds 180') -PassThru -WindowStyle Hidden
     try {
-        $ps = Consult $rs $roster6 @('-Panel', '-PanelConcurrency', '1', '-Prompt', 'x', '-ReplyName', 's', '-TimeoutSec', '4') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""'; CODEX_CONSULT_TEST_SURVIVORS = "$($sleeper.Id)" }
+        $ps = Consult $rs $roster6 @('-Panel', '-PanelSize', '3', '-PanelConcurrency', '1', '-Prompt', 'x', '-ReplyName', 's', '-TimeoutSec', '4') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""'; CODEX_CONSULT_TEST_SURVIVORS = "$($sleeper.Id)" }
     } finally { Stop-Process -Id $sleeper.Id -Force -ErrorAction SilentlyContinue }
     $ls = @(Ledger $rs)
     $psShort = if ($ls.Count -gt 0) { ([string]$ls[0].panel.id).Substring(0, 8) } else { '?' }
@@ -682,14 +685,14 @@ if (Want 'PANEL') {
     $psSum = if ($psAt -ge 0) { @($ps.Out.Substring($psAt) -split "`n") } else { @('') }
     Check 'F15-3' 'member 2 times out leaving survivors -> member 3 is NOT started (-PanelConcurrency 1): summary "skipped  not started: ...", header "2 of 3 entries ran", ledger has members 1 and 2 only, exit 1' ($ps.Code -eq 1 -and $ls.Count -eq 2 -and $ls[0].bridge_outcome -eq 'usable reply' -and $ls[1].bridge_outcome -match '^failed: timeout after 4 s \(process tree killed; 1 processes survived' -and $psAt -ge 0 -and $psSum[3] -match '^  mimo :: mimo-v2\.6-pro\s+skipped\s+not started: the previous member \(ZAI :: glm-5\.3\) left surviving processes \(\.consult\.pending-\d\d\.json state survivors\); recover the task first$') ($psSum[0..3] -join ' | ')
     $rt = New-Repo 'panel-timeout'
-    $pt2 = Consult $rt $roster6 @('-Panel', '-Prompt', 'x', '-ReplyName', 't', '-TimeoutSec', '4') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""' }
+    $pt2 = Consult $rt $roster6 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 't', '-TimeoutSec', '4') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""' }
     $lt = @(Ledger $rt)
     Check 'F15-3' 'a timeout WITHOUT survivors -> member 3 still runs; exit 1 (member 2 failed)' ($pt2.Code -eq 1 -and $lt.Count -eq 3 -and $lt[1].bridge_outcome -eq 'failed: timeout after 4 s (process tree killed)' -and $lt[2].reviewer.provider -eq 'mimo' -and $lt[2].bridge_outcome -eq 'usable reply') "$($lt.Count) entries"
 
     # -DryRun -Panel: the members and each plan, nothing written
     $rd = New-Repo 'panel-dry'
     $snapBefore = (@(Get-ChildItem -LiteralPath (Join-Path $rd '.collab') -Recurse -Force | ForEach-Object { $_.FullName }) | Sort-Object) -join '|'
-    $pd = Consult $rd $roster6 @('-Panel', '-DryRun', '-Prompt', 'x', '-ReplyName', 'd') @{ RT_ZAI_KEY = '' }
+    $pd = Consult $rd $roster6 @('-Panel', '-PanelSize', '3', '-DryRun', '-Prompt', 'x', '-ReplyName', 'd') @{ RT_ZAI_KEY = '' }
     $snapAfter = (@(Get-ChildItem -LiteralPath (Join-Path $rd '.collab') -Recurse -Force | ForEach-Object { $_.FullName }) | Sort-Object) -join '|'
     $plans = ([regex]::Matches($pd.Out, 'DRY RUN - nothing was executed')).Count
     Check 'PANEL' '-DryRun -Panel: the member list, one dry-run plan per member (reply names suffixed), summary "planned", exit 0, nothing written' ($pd.Code -eq 0 -and $pd.First -match '^Panel [0-9a-f]{8} \(dry run - nothing is executed or written\): 2 of 3 roster entries would run' -and $plans -eq 2 -and $pd.Out -match 'codex-d-openai\.md' -and $pd.Out -match 'codex-d-mimo\.md' -and $pd.Out -match '(?m)^  openai :: gpt-5\.1\s+planned$' -and $snapBefore -eq $snapAfter) "plans=$plans"
@@ -749,7 +752,7 @@ if (Want 'BOARD') {
     $ra = Run-Tool $findingsPs $r @('-Task', 't', '-Rate', '1', '-Useful', 'yes')
     $fs1 = [IO.File]::ReadAllText((Join-Path $td 'findings.json'), $u8) | ConvertFrom-Json
     $mk = @($fs1.ratings)
-    Check 'RATE' '-Rate 1 -Useful yes -> findings.json ratings [{n, consult_id, lineage, provider, model, purpose, useful, note, when}] copied from ledger entry 1; findings untouched' ($ra.Code -eq 0 -and $ra.First -eq 'codex-findings: consult n=1 (openai :: gpt-5.1, decision) rated yes.' -and $mk.Count -eq 1 -and (($mk[0].PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'n,consult_id,lineage,provider,model,purpose,useful,note,when' -and $mk[0].n -eq 1 -and $mk[0].lineage -eq 'openai :: gpt-5.1' -and $mk[0].provider -eq 'openai' -and $mk[0].model -eq 'gpt-5.1' -and $mk[0].purpose -eq 'decision' -and $mk[0].useful -eq 'yes' -and @($fs1.findings).Count -eq 8) $ra.First
+    Check 'RATE' '-Rate 1 -Useful yes -> findings.json ratings [{n, consult_id, lineage, provider, model, engine, purpose, topics, consult_when, useful, note, when}] (wave 26: engine, topics, consult_when) copied from ledger entry 1; findings untouched' ($ra.Code -eq 0 -and $ra.First -eq 'codex-findings: consult n=1 (openai :: gpt-5.1, decision) rated yes.' -and $mk.Count -eq 1 -and (($mk[0].PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'n,consult_id,lineage,provider,model,engine,purpose,topics,consult_when,useful,note,when' -and $mk[0].n -eq 1 -and $mk[0].lineage -eq 'openai :: gpt-5.1' -and $mk[0].provider -eq 'openai' -and $mk[0].model -eq 'gpt-5.1' -and $mk[0].purpose -eq 'decision' -and $mk[0].useful -eq 'yes' -and @($fs1.findings).Count -eq 8) $ra.First
     $rb = Run-Tool $findingsPs $r @('-Task', 't', '-Rate', '1', '-Useful', 'partly', '-Note', 'half of it')
     $mk2 = @(([IO.File]::ReadAllText((Join-Path $td 'findings.json'), $u8) | ConvertFrom-Json).ratings)
     Check 'RATE' 're-rating n=1 replaces its record ("re-rated partly (was yes)")' ($rb.Code -eq 0 -and $rb.First -eq 'codex-findings: consult n=1 (openai :: gpt-5.1, decision) re-rated partly (was yes).' -and $mk2.Count -eq 1 -and $mk2[0].useful -eq 'partly' -and $mk2[0].note -eq 'half of it') $rb.First
@@ -831,7 +834,7 @@ if (Want 'SCORE') {
     Check 'SCORE' 'row order: lineage (case-insensitive, unknown provenance last), then purpose, the lineage total after its purposes, the grand total last' ($order -eq 'openai :: gpt-5.1|acceptance ; openai :: gpt-5.1|decision ; openai :: gpt-5.1|(total) ; ZAI :: glm-5.3|(none) ; ZAI :: glm-5.3|diff-review ; ZAI :: glm-5.3|(total) ; unknown provenance|(none) ; unknown provenance|(total) ; (all)|(total)') $order
     $tl = @($st.Out -split "`n")
     $hdrS = @($tl | Where-Object { $_ -match '^REVIEWER' })[0]
-    Check 'SCORE' 'table: header REVIEWER PURPOSE CONSULTS USABLE PROSE FAILED RAISED VERIFIED REJECTED WONTFIX SUPERSEDED OPEN HIT% A/H/R/D Y/P/N MEDIAN_S TOKENS; the (none) row, the grand total row; nothing written' ($st.Code -eq 0 -and $hdrS -match '^REVIEWER\s+PURPOSE\s+CONSULTS\s+USABLE\s+PROSE\s+FAILED\s+RAISED\s+VERIFIED\s+REJECTED\s+WONTFIX\s+SUPERSEDED\s+OPEN\s+HIT%\s+A/H/R/D\s+Y/P/N\s+MEDIAN_S\s+TOKENS$' -and @($tl | Where-Object { $_ -match '^ZAI :: glm-5\.3\s+\(none\)\s+1\s+1\s+0\s+0\s+0\s+0\s+0\s+0\s+0\s+0\s+-\s+0/0/0/1\s+0/0/0\s+60\s+0/0$' }).Count -eq 1 -and @($tl | Where-Object { $_ -match '^\(all\)\s+\(total\)\s+7\s+6\s+1\s+1\s+9\s+3\s+2\s+1\s+1\s+2\s+60%\s+1/1/0/3\s+2/1/1\s+30\s+1800/450$' }).Count -eq 1 -and @($tl | Where-Object { $_ -match '^openai :: gpt-5\.1\s+decision\s+2\s+1\s+0\s+1\s+2\s+1\s+1\s+0\s+0\s+0\s+50%\s+0/0/0/1\s+1/0/0\s+7\.5\s+800/300$' }).Count -eq 1 -and $before -eq $after) (($tl | Where-Object { $_ -match '^\(all\)' }) -join '')
+    Check 'SCORE' 'table: header REVIEWER PURPOSE CONSULTS USABLE PROSE FAILED RAISED VERIFIED REJECTED WONTFIX SUPERSEDED OPEN HIT% A/H/R/D Y/P/N SCORE UNIQ MEDIAN_S TOKENS (wave 26: SCORE - neutral 1.125 below 3 marks, - on the grand total - and UNIQ); the (none) row, the grand total row; nothing written' ($st.Code -eq 0 -and $hdrS -match '^REVIEWER\s+PURPOSE\s+CONSULTS\s+USABLE\s+PROSE\s+FAILED\s+RAISED\s+VERIFIED\s+REJECTED\s+WONTFIX\s+SUPERSEDED\s+OPEN\s+HIT%\s+A/H/R/D\s+Y/P/N\s+SCORE\s+UNIQ\s+MEDIAN_S\s+TOKENS$' -and @($tl | Where-Object { $_ -match '^ZAI :: glm-5\.3\s+\(none\)\s+1\s+1\s+0\s+0\s+0\s+0\s+0\s+0\s+0\s+0\s+-\s+0/0/0/1\s+0/0/0\s+1\.125\s+0/0\s+60\s+0/0$' }).Count -eq 1 -and @($tl | Where-Object { $_ -match '^\(all\)\s+\(total\)\s+7\s+6\s+1\s+1\s+9\s+3\s+2\s+1\s+1\s+2\s+60%\s+1/1/0/3\s+2/1/1\s+-\s+0/0\s+30\s+1800/450$' }).Count -eq 1 -and @($tl | Where-Object { $_ -match '^openai :: gpt-5\.1\s+decision\s+2\s+1\s+0\s+1\s+2\s+1\s+1\s+0\s+0\s+0\s+50%\s+0/0/0/1\s+1/0/0\s+1\.125\s+0/0\s+7\.5\s+800/300$' }).Count -eq 1 -and $before -eq $after) (($tl | Where-Object { $_ -match '^\(all\)' }) -join '')
     $sa = Run-Tool (Join-Path $scripts 'codex-scoreboard.ps1') $r @('-Task', 'beta', '-Json')
     $ja = @()
     try { $ja = @(($sa.Out | ConvertFrom-Json) | ForEach-Object { $_ }) } catch { }

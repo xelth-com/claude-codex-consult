@@ -30,10 +30,14 @@
     -Rate <n> -Useful yes|partly|no [-Note <why>] records the judge's mark for
     consultation n of the task (n must be a ledger entry; -Note is required for no):
     findings.json gets a top-level `ratings` array of { n, consult_id, lineage,
-    provider, model, purpose, useful, note, when } (lineage, provider, model and
-    purpose copied from that ledger entry; rating n again replaces its record). It
-    takes the task lock like a status change. codex-scoreboard.ps1 sums the marks per
-    reviewer and purpose across tasks.
+    provider, model, engine, purpose, topics, consult_when, useful, note, when } -
+    (wave 26, D2) keyed by the consultation's consult_id (n is kept for display), with
+    everything routing needs copied from that ledger entry: the reviewer (provider, model,
+    engine), the purpose, the topics and the consultation's own time (consult_when; `when`
+    is the time of the mark). Rating the same consultation again replaces its record (the
+    latest mark wins). It takes the task lock like a status change.
+    codex-scoreboard.ps1 sums the marks per reviewer and purpose (or topic) across tasks,
+    and a routed -Panel scores its members on them (codex-consult.ps1 -PanelOrder).
 
     A status change and a rating take the task lock (<task>/.consult.lock), so they
     are refused while a consultation (or a -Panel run) for the task runs, and also
@@ -407,22 +411,36 @@ if ($rating) {
         $rev = Get-PropertyValue $entry 'reviewer' $null
         $provider = ''
         $model = [string](Get-PropertyValue $entry 'model' '')
+        $engine = 'codex'
         $lineage = 'unknown provenance'
         if ($null -ne $rev) {
             $provider = [string](Get-PropertyValue $rev 'provider' '')
             $model = [string](Get-PropertyValue $rev 'model' '')
-            $lineage = Format-ReviewerLineage -Provider $provider -Model $model -Engine ([string](Get-PropertyValue $rev 'engine' ''))
+            $engine = [string](Get-PropertyValue $rev 'engine' 'codex')
+            if (-not $engine) { $engine = 'codex' }
+            $lineage = Format-ReviewerLineage -Provider $provider -Model $model -Engine $engine
         }
+        # (wave 26, D2) the mark is keyed by the consultation's id; everything routing needs is
+        # copied from the ledger entry (no later join by n - n is unique only within a task)
+        $consultId = [string](Get-PropertyValue $entry 'consult_id' '')
+        if ($consultId -and $consultId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+            Stop-WithError "consultation n=$Rate in $sessionsPath has a malformed consult_id '$consultId'; nothing was changed."
+        }
+        $consultWhen = Get-PropertyValue $entry 'when' $null
+        if ($null -ne $consultWhen -and -not ($consultWhen -is [string])) { $wo = ConvertTo-WhenOffset $consultWhen; if ($wo) { $consultWhen = $wo.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant) } }
         $mark = [pscustomobject]@{
-            n          = $Rate
-            consult_id = [string](Get-PropertyValue $entry 'consult_id' '')
-            lineage    = $lineage
-            provider   = $provider
-            model      = $model
-            purpose    = [string](Get-PropertyValue $entry 'purpose' '')
-            useful     = $Useful
-            note       = $Note.Trim()
-            when       = (Get-IsoTimestamp)
+            n            = $Rate
+            consult_id   = $consultId
+            lineage      = $lineage
+            provider     = $provider
+            model        = $model
+            engine       = $engine
+            purpose      = [string](Get-PropertyValue $entry 'purpose' '')
+            topics       = [object[]]@(@(Get-PropertyValue $entry 'topics' @()) | Where-Object { $_ } | ForEach-Object { [string]$_ })
+            consult_when = $(if ($null -ne $consultWhen) { [string]$consultWhen } else { $null })
+            useful       = $Useful
+            note         = $Note.Trim()
+            when         = (Get-IsoTimestamp)
         }
         # (created on the first mark; a findings.json that exists but does not parse is refused)
         $store = $commit.Findings
@@ -431,7 +449,10 @@ if ($rating) {
         $replaced = $false
         foreach ($old in @(Get-PropertyValue $store 'ratings' @())) {
             if ($null -eq $old) { continue }
-            if ([string](Get-PropertyValue $old 'n' '') -eq [string]$Rate) {
+            # the same consultation: its consult_id (a mark recorded before wave 26 without one: its n)
+            $oldId = [string](Get-PropertyValue $old 'consult_id' '')
+            $same = $(if ($consultId -and $oldId) { $oldId -ieq $consultId } else { [string](Get-PropertyValue $old 'n' '') -eq [string]$Rate })
+            if ($same) {
                 if (-not $replaced) { $kept.Add($mark); $replaced = $true; $previous = [string](Get-PropertyValue $old 'useful' '') }
                 continue
             }

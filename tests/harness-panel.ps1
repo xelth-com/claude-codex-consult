@@ -336,14 +336,14 @@ if (Want 'DRY') {
     Write-JsonFile -Path (Join-Path (Td $r) '.consult.pending-05.json') -Object $left
     $snap = { (@(Get-ChildItem -LiteralPath (Join-Path $r '.collab') -Recurse -Force | ForEach-Object { "$($_.FullName)|$($_.Length)" }) | Sort-Object) -join ';' }
     $s0 = & $snap
-    $d = Consult $r $roster3 @('-Panel', '-DryRun', '-Prompt', 'x', '-ReplyName', 'd')
+    $d = Consult $r $roster3 @('-Panel', '-PanelSize', '3', '-DryRun', '-Prompt', 'x', '-ReplyName', 'd')
     $s1 = & $snap
     Check 'DRY' 'dry run: "3 of 3 roster entries would run, at once", every member with its PRE-ASSIGNED n and handoff (past an inactive leftover member record: n 5-7, NN 06-08), the concurrency line, the leftover reported as recovered by the real run' ($d.Code -eq 0 -and $d.First -match '^Panel [0-9a-f]{8} \(dry run - nothing is executed or written\): 3 of 3 roster entries would run, at once \(' -and $d.Out -match '(?m)^  #1 openai :: gpt-5\.1 - member, n=5, handoff 06$' -and $d.Out -match '(?m)^  #2 ZAI :: glm-5\.3 - member, n=6, handoff 07$' -and $d.Out -match '(?m)^  #3 mimo :: mimo-v2\.6-pro - member, n=7, handoff 08$' -and $d.Out -match '(?m)^Concurrency: at once - endpoint groups: openai x1, ZAI x1, mimo x1; -PanelConcurrency 0 \(no cap\)$' -and $d.Out -match '(?m)^pending     : .*\.consult\.pending-05\.json \(state ''reserved'', n=4, nn=05; .*\): the real run recovers it') (($d.Out -split "`n" | Select-Object -First 6) -join ' / ')
     Check 'DRY' 'each member''s own dry-run plan shows its assigned numbers (handoff 06..08, consult n 5..7) and reply names; summary "planned"; nothing written, no lock file created' ($d.Out -match 'handoff     : 06 \(consult n = 5\)' -and $d.Out -match 'handoff     : 07 \(consult n = 6\)' -and $d.Out -match 'handoff     : 08 \(consult n = 7\)' -and $d.Out -match '06-codex-d-openai\.md' -and $d.Out -match '(?m)^  mimo :: mimo-v2\.6-pro\s+planned$' -and $s0 -eq $s1 -and -not (Test-Path (Join-Path (Td $r) '.consult.lock'))) ''
-    $d1 = Consult $r $roster3 @('-Panel', '-DryRun', '-PanelConcurrency', '1', '-Prompt', 'x')
-    $d2 = Consult $r $roster3 @('-Panel', '-DryRun', '-PanelConcurrency', '2', '-Prompt', 'x')
-    $d3 = Consult $r $rosterZai2 @('-Panel', '-DryRun', '-Prompt', 'x')
-    $d4 = Consult $r $rosterZaiPar @('-Panel', '-DryRun', '-Prompt', 'x')
+    $d1 = Consult $r $roster3 @('-Panel', '-PanelSize', '3', '-DryRun', '-PanelConcurrency', '1', '-Prompt', 'x')
+    $d2 = Consult $r $roster3 @('-Panel', '-PanelSize', '3', '-DryRun', '-PanelConcurrency', '2', '-Prompt', 'x')
+    $d3 = Consult $r $rosterZai2 @('-Panel', '-PanelSize', '3', '-DryRun', '-Prompt', 'x')
+    $d4 = Consult $r $rosterZaiPar @('-Panel', '-PanelSize', '3', '-DryRun', '-Prompt', 'x')
     Check 'DRY' 'the plan text: -PanelConcurrency 1 -> "one after another"; 2 of 3 -> "at most 2 at a time"; two entries of one label -> "ZAI x2 one after another"; roster "parallel": {"ZAI": 2} -> "ZAI x2 at once"' ($d1.First -match 'roster entries would run, one after another \(' -and $d2.First -match 'would run, at most 2 at a time \(' -and $d3.Out -match '(?m)^Concurrency: at most 2 at a time - endpoint groups: ZAI x2 one after another, mimo x1; -PanelConcurrency 0 \(no cap\)$' -and $d4.Out -match '(?m)^Concurrency: at once - endpoint groups: ZAI x2 at once, mimo x1;') "$($d1.First) | $(Line $d3.Out 'Concurrency') | $(Line $d4.Out 'Concurrency')"
     $v1 = Consult $r $roster3 @('-DryRun', '-Prompt', 'x', '-PanelConcurrency', '2')
     $v2 = Consult $r $roster3 @('-Panel', '-DryRun', '-Prompt', 'x', '-PanelConcurrency', '-1')
@@ -353,7 +353,7 @@ if (Want 'DRY') {
 # =============================================================== RUN: overlap, roster order, records, the wall clock
 if (Want 'RUN') {
     $r = New-Repo 'run'
-    $p = Consult $r $roster3 @('-Panel', '-Prompt', 'x', '-ReplyName', 'x') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = 'gpt-5.1=7000|glm-5.3=5000|mimo-v2.6-pro=5000' }
+    $p = Consult $r $roster3 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'x') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = 'gpt-5.1=7000|glm-5.3=5000|mimo-v2.6-pro=5000' }
     $led = @(Ledger $r)
     $sum = @(Summary $p.Out)
     $starts = @($led | ForEach-Object { To-Dto $_.when })
@@ -367,9 +367,12 @@ if (Want 'RUN') {
     Check 'RUN' 'three members of 5-7 s each: exit 0, three ledger entries, every member''s reviewer ran at the same time (the last start before the first finish)' ($p.Code -eq 0 -and $led.Count -eq 3 -and $lastStart -lt $firstEnd) "starts $(@($starts | ForEach-Object { $_.ToString('HH:mm:ss') }) -join ',') ends $(@($ends | ForEach-Object { $_.ToString('HH:mm:ss') }) -join ',')"
     Check 'RUN' 'the panel''s wall clock (summary) is below the sum of the members'' own wall times (sequentially it would exceed it)' ($panelWall -gt 0 -and $panelWall -lt $memberWalls) "panel $panelWall s vs members $memberWalls s; $($sum[0])"
     Check 'RUN' 'the slowest member first in roster order: it finished LAST, yet the ledger is sorted by n in roster order (openai n=1 / 01, ZAI n=2 / 02, mimo n=3 / 03) and findings.json is in id order' ((@($led | ForEach-Object { $_.n }) -join ',') -eq '1,2,3' -and $led[0].reply -eq 'handoffs/01-codex-x-openai.md' -and $led[1].reply -eq 'handoffs/02-codex-x-zai.md' -and $led[2].reply -eq 'handoffs/03-codex-x-mimo.md' -and $ends[0] -ge $ends[1] -and $ends[0] -ge $ends[2] -and (@(Findings $r | ForEach-Object { $_.id }) -join ',') -eq 'F01-1,F02-1,F03-1') "$(@($led | ForEach-Object { "$($_.n):$($_.reply)" }) -join ' ')"
+    # (wave 26, D9) the order invariant is the recorded seat order: without ratings the roster order
+    # (fallback "no ratings"), and every member's panel.routing.picked names it
+    Check 'RUN' 'D9: the ledger''s n order is panel.routing.picked in every entry (mode roster, fallback "no ratings": #1 #2 #3), asked 3, started 3, usable 3 written into every entry when the panel ended' (@($led | Where-Object { $_.panel.routing.mode -eq 'roster' -and $_.panel.routing.fallback -eq 'no ratings' -and (@($_.panel.routing.picked | ForEach-Object { $_.position }) -join ',') -eq '1,2,3' -and $_.panel.asked -eq 3 -and $_.panel.started -eq 3 -and $_.panel.usable -eq 3 }).Count -eq 3 -and (@($led | ForEach-Object { $_.reviewer.provider }) -join ',') -eq 'openai,ZAI,mimo') (@($led | ForEach-Object { "$($_.n):$($_.reviewer.provider):$(@($_.panel.routing.picked | ForEach-Object { $_.position }) -join '/')" }) -join ' ')
     $i1 = $p.Out.IndexOf('panel member 1 of 3 finished'); $i3 = $p.Out.IndexOf('panel member 3 of 3 finished')
     $o1 = $p.Out.IndexOf('=== panel '); $o2 = $p.Out.IndexOf(' member 2 of 3: ZAI'); $o3 = $p.Out.IndexOf(' member 3 of 3: mimo')
-    Check 'RUN' 'the console: one progress line per member as it finishes (member 3 before member 1), then every member''s output in roster order, then the summary with the wall clock' ($i3 -ge 0 -and $i1 -gt $i3 -and $o1 -gt $i1 -and $o2 -gt $o1 -and $o3 -gt $o2 -and $sum[0] -match '^Panel [0-9a-f]{8}: 3 of 3 entries ran \(wall clock [0-9.]+ s; at once\)$' -and $sum[1] -match '^  openai :: gpt-5\.1\s+ADVISE\s+0 blocker, 0 major, 1 minor\s+prior: none') ($sum[0..1] -join ' | ')
+    Check 'RUN' 'the console: one progress line per member as it finishes (member 3 before member 1), then every member''s output in roster order, then the summary with the wall clock' ($i3 -ge 0 -and $i1 -gt $i3 -and $o1 -gt $i1 -and $o2 -gt $o1 -and $o3 -gt $o2 -and $sum[0] -match '^Panel [0-9a-f]{8}: 3 of 3 entries ran \(asked 3, started 3, usable 3; wall clock [0-9.]+ s; at once\)$' -and $sum[1] -match '^  openai :: gpt-5\.1\s+ADVISE\s+0 blocker, 0 major, 1 minor\s+prior: none') ($sum[0..1] -join ' | ')
     Check 'RUN' 'ledger panel record: concurrency 3 and the per-label limits (openai 1, ZAI 1, mimo 1); the same panel id and members list in every entry' ($led[0].panel.concurrency -eq 3 -and $led[0].panel.limits.openai -eq 1 -and $led[0].panel.limits.ZAI -eq 1 -and $led[0].panel.limits.mimo -eq 1 -and [string]$led[1].panel.id -eq [string]$led[0].panel.id -and (($led[2].panel.members | ConvertTo-Json -Compress) -eq ($led[0].panel.members | ConvertTo-Json -Compress))) (ConvertTo-Json -Compress -Depth 4 $led[0].panel.limits)
     $recs = Records $r
     Check 'RUN' 'after success: no recovery record left (per-member records removed), the task lock and the write lock free, the lock files kept' (@($recs).Count -eq 0 -and -not (Test-LockHeld (Join-Path (Td $r) '.consult.lock')) -and (Test-Path (Join-Path (Td $r) '.consult.write.lock')) -and -not (Test-LockHeld (Join-Path (Td $r) '.consult.write.lock'))) "$(@($recs).Count) records"
@@ -385,7 +388,7 @@ if (Want 'NOLOSS') {
     $check = Reply 'check-f01.json' ('{"schema_version":"1","verdict":"ADVISE","verdict_reason":"r","reply_markdown":"m","findings":[' + $finding + '],"prior_findings":[{"id":"F01-1","status":"still-open","note":"seen"}],"unproven":[],"first_run_checklist":[]}')
     # equal delays and a pause inside every commit (4 s, longer than the members' start spread):
     # the three commits contend for the write lock
-    $p = Consult $r $roster3 @('-Panel', '-Prompt', 'x', '-ReplyName', 'c') @{ FAKE_CODEX_REPLY = $check; FAKE_CODEX_DELAY_MS = '3000'; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS = '4000' }
+    $p = Consult $r $roster3 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'c') @{ FAKE_CODEX_REPLY = $check; FAKE_CODEX_DELAY_MS = '3000'; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS = '4000' }
     $fs = @(Findings $r)
     $f01 = @($fs | Where-Object { $_.id -eq 'F01-1' })[0]
     $checks = @($f01.reviewer_checks | ForEach-Object { [int]$_.consult } | Sort-Object)
@@ -401,7 +404,7 @@ if (Want 'NOLOSS') {
 if (Want 'INFLIGHT') {
     $r = New-Repo 'inflight'
     $seed = Consult $r $roster3 @('-Provider', 'mimo', '-Prompt', 'seed', '-ReplyName', 'seed') @{ FAKE_CODEX_REPLY = $adviseF }
-    $bg = Start-Consult $r $roster3 @('-Panel', '-Prompt', 'x', '-ReplyName', 'b') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DELAY_MS = '12000' }
+    $bg = Start-Consult $r $roster3 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'b') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DELAY_MS = '12000' }
     $running = Wait-For { $rs = Records $r; @($rs).Count -eq 3 -and @($rs | Where-Object { $_.Record -and $_.Record.state -eq 'running' }).Count -eq 3 } 90
     $recs = Records $r
     $lockRec = Read-LockContent -Path (Join-Path (Td $r) '.consult.lock')
@@ -426,7 +429,7 @@ if (Want 'TIMEOUT') {
     $rc = New-Repo 'timeout-clean'
     $pidDir = Join-Path $work 'timeout-clean-pids'
     [void][IO.Directory]::CreateDirectory($pidDir)
-    $q = Consult $rc $roster3 @('-Panel', '-Prompt', 'x', '-ReplyName', 'c', '-TimeoutSec', '5') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""'; FAKE_CODEX_PIDDIR = $pidDir }
+    $q = Consult $rc $roster3 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'c', '-TimeoutSec', '5') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""'; FAKE_CODEX_PIDDIR = $pidDir }
     $qled = @(Ledger $rc)
     $fakes = @(Get-ChildItem -LiteralPath $pidDir -Filter '*.pid' | ForEach-Object { $parts = @(([IO.File]::ReadAllText($_.FullName)).Trim() -split ' '); [pscustomobject]@{ Id = [int]$parts[0]; Ticks = [long]$parts[1] } })
     # (alive = that pid runs a process started within 2 s of the recorded start: not a reused pid)
@@ -436,7 +439,7 @@ if (Want 'TIMEOUT') {
     $r = New-Repo 'timeout'
     $sleeper = Start-Sleeper 180
     try {
-        $p = Consult $r $roster3 @('-Panel', '-Prompt', 'x', '-ReplyName', 's', '-TimeoutSec', '5') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""'; CODEX_CONSULT_TEST_SURVIVORS = "$($sleeper.Id)"; FAKE_CODEX_DELAY_MS = '2000' }
+        $p = Consult $r $roster3 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 's', '-TimeoutSec', '5') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""ZAI""'; CODEX_CONSULT_TEST_SURVIVORS = "$($sleeper.Id)"; FAKE_CODEX_DELAY_MS = '2000' }
         $led = @(Ledger $r)
         $recs = Records $r
         $sum = @(Summary $p.Out)
@@ -454,13 +457,13 @@ if (Want 'TIMEOUT') {
 # =============================================================== SEQ: -PanelConcurrency 1, one endpoint one after another
 if (Want 'SEQ') {
     $r = New-Repo 'seq'
-    $p = Consult $r $roster3 @('-Panel', '-PanelConcurrency', '1', '-Prompt', 'x', '-ReplyName', 'q') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DELAY_MS = '2000' }
+    $p = Consult $r $roster3 @('-Panel', '-PanelSize', '3', '-PanelConcurrency', '1', '-Prompt', 'x', '-ReplyName', 'q') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DELAY_MS = '2000' }
     $led = @(Ledger $r)
     $okSeq = ($led.Count -eq 3)
     for ($i = 0; $okSeq -and $i -lt 2; $i++) { if ((To-Dto $led[$i].finished_at) -gt (To-Dto $led[$i + 1].when)) { $okSeq = $false } }
     Check 'SEQ' '-PanelConcurrency 1: "one after another", strictly - every member''s reviewer starts after the previous member committed (finished_at <= next when), in roster order' ($p.Code -eq 0 -and $p.First -match ': 3 of 3 roster entries run, one after another \(' -and $okSeq) "$(@($led | ForEach-Object { "$($_.n) $((To-Dto $_.when).ToString('HH:mm:ss'))-$((To-Dto $_.finished_at).ToString('HH:mm:ss'))" }) -join ', ')"
     $r2 = New-Repo 'seq-endpoint'
-    $p2 = Consult $r2 $rosterZai2 @('-Panel', '-Prompt', 'x', '-ReplyName', 'e') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DELAY_MS = 'glm-5.3=4000|glm-5.3-flash=4000|mimo-v2.6-pro=7000' }
+    $p2 = Consult $r2 $rosterZai2 @('-Panel', '-PanelSize', '3', '-Prompt', 'x', '-ReplyName', 'e') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DELAY_MS = 'glm-5.3=4000|glm-5.3-flash=4000|mimo-v2.6-pro=7000' }
     $l2 = @(Ledger $r2)
     Check 'SEQ' 'two entries of one provider label (one endpoint) run one after another, the other endpoint beside them: ZAI glm-5.3 committed before ZAI glm-5.3-flash started, mimo ran during the first ZAI member ("at most 2 at a time")' ($p2.Code -eq 0 -and $p2.First -match ': 3 of 3 roster entries run, at most 2 at a time \(' -and $l2.Count -eq 3 -and $l2[0].model -eq 'glm-5.3' -and $l2[1].model -eq 'glm-5.3-flash' -and (To-Dto $l2[0].finished_at) -le (To-Dto $l2[1].when) -and (To-Dto $l2[2].when) -lt (To-Dto $l2[0].finished_at)) "$(@($l2 | ForEach-Object { "$($_.model) $((To-Dto $_.when).ToString('HH:mm:ss'))-$((To-Dto $_.finished_at).ToString('HH:mm:ss'))" }) -join ', ')"
 }
@@ -480,7 +483,7 @@ if (Want 'AGY') {
 # =============================================================== PARENT: the panel run killed mid-panel (D1, Q3)
 if (Want 'PARENT') {
     $r = New-Repo 'parent'
-    $bg = Start-Consult $r $roster2 @('-Panel', '-Prompt', 'x', '-ReplyName', 'k') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = '15000' }
+    $bg = Start-Consult $r $roster2 @('-Panel', '-PanelSize', '2', '-Prompt', 'x', '-ReplyName', 'k') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = '15000' }
     $running = Wait-For { $rs = Records $r; @($rs).Count -eq 2 -and @($rs | Where-Object { $_.Record -and $_.Record.state -eq 'running' }).Count -eq 2 } 90
     $recs = Records $r
     $memberPids = @($recs | ForEach-Object { [int]$_.Record.pid })
@@ -572,7 +575,7 @@ if (Want 'BLOCKED') {
     $wlock = Join-Path (Td $r) '.consult.write.lock'
     $hold = Enter-WriteLock -TaskDir (Td $r) -Task 't'
     try {
-        $p = Consult $r $roster2 @('-Panel', '-Prompt', 'x', '-ReplyName', 'b') @{ FAKE_CODEX_REPLY = $adviseF; CODEX_CONSULT_TEST_WRITE_LOCK_SEC = '2' }
+        $p = Consult $r $roster2 @('-Panel', '-PanelSize', '2', '-Prompt', 'x', '-ReplyName', 'b') @{ FAKE_CODEX_REPLY = $adviseF; CODEX_CONSULT_TEST_WRITE_LOCK_SEC = '2' }
         $recs = Records $r
         $sum = @(Summary $p.Out)
     } finally { Exit-TaskLock -Lock $hold }
@@ -616,7 +619,7 @@ if (Want 'ORPHAN') {
 if (Want 'MEMBERKILL') {
     $r = New-Repo 'memberkill'
     # only member 2 (mimo) pauses inside its commit (a model-keyed test hook); it gets there first
-    $bg = Start-Consult $r $roster2 @('-Panel', '-Prompt', 'x', '-ReplyName', 'mk') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = 'mimo-v2.6-pro=500|gpt-5.1=6000'; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS = 'mimo-v2.6-pro=60000' }
+    $bg = Start-Consult $r $roster2 @('-Panel', '-PanelSize', '2', '-Prompt', 'x', '-ReplyName', 'mk') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = 'mimo-v2.6-pro=500|gpt-5.1=6000'; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS = 'mimo-v2.6-pro=60000' }
     $inCommit = Wait-For { @(Findings $r | Where-Object { $_.id -eq 'F02-1' }).Count -eq 1 } 90
     $rec2 = (Read-PendingFile -Path (Join-Path (Td $r) '.consult.pending-02.json')).Record
     $mPid = 0
@@ -637,7 +640,7 @@ if (Want 'MEMBERKILL') {
 # =============================================================== GUARD: the parent's kill guard (D11)
 if (Want 'GUARD') {
     $r = New-Repo 'guard'
-    $p = Consult $r $roster2 @('-Panel', '-Prompt', 'x', '-ReplyName', 'gd', '-TimeoutSec', '300') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""mimo""'; CODEX_CONSULT_TEST_PANEL_GUARD_SEC = '15' }
+    $p = Consult $r $roster2 @('-Panel', '-PanelSize', '2', '-Prompt', 'x', '-ReplyName', 'gd', '-TimeoutSec', '300') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = 'model_provider=""mimo""'; CODEX_CONSULT_TEST_PANEL_GUARD_SEC = '15' }
     $led = @(Ledger $r)
     $recs = Records $r
     $sum = @(Summary $p.Out)

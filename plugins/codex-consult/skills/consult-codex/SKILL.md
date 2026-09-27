@@ -69,6 +69,13 @@ repository whose consultations you mean: health comes from THAT repository's led
 run it with `-Short` (the SessionStart line: `codex-consult: out - openai :: gpt-6-astra
 (until Sun 20:35, in 2d 10h); 9 of 11 reviewers available`).
 
+**Before a framing, decision, core-contract or acceptance panel, check who is out.** When a
+reviewer the topic needs is out, tell the operator who is out and until when and ask whether to
+wait or to proceed without them - never proceed silently. Name such a reviewer with `-Require`
+(or keep it in the roster's `"require"` for that purpose): the bridge then refuses the run
+before anything starts, **exit 5**, with who, why and when it is back (0.5.0); `-Require none`
+goes on without the roster's requirement once the operator agreed.
+
 **If a provider you need is missing** (no `[model_providers.<name>]` row, `missing: env
 ... not set`, no roster), follow the `setup-providers` skill
 (`${CLAUDE_PLUGIN_ROOT}/skills/setup-providers/SKILL.md`) before planning work on it; never
@@ -224,12 +231,27 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   rather than silently skipping the binding.
 - `-Raw` — 0.1-style plain-text reply: no structured schema, no findings bookkeeping.
   Use it for a quick informal ask that is not going into the findings ledger.
-- `-Panel` (`-PanelAll` to include `"weighty"` roster entries whatever the purpose) —
-  send the **same brief to every available reviewer roster entry**, in parallel across
-  endpoints (one after another within one endpoint), each its own consultation, own
-  lineage and own reply file. `-PanelConcurrency 1` runs them strictly one after another.
-  Needs a reviewer roster; refused with `-Provider`, `-Thread`, or `-Mode resume`. See
-  "The panel" below.
+- `-Panel` (`-PanelAll`: every eligible roster entry, `"weighty"` ones included whatever the
+  purpose) — send the **same brief to as many roster reviewers as the purpose needs**
+  (0.5.0: chore, none and checkpoint 1, diff-review 2, framing and decision 3, core-contract
+  and acceptance 4, stuck every eligible one; `-PanelSize <n>` to choose), seated by their
+  track record (`-PanelOrder routed`, the default; `roster` keeps the roster order), in
+  parallel across endpoints (one after another within one endpoint), each its own
+  consultation, own lineage and own reply file. `-PanelConcurrency 1` runs them strictly one
+  after another. Needs a reviewer roster; refused with `-Provider`, `-Thread`, or `-Mode
+  resume`. See "The panel" below.
+- `-Topic a,b` (0.5.0) — what the consultation is about (slugs, e.g. `security,tests`): ledger
+  `topics[]`, copied onto its rating; a routed panel scores its members on those topics.
+- `-Require <reviewer>[,...]` (0.5.0; `-Panel`, or one `-Provider` run) — reviewers that must
+  take part: `#<roster position>`, a provider label, or `<provider> :: <model>` (with ` [agy]`
+  / ` [muse]` for an engine entry). One that is out refuses the run **before anything starts,
+  exit 5**, naming who, why and when it is back; a required panel member that fails stops the
+  panel (exit 5). A panel takes the roster's `"require"` for its purpose by default; `-Require
+  none` drops it - only after the operator agreed to go on without them.
+- `-Role <name>` / `-Roles a,b` (0.5.0) — give the reviewer (every member) one narrow role, or
+  a panel one role per member by score rank: `edge-cases`, `security`, `tests`, `docs` ship
+  (`templates/role-<name>.md`); a repository adds its own as `<CollabDir>/roles/<name>.md`.
+  The role narrows what the reviewer looks at; the reply format and verdict rules stay.
 - `-SchemaTransport output-schema|prompt-only|native` — override caps-v1's declared reply-schema
   transport for this one run (not with `-Raw`); use it only when you know the endpoint's
   declared transport is wrong for it right now, not as a routine override.
@@ -330,7 +352,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 consultation, including a plain-prose reply that produced no ids — skipping those means
 the telemetry only ever counts structured reviewers, which biases the scoreboard toward
 whoever happens to answer in JSON. `codex-scoreboard.ps1` (below) sums these marks per
-reviewer and purpose. A **failed** consultation may be rated too: `-Useful no` only when the
+reviewer and purpose, and (0.5.0) a routed `-Panel` seats its members by them - the mark is
+keyed by the consultation's id and carries its reviewer, purpose, topics and time, so it counts
+across every task of the repository. A **failed** consultation may be rated too: `-Useful no` only when the
 failure was the reviewer's (a refusal, an invented finding, a reply it could not put in the
 format); **skip the rating** when the bridge's timeout or a plan limit (a usage limit, a
 quota) killed it - resume it instead (see "Run one command").
@@ -346,11 +370,23 @@ Treat every reviewer in play — Claude (this coordinator), Codex, and any roste
   `-Purpose decision` consultation whose brief references the other members' reply
   files by path and asks for a verdict; record that verdict in `state.md` as the
   decision, but the coordinator still executes and verifies it.
-- **Every brief goes to the panel by default (`-Panel`).** Cheap roster members join
-  every brief; weighty ones (roster `"panel": "weighty"`) join only the weighty
-  purposes (`framing`, `decision`, `core-contract`, `acceptance`, `stuck`) unless you
+- **Every brief goes to the panel by default (`-Panel`)**, sized by its stakes (0.5.0: the
+  purpose's size - 1 for a checkpoint or a chore, 2 for a diff review, 3 for framing and
+  decisions, 4 for core contracts and acceptance, every eligible reviewer when stuck). Cheap
+  roster members join every brief; weighty ones (roster `"panel": "weighty"`) join only the
+  weighty purposes (`framing`, `decision`, `core-contract`, `acceptance`, `stuck`) unless you
   pass `-PanelAll`. Tokens are finite for every provider — do not spend a weighty
   reviewer on a checkpoint or a routine diff review unless the question is hard.
+- **Framing and decision questions go to a panel of at least one companion - never only your
+  own judgement** (the design floor): a framing or decision panel that seats fewer than 2
+  members warns (`panel floor: ...`, console and ledger `warnings[]`) - add a reviewer, or say
+  in `state.md` why one reviewer is enough (then pass `-PanelSize 1`, which silences it). Past
+  about five diverse members findings tend to repeat - an operational heuristic, measured by
+  the scoreboard's `UNIQ` column, not a rule.
+- **Rate every consultation (`codex-findings.ps1 -Rate`)**: a routed panel seats its members by
+  those marks (every task of the repository, the last 90 days); without 3 marks for any
+  eligible reviewer it keeps the roster order. Give a question its `-Topic` so the marks can
+  be told apart by topic later.
 - **A provider without a credential or without tokens left is simply not used** — the
   roster skips it and records why (see the README's "Reviewer roster and panel"); a fallback reviewer's
   reply is never presented as the primary's, and lineage stays per reviewer — no
@@ -361,7 +397,8 @@ Treat every reviewer in play — Claude (this coordinator), Codex, and any roste
 - **Before picking a panel or a judge for a hard question, check the scoreboard.** Run
   `codex-scoreboard.ps1` (see the README's "Usefulness telemetry: codex-scoreboard.ps1") to see which
   reviewer has actually been useful on that purpose so far, not just who is cheapest or
-  fastest.
+  fastest (0.5.0: its `SCORE` column is the score a routed panel uses; `-By topic` shows the
+  rows per topic).
 - **Chores go to cheap members.** Hand bounded search/extraction work to a cheap roster
   member with `-Purpose chore`, and pre-digest large inputs before a weighty brief — put
   the extract in the brief, not the raw file.
@@ -384,11 +421,23 @@ as required coverage, not as a redundant second look.
 ## The panel
 
 `-Panel` (a reviewer roster is required — see the README's "Reviewer roster and panel") sends the **same
-brief to every available roster entry**: each member is a complete, independent
+brief to the roster entries it seats**: each member is a complete, independent
 consultation — its own preflight, its own lineage, its own reply file
 (`handoffs/NN-codex-<ReplyName>-<provider>.md`) and its own ledger entry (`panel`
 field). `-PanelAll` includes `"weighty"` roster entries whatever the purpose; without
 it, a `"weighty"` entry only joins on the weighty purposes.
+
+- **Size and seats (0.5.0; the README's "Companions")** — the panel starts as many members as
+  the purpose needs (`-PanelSize` overrides; no backfill for a member that fails); an eligible
+  entry without a seat is `not picked: panel size k`, never a skip. The seats are drawn by the
+  routing scores with a lab-diversity reserve and 20 % exploration - a seeded, reproducible
+  draw: a dry run and the real run of the same day seat the same members (`-PanelSeed` pins
+  the nonce) - or, while no eligible reviewer has 3 marks, the roster order. The first lines
+  print `Routing: ...` (the eligible entries with their lab and score, the seats and the rule
+  that filled each); every member's ledger `panel.routing` records the same, and the summary
+  says `asked k, started j, usable i`.
+- **Required reviewers** (`-Require`, the roster's `"require"`) take their seats first; one
+  that is out refuses the panel before anything starts (exit `5`) - see section 0 above.
 
 - **Parallel across endpoints** (0.4.x wave 21) — members run as processes of their own,
   at once when they reach different endpoints, one after another within one endpoint (one
@@ -397,7 +446,7 @@ it, a `"weighty"` entry only joins on the weighty purposes.
   `-PanelConcurrency <n>` caps the total (`1` = strictly one after another). The panel
   takes about as long as its slowest member, and it holds the task lock for the whole
   panel: no `codex-findings.ps1 -Status`/`-Rate` on that task until it ends. The ledger
-  stays sorted by `n` (roster order) whatever finishes first.
+  stays sorted by `n` (seat order - `panel.routing.picked`) whatever finishes first.
 - A failing member does not stop the rest. With `-PanelConcurrency 1` a member whose
   failure leaves surviving processes stops the remaining members — recorded `skipped` with
   reason `not started: the previous member (<lineage>) left surviving processes
@@ -465,7 +514,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
   the run's budget (`budget_sec`: its timeouts, retries and continuation, per endpoint group).
 - `-Status` without `-Id` shows every detached run of the task (the worst state decides the
   exit code); an id prefix that matches several runs is refused (exit `4`). `-Status -Prune`
-  deletes the status files and logs of runs that finished or died more than 7 days ago.
+  deletes the status files and logs of runs that finished or died more than 7 days ago (0.5.0:
+  also an unreadable status file 7 days after its last write; `-Status` prints the command that
+  removes a younger one). A background that could not make its status final exits `6`: read
+  its log (`.consult.detached-<id8>.log`) - the result is only there.
 
 ## Invariants
 

@@ -560,8 +560,14 @@ detached 3f2a9c1b (review panel, purpose acceptance, reply name acceptance): run
   time on this host: gone = `died - its background process (pid N) is gone without a final
   status ...` (its recovery records are judged by the next run of the task as usual - the
   members' records are consumed, the task lock was released with the process); `starting`
-  without a pid reads "starting" for 60 s, then `never started` (see its log). A background on
-  another host is never judged (`its liveness cannot be checked from this host`).
+  without a pid reads "starting" for 60 s, then `never started` (see its log) - (wave 26) a
+  judgement made afresh at every read: a background that starts late still reports, and the run
+  then reads `running`. A background on another host is never judged (`its liveness cannot be
+  checked from this host`).
+- **The final status** (wave 26): the background's final write is retried (3 attempts, 250 ms
+  apart); when it still fails, the background prints `... its status file could not be made
+  final - the result exists only in this log (<log>) ...` and exits `6` (the status file keeps
+  its last state, and `-Status` judges the run by its background).
 - **Budget** (`budget_sec`, `-Wait`'s default limit): per endpoint group ceil(members / limit)
   x the member kill guard (timeout + format repair + denial retry + continuation + 60 s write
   lock + 120 s), the largest group; with `-PanelConcurrency` also ceil(N / cap) x the guard; the
@@ -575,8 +581,18 @@ detached 3f2a9c1b (review panel, purpose acceptance, reply name acceptance): run
   24 h - or `; detached consultations: 1 running (task a), 1 died (task b)`).
 - **Retention.** Status and log files stay (they are small and git-ignored by the
   `.consult.detached-*` pattern). `-Status -Prune` - the one writing form of `-Status` - deletes
-  those of runs that are done or died and were last written more than 7 days ago; running runs,
-  runs on another host and unusable files stay.
+  those of runs that are done or died and were last written more than 7 days ago (a never-started
+  run only when its log was not written in those 7 days either); running runs and runs on another
+  host stay. (wave 26) An UNREADABLE status file (empty, unparseable, without an id or a known
+  state) - which counts as a failure in every `-Status`/`-Wait` of the task, in `-List` and in the
+  hook - is deleted too once the FILE was last written more than 7 days ago; for a younger one
+  `-Status` prints the command that removes it by hand (`Remove-Item -LiteralPath '<status>',
+  '<log>'`).
+- **The prompt** (wave 26): an inline `-Prompt` of a detached run is written to
+  `<task>/.consult.detached-<id8>.prompt.txt` (git-ignored like the log); the `starting` record's
+  `args` name only that file (`PromptFile`), so a run that never starts leaves its prompt text in
+  that file, not in the status record. The background reads the file and removes it; `-Prune`
+  removes a left-over one with the run's other files. (`-Brief` travels as a path, as always.)
 - One consultation per task still holds: while a detached run holds the task, a second one (and
   `codex-findings.ps1 -Id/-Status/-Rate`) on that task is refused on the task lock.
 
@@ -598,7 +614,7 @@ background writes it):
 | `members[]` | `{position (roster position; 1 without a roster), lineage, state, outcome, wall_seconds, n, handoff (NN), reply}`; `state`: `pending`, `running`, `usable`, `failed`, `skipped` (a roster-skipped entry; a member never started - `not started: <why>`), `killed` (by the panel's guard), `blocked` (`-PanelConcurrency 1` after surviving processes), `commit_blocked`, `orphan` (stopped inside its commit); `outcome`: the panel's status phrase (its bridge outcome, `killed by the panel after ...`, ...) |
 | `summary` | the summary block the run printed; a refusal: its `codex-consult: <message>` line |
 | `log` | the console log `<task>/.consult.detached-<id8>.log` |
-| `args` | the `starting` record only: the background's parameters (base64 of UTF-8 PowerShell CLIXML); dropped by the self-report |
+| `args` | the `starting` record only: the background's parameters (base64 of UTF-8 PowerShell CLIXML; wave 26: an inline `-Prompt` as `PromptFile`, the path of its prompt file); dropped by the self-report |
 
 ---
 
@@ -616,6 +632,8 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "n": 4,
   "when": "2026-09-22T11:24:27+02:00",
   "purpose": "diff-review",
+  "topics": [],
+  "role": "",
   "consult_id": "8f6a1e2d-…",
   "reviewer": {
     "provider": "ZAI",
@@ -708,6 +726,8 @@ This is the only place field meanings are listed; other sections refer to them b
 | `n` | consultation number in this task; never reused (allocation: "Write order and atomic stores") |
 | `when` | local start time, ISO 8601 with offset |
 | `purpose` | the `-Purpose`, `""` without one |
+| `topics` | (0.5.0, wave 26) the `-Topic` slugs (lowercase, deduplicated), `[]` without; copied onto a rating, scored by a routed panel ("Companions") |
+| `role` | (0.5.0, wave 26) the role the reviewer was given (`-Role`, or a panel's `-Roles`/`-Role`), `""` without one ("Companions") |
 | `consult_id` | a fresh guid per run; also the prompt's last line `Consultation id: <guid>` and the key that verifies a rollout-file thread id |
 | `reviewer.provider` / `reviewer.provider_source` | the provider that answered; how it was decided: `-Provider`, `config`, `codex default`, `roster`, `-Thread` or `unknown` |
 | `reviewer.model` / `reviewer.model_source` | the model that answered (`unknown` when unresolvable); `-Model`, `config`, `roster`, `-Thread` or `unknown` |
@@ -719,7 +739,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `preflight` | `ok: <credential detail>` or `skipped` (`-SkipPreflight`); any other verdict refuses the run |
 | `preflight_warning` | a recent usage limit that did not refuse the run, else `""` |
 | `roster` | `null` without a roster; else `{path, position, skipped: [{provider, model, engine, reason}], applied: []}`, `applied` naming what the roster entry supplied (`engine`, `model`, `codex_config`) |
-| `panel` | `null` outside a panel; else `{id, position, of, members: [{provider, model, state: "run"\|"skipped", reason}], concurrency, limits}` - `concurrency` (0.4.x wave 21) the most members the panel's plan let run at once, `limits` `{"<provider label>": n}` the members of that label's endpoint at a time (see "The panel") |
+| `panel` | `null` outside a panel; else `{id, position, of, members: [{provider, model, state: "run"\|"skipped"\|"not-picked", reason}], concurrency, limits, asked, started, usable, routing}` - `concurrency` (0.4.x wave 21) the most members the panel's plan let run at once, `limits` `{"<provider label>": n}` the members of that label's endpoint at a time (see "The panel"); (wave 26) `asked` the seats (= `of`), `started` and `usable` how many members were started and gave a usable reply - written into every member's entry when the panel ends (`null` until then, and when the panel run died first); `routing` `{mode, order, fallback, seed, nonce, nonce_source, size, size_source, eligible: [{position, lineage, lab, lab_source, score, basis, ratings, required}], picked: [{slot, position, lineage, lab, rule}], explored: [lineage], required: [lineage]}` ("Companions") |
 | `parent_thread` / `thread` | the thread forked or resumed (`""` for `new`); the resulting thread (`""` when not verified) |
 | `thread_source` | `events`, `rollout (verified by consultation id)` or `unknown` |
 | `thread_candidate` | an unverified rollout uuid (agy: a conversation id the run could not verify - a failed resume's new conversation, the init id of a run without a result) kept for diagnosis only; never a parent |
@@ -744,7 +764,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `artifacts` / `artifacts_changed_during_review` | `[{path, sha256, sha256_after}]` per `-Artifact`; whether any changed during the run |
 | `bridge_outcome` | `usable reply`, (0.5.0) `usable reply (after a timeout continuation)` or `failed: <why>`: only whether the bridge worked |
 | `provider_failure` | `null` on success, else `{class, kind, code, message, when, retry_after, hint}` (see "Preflight and endpoint health"): (wave 24c) `kind` `burst` - a 429 that names no usage window or quota, out for 10 minutes - or `""`; `hint` the operator's next step, decided when the failure is classified (`""`, or `context too long for this plan/model - ...`) |
-| `warnings` | (0.4.0) notices of the run - a `-Provider` label that names several roster entries (any engine), agy's denial notice and its `warning:` stderr lines that came with a usable reply; `[]` when none |
+| `warnings` | (0.4.0) notices of the run - a `-Provider` label that names several roster entries (any engine), agy's denial notice and its `warning:` stderr lines that came with a usable reply; (wave 26) a panel's floor warning and a routed panel's `routing: no lab known for ...`; `[]` when none |
 | `verdict` / `verdict_reason` | `ACCEPT`, `HOLD`, `REJECT`, `ADVISE`, or `""` (unavailable or invalid); one sentence |
 | `findings` / `finding_ids` | severity counts of the new findings; their ids |
 | `prior_findings` | the reviewer's reports on earlier ids: `{id, status}` with `fixed`, `still-open`, `not-checked` or `unknown-id` |
@@ -925,10 +945,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.p
   predates 0.3.0, or has no ledger entry, counts as `unknown provenance`.
 - **`-Rate <n>`** records the judge's usefulness mark for consultation `n` (a ledger entry
   number, not a finding id) in the top-level `ratings` array of `findings.json`:
-  `{n, consult_id, lineage, provider, model, purpose, useful, note, when}`, copied from
-  that ledger entry so the row survives pruning; rating `n` again replaces it. Rate
+  `{n, consult_id, lineage, provider, model, engine, purpose, topics, consult_when, useful,
+  note, when}`, copied from that ledger entry so the row survives pruning. (0.5.0, wave 26) The
+  mark is keyed by the consultation's `consult_id` (`n` is only unique within a task - kept for
+  display): rating the same consultation again replaces its record, and everything a routed
+  panel needs is on the record itself - the reviewer, the purpose, the `topics` and the
+  consultation's own time `consult_when` (`when` is the time of the mark). A mark recorded
+  before wave 26 is completed from the ledger entry with its `consult_id`, never by `n`. Rate
   **every** consultation, plain-prose ones included, or the telemetry only counts
-  structured reviewers.
+  structured reviewers - and a routed panel only routes by what was rated.
 - **Locking:** a status change and `-Rate` take the task lock and are refused while a
   consultation of the task runs, and - both judging every recovery record of the task - while
   an interrupted one's bridge or codex process may still run (a panel member whose panel run
@@ -1473,7 +1498,12 @@ a fabricated one is `examples/codex-consult-roster.json`.
 | `reviewers[].auth` | optional `"none"`: the endpoint needs no credential, so a table with no `env_key` and no bearer token passes the check. No effect on a table that names an `env_key`, nor on `openai`/`requires_openai_auth` providers (always `codex login status`) |
 | `reviewers[].panel` | `"always"` (default) or `"weighty"`: joins a `-Panel` run only on `framing`, `decision`, `core-contract`, `acceptance` and `stuck`, or under `-PanelAll` |
 | `reviewers[].engine` | (0.4.0) `"codex"` (default), `"agy"` or (wave 23) `"muse"`: the CLI that carries it (see "Engines"). For `agy` and `muse`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster |
+| `reviewers[].lab` | (0.5.0, wave 26) optional: the lab behind the model (`"moonshot"`, `"deepseek"`, ...; canonical lowercase) for a panel's lab diversity. Omitted: the vendor of the model id's prefix (qwen alibaba, deepseek, kimi/k3 moonshot, glm zhipu, dola/seed bytedance, mimo xiaomi, gemini google, muse meta, gpt openai) - never the provider label - else a lab of its own (a routed panel warns) |
+| `reviewers[].roles` | (wave 26) optional array of role names the entry is willing to take under `-Roles` ("Companions") |
+| `reviewers[].ext` | (wave 26) optional object, reserved for other implementations that share the file: validated as an object, otherwise ignored by the bridge (never read, never written) |
 | `parallel` | (0.4.x wave 21) optional top-level object `{"<provider label>": <n>}`: a `-Panel` runs the members of one endpoint one after another; n >= 1 lets n members of that label run at once (see "The panel"). Every key must be a label the roster uses, every value an integer >= 1 |
+| `require` | (wave 26) optional top-level object `{"<purpose>": ["<reviewer>", ...]}`: the reviewers a `-Panel` of that purpose must include - a roster position `#5`, a provider label, or `<provider> :: <model>` with an optional ` [<engine>]`; every matcher must name an entry (else the roster is unusable). `-Require` replaces it for one run, `-Require none` drops it ("Companions") |
+| `ext` | (wave 26) optional top-level object, reserved for other implementations; validated as an object, ignored otherwise. `roster_version` stays `1` |
 
 An unusable roster (an unknown key, `roster_version` other than 1, an empty or non-array
 `reviewers`, the same `(provider, model)` twice, anything that does not parse) **refuses
@@ -1499,7 +1529,8 @@ every run, `-DryRun` included, naming the path**; an existing roster is never ig
 - The pick is printed and put in the handoff header, e.g. `Roster: <path> - position 2 of 3;
   skipped openai :: <model> (usage limit until <iso>)`; ledger `roster`.
 
-**The panel.** `-Panel` sends the same brief to every available roster entry, each as a
+**The panel.** `-Panel` sends the same brief to the roster entries it seats - (0.5.0, wave 26)
+as many as its purpose needs, chosen by their track record ("Companions" below) - each as a
 complete, independent consultation: its own preflight, recovery record, parent thread (the
 newest of its own lineage, or a new one; `-Mode new` starts fresh threads for all; an agy
 member starts a new conversation), consultation id, reply file
@@ -1529,8 +1560,9 @@ own, so a panel takes about as long as its slowest member instead of the sum of 
 - *The panel run owns the task.* It holds `.consult.lock` for the whole panel (its record
   names the panel), so a single run, another panel or `codex-findings.ps1 -Status`/`-Rate` on
   the task is refused until the panel ends. It judges every recovery record of the task
-  first, gives every member its consult number n and handoff number NN up front in roster
-  order - files and ledger entries keep the roster order whatever finishes first - and writes
+  first, gives every member its consult number n and handoff number NN up front in seat
+  order (wave 26: the order of `panel.routing.picked` - the roster order unless the panel is
+  routed) - files and ledger entries keep that order whatever finishes first - and writes
   each member's recovery record `<task>/.consult.pending-<NN>.json` (`reserved`, naming the
   panel, n, NN and itself) before it starts any member.
 - *A member proves its parent.* It accepts its spec only when its record names the same
@@ -1582,10 +1614,13 @@ Panel 1a2b3c4d: 3 of 3 roster entries run, at once (roster <path>; panel id 1a2b
   #1 openai :: gpt-5.1 - member, n=8, handoff 12
   #2 ZAI :: glm-5.3 - member, n=9, handoff 13
   #3 mimo :: mimo-v2.6-pro - member, n=10, handoff 14
+Routing: roster order (fallback: no ratings - no eligible reviewer has 3 ratings in 90 days) - size 4 (the default of purpose acceptance)
+  eligible: #1 openai :: gpt-5.1 (lab openai by vendor; score 1.125 neutral), #2 ZAI :: glm-5.3 (lab zhipu by vendor; score 1.125 neutral), #3 mimo :: mimo-v2.6-pro (lab xiaomi by vendor; score 1.125 neutral)
+  picked  : 1. #1 openai :: gpt-5.1 (roster), 2. #2 ZAI :: glm-5.3 (roster), 3. #3 mimo :: mimo-v2.6-pro (roster)
 Concurrency: at once - endpoint groups: openai x1, ZAI x1, mimo x1; -PanelConcurrency 0 (no cap)
   panel member 3 of 3 finished: mimo :: mimo-v2.6-pro - usable reply (231.4 s)
   ...
-Panel 1a2b3c4d: 3 of 3 entries ran (wall clock 402.7 s; at once)
+Panel 1a2b3c4d: 3 of 3 entries ran (asked 3, started 3, usable 3; wall clock 402.7 s; at once)
   openai :: gpt-5.1      ACCEPT  0 blocker, 0 major, 2 minor  prior: 3 fixed  398.2 s  handoffs/12-codex-acceptance-openai.md
   ...
 ```
@@ -1593,6 +1628,90 @@ Panel 1a2b3c4d: 3 of 3 entries ran (wall clock 402.7 s; at once)
 Members run as child bridge processes through the internal `-PanelSpec` parameter; never
 pass it yourself. There is no tooling yet for linking corroborating or contradicting
 findings across members (ROADMAP R9): compare the replies yourself.
+
+### Companions (0.5.0, wave 26): panel size, routing, required reviewers, roles
+
+**Size by stakes.** A panel starts as many members as its purpose needs: `chore`, no purpose
+and `checkpoint` **1**, `diff-review` **2**, `framing` and `decision` **3**, `core-contract` and
+`acceptance` **4**, `stuck` **every eligible member**. `-PanelSize <n>` (n >= 1) overrides it;
+`-PanelAll` takes every eligible member, the `weighty` ones included (`-PanelSize` with
+`-PanelAll` is refused). *Eligible* = available by the roster walk's verdict, past the weighty
+gate, matching `-Engine`/`-Model` - one set for the size, the ranking, the draw and the
+exploration. The size bounds the members STARTED and is capped at the eligible count; there is
+**no backfill** - a member that fails (or hits its peak window at launch) is not replaced. An
+eligible entry without a seat is listed `not picked: panel size k` (ledger member state
+`not-picked`) and is never reported as a skip. The first line says `2 of 5 roster entries
+run`, the summary `Panel <id8>: 2 of 5 entries ran (asked 2, started 2, usable 1; wall clock
+...)` and one `not picked (panel size 2): ...` line; every member's ledger `panel` record gets
+`asked`, `started` and `usable` when the panel ends. A `framing` or `decision` panel of fewer
+than 2 members warns (`panel floor: ...`, console and ledger `warnings[]`) unless `-PanelSize`
+was given. *Diminishing returns:* past about five diverse members findings tend to repeat -
+an operational heuristic, not a rule; the scoreboard's `UNIQ` column (findings no other member
+of the panel raised at the same place) measures it.
+
+**Routing by the track record.** `-PanelOrder routed` (the default) draws the seats by the
+members' routing scores; `-PanelOrder roster` keeps the roster order (no draw, no exploration).
+The score (`Get-RoutingScore`, shared with `codex-scoreboard.ps1`) reads the judge's marks
+(`codex-findings.ps1 -Rate`) of **every task of the repository** from the last 90 days by the
+consultation's own time: `w = (yes + 0.5 partly + 1) / (n + 2)` - a rate with a prior that pulls
+few marks to 0.5 - scaled into `[0.25, 2]` (`0.25 + 1.75 w`; neutral `1.125`), for the
+reviewer's (purpose, topics) when the pooled topic credit reaches 3 marks (a mark credits each
+of its t topics `1/t`), else its purpose with >= 3 marks, else its all-purpose rate with >= 3,
+else neutral. **While no eligible member has 3 marks, the panel keeps the roster order**
+(`routing.fallback: "no ratings"`) - no shuffle without evidence.
+
+- *The draw* is exact and the same on Windows PowerShell 5.1 and PowerShell 7: seed =
+  SHA-256 of `<task>|<purpose>|<brief sha256>|<the eligible lineages sorted ordinally, joined
+  by ','>|<nonce>`; the nonce is `-PanelSeed <n>`, else `CODEX_CONSULT_TEST_PANEL_SEED`, else
+  today's UTC date - a dry run and the real run of the same day draw the same seats. Seat s:
+  SHA-256(seed || s as 4 bytes big-endian); its first 8 bytes (top 53 bits / 2^53) are a uniform
+  u, the next 8 decide exploration (below 0.2: the seat is a uniform pick `floor(u x pool)`);
+  otherwise the first entry, in roster order, whose running weight sum exceeds `u x` the pool's
+  weight sum wins and leaves the pool.
+- *Lab diversity* is a reserve, not a first pass: while fewer than `min(k, labs with an entry
+  scoring >= neutral)` labs are seated, a seat draws only from labs not yet seated whose
+  entries score >= neutral (an entry below neutral never earns a lab seat); the remaining seats
+  draw from every eligible entry left. The lab is the roster entry's `lab`, else the vendor of
+  the model id's prefix, else a lab of its own (`routing: no lab known for ...`, a warning).
+- *The record:* every member's ledger `panel.routing` (field table in "The ledger") and the
+  console print the same - the mode and the fallback, the seed and the nonce, every eligible
+  entry with its lab, score and basis, the seats in order with the rule that filled each
+  (`required`, `roster`, `lab-draw`, `lab-explore`, `rank-draw`, `rank-explore`):
+
+```
+Routing: routed by the ratings - size 3 (the default of purpose framing); seed 4be0c2a91f3e (nonce 2026-09-27 from date); exploration 0.2 per slot
+  eligible: #1 openai :: gpt-6-astra (lab openai by vendor; score 1.708 purpose of 4), #2 ZAI :: glm-5.3 (lab zhipu by vendor; score 1.125 neutral), ...
+  picked  : 1. #1 openai :: gpt-6-astra (lab-draw), 2. #4 byteplus :: deepseek-v4.1-flash (lab-draw), 3. #2 ZAI :: glm-5.3 (lab-explore)
+```
+
+**Topics.** `-Topic security,tests` names what a consultation is about (lowercase slugs; ledger
+`topics[]`, copied onto its mark); a routed panel with topics scores its members on those
+topics first. `codex-scoreboard.ps1 -By topic` shows the rows per topic.
+
+**Required reviewers.** `-Require <reviewer>[,<reviewer>...]` (`-Panel`, or a single run with
+`-Provider`) names who must take part: a roster position (`#5`), a provider label (every entry
+of it) or `<provider> :: <model>` with an optional ` [<engine>]` - compared on the roster's own
+provider, model and engine, never on a display string; a model-less entry is named by its
+position or its label; a matcher that names no entry is refused. A panel without `-Require`
+takes the roster's `"require": {"<purpose>": [...]}` for its purpose; `-Require none` drops it.
+A required reviewer is judged with the roster walk's verdict (stricter than a plain `-Provider`
+run: a usage limit without a reset time is out for its 60 minutes) - one that is out refuses the
+run **before anything starts, exit 5**, naming who, why and when it is back (`required reviewer
+not available (-Require): #1 openai :: gpt-6-astra (usage limit until ...; back Sun 20:35, in
+2d 10h); nothing was started - ...`); the dry run does the same. In a panel the required take
+their seats first (a `weighty` one on a light purpose included), and a required member that
+produces no usable reply stops the panel at the next member (no further member starts), exit 5;
+the ledger's `panel.routing.required` names them.
+
+**Roles.** `-Role <name>` gives a single run - or every member of a panel - a narrow role;
+`-Roles a,b` (a panel only, not with `-Role`) gives one role per member, by SCORE RANK among the
+seated members (highest first), each to the best-ranked member left that is willing to take it
+(its roster entry's `"roles": [...]`) when one is. The role's text - `<CollabDir>/roles/<name>.md`
+of the repository, else the plugin's `templates/role-<name>.md` (`edge-cases`, `security`,
+`tests`, `docs` ship) - goes into the prompt after the ask and before the brief (never inside
+the output contract); the reply format, the verdict rules and the read-only rules do not change.
+Names are slugs checked before any path is built; an unknown role and more roles than members are
+refused, nothing started. Ledger `role`.
 
 **Council rules** (the `consult-codex` skill has the full list): the coordinator is an
 equal participant and the judge by default; a hard question can hand the judge role to
@@ -1898,15 +2017,17 @@ scoreboards and the panel summary show `meta :: muse-spark-1.3 [muse]`.
 ## Usefulness telemetry: codex-scoreboard.ps1
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-scoreboard.ps1" [-Task <task>] [-Json] [-CollabDir <path>]
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-scoreboard.ps1" [-Task <task>] [-Json] [-By purpose|topic] [-CollabDir <path>]
 ```
 
 Answers "which reviewer has been useful on which kind of question" across every task of
 the repository (or one task with `-Task`), from each `sessions.json` and `findings.json`
 (including the `-Rate` marks). It writes nothing, takes no lock, makes no network call and
 exits `0`; a store it cannot read is reported and left out. One row per
-`(reviewer lineage, purpose)`, a `(total)` row per lineage and a grand `(all) (total)` row;
-`unknown provenance` (pre-0.3.0 entries, findings without a ledger entry) sorts last.
+`(reviewer lineage, purpose)` - (0.5.0, wave 26) or per `(reviewer lineage, topic)` with `-By
+topic` (a consultation with two topics is on both rows, once on its lineage's total) -, a
+`(total)` row per lineage and a grand `(all) (total)` row; `unknown provenance` (pre-0.3.0
+entries, findings without a ledger entry) sorts last.
 
 | Column | Meaning |
 |---|---|
@@ -1917,13 +2038,16 @@ exits `0`; a store it cannot read is reported and left out. One row per
 | `VERIFIED` / `REJECTED` / `WONTFIX` / `SUPERSEDED` / `OPEN` | current status of those findings; `OPEN` = `proposed` + `implemented` |
 | `HIT%` | `verified / (verified + rejected)`, rounded; `-` when both are 0 |
 | `A/H/R/D` | verdicts ACCEPT / HOLD / REJECT / ADVISE |
-| `Y/P/N` | the `-Rate` marks yes / partly / no |
+| `Y/P/N` | the `-Rate` marks yes / partly / no (wave 26: a mark belongs to the consultation whose `consult_id` it carries; one recorded without, to its `n` in the task) |
+| `SCORE` | (wave 26) the routing score a routed `-Panel` gives this reviewer for this purpose - the bridge's own `Get-RoutingScore` over the marks of EVERY task (last 90 days): `1.125` (neutral) below 3 marks; a lineage's total row: its all-purpose score; `-` on a `-By topic` row ("Companions") |
+| `UNIQ` | (wave 26) `unique/panel-raised`: findings this reviewer raised as a panel member that no other member of the same panel raised at the same location (path and line; a finding without a location counts as unique), of all it raised in panels - the measure behind the "about five members" heuristic |
 | `MEDIAN_S` | median `wall_seconds`; `-` when none |
 | `TOKENS` | uncached input tokens / output tokens |
 
-`-Json` returns the same rows with numeric fields (`hit_rate` and `median_wall_seconds` a
-number or `null`) plus `kind`: `purpose`, `lineage` or `total`. Run it before choosing a
-panel or a judge for a hard question.
+`-Json` returns the same rows with numeric fields (`hit_rate`, `score` and
+`median_wall_seconds` a number or `null`; `unique` and `panel_raised`) plus `kind`: `purpose`
+(`topic` with `-By topic`), `lineage` or `total`. Run it before choosing a panel or a judge for
+a hard question - a routed panel already uses the same scores.
 
 ---
 
@@ -1969,8 +2093,15 @@ nor writes it.
 | `-CodexConfig key=value[,…]` | — (roster `codex_config` when empty) | one comma-separated string; refused keys: "Per-run Codex overrides (-CodexConfig)" |
 | `-OffPeakOnly` | off | refuses at peak and when no schedule is set |
 | `-SkipPreflight` | off | bypasses every preflight refusal; ledger `preflight: "skipped"` |
-| `-Panel` / `-PanelAll` | off | every available roster entry, in parallel across endpoints (one after another within one); needs a roster; not with `-Provider`/`-Thread`/`-Mode resume` |
+| `-Panel` / `-PanelAll` | off | a review panel of the roster, in parallel across endpoints (one after another within one): (wave 26) as many members as the purpose needs, seated by their track record; `-PanelAll`: every eligible entry, `weighty` ones included; needs a roster; not with `-Provider`/`-Thread`/`-Mode resume` ("Companions") |
 | `-PanelConcurrency <n>` | `0` | `-Panel` only: at most n members at a time on top of the per-endpoint plan; `0` no cap, `1` strictly one after another |
+| `-PanelSize <n>` | the purpose's size (1-4, `stuck`: all) | (wave 26) `-Panel` only: the members started; not with `-PanelAll`; silences the framing/decision floor warning |
+| `-PanelOrder routed\|roster` | `routed` | (wave 26) `-Panel` only: draw the seats by the ratings (roster order while no eligible reviewer has 3 marks), or keep the roster order |
+| `-PanelSeed <n>` | `CODEX_CONSULT_TEST_PANEL_SEED`, else today's UTC date | (wave 26) `-Panel` only: the nonce of the routing seed (a number or token) |
+| `-Topic <a>[,<b>…]` | — | (wave 26) the consultation's topics (slugs): ledger `topics[]`, copied onto its mark; a routed panel scores on them |
+| `-Require <reviewer>[,…]` | the roster's `require` for the purpose (a panel) | (wave 26) `-Panel`, or a single run with `-Provider`: `#<position>`, a label or `<provider> :: <model>` [` [<engine>]`]; out = exit `5` before anything starts; `none` drops the roster's |
+| `-Role <name>` | — | (wave 26) a role block after the ask (`<CollabDir>/roles/<name>.md`, else `templates/role-<name>.md`); a panel: every member; not with `-Roles`; ledger `role` |
+| `-Roles <a>[,<b>…]` | — | (wave 26) `-Panel` only: one role per member by score rank (a roster entry's `roles` = willing); at most one per member |
 | `-CollabDir <path>` | `.collab` | relative to the git repo root |
 | `-CodexExe <path>` | the launcher on PATH | env override `CODEX_CONSULT_EXE` |
 | `-Engine codex\|agy\|muse` | the roster entry's engine (the thread's with `-Thread`), else `codex` | "Engines"; with a roster and no `-Provider`/`-Thread` it restricts the walk (and `-Panel`) to that engine |
@@ -1982,6 +2113,16 @@ nor writes it.
 | `-Status [-Id <id>] [-Prune]` | — | (0.5.0) the detached runs of the task: state, members, the summary block once done; exit `0` / `1` / `2` / `4`; reads status files only - `-Prune` deletes those of runs done or died more than 7 days ago; takes only `-Task`, `-CollabDir`, `-Id`, `-Prune` |
 | `-Wait [-Id <id>] [-WaitTimeoutSec <s>]` | the run's `budget_sec` | (0.5.0) waits (every 2 s) until the run(s) are done or their background is gone, then prints as `-Status`; exit `3` when still running after the limit |
 | `-Id <id>` | every detached run of the task | (0.5.0) with `-Status` / `-Wait`: one run, by its detach id or a prefix of it (the 8 hex digits `-Detach` prints); a prefix of several runs is refused (exit `4`) |
+
+Exit codes of `codex-consult.ps1` (a run; `-Status`/`-Wait` have their own table in
+"Non-blocking consultation"):
+
+| Exit | Meaning |
+|---|---|
+| `0` | a usable reply (a panel: every member's); `-DryRun`: the plan could be made |
+| `1` | a refusal before anything started (the message says why), or a run or a panel member without a usable reply |
+| `5` | (0.5.0, wave 26) a REQUIRED reviewer (`-Require`, the roster's `require`) is not available - refused before anything started, the dry run too - or, in a panel, produced no usable reply (no further member was started) |
+| `6` | (0.5.0, wave 26) a detached run's background could not make its status file final (3 attempts); the run's result exists only in its log |
 
 Environment variables:
 
@@ -1997,7 +2138,7 @@ Environment variables:
 | `CODEX_CONSULT_MUSE_EXE` | user | muse launcher path (the `muse` engine) |
 | `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the bridge can read; required (wave 23b: without a readable oauth sign-in no muse run is launched, `-SkipPreflight` included); passed to muse unchanged |
 | `META_API_KEY`, `MODEL_API_KEY` | nobody, for the bridge | must NOT be set: a muse run is refused while either is (it would bill per token instead of the subscription) |
-| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS` | tests only | test hooks; never set them in normal use |
+| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED` | tests only | test hooks; never set them in normal use (the last: the routing seed's nonce when `-PanelSeed` is not given) |
 | `CODEX_CONSULT_SCRIPTS_DIR` | tests only | (0.5.0, T4) the scripts directory `tests/run-all.ps1` and every harness test when `-ScriptsDir` is not given (e.g. an installed copy of the plugin); unset: the checkout's `plugins/codex-consult/scripts` |
 
 ---
@@ -2120,7 +2261,7 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 
 ## Tests
 
-`tests/run-all.ps1` runs the twelve harnesses one at a time against a FAKE `codex` shim (and
+`tests/run-all.ps1` runs the thirteen harnesses one at a time against a FAKE `codex` shim (and
 a FAKE `agy` for `harness-engines` and `harness-panel`, a FAKE `muse` for `harness-muse`): no
 real `codex`, `agy` or `muse`, no quota spent, no real credential read (`harness-muse` gives
 every child a scratch home with a fake `auth.json`, a scratch `LOCALAPPDATA` and a PATH
@@ -2139,18 +2280,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1 -ScriptsDi
 (0.5.0, T4) `-ScriptsDir <dir>` - else the environment variable `CODEX_CONSULT_SCRIPTS_DIR`, else
 the checkout's `plugins/codex-consult/scripts` - names the scripts under test; `run-all.ps1`
 passes it to every harness (each takes it too) and names it in its summary line
-(`run-all: 12 harness(es), 0 failed; scripts: <dir>`).
+(`run-all: 13 harness(es), 0 failed; scripts: <dir>`).
 
-Assertions per harness (Windows PowerShell 5.1, 2026-09-27, 0.5.0 wave 25): `harness-0.3` 229,
-`harness-roster` 118, `harness-format` 37, `harness-engines` 97, `harness-muse` 72,
-`harness-panel` 53 (0.4.x wave 21, the parallel panel), `harness-pending` 26, `harness-fixes`
-45, `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121 (wave 24: the timeouts, the
-continuation, the salvage, `-Range`, the one availability verdict; wave 24b/24c: the
-continuation's gates, the main turn's guarded start, the complete resume command, the tree check
-by content, the burst 429), `harness-detach` 46 (wave 25: `-Detach`, `-Status`, `-Wait`, the
-status file, the log, the budget, a died background, T4). `harness-0.3`, `harness-roster`,
-`harness-format`, `harness-engines`, `harness-muse`, `harness-panel`, `harness-visibility` and
-`harness-detach` also run under pwsh. A full run takes about fifty minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
+Assertions per harness (Windows PowerShell 5.1, 2026-09-27, 0.5.0 wave 26): `harness-0.3` 229,
+`harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 72,
+`harness-panel` 54 (0.4.x wave 21, the parallel panel; wave 26: the seat order), `harness-pending`
+26, `harness-fixes` 45, `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121 (wave 24:
+the timeouts, the continuation, the salvage, `-Range`, the one availability verdict; wave 24b/24c:
+the continuation's gates, the main turn's guarded start, the complete resume command, the tree
+check by content, the burst 429), `harness-detach` 51 (wave 25: `-Detach`, `-Status`, `-Wait`, the
+status file, the log, the budget, a died background, T4; wave 26: the carry-overs),
+`harness-companions` 42 (wave 26: size, routing, `-Require`, roles, the scoreboard). `harness-0.3`,
+`harness-roster`, `harness-format`, `harness-engines`, `harness-muse`, `harness-panel`,
+`harness-visibility`, `harness-detach` and `harness-companions` also run under pwsh. Many cases wait
+on real timeouts and time a fake reviewer: on a loaded machine (another heavy application, a disk
+that runs full) the timing cases of `harness-panel` (GUARD), `harness-detach` (SINGLE, PANEL) and
+`harness-visibility` (CONT) can fail spuriously - re-run that section alone. A full run takes about fifty minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
 prints one summary line per harness, exits `1` when anything failed, and keeps full logs
 in `$env:TEMP\codex-consult-tests\run-all-<timestamp>\`. `tests/` is not part of the
 installed plugin; `tests/README.md` lists what each harness covers.

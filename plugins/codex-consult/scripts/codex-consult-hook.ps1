@@ -85,9 +85,10 @@ try {
     $line = "codex-consult: reviewer check failed - $msg"
 }
 # (wave 25, R12) the detached consultations of this repository: one phrase, status files only;
-# a failure here never changes the line
+# a failure here never changes the line. (wave 26, F07-3) Only the small readers' file is
+# dot-sourced here - never the whole common script.
 try {
-    . (Join-Path $PSScriptRoot 'codex-consult-common.ps1')
+    . (Join-Path $PSScriptRoot 'codex-consult-detached.ps1')
     $detachedPhrase = Get-DetachedPhrase -CollabRoot (Resolve-CollabRoot -RepoRoot (Resolve-RepoRoot -Cwd (Get-Location).Path) -CollabDir $CollabDir)
     if ($detachedPhrase) { $line += $detachedPhrase }
 } catch { }
