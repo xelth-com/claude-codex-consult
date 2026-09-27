@@ -3,7 +3,7 @@
     "findings":  [
                      {
                          "id":  "F02-1",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -53,15 +53,55 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:08+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed: .gitignore:26 now carries .consult.detached-*; snapshot ignore confirmed at codex-consult-common.ps1:780.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  ".gitignore now includes .consult.detached-*",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  ".gitignore:26 `.consult.detached-*`; verified by running git check-ignore on both names (ignored) and on sessions.json (not).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "`.gitignore:26` ignores `.consult.detached-*`.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-2",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -129,15 +169,55 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:10+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed per D2: foreground enforces launcher checks, active recovery record, preflight, roster and .cmd % hazard (ps1:1926,1941,1975,2022,2555,2675,2678,2775,3044). Residual lock race is declared (exit 0 = started, not usable).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Foreground runs all pre-lock checks not just dry run",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "$detachForeground makes launchers (1926, 1941, 2675-2678), preflight (2555), the active record (1975, 2775) and the % hazard (3044) refuse in the foreground; lock and time-dependent selection are the documented benign window.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Launchers, preflight and active recovery records are enforced in the foreground; the lock race remains the accepted D2 limitation.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-3",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -200,15 +280,55 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:11+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed per D3: background try/finally Complete-DetachedRun (ps1:963-979), StopWithErrorHook writes terminal status (ps1:986-992); pre-report bootstrap failures correctly fall into never-started.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Top-level try/finally ensures final status is always written",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Outer try/finally 966-979, StopWithErrorHook 986-992 + common 261-263, idempotent Complete-DetachedRecord 7262-7282; OUTER/REFUSEDBG tests.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Stop-WithError plus the background finally write terminal state.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-4",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -267,15 +387,55 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:13+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed per D4: Get-DetachedBudget per endpoint group with -PanelConcurrency cap + 120 s slack; -Wait defaults to max budget (common.ps1:7184-7203; ps1:889-893).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-DetachedBudget calculates full panel budget for -Wait default",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "budget_sec at detach (2023-2025, 3045-3046) via Get-DetachedBudget (7184-7203), -Wait default 889-894; the bound is mathematically sound.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Panel serialization and concurrency are included in budget_sec.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-5",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -325,15 +485,55 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:14+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed per D5: foreground writes starting once before launch (ps1:744-752), background self-reports running first (ps1:948-958), starting older than 60 s judges never-started (common.ps1:7161-7166).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "No race between foreground and background status writes",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "starting once before launch (744-752), background self-report first (948-958), 60 s grace then never-started (7161-7166).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Foreground writes once before launch; background self-reports atomically; no-pid startup expires after 60 seconds.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-6",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -392,15 +592,55 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:15+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed per D6: -List line and hook phrase both go through Get-DetachedJudgement; -Prune removes died/never-started (common.ps1:7208-7213,7219-7255; ps1:866-881).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-List and hook perform full liveness checks",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "-List (7208-7213) and the hook (7219-7254) judge liveness via Test-PidAlive; -Prune removes died (872); KILL asserts all three surfaces.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "List and hook use the same pid/start-time liveness judgement as Status.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-7",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -441,15 +681,55 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:17+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed as D9: per-task prefixed files kept; Get-CollabSnapshot skips .consult.-prefixed names (common.ps1:780).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  ".consult. prefix ignored by Get-CollabSnapshot",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Per-task prefixed files kept (D9); snapshot prefix rule confirmed in code (common 649-651) and by the AGY harness case.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The unsafe alternative was rejected; per-task prefixed runtime files remain.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-8",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -499,15 +779,55 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:18+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed per D10: background sets Console/OutputEncoding to UTF-8 before its first output line (ps1:959-962).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Background sets UTF-8 encoding for redirected output",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "UTF-8 console and output encoding before first output (960-961); ENC case under PS 5.1 and pwsh.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Background output encoding is UTF-8 before the first line.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-9",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -557,15 +877,55 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:20+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed per D11: member states include killed/blocked/commit_blocked/orphan plus outcome text; record carries host; other-host runs judge elsewhere, never dead (common.ps1:6989-6991,7057,7168-7171).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Full panel member states supported in status schema",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Full member enum + outcome (common 6989, 1892-1909); host on the record (7057); elsewhere never judged (7168-7171).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Distinct panel outcomes and host liveness metadata are represented.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-10",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -611,15 +971,55 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:21+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed per D7: worst-state aggregate exit (ps1:919-925); ambiguous -Id refused with exit 4 naming matches (ps1:864); id picker skips taken id8 (ps1:719-725).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Id collisions are detected and refused",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Worst-state aggregate (919-925), ambiguous prefix exit 4 naming matches (864), free-id8 pick (719-726) + COLLIDE test.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Worst-state aggregation and ambiguous-prefix refusal are implemented.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F02-11",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -669,6 +1069,514 @@
                                              "evidence":  "",
                                              "base_commit":  "46440f3f849901f7a28d786a164185675b85bcdb",
                                              "tree_sha256":  "c60cfc8b484be90ddef6068fc4d38b4c8ccc17d13c491484ee4eb47f8fe04c19"
+                                         },
+                                         {
+                                             "when":  "2026-09-27T13:04:23+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "wave 25 (53de158): ruled fixed by glm-5.3, mimo-v2.6-pro, dola-seed-2.0-pro and muse in the detached acceptance panel 61db2121; harness-detach 46",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  8,
+                                                     "when":  "2026-09-27T12:38:42+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Fixed per D8: -Prune is the one writing Status form (ps1:830); -Detach refused with -PanelSpec/-DryRun/-Status/-Wait (ps1:827,998-999); brief/artifacts absolutized and background WorkingDirectory = caller cwd (ps1:706-708,759,766,2032-2034).",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-09-27T12:45:46+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "All paths resolved to absolute before serialization",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-09-27T12:46:32+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Option matrix (826-842, 927-929, 998-999), absolute Brief/Artifact/CollabDir and WorkingDirectory = callerCwd (706-708, 759/766), CWD test; -Task slug-validated (1509, 835) so the unquoted cmd-line -Task is safe.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-09-27T13:02:47+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Query writing rules, mutual exclusions, absolute paths and caller cwd are implemented.",
+                                                     "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                                     "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F07-1",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  872
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7230
+                                           }
+                                       ],
+                         "claim":  "An unreadable status file (present but empty, unparseable, no id, bad state) is never pruned - -Status -Prune skips the `unreadable` judgement - and the SessionStart hook counts it in the died phrase indefinitely, so one corrupted file permanently degrades -Status (exit 1), -List and the hook with no cleanup path.",
+                         "trigger":  "A .consult.detached-\u003cid8\u003e.status.json corrupted or truncated by an external writer, then more than 7 days later -Status -Prune.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:866-880",
+                                              "observation":  "The prune loop continues past every run whose judgement is not done/died/never-started; `unreadable` is not in the list, and its Record is null so no age is even computed."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:7228-7231",
+                                              "observation":  "Get-DetachedPhrase maps died, never-started AND unreadable into the permanent `died` category."
+                                          }
+                                      ],
+                         "verification":  "Fabricate an unparseable .consult.detached-deadbeef.status.json with an old file time, run -Status -Prune, and observe the file still present and still counted by the hook phrase.",
+                         "remedy":  "Treat `unreadable` as prunable after the same 7-day window (using the file\u0027s last-write time, as Read-DetachedRuns already records), or add -Prune -Force for unreadable files.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-wave25-accept-zai.md",
+                                        "thread":  "01a0e269-c793-7dc1-9470-d64c06ad11be",
+                                        "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                        "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T12:46:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F07-2",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7166
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6985
+                                           }
+                                       ],
+                         "claim":  "After the 60-second grace a `starting` record without a pid is reported as never started with the categorical wording `nothing was run`, but a slow background (cold start, antivirus, \u003e60 s host spin-up) may still self-report afterwards and turn the record into running - the transient judgement can state a falsehood and, in -Prune\u0027s view, mark the run prunable as never-started 7 days later even though it ran.",
+                         "trigger":  "A machine where spawning the hidden host plus parsing the 4,600-line script takes more than the fixed 60 s grace between the foreground\u0027s write and the background\u0027s self-report.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:7161-7166",
+                                              "observation":  "The grace is a fixed $script:DetachedStartGraceSec = 60; past it the text asserts nothing was run."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:948-962",
+                                              "observation":  "The self-report happens only after the host started, resolved the repo/collab roots and read the status file - measurable delay on a cold machine."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Windows process start under AV scan",
+                                              "observation":  "Spin-up beyond 60 s is plausible; not measured here."
+                                          }
+                                      ],
+                         "verification":  "Suspend the background process at start (or add a test hook delaying the self-report), run -Status after 61 s, then resume: observe never-started wording followed by a record that becomes running.",
+                         "remedy":  "Word the never-started text conditionally (`no background process reported within 60 s ... its log may say why` already helps; drop `nothing was run` or add `if it started at all`), and let -Prune also require the log to be absent or empty before treating never-started as never having run.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-wave25-accept-zai.md",
+                                        "thread":  "01a0e269-c793-7dc1-9470-d64c06ad11be",
+                                        "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                        "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T12:46:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F07-3",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-hook.ps1",
+                                               "line":  90
+                                           }
+                                       ],
+                         "claim":  "The SessionStart hook now dot-sources the entire codex-consult-common.ps1 (~7,100 lines) in its own process on every session start, in addition to spawning codex-providers.ps1 - a small but permanent latency addition to every session for one phrase.",
+                         "trigger":  "Every Claude Code session start in a repository with the plugin enabled.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-hook.ps1:89-93",
+                                              "observation":  "The new try block dot-sources common and calls Get-DetachedPhrase; before wave 25 the hook started no other PowerShell parsing beyond its child process."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "PowerShell script parse cost",
+                                              "observation":  "Parsing 7,100 lines typically costs a few hundred ms; not measured here."
+                                          }
+                                      ],
+                         "verification":  "Time the hook (`Measure-Command` around its invocation) at HEAD and at c4cb428 in the same repo; compare.",
+                         "remedy":  "Accept the cost, or split the detached-run readers (Read-DetachedRuns, Get-DetachedJudgement, Get-DetachedPhrase) into a small file the hook can dot-source alone.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-wave25-accept-zai.md",
+                                        "thread":  "01a0e269-c793-7dc1-9470-d64c06ad11be",
+                                        "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                        "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T12:46:32+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F08-1",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7141
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  872
+                                           }
+                                       ],
+                         "claim":  "Unreadable detached status files are reported as failures but are excluded from every pruneable state, so corrupt or truncated status and log files accumulate forever even though the declared deviation groups unreadable files under the died/never-started family.",
+                         "trigger":  "A detached status file becomes empty, truncated or invalid JSON, then ages past seven days and -Status -Prune runs.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:7141-7144",
+                                              "observation":  "Problems produce judgement state unreadable with exit 1."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:871-875",
+                                              "observation":  "Prune deletes only done, died and never-started; unreadable is skipped and cannot supply timestamps anyway."
+                                          }
+                                      ],
+                         "verification":  "Create a `.consult.detached-aaaaaaaa.status.json` containing invalid JSON, backdate both files by eight days, then run `-Status -Prune` and observe that neither file is removed.",
+                         "remedy":  "Let prune handle unreadable files by file timestamps after seven days, or add an explicit corrupt-state policy and document its retention rule.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/08-codex-wave25-accept-mimo.md",
+                                        "thread":  "01a0e269-c565-7253-aace-62a766d55fcc",
+                                        "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                        "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T13:02:47+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F08-2",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  621
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  664
+                                           }
+                                       ],
+                         "claim":  "Status persistence is deliberately best-effort and both intermediate and final write errors are swallowed, so a successful detached run can exit 0 while its status remains running or starting and later appears died.",
+                         "trigger":  "The status path becomes read-only, locked, full or otherwise unwritable after the background self-report but before a member or terminal update.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:618-623",
+                                              "observation":  "Save-DetachedRun catches every update failure and continues."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:658-666",
+                                              "observation":  "Complete-DetachedRun catches the terminal write failure and does not change the process exit code."
+                                          }
+                                      ],
+                         "verification":  "Run a faked detached consultation to completion while denying writes to its status file after self-report; compare the background exit 0 and complete log summary against a non-done status record.",
+                         "remedy":  "Retry terminal writes with bounded backoff and, if persistence still fails, return a distinct non-zero exit while printing that the completed result exists only in the log.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/08-codex-wave25-accept-mimo.md",
+                                        "thread":  "01a0e269-c565-7253-aace-62a766d55fcc",
+                                        "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                        "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T13:02:47+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F10-1",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+
+                                       ],
+                         "claim":  "Killing only the detached background panel parent process leaves its child member processes running, as documented.",
+                         "trigger":  "User kills the detached background process of a panel run.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                              "observation":  "Panel parent has no finally block that kills members; members are independent processes with their own recovery records."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/nonblocking-2026-09-26/handoffs/06-claude-wave25-acceptance.md",
+                                              "observation":  "Brief explicitly lists this as a known, accepted deviation."
+                                          }
+                                      ],
+                         "verification":  "Start a detached panel, kill the background pid, run -Status and observe it reports died while members still run.",
+                         "remedy":  "No fix required; this is an accepted tradeoff for the no-daemon design. Member recovery records will be handled correctly by the next run.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  7,
+                                        "reply":  "handoffs/10-codex-wave25-accept-byteplus.md",
+                                        "thread":  "01a0e269-cbc9-7ab2-a3bf-b51149974e9a",
+                                        "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                        "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T12:45:46+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F11-1",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7141
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  872
+                                           }
+                                       ],
+                         "claim":  "A status file that matches the detached glob but cannot be parsed (or names no id / bad state) is judged \u0027unreadable\u0027 (exit 1), poisons every aggregate -Status/-Wait of the task, and can never be removed by -Status -Prune: the prune loop only deletes done/died/never-started, so the only recourse is deleting the file by hand.",
+                         "trigger":  "Any file matching .consult.detached-*.status.json that is empty, truncated (crash mid-write is unlikely given atomic replace, but hand edits / disk-full partials happen), or hand-fabricated without an id; then -Task \u003ct\u003e -Status with no -Id.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:7139-7144",
+                                              "observation":  "Get-DetachedJudgement returns State \u0027unreadable\u0027, Exit 1 when $Problem is set (empty/unparseable/non-object/no-id/bad-state file)."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:866-881",
+                                              "observation":  "Prune loop continues unless judgement state is done/died/never-started, so unreadable files are always skipped; the worst-state exit loop then still counts their exit 1."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:7099-7111",
+                                              "observation":  "Read-DetachedRuns accepts any name matching .consult.detached-\u003calnum\u003e.status.json, so a stray non-hex file becomes an \u0027unreadable\u0027 run."
+                                          }
+                                      ],
+                         "verification":  "Write garbage into a .consult.detached-zz99.status.json, run -Status (expect exit 1) then -Status -Prune, re-run -Status and confirm the file is still there and exit is still 1.",
+                         "remedy":  "Let -Status -Prune delete unreadable files older than 7 days too (or refuse them explicitly with the manual-delete command), and cover it in harness-detach FABRIC/prune cases.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  8,
+                                        "reply":  "handoffs/11-muse-wave25-accept-meta.md",
+                                        "thread":  "01a0e26a-1976-7d72-9e3b-2872ed076102",
+                                        "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                        "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T12:38:42+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F11-2",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  748
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  950
+                                           }
+                                       ],
+                         "claim":  "The foreground\u0027s `starting` record embeds the background\u0027s full arguments (base64 CLIXML), including an inline -Prompt text, in a repo file; the background drops `args` at self-report, but if it never starts the arguments linger in the status file indefinitely (until manual deletion).",
+                         "trigger":  "-Detach with -Prompt \u0027\u003ctext\u003e\u0027 (rather than -Brief file) where the background never reports (bad host, deleted script).",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:744-752",
+                                              "observation":  "Starting record built with args = ConvertTo-DetachArgs(bgArgs) where bgArgs is every bound parameter incl. Prompt; written before launch."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:948-958",
+                                              "observation":  "Background clears args ($dRec.args = $null) only when it reaches self-report; a background that never starts leaves the foreground file untouched."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:6980-6981",
+                                              "observation":  "Record comment confirms args live only in the foreground\u0027s starting record."
+                                          }
+                                      ],
+                         "verification":  "Detach with inline -Prompt and a poisoned script path, then decode the .status.json args field and confirm the prompt text is recoverable.",
+                         "remedy":  "Accept as-is (files are gitignored) or drop inline -Prompt from stored args and re-resolve it from the log on demand; at minimum document that a never-started file contains the prompt.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  8,
+                                        "reply":  "handoffs/11-muse-wave25-accept-meta.md",
+                                        "thread":  "01a0e26a-1976-7d72-9e3b-2872ed076102",
+                                        "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                        "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-27T12:38:42+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "00aebadbf94d2d35388630cac50e1394ded8e287",
+                                             "tree_sha256":  "8eb895998aeb8209b9de6d91934910b5102c93589ca9fb57360f1cad94a63290"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -687,6 +1595,50 @@
                         "useful":  "yes",
                         "note":  "design review: 11 concrete defects with code locations (gitignore, foreground checks, terminal status, budget, first-write race, liveness, cwd, encoding); every decision traces to it",
                         "when":  "2026-09-26T10:40:07+02:00"
+                    },
+                    {
+                        "n":  4,
+                        "consult_id":  "760ca854-45fa-409c-b261-e4fa1e30719f",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "purpose":  "acceptance",
+                        "useful":  "yes",
+                        "note":  "acceptance of wave 25: ACCEPT, 11 priors ruled, F07-1..3 (unreadable status never pruned, never-started wording, hook cost)",
+                        "when":  "2026-09-27T13:04:24+02:00"
+                    },
+                    {
+                        "n":  5,
+                        "consult_id":  "07eb1b48-4e5b-43a6-8c26-20a63ee76bf4",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "purpose":  "acceptance",
+                        "useful":  "yes",
+                        "note":  "acceptance of wave 25: ACCEPT, F08-1..2 (unreadable prune, best-effort terminal writes); 33 min",
+                        "when":  "2026-09-27T13:04:25+02:00"
+                    },
+                    {
+                        "n":  7,
+                        "consult_id":  "9f9e224d-1d6a-4450-b8f4-c283de9f3834",
+                        "lineage":  "byteplus :: dola-seed-2.0-pro",
+                        "provider":  "byteplus",
+                        "model":  "dola-seed-2.0-pro",
+                        "purpose":  "acceptance",
+                        "useful":  "partly",
+                        "note":  "acceptance of wave 25: ACCEPT, ruled the priors, one note restating an accepted residual",
+                        "when":  "2026-09-27T13:04:26+02:00"
+                    },
+                    {
+                        "n":  8,
+                        "consult_id":  "a3152729-4761-4f1a-8381-cdbc09b2ae4d",
+                        "lineage":  "meta :: muse-spark-1.3-contributor [muse]",
+                        "provider":  "meta",
+                        "model":  "muse-spark-1.3-contributor",
+                        "purpose":  "acceptance",
+                        "useful":  "yes",
+                        "note":  "acceptance of wave 25 by muse: ACCEPT, F11-1..2 (unreadable prune, prompt lingering in a never-started record); 9 min",
+                        "when":  "2026-09-27T13:04:28+02:00"
                     }
                 ]
 }

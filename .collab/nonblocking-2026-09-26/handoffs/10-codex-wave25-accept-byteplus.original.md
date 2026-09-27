@@ -1,0 +1,58 @@
+Okay, I have completed the review. Here is the final JSON output:
+{
+  "schema_version": "1",
+  "verdict": "ACCEPT",
+  "verdict_reason": "All prior defects are fixed; wave 25 implements the full R12 non-blocking consultation specification correctly with no remaining blockers or major defects.",
+  "reply_markdown": "# Wave 25 Acceptance Review\n\n## Prior Findings Status\n\nAll F02-1 through F02-11 defects from the design review have been fixed in 53de158:\n\n1. **F02-1 (gitignore)**: Fixed - `.gitignore` now includes `.consult.detached-*`\n2. **F02-2 (foreground validation)**: Fixed - Foreground runs all pre-lock checks (launcher existence, active recovery records, preflight, roster) not just dry-run checks\n3. **F02-3 (final status on all paths)**: Fixed - Detached entry point has a top-level try/finally that always writes final status; Stop-WithError is hooked\n4. **F02-4 (wait timeout budget)**: Fixed - `Get-DetachedBudget` calculates full panel runtime considering serialization limits, used as -Wait default\n5. **F02-5 (race condition)**: Fixed - Foreground writes status once before launch; background immediately writes running status with pid/host/start_time\n6. **F02-6 (stale liveness)**: Fixed - `Read-DetachedRuns` and `Get-DetachedJudgement` perform full liveness checks (pid + start time + host) for -List and hook\n7. **F02-7 (collab snapshot)**: Fixed - Status/log files use `.consult.` prefix so `Get-CollabSnapshot` ignores them; per-task location avoids unprefixed directory issue\n8. **F02-8 (encoding)**: Fixed - Detached background explicitly sets `Console.OutputEncoding` and `$global:OutputEncoding` to UTF-8\n9. **F02-9 (member states)**: Fixed - Status schema supports full set of panel states: pending|running|usable|failed|skipped|killed|blocked|commit_blocked|orphan\n10. **F02-10 (id collisions)**: Fixed - `-Status -Id` detects ambiguous id8 prefixes and exits 4 requesting more of the guid\n11. **F02-11 (relative paths)**: Fixed - Foreground resolves Brief/Artifacts/CollabDir to absolute paths before serialization; background inherits foreground working directory\n\n## New Findings\n\nOne minor residual note:\n\n- Killing only the detached background panel parent process leaves its child member processes running; this is explicitly called out as an accepted deviation in the brief, and -Status correctly reports the run as died while the member records remain active for recovery by the next run.\n\n## Verification\n\nAll implementation details match the design decisions D1-D12. T4 `-ScriptsDir` / `CODEX_CONSULT_SCRIPTS_DIR` override is fully implemented across all harnesses and run-all.ps1.\n\n## First Run Checklist\n\n1. `codex-consult.ps1 -Task <t> -Detach` exits 0 immediately with detach id, status path and instructions\n2. Background status reaches `running` state within 2 seconds with valid pid, start_time and host\n3. `-Status <id8>` shows correct running state, member progress and liveness\n4. `-Wait <id8>` returns with exact same summary output as a blocking run, matching exit code\n5. `codex-findings.ps1 -Task <t> -List` shows detached run line with correct state\n6. SessionStart hook line includes detached run count and state\n7. `-Status -Prune` deletes both status and log files for runs older than 7 days\n8. Non-ASCII characters in summary are preserved correctly in both log and status file",
+  "findings": [
+    {
+      "severity": "note",
+      "locations": [],
+      "claim": "Killing only the detached background panel parent process leaves its child member processes running, as documented.",
+      "trigger": "User kills the detached background process of a panel run.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "observation": "Panel parent has no finally block that kills members; members are independent processes with their own recovery records."
+        },
+        {
+          "kind": "read-code",
+          "reference": ".collab/nonblocking-2026-09-26/handoffs/06-claude-wave25-acceptance.md",
+          "observation": "Brief explicitly lists this as a known, accepted deviation."
+        }
+      ],
+      "verification": "Start a detached panel, kill the background pid, run -Status and observe it reports died while members still run.",
+      "remedy": "No fix required; this is an accepted tradeoff for the no-daemon design. Member recovery records will be handled correctly by the next run.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    { "id": "F02-1", "status": "fixed", "note": ".gitignore now includes .consult.detached-*" },
+    { "id": "F02-2", "status": "fixed", "note": "Foreground runs all pre-lock checks not just dry run" },
+    { "id": "F02-3", "status": "fixed", "note": "Top-level try/finally ensures final status is always written" },
+    { "id": "F02-4", "status": "fixed", "note": "Get-DetachedBudget calculates full panel budget for -Wait default" },
+    { "id": "F02-5", "status": "fixed", "note": "No race between foreground and background status writes" },
+    { "id": "F02-6", "status": "fixed", "note": "-List and hook perform full liveness checks" },
+    { "id": "F02-7", "status": "fixed", "note": ".consult. prefix ignored by Get-CollabSnapshot" },
+    { "id": "F02-8", "status": "fixed", "note": "Background sets UTF-8 encoding for redirected output" },
+    { "id": "F02-9", "status": "fixed", "note": "Full panel member states supported in status schema" },
+    { "id": "F02-10", "status": "fixed", "note": "Id collisions are detected and refused" },
+    { "id": "F02-11", "status": "fixed", "note": "All paths resolved to absolute before serialization" }
+  ],
+  "unproven": [
+    "macOS / Linux background process launching via nohup",
+    "Long-running detached panels exceeding 24 hours with correct timeout handling",
+    "Concurrent detached runs on the same task"
+  ],
+  "first_run_checklist": [
+    "Foreground -Detach exits 0 immediately with valid detach id, status path and instructions",
+    "Status file reaches running state within 2 seconds with pid, start_time and host",
+    "-Status <id8> shows correct running state and member progress",
+    "-Wait <id8> returns identical summary output and exit code as a blocking run",
+    "codex-findings.ps1 -List shows detached run line with correct state",
+    "SessionStart hook line includes detached run count and state",
+    "-Status -Prune deletes both status and log files for old runs",
+    "Non-ASCII characters are preserved correctly in log and status file"
+  ]
+}
