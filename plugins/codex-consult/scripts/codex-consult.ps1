@@ -297,6 +297,37 @@
         range, and (wave 24b, F08-8) a single revision - only base..head or base...head: a
         single revision would measure the working tree - is refused before anything starts
 
+    Non-blocking consultation (0.5.0, wave 25 - ROADMAP R12): -Detach (a single run or -Panel;
+    not with -DryRun, -Status, -Wait or -PanelSpec) checks the consultation in the caller's
+    process like a real run - everything a dry run checks, plus what a real run refuses before
+    its lock: a missing launcher of an engine that will run, an active recovery record, the
+    preflight (a refusal: exit 1, nothing written) - then writes
+    <task>/.consult.detached-<id8>.status.json (state starting; <id8> = the first 8 hex digits
+    of the detach id), starts the consultation in a BACKGROUND process in the caller's working
+    directory with -Brief, -Artifact and -CollabDir made absolute (Windows: cmd.exe /c through
+    ShellExecute, hidden, the output redirected - it inherits none of the caller's handles;
+    elsewhere /bin/sh -c 'exec nohup ...') and exits 0 printing the detach id, the status file
+    and how to come back. The background is an ordinary run (lock, records, numbering, members,
+    kill guard, commit, summary) that also keeps the status file (atomic replace): `running`
+    {pid, start_time, host} first, the members as they start and finish (pending | running |
+    usable | failed | skipped | killed | blocked | commit_blocked | orphan, with the outcome),
+    `done` {exit, summary} on every exit path - a refusal after the start included; its console
+    output (UTF-8) goes to <task>/.consult.detached-<id8>.log. Not checked in the foreground: the
+    task lock and the time-dependent health/peak selection (a benign window: the background is
+    refused, its status says so). -Status [-Id <id>] prints the detached runs of the task,
+    newest first: the state, one line per member and, once done, the summary block the run
+    printed; exit 0 all done and usable, 1 a failure (a run whose background died too), 2 one
+    still running, 4 the query is refused (an -Id that matches no run or several, other
+    options). -Wait [-Id <id>] [-WaitTimeoutSec <s>] checks every 2 s until the run(s) are done
+    or their background is gone, then prints as -Status; its default timeout is the run's budget
+    (budget_sec: per endpoint group ceil(members / limit) x the member guard, the largest group;
+    with -PanelConcurrency also ceil(N / cap) x the guard; + 120 s); still running after it: exit
+    3, the run untouched. -Status -Prune (the one writing form) deletes the files of runs that are
+    done or died and were last written more than 7 days ago. A background on another host is
+    never judged. codex-findings.ps1 -List prints one line per detached run that is not done, the
+    SessionStart hook one phrase for the repository. TEST HOOK: CODEX_CONSULT_TEST_DETACH_GUIDS=
+    <guid>[,<guid>] - the detach ids tried first.
+
     Invariants:
       * read-only sandbox by default; danger-full-access is refused outright
       * every exec-level option must precede the fork|resume subcommand
@@ -335,6 +366,14 @@
     powershell -NoProfile -ExecutionPolicy Bypass -File codex-consult.ps1 `
         -Task cache-rewrite -Panel -Purpose acceptance -ReplyName acceptance `
         -Brief .collab/cache-rewrite/handoffs/07-claude-acceptance.md
+
+.EXAMPLE
+    powershell -NoProfile -ExecutionPolicy Bypass -File codex-consult.ps1 `
+        -Task cache-rewrite -Panel -Purpose acceptance -ReplyName acceptance -Detach `
+        -Brief .collab/cache-rewrite/handoffs/07-claude-acceptance.md
+    # later - 3f2a9c1b is the id -Detach printed:
+    powershell -NoProfile -ExecutionPolicy Bypass -File codex-consult.ps1 -Task cache-rewrite -Status -Id 3f2a9c1b
+    powershell -NoProfile -ExecutionPolicy Bypass -File codex-consult.ps1 -Task cache-rewrite -Wait -Id 3f2a9c1b
 #>
 [CmdletBinding()]
 param(
@@ -498,12 +537,471 @@ param(
 
     # Print the plan (argv, prompt, paths, ledger entry) without calling codex and
     # without writing anything.
-    [switch]$DryRun
+    [switch]$DryRun,
+
+    # (wave 25, R12) Non-blocking: check the consultation here like a real run (the dry run's
+    # checks plus a real run's refusals before its lock), then run it in a BACKGROUND process and
+    # return at once, printing the detach id, the status file
+    # (<task>/.consult.detached-<id8>.status.json) and how to come back (-Status / -Wait). A single
+    # run or -Panel; not with -DryRun, -Status, -Wait.
+    [switch]$Detach,
+
+    # (wave 25) Print the detached runs of the task (newest first; -Id: one): the state, one line
+    # per member and, once done, the summary block the run printed. Exit 0 all done and usable, 1 a
+    # failure (a died run too), 2 still running, 4 the query is refused. Takes only -Task,
+    # -CollabDir, -Id, -Prune. Reads status files only.
+    [switch]$Status,
+
+    # (wave 25) With -Status or -Wait: one detached run - its detach id or the beginning of it (the
+    # 8 hex digits -Detach prints). Empty (the default): every detached run of the task.
+    [string]$Id = '',
+
+    # (wave 25) Wait until the detached run(s) are done (or their background is gone), checking
+    # every 2 s, then print as -Status. Exit 3 when still running after -WaitTimeoutSec.
+    [switch]$Wait,
+
+    # (wave 25) -Wait's limit in seconds. 0 (the default) = the run's own budget (budget_sec of its
+    # status file; several runs: the largest).
+    [int]$WaitTimeoutSec = 0,
+
+    # (wave 25) With -Status: delete the status file and the log of every detached run that is
+    # done or died and was last written more than 7 days ago (the one writing form of -Status).
+    [switch]$Prune,
+
+    # INTERNAL (wave 25): set by -Detach for its background process. Never pass it yourself.
+    [string]$DetachId = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'codex-consult-common.ps1')
+
+# ----------------------------------------------------------------------------- non-blocking consultation (wave 25, R12)
+#
+# -Detach (ROADMAP R12; decisions D1-D12 of its design round): the FOREGROUND - this process, as
+# the coordinator started it - makes every check a real run makes before it takes the task lock
+# (the dry run's checks, and the refusals a dry run only reports: the launcher of every engine
+# that will run, an active recovery record, the preflight - D2), writes the status file once,
+# state `starting` (Start-DetachedRun), starts the BACKGROUND and exits 0. Not checked in the
+# foreground: the task lock and the time-dependent health/peak selection - a benign window: the
+# background is refused then, and its status says so (D3).
+# The BACKGROUND is `<this host> -File codex-consult.ps1 -Task <t> -CollabDir <absolute> -DetachId
+# <guid>` in the caller's working directory (D8), its stdout and stderr in the log, started so
+# that it holds none of the caller's handles: Windows - cmd.exe /c with the redirection, through
+# ShellExecute, hidden; elsewhere - /bin/sh -c 'exec nohup ...'. Its first action is the self-
+# report `running` {pid, start_time, host} (D5), then UTF-8 console output (D10), then the
+# consultation itself IN THIS PROCESS with the foreground's arguments (the `starting` record's
+# `args`), inside a try/finally that writes the final status {done, exit, summary} whatever the
+# run did (D3). The run keeps its members' states in the file as they start and finish (D11), and
+# Stop-WithError records a refusal before it exits ($script:StopWithErrorHook).
+# -Status / -Wait read status files only (-Prune, the one writing form, deletes old ones): no
+# lock, no roster, no launcher (D6, D7).
+
+# This script's path (a function of the dot-sourced common file sees THAT file in $PSCommandPath).
+$script:SelfPath = $PSCommandPath
+# The parameters of this call (inside a function $PSBoundParameters is the function's own).
+$script:ScriptBound = @{}
+foreach ($bk in $PSBoundParameters.Keys) { $script:ScriptBound[$bk] = $PSBoundParameters[$bk] }
+$script:CommonParameterNames = @([System.Management.Automation.Cmdlet]::CommonParameters) + @([System.Management.Automation.Cmdlet]::OptionalCommonParameters)
+# The detached run this process is ({ Path; Record }) - set below when -DetachId names it.
+$script:DetachRun = $null
+# The summary block a run prints (Write-Summary); a detached run's status file keeps it (D3).
+$script:SummaryLines = New-Object System.Collections.Generic.List[string]
+
+# One line of the run's summary block: printed, and kept for a detached run's status file.
+function Write-Summary {
+    param([string]$Text = '', [string]$Color = '')
+    if ($Color) { Write-Host $Text -ForegroundColor $Color } else { Write-Host $Text }
+    $script:SummaryLines.Add($Text)
+}
+
+# Writes this detached run's status file. Best effort: a status write never stops the run.
+function Save-DetachedRun {
+    if (-not $script:DetachRun) { return }
+    try { Write-DetachedStatus -Path $script:DetachRun.Path -Record $script:DetachRun.Record } catch {
+        Write-Host "codex-consult: could not update the status file $($script:DetachRun.Path) ($(ConvertTo-OneLine $_.Exception.Message))" -ForegroundColor Yellow
+    }
+}
+
+# The members of this detached run - all of them (a panel once its numbers are assigned, a single
+# run once its reviewer and numbers are known), saved.
+function Set-DetachedMembers {
+    param([object[]]$Members)
+    if (-not $script:DetachRun) { return }
+    $script:DetachRun.Record.members = [object[]]@($Members | Where-Object { $_ })
+    Save-DetachedRun
+}
+
+# Fields of one member of this detached run (by roster position), saved unless -NoSave.
+function Set-DetachedMember {
+    param([int]$Position, [hashtable]$Values, [switch]$NoSave)
+    if (-not $script:DetachRun) { return }
+    $m = @($script:DetachRun.Record.members | Where-Object { $_ -and [int]$_.position -eq $Position }) | Select-Object -First 1
+    if (-not $m) { return }
+    foreach ($k in $Values.Keys) { $m.$k = $Values[$k] }
+    if (-not $NoSave) { Save-DetachedRun }
+}
+
+# The run's own final status (D3), right before it exits: done, the exit code, the summary block
+# it printed (Write-Summary) - else $Line. The background confirms it after the run returned.
+function Set-DetachedFinal {
+    param([int]$Exit, [string]$Line = '')
+    if (-not $script:DetachRun) { return }
+    $summary = $Line
+    if ($script:SummaryLines.Count -gt 0) { $summary = $script:SummaryLines.ToArray() -join "`n" }
+    Complete-DetachedRecord -Record $script:DetachRun.Record -Exit $Exit -Summary $summary
+    Save-DetachedRun
+}
+
+# The background's final write (D3), after the run returned or threw: the status file as the run
+# left it (else $Fallback, the self-report), made final with the run's real exit code.
+function Complete-DetachedRun {
+    param([string]$Path, $Fallback, [int]$Exit, [string]$Line = '')
+    $rec = $Fallback
+    $rd = Read-DetachedStatus -Path $Path
+    if ($rd.Record -and [string]$rd.Record.id -eq [string]$Fallback.id) { $rec = $rd.Record }
+    Complete-DetachedRecord -Record $rec -Exit $Exit -Line $Line
+    try { Write-DetachedStatus -Path $Path -Record $rec } catch {
+        Write-Host "codex-consult: could not write the final status to $Path ($(ConvertTo-OneLine $_.Exception.Message))" -ForegroundColor Red
+    }
+}
+
+# -Artifact a,b arrives as ONE string through `powershell -File`: each value is split on commas
+# unless the whole value names an existing file (absolute, or relative to one of $Bases).
+function Split-ArtifactArgument {
+    param([string[]]$Values, [string[]]$Bases)
+    $list = New-Object System.Collections.Generic.List[string]
+    foreach ($a in @($Values)) {
+        if (-not $a -or -not $a.Trim()) { continue }
+        $a = $a.Trim()
+        $whole = -not $a.Contains(',')
+        if (-not $whole) {
+            if ([IO.Path]::IsPathRooted($a)) { $whole = Test-Path -LiteralPath $a -PathType Leaf }
+            else {
+                foreach ($base in $Bases) {
+                    if (Test-Path -LiteralPath (Join-Path $base $a) -PathType Leaf) { $whole = $true; break }
+                }
+            }
+        }
+        if ($whole) { $list.Add($a) }
+        else { foreach ($piece in $a.Split(',')) { if ($piece.Trim()) { $list.Add($piece.Trim()) } } }
+    }
+    return , ([string[]]$list.ToArray())
+}
+
+# The foreground of -Detach once every check passed (D1, D5, D8): picks the detach id, writes the
+# `starting` record ONCE, starts the background, prints three lines and exits 0 - or refuses (exit
+# 1) with nothing left behind. $Members: the planned members (pending; a roster-skipped entry
+# skipped); $Budget: D4; $Plan: what runs; $BriefFull, $ArtifactFull: absolute (D8); $Warnings:
+# what a real run prints before it starts. Reads the run's variables ($taskDir, $collabRoot,
+# $callerCwd, $Task, $Purpose, $ReplyName).
+function Start-DetachedRun {
+    param([string]$Kind, [object[]]$Members, [int]$Budget, [string]$Plan, [string]$BriefFull = '', [string[]]$ArtifactFull = @(), [string[]]$Warnings = @())
+    # The background's arguments: this call's, minus -Detach, with the paths absolute (D8).
+    $bgArgs = @{}
+    foreach ($k in $script:ScriptBound.Keys) {
+        if ($k -eq 'Detach' -or $script:CommonParameterNames -contains $k) { continue }
+        $bgArgs[$k] = $script:ScriptBound[$k]
+    }
+    if ($BriefFull) { $bgArgs['Brief'] = $BriefFull }
+    if (@($ArtifactFull).Count -gt 0) { $bgArgs['Artifact'] = [string[]]@($ArtifactFull) }
+    $bgArgs['CollabDir'] = $collabRoot
+    # The id: a guid whose id8 names no status or log file of the task yet (D7). TEST HOOK:
+    # CODEX_CONSULT_TEST_DETACH_GUIDS=<guid>[,<guid>...] - tried first, in that order.
+    $tries = New-Object System.Collections.Generic.List[string]
+    foreach ($g in ([string]$env:CODEX_CONSULT_TEST_DETACH_GUIDS).Split(',')) {
+        if ($g.Trim() -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') { $tries.Add($g.Trim().ToLowerInvariant()) }
+    }
+    for ($i = 0; $i -lt 16; $i++) { $tries.Add([guid]::NewGuid().ToString()) }
+    try { [void][IO.Directory]::CreateDirectory($taskDir) } catch { Stop-WithError "could not create the task directory '$taskDir' ($(ConvertTo-OneLine $_.Exception.Message)); nothing was started." }
+    $newId = ''
+    $paths = $null
+    foreach ($cand in $tries) {
+        $p = Get-DetachedPaths -TaskDir $taskDir -Id $cand
+        if ((Test-Path -LiteralPath $p.Status) -or (Test-Path -LiteralPath $p.Log)) { continue }
+        $newId = $cand
+        $paths = $p
+        break
+    }
+    if (-not $newId) { Stop-WithError "no free detach id for task '$Task' (the status or log file of every candidate exists); nothing was started." }
+    # The background's command line.
+    $hostExe = (Get-Process -Id $PID).Path
+    $bgLine = ''
+    if ($script:OnWindows) {
+        # cmd.exe would expand a %NAME% in these paths: refused rather than corrupted
+        foreach ($pth in @($hostExe, $script:SelfPath, $collabRoot, $paths.Log)) {
+            if ($pth.Contains('%')) { Stop-WithError "-Detach starts its background through cmd.exe, which would expand the '%' in '$pth'; run without -Detach; nothing was started." }
+        }
+        $collabArg = $collabRoot
+        # a trailing backslash would escape the closing quote
+        if ($collabArg.EndsWith('\')) { $collabArg += '.' }
+        $inner = '"' + $hostExe + '" -NoProfile -ExecutionPolicy Bypass -File "' + $script:SelfPath + '" -Task ' + $Task + ' -CollabDir "' + $collabArg + '" -DetachId ' + $newId + ' <NUL 1>"' + $paths.Log + '" 2>&1'
+        $bgLine = '/d /v:off /s /c "' + $inner + '"'
+    } else {
+        $q = { param([string]$s) "'" + $s.Replace("'", "'\''") + "'" }
+        $bgLine = 'exec nohup ' + (& $q $hostExe) + ' -NoProfile -File ' + (& $q $script:SelfPath) + ' -Task ' + (& $q $Task) + ' -CollabDir ' + (& $q $collabRoot) + ' -DetachId ' + $newId + ' </dev/null >' + (& $q $paths.Log) + ' 2>&1'
+    }
+    # The `starting` record, written ONCE, before the background exists (D5).
+    $rec = ConvertTo-DetachedRecord @{
+        status_version = $script:DetachedStatusVersion; id = $newId; id8 = $paths.Id8; task = $Task; kind = $Kind; state = 'starting'
+        started = (Get-IsoTimestamp); host = [Environment]::MachineName; budget_sec = $Budget; purpose = $Purpose; reply_name = $ReplyName
+        brief = $BriefFull; members = [object[]]@($Members | Where-Object { $_ }); log = $paths.Log; args = (ConvertTo-DetachArgs -Arguments $bgArgs)
+    }
+    try { Write-DetachedStatus -Path $paths.Status -Record $rec } catch {
+        Stop-WithError "could not write the status file '$($paths.Status)' ($(ConvertTo-OneLine $_.Exception.Message)); nothing was started."
+    }
+    try {
+        if ($script:OnWindows) {
+            $cmdExe = [string]$env:ComSpec
+            if (-not $cmdExe) { $cmdExe = 'cmd.exe' }
+            # ShellExecute (no -NoNewWindow, no redirection here): the background inherits none of
+            # this process's handles, so the caller's pipes close when this process exits
+            $null = Start-Process -FilePath $cmdExe -ArgumentList $bgLine -WorkingDirectory $callerCwd -WindowStyle Hidden -PassThru
+        } else {
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = '/bin/sh'
+            [void]$psi.ArgumentList.Add('-c')
+            [void]$psi.ArgumentList.Add($bgLine)
+            $psi.UseShellExecute = $false
+            $psi.WorkingDirectory = $callerCwd
+            $null = [System.Diagnostics.Process]::Start($psi)
+        }
+    } catch {
+        $why = ConvertTo-OneLine $_.Exception.Message
+        $rmError = Remove-PendingFile -Path $paths.Status
+        Stop-WithError "could not start the background process ($why); nothing was started$(if ($rmError) { " (the status file '$($paths.Status)' could not be removed: $rmError)" })."
+    }
+    foreach ($w in @($Warnings | Where-Object { $_ })) { Write-Host "WARNING: $w" -ForegroundColor Yellow }
+    $collabOpt = $(if ($script:ScriptBound.ContainsKey('CollabDir')) { " -CollabDir `"$collabRoot`"" } else { '' })
+    Write-Host "Detached $($paths.Id8): $Plan - it runs in the background (detach id $newId; budget $Budget s)."
+    Write-Host "status file: $($paths.Status) (console output: $($paths.Log))"
+    Write-Host "come back  : codex-consult.ps1 -Task $Task$collabOpt -Status -Id $($paths.Id8) (exit 0 done and usable, 1 a failure, 2 still running); -Wait -Id $($paths.Id8) waits until it is done (default: its budget, $Budget s)"
+    exit 0
+}
+
+# -Status and -Wait refuse a query with exit 4 - never mistaken for a run's result (D7).
+function Stop-StatusQuery {
+    param([string]$Message)
+    Write-Host "codex-consult: $Message" -ForegroundColor Red
+    exit 4
+}
+
+# The -Status report of detached runs (newest first): per run its state, one line per member and,
+# when it is done, the summary block the run printed - verbatim.
+function Write-DetachedReport {
+    param([object[]]$Runs, [DateTimeOffset]$Now = [DateTimeOffset]::Now)
+    $first = $true
+    foreach ($run in @($Runs)) {
+        if (-not $first) { Write-Host '' }
+        $first = $false
+        $j = Get-DetachedJudgement -Record $run.Record -Problem ([string]$run.Error) -Now $Now
+        $rec = $run.Record
+        if (-not $rec) { Write-Host "detached $($run.Id8): $($j.Text)"; continue }
+        $what = $(if ($rec.kind -eq 'panel') { 'review panel' } else { 'single run' })
+        if ($rec.purpose) { $what += ", purpose $($rec.purpose)" }
+        if ($rec.reply_name) { $what += ", reply name $($rec.reply_name)" }
+        Write-Host "detached $($run.Id8) ($what): $($j.Text)"
+        $pidText = $(if ($rec.pid) { "pid $($rec.pid) on $($rec.host)" } else { "no background pid yet (host $($rec.host))" })
+        $wallText = $(if ($j.State -eq 'done' -and $null -ne $rec.wall_seconds) { "; wall $($rec.wall_seconds) s" } else { '' })
+        Write-Host "  detach id $($rec.id), started $($rec.started), $pidText; budget $($rec.budget_sec) s$wallText"
+        foreach ($m in @($rec.members | Where-Object { $_ })) {
+            $outcome = [string]$m.outcome
+            if ($outcome.StartsWith("$($m.state): ")) { $outcome = $outcome.Substring(([string]$m.state).Length + 2) }
+            if ($outcome -eq [string]$m.state) { $outcome = '' }
+            $details = New-Object System.Collections.Generic.List[string]
+            if ($null -ne $m.n) { $details.Add("n=$($m.n)") }
+            if ($m.handoff) { $details.Add("handoff $($m.handoff)") }
+            if ($null -ne $m.wall_seconds) { $details.Add("$($m.wall_seconds) s") }
+            Write-Host ("  #{0} {1} - {2}{3}{4}" -f $m.position, $m.lineage, $m.state, $(if ($outcome) { ": $outcome" } else { '' }), $(if ($details.Count -gt 0) { " ($($details.ToArray() -join ', '))" } else { '' }))
+        }
+        Write-Host "  log: $(if ($rec.log) { $rec.log } else { $run.Log })"
+        if ($j.State -eq 'done' -and $rec.summary) {
+            Write-Host ''
+            foreach ($l in ([string]$rec.summary -split "`n")) { Write-Host $l }
+        }
+    }
+}
+
+# ---- -Status [-Id <id>] [-Prune] / -Wait [-Id <id>] [-WaitTimeoutSec <s>] (D6, D7)
+if ($Status -or $Wait) {
+    if ($Detach) { Stop-StatusQuery "-Detach does not go with -Status or -Wait: -Detach starts a consultation, -Status and -Wait look at detached ones." }
+    $extra = @($script:ScriptBound.Keys | Where-Object { @('Task', 'CollabDir', 'Status', 'Wait', 'Id', 'WaitTimeoutSec', 'Prune') -notcontains $_ -and $script:CommonParameterNames -notcontains $_ })
+    if ($extra.Count -gt 0) { Stop-StatusQuery "-Status and -Wait take only -Task, -CollabDir, -Id, -Prune (with -Status) and -WaitTimeoutSec (with -Wait); not -$(@($extra | Sort-Object) -join ', -')." }
+    if ($Prune -and $Wait) { Stop-StatusQuery "-Prune goes with -Status, not with -Wait (-Status -Prune is the one form that writes: it deletes old files)." }
+    if ($script:ScriptBound.ContainsKey('WaitTimeoutSec')) {
+        if (-not $Wait) { Stop-StatusQuery "-WaitTimeoutSec goes with -Wait." }
+        if ($WaitTimeoutSec -le 0) { Stop-StatusQuery "-WaitTimeoutSec must be greater than 0 (got $WaitTimeoutSec); leave it out for the run's own budget." }
+    }
+    if ($Task -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { Stop-StatusQuery "-Task must be a slug (letters, digits, dot, dash, underscore)." }
+    $want = $Id.Trim().ToLowerInvariant()
+    if ($script:ScriptBound.ContainsKey('Id') -and $want -notmatch '^[0-9a-f][0-9a-f-]{0,35}$') { Stop-StatusQuery "-Id takes a detach id or its beginning (hexadecimal, as -Detach printed it); got '$Id'." }
+    $stRepo = Resolve-RepoRoot -Cwd (Get-Location).Path
+    $stCollab = Resolve-CollabRoot -RepoRoot $stRepo -CollabDir $CollabDir
+    if ($script:ScriptBound.ContainsKey('CollabDir') -and -not [IO.Directory]::Exists($stCollab)) {
+        Stop-StatusQuery "-CollabDir '$CollabDir' does not exist ($stCollab); the id of a detached run goes with -Id (-Status -Id <id8>)."
+    }
+    $stTaskDir = Join-Path $stCollab $Task
+    # the runs asked for: every one of the task, or the one -Id names (by its id8, a longer -Id by
+    # the full id in its record)
+    $selectRuns = {
+        $w8 = $want.Replace('-', '')
+        if ($w8.Length -gt 8) { $w8 = $w8.Substring(0, 8) }
+        foreach ($r in (Read-DetachedRuns -TaskDir $stTaskDir)) {
+            if (-not $want) { $r; continue }
+            if (-not $r.Id8.StartsWith($w8)) { continue }
+            if ($want.Length -gt 8 -and -not ($r.Record -and ([string]$r.Record.id).ToLowerInvariant().StartsWith($want))) { continue }
+            $r
+        }
+    }
+    $runs = @(& $selectRuns)
+    if ($want) {
+        if ($runs.Count -eq 0) {
+            # (Read-DetachedRuns hands back the array itself: assigned, then enumerated)
+            $allRuns = Read-DetachedRuns -TaskDir $stTaskDir
+            $known = @($allRuns | ForEach-Object { $_.Id8 })
+            Stop-StatusQuery "no detached run of task '$Task' has an id starting with '$want' ($(if ($known.Count -gt 0) { "its detached runs: $($known -join ', ')" } else { 'it has none' }))."
+        }
+        if ($runs.Count -gt 1) { Stop-StatusQuery "-Id '$want' matches $($runs.Count) detached runs of task '$Task': $(@($runs | ForEach-Object { $_.Id8 }) -join ', '); give more of the id." }
+    }
+    if ($Prune) {
+        # D6: the files of runs that are done or died (never started included), last written more
+        # than 7 days ago - a running run, one on another host and an unreadable file stay
+        $nowP = [DateTimeOffset]::Now
+        foreach ($run in $runs) {
+            $j = Get-DetachedJudgement -Record $run.Record -Problem ([string]$run.Error) -Now $nowP
+            if (@('done', 'died', 'never-started') -notcontains $j.State) { continue }
+            $last = $null
+            foreach ($f in @('finished', 'updated', 'started')) { if (-not $last -and $run.Record.$f) { $last = ConvertTo-WhenOffset $run.Record.$f } }
+            if (-not $last -or ($nowP - $last).TotalDays -lt $script:DetachedPruneDays) { continue }
+            $errs = @(foreach ($f in @($run.Path, $run.Log)) { $e = Remove-PendingFile -Path $f; if ($e) { $e } })
+            if ($errs.Count -gt 0) { Write-Host "codex-consult: could not prune detached $($run.Id8): $($errs -join '; ')" -ForegroundColor Yellow }
+            else { Write-Host "pruned     : detached $($run.Id8) ($($j.State), last written $($last.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant))): its status file and log were removed" }
+        }
+        $runs = @(& $selectRuns)
+    }
+    $timedOut = $false
+    $waitLimit = 0
+    $limitText = ''
+    if ($Wait) {
+        $openRuns = { param($List) @($List | Where-Object { @('running', 'starting', 'elsewhere') -contains (Get-DetachedJudgement -Record $_.Record -Problem ([string]$_.Error)).State }) }
+        $waiting = @(& $openRuns $runs)
+        if ($waiting.Count -gt 0) {
+            if ($WaitTimeoutSec -gt 0) { $waitLimit = $WaitTimeoutSec; $limitText = '-WaitTimeoutSec' }
+            else {
+                $waitLimit = [int](@($waiting | ForEach-Object { [int]$_.Record.budget_sec }) | Measure-Object -Maximum).Maximum
+                if ($waitLimit -le 0) { $waitLimit = 3600 }
+                $limitText = "the budget of the run$(if ($waiting.Count -gt 1) { 's' })"
+            }
+            $waitIds = @($waiting | ForEach-Object { $_.Id8 })
+            Write-Host "codex-consult: waiting for $($waiting.Count) detached run$(if ($waiting.Count -ne 1) { 's' }) of task '$Task' ($($waitIds -join ', ')) - up to $waitLimit s ($limitText), checking every 2 s"
+            $waitWatch = [Diagnostics.Stopwatch]::StartNew()
+            while ($true) {
+                $runs = @(& $selectRuns)
+                $still = @(& $openRuns @($runs | Where-Object { $waitIds -contains $_.Id8 }))
+                if ($still.Count -eq 0) { break }
+                $left = $waitLimit - $waitWatch.Elapsed.TotalSeconds
+                if ($left -le 0) { $timedOut = $true; break }
+                Start-Sleep -Milliseconds ([int][Math]::Min(2000, [Math]::Max(100, $left * 1000)))
+            }
+        }
+    }
+    if ($runs.Count -eq 0) {
+        Write-Host "codex-consult: no detached consultation in task '$Task' ($stTaskDir)."
+        exit 0
+    }
+    $nowR = [DateTimeOffset]::Now
+    Write-DetachedReport -Runs $runs -Now $nowR
+    if ($timedOut) {
+        Write-Host ''
+        Write-Host "codex-consult: still running after $waitLimit s ($limitText); the run was not touched - -Wait again, or -Status later." -ForegroundColor Yellow
+        exit 3
+    }
+    # D7: the worst state decides - 2 running > 1 failed (a died run too) > 0 all done and usable
+    $worst = 0
+    foreach ($run in $runs) {
+        $e = (Get-DetachedJudgement -Record $run.Record -Problem ([string]$run.Error) -Now $nowR).Exit
+        if ($e -gt $worst) { $worst = $e }
+    }
+    exit $worst
+}
+if ($script:ScriptBound.ContainsKey('Id') -or $Prune -or $script:ScriptBound.ContainsKey('WaitTimeoutSec')) {
+    Stop-WithError "-Id and -Prune go with -Status (-Id and -WaitTimeoutSec with -Wait)."
+}
+
+# ---- -DetachId: the background process of -Detach, and then the run itself in it
+if ($DetachId) {
+    if ($Detach -or $DryRun -or $PanelSpec) { Stop-WithError "-DetachId is internal to -Detach; never pass it yourself." }
+    if ($DetachId -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') { Stop-WithError "-DetachId is internal to -Detach (a detach id is a lowercase guid; got '$DetachId')." }
+    $dRepo = Resolve-RepoRoot -Cwd (Get-Location).Path
+    $dCollab = Resolve-CollabRoot -RepoRoot $dRepo -CollabDir $CollabDir
+    $dPaths = Get-DetachedPaths -TaskDir (Join-Path $dCollab $Task) -Id $DetachId
+    $dRead = Read-DetachedStatus -Path $dPaths.Status
+    if ($dRead.Error) { Stop-WithError "-DetachId is internal to -Detach: $($dRead.Error)" }
+    if (-not $dRead.Exists) { Stop-WithError "-DetachId is internal to -Detach: there is no status file $($dPaths.Status)." }
+    $dRec = $dRead.Record
+    if ([string]$dRec.id -ne $DetachId) { Stop-WithError "-DetachId is internal to -Detach: the status file $($dPaths.Status) belongs to detach id $($dRec.id)." }
+    $ownStart = [string](Get-ProcessStartIso -ProcessId $PID)
+    if ($dRec.state -eq 'starting' -and $null -eq $dRec.pid) {
+        # THE BACKGROUND. Its command line carries -Task, -CollabDir and -DetachId only.
+        $bgExtra = @($script:ScriptBound.Keys | Where-Object { @('Task', 'CollabDir', 'DetachId') -notcontains $_ -and $script:CommonParameterNames -notcontains $_ })
+        if ($bgExtra.Count -gt 0) { Stop-WithError "-DetachId is internal to -Detach (its background takes only -Task, -CollabDir and -DetachId; got -$($bgExtra -join ', -'))." }
+        # (D5) the self-report first: running, this process, this host - atomic
+        $argsText = [string]$dRec.args
+        $dRec.args = $null
+        $dRec.state = 'running'
+        $dRec.pid = $PID
+        $dRec.start_time = $ownStart
+        $dRec.host = [Environment]::MachineName
+        try { Write-DetachedStatus -Path $dPaths.Status -Record $dRec } catch {
+            Write-Host "codex-consult: the detached run could not report to its status file $($dPaths.Status) ($(ConvertTo-OneLine $_.Exception.Message)); nothing was started." -ForegroundColor Red
+            exit 1
+        }
+        # (D10) UTF-8 before the first line of output: the log is read as UTF-8
+        try { [Console]::OutputEncoding = $script:Utf8NoBom } catch { }
+        $global:OutputEncoding = $script:Utf8NoBom
+        Write-Host "codex-consult: detached run $($dPaths.Id8) (detach id $DetachId) - pid $PID on $([Environment]::MachineName), started $(Get-IsoTimestamp); status file $($dPaths.Status)"
+        # (D3) the run in this process, the final status whatever happens in it
+        $dCode = 1
+        $dLine = ''
+        try {
+            $dSpec = ConvertFrom-DetachArgs -Text $argsText
+            if ([string]$dSpec['Task'] -cne $Task) { throw "its arguments name task '$($dSpec['Task'])', not '$Task'" }
+            $global:LASTEXITCODE = 0
+            & $script:SelfPath @dSpec -DetachId $DetachId
+            $dCode = [int]$LASTEXITCODE
+        } catch {
+            $dCode = 1
+            $dLine = "codex-consult: the detached run stopped on an error: $(ConvertTo-OneLine $_.Exception.Message)"
+            Write-Host $dLine -ForegroundColor Red
+        } finally {
+            Complete-DetachedRun -Path $dPaths.Status -Fallback $dRec -Exit $dCode -Line $dLine
+        }
+        exit $dCode
+    }
+    if ($dRec.state -ne 'running' -or [int]$dRec.pid -ne $PID -or -not (Test-SameStartTime -A ([string]$dRec.start_time) -B $ownStart)) {
+        Stop-WithError "-DetachId is internal to -Detach: the status file $($dPaths.Status) is in state $($dRec.state)$(if ($dRec.pid) { " (pid $($dRec.pid))" }), not this process's."
+    }
+    # THE RUN (invoked by the background above, in the same process): it keeps the status file.
+    $script:DetachRun = [pscustomobject]@{ Path = $dPaths.Status; Record = $dRec }
+    $script:StopWithErrorHook = {
+        param([string]$Line)
+        if ($script:DetachRun) {
+            Complete-DetachedRecord -Record $script:DetachRun.Record -Exit 1 -Summary $Line
+            Save-DetachedRun
+        }
+    }
+}
+
+# ---- -Detach: the foreground (D2, D8)
+$detachForeground = $false
+if ($Detach) {
+    if ($PanelSpec) { Stop-WithError "-Detach does not go with -PanelSpec (internal to -Panel)." }
+    if ($DryRun) { Stop-WithError "-Detach does not go with -DryRun: a dry run starts nothing to detach - run -DryRun alone first." }
+    $detachForeground = $true
+    # The foreground writes nothing and takes no lock - the dry run's rule - while the refusals a
+    # real run makes before its lock are made here too ($detachForeground, D2).
+    $DryRun = $true
+}
 
 # ----------------------------------------------------------------------------- codex helpers
 
@@ -1388,6 +1886,29 @@ function Get-PanelMemberStatus {
     return "failed: $(ConvertTo-OneLine $Slot.Refusal)"
 }
 
+# (wave 25, D11) A member's state in a detached panel's status file - the classes behind
+# Get-PanelMemberStatus: pending | running | usable | failed | killed | blocked | commit_blocked |
+# orphan (a roster-skipped entry is `skipped` from the start; a member never started, at the end).
+function Get-PanelSlotDetachState {
+    param($Slot)
+    switch ($Slot.State) {
+        'waiting' { return 'pending' }
+        'running' { return 'running' }
+        'blocked' { return 'blocked' }
+        'killed' { return 'killed' }
+        'failed-start' { return 'failed' }
+    }
+    if ($null -ne $Slot.Entry) {
+        if (Test-UsableOutcome ([string](Get-PropertyValue $Slot.Entry 'bridge_outcome' ''))) { return 'usable' }
+        return 'failed'
+    }
+    if ($Slot.RecordState -eq 'committing') {
+        if ($Slot.Refusal -match '^commit blocked:') { return 'commit_blocked' }
+        return 'orphan'
+    }
+    return 'failed'
+}
+
 if ($panelRun) {
     # What would make every member fail the same way is refused once, up front.
     if ($Brief) {
@@ -1401,7 +1922,8 @@ if ($panelRun) {
             Stop-WithError "brief '$Brief' not found (this script never writes briefs; write it first)."
         }
     }
-    if (-not $DryRun -and -not $codexExePath -and @($roster.Entries | Where-Object { $_.Engine -eq 'codex' -and (-not $Engine -or $Engine -eq 'codex') }).Count -gt 0) {
+    # (-Detach: the refusals a real run makes before its lock are made in the foreground too - D2)
+    if ((-not $DryRun -or $detachForeground) -and -not $codexExePath -and @($roster.Entries | Where-Object { $_.Engine -eq 'codex' -and (-not $Engine -or $Engine -eq 'codex') }).Count -gt 0) {
         Stop-WithError "codex CLI not found on PATH (set -CodexExe <path> or the CODEX_CONSULT_EXE environment variable)."
     }
     $panelConfig = Read-CodexConfigSubset -Path (Get-CodexConfigPath)
@@ -1416,7 +1938,7 @@ if ($panelRun) {
         Stop-WithError "-MaxModelSteps applies to the muse members of a panel (--max-model-steps); no member of this panel runs the muse engine."
     }
     # A launcher every member of an engine would miss is refused once, up front.
-    if (-not $DryRun) {
+    if (-not $DryRun -or $detachForeground) {
         foreach ($panelEngine in @($panelRunners | ForEach-Object { [string]$_.Identity.Engine } | Select-Object -Unique)) {
             if ($panelEngine -ne 'codex' -and -not (Get-EngineLauncher -Engine $panelEngine -Launchers $engineLaunchers)) {
                 Stop-WithError "$panelEngine CLI not found on PATH (set -EngineExe <path> or the $((Get-EngineSpec $panelEngine).ExeEnv) environment variable)."
@@ -1450,7 +1972,7 @@ if ($panelRun) {
         if ($panelPending.Error) { Stop-WithError $panelPending.Error }
         $panelPendingRefusal = ''
         if ($panelPending.Active) {
-            if ($DryRun) { $panelPendingRefusal = [string]$panelPending.Active.Check.Message } else { Stop-WithError $panelPending.Active.Check.Message }
+            if ($DryRun -and -not $detachForeground) { $panelPendingRefusal = [string]$panelPending.Active.Check.Message } else { Stop-WithError $panelPending.Active.Check.Message }
         }
         # The numbers of every member, past everything on disk (a store that does not parse
         # refuses here, before any member starts).
@@ -1492,6 +2014,36 @@ if ($panelRun) {
             }
             $panelSlots.Add($slot)
             $slotOf[[int]$pm.Entry.Position] = $slot
+        }
+
+        # (wave 25, R12) -Detach: the panel's checks passed (D2: the launchers, the records, the
+        # stores, the selection) - the background runs it; this process writes the `starting`
+        # record and returns. The budget (D4) from the plan and the members' guards.
+        if ($detachForeground) {
+            $detachGuards = @{}
+            foreach ($s in $panelSlots) { $detachGuards[[int]$s.Pm.Entry.Position] = [int]$s.Guard }
+            $detachBudget = Get-DetachedBudget -Groups $panelPlan.Groups -GuardOf $detachGuards -Cap $PanelConcurrency
+            $detachMembers = @(foreach ($pm in $panelEntries) {
+                    $detachShown = Format-ReviewerLineage -Provider $pm.Identity.Provider -Model $pm.Identity.Model -Engine ([string]$pm.Identity.Engine)
+                    if ($pm.State -eq 'run') { New-DetachedMember -Position ([int]$pm.Entry.Position) -Lineage $detachShown }
+                    else { New-DetachedMember -Position ([int]$pm.Entry.Position) -Lineage $detachShown -State 'skipped' -Outcome ([string]$pm.Reason) }
+                })
+            # D8: the brief and the artifacts absolute (a missing artifact is refused here, not by every member)
+            $detachArtifacts = @(Resolve-ArtifactPaths -Paths (Split-ArtifactArgument -Values $Artifact -Bases @($callerCwd, $repoRoot)) -Bases @($callerCwd, $repoRoot))
+            $detachBrief = ''
+            if ($Brief) { $detachBrief = (Resolve-Path -LiteralPath $briefProbe).Path }
+            $detachPlan = "a review panel of $($panelRunners.Count) of $($panelEntries.Count) roster entries, $($panelPlan.Text) (purpose $purposeLabel, timeout $TimeoutSec s per member)"
+            Start-DetachedRun -Kind 'panel' -Members $detachMembers -Budget $detachBudget -Plan $detachPlan -BriefFull $detachBrief -ArtifactFull @($detachArtifacts | ForEach-Object { $_.full }) -Warnings @($rangeWarning)
+        }
+        # (wave 25) a detached panel: its members with their numbers, in roster order
+        if ($script:DetachRun) {
+            Set-DetachedMembers @(foreach ($pm in $panelEntries) {
+                    $detachShown = Format-ReviewerLineage -Provider $pm.Identity.Provider -Model $pm.Identity.Model -Engine ([string]$pm.Identity.Engine)
+                    if ($pm.State -eq 'run') {
+                        $ds = $slotOf[[int]$pm.Entry.Position]
+                        New-DetachedMember -Position ([int]$pm.Entry.Position) -Lineage $detachShown -N $ds.N -Handoff $ds.Nn -Reply $ds.Reply
+                    } else { New-DetachedMember -Position ([int]$pm.Entry.Position) -Lineage $detachShown -State 'skipped' -Outcome ([string]$pm.Reason) }
+                })
         }
 
         $panelVerb = if ($DryRun) { 'would run' } else { 'run' }
@@ -1576,9 +2128,11 @@ if ($panelRun) {
                 }
                 $progress = $true
                 Complete-PanelMember $slot
-                $status = Get-PanelMemberStatus $slot
-                if ($status.Length -gt 110) { $status = $status.Substring(0, 110) + '...' }
-                Write-Host "  panel member $($slot.K) of $($panelRunners.Count) finished: $($slot.Pm.Shown) - $status ($($slot.Wall) s)"
+                # (never $status: that is the -Status parameter, a switch)
+                $memberStatus = Get-PanelMemberStatus $slot
+                Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = (Get-PanelSlotDetachState $slot); outcome = $memberStatus; wall_seconds = $slot.Wall }
+                if ($memberStatus.Length -gt 110) { $memberStatus = $memberStatus.Substring(0, 110) + '...' }
+                Write-Host "  panel member $($slot.K) of $($panelRunners.Count) finished: $($slot.Pm.Shown) - $memberStatus ($($slot.Wall) s)"
                 # -PanelConcurrency 1: a member that left surviving processes stops the rest - one
                 # member after another is the old order, and its rule stays (F15-3).
                 if (-not $DryRun -and $PanelConcurrency -eq 1 -and -not $panelBlocked) {
@@ -1594,7 +2148,11 @@ if ($panelRun) {
             $running = @($panelSlots | Where-Object { $_.State -eq 'running' }).Count
             foreach ($slot in $panelSlots) {
                 if ($slot.State -ne 'waiting') { continue }
-                if ($panelBlocked) { $slot.State = 'blocked'; $slot.NotStarted = $panelBlocked; $progress = $true; continue }
+                if ($panelBlocked) {
+                    $slot.State = 'blocked'; $slot.NotStarted = $panelBlocked; $progress = $true
+                    Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = 'blocked'; outcome = $panelBlocked }
+                    continue
+                }
                 if ($PanelConcurrency -gt 0 -and $running -ge $PanelConcurrency) { break }
                 $grp = $panelPlan.Groups[$slot.Group]
                 if (@($panelSlots | Where-Object { $_.Group -eq $slot.Group -and $_.State -eq 'running' }).Count -ge $grp.Limit) { continue }
@@ -1602,7 +2160,8 @@ if ($panelRun) {
                 if (@($panelSlots | Where-Object { $_.Group -eq $slot.Group -and $_.State -eq 'waiting' -and $_.K -lt $slot.K }).Count -gt 0) { continue }
                 Start-PanelMember $slot
                 $progress = $true
-                if ($slot.State -eq 'running') { $running++ }
+                if ($slot.State -eq 'running') { $running++; Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = 'running' } }
+                elseif ($slot.State -eq 'failed-start') { Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = 'failed'; outcome = (Get-PanelMemberStatus $slot) } }
             }
             if (@($panelSlots | Where-Object { $_.State -eq 'waiting' -or $_.State -eq 'running' }).Count -eq 0) { break }
             if (-not $progress) { Start-Sleep -Milliseconds 500 }
@@ -1707,8 +2266,19 @@ if ($panelRun) {
             $wCounts = (@($narrow | ForEach-Object { $_.Counts.Length }) | Measure-Object -Maximum).Maximum
             $wPrior = (@($narrow | ForEach-Object { $_.Prior.Length }) | Measure-Object -Maximum).Maximum
         }
+        # (wave 25) a detached panel: every member's final state (D11); the summary block below
+        # goes to its status file too (Write-Summary, D3)
+        if ($script:DetachRun) {
+            foreach ($slot in $panelSlots) {
+                $dState = Get-PanelSlotDetachState $slot
+                $dOutcome = ''
+                if (@('waiting', 'blocked') -contains $slot.State) { $dOutcome = $(if ($slot.NotStarted) { $slot.NotStarted } else { 'not started' }); if ($slot.State -eq 'waiting') { $dState = 'skipped' } }
+                else { $dOutcome = Get-PanelMemberStatus $slot }
+                Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = $dState; outcome = $dOutcome; wall_seconds = $(if (@('done', 'killed') -contains $slot.State) { $slot.Wall } else { $null }) } -NoSave
+            }
+        }
         Write-Host ""
-        Write-Host "Panel $($panelShort): $(if ($DryRun) { "$($panelRunners.Count) of $($panelEntries.Count) entries would run (dry run)" } else { "$panelStarted of $($panelEntries.Count) entries ran" }) (wall clock $panelWall s; $($panelPlan.Text))"
+        Write-Summary "Panel $($panelShort): $(if ($DryRun) { "$($panelRunners.Count) of $($panelEntries.Count) entries would run (dry run)" } else { "$panelStarted of $($panelEntries.Count) entries ran" }) (wall clock $panelWall s; $($panelPlan.Text))"
         foreach ($row in $rows) {
             $parts = New-Object System.Collections.Generic.List[string]
             $parts.Add($row.Lineage.PadRight($wLineage))
@@ -1721,9 +2291,10 @@ if ($panelRun) {
                 if ($wPrior -gt 0) { $parts.Add($row.Prior.PadRight($wPrior)) }
             }
             if ($row.Tail) { $parts.Add($row.Tail) }
-            Write-Host ('  ' + (($parts.ToArray() -join '  ').TrimEnd()))
+            Write-Summary ('  ' + (($parts.ToArray() -join '  ').TrimEnd()))
         }
-        if ($allUsable) { exit 0 }
+        if ($allUsable) { Set-DetachedFinal -Exit 0; exit 0 }
+        Set-DetachedFinal -Exit 1
         exit 1
     } finally {
         Exit-TaskLock -Lock $panelLock
@@ -1913,6 +2484,8 @@ $reviewerRecord = New-ReviewerRecord -Identity $identity -Harness $harness
 $lineage = $identity.Lineage
 # The lineage as shown on the console and in the handoff (' [agy]' for another engine).
 $lineageShown = Format-ReviewerLineage -Provider $identity.Provider -Model $identity.Model -Engine $engineName
+# (wave 25) the member's position in a detached run's status file: its roster position, else 1
+$detachMemberPosition = $(if ($rosterEntry) { [int]$rosterEntry.Position } else { 1 })
 $modelLabel = $identity.Model
 $reviewerLine = "Reviewer: $lineageShown (provider from $($reviewerRecord.provider_source), model from $($identity.ModelSource); $($identity.Display)"
 if ($identity.Resolved) {
@@ -1979,7 +2552,7 @@ if (-not $SkipPreflight) {
         $preflightRefusal += $hint
         $preflightLabel += $hint
     }
-    if ($preflightRefusal -and -not $DryRun) { Stop-WithError $preflightRefusal }
+    if ($preflightRefusal -and (-not $DryRun -or $detachForeground)) { Stop-WithError $preflightRefusal }
 }
 
 # One line on the roster decision (console, dry run, handoff header) and the ledger's
@@ -2087,24 +2660,9 @@ if ($Brief) {
 }
 
 # -Artifact a,b arrives as ONE string through `powershell -File`; split on commas
-# unless the whole string names an existing file.
-$artifactList = New-Object System.Collections.Generic.List[string]
-foreach ($a in @($Artifact)) {
-    if (-not $a -or -not $a.Trim()) { continue }
-    $a = $a.Trim()
-    $whole = -not $a.Contains(',')
-    if (-not $whole) {
-        if ([IO.Path]::IsPathRooted($a)) { $whole = Test-Path -LiteralPath $a -PathType Leaf }
-        else {
-            foreach ($base in @($callerCwd, $repoRoot)) {
-                if (Test-Path -LiteralPath (Join-Path $base $a) -PathType Leaf) { $whole = $true; break }
-            }
-        }
-    }
-    if ($whole) { $artifactList.Add($a) }
-    else { foreach ($piece in $a.Split(',')) { if ($piece.Trim()) { $artifactList.Add($piece.Trim()) } } }
-}
-$artifactItems = @(Resolve-ArtifactPaths -Paths $artifactList.ToArray() -Bases @($callerCwd, $repoRoot))
+# unless the whole string names an existing file (Split-ArtifactArgument).
+$artifactList = Split-ArtifactArgument -Values $Artifact -Bases @($callerCwd, $repoRoot)
+$artifactItems = @(Resolve-ArtifactPaths -Paths $artifactList -Bases @($callerCwd, $repoRoot))
 
 $schemaPath = ''
 if (-not $Raw) {
@@ -2114,10 +2672,10 @@ if (-not $Raw) {
     }
 }
 
-if (-not $DryRun -and $isCodex -and -not $codexExePath) {
+if ((-not $DryRun -or $detachForeground) -and $isCodex -and -not $codexExePath) {
     Stop-WithError "codex CLI not found on PATH (set -CodexExe <path> or the CODEX_CONSULT_EXE environment variable)."
 }
-if (-not $DryRun -and -not $isCodex -and -not $engineLauncher) {
+if ((-not $DryRun -or $detachForeground) -and -not $isCodex -and -not $engineLauncher) {
     Stop-WithError "$engineName CLI not found on PATH (set -EngineExe <path> or the $($engineSpec.ExeEnv) environment variable)."
 }
 
@@ -2214,7 +2772,7 @@ try {
     if (-not $panelMember) {
         $pendingAll = Read-TaskPendingRecords -TaskDir $taskDir
         if ($pendingAll.Error) { Stop-WithError $pendingAll.Error }
-        if ($pendingAll.Active -and -not $DryRun) { Stop-WithError $pendingAll.Active.Check.Message }
+        if ($pendingAll.Active -and (-not $DryRun -or $detachForeground)) { Stop-WithError $pendingAll.Active.Check.Message }
         $pendingItems = @($pendingAll.Items)
     }
 
@@ -2349,6 +2907,8 @@ try {
             }
         }
     }
+    # (wave 25) a detached run: its member with the reviewer and the numbers of this run
+    if ($script:DetachRun) { Set-DetachedMembers @(New-DetachedMember -Position $detachMemberPosition -Lineage $lineageShown -N $consultN -Handoff $nn -Reply $replyRel) }
 
     # ------------------------------------------------------------------------- prompt
 
@@ -2476,6 +3036,17 @@ try {
     # A .cmd launcher expands %VAR% inside quoted arguments (F02-14): a real run is refused.
     $argvHazard = ''
     if (-not $isCodex) { $argvHazard = Get-CmdArgvHazard -Launcher $engineLauncher -Argv $argv }
+
+    # (wave 25, R12) -Detach: every check a real run makes before its lock has passed (D2; the
+    # launch hazard above too) - the background runs the consultation; this process writes the
+    # `starting` record and returns. The budget (D4): the member guard of this run + 120 s.
+    if ($detachForeground) {
+        if ($argvHazard) { Stop-WithError "the $engineName run would be refused before launch: $argvHazard; nothing was started." }
+        $detachGuard = Get-PanelMemberGuard -TimeoutSec $TimeoutSec -ContinueSec $ContinueSec -Repair:$repairEnabled -DenialRetry:([bool]($engineSpec.DenialRetry -and $DenialRetry -eq 1))
+        $detachBudget = Get-DetachedBudget -Groups @([pscustomobject]@{ Limit = 1; Positions = @(1) }) -GuardOf @{ 1 = $detachGuard }
+        $detachWarnings = @($runWarnings.ToArray()) + @($preflightWarning, ($peakWarning -replace '^WARNING:\s*', ''))
+        Start-DetachedRun -Kind 'run' -Members @(New-DetachedMember -Position $detachMemberPosition -Lineage $lineageShown) -Budget $detachBudget -Plan "a single run of $lineageShown (purpose $purposeLabel, timeout $TimeoutSec s)" -BriefFull $briefPath -ArtifactFull @($artifactItems | ForEach-Object { $_.full }) -Warnings $detachWarnings
+    }
 
     # ------------------------------------------------------------------------- bindings
 
@@ -2780,6 +3351,8 @@ try {
             if ($survivors.Count -gt 0) { $bridgeOutcome += "; $($survivors.Count) processes survived: pid $($survivors -join ', ')" }
             $keepPending = $true
         } else {
+            # (wave 25) a detached run: its member runs
+            Set-DetachedMember -Position $detachMemberPosition -Values @{ state = 'running' }
             $finished = $proc.WaitForExit($TimeoutSec * 1000)
             if (-not $finished) {
                 # The launcher is usually a shim (codex.cmd -> node -> codex.exe): kill
@@ -3674,7 +4247,9 @@ try {
         if ([string](Get-PropertyValue $pendingRecord 'original' '')) { $kept.Add([string]$pendingRecord.original) }
         $pendingRecord.note = "commit blocked: $($commit.Message); findings.json and sessions.json were not touched"
         try { Write-PendingFile -Path $pendingPath -Record $pendingRecord } catch { }
-        Write-Host "codex-consult: commit blocked: $($commit.Message). This run's reply is kept ($(if ($kept.Count -gt 0) { $kept.ToArray() -join ', ' } else { 'nothing to keep' })); no ledger entry was written and the stores were not touched - $pendingPath stays in state committing and the next run consumes it (bridge outcome: $bridgeOutcome)." -ForegroundColor Red
+        Write-Summary "codex-consult: commit blocked: $($commit.Message). This run's reply is kept ($(if ($kept.Count -gt 0) { $kept.ToArray() -join ', ' } else { 'nothing to keep' })); no ledger entry was written and the stores were not touched - $pendingPath stays in state committing and the next run consumes it (bridge outcome: $bridgeOutcome)." Red
+        Set-DetachedMember -Position $detachMemberPosition -Values @{ state = 'commit_blocked'; outcome = "commit blocked: $($commit.Message)"; wall_seconds = $wallSeconds } -NoSave
+        Set-DetachedFinal -Exit 1
         exit 1
     }
     $findingsStore = $commit.Findings
@@ -3991,64 +4566,70 @@ try {
         $partialLines += "partial    : $partialPath ($partialFooter)"
         $partialLines += $(if ($resumeCommand) { "resume     : $resumeCommand" } else { 'resume     : not possible - the thread of the killed turn is not known (start again with -Mode new)' })
     }
+    # (wave 25) the summary block (Write-Summary): printed, and - a detached run - its status file's
+    # `summary`, with the member's final state (D3, D11)
     if (-not (Test-UsableOutcome $bridgeOutcome)) {
-        Write-Host "codex-consult: $bridgeOutcome (wall $wallSeconds s)" -ForegroundColor Red
+        Write-Summary "codex-consult: $bridgeOutcome (wall $wallSeconds s)" Red
         # (wave 24b) the next step for a failure the bridge can explain (a context-window limit)
-        if ($failureHint) { Write-Host "hint       : $failureHint" -ForegroundColor Yellow }
-        if ($continueLine) { Write-Host $continueLine -ForegroundColor Yellow }
-        foreach ($pl in $partialLines) { Write-Host $pl -ForegroundColor Yellow }
-        if ($pendingNote) { Write-Host "pending    : $pendingNote" -ForegroundColor Yellow }
-        if ($commitWaitLine) { Write-Host $commitWaitLine }
-        foreach ($d in $driftLines) { Write-Host $d -ForegroundColor Yellow }
-        Write-Host "reply file : $replyPath"
-        if ($replyJsonRel) { Write-Host "reply json : $replyJsonPath" }
-        Write-Host "events file: $eventsPath"
-        foreach ($w in $engineWarnings) { Write-Host "warning    : $w" -ForegroundColor Yellow }
+        if ($failureHint) { Write-Summary "hint       : $failureHint" Yellow }
+        if ($continueLine) { Write-Summary $continueLine Yellow }
+        foreach ($pl in $partialLines) { Write-Summary $pl Yellow }
+        if ($pendingNote) { Write-Summary "pending    : $pendingNote" Yellow }
+        if ($commitWaitLine) { Write-Summary $commitWaitLine }
+        foreach ($d in $driftLines) { Write-Summary $d Yellow }
+        Write-Summary "reply file : $replyPath"
+        if ($replyJsonRel) { Write-Summary "reply json : $replyJsonPath" }
+        Write-Summary "events file: $eventsPath"
+        foreach ($w in $engineWarnings) { Write-Summary "warning    : $w" Yellow }
         if ($stderrText.Trim()) {
-            Write-Host "--- $engineCmd stderr (tail) ---"
-            Write-Host (($stderrText.Trim() -split "`r?`n" | Select-Object -Last 20) -join "`n")
+            Write-Summary "--- $engineCmd stderr (tail) ---"
+            Write-Summary (($stderrText.Trim() -split "`r?`n" | Select-Object -Last 20) -join "`n")
         }
+        Set-DetachedMember -Position $detachMemberPosition -Values @{ state = 'failed'; outcome = $bridgeOutcome; wall_seconds = $wallSeconds } -NoSave
+        Set-DetachedFinal -Exit 1
         exit 1
     }
 
-    Write-Host "codex-consult: $bridgeOutcome - $lineageShown, mode $Mode, thread $threadId (source: $threadSource), wall $wallSeconds s"
-    if ($continueLine) { Write-Host $continueLine -ForegroundColor Yellow }
-    foreach ($pl in $partialLines) { Write-Host $pl -ForegroundColor Yellow }
-    foreach ($w in $engineWarnings) { Write-Host "warning    : $w" -ForegroundColor Yellow }
-    if ($denialRetryRecord) { Write-Host "denial retry: $(if ($denialRetryRecord.succeeded) { 'succeeded' } else { 'failed' }) in $($denialRetryRecord.wall_seconds) s" -ForegroundColor Yellow }
+    Write-Summary "codex-consult: $bridgeOutcome - $lineageShown, mode $Mode, thread $threadId (source: $threadSource), wall $wallSeconds s"
+    if ($continueLine) { Write-Summary $continueLine Yellow }
+    foreach ($pl in $partialLines) { Write-Summary $pl Yellow }
+    foreach ($w in $engineWarnings) { Write-Summary "warning    : $w" Yellow }
+    if ($denialRetryRecord) { Write-Summary "denial retry: $(if ($denialRetryRecord.succeeded) { 'succeeded' } else { 'failed' }) in $($denialRetryRecord.wall_seconds) s" Yellow }
     if ($repairConsole) {
-        Write-Host $repairConsole -ForegroundColor $(if ($repairedOk -and @($formatRetryRecord.drift).Count -eq 0) { 'Gray' } else { 'Yellow' })
-        foreach ($dn in @($formatRetryRecord.drift)) { Write-Host "  drift: $dn" -ForegroundColor Yellow }
+        Write-Summary $repairConsole $(if ($repairedOk -and @($formatRetryRecord.drift).Count -eq 0) { 'Gray' } else { 'Yellow' })
+        foreach ($dn in @($formatRetryRecord.drift)) { Write-Summary "  drift: $dn" Yellow }
     }
-    if ($threadCandidate -and $isCodex) { Write-Host "thread     : unknown - rollout candidate $threadCandidate did not contain consultation id $consultId (not used as a thread or a parent)" -ForegroundColor Yellow }
-    if (-not $identity.Resolved) { Write-Host "reviewer   : identity unresolved ($($identity.Note)); this thread is never a parent" -ForegroundColor Yellow }
-    if ($peakWarning) { Write-Host $peakWarning -ForegroundColor Yellow }
+    if ($threadCandidate -and $isCodex) { Write-Summary "thread     : unknown - rollout candidate $threadCandidate did not contain consultation id $consultId (not used as a thread or a parent)" Yellow }
+    if (-not $identity.Resolved) { Write-Summary "reviewer   : identity unresolved ($($identity.Note)); this thread is never a parent" Yellow }
+    if ($peakWarning) { Write-Summary $peakWarning Yellow }
     if ($parse) {
         if ($structured) {
-            if ($parse.VerdictInvalid) { Write-Host "verdict    : (invalid: $validationError)" -ForegroundColor Yellow }
-            else { Write-Host "verdict    : $verdict - $(ConvertTo-OneLine $verdictReason)" }
-            if ($verdictWarning) { Write-Host $verdictWarning -ForegroundColor Yellow }
-            if ($findingIds.Count -gt 0) { Write-Host "findings   : $(Format-SeverityCounts $counts) -> $(Format-IdRange $findingIds) in findings.json" }
-            else { Write-Host "findings   : none" }
+            if ($parse.VerdictInvalid) { Write-Summary "verdict    : (invalid: $validationError)" Yellow }
+            else { Write-Summary "verdict    : $verdict - $(ConvertTo-OneLine $verdictReason)" }
+            if ($verdictWarning) { Write-Summary $verdictWarning Yellow }
+            if ($findingIds.Count -gt 0) { Write-Summary "findings   : $(Format-SeverityCounts $counts) -> $(Format-IdRange $findingIds) in findings.json" }
+            else { Write-Summary "findings   : none" }
             if (@($ingest.PriorEntries).Count -gt 0) {
-                Write-Host ("prior      : " + ((@($ingest.PriorEntries) | ForEach-Object { "$($_.id) $($_.status)" }) -join ', '))
+                Write-Summary ("prior      : " + ((@($ingest.PriorEntries) | ForEach-Object { "$($_.id) $($_.status)" }) -join ', '))
             }
             if (@($ingest.UnknownIds).Count -gt 0) {
-                Write-Host "unknown ids: $(@($ingest.UnknownIds) -join ', ') (not in findings.json; ignored)" -ForegroundColor Yellow
+                Write-Summary "unknown ids: $(@($ingest.UnknownIds) -join ', ') (not in findings.json; ignored)" Yellow
             }
             if (@($ingest.UnknownSupersedes).Count -gt 0) {
-                Write-Host "supersedes : $(@($ingest.UnknownSupersedes) -join ', ') not in findings.json (kept on the new finding only)" -ForegroundColor Yellow
+                Write-Summary "supersedes : $(@($ingest.UnknownSupersedes) -join ', ') not in findings.json (kept on the new finding only)" Yellow
             }
         } else {
-            Write-Host "structured : INVALID ($validationError) - raw text kept; no findings recorded" -ForegroundColor Yellow
+            Write-Summary "structured : INVALID ($validationError) - raw text kept; no findings recorded" Yellow
         }
     }
-    if ($pendingNote) { Write-Host "pending    : $pendingNote" -ForegroundColor Yellow }
-    if ($commitWaitLine) { Write-Host $commitWaitLine }
-    foreach ($d in $driftLines) { Write-Host $d -ForegroundColor Yellow }
-    Write-Host "reply file : $replyPath"
-    if ($replyJsonRel) { Write-Host "reply json : $replyJsonPath" }
-    Write-Host "events file: $eventsPath"
+    if ($pendingNote) { Write-Summary "pending    : $pendingNote" Yellow }
+    if ($commitWaitLine) { Write-Summary $commitWaitLine }
+    foreach ($d in $driftLines) { Write-Summary $d Yellow }
+    Write-Summary "reply file : $replyPath"
+    if ($replyJsonRel) { Write-Summary "reply json : $replyJsonPath" }
+    Write-Summary "events file: $eventsPath"
+    Set-DetachedMember -Position $detachMemberPosition -Values @{ state = 'usable'; outcome = $bridgeOutcome; wall_seconds = $wallSeconds } -NoSave
+    Set-DetachedFinal -Exit 0
     Write-Host ""
     Write-Host $replyBody
     if ($section) {

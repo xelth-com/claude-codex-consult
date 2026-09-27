@@ -201,7 +201,10 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   (the bridge measures it with `git diff --shortstat`, tells the reviewer its size and
   WARNS when more than 1500 lines meet a timeout below 2400 s) and/or `-TimeoutSec`, or give
   the brief a reading plan (which files first, what to skip). Never leave a big review to
-  the 900 s of a checkpoint.
+  the 900 s of a checkpoint. **The acceptance of a big change: write `-TimeoutSec 3600` into the
+  brief's command** - explicitly, although `acceptance` defaults to it: the command then says
+  what the run was given, and a changed default or another purpose cannot shrink it (an 1800 s
+  limit timed out three acceptance reviewers of one big change in practice).
 - A reviewer killed on its timeout gets ONE continuation turn on its own thread (`-ContinueSec
   <s>`, default min(timeout, 900); `0` = off): usable -> `usable reply (after a timeout
   continuation)`, ingested like any reply - but only when it passes a first reply's checks (a
@@ -233,6 +236,9 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
 - `-CollabDir <path>` (default `.collab`), `-CodexExe <path>` if `codex` is not on `PATH`.
 - `-DryRun` — print the argv, the resolved paths and the planned ledger entry without
   calling Codex. Use it when a call fails and you need to see what would be sent.
+- `-Detach` (0.5.0) — run the consultation in the background and get your turn back in
+  seconds; come back with `-Status -Id <id8>` / `-Wait -Id <id8>`. See "Parking a
+  consultation" below.
 
 The script creates `handoffs/` and `sessions.json` when missing, and writes (with the
 `agy` or `muse` engine the prefix is `agy` / `muse` instead of `codex`, and a denial-retry or format-repair
@@ -423,6 +429,43 @@ Without `-Panel`, `-Provider` still lets you consult one specific reviewer on th
 wire (e.g. a specific roster member, or any `[model_providers.<name>]` entry) — see the
 README's "Reviewer identity and lineage" and "Effort vocabularies (caps-v1)" for how
 identity, lineage and effort are resolved for a single-reviewer run.
+
+## Parking a consultation (-Detach, 0.5.0)
+
+A panel acceptance runs 15-60 minutes. Do not sit in it: add `-Detach` to the command and
+carry on with other work.
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" -Task <task> -Panel -Purpose acceptance -TimeoutSec 3600 -Brief .collab/<task>/handoffs/<NN>-claude-<slug>.md -ReplyName <slug> -Detach
+```
+
+- **It is checked before it returns.** A refusal (a missing brief, no available reviewer, no
+  launcher, a live consultation of the task) comes back at once, exit `1`, nothing written -
+  fix it as for a blocking run. Exit `0` prints three lines: `Detached <id8>: ...`, the status
+  file, the come-back commands.
+- **Park it**: write into the task's `state.md` the detach id (`<id8>`), the brief's path and
+  the exact come-back command (`codex-consult.ps1 -Task <task> -Status -Id <id8>`). A later
+  session finds it there - and in the SessionStart line (`; 1 detached consultation running
+  (task <task>)`) and in `codex-findings.ps1 -Task <task> -List` (`detached <id8>: running
+  since ...`).
+- **Meanwhile**: never start a second consultation on the same task (the task lock refuses it
+  anyway, as it refuses `codex-findings.ps1 -Id/-Status/-Rate`), never edit the brief or the
+  files under review (the run is bound to them), and do not act on a reply you have not read.
+  Other tasks are free - except beside a panel with agy members: an agy member fails on any
+  change elsewhere under the collab directory, a detached one too.
+- **Come back after `done`, never before.** `-Status -Id <id8>` never blocks: exit `2` =
+  still running (members `running` / `usable` / `failed` so far - a partial picture, not a
+  result), `0` = done and every member usable, `1` = done with a failure, or the background
+  died (then the next run of the task recovers its records as usual; re-run what is missing).
+  Once done it prints the run's summary block - the same lines a blocking run prints; read the
+  reply files it names and go on with step 3 as usual.
+- **Or wait for it**: `-Wait -Id <id8> -WaitTimeoutSec <s>` with `<s>` below your own tool's
+  command timeout (e.g. 540 for a 10-minute limit); exit `3` = still running after `<s>` (the
+  run is untouched) - wait again or come back later. Without `-WaitTimeoutSec` it waits up to
+  the run's budget (`budget_sec`: its timeouts, retries and continuation, per endpoint group).
+- `-Status` without `-Id` shows every detached run of the task (the worst state decides the
+  exit code); an id prefix that matches several runs is refused (exit `4`). `-Status -Prune`
+  deletes the status files and logs of runs that finished or died more than 7 days ago.
 
 ## Invariants
 

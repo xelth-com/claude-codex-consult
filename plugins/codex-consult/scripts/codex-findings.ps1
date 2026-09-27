@@ -42,7 +42,11 @@
     read but never changed here). Its write - like -Rate's - goes through the
     task's store commit (0.4.x wave 21): <task>/.consult.write.lock, findings.json
     RE-READ under it, the change applied to that fresh store, written, released.
-    -List and -Stats only read; they show every interrupted consultation's record.
+    -List and -Stats only read; they show every interrupted consultation's record. (wave 25)
+    -List also prints one line per detached consultation of the task (codex-consult.ps1 -Detach)
+    that is not done: `detached <id8>: running since <t>, k of N members finished (...)`, or that
+    its background died, has not reported yet, never started or runs on another host - read from
+    its status file, the background's liveness judged by its pid and start time.
 
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File codex-findings.ps1 -Task cache-rewrite -List
@@ -163,6 +167,15 @@ function Write-PendingLine {
     }
 }
 
+# (wave 25, R12) One line per detached consultation of the task that is not done (the status files
+# <task>/.consult.detached-<id8>.status.json; Format-DetachedListLine), for -List (no lock taken).
+function Write-DetachedLines {
+    foreach ($run in (Read-DetachedRuns -TaskDir $taskDir)) {
+        $dl = Format-DetachedListLine -Run $run -Task $Task
+        if ($dl) { Write-Host $dl -ForegroundColor Yellow }
+    }
+}
+
 function Read-Ledger {
     $data = Read-JsonStore -Path $sessionsPath
     if ($null -eq $data -or -not $data.PSObject.Properties['codex'] -or -not $data.codex.PSObject.Properties['consults']) { return @() }
@@ -201,6 +214,7 @@ if ($List) {
     if (-not (Test-Path -LiteralPath $findingsPath)) {
         Write-Host "codex-findings: no findings recorded for task '$Task' ($findingsPath does not exist)."
         Write-PendingLine
+        Write-DetachedLines
         exit 0
     }
     $store = Read-FindingsFile -Path $findingsPath -Task $Task
@@ -247,6 +261,7 @@ if ($List) {
     Write-Host ""
     Write-Host "codex-findings: $shown shown ($scope); total $($findings.Count): $($parts -join ', '); orphans: $orphans finding(s), $orphanChecks reviewer check(s)."
     Write-PendingLine
+    Write-DetachedLines
     exit 0
 }
 

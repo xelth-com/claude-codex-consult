@@ -1,13 +1,15 @@
 # Ownership vs recovery metadata (review F06-1, F06-2, F06-3, F04-10): coordinator cases
 # (a)..(g) plus the crash-at-acquisition proof. Fake codex only.
-param([string]$Only = '')
+param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
 # These cases use the Codex home of the machine; a reviewer roster there
 # (<codex home>/codex-consult-roster.json) must not change what they test: none = no roster.
 $env:CODEX_CONSULT_ROSTER = 'none'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$scripts = Join-Path $repoRoot 'plugins\codex-consult\scripts'
+# (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's
+if (-not $ScriptsDir) { $ScriptsDir = [string]$env:CODEX_CONSULT_SCRIPTS_DIR }
+$scripts = if ($ScriptsDir) { (Resolve-Path -LiteralPath $ScriptsDir).Path } else { Join-Path $repoRoot 'plugins\codex-consult\scripts' }
 . (Join-Path $scripts 'codex-consult-common.ps1')
 $fake = Join-Path $sp 'fake-codex.cmd'
 $tmpBase = if ($env:TEMP) { $env:TEMP } else { [IO.Path]::GetTempPath() }

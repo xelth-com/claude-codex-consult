@@ -21,15 +21,17 @@
 # any directory that holds a muse launcher; the harness refuses to run otherwise. Runs under the
 # host it is started with (powershell 5.1 or pwsh 7, Windows). Work files:
 # $env:TEMP\codex-consult-tests\harness-muse\<guid>, removed at the end.
-param([string]$Only = '')
+param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$scripts = Join-Path $repoRoot 'plugins\codex-consult\scripts'
+# (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's
+if (-not $ScriptsDir) { $ScriptsDir = [string]$env:CODEX_CONSULT_SCRIPTS_DIR }
+$scripts = if ($ScriptsDir) { (Resolve-Path -LiteralPath $ScriptsDir).Path } else { Join-Path $repoRoot 'plugins\codex-consult\scripts' }
 . (Join-Path $scripts 'codex-consult-common.ps1')
 $consultPs = Join-Path $scripts 'codex-consult.ps1'
 $providersPs = Join-Path $scripts 'codex-providers.ps1'
-$schemaPath = [IO.Path]::GetFullPath((Join-Path $repoRoot 'plugins\codex-consult\schemas\consult-reply.schema.json'))
+$schemaPath = [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $scripts) 'schemas\consult-reply.schema.json'))
 $fakeMuse = Join-Path $sp 'fake-muse.cmd'
 $fakeAgy = Join-Path $sp 'fake-agy.cmd'
 $fakeCodex = Join-Path $sp 'fake-codex3.cmd'
@@ -534,7 +536,7 @@ if (Want 'RUN') {
     $plugCopy = Join-Path $work 'plugin dir with spaces'
     foreach ($sub in @('scripts', 'schemas')) {
         [void][IO.Directory]::CreateDirectory((Join-Path $plugCopy $sub))
-        Copy-Item -Path (Join-Path (Join-Path (Join-Path $repoRoot 'plugins\codex-consult') $sub) '*') -Destination (Join-Path $plugCopy $sub) -Force
+        Copy-Item -Path (Join-Path (Join-Path (Split-Path -Parent $scripts) $sub) '*') -Destination (Join-Path $plugCopy $sub) -Force
     }
     $schemaCopy = Join-Path $plugCopy 'schemas\consult-reply.schema.json'
     $spLauncher = Copy-Fake -Dir (Join-Path $work 'launcher dir with spaces')

@@ -1,13 +1,15 @@
 # Demonstrates the fixes for review findings F04-1..F04-11 against the CURRENT scripts.
 # Every assertion prints "PASS" or "FAIL" with its evidence. Uses the fake codex only.
-param([string]$Only = '')
+param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
 # These cases use the Codex home of the machine; a reviewer roster there
 # (<codex home>/codex-consult-roster.json) must not change what they test: none = no roster.
 $env:CODEX_CONSULT_ROSTER = 'none'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$scripts = Join-Path $repoRoot 'plugins\codex-consult\scripts'
+# (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's
+if (-not $ScriptsDir) { $ScriptsDir = [string]$env:CODEX_CONSULT_SCRIPTS_DIR }
+$scripts = if ($ScriptsDir) { (Resolve-Path -LiteralPath $ScriptsDir).Path } else { Join-Path $repoRoot 'plugins\codex-consult\scripts' }
 . (Join-Path $scripts 'codex-consult-common.ps1')
 $consultPs = Join-Path $scripts 'codex-consult.ps1'
 $findingsPs = Join-Path $scripts 'codex-findings.ps1'

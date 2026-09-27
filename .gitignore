@@ -16,11 +16,14 @@ desktop.ini
 # Bridge runtime files inside a task directory. .consult.lock and .consult.write.lock
 # are permanent, informational lock files (never delete them); .consult.pending.json
 # and a panel member's .consult.pending-<NN>.json exist only during or after an
-# interrupted consultation. None of them belongs in history.
+# interrupted consultation; a detached consultation's status file and console log
+# (.consult.detached-<id8>.status.json, .consult.detached-<id8>.log; -Status -Prune
+# removes old ones) are runtime state too. None of them belongs in history.
 .consult.lock
 .consult.write.lock
 .consult.pending.json
 .consult.pending-*.json
+.consult.detached-*
 
 # Local eval runs (claude plugin eval) - reports and transcripts, never committed.
 evals/results/

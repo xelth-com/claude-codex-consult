@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The next candidate. Wave 24 (the "operator visibility" wave, ROADMAP T1-T3 and the
 availability decisions D14-D17 of the companions design review,
-`.collab/companions-2026-09-26/handoffs/05-claude-companions-decisions.md`) is in; planned
-next: non-blocking consultation (R12), adaptive companions and telemetry routing (R14-R16),
-host invariance (R13), opt-out telemetry (R17).
+`.collab/companions-2026-09-26/handoffs/05-claude-companions-decisions.md`) and wave 25
+(non-blocking consultation, ROADMAP R12, decisions D1-D12 of
+`.collab/nonblocking-2026-09-26/handoffs/05-claude-r12-decisions.md`; and T4) are in; planned
+next: adaptive companions and telemetry routing (R14-R16), host invariance (R13), opt-out
+telemetry (R17).
 
 ### Added
 
@@ -92,6 +94,84 @@ host invariance (R13), opt-out telemetry (R17).
 - `tests/harness-visibility.ps1` (registered in `run-all.ps1`): 76 assertions - see
   `tests/README.md`. Fake knobs: `FAKE_CODEX_HANG_NEW`, `FAKE_CODEX_ITEMS`, `FAKE_AGY_HANG=new`,
   `FAKE_AGY_TEXT`, `FAKE_MUSE_HANG=new|resume`, `FAKE_MUSE_TEXT`.
+- **Wave 25 - non-blocking consultation (ROADMAP R12)**, per the design round recorded in
+  `.collab/nonblocking-2026-09-26/` (design 01, the glm-5.3 review F02-1..11, decisions D1-D12):
+  - `-Detach` (a single run or `-Panel`; refused with `-DryRun`, `-Status`, `-Wait` and the
+    internal `-PanelSpec`): the FOREGROUND makes every check a real run makes before its task
+    lock - the dry run's checks, and the refusals a dry run only reports (D2, F02-2): the
+    launcher of every engine that will run, an ACTIVE recovery record, the preflight, (a single
+    run) a `.cmd` launcher's `%` hazard; for a panel also the artifacts - exit 1, nothing
+    written. Then it picks the detach id (a guid whose first 8 hex digits, the `id8`, name no
+    status or log file of the task yet; D7), writes `<task>/.consult.detached-<id8>.status.json`
+    ONCE, state `starting`, no pid (D5, F02-5), starts the BACKGROUND and exits 0 printing three
+    lines: `Detached <id8>: <what runs> - it runs in the background (detach id <guid>; budget <s>
+    s).`, the status file and the log, the come-back commands. Not checked there: the task lock
+    and the time-dependent health/peak selection - a benign window the background's status
+    reports.
+  - The background: `<the same host> -File codex-consult.ps1 -Task <t> -CollabDir <absolute>
+    -DetachId <guid>` in the caller's working directory, `-Brief` / `-Artifact` / `-CollabDir`
+    absolute (D8, F02-11); the other arguments in the `starting` record's `args` (base64 of UTF-8
+    PowerShell CLIXML - no command-line quoting; `ConvertTo-DetachArgs` / `ConvertFrom-DetachArgs`).
+    Windows: `cmd.exe /d /v:off /s /c "... <NUL 1>"<log>" 2>&1"` through ShellExecute, hidden - it
+    inherits none of the caller's handles, so the caller's capture ends when the foreground exits
+    (a Start-Process with redirection would hold the caller's pipe until the background ended);
+    a path with `%` is refused. macOS/Linux: `/bin/sh -c 'exec nohup <pwsh> ... </dev/null
+    >log 2>&1'`. Its first action is the self-report `running` {pid, start_time, host} (D5), then
+    `[Console]::OutputEncoding` and `$OutputEncoding` UTF-8 (D10, F02-8), then the run IN THE
+    SAME PROCESS (`& codex-consult.ps1 @args -DetachId`) inside a try/finally that writes the final
+    status - `done`, the run's exit code, the summary - on every exit path (D3, F02-3):
+    `Stop-WithError` records its refusal line first (`$script:StopWithErrorHook`), an error is
+    caught (`codex-consult: the detached run stopped on an error: ...`), a normal end writes the
+    summary block it printed (`Write-Summary`: a panel's `Panel <id8>: ...` block, a single run's
+    outcome lines up to `events file:`). Members (D11, F02-9): `pending | running | usable |
+    failed | skipped | killed | blocked | commit_blocked | orphan` with the `outcome` phrase
+    (`Get-PanelMemberStatus`), `wall_seconds`, `n`, `handoff`, `reply` - updated as they start and
+    finish; a member never started ends `skipped` "not started: <why>". The console output
+    (stdout and stderr) goes to `<task>/.consult.detached-<id8>.log`.
+  - `-Status [-Id <id>] [-Prune]`: every detached run of the task, newest first, or one by its id
+    or a prefix - the state, one line per member and, once done, the summary block verbatim; exit
+    0 all done and usable, 1 a failure (a died run, never started, an unusable file too), 2 still
+    running - the worst state decides (D7, F02-10) -, 4 the query refused (an id prefix of several
+    runs, naming them; an unknown id; other options; a `-CollabDir` that does not exist - an id
+    given without `-Id` lands there). Liveness (D6, F02-6): a record that is not done is judged by
+    `Test-PidAlive(pid, start_time)` - gone = `died` (its recovery records are judged by the next
+    run as usual); `starting` without a pid reads "starting" for 60 s, then `never started`; a
+    background on another host is never judged (D11). `-Prune`, the one writing form (D8),
+    deletes the status file and the log of runs done or died more than 7 days ago (D6).
+  - `-Wait [-Id <id>] [-WaitTimeoutSec <s>]`: checks every 2 s until the run(s) are done or their
+    background is gone, then prints as `-Status`; the default limit is the run's `budget_sec`
+    (D4, F02-4: per endpoint group ceil(members / limit) x the member guard, the largest; with
+    `-PanelConcurrency` also ceil(N / cap) x the guard; + 120 s - `Get-DetachedBudget`); still
+    running after it: exit 3, the run untouched.
+  - The status file (`status_version` 1): `id, id8, task, kind, state, exit, started, updated,
+    finished, wall_seconds, pid, start_time, host, budget_sec, purpose, reply_name, brief,
+    members[], summary, log, args` (README "Non-blocking consultation"). New in
+    `codex-consult-common.ps1`: `Get-DetachedPaths`, `New-DetachedMember`,
+    `ConvertTo-DetachedRecord`, `Read-DetachedStatus`, `Write-DetachedStatus`,
+    `Read-DetachedRuns`, `Get-DetachedJudgement`, `Get-DetachedBudget`,
+    `Complete-DetachedRecord`, `Format-DetachedListLine`, `Get-DetachedPhrase`.
+  - `codex-findings.ps1 -List` prints one line per detached run of the task that is not done
+    (`detached <id8>: running since <t> (<s>), k of N members finished (codex-consult.ps1 -Task
+    <t> -Status -Id <id8>)`, or the died / starting / never-started / other-host wording); the
+    SessionStart hook adds one phrase for the repository (`; 1 detached consultation running
+    (task t)`, `... finished` in the last 24 h, `... died`; several kinds: `; detached
+    consultations: 1 running (task a), 1 died (task b)`) - status files only (D6).
+  - `.gitignore`: `.consult.detached-*` (D1, F02-1). The status file and the log start with
+    `.consult.`: an agy or muse member's collab snapshot leaves them out (F02-7; the per-task
+    files stay, D9).
+  - The consult-codex skill: "Parking a consultation" - park the id, the brief and the come-back
+    command in `state.md`, no second consultation of the task meanwhile, come back after `done`
+    only, `-Wait` below the tool's own timeout; and (D12) the acceptance of a big change writes
+    `-TimeoutSec 3600` into the brief's command.
+  - `tests/harness-detach.ps1` (registered in `run-all.ps1`): 46 assertions - see
+    `tests/README.md`. Test hook `CODEX_CONSULT_TEST_DETACH_GUIDS=<guid>[,<guid>]` (the detach ids
+    tried first).
+- **Wave 25 - T4 (ROADMAP): the harnesses under another scripts directory.** Every harness and
+  `tests/run-all.ps1` take `-ScriptsDir <dir>` - else `CODEX_CONSULT_SCRIPTS_DIR`, else the
+  checkout's `plugins/codex-consult/scripts` (no change without it); the schema follows the
+  scripts (`<dir>/../schemas`); `run-all.ps1` passes it to every harness and names it on its
+  first line and in its summary line (`run-all: 12 harness(es), 0 failed; scripts: <dir>`).
+  `harness-detach` proves it with a marked copy of the scripts (run-all, the variable, neither).
 
 ### Changed
 
@@ -112,6 +192,13 @@ host invariance (R13), opt-out telemetry (R17).
   records `Hit` / `HitIso`; `Until` of a failure without a reset time is `Hit + 60 min`.
 - `codex-scoreboard.ps1`: USABLE counts a reply after a timeout continuation.
 - `Invoke-GitCapture` returns git's stderr too (`Err`).
+- (wave 25) `Stop-WithError` runs `$script:StopWithErrorHook` (when a caller set one) with its
+  refusal line before it exits. The summary blocks of a single run and a panel are printed
+  through `Write-Summary` (same output). The artifact splitting of `-Artifact` is
+  `Split-ArtifactArgument` (same rule). The panel poll loop's member-status variable is
+  `$memberStatus` (`$status` is now the `-Status` switch). New parameters at the end of the
+  parameter list, so no positional binding moved: `-Detach`, `-Status`, `-Id`, `-Wait`,
+  `-WaitTimeoutSec`, `-Prune`, `-DetachId` (internal).
 
 ### Fixed
 
@@ -285,6 +372,18 @@ host invariance (R13), opt-out telemetry (R17).
 - (wave 24c) Whether a 429 is a burst is read from its text: a real quota whose 429 names nothing
   but the status is out for 10 minutes only - the next run after that hits it again and records
   it again.
+- (wave 25) `-Detach` does not probe the task lock or re-run the time-dependent health/peak
+  selection in the foreground: a consultation that takes the task in between makes the
+  background refuse (its status: `done`, exit 1, the refusal line) - the foreground's exit 0
+  means "started", not "usable".
+- (wave 25) The macOS/Linux background (`/bin/sh -c 'exec nohup ...'`) is not exercised by the
+  Windows-only harnesses.
+- (wave 25) Killing only a detached panel's background process (not its tree) leaves its members
+  running to their end; `-Status` says `died` meanwhile and the task stays refused until their
+  records clear, as after any killed panel run.
+- (wave 25) A single run's summary in the status file stops at `events file:`; the reply itself
+  is in the reply file and the log. `-Status` prints non-ASCII text through the console's code
+  page, as every bridge output does; the status file and the log are UTF-8.
 
 
 ## [0.4.0] - 2026-09-26

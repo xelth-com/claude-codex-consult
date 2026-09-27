@@ -29,6 +29,13 @@
     session: the exit code is always 0. No network call, no lock, nothing written: it runs
     `codex-providers.ps1 -Short -Json -NoNetwork` and prints the `line` of its object.
 
+    (wave 25, R12) The detached consultations of the repository (codex-consult.ps1 -Detach) add
+    one phrase to that line - `; 1 detached consultation running (task t)`, `; 2 detached
+    consultations finished (tasks t, u)` (finished in the last 24 h), `; detached consultations:
+    1 running (task t), 1 died (task u)` - read from the status files
+    <CollabDir>/*/.consult.detached-*.status.json, a background's liveness judged by its pid and
+    start time (Get-DetachedPhrase). Nothing when there is none.
+
     Cost: about one second (one `codex login status` for the built-in openai; wave 24b: each
     roster entry's identity and each endpoint's health are resolved once per listing - the
     walk, the availability line and the rows share them - and the ledgers are read once), once
@@ -77,5 +84,12 @@ try {
     if ($msg.Length -gt 120) { $msg = $msg.Substring(0, 117) + '...' }
     $line = "codex-consult: reviewer check failed - $msg"
 }
+# (wave 25, R12) the detached consultations of this repository: one phrase, status files only;
+# a failure here never changes the line
+try {
+    . (Join-Path $PSScriptRoot 'codex-consult-common.ps1')
+    $detachedPhrase = Get-DetachedPhrase -CollabRoot (Resolve-CollabRoot -RepoRoot (Resolve-RepoRoot -Cwd (Get-Location).Path) -CollabDir $CollabDir)
+    if ($detachedPhrase) { $line += $detachedPhrase }
+} catch { }
 Write-Output $line
 exit 0

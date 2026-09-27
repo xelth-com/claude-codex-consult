@@ -1,8 +1,13 @@
+param([string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
 # These cases use the Codex home of the machine; a reviewer roster there
 # (<codex home>/codex-consult-roster.json) must not change what they test: none = no roster.
 $env:CODEX_CONSULT_ROSTER = 'none'
-. (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')).Path 'plugins\codex-consult\scripts\codex-consult-common.ps1')
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+# (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's
+if (-not $ScriptsDir) { $ScriptsDir = [string]$env:CODEX_CONSULT_SCRIPTS_DIR }
+$scripts = if ($ScriptsDir) { (Resolve-Path -LiteralPath $ScriptsDir).Path } else { Join-Path $repoRoot 'plugins\codex-consult\scripts' }
+. (Join-Path $scripts 'codex-consult-common.ps1')
 $script:fails = 0
 function Check([string]$name, [bool]$cond) { if ($cond) { "PASS $name" } else { "FAIL $name"; $script:fails++ } }
 function Rec([string]$state, [hashtable]$extra) {

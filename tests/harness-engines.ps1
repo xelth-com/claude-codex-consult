@@ -10,18 +10,20 @@
 # the host it is started with (powershell 5.1 or pwsh 7, Windows) and launches the scripts with
 # the same host. Work files: $env:TEMP\codex-consult-tests\harness-engines\<guid>, removed at
 # the end.
-param([string]$Only = '')
+param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$scripts = Join-Path $repoRoot 'plugins\codex-consult\scripts'
+# (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's
+if (-not $ScriptsDir) { $ScriptsDir = [string]$env:CODEX_CONSULT_SCRIPTS_DIR }
+$scripts = if ($ScriptsDir) { (Resolve-Path -LiteralPath $ScriptsDir).Path } else { Join-Path $repoRoot 'plugins\codex-consult\scripts' }
 . (Join-Path $scripts 'codex-consult-common.ps1')
 $consultPs = Join-Path $scripts 'codex-consult.ps1'
 $providersPs = Join-Path $scripts 'codex-providers.ps1'
 $findingsPs = Join-Path $scripts 'codex-findings.ps1'
 $scoreboardPs = Join-Path $scripts 'codex-scoreboard.ps1'
 $hookPs = Join-Path $scripts 'codex-consult-hook.ps1'
-$schemaPath = [IO.Path]::GetFullPath((Join-Path $repoRoot 'plugins\codex-consult\schemas\consult-reply.schema.json'))
+$schemaPath = [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $scripts) 'schemas\consult-reply.schema.json'))
 $fakeAgy = Join-Path $sp 'fake-agy.cmd'
 $fakeCodex = Join-Path $sp 'fake-codex3.cmd'
 $psExe = (Get-Process -Id $PID).Path

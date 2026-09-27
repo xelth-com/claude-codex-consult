@@ -296,6 +296,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps
 - When a call misbehaves, rerun it with `-DryRun` first: it prints the argv, the resolved
   launcher, reviewer, preflight, roster pick, transport, the prompt that would go on stdin,
   every path and the planned ledger entry, and writes nothing.
+- A long consultation you do not want to wait for (0.5.0): add `-Detach` - the call returns in
+  seconds, the consultation runs in the background, and `-Status -Id <id8>` / `-Wait -Id <id8>`
+  bring you back to it ("Non-blocking consultation").
 
 Expect on success (exit `0`):
 
@@ -329,8 +332,9 @@ Verify every finding yourself (open the location, run the build or test) before 
 on it, then move its status with `codex-findings.ps1` and rate the consultation with
 `-Rate` (see "Findings: ids, status, ratings"). Commit the whole `.collab/` tree next to
 the code; `.gitignore` excludes only the bridge's runtime files (`.consult.lock`,
-`.consult.write.lock`, `.consult.pending.json`, a panel member's `.consult.pending-<NN>.json`). A
-fabricated example of the layout is in `examples/`.
+`.consult.write.lock`, `.consult.pending.json`, a panel member's `.consult.pending-<NN>.json`, and
+(0.5.0) a detached run's status file and log, `.consult.detached-*`) - add the same patterns to
+your project's `.gitignore`. A fabricated example of the layout is in `examples/`.
 
 ---
 
@@ -474,6 +478,127 @@ changes while the review runs. A `-Panel` measures it once for all members.
 **Rating a failed consultation** (`codex-findings.ps1 -Rate`): rate `no` only when the failure
 was the reviewer's (a refusal, an invented finding, prose it could not convert); skip the rating
 when the bridge's timeout or a plan limit killed it - resume it instead.
+
+---
+
+## Non-blocking consultation (0.5.0): -Detach, -Status, -Wait
+
+A consultation holds the caller's turn for its whole wall clock - a parallel acceptance panel
+for 15-30 minutes. With `-Detach` the call returns within seconds and the consultation runs in
+a background process; you come back to THAT question with `-Status` or `-Wait` when you are
+ready. Nothing else changes: the background is an ordinary run (task lock, recovery records,
+numbering, members, kill guard, commit, the ledger), so everything the blocking run writes it
+writes too.
+
+```powershell
+# 1. park it (a single run or -Panel; any other option as usual)
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps1" `
+    -Task my-task -Panel -Purpose acceptance -ReplyName acceptance -Detach `
+    -Brief .collab/my-task/handoffs/07-claude-acceptance.md
+```
+
+Expect (exit `0`), three lines - write the id and the brief into the task's `state.md`:
+
+```
+Detached 3f2a9c1b: a review panel of 3 of 3 roster entries, at once (purpose acceptance, timeout 3600 s per member) - it runs in the background (detach id 3f2a9c1b-...; budget 5100 s).
+status file: <repo>\.collab\my-task\.consult.detached-3f2a9c1b.status.json (console output: <repo>\.collab\my-task\.consult.detached-3f2a9c1b.log)
+come back  : codex-consult.ps1 -Task my-task -Status -Id 3f2a9c1b (exit 0 done and usable, 1 a failure, 2 still running); -Wait -Id 3f2a9c1b waits until it is done (default: its budget, 5100 s)
+```
+
+```powershell
+# 2. look (never blocks; reads status files only)
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps1" -Task my-task -Status -Id 3f2a9c1b
+# 3. or wait for it (checks every 2 s; the default limit is the run's budget)
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps1" -Task my-task -Wait -Id 3f2a9c1b -WaitTimeoutSec 540
+```
+
+`-Status` prints, per detached run of the task (newest first; `-Id` picks one by its id or a
+prefix of it), its state, one line per member and - once done - the summary block the run
+printed, verbatim (a panel: its `Panel <id8>: ...` block; a single run: its outcome lines from
+`codex-consult: <outcome>` to `events file:` - the reply itself is in the reply file and in the
+log):
+
+```
+detached 3f2a9c1b (review panel, purpose acceptance, reply name acceptance): running since 2026-09-26T21:40:02+02:00 (12 min), 2 of 3 members finished
+  detach id 3f2a9c1b-..., started 2026-09-26T21:40:02+02:00, pid 8508 on HOST; budget 5100 s
+  #1 openai :: gpt-6-astra - running (n=5, handoff 08)
+  #2 ZAI :: glm-5.3 - usable: usable reply (n=6, handoff 09, 311.4 s)
+  #3 mimo :: mimo-v2.6-pro - failed: timeout after 3600 s (process tree killed) (n=7, handoff 10, 3790.2 s)
+  log: <repo>\.collab\my-task\.consult.detached-3f2a9c1b.log
+```
+
+| Exit | `-Status` / `-Wait` |
+|---|---|
+| `0` | every run asked about is done and exited 0 (every member usable) |
+| `1` | a run is done with a failure (exit 1), its background died, it never started, or its status file is unusable |
+| `2` | a run is still running (or starting, or runs on another host) - the worst state decides: 2 > 1 > 0 |
+| `3` | `-Wait` only: still running after `-WaitTimeoutSec` (default: the run's `budget_sec`); the run was not touched |
+| `4` | the query is refused: `-Id` matches no run or several (`-Id 'abcd' matches 2 detached runs of task 't': abcd5678, abcd1234; give more of the id.`), or an option that does not go with it |
+
+- **What `-Detach` checks before it returns** (a refusal: exit `1`, nothing written, nothing
+  started): everything `-DryRun` checks, plus what a real run refuses before it takes the task
+  lock and a dry run only reports - a missing launcher of an engine that will run, an ACTIVE
+  recovery record of the task, the preflight (credentials, a recorded auth failure or usage
+  limit), the roster; a missing brief or artifact; (a single run) a `.cmd` launcher's `%` hazard. Not checked:
+  the task lock itself and the time-dependent health/peak selection - a benign window: if
+  another consultation takes the task in between, the background is refused and its status says
+  so (`done, exit 1`, the refusal line as its summary). `-Detach` is refused with `-DryRun`,
+  `-Status`, `-Wait` and the internal `-PanelSpec`.
+- **The background** is `<the same PowerShell> -File codex-consult.ps1 -Task <t> -CollabDir
+  <absolute> -DetachId <guid>`, started in the caller's working directory with `-Brief`,
+  `-Artifact` and `-CollabDir` made absolute (the ledger's `artifacts[].path` of a detached run
+  is therefore absolute); the other arguments travel in the status file's `starting` record
+  (PowerShell CLIXML, no command-line quoting). Windows: `cmd.exe /d /v:off /s /c` through
+  ShellExecute, hidden, with the output redirected - it holds none of the caller's handles, so
+  the calling tool's capture ends when the foreground exits (a path with `%` is refused: cmd
+  would expand it); macOS/Linux: `/bin/sh -c 'exec nohup <pwsh> ... </dev/null >log 2>&1'`. Its
+  first action is the self-report (`running`, its pid, start time and host); its console output
+  (stdout and stderr, UTF-8) goes to the log; a try/finally around the run writes the final
+  status (`done`, the exit code, the summary) on every exit path - a refusal after the start
+  (`Stop-WithError`), an error, a normal end.
+- **Liveness.** A status file that is not `done` is judged by its background's pid AND start
+  time on this host: gone = `died - its background process (pid N) is gone without a final
+  status ...` (its recovery records are judged by the next run of the task as usual - the
+  members' records are consumed, the task lock was released with the process); `starting`
+  without a pid reads "starting" for 60 s, then `never started` (see its log). A background on
+  another host is never judged (`its liveness cannot be checked from this host`).
+- **Budget** (`budget_sec`, `-Wait`'s default limit): per endpoint group ceil(members / limit)
+  x the member kill guard (timeout + format repair + denial retry + continuation + 60 s write
+  lock + 120 s), the largest group; with `-PanelConcurrency` also ceil(N / cap) x the guard; the
+  larger, plus 120 s. A single run is one group of one member (no purpose: 2400 s). Pass a
+  `-WaitTimeoutSec` below your tool's own command timeout and repeat `-Wait`, or poll `-Status`.
+- **Where it shows.** `codex-findings.ps1 -List` prints one line per detached run of the task that
+  is not done (`detached 3f2a9c1b: running since <t> (<s>), 2 of 3 members finished (codex-consult.ps1
+  -Task my-task -Status -Id 3f2a9c1b)`, or the died / starting / never-started / other-host
+  wording); the SessionStart hook adds one phrase for the repository (`; 1 detached consultation
+  running (task my-task)`, `; 2 detached consultations finished (tasks a, b)` - finished in the last
+  24 h - or `; detached consultations: 1 running (task a), 1 died (task b)`).
+- **Retention.** Status and log files stay (they are small and git-ignored by the
+  `.consult.detached-*` pattern). `-Status -Prune` - the one writing form of `-Status` - deletes
+  those of runs that are done or died and were last written more than 7 days ago; running runs,
+  runs on another host and unusable files stay.
+- One consultation per task still holds: while a detached run holds the task, a second one (and
+  `codex-findings.ps1 -Id/-Status/-Rate`) on that task is refused on the task lock.
+
+The status file (`<task>/.consult.detached-<id8>.status.json`, replaced atomically; the
+foreground writes it once, `starting`, before the background exists; from then on only the
+background writes it):
+
+| Field | Meaning |
+|---|---|
+| `status_version` | `1` |
+| `id`, `id8` | the detach id (a guid) and its first 8 hex digits (the file name) |
+| `task`, `kind` | the task; `run` or `panel` |
+| `state` | `starting` (the foreground's record, no pid) -> `running` (the background's self-report) -> `done` |
+| `exit` | the run's exit code (`null` until done) |
+| `started`, `updated`, `finished`, `wall_seconds` | the foreground's start, the last write, the end, the wall clock |
+| `pid`, `start_time`, `host` | the background process (its start time as UTC round trip) and host - liveness is judged by all three |
+| `budget_sec` | the budget above |
+| `purpose`, `reply_name`, `brief` | as given (`brief` absolute) |
+| `members[]` | `{position (roster position; 1 without a roster), lineage, state, outcome, wall_seconds, n, handoff (NN), reply}`; `state`: `pending`, `running`, `usable`, `failed`, `skipped` (a roster-skipped entry; a member never started - `not started: <why>`), `killed` (by the panel's guard), `blocked` (`-PanelConcurrency 1` after surviving processes), `commit_blocked`, `orphan` (stopped inside its commit); `outcome`: the panel's status phrase (its bridge outcome, `killed by the panel after ...`, ...) |
+| `summary` | the summary block the run printed; a refusal: its `codex-consult: <message>` line |
+| `log` | the console log `<task>/.consult.detached-<id8>.log` |
+| `args` | the `starting` record only: the background's parameters (base64 of UTF-8 PowerShell CLIXML); dropped by the self-report |
 
 ---
 
@@ -1853,6 +1978,10 @@ nor writes it.
 | `-MaxModelSteps <n>` | not sent (the CLI's default) | muse only (wave 23): `--max-model-steps <n>`; refused with another engine; passed to a panel's muse members; ledger `engine_run.max_model_steps` |
 | `-DenialRetry 0\|1` | `1` | agy: one more turn on the same conversation after a run that produced nothing because a tool was auto-denied; ledger `denial_retry` (muse has none) |
 | `-DryRun` | off | prints the plan (argv, prompt, paths, preflight, roster pick, ledger entry); calls nothing, writes nothing |
+| `-Detach` | off | (0.5.0) checks the run here like a real run, then runs it in a background process and returns at once (exit `0`): the detach id, the status file, the come-back commands; a single run or `-Panel`; not with `-DryRun`, `-Status`, `-Wait` ("Non-blocking consultation") |
+| `-Status [-Id <id>] [-Prune]` | — | (0.5.0) the detached runs of the task: state, members, the summary block once done; exit `0` / `1` / `2` / `4`; reads status files only - `-Prune` deletes those of runs done or died more than 7 days ago; takes only `-Task`, `-CollabDir`, `-Id`, `-Prune` |
+| `-Wait [-Id <id>] [-WaitTimeoutSec <s>]` | the run's `budget_sec` | (0.5.0) waits (every 2 s) until the run(s) are done or their background is gone, then prints as `-Status`; exit `3` when still running after the limit |
+| `-Id <id>` | every detached run of the task | (0.5.0) with `-Status` / `-Wait`: one run, by its detach id or a prefix of it (the 8 hex digits `-Detach` prints); a prefix of several runs is refused (exit `4`) |
 
 Environment variables:
 
@@ -1868,7 +1997,8 @@ Environment variables:
 | `CODEX_CONSULT_MUSE_EXE` | user | muse launcher path (the `muse` engine) |
 | `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the bridge can read; required (wave 23b: without a readable oauth sign-in no muse run is launched, `-SkipPreflight` included); passed to muse unchanged |
 | `META_API_KEY`, `MODEL_API_KEY` | nobody, for the bridge | must NOT be set: a muse run is refused while either is (it would bill per token instead of the subscription) |
-| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS` | tests only | test hooks; never set them in normal use |
+| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS` | tests only | test hooks; never set them in normal use |
+| `CODEX_CONSULT_SCRIPTS_DIR` | tests only | (0.5.0, T4) the scripts directory `tests/run-all.ps1` and every harness test when `-ScriptsDir` is not given (e.g. an installed copy of the plugin); unset: the checkout's `plugins/codex-consult/scripts` |
 
 ---
 
@@ -1979,15 +2109,18 @@ anything not listed, rerun with `-DryRun` and compare the argv.
   difference), T7 (an agy or muse lineage binds engine + label + model, not the signed-in
   Google or Meta account), T8 (agy's read-only rule is enforced by evidence: gitignored paths, submodules
   and files outside the repository are not seen, and a change cannot be attributed).
-- Help wanted: runs on macOS; a bash port; a `UserPromptSubmit` hook injector; the reverse
-  direction (a Codex-side tool that consults Claude); an MCP server variant with
-  background jobs.
+- 0.5.0 (candidate): wave 24 (timeouts that never throw the reviewer's work away, one truth
+  about availability) and wave 25 - R12, non-blocking consultation (`-Detach`, `-Status`,
+  `-Wait`), and T4 (the harnesses take `-ScriptsDir`).
+- Help wanted: runs on macOS (the `-Detach` background there is `/bin/sh -c 'exec nohup ...'`,
+  not exercised by the Windows-only harnesses); a bash port; a `UserPromptSubmit` hook injector;
+  the reverse direction (a Codex-side tool that consults Claude); an MCP server variant.
 
 ---
 
 ## Tests
 
-`tests/run-all.ps1` runs the eleven harnesses one at a time against a FAKE `codex` shim (and
+`tests/run-all.ps1` runs the twelve harnesses one at a time against a FAKE `codex` shim (and
 a FAKE `agy` for `harness-engines` and `harness-panel`, a FAKE `muse` for `harness-muse`): no
 real `codex`, `agy` or `muse`, no quota spent, no real credential read (`harness-muse` gives
 every child a scratch home with a fake `auth.json`, a scratch `LOCALAPPDATA` and a PATH
@@ -2000,16 +2133,24 @@ harnesses in parallel; the recovery checks would see each other's fake codex.
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1
 pwsh -NoProfile -File tests/run-all.ps1 -Only harness-roster,harness-0.3
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1 -ScriptsDir <an installed plugin>/scripts
 ```
 
-Assertions per harness (Windows PowerShell 5.1, 2026-09-26, 0.5.0 wave 24b): `harness-0.3` 229,
+(0.5.0, T4) `-ScriptsDir <dir>` - else the environment variable `CODEX_CONSULT_SCRIPTS_DIR`, else
+the checkout's `plugins/codex-consult/scripts` - names the scripts under test; `run-all.ps1`
+passes it to every harness (each takes it too) and names it in its summary line
+(`run-all: 12 harness(es), 0 failed; scripts: <dir>`).
+
+Assertions per harness (Windows PowerShell 5.1, 2026-09-27, 0.5.0 wave 25): `harness-0.3` 229,
 `harness-roster` 118, `harness-format` 37, `harness-engines` 97, `harness-muse` 72,
 `harness-panel` 53 (0.4.x wave 21, the parallel panel), `harness-pending` 26, `harness-fixes`
-45, `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 100 (wave 24: the timeouts, the
-continuation, the salvage, `-Range`, the one availability verdict; wave 24b: the continuation's
-gates, the main turn's guarded start, the complete resume command). `harness-0.3`,
-`harness-roster`, `harness-format`, `harness-engines`, `harness-muse`, `harness-panel` and
-`harness-visibility` also run under pwsh. A full run takes about forty-five minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
+45, `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121 (wave 24: the timeouts, the
+continuation, the salvage, `-Range`, the one availability verdict; wave 24b/24c: the
+continuation's gates, the main turn's guarded start, the complete resume command, the tree check
+by content, the burst 429), `harness-detach` 46 (wave 25: `-Detach`, `-Status`, `-Wait`, the
+status file, the log, the budget, a died background, T4). `harness-0.3`, `harness-roster`,
+`harness-format`, `harness-engines`, `harness-muse`, `harness-panel`, `harness-visibility` and
+`harness-detach` also run under pwsh. A full run takes about fifty minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`
 prints one summary line per harness, exits `1` when anything failed, and keeps full logs
 in `$env:TEMP\codex-consult-tests\run-all-<timestamp>\`. `tests/` is not part of the
 installed plugin; `tests/README.md` lists what each harness covers.
