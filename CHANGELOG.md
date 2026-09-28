@@ -14,8 +14,11 @@ availability decisions D14-D17 of the companions design review,
 (non-blocking consultation, ROADMAP R12, decisions D1-D12 of
 `.collab/nonblocking-2026-09-26/handoffs/05-claude-r12-decisions.md`; and T4) and wave 26
 (adaptive companions, telemetry routing and roles - ROADMAP R14-R16, decisions D1-D12 of the
-companions design review; and the wave 25 acceptance's carry-overs) are in; planned next: host
-invariance (R13), opt-out telemetry (R17).
+companions design review; and the wave 25 acceptance's carry-overs) are in, and wave 26b (the wave
+26 acceptance's decisions D1-D14 of
+`.collab/companions-2026-09-26/handoffs/23-claude-wave26-acceptance-decisions.md` - ROADMAP R18,
+R20 - and the supervisor's addenda D15, D16); planned next: host invariance (R13), opt-out
+telemetry (R17).
 
 ### Added
 
@@ -258,6 +261,98 @@ invariance (R13), opt-out telemetry (R17).
     rating record in `harness-roster` and `harness-engines`; the scoreboard's header (`SCORE`,
     `UNIQ`) in `harness-roster`. Assertions (Windows PowerShell 5.1): `harness-roster` 119,
     `harness-panel` 54, `harness-detach` 51, `harness-companions` 42; the others unchanged.
+- **Wave 26b - what the wave 26 acceptance and the day's live use asked for (decisions D9-D14 of
+  handoff 23; the supervisor's addenda D15, D16; ROADMAP R18, R20).** The findings it fixes (D1-D7)
+  are under Fixed.
+  - `-Kick -Member <NN> [-Id <id8>]` (D10; `codex-consult.ps1`, the handler before `-Status`;
+    `Get-KickPath`, `Wait-EngineProcess` in `codex-consult-common.ps1`): from another shell, stop
+    ONE running member of a panel (or a single run) of `-Task` by its handoff number - a detached
+    panel with `-Id` (the member must be one of its running members), a foreground panel without.
+    `-Kick` writes `<task>/.consult.kick-<NN>`; the member polls it every second while its engine
+    turn runs (the main turn, a continuation, a denial retry, a format repair), stops its process
+    tree, deletes the file (the acknowledgement `-Kick` waits up to 60 s for), salvages its partial
+    output (`.partial.md`) and records `failed: stopped by the operator (-Kick)` with
+    `provider_failure.class` `operator` (never read as an endpoint outage); no continuation; the
+    panel goes on with the others; `-Status` shows the member `failed: stopped by the operator
+    (-Kick)`. Exit `0` done, `1` no such member or not running (no recovery record names it, not
+    running, not taken within 60 s - the kick file is then removed), `4` refused. A stale kick file
+    of the same number is removed when a run starts.
+  - Roster `timeout_sec` (D11): an entry's optional integer (60-86400) replaces the purpose's
+    default for that reviewer - a panel member (per slot: timeout, its guard, its continuation
+    budget `min(timeout, 900)` unless `-ContinueSec`) or a single run of the entry (`roster.applied`
+    names `timeout_sec`); an explicit `-TimeoutSec` still wins for all. Ledger `timeout_source`
+    gains `roster`; the panel's `Timeout:` line lists the exceptions (`Timeout: 900 s per member
+    (the default of purpose checkpoint); #2 ZAI :: glm-5.3 120 s (roster); ...`), the single run's
+    `timeout     :` line says `(the roster entry's timeout_sec)` (`Format-TimeoutSource`).
+  - The stall cut (D12, ROADMAP R18): `-StallSec <s>` (new, at the end of the parameter list;
+    default 900, a roster entry's `stall_sec` 0-86400 overrides it for that reviewer, an explicit
+    value wins; `0` = off). `Wait-EngineProcess` replaces the main turn's `WaitForExit`: every second
+    it reads the lines appended to the turn's event stream (`Read-StreamGrowth` - codex `--json`,
+    agy stream-json, muse MSP all go there line by line); no complete line for the threshold while
+    the process lives -> the tree is stopped like a timeout: the continuation turn ("Your previous
+    turn was stopped after N s without any output. ...") and the salvage; `bridge_outcome`
+    `failed: stalled after N s without an event (process tree killed)`; ledger `stall {seconds,
+    last_event}` (new, after `timeout_continue`; `last_event` the time the last line was seen,
+    `null` for none). A panel resolves it per member (`stall_sec` in the member spec).
+  - Machine-wide endpoint health (D13, ROADMAP R20; `codex-consult-common.ps1` section
+    "machine-wide endpoint health"): `<codex home>/codex-consult-health.json`
+    (`CODEX_CONSULT_HEALTH=<path>` another, `none` off) - `endpoints[]` `{endpoint, class, kind,
+    until, retry_after, repo, when, message}` written by every run that records a usable reply
+    (class `ok`) or a provider failure (not `operator`; `Add-MachineHealthRecord` after the
+    commit), `running[]` `{endpoint, label, pid, start_time, repo, task, nn, panel, since}` while a
+    run's turns run (`Register-MachineRunning` at the main turn's start, `Unregister-...` after the
+    commit and in the finally); every write under `<file>.lock` (exclusive, 10 s, else not written)
+    and pruned (a record older than 24 h whose until passed; a running row whose pid + start time is
+    gone). `Get-EndpointHealth` reads the file's records beside the ledgers (`-NoMachine` for the
+    ledgers alone) - every roster walk, panel selection, `-Require`, `codex-providers.ps1`; the
+    panel scheduler counts `Get-MachineRunningCount` (other repositories', panels', single runs'
+    rows on the group's endpoints) against the group's parallel limit and says `panel member k of
+    n waits: <count> run(s) elsewhere on this machine use its endpoint (parallel limit L): ...`.
+    Absent, unreadable or unparseable = as before.
+  - The salvage of any failed run with content (D15, the supervisor's addendum): the wave 24
+    `.partial.md` (ledger `partial_reply`, the `partial    :` summary line, the handoff header's
+    `Partial reply:`) is written for ANY failed run whose event streams (the main turn, a
+    continuation, a denial retry, a repair) hold at least one agent message, reasoning text or tool
+    call - a provider failure mid-run, a denial, a tree-check failure; the main turn's heading says
+    `it ended at <t> s: <why>` and the footer `the run ended: <why>; thread <id> - continue with
+    ...` instead of `killed at`; a stream without content (a 401 on the first request) leaves
+    nothing. Same for a turn stopped by the stall cut or `-Kick`.
+  - The reviewer's context window (D16, the supervisor's addendum): a roster entry's optional
+    `context_tokens` (32000-100000000). (a) A fork/resume of that reviewer whose thread last
+    carried (the continued thread's ledger `usage.input_tokens`, else its codex events' last
+    usage) plus this prompt's estimate ((composed prompt + brief) / 4) more than 80% of it becomes
+    a NEW thread: ledger `mode_fallback {from, to, reason}` (new, after `mode`; `null` otherwise),
+    a console line and a summary line (`mode       : fork -> new (...)`), and the prompt names the
+    reviewer's previous reply file to re-read. (b) A brief whose estimate alone ((ask + brief) / 4,
+    computed before any reviewer is chosen) exceeds 80% skips the entry before its start - `brief
+    too large for this reviewer's context (est. N of M tokens)` in the panel's list and summary, the
+    ledger's skipped lists, a roster walk's `roster.skipped`; an explicit `-Provider` run of it is
+    refused (exit 1). (c) The prompt of a reviewer with `context_tokens` says, after the ask, `Your
+    context window is M tokens: read only what the brief points to; prefer targeted reads.`
+  - The skill rules and templates (D14): consult-codex gains a standalone **Language** rule
+    (briefs, prompts, follow-ups, handoff titles in English; the operator's language only in the
+    conversation; source material translated, never pasted) and a standalone **Live members** rule
+    (while an agy or muse member runs, nothing written under the collab directory or the working
+    tree - `state.md` included - and no git command; notes queued until the panel closes), plus the
+    panel notes for the stall cut, `-Kick`, the machine-wide limit and a reduced panel;
+    setup-providers documents `timeout_sec`, `stall_sec`, `context_tokens`, the delimiter refusals
+    and the health file. Every template's first line is `Write in English.` (the two briefs, the
+    four roles).
+  - Docs: README (the options, exit-code and environment tables - `-StallSec`, `-Kick`, `-Member`,
+    `CODEX_CONSULT_HEALTH`; the ledger's `mode_fallback`, `stall`, `tree_check` in their positions,
+    `panel.asked`, `routing.size_asked`/`reserve`, `panel.roles_note`, `timeout_source` `roster`,
+    class `operator`, the new warnings; the roster table's `timeout_sec`, `stall_sec`,
+    `context_tokens` and the delimiter refusals; "Timeouts" - the stall cut, `-Kick`, the D15
+    salvage; "Preflight and endpoint health" - the machine-wide file; "Companions" - D1-D5; muse's
+    tree check; `UNIQ`), the script's help text, `tests/README.md`.
+  - Tests: `tests/harness-fixes26b.ps1` (new, registered in `run-all.ps1`): 39 assertions on
+    Windows PowerShell 5.1 (ROLEFILE, SIZE, SEED, ROLES, RESERVE, JOIN, UNIQ, TIMEOUT, STALL, KICK,
+    SALVAGE, CONTEXT, HEALTH, GUARD); D9 in `harness-muse.ps1` TREE (+2: the HARNESS writes
+    `.collab/t/state.md` during a muse run - a warning - and during an agy run - a failure; the two
+    wave 23 D12 muse cases rewritten). `tests/reference-draw.py` (new): the independent reference
+    implementation of the draw (it reproduces every wave 26 golden value with the old seed text and
+    gives the new ones). `fake-codex3.ps1`: `FAKE_CODEX_FAIL_EVENT` (an error event mid-run) and
+    `FAKE_CODEX_ITEMS=2` (a second agent message). Every harness sets `CODEX_CONSULT_HEALTH=none`.
 
 ### Changed
 
@@ -267,6 +362,33 @@ invariance (R13), opt-out telemetry (R17).
   the panel is routed with evidence). The roster validator's allowlists gain `lab`, `roles`,
   `ext` (entry) and `require`, `ext` (top level): a roster that uses them is refused by an older
   bridge (fail-closed, as always).
+- (wave 26b, D2) The ledger's `panel.asked` and the summary's `asked k` are the size REQUESTED (the
+  purpose's, `-PanelSize`; `-PanelAll`/`stuck`: every eligible member) - they were the seats after
+  the cap.
+- (wave 26b, D3) The routing seed's text is length-prefixed (`<len>:<value>` per field and per
+  lineage), so the seeds - and the seats a given nonce draws - differ from wave 26's: the golden
+  sequences of `harness-companions.ps1` were regenerated with the new reference implementation
+  `tests/reference-draw.py` (DRAW: the seed `7469dd58...` of `1:t|7:framing|3:abc|26:6:a :: x,6:b
+  :: y,6:c :: z|2:42`, the four-candidate sequences, the exploration count 408 of 2000 (was 419);
+  ROUTED: `-PanelSeed 15` seats #2 #4 #1, `CODEX_CONSULT_TEST_PANEL_SEED 18` #1 #4 #5).
+- (wave 26b, D9 - supersedes wave 23 D12 for muse) A muse run whose tree check finds a change is
+  no longer failed as class `permission`: the bridge runs muse write-disabled
+  (`--disable-write --disable-shell`), so the change is not the reviewer's - a warning (`the
+  collab directory changed during the run (1 file: .collab/t/state.md) - muse ran write-disabled,
+  the change is not the reviewer's`; console, handoff header, the summary, `warnings[]`), the
+  reply stays usable, a run failed for its own reason keeps its class. agy keeps the failure
+  (F12). `Get-EngineTreeCheck` (new; `Get-EngineTreeProblem` wraps it) and the engine spec's
+  `WriteDisabled`; ledger `tree_check {outcome: clean|warned|failed, files[]}` (new, after
+  `artifacts_changed_during_review`; `null` for codex).
+- (wave 26b) The roster validator's entry allowlist gains `timeout_sec`, `stall_sec` and
+  `context_tokens` (an older bridge refuses a roster that uses them - fail-closed, as always).
+  `Get-EndpointHealth` also reads the machine-wide health file (D13); ties of the newest record go
+  to the later `until`. The main turn's wait is `Wait-EngineProcess` (1 s polls; TEST HOOK
+  `CODEX_CONSULT_TEST_WAIT_TICK_MS`) - same timeout as before.
+- (wave 26b) New ledger fields, in order: `mode_fallback` (after `mode`), `stall` (after
+  `timeout_continue`), `tree_check` (after `artifacts_changed_during_review`); `panel.roles_note`
+  (after `routing`); `panel.routing.size_asked` (after `size`) and `reserve` (after
+  `size_source`).
 - (wave 26, F07-3) The detached-run readers (`Read-DetachedRuns`, `Get-DetachedJudgement`,
   `Get-DetachedPhrase` & co.) and the small helpers they need moved to the new
   `codex-consult-detached.ps1`, which `codex-consult-common.ps1` dot-sources; the SessionStart
@@ -469,9 +591,69 @@ invariance (R13), opt-out telemetry (R17).
   - Tests: `harness-detach.ps1` section `CARRY` (6 assertions).
   - F10-1 (killing only the background panel parent leaves its members running) stays an accepted
     residual (Known limitations).
+- **Wave 26b - the wave 26 acceptance's findings** (`.collab/companions-2026-09-26/`, handoffs
+  18-22, decisions D1-D8 of handoff 23):
+  - D1, F22-1 (major - a role file could follow a symlink or junction out of the roles
+    directory, and its text goes to external reviewers): `Resolve-RoleFile` accepts only a
+    regular file - no reparse point on the file or on any directory from the roles directory down
+    to it, the roles directory included (`Get-RoleFileProblem`; attributes read without following
+    links; a dangling link is refused too) - whose full path lies inside `<CollabDir>/roles`; the
+    plugin's `templates/role-<name>.md` likewise inside `templates`. Anything else refuses the run
+    (`-Role: role file refused: <why>` / `-Roles: ...`) before any prompt, handoff, ledger entry,
+    recovery record or process exists - with no fallback to the plugin's template.
+  - D2, F19-1 (the clamped panel size was recorded silently): `Select-PanelRouting` returns
+    `SizeAsked` and the ledger keeps `panel.routing.size_asked` beside `size`; fewer eligible than
+    asked warns `panel size reduced: asked k, eligible m` (console, every member's handoff header
+    and `warnings[]`); the summary's `asked k` is the request (see Changed).
+  - D3, F22-2 and F22-4 (the matcher's and the seed's delimiters inside roster strings): the
+    validator refuses a provider label or model with surrounding blanks (as before) or containing
+    `::`, `[`, `]`, `|`, `,` or `#` (`roster entry #n: provider must not contain '::'`;
+    `Get-RosterStringProblem`; an engine is one of the known names already); the seed text
+    length-prefixes every field (`ConvertTo-LengthPrefixed`) - see Changed.
+  - D4, F22-3 (greedy role assignment could break a willingness a full assignment honours):
+    `Select-RoleAssignment` is an exact matching (`Test-RoleMatching`, `Find-RoleAugment`): a role a
+    seated member is willing to take goes to a willing member, each role in order to the
+    best-ranked member possible; only when no such assignment exists the wave 26 greedy order, and
+    the run says so (`Note` -> a warning and the ledger's `panel.roles_note`). Deviation: the
+    decision's "small exhaustive matching (<= 8 x 8)" is realised with augmenting paths - the same
+    (lexicographically best) assignment for any size, no enumeration bound.
+  - D5, F22-5 (required pins consumed seats before the lab reserve): `Invoke-PanelDraw` states the
+    reserve over the seats left after the pins - `min(K - the pinned, labs >= neutral the pins did
+    not seat)`; the draw is unchanged (the harness compares 360 draws with the wave 26
+    formulation: identical); `panel.routing.reserve` records the reserve seats applied.
+  - D6, F22-6 (a legacy rating with a provider but no model or purpose was not completed):
+    `Read-AllTaskRatings` joins by `consult_id` when ANY of provider, model, purpose, engine,
+    consult_when (or topics) is missing.
+  - D7, F22-7 (UNIQ location keys were case- and prefix-sensitive): `codex-scoreboard.ps1`
+    `ConvertTo-LocationPath` - `\` -> `/`, runs of `/` collapsed, a leading `./` dropped, lowercase
+    on Windows; the line exact; keys compared ordinally.
+  - D8, F19-2: wontfix by design (a routed panel reads the findings stores once per run).
+  - Deviations and interpretations (the rest are as written): D1 - this account cannot create file
+    symlinks, so the harness's first case is the decision's fallback, a directory junction named
+    like a role file (the code refuses either by the reparse attribute). D10 - the MEMBER polls its
+    kick file (the panel parent cannot stop a member's engine tree without killing the member's own
+    bridge, which must salvage and record); `-Kick` also stops a single run by its number. D12 - the
+    cut watches the main turn (the secondary turns have their own budgets); `last_event` is when the
+    bridge saw the last complete line. D13 - "the later until wins" is one record set (file +
+    ledgers) in which the newest record decides, as within a ledger, same-time ties by the later
+    `until`; records also carry `retry_after` so a failure without a named reset keeps its 60/10
+    minute window; only a panel waits on the machine-wide count (a single run's row counts for
+    panels). D16 - the skip's estimate is (ask + brief) / 4 before any reviewer is chosen; an
+    explicit `-Provider` run is refused instead of skipped.
+  - Assertions (Windows PowerShell 5.1): the final `tests/run-all.ps1` run - `harness-0.3` 229, `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74 (+2), `harness-panel` 54, `harness-pending` 26, `harness-fixes` 43 + the 2 environmental F04-10 cases (the user's own codex.exe runs; never killed), `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 39 (`run-all: 14 harness(es), 1 failed` - that one F04-10). Updated for the new behaviour: the ledger field order in `harness-0.3`, `harness-engines`, `harness-muse`, `harness-format`; `harness-visibility` GATES24C (a muse content change is now a warning); `harness-companions` (the goldens, the allowlist message, the floor case's size warning). PowerShell 7: `harness-0.3` 229, `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending` 26, `harness-fixes` 43 + the 2 environmental F04-10 cases (the user's own codex.exe runs; never killed), `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 39 (its KICK section rerun alone after a pwsh-only fix: `-Kick` compares the recorded child start time as `ConvertTo-StartIso`).
 
 ### Known limitations
 
+- (wave 26b) The stall cut counts complete lines of the event stream, not their meaning: an engine
+  that wrote keep-alive lines would never stall; a turn that thinks silently for longer than
+  `-StallSec` before its first line is stopped (raise the entry's `stall_sec`, or `0`).
+- (wave 26b) The machine-wide health file is per user profile (`<codex home>`): runs under another
+  account or `CODEX_HOME` do not see each other; a `running[]` row of a bridge killed hard stays
+  until the next write prunes it (its pid is then gone); two panels that check the count at the
+  same instant can both start a member (no reservation - the count is advisory).
+- (wave 26b) `-Kick` reaches a member only while one of its engine turns runs (it polls there);
+  between turns (the tree check, the commit) the kick is not taken and `-Kick` gives up after 60 s
+  (exit 1).
 - (wave 26) A panel's size bounds the members STARTED; a member that fails, is refused at launch
   (its peak window, a limit hit meanwhile) or is killed is not replaced (no backfill).
 - (wave 26) The routing score depends on the marks recorded with `-Rate`: an unrated consultation

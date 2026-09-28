@@ -2,6 +2,9 @@
 # Every assertion prints "PASS" or "FAIL" with its evidence. Uses the fake codex only.
 param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
+# (wave 26b, D13) the machine-wide health file stays out of these cases (every case its own
+# repository; harness-fixes26b.ps1 points CODEX_CONSULT_HEALTH at scratch files of its own)
+$env:CODEX_CONSULT_HEALTH = 'none'
 # These cases use the Codex home of the machine; a reviewer roster there
 # (<codex home>/codex-consult-roster.json) must not change what they test: none = no roster.
 $env:CODEX_CONSULT_ROSTER = 'none'

@@ -1,3 +1,4 @@
+Write in English.
 <!-- Serves -Purpose checkpoint | core-contract | acceptance | diff-review. -->
 <!-- The script never writes briefs - you fill this by hand and pass it via -Brief. -->
 

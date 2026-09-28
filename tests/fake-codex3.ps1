@@ -19,9 +19,12 @@
 #                                (the bridge's -TimeoutSec kills it)
 #   FAKE_CODEX_HANG_NEW=1        sleep 60 s on a turn that is NOT `resume <thread>` (the main
 #                                turn hangs, the bridge's timeout continuation answers - wave 24)
+#   FAKE_CODEX_FAIL_EVENT=<t>    (wave 26b) after the items: an `error` and a `turn.failed` event with
+#                                <t>, "ERROR: <t>" on stderr, exit 1 (a provider failure mid-run)
 #   FAKE_CODEX_ITEMS=1           before any sleep or hang: a reasoning item, a shell command
 #                                (item.started + item.completed) and an agent message, each
-#                                tagged "(first ...)" or "(resume ...)" (the salvage cases)
+#                                tagged "(first ...)" or "(resume ...)" (the salvage cases); =2:
+#                                a second agent message ("Q2 so far ...")
 #   FAKE_CODEX_RESUME_REPLY=<f>  on `resume <thread>` (the bridge's format-repair turn): copy
 #                                <f> instead of FAKE_CODEX_REPLY and report the RESUMED thread
 #                                id in thread.started (as the real CLI does) - a new one with
@@ -145,7 +148,19 @@ if ($env:FAKE_CODEX_ITEMS) {
     [Console]::Out.Write('{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"git diff --stat HEAD~1 (' + $tag + ')","aggregated_output":"","exit_code":null,"status":"in_progress"}}' + "`n")
     [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"git diff --stat HEAD~1 (' + $tag + ')","aggregated_output":"1 file changed","exit_code":0,"status":"completed"}}' + "`n")
     [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"Q1 so far (' + $tag + ' turn): the change looks consistent."}}' + "`n")
+    if ($env:FAKE_CODEX_ITEMS -eq '2') { [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"Q2 so far (' + $tag + ' turn): the tests cover it."}}' + "`n") }
     [Console]::Out.Flush()
+}
+# (wave 26b, D15) FAKE_CODEX_FAIL_EVENT=<text>: after the items, an `error` event and a
+# `turn.failed` event with <text>, "ERROR: <text>" on stderr, exit 1 - a provider failure mid-run
+if ($env:FAKE_CODEX_FAIL_EVENT -and $raw -notmatch ' resume ') {
+    $fe = ConvertTo-Json -InputObject ([string]$env:FAKE_CODEX_FAIL_EVENT) -Compress
+    [Console]::Out.Write('{"type":"error","message":' + $fe + '}' + "`n")
+    [Console]::Out.Write('{"type":"turn.failed","error":{"message":' + $fe + '}}' + "`n")
+    [Console]::Out.Flush()
+    $b = (New-Object System.Text.UTF8Encoding($false)).GetBytes('ERROR: ' + $env:FAKE_CODEX_FAIL_EVENT + "`r`n")
+    $es = [Console]::OpenStandardError(); $es.Write($b, 0, $b.Length); $es.Flush()
+    exit 1
 }
 if ($env:FAKE_CODEX_ROLLOUT) {
     $now = Get-Date

@@ -159,14 +159,26 @@ function Get-RowKeys {
     return , ([string[]]@($Purpose))
 }
 # A finding's location keys ("path:line"; "path:" without a line) for the unique-findings measure.
+# (wave 26b, D7 / F22-7) The path is normalised before it is compared: '\' -> '/', runs of '/'
+# collapsed, every leading './' dropped, and on Windows (a case-insensitive file system)
+# lowercased; the line stays exact. Keys are compared ordinally.
+function ConvertTo-LocationPath {
+    param([string]$Path)
+    $p = ([string]$Path).Trim().Replace('\', '/')
+    $p = [regex]::Replace($p, '/{2,}', '/')
+    while ($p.StartsWith('./')) { $p = $p.Substring(2) }
+    if ([IO.Path]::DirectorySeparatorChar -eq [char]'\') { $p = $p.ToLowerInvariant() }
+    return $p
+}
+
 function Get-LocationKeys {
     param($Finding)
     $keys = New-Object System.Collections.Generic.List[string]
     foreach ($l in @(Get-PropertyValue $Finding 'locations' @() | Where-Object { $null -ne $_ })) {
-        $path = [string](Get-PropertyValue $l 'path' '')
+        $path = ConvertTo-LocationPath ([string](Get-PropertyValue $l 'path' ''))
         if (-not $path) { continue }
         $line = Get-PropertyValue $l 'line' $null
-        $keys.Add("$($path.Replace('\', '/')):$(if ($null -ne $line) { [string]$line } else { '' })")
+        $keys.Add("$($path):$(if ($null -ne $line) { [string]$line } else { '' })")
     }
     return , ([string[]]$keys.ToArray())
 }
@@ -252,7 +264,7 @@ foreach ($dir in $taskDirs) {
                     if ($j -eq $i) { continue }
                     $nj = Get-IntValue (Get-PropertyValue $findingsList[$j] 'source' $null) 'consult'
                     if ($null -eq $nj -or $nj -eq $n -or -not $panelOf.ContainsKey($nj) -or $panelOf[$nj] -ne $panelOf[$n]) { continue }
-                    if (@($locsOf[$j] | Where-Object { $mine -contains $_ }).Count -gt 0) { $unique = $false; break }
+                    if (@($locsOf[$j] | Where-Object { $mine -ccontains $_ }).Count -gt 0) { $unique = $false; break }
                 }
             }
         }

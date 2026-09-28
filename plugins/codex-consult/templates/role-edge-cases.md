@@ -1,3 +1,4 @@
+Write in English.
 Hunt for the edge cases the change does not handle: empty and maximal inputs, boundaries and
 off-by-one limits, concurrent or repeated calls, interrupted runs and partial writes, time zones and
 clock changes, encodings and unusual paths, errors from the operating system or the network. For

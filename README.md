@@ -383,7 +383,35 @@ sets it:
 An explicit `-TimeoutSec` always wins; the dry run (`timeout     : 2400 s (the default of
 purpose diff-review; -TimeoutSec overrides); ...`), the handoff header (`Timeout:`) and the
 ledger (`timeout_sec`, `timeout_source` `purpose` or `explicit`) say which applied; a `-Panel`'s
-members inherit the resolved value.
+members inherit the resolved value. (Wave 26b, D11) A roster entry's `timeout_sec` (an integer
+>= 60) replaces the purpose's default for that reviewer - as a panel member or a single run of
+the entry - with `timeout_source` `roster` (its continuation budget follows it unless
+`-ContinueSec` is given; an explicit `-TimeoutSec` still wins for all); the panel's line lists
+the exceptions: `Timeout: 3600 s per member (the default of purpose acceptance); #7 alibaba ::
+qwen3.8-max 1200 s (roster); ...`.
+
+**The stall cut (wave 26b, D12 - ROADMAP R18).** A reviewer can hang without dying: its process
+lives, its event stream stops. `-StallSec <s>` (default 900; a roster entry's `stall_sec`
+overrides it for that reviewer, an explicit `-StallSec` wins; `0` = off) stops a main turn whose
+event stream - codex's `--json` items, agy's stream-json, muse's MSP records, read line by line
+while the turn runs - produced no complete line for that long while its process lived. It is
+stopped like a timeout: the process tree is killed, the one continuation turn follows ("Your
+previous turn was stopped after N s without any output. ..."), then the salvage;
+`bridge_outcome` `failed: stalled after N s without an event (process tree killed)` when no
+continuation saved it; ledger `stall {seconds, last_event}` (the threshold, and when the last
+event line was seen - `null`: none since the start). A panel passes the resolved value to each
+member.
+
+**Stopping one member: `-Kick` (wave 26b, D10).** From another shell, `codex-consult.ps1 -Task
+<task> -Kick -Member <NN>` (a foreground panel: the parent's members each poll
+`<task>/.consult.kick-<NN>` while their engine turn runs) or `-Kick -Id <id8> -Member <NN>` (a
+detached run: the member must be one of its running members) stops that member: its engine's
+process tree is killed, its partial output salvaged (`.partial.md`), it is recorded `failed:
+stopped by the operator (-Kick)` with `provider_failure.class` `operator` (never an endpoint's
+outage), no continuation follows, and the panel goes on with the others (`-Status` shows the
+member `failed: stopped by the operator (-Kick)`). `-Kick` waits up to 60 s for the member to
+take the kick (it deletes the file once its tree is stopped). Exit `0` done, `1` no such member
+or not running, `4` refused.
 
 **The continuation.** When the bridge kills the MAIN turn on its timeout and the turn's thread
 is known (codex: its `thread.started`; agy: the conversation of its init event; muse: its session
@@ -432,7 +460,13 @@ others'), so only the working tree, the brief and the artifacts stop a codex con
 and muse engines compare the whole collab directory too (wave 24c, the ruling on F08-2).
 
 **The partial reply.** When a turn was killed on its timeout - the main turn without a usable
-continuation, the continuation, a denial retry, a format repair - the bridge writes
+continuation, the continuation, a denial retry, a format repair; (wave 26b) or stopped by the
+stall cut or the operator's `-Kick`; and (wave 26b, D15) whenever ANY run fails while one of its
+event streams holds at least one agent message, reasoning text or tool call - a provider failure
+mid-run (a 429 after retries, a 401/403 quota, a network error), a denial, a tree-check failure;
+then the main turn's heading says `it ended at <t> s: <why>` and the footer `the run ended:
+<why>; thread <id> - continue with ...` instead of `killed at`; a stream without content (a 401
+on the first request) leaves nothing - the bridge writes
 `handoffs/<NN>-<engine>-<slug>.partial.md`: the reply's header, then per turn (`## Turn 1 - the
 main turn - killed at 902.3 s of 900 s`, `## Turn 2 - the timeout continuation - ...`) every agent
 message and reasoning text of its event stream in order and its tool calls (the command line of a
@@ -510,6 +544,8 @@ come back  : codex-consult.ps1 -Task my-task -Status -Id 3f2a9c1b (exit 0 done a
 powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps1" -Task my-task -Status -Id 3f2a9c1b
 # 3. or wait for it (checks every 2 s; the default limit is the run's budget)
 powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps1" -Task my-task -Wait -Id 3f2a9c1b -WaitTimeoutSec 540
+# (wave 26b) stop ONE member that hangs (its handoff number, as -Status shows it); the rest go on
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps1" -Task my-task -Kick -Id 3f2a9c1b -Member 03
 ```
 
 `-Status` prints, per detached run of the task (newest first; `-Id` picks one by its id or a
@@ -656,6 +692,7 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "thread_source": "events",
   "thread_candidate": "",
   "mode": "fork",
+  "mode_fallback": null,
   "command": "codex exec --sandbox read-only --color never --json -m glm-5.3 -c model_reasoning_effort=\"max\" -c model_provider=\"ZAI\" -o <temp> --output-schema <schema> fork 01a0c839-… -",
   "brief": ".collab/my-task/handoffs/03-claude-invalidation.md",
   "range": null,
@@ -690,6 +727,7 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "format_retry": null,
   "denial_retry": null,
   "timeout_continue": null,
+  "stall": null,
   "base_commit": "4e9cc4f0…",
   "reviewed_revision": "4e9cc4f + uncommitted",
   "tree_sha256": "9c2a…",
@@ -703,6 +741,7 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "fingerprint_note": "collab dir '.collab' excluded (2 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
   "artifacts": [],
   "artifacts_changed_during_review": false,
+  "tree_check": null,
   "bridge_outcome": "usable reply",
   "provider_failure": null,
   "warnings": [],
@@ -738,20 +777,21 @@ This is the only place field meanings are listed; other sections refer to them b
 | `lineage` | `<provider> :: <model>`, display only; matching never compares this string |
 | `preflight` | `ok: <credential detail>` or `skipped` (`-SkipPreflight`); any other verdict refuses the run |
 | `preflight_warning` | a recent usage limit that did not refuse the run, else `""` |
-| `roster` | `null` without a roster; else `{path, position, skipped: [{provider, model, engine, reason}], applied: []}`, `applied` naming what the roster entry supplied (`engine`, `model`, `codex_config`) |
-| `panel` | `null` outside a panel; else `{id, position, of, members: [{provider, model, state: "run"\|"skipped"\|"not-picked", reason}], concurrency, limits, asked, started, usable, routing}` - `concurrency` (0.4.x wave 21) the most members the panel's plan let run at once, `limits` `{"<provider label>": n}` the members of that label's endpoint at a time (see "The panel"); (wave 26) `asked` the seats (= `of`), `started` and `usable` how many members were started and gave a usable reply - written into every member's entry when the panel ends (`null` until then, and when the panel run died first); `routing` `{mode, order, fallback, seed, nonce, nonce_source, size, size_source, eligible: [{position, lineage, lab, lab_source, score, basis, ratings, required}], picked: [{slot, position, lineage, lab, rule}], explored: [lineage], required: [lineage]}` ("Companions") |
+| `roster` | `null` without a roster; else `{path, position, skipped: [{provider, model, engine, reason}], applied: []}`, `applied` naming what the roster entry supplied (`engine`, `model`, `codex_config`; wave 26b: `timeout_sec`, `stall_sec`); (wave 26b, D16) a skip `reason` may be `brief too large for this reviewer's context (est. N of M tokens)` |
+| `panel` | `null` outside a panel; else `{id, position, of, members: [{provider, model, state: "run"\|"skipped"\|"not-picked", reason}], concurrency, limits, asked, started, usable, routing}` - `concurrency` (0.4.x wave 21) the most members the panel's plan let run at once, `limits` `{"<provider label>": n}` the members of that label's endpoint at a time (see "The panel"); (wave 26) `asked` the size requested (wave 26b, D2: the purpose's size or `-PanelSize` as asked - `-PanelAll` and `stuck`: every eligible member; before 26b it was the seats), `started` and `usable` how many members were started and gave a usable reply - written into every member's entry when the panel ends (`null` until then, and when the panel run died first); `routing` `{mode, order, fallback, seed, nonce, nonce_source, size, size_asked, size_source, reserve, eligible: [{position, lineage, lab, lab_source, score, basis, ratings, required}], picked: [{slot, position, lineage, lab, rule}], explored: [lineage], required: [lineage]}` ("Companions") - (wave 26b) `size_asked` the size requested beside the `size` seated (fewer eligible warns `panel size reduced: asked k, eligible m`), `reserve` the seats the lab reserve took (the `lab-*` rules); `roles_note` (wave 26b, D4, after `routing`) `""`, or why the `-Roles` went by the greedy rank order (no assignment gives every role a willing member) |
 | `parent_thread` / `thread` | the thread forked or resumed (`""` for `new`); the resulting thread (`""` when not verified) |
 | `thread_source` | `events`, `rollout (verified by consultation id)` or `unknown` |
 | `thread_candidate` | an unverified rollout uuid (agy: a conversation id the run could not verify - a failed resume's new conversation, the init id of a run without a result) kept for diagnosis only; never a parent |
 | `mode` / `command` | `new`, `fork` or `resume`; the full argv as one string (prompt on stdin) |
+| `mode_fallback` | (wave 26b, D16; after `mode`) `null`, or `{from: "fork"\|"resume", to: "new", reason}` when a reviewer with a roster `context_tokens` would have continued a thread whose last recorded context plus this prompt exceeds 80% of its window - the run started a new thread instead, and its prompt names the reviewer's previous reply file |
 | `brief` / `prompt_chars` | the brief path (`""` without one); the prompt length |
 | `range` | (0.5.0) `null` without `-Range`, else `{spec, files, insertions, deletions, lines}` of `git diff --shortstat <spec>` |
 | `reply` / `reply_json` / `events` | handoff paths relative to the task directory (`reply_json` is `""` for plain-text runs) |
-| `partial_reply` | (0.5.0) `""`, or `handoffs/<NN>-<engine>-<slug>.partial.md` when a turn was killed on its timeout (the salvage; "Timeouts, the continuation and the partial reply") |
+| `partial_reply` | (0.5.0) `""`, or `handoffs/<NN>-<engine>-<slug>.partial.md` when a turn was killed on its timeout (the salvage; "Timeouts, the continuation and the partial reply"); (wave 26b) also after the stall cut, the operator's `-Kick`, and (D15) any failed run whose event streams hold an agent message, reasoning text or tool call |
 | `model` / `effort` | kept for 0.2 readers and `-Stats`: the resolved model; `effort` equals `effort_sent` |
 | `effort_requested` / `effort_sent` / `effort_mapping` / `effort_caps` / `effort_confirmed` | the preset, `-Effort` or `-NativeEffort` value; the value put into argv (`null` for agy: the tier is part of the model id); `openai`, `zai-v1`, `mimo-v1`, `model-tier` (agy), `muse-v1` (muse) or `native`; the capability-table version (`caps-v1`); always `null` (Codex does not report the effort it used) |
 | `max_words` / `sandbox` | the resolved word cap; `read-only` or `workspace-write` (agy: `read-only (requested; enforced by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules or files outside the repository; agy --sandbox restricts the terminal only)`; muse: `read-only (requested; muse --disable-write --disable-shell --disable-web-tools --approval-mode never; checked by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules, files outside the repository or what the reviewer reads)`) |
-| `timeout_sec` / `timeout_source` / `continue_sec` | (0.5.0) the main turn's timeout; `purpose` (the purpose's default) or `explicit` (`-TimeoutSec`); the timeout continuation's budget (`0` = off) |
+| `timeout_sec` / `timeout_source` / `continue_sec` | (0.5.0) the main turn's timeout; `purpose` (the purpose's default), `explicit` (`-TimeoutSec`) or (wave 26b, D11) `roster` (the roster entry's `timeout_sec`); the timeout continuation's budget (`0` = off) |
 | `extra_config` / `extra_config_source` | the `-CodexConfig` or roster `codex_config` items as sent (expanded); `""` (none), `-CodexConfig` or `roster` |
 | `peak` / `peak_schedule` / `peak_source` / `peak_evaluated_at` | `true`, `false` or `null` (no schedule) at launch; the schedule; `env`, `env (CODEX_CONSULT_NOW)` or `none`; when that decisive check ran |
 | `structured` / `schema` | whether a valid structured reply was ingested; `consult-reply v1`, or `""` for `-Raw` |
@@ -760,11 +800,13 @@ This is the only place field meanings are listed; other sections refer to them b
 | `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events, schema_transport}` - `events` (0.4.0) the repair turn's event stream, handoffs-relative, when one is kept (agy: `handoffs/NN-agy-<slug>.repair.events.jsonl`; muse: `handoffs/NN-muse-<slug>.repair.events.jsonl`), else `null` (codex: its repair stream is a temp file); `schema_transport` (wave 23b) the repair turn's transport: codex `prompt-only` (its repair never passes `--output-schema`), an engine the main turn's - `native`, or `prompt-only` with no schema flag and the schema in the repair prompt |
 | `denial_retry` | (0.4.0, agy; always `null` for muse, which has no denial retry) `null` (not attempted), else `{attempted, reason, succeeded, thread, wall_seconds, usage, events}`: the one extra turn after a run that produced nothing because a tool was auto-denied (see "Engines"); `events` = that turn's event stream (`handoffs/NN-agy-<slug>.denial-retry.events.jsonl`, `null` when no turn ran) |
 | `timeout_continue` | (0.5.0) `null` unless the main turn was killed on its timeout; else `{thread, wall_seconds, outcome, events, usage}` of the ONE continuation turn - `outcome` `usable reply`, `failed: <why>` or `not attempted: <why>` (then `wall_seconds` 0, `events` and `usage` `null`); (wave 24c) a reply the checks rejected: `failed: not a usable reply - <why>; its text is kept in handoffs/<NN>-<engine>-<slug>.partial.md under "continuation reply (rejected)"` |
+| `stall` | (wave 26b, D12; after `timeout_continue`) `null`, or `{seconds, last_event}` when the main turn was stopped by the stall cut (`-StallSec`, the roster's `stall_sec`): the threshold, and when the last event line was seen (`null`: none since the start) |
 | `base_commit` … `fingerprint_note` | revision binding: see "Binding a review to a revision"; (wave 24c) `tree_changed_during_review` compares file contents, and `revision_moved` (after it) is `null`, or `"<old base_commit> -> <new>"` when HEAD moved during the run - informational, never a tree change by itself |
 | `artifacts` / `artifacts_changed_during_review` | `[{path, sha256, sha256_after}]` per `-Artifact`; whether any changed during the run |
+| `tree_check` | (wave 26b, D9; after `artifacts_changed_during_review`) `null` for codex (no check); for an engine `{outcome, files}`: `clean`, `warned` (muse - write-disabled by the bridge's flags: a change is not the reviewer's, the reply stays usable, `warnings[]` says so) or `failed` (agy - its sandbox does not block writes); `files` the changed paths (the working tree's, the collab directory's as shown, `brief`, the artifacts) |
 | `bridge_outcome` | `usable reply`, (0.5.0) `usable reply (after a timeout continuation)` or `failed: <why>`: only whether the bridge worked |
-| `provider_failure` | `null` on success, else `{class, kind, code, message, when, retry_after, hint}` (see "Preflight and endpoint health"): (wave 24c) `kind` `burst` - a 429 that names no usage window or quota, out for 10 minutes - or `""`; `hint` the operator's next step, decided when the failure is classified (`""`, or `context too long for this plan/model - ...`) |
-| `warnings` | (0.4.0) notices of the run - a `-Provider` label that names several roster entries (any engine), agy's denial notice and its `warning:` stderr lines that came with a usable reply; (wave 26) a panel's floor warning and a routed panel's `routing: no lab known for ...`; `[]` when none |
+| `provider_failure` | `null` on success, else `{class, kind, code, message, when, retry_after, hint}` (see "Preflight and endpoint health"; wave 26b: class `operator` for a run stopped by `-Kick` - no endpoint's fault, never read as an outage): (wave 24c) `kind` `burst` - a 429 that names no usage window or quota, out for 10 minutes - or `""`; `hint` the operator's next step, decided when the failure is classified (`""`, or `context too long for this plan/model - ...`) |
+| `warnings` | (0.4.0) notices of the run - a `-Provider` label that names several roster entries (any engine), agy's denial notice and its `warning:` stderr lines that came with a usable reply; (wave 26) a panel's floor warning and a routed panel's `routing: no lab known for ...`; (wave 26b) `panel size reduced: asked k, eligible m`, `roles: no assignment gives every role a willing member ...`, and a muse run's tree-check change (`the collab directory changed during the run (<files>) - muse ran write-disabled, the change is not the reviewer's`); `[]` when none |
 | `verdict` / `verdict_reason` | `ACCEPT`, `HOLD`, `REJECT`, `ADVISE`, or `""` (unavailable or invalid); one sentence |
 | `findings` / `finding_ids` | severity counts of the new findings; their ids |
 | `prior_findings` | the reviewer's reports on earlier ids: `{id, status}` with `fixed`, `still-open`, `not-checked` or `unknown-id` |
@@ -1256,6 +1298,28 @@ refuses on it. The credential check sees only what is local (a variable set, a t
 config, a login); it cannot see live quota. A credential's validity is learned only from a
 failed run.
 
+**Machine-wide endpoint health (wave 26b, D13 - ROADMAP R20).** The ledgers are per repository,
+but an endpoint's limits are per account: a 429 that one repository's panel hit is news to the
+next repository's roster walk. So every run also records its outcome on the endpoint in ONE file
+per machine, `<codex home>/codex-consult-health.json` (`CODEX_CONSULT_HEALTH=<path>` names
+another, `=none` turns it off - read nor written): a usable reply (`class` `ok`) or a provider
+failure (class `operator` excepted) as `{endpoint (the provider fingerprint), class, kind,
+until, retry_after, repo, when, message}` - `until` the reset time the provider named, else the
+hit + 60 minutes (10 for a burst), an auth failure + 24 h - and, while its engine turns run, a
+row in `running[]` (`{endpoint, label, pid, start_time, repo, task, nn, panel, since}`). Every
+write happens under `<file>.lock` (an exclusive open, retried for up to 10 s; not acquired = not
+written) and prunes: an endpoint record older than 24 h whose `until` has passed, a running row
+whose pid and start time are gone. Every endpoint-health question - the roster walk, the panel's
+selection, `-Require`, `codex-providers.ps1`, the SessionStart line - reads the file's records
+beside the repository's ledgers as ONE record set: the newest record decides, as within one
+ledger (a later usable reply anywhere clears a failure; two records at the same moment count
+with the later `until`). A panel's endpoint parallel limit (the roster's `parallel`, default 1)
+also counts the runs of OTHER repositories, panels and single runs on the member's endpoint: the
+member waits, and says so (`panel member 2 of 3 waits: 1 run(s) elsewhere on this machine use
+its endpoint (parallel limit 1): ZAI in <repo> task t handoff 04 (pid 1234)`). The file is
+optional: absent, unreadable or not parseable = as before wave 26b; a single run never waits
+for it (its own row counts for the panels).
+
 **Failure classes.** A failed run records `provider_failure = {class, kind, code, message
 (<= 200 chars), when, retry_after, hint}` (and a `Provider failure:` header line; `kind` and `hint`
 since wave 24c - see the 10-minute burst above and the context hint below). The class
@@ -1500,6 +1564,9 @@ a fabricated one is `examples/codex-consult-roster.json`.
 | `reviewers[].engine` | (0.4.0) `"codex"` (default), `"agy"` or (wave 23) `"muse"`: the CLI that carries it (see "Engines"). For `agy` and `muse`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster |
 | `reviewers[].lab` | (0.5.0, wave 26) optional: the lab behind the model (`"moonshot"`, `"deepseek"`, ...; canonical lowercase) for a panel's lab diversity. Omitted: the vendor of the model id's prefix (qwen alibaba, deepseek, kimi/k3 moonshot, glm zhipu, dola/seed bytedance, mimo xiaomi, gemini google, muse meta, gpt openai) - never the provider label - else a lab of its own (a routed panel warns) |
 | `reviewers[].roles` | (wave 26) optional array of role names the entry is willing to take under `-Roles` ("Companions") |
+| `reviewers[].timeout_sec` | (wave 26b, D11) optional integer 60-86400: this reviewer's main-turn timeout in place of the purpose's default (a panel member or a single run of the entry; an explicit `-TimeoutSec` still wins for all); ledger `timeout_source` `roster`; the panel's `Timeout:` line lists it (`3600 s per member; #7 alibaba :: qwen3.8-max 1200 s (roster)`) |
+| `reviewers[].stall_sec` | (wave 26b, D12) optional integer 0-86400: this reviewer's stall cut in place of the default 900 s (`0` = off; an explicit `-StallSec` wins) |
+| `reviewers[].context_tokens` | (wave 26b, D16) optional integer 32000-100000000: the reviewer's context window in tokens (e.g. `256000` for a plan that caps the model there). The prompt says `Your context window is M tokens: read only what the brief points to; prefer targeted reads.`; a fork/resume whose thread last carried more than 80% of it with this prompt becomes a new thread (ledger `mode_fallback`); a brief whose estimate alone exceeds 80% skips the entry before its start |
 | `reviewers[].ext` | (wave 26) optional object, reserved for other implementations that share the file: validated as an object, otherwise ignored by the bridge (never read, never written) |
 | `parallel` | (0.4.x wave 21) optional top-level object `{"<provider label>": <n>}`: a `-Panel` runs the members of one endpoint one after another; n >= 1 lets n members of that label run at once (see "The panel"). Every key must be a label the roster uses, every value an integer >= 1 |
 | `require` | (wave 26) optional top-level object `{"<purpose>": ["<reviewer>", ...]}`: the reviewers a `-Panel` of that purpose must include - a roster position `#5`, a provider label, or `<provider> :: <model>` with an optional ` [<engine>]`; every matcher must name an entry (else the roster is unusable). `-Require` replaces it for one run, `-Require none` drops it ("Companions") |
@@ -1508,6 +1575,9 @@ a fabricated one is `examples/codex-consult-roster.json`.
 An unusable roster (an unknown key, `roster_version` other than 1, an empty or non-array
 `reviewers`, the same `(provider, model)` twice, anything that does not parse) **refuses
 every run, `-DryRun` included, naming the path**; an existing roster is never ignored.
+(Wave 26b, D3) A provider label or model with surrounding blanks, or containing `::`, `[`,
+`]`, `|`, `,` or `#` - the reviewer matcher's and the routing seed's delimiters - is refused
+the same way (`roster entry #3: provider must not contain '::'`).
 
 **Selection.**
 - `-Provider <name>`: the roster does not choose, but that provider's entry supplies the
@@ -1643,7 +1713,11 @@ eligible entry without a seat is listed `not picked: panel size k` (ledger membe
 `not-picked`) and is never reported as a skip. The first line says `2 of 5 roster entries
 run`, the summary `Panel <id8>: 2 of 5 entries ran (asked 2, started 2, usable 1; wall clock
 ...)` and one `not picked (panel size 2): ...` line; every member's ledger `panel` record gets
-`asked`, `started` and `usable` when the panel ends. A `framing` or `decision` panel of fewer
+`asked`, `started` and `usable` when the panel ends. (Wave 26b, D2) `asked` is the size
+REQUESTED - the purpose's, `-PanelSize` (`-PanelAll`, `stuck`: every eligible member) - not the
+seats after the cap; when fewer members are eligible than asked the run warns `panel size
+reduced: asked 4, eligible 2` (console, handoff header, ledger `warnings[]`) and the ledger keeps
+`panel.routing.size_asked` beside `size`. A `framing` or `decision` panel of fewer
 than 2 members warns (`panel floor: ...`, console and ledger `warnings[]`) unless `-PanelSize`
 was given. *Diminishing returns:* past about five diverse members findings tend to repeat -
 an operational heuristic, not a rule; the scoreboard's `UNIQ` column (findings no other member
@@ -1661,17 +1735,25 @@ else neutral. **While no eligible member has 3 marks, the panel keeps the roster
 (`routing.fallback: "no ratings"`) - no shuffle without evidence.
 
 - *The draw* is exact and the same on Windows PowerShell 5.1 and PowerShell 7: seed =
-  SHA-256 of `<task>|<purpose>|<brief sha256>|<the eligible lineages sorted ordinally, joined
-  by ','>|<nonce>`; the nonce is `-PanelSeed <n>`, else `CODEX_CONSULT_TEST_PANEL_SEED`, else
+  SHA-256 of `<task>|<purpose>|<brief sha256>|<lineages>|<nonce>` where (wave 26b, D3) every
+  field is written `<len>:<value>` (len = its UTF-8 byte count) and `<lineages>` is the eligible
+  lineages sorted ordinally, each `<len>:<lineage>`, joined by `,` - e.g.
+  `1:t|7:framing|3:abc|26:6:a :: x,6:b :: y,6:c :: z|2:42` - so no value can shift a boundary
+  (the seeds, and so the seats of a given nonce, differ from wave 26's; the independent
+  reference implementation is `tests/reference-draw.py`); the nonce is `-PanelSeed <n>`, else
+  `CODEX_CONSULT_TEST_PANEL_SEED`, else
   today's UTC date - a dry run and the real run of the same day draw the same seats. Seat s:
   SHA-256(seed || s as 4 bytes big-endian); its first 8 bytes (top 53 bits / 2^53) are a uniform
   u, the next 8 decide exploration (below 0.2: the seat is a uniform pick `floor(u x pool)`);
   otherwise the first entry, in roster order, whose running weight sum exceeds `u x` the pool's
   weight sum wins and leaves the pool.
-- *Lab diversity* is a reserve, not a first pass: while fewer than `min(k, labs with an entry
-  scoring >= neutral)` labs are seated, a seat draws only from labs not yet seated whose
-  entries score >= neutral (an entry below neutral never earns a lab seat); the remaining seats
-  draw from every eligible entry left. The lab is the roster entry's `lab`, else the vendor of
+- *Lab diversity* is a reserve, not a first pass, over the seats left after the required (wave
+  26b, D5): `reserve: min(seats left after the required, labs with an entry >= neutral not yet
+  seated)` - while fewer reserve seats are taken, a seat draws only from labs not yet seated
+  whose entries score >= neutral (an entry below neutral never earns a lab seat); the remaining
+  seats draw from every eligible entry left. `panel.routing.reserve` records the reserve seats
+  applied (the `lab-*` rules), so the claim is auditable; the seats are those of wave 26 (the
+  statement changed, not the draw). The lab is the roster entry's `lab`, else the vendor of
   the model id's prefix, else a lab of its own (`routing: no lab known for ...`, a warning).
 - *The record:* every member's ledger `panel.routing` (field table in "The ledger") and the
   console print the same - the mode and the fallback, the seed and the nonce, every eligible
@@ -1705,13 +1787,23 @@ the ledger's `panel.routing.required` names them.
 
 **Roles.** `-Role <name>` gives a single run - or every member of a panel - a narrow role;
 `-Roles a,b` (a panel only, not with `-Role`) gives one role per member, by SCORE RANK among the
-seated members (highest first), each to the best-ranked member left that is willing to take it
-(its roster entry's `"roles": [...]`) when one is. The role's text - `<CollabDir>/roles/<name>.md`
+seated members (highest first). (Wave 26b, D4) The assignment is an exact matching, not a
+greedy pass: a role some seated member is willing to take (its roster entry's `"roles": [...]`)
+goes to a willing member, and among the assignments that honour every such willingness each
+role in order gets the best-ranked member possible (an augmenting-path matching - no size
+bound); only when no assignment honours every willingness do the roles go by the wave 26 greedy
+order (each to the best-ranked willing member left, else the best-ranked left) - and the run says
+so: a warning and the ledger's `panel.roles_note`. The role's text - `<CollabDir>/roles/<name>.md`
 of the repository, else the plugin's `templates/role-<name>.md` (`edge-cases`, `security`,
 `tests`, `docs` ship) - goes into the prompt after the ask and before the brief (never inside
 the output contract); the reply format, the verdict rules and the read-only rules do not change.
 Names are slugs checked before any path is built; an unknown role and more roles than members are
-refused, nothing started. Ledger `role`.
+refused, nothing started. (Wave 26b, D1) The role text reaches external reviewers, so the file
+must be a REGULAR file inside its roles directory: no symbolic link or junction on the file or
+on the roles directory itself (`<CollabDir>/roles`, the plugin's `templates`), its full path
+inside that directory - anything else refuses the run before any prompt, handoff, ledger entry or
+process exists (`-Role: role file refused: ... is a directory link (reparse point), not a regular
+file`). Ledger `role`.
 
 **Council rules** (the `consult-codex` skill has the full list): the coordinator is an
 equal participant and the judge by default; a hard question can hand the judge role to
@@ -1998,8 +2090,17 @@ web tools are off, so nothing is auto-denied (ledger `denial_retry` `null`).
 **Read-only: flags plus evidence.** Muse runs with `--disable-write --disable-shell
 --disable-web-tools --approval-mode never`, and the bridge runs the agy tree check (the
 working tree's tracked and untracked files, the WHOLE collab directory, the brief, the
-artifacts): a change fails the run as class `permission` - `... - muse ran with
---disable-write --disable-shell (the check cannot tell who changed it)`. The boundary is
+artifacts). (Wave 26b, D9) Because the bridge's own flags disable muse's writes, a change the
+check finds is NOT the reviewer's - another party wrote it (the coordinator's `state.md`, a
+commit): it becomes a WARNING and the reply stays usable - `warnings[]` (console, handoff
+header, the summary's `warning    :` line) `the collab directory changed during the run (1
+file: .collab/t/state.md) - muse ran write-disabled, the change is not the reviewer's`, ledger
+`tree_check {outcome: "warned", files: [...]}`; a run that failed for its own reason keeps that
+reason and class (no forced `permission`). Before wave 26b such a change failed the run as class
+`permission` (a panel member of another repository was lost that way while its coordinator
+wrote `state.md`). agy keeps the failure (its `--sandbox` does not block writes, F12). The
+coordinator's side: while an agy or muse member runs, write nothing under the collab directory
+or the working tree (the skill's "Live members" rule). The boundary is
 agy's: read-only is **enforced by evidence for tracked and untracked files and the collab
 directory; not for gitignored paths, submodules or files outside the repository** - and not
 for reads: the native `read_file` tool is not confined to the repository, so the bridge does
@@ -2040,7 +2141,7 @@ entries, findings without a ledger entry) sorts last.
 | `A/H/R/D` | verdicts ACCEPT / HOLD / REJECT / ADVISE |
 | `Y/P/N` | the `-Rate` marks yes / partly / no (wave 26: a mark belongs to the consultation whose `consult_id` it carries; one recorded without, to its `n` in the task) |
 | `SCORE` | (wave 26) the routing score a routed `-Panel` gives this reviewer for this purpose - the bridge's own `Get-RoutingScore` over the marks of EVERY task (last 90 days): `1.125` (neutral) below 3 marks; a lineage's total row: its all-purpose score; `-` on a `-By topic` row ("Companions") |
-| `UNIQ` | (wave 26) `unique/panel-raised`: findings this reviewer raised as a panel member that no other member of the same panel raised at the same location (path and line; a finding without a location counts as unique), of all it raised in panels - the measure behind the "about five members" heuristic |
+| `UNIQ` | (wave 26) `unique/panel-raised`: findings this reviewer raised as a panel member that no other member of the same panel raised at the same location (path and line; a finding without a location counts as unique), of all it raised in panels - the measure behind the "about five members" heuristic; (wave 26b, D7) a location is compared after normalising its path - `\` and `/` alike, runs of `/` collapsed, a leading `./` dropped, case-insensitive on Windows - the line exactly |
 | `MEDIAN_S` | median `wall_seconds`; `-` when none |
 | `TOKENS` | uncached input tokens / output tokens |
 
@@ -2084,6 +2185,7 @@ nor writes it.
 | `-Sandbox read-only\|workspace-write` | `read-only` | `danger-full-access` is refused, with no flag to force it |
 | `-TimeoutSec <n>` | the purpose's default (0.5.0: 600-3600 s, "Timeouts, the continuation and the partial reply") | the main turn's process TREE is killed past it; ledger `timeout_sec`, `timeout_source` |
 | `-ContinueSec <n>` | the smaller of the timeout and 900 s | (0.5.0) the budget of the ONE continuation turn on the killed turn's thread; `0` = off; ledger `continue_sec`, `timeout_continue` |
+| `-StallSec <n>` | the roster entry's `stall_sec`, else `900` | (wave 26b, R18) the stall cut: no event line in the engine's stream for n s while its process lives - stopped like a timeout (the continuation turn, the salvage); `0` = off; a panel passes it to every member; ledger `stall` |
 | `-Range <from>..<to>` | — | (0.5.0) diff-review and acceptance only: `git diff --shortstat` once - the size in the prompt and the ledger (`range`), a warning above 1500 lines with a timeout below 2400 s; an unknown range and a single revision (only `base..head` / `base...head`) are refused |
 | `-ReplyName <slug>` | `reply` | names `handoffs/<NN>-codex-<slug>.*` (`<NN>-agy-<slug>.*`, `<NN>-muse-<slug>.*` for the engines) |
 | `-Artifact <path>[,<path>…]` | — | one comma-separated string; hashes built artifacts into the ledger; a missing path refuses the run |
@@ -2112,7 +2214,8 @@ nor writes it.
 | `-Detach` | off | (0.5.0) checks the run here like a real run, then runs it in a background process and returns at once (exit `0`): the detach id, the status file, the come-back commands; a single run or `-Panel`; not with `-DryRun`, `-Status`, `-Wait` ("Non-blocking consultation") |
 | `-Status [-Id <id>] [-Prune]` | — | (0.5.0) the detached runs of the task: state, members, the summary block once done; exit `0` / `1` / `2` / `4`; reads status files only - `-Prune` deletes those of runs done or died more than 7 days ago; takes only `-Task`, `-CollabDir`, `-Id`, `-Prune` |
 | `-Wait [-Id <id>] [-WaitTimeoutSec <s>]` | the run's `budget_sec` | (0.5.0) waits (every 2 s) until the run(s) are done or their background is gone, then prints as `-Status`; exit `3` when still running after the limit |
-| `-Id <id>` | every detached run of the task | (0.5.0) with `-Status` / `-Wait`: one run, by its detach id or a prefix of it (the 8 hex digits `-Detach` prints); a prefix of several runs is refused (exit `4`) |
+| `-Id <id>` | every detached run of the task | (0.5.0) with `-Status` / `-Wait` / (wave 26b) `-Kick`: one run, by its detach id or a prefix of it (the 8 hex digits `-Detach` prints); a prefix of several runs is refused (exit `4`) |
+| `-Kick -Member <NN> [-Id <id>]` | — | (wave 26b) from another shell: stop ONE running member of a panel (or a single run) of `-Task` by its handoff number - a detached run with `-Id`, a foreground panel without; its process tree is stopped, its partial output salvaged, it records `failed: stopped by the operator (-Kick)` (class `operator`) and the panel goes on; waits up to 60 s for the member to take it; exit `0` done, `1` no such member or not running, `4` refused. Takes only `-Task`, `-CollabDir`, `-Member`, `-Id` |
 
 Exit codes of `codex-consult.ps1` (a run; `-Status`/`-Wait` have their own table in
 "Non-blocking consultation"):
@@ -2124,6 +2227,11 @@ Exit codes of `codex-consult.ps1` (a run; `-Status`/`-Wait` have their own table
 | `5` | (0.5.0, wave 26) a REQUIRED reviewer (`-Require`, the roster's `require`) is not available - refused before anything started, the dry run too - or, in a panel, produced no usable reply (no further member was started) |
 | `6` | (0.5.0, wave 26) a detached run's background could not make its status file final (3 attempts); the run's result exists only in its log |
 
+`-Kick` (wave 26b): `0` the member took the kick (its tree is stopped, it records the operator's
+failure), `1` no such member or no engine turn running (a detached run named by `-Id` without that
+member, a member not running, no take within 60 s), `4` the query is refused (`-Member` missing or
+not a number, another option given).
+
 Environment variables:
 
 | Variable | Set by | Effect |
@@ -2132,6 +2240,7 @@ Environment variables:
 | a table's `env_key` (e.g. `ZAI_API_KEY`) | the user only | the provider credential; the bridge only checks that it is set |
 | `OPENAI_BASE_URL` | user | folded into the built-in `openai` identity (drift when it changes) |
 | `CODEX_CONSULT_ROSTER` | user | roster file path (must exist), or `none` |
+| `CODEX_CONSULT_HEALTH` | user (tests: a scratch path, or `none`) | (wave 26b, R20) the machine-wide endpoint health file ("Preflight and endpoint health"); default `<codex home>/codex-consult-health.json`; `none`: no file, read nor written |
 | `CODEX_CONSULT_PEAK_<PROVIDER>`, `CODEX_CONSULT_PEAK_<PROVIDER>_EXCEPT` | user | peak windows |
 | `CODEX_CONSULT_EXE` | user | codex launcher path |
 | `CODEX_CONSULT_AGY_EXE` | user | agy launcher path (the `agy` engine) |
@@ -2261,13 +2370,15 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 
 ## Tests
 
-`tests/run-all.ps1` runs the thirteen harnesses one at a time against a FAKE `codex` shim (and
+`tests/run-all.ps1` runs the fourteen harnesses one at a time against a FAKE `codex` shim (and
 a FAKE `agy` for `harness-engines` and `harness-panel`, a FAKE `muse` for `harness-muse`): no
 real `codex`, `agy` or `muse`, no quota spent, no real credential read (`harness-muse` gives
 every child a scratch home with a fake `auth.json`, a scratch `LOCALAPPDATA` and a PATH
 without a muse launcher, and refuses to run when a real muse would still resolve), your own `~/.codex/config.toml` never changed (`harness-0.3`
 points `CODEX_HOME` at scratch directories and compares your config's hash before and
-after; every harness sets `CODEX_CONSULT_ROSTER` to a scratch file or `none`). The fake
+after; every harness sets `CODEX_CONSULT_ROSTER` to a scratch file or `none`, and (wave 26b)
+`CODEX_CONSULT_HEALTH` to `none` - `harness-fixes26b` to scratch files - so the machine-wide
+health file `~/.codex/codex-consult-health.json` is never touched). The fake
 codex is a `.cmd` shim, so the suite needs Windows and `git` on PATH. Never run two
 harnesses in parallel; the recovery checks would see each other's fake codex.
 
@@ -2280,7 +2391,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1 -ScriptsDi
 (0.5.0, T4) `-ScriptsDir <dir>` - else the environment variable `CODEX_CONSULT_SCRIPTS_DIR`, else
 the checkout's `plugins/codex-consult/scripts` - names the scripts under test; `run-all.ps1`
 passes it to every harness (each takes it too) and names it in its summary line
-(`run-all: 13 harness(es), 0 failed; scripts: <dir>`).
+(`run-all: 14 harness(es), 0 failed; scripts: <dir>`).
 
 Assertions per harness (Windows PowerShell 5.1, 2026-09-27, 0.5.0 wave 26): `harness-0.3` 229,
 `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 72,
@@ -2290,9 +2401,15 @@ the timeouts, the continuation, the salvage, `-Range`, the one availability verd
 the continuation's gates, the main turn's guarded start, the complete resume command, the tree
 check by content, the burst 429), `harness-detach` 51 (wave 25: `-Detach`, `-Status`, `-Wait`, the
 status file, the log, the budget, a died background, T4; wave 26: the carry-overs),
-`harness-companions` 42 (wave 26: size, routing, `-Require`, roles, the scoreboard). `harness-0.3`,
-`harness-roster`, `harness-format`, `harness-engines`, `harness-muse`, `harness-panel`,
-`harness-visibility`, `harness-detach` and `harness-companions` also run under pwsh. Many cases wait
+`harness-companions` 42 (wave 26: size, routing, `-Require`, roles, the scoreboard; wave 26b: the
+golden sequences of the length-prefixed seed, from `tests/reference-draw.py`), (wave 26b, 0.5.0,
+2026-09-28) `harness-fixes26b` 39 (the wave 26 acceptance's decisions: role-file containment, the
+reduced size, the delimiters, the role matching, the reserve, the rating join, UNIQ,
+`timeout_sec`, the stall cut, `-Kick`, the salvage of any failed run, `context_tokens`, the
+machine-wide health file) and `harness-muse` 74 (wave 26b: the write-disabled tree check).
+`harness-0.3`, `harness-roster`, `harness-format`, `harness-engines`, `harness-muse`,
+`harness-panel`, `harness-visibility`, `harness-detach`, `harness-companions` and
+`harness-fixes26b` also run under pwsh. Many cases wait
 on real timeouts and time a fake reviewer: on a loaded machine (another heavy application, a disk
 that runs full) the timing cases of `harness-panel` (GUARD), `harness-detach` (SINGLE, PANEL) and
 `harness-visibility` (CONT) can fail spuriously - re-run that section alone. A full run takes about fifty minutes. Each harness ends with `<harness>…: N failure(s).`; `run-all.ps1`

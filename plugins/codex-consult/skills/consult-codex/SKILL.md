@@ -15,6 +15,19 @@ Every consultation leaves two files you can commit — your brief and Codex's
 verbatim reply — plus one entry in a JSON ledger. A `<task-id>` groups one
 conversation: reuse the same id and the thread continues.
 
+**Language.** Briefs, `-Prompt` texts, follow-ups and handoff titles are written in English -
+whatever language the operator speaks with you; the operator's language belongs only in the
+conversation with the operator. Source material in another language (a user's notes, an issue,
+a log) is translated or summarised in English in the brief, never pasted in the other language.
+Every template's first line says so: `Write in English.`
+
+**Live members.** While an agy or muse member runs (a single run or a panel member, detached
+or not), write NOTHING under the collab directory or the working tree - `state.md`, notes and
+findings stores included - and run no git command (commit, checkout, stash, pull): queue your
+notes and write them once the panel has closed (`-Status` says done). Both engines are checked
+by evidence: a change during an agy run fails that member; during a muse run it is a warning
+(muse runs write-disabled, wave 26b) - in either case the reviewer read a moving target.
+
 ## When to consult
 
 - **Framing** — before committing to an approach, to surface options you did not list.
@@ -455,7 +468,20 @@ it, a `"weighty"` entry only joins on the weighty purposes.
   recovered.
 - **Do not run other consultations in the repository beside a panel with agy members**:
   an agy member's read-only check fails on any collab change outside its own task's stores
-  and its siblings' handoffs.
+  and its siblings' handoffs (a muse member's only warns - see "Live members" above).
+- **A member that hangs** (wave 26b): its stall cut stops it when its event stream stays silent
+  for `-StallSec` (default 900 s, a roster entry's `stall_sec`) - like a timeout, with the
+  continuation turn and the salvage. To stop one member yourself, from another shell:
+  `codex-consult.ps1 -Task <task> -Kick -Member <NN>` (a detached panel: add `-Id <id8>`) - its
+  partial output is salvaged, it is recorded `failed: stopped by the operator (-Kick)` (class
+  `operator`, not the endpoint's fault) and the panel goes on with the others. Ask the operator
+  before kicking a member that is merely slow.
+- **Other repositories count** (wave 26b): a member whose endpoint is busy with a run of another
+  repository or panel on this machine waits for it (`panel member k of n waits: ...`) - the
+  endpoint's parallel limit is machine-wide; do not start a second panel to "get around" it.
+- **A reduced panel says so** (wave 26b): `panel size reduced: asked 4, eligible 2` means the
+  roster could not seat the size the purpose asks for - for a framing, decision or acceptance
+  panel tell the operator who is missing before relying on the smaller panel.
 - **Per-lineage** — each member forks the newest thread of its own lineage (or starts
   one); never fork or resume one member's thread under another's provider/model.
 - **Members see the same open-findings snapshot** — every member is shown the findings

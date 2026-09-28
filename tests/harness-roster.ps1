@@ -11,6 +11,9 @@
 # removed at the end.
 param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
+# (wave 26b, D13) the machine-wide health file stays out of these cases (every case its own
+# repository; harness-fixes26b.ps1 points CODEX_CONSULT_HEALTH at scratch files of its own)
+$env:CODEX_CONSULT_HEALTH = 'none'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 # (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's

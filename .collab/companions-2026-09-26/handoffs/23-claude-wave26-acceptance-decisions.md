@@ -77,3 +77,17 @@ D14. The consult-codex skill: a standalone **Language** rule (briefs, prompts, f
      until the panel closes). Every template's first line: `Write in English.`
 
 Re-acceptance: by mimo (the reviewer who raised F22-1..7) with glm; the brief lists D1-D14 and the commit.
+
+Addenda sent to the implementer during the wave (2026-09-28):
+D15. Partial salvage on ANY failed run whose event stream has content (an agent message, reasoning text
+     or a tool call): the wave 24 `.partial.md`, ledger `partial_reply` and the `partial :` line, not only
+     after a timeout kill - a 429 after retries, a quota 401/403, a network error, a denial, a tree-check
+     failure. The footer names why the run ended. Nothing is written for an empty stream (a refusal on the
+     first request). Seen: a DeepSeek member worked 2568 s before its 429 and left only events.jsonl.
+D16. Roster entry `context_tokens` (integer >= 32000): fork/resume of a thread whose last recorded context
+     plus the new prompt's estimate exceeds 80% of it falls back to a new thread (ledger `mode_fallback`,
+     a summary line, the previous reply file named in the prompt); a prompt estimate over 80% skips the
+     member before start with `brief too large for this reviewer's context (est. N of M tokens)`; a seated
+     member with the key gets one prompt line naming its window. Seen: a Kimi k3 member (256K plan) forked a
+     217K-token thread with a 6 KB brief and was refused 401 on its first request - nothing to salvage; a
+     one-line probe on a new thread worked (51 s; 44K tokens of scaffolding per request).

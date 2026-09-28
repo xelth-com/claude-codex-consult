@@ -340,13 +340,30 @@ therefore REFUSES a muse run while either variable is set, and there is no opt-o
 
 - Allowed keys only: `roster_version` (must be `1`), `reviewers[]` with `provider`
   (required), `model`, `codex_config` (array of `key=value` strings), `auth`, `panel`,
-  `engine` (`codex`, the default, `agy` or `muse`), `lab`, `roles`, `ext`, the optional
+  `engine` (`codex`, the default, `agy` or `muse`), `lab`, `roles`, (wave 26b) `timeout_sec`,
+  `stall_sec`, `context_tokens`, `ext`, the optional
   top-level `require` and `ext` (below), and the optional top-level `parallel`
   (`{"<provider label>": n}`, n >= 1: how many `-Panel` members of that label may run at
   once; the default is one at a time per endpoint). An unknown key, an unknown engine, an
   agy or muse entry without a model or with `codex_config`/`auth`, one label with two engines, a
   duplicate `(provider, model)`, a `parallel` value that is not an integer >= 1 or names a
-  label the roster does not use, or invalid JSON refuses EVERY run.
+  label the roster does not use, or invalid JSON refuses EVERY run. (Wave 26b) So does a
+  `provider` or `model` with surrounding blanks or containing `::`, `[`, `]`, `|`, `,` or `#`
+  (the reviewer matcher's and the routing seed's delimiters): name labels plainly (`ZAI`,
+  `byteplus`, `meta-contrib`).
+- (wave 26b) optional per entry, measured facts about the reviewer - set them from what you
+  observed, not by guess: `"timeout_sec": 1200` (an integer >= 60) - this reviewer's main-turn
+  timeout in place of the purpose's default (a slow model on a hard purpose; an explicit
+  `-TimeoutSec` still wins; the panel's `Timeout:` line lists it); `"stall_sec": 600` (an integer
+  >= 0, `0` = off) - how long its event stream may stay silent before the bridge stops it like a
+  timeout (default 900); `"context_tokens": 256000` (an integer >= 32000) - its context window
+  when the plan caps it (e.g. a Kimi Code plan's `k3` at 256K): the bridge tells the reviewer,
+  replaces a fork/resume of a thread that would overflow it by a new thread (ledger
+  `mode_fallback`), and skips the entry for a brief too large for it.
+- (wave 26b) The machine-wide endpoint health file `<codex home>/codex-consult-health.json` is
+  written and read by the bridge itself (never by hand): every repository of the machine sees
+  the others' 429s, usage limits and running members there. `CODEX_CONSULT_HEALTH=<path>` moves
+  it, `=none` turns it off; nothing to set up.
 - `"panel": "weighty"` for the expensive reviewer: it joins a `-Panel` run only on
   `framing`, `decision`, `core-contract`, `acceptance` and `stuck` (or `-PanelAll`). The
   default is `"always"`.

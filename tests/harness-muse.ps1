@@ -23,6 +23,9 @@
 # $env:TEMP\codex-consult-tests\harness-muse\<guid>, removed at the end.
 param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
+# (wave 26b, D13) the machine-wide health file stays out of these cases (every case its own
+# repository; harness-fixes26b.ps1 points CODEX_CONSULT_HEALTH at scratch files of its own)
+$env:CODEX_CONSULT_HEALTH = 'none'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 # (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's
@@ -174,6 +177,28 @@ function Providers {
 function Reply { param([string]$Name, [string]$Text) $p = Join-Path $work $Name; [IO.File]::WriteAllText($p, $Text, $u8); return $p }
 function Ledger { param([string]$Repo) $f = Join-Path $Repo '.collab\t\sessions.json'; if (-not (Test-Path $f)) { return @() }; return @(([IO.File]::ReadAllText($f, $u8) | ConvertFrom-Json).codex.consults) }
 function Last-Entry { param([string]$Repo) return (Ledger $Repo)[-1] }
+# (wave 26b, D9) A bridge call during which the HARNESS - like a coordinator - writes
+# .collab/t/state.md: the run in the background, the write once its engine turn runs.
+function Consult-WhileWriting {
+    param([string]$Repo, [string[]]$ArgList, [hashtable]$Env = @{})
+    Set-CaseEnv '' $Env
+    $outP = Join-Path $work ("ww-" + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.out')
+    $argText = (@(@('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $consultPs, '-Task', 't') + @($ArgList)) | ForEach-Object { if ([string]$_ -match '[\s"]') { '"' + ([string]$_ -replace '"', '\"') + '"' } else { [string]$_ } }) -join ' '
+    $proc = Start-Process -FilePath $psExe -ArgumentList $argText -WorkingDirectory $Repo -NoNewWindow -PassThru -RedirectStandardOutput $outP -RedirectStandardError "$outP.err"
+    if ($PSVersionTable.PSVersion.Major -lt 6) { try { $null = $proc.Handle } catch { } }
+    Restore-Env
+    $rec = Join-Path $Repo '.collab\t\.consult.pending.json'
+    $w = [Diagnostics.Stopwatch]::StartNew()
+    $wrote = $false
+    while (-not $proc.HasExited -and $w.Elapsed.TotalSeconds -lt 40) {
+        try { if ((Test-Path -LiteralPath $rec) -and ([IO.File]::ReadAllText($rec) | ConvertFrom-Json).state -eq 'running') { [IO.File]::WriteAllText((Join-Path $Repo '.collab\t\state.md'), "coordinator notes`n", $u8); $wrote = $true; break } } catch { }
+        Start-Sleep -Milliseconds 200
+    }
+    $null = $proc.WaitForExit(90000)
+    $text = ''
+    foreach ($f in @($outP, "$outP.err")) { if (Test-Path -LiteralPath $f) { $text += [IO.File]::ReadAllText($f) } }
+    return [pscustomobject]@{ Code = $proc.ExitCode; Out = $text; Wrote = $wrote }
+}
 function Line { param([string]$Out, [string]$Prefix) return (($Out -split "`n") | Where-Object { $_.StartsWith($Prefix) } | Select-Object -First 1) }
 function Td { param([string]$Repo, [string]$Rel) return (Join-Path (Join-Path $Repo '.collab\t') ($Rel -replace '/', '\')) }
 function Text { param([string]$Path) if (Test-Path -LiteralPath $Path) { return [IO.File]::ReadAllText($Path, $u8) }; return '' }
@@ -523,7 +548,7 @@ if (Want 'RUN') {
     $seen = if ($promptAt -ge 0) { $tl.Substring($promptAt + 8) } else { '' }
     $argLines = @(($tl -split "`n") | Where-Object { $_.StartsWith('ARG: ') } | ForEach-Object { $_.Substring(5) })
     Check 'RUN' 'D1: the prompt travels in the prompt file (read by the fake: length = prompt_chars, ends with the consultation id, %APPDATA% in the ask unexpanded) and stdin is EMPTY (0 bytes); the fake saw exactly the 16 real-flag arguments' ($seen.Length -eq [int]$e.prompt_chars -and $seen.EndsWith("Consultation id: $($e.consult_id)") -and $seen.Contains('Check the %APPDATA% words in the prompt') -and $tl -match '(?m)^STDIN-BYTES: 0$' -and $argLines.Count -eq 16 -and $argLines[0] -eq 'exec' -and $argLines[2] -eq '--prompt-file' -and $argLines[4] -eq '--output-schema' -and $argLines[5] -eq $schemaPath -and $argLines[15] -eq 'never') "chars $($seen.Length)/$($e.prompt_chars), args $($argLines.Count)"
-    $order = 'n,when,purpose,topics,role,consult_id,reviewer,lineage,preflight,preflight_warning,roster,panel,parent_thread,thread,thread_source,thread_candidate,mode,command,brief,range,prompt_chars,reply,reply_json,events,partial_reply,model,effort,effort_requested,effort_sent,effort_mapping,effort_caps,effort_confirmed,max_words,sandbox,timeout_sec,timeout_source,continue_sec,extra_config,extra_config_source,peak,peak_schedule,peak_source,peak_evaluated_at,structured,schema,schema_transport,schema_transport_source,validation_error,format_retry,denial_retry,timeout_continue,base_commit,reviewed_revision,tree_sha256,tree_sha256_after,tree_changed_during_review,revision_moved,changed_files,brief_sha256,brief_sha256_after,brief_changed_during_review,fingerprint_note,artifacts,artifacts_changed_during_review,bridge_outcome,provider_failure,warnings,verdict,verdict_reason,findings,finding_ids,prior_findings,unchecked_prior_blockers,usage,engine_run,wall_seconds,finished_at,commit_wait_ms'
+    $order = 'n,when,purpose,topics,role,consult_id,reviewer,lineage,preflight,preflight_warning,roster,panel,parent_thread,thread,thread_source,thread_candidate,mode,mode_fallback,command,brief,range,prompt_chars,reply,reply_json,events,partial_reply,model,effort,effort_requested,effort_sent,effort_mapping,effort_caps,effort_confirmed,max_words,sandbox,timeout_sec,timeout_source,continue_sec,extra_config,extra_config_source,peak,peak_schedule,peak_source,peak_evaluated_at,structured,schema,schema_transport,schema_transport_source,validation_error,format_retry,denial_retry,timeout_continue,stall,base_commit,reviewed_revision,tree_sha256,tree_sha256_after,tree_changed_during_review,revision_moved,changed_files,brief_sha256,brief_sha256_after,brief_changed_during_review,fingerprint_note,artifacts,artifacts_changed_during_review,tree_check,bridge_outcome,provider_failure,warnings,verdict,verdict_reason,findings,finding_ids,prior_findings,unchecked_prior_blockers,usage,engine_run,wall_seconds,finished_at,commit_wait_ms'
     Check 'RUN' 'ledger fields in the same order as a codex entry (engine_run right after usage)' ((($e.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq $order) ''
     $rj = Text (Td $r $e.reply_json)
     $md = Text (Td $r $e.reply)
@@ -690,16 +715,25 @@ if (Want 'TREE') {
     $r = New-Repo 'tree'
     $x = Consult $r '' ($museArgs + @('-Prompt', 'x', '-ReplyName', 'w')) @{ FAKE_MUSE_REPLY = $adviseF; FAKE_MUSE_WRITE = 'probe.txt' }
     $e = Last-Entry $r
-    Check 'TREE' 'D12: muse writes probe.txt -> FAILED "the working tree changed during the run (by the reviewer or anyone else): 1 file: probe.txt - muse ran with --disable-write --disable-shell (the check cannot tell who changed it)", class permission, nothing ingested' ($x.Code -eq 1 -and $e.bridge_outcome -eq 'failed: the working tree changed during the run (by the reviewer or anyone else): 1 file: probe.txt - muse ran with --disable-write --disable-shell (the check cannot tell who changed it)' -and $e.provider_failure.class -eq 'permission' -and @($e.finding_ids).Count -eq 0) $e.bridge_outcome
+    Check 'TREE' '(wave 26b, D9 - replaces wave 23 D12 for muse) probe.txt appears during a muse run -> a WARNING, not a failure: muse ran write-disabled (--disable-write --disable-shell), so the change is not the reviewer''s - usable reply, the finding ingested, warnings[] "the working tree changed during the run (1 file: probe.txt) - muse ran write-disabled, the change is not the reviewer''s", tree_check {outcome warned, files [probe.txt]}, no provider failure' ($x.Code -eq 0 -and $e.bridge_outcome -eq 'usable reply' -and $null -eq $e.provider_failure -and @($e.finding_ids).Count -eq 1 -and @($e.warnings | Where-Object { $_ -eq "the working tree changed during the run (1 file: probe.txt) - muse ran write-disabled, the change is not the reviewer's" }).Count -eq 1 -and $e.tree_check.outcome -eq 'warned' -and (@($e.tree_check.files) -join ',') -eq 'probe.txt') "$($e.bridge_outcome) | $(@($e.warnings) -join ' | ') | $($e.tree_check | ConvertTo-Json -Compress)"
     Remove-Item (Join-Path $r 'probe.txt')
     $y = Consult $r '' ($museArgs + @('-Prompt', 'x', '-ReplyName', 'wq')) @{ FAKE_MUSE_WRITE = 'probe2.txt'; FAKE_MUSE_TERMINAL = 'failed'; FAKE_MUSE_REASON = $quotaReason }
     $ey = Last-Entry $r
-    Check 'TREE' 'D12: a write AND an already failed run (Meta''s quota) -> class permission all the same; that reason stays in the message; the outcome adds "; also: the working tree changed ..."' ($y.Code -eq 1 -and $ey.bridge_outcome -match ('^failed: muse exit 1 - ' + [regex]::Escape($quotaReason) + '; also: the working tree changed during the run \(by the reviewer or anyone else\): 1 file: probe2\.txt') -and $ey.provider_failure.class -eq 'permission' -and $ey.provider_failure.message -eq $quotaReason) "$($ey.provider_failure.class) | $($ey.bridge_outcome)"
+    Check 'TREE' '(wave 26b, D9) a change AND an already failed run (Meta''s quota): the failure stays what it was - "failed: muse exit 1 - <the reason>", class quota (no forced permission for a write-disabled engine); the change is a warning (tree_check warned)' ($y.Code -eq 1 -and $ey.bridge_outcome -eq ('failed: muse exit 1 - ' + $quotaReason) -and $ey.provider_failure.class -eq 'quota' -and $ey.provider_failure.message -eq $quotaReason -and $ey.tree_check.outcome -eq 'warned' -and @($ey.warnings | Where-Object { $_ -like 'the working tree changed during the run (1 file: probe2.txt) - muse ran write-disabled*' }).Count -eq 1) "$($ey.provider_failure.class) | $($ey.bridge_outcome) | $(@($ey.warnings) -join ' | ')"
     Remove-Item (Join-Path $r 'probe2.txt')
     $z = Consult $r '' @('-Engine', 'agy', '-Model', 'gemini-3.8-flash-high', '-Prompt', 'x', '-ReplyName', 'agyw') @{ FAKE_AGY_REPLY = $advise; FAKE_AGY_WRITE = 'probe3.txt'; FAKE_AGY_EXIT = '1'; FAKE_AGY_ERROR = 'UNAVAILABLE: backend down' }
     $ez = Last-Entry $r
     Check 'TREE' 'D12 for agy too: a write and "agy exit 1 - UNAVAILABLE ..." (class transport before wave 23) -> class permission, the agy error stays the message, "; also: ... - agy''s sandbox does not block writes"' ($z.Code -eq 1 -and $ez.reviewer.engine -eq 'agy' -and $ez.bridge_outcome -match "^failed: agy exit 1 - UNAVAILABLE: backend down; also: the working tree changed during the run \(by the reviewer or anyone else\): 1 file: probe3\.txt - agy's sandbox does not block writes$" -and $ez.provider_failure.class -eq 'permission' -and $ez.provider_failure.message -eq 'UNAVAILABLE: backend down') "$($ez.provider_failure.class) | $($ez.bridge_outcome)"
     Remove-Item (Join-Path $r 'probe3.txt')
+    # (wave 26b, D9) the coordinator writes .collab/t/state.md while the reviewer runs
+    $rw = New-Repo 'tree-coord'
+    $cw = Consult-WhileWriting $rw ($museArgs + @('-Prompt', 'x', '-ReplyName', 'cw')) @{ FAKE_MUSE_REPLY = $adviseF; FAKE_MUSE_DELAY_MS = '4000' }
+    $ecw = Last-Entry $rw
+    Check 'TREE' '(wave 26b, D9) the HARNESS writes .collab/t/state.md while a muse member runs (write-disabled) -> usable reply, the finding ingested, warnings[] "the collab directory changed during the run (1 file: .collab/t/state.md) - muse ran write-disabled, the change is not the reviewer''s" (also in the handoff header and the summary), tree_check {warned, [.collab/t/state.md]}' ($cw.Wrote -and $cw.Code -eq 0 -and $ecw.bridge_outcome -eq 'usable reply' -and @($ecw.finding_ids).Count -eq 1 -and @($ecw.warnings | Where-Object { $_ -eq "the collab directory changed during the run (1 file: .collab/t/state.md) - muse ran write-disabled, the change is not the reviewer's" }).Count -eq 1 -and $ecw.tree_check.outcome -eq 'warned' -and (@($ecw.tree_check.files) -join ',') -eq '.collab/t/state.md' -and (Text (Td $rw $ecw.reply)) -match 'Warnings: .*the collab directory changed during the run' -and $cw.Out -match '(?m)^warning    : the collab directory changed during the run \(1 file: \.collab/t/state\.md\)') "wrote $($cw.Wrote) code $($cw.Code) | $($ecw.bridge_outcome) | $(@($ecw.warnings) -join ' | ')"
+    $ra = New-Repo 'tree-coord-agy'
+    $ca = Consult-WhileWriting $ra @('-Engine', 'agy', '-Model', 'gemini-3.8-flash-high', '-Prompt', 'x', '-ReplyName', 'ca') @{ FAKE_AGY_REPLY = $advise; FAKE_AGY_DELAY_MS = '4000' }
+    $eca = Last-Entry $ra
+    Check 'TREE' '(wave 26b, D9) the same with an agy member -> FAILED as before (agy''s --sandbox does not block writes, F12): "failed: the collab directory changed during the run (by the reviewer or anyone else): 1 file: .collab/t/state.md - agy''s sandbox does not block writes", class permission, tree_check {failed, [.collab/t/state.md]}' ($ca.Wrote -and $ca.Code -eq 1 -and $eca.bridge_outcome -eq "failed: the collab directory changed during the run (by the reviewer or anyone else): 1 file: .collab/t/state.md - agy's sandbox does not block writes" -and $eca.provider_failure.class -eq 'permission' -and $eca.tree_check.outcome -eq 'failed' -and (@($eca.tree_check.files) -join ',') -eq '.collab/t/state.md') "wrote $($ca.Wrote) code $($ca.Code) | $($eca.bridge_outcome)"
 }
 
 # =============================================================== RESUME: sessions (D6, design 7)

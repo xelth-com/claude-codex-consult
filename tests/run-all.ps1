@@ -17,7 +17,7 @@ $psExe = (Get-Process -Id $PID).Path
 if (-not $ScriptsDir) { $ScriptsDir = [string]$env:CODEX_CONSULT_SCRIPTS_DIR }
 $scripts = if ($ScriptsDir) { (Resolve-Path -LiteralPath $ScriptsDir).Path } else { Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')).Path 'plugins\codex-consult\scripts' }
 if (-not (Test-Path -LiteralPath (Join-Path $scripts 'codex-consult.ps1') -PathType Leaf)) { Write-Host "run-all: no codex-consult.ps1 in '$scripts' (-ScriptsDir / CODEX_CONSULT_SCRIPTS_DIR)" -ForegroundColor Red; exit 1 }
-$harnesses = @('harness-0.3', 'harness-roster', 'harness-format', 'harness-engines', 'harness-muse', 'harness-panel', 'harness-pending', 'harness-fixes', 'harness-lock2', 'harness-3b', 'harness-visibility', 'harness-detach', 'harness-companions')
+$harnesses = @('harness-0.3', 'harness-roster', 'harness-format', 'harness-engines', 'harness-muse', 'harness-panel', 'harness-pending', 'harness-fixes', 'harness-lock2', 'harness-3b', 'harness-visibility', 'harness-detach', 'harness-companions', 'harness-fixes26b')
 $only = @($Only | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 foreach ($o in $only) { if ($harnesses -notcontains $o) { Write-Host "run-all: unknown harness '$o' (known: $($harnesses -join ', '))" -ForegroundColor Red; exit 1 } }
 $tmpBase = if ($env:TEMP) { $env:TEMP } else { [IO.Path]::GetTempPath() }

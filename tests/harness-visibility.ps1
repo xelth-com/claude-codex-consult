@@ -28,6 +28,9 @@
 # $env:TEMP\codex-consult-tests\harness-visibility\<guid>, removed at the end.
 param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
+# (wave 26b, D13) the machine-wide health file stays out of these cases (every case its own
+# repository; harness-fixes26b.ps1 points CODEX_CONSULT_HEALTH at scratch files of its own)
+$env:CODEX_CONSULT_HEALTH = 'none'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 # (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's
@@ -975,7 +978,7 @@ if (Want 'GATES24C') {
     $rmB = New-Repo 'g24c-muse-write'
     $x = Consult $rmB $rosterMuse @('-Prompt', 'x', '-ReplyName', 'mw') @{ FAKE_MUSE_REPLY = $advise; FAKE_MUSE_WRITE = 'app.txt'; FAKE_MUSE_COMMIT = 'app.txt' }
     $e = Last-Entry $rmB
-    Check 'GATES24C' '... a real content change still fails, committed or not: the tracked app.txt rewritten (and committed) during the run -> "failed: the working tree changed during the run (by the reviewer or anyone else): 1 file: app.txt - muse ran with ...", class permission, tree_changed_during_review true, revision_moved recorded as well' ($x.Code -eq 1 -and $e.bridge_outcome -match '^failed: the working tree changed during the run \(by the reviewer or anyone else\): 1 file: app\.txt - muse ran with' -and $e.provider_failure.class -eq 'permission' -and $e.tree_changed_during_review -eq $true -and [string]$e.revision_moved -match '^[0-9a-f]{40} -> [0-9a-f]{40}$') "$($e.bridge_outcome)"
+    Check 'GATES24C' '... a real content change is still SEEN, committed or not: the tracked app.txt rewritten (and committed) during the run -> tree_changed_during_review true, revision_moved recorded as well; (wave 26b, D9) for muse - write-disabled by the bridge - it is a warning ("the working tree changed during the run (1 file: app.txt) - muse ran write-disabled, the change is not the reviewer''s"), tree_check warned, the reply usable (agy keeps the failure: harness-muse TREE)' ($x.Code -eq 0 -and $e.bridge_outcome -eq 'usable reply' -and $null -eq $e.provider_failure -and @($e.warnings | Where-Object { $_ -eq "the working tree changed during the run (1 file: app.txt) - muse ran write-disabled, the change is not the reviewer's" }).Count -eq 1 -and $e.tree_check.outcome -eq 'warned' -and $e.tree_changed_during_review -eq $true -and [string]$e.revision_moved -match '^[0-9a-f]{40} -> [0-9a-f]{40}$') "$($e.bridge_outcome) | $(@($e.warnings) -join ' | ')"
     # --- codex: HEAD moved while the main turn hung - the continuation is not blocked
     $rcC = New-Repo 'g24c-codex-commit'
     [IO.File]::WriteAllText((Join-Path $rcC 'app.txt'), "one`ntwo`n", $u8)

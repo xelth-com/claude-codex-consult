@@ -162,8 +162,11 @@
         exploration. An eligible entry without a seat is `not-picked` (reason "panel size k"),
         never a skip. No backfill: a member that fails is not replaced. The summary and the
         ledger's panel record say `asked k, started j, usable i` (started/usable are written
-        into every member's entry when the panel ends). A framing or decision panel of fewer
-        than 2 members warns (console, ledger warnings[]) unless -PanelSize was given
+        into every member's entry when the panel ends; wave 26b, D2: asked is the size
+        REQUESTED, and fewer eligible members than asked warn "panel size reduced: asked k,
+        eligible m" - console, handoff header, warnings[]; panel.routing.size_asked beside
+        size). A framing or decision panel of fewer than 2 members warns (console, ledger
+        warnings[]) unless -PanelSize was given
       * routing (-PanelOrder routed, the default): the seats are drawn by the members' routing
         scores - the judge's marks (codex-findings.ps1 -Rate) of every task of the repository
         from the last 90 days by the consultation's time, a rate with a prior
@@ -173,16 +176,22 @@
         (panel.routing.fallback "no ratings"); -PanelOrder roster always does. The draw: a seed
         = SHA-256 of "<task>|<purpose>|<brief sha256>|<sorted eligible lineages>|<nonce>" (the
         nonce: -PanelSeed, else CODEX_CONSULT_TEST_PANEL_SEED, else today's UTC date - a dry run
-        and the real run of the same day draw the same seats); per seat SHA-256(seed || seat as 4
+        and the real run of the same day draw the same seats; wave 26b, D3: every field of that
+        text - and every lineage in the list - is written <len>:<value>, len its UTF-8 byte
+        count, so no delimiter inside a value can shift a boundary; the reference
+        implementation is tests/reference-draw.py); per seat SHA-256(seed || seat as 4
         bytes big-endian): its first 8 bytes (the top 53 bits / 2^53) pick by weight, the next 8
         explore (< 0.2: a uniform pick) - identical on Windows PowerShell 5.1 and PowerShell 7.
-        Lab diversity: while fewer than min(k, labs with an entry scoring >= neutral) labs are
-        seated, a seat draws only from labs not yet seated whose entries score >= neutral (a lab:
+        Lab diversity (wave 26b, D5 - stated over the seats LEFT after the required): the reserve
+        is min(seats left after the required, labs with an entry scoring >= neutral not yet
+        seated); while fewer reserve seats are taken, a seat draws only from labs not yet
+        seated whose entries score >= neutral (panel.routing.reserve: the seats it took; a lab:
         the roster entry's "lab", else the vendor of the model id's prefix - qwen alibaba,
         deepseek, kimi/k3 moonshot, glm zhipu, dola/seed bytedance, mimo xiaomi, gemini google,
         muse meta, gpt openai - else a lab of its own, with a warning). Members get their n and
         NN in seat order. Ledger panel.routing {mode, order, fallback, seed, nonce, nonce_source,
-        size, size_source, eligible[{position, lineage, lab, lab_source, score, basis, ratings,
+        size, size_asked, size_source, reserve, eligible[{position, lineage, lab, lab_source,
+        score, basis, ratings,
         required}], picked[{slot, position, lineage, lab, rule: required | roster | lab-draw |
         lab-explore | rank-draw | rank-explore}], explored[], required[]}; the dry run prints it
       * -Topic a,b: the consultation's topics (slugs; ledger topics[], copied onto a rating);
@@ -199,16 +208,39 @@
         produces no usable reply no further member starts: exit 5
       * -Role <name> (a single run, or every member of a panel) / -Roles a,b (a panel: by score
         rank, highest first; a roster entry's "roles": [...] says which it is willing to take -
-        a role goes to a willing member when one is left): the block <CollabDir>/roles/<name>.md,
-        else the plugin's templates/role-<name>.md (edge-cases, security, tests, docs), goes into
-        the prompt after the ask and before the brief (never inside the output contract; the
-        reply format, the verdict rules and the read-only rules stay). Names are slugs; an
-        unknown role and more roles than members are refused. Ledger role
+        wave 26b, D4: an exact matching - every role some seated member is willing to take
+        goes to a willing member, each role in order to the best-ranked member possible; only
+        when no such assignment exists the greedy rank order, said in panel.roles_note and a
+        warning): the block <CollabDir>/roles/<name>.md, else the plugin's
+        templates/role-<name>.md (edge-cases, security, tests, docs), goes into the prompt after
+        the ask and before the brief (never inside the output contract; the reply format, the
+        verdict rules and the read-only rules stay). Names are slugs; an unknown role and more
+        roles than members is refused; (wave 26b, D1) a role file must be a regular file inside
+        its roles directory - a symlink or junction on the way (the file, the roles directory)
+        refuses the run before anything exists ("role file refused: ..."). Ledger role
+      * (wave 26b, D16) a roster entry's "context_tokens" (the reviewer's context window, an
+        integer >= 32000): its prompt says "Your context window is M tokens: read only what the
+        brief points to; prefer targeted reads." after the ask; a fork/resume whose thread last
+        carried more than 80% of it with this prompt (usage.input_tokens of the thread's entry,
+        else its events' last usage, plus (prompt + brief)/4) becomes a NEW thread - ledger
+        mode_fallback {from, to, reason}, a summary line, the prompt names the previous reply
+        file; a brief whose estimate ((ask + brief)/4) alone exceeds 80% skips the entry before
+        its start ("brief too large for this reviewer's context (est. N of M tokens)"; an
+        explicit -Provider run of it is refused)
+      * (wave 26b, D13 - ROADMAP R20) the machine-wide endpoint health file <codex
+        home>/codex-consult-health.json (CODEX_CONSULT_HEALTH=<path> another, =none none): every
+        run records its usable reply or provider failure there ({endpoint, class, kind, until,
+        retry_after, repo, when, message}) and its row in running[] while its turns run; every
+        roster walk reads it beside the repository's ledgers (one record set, the newest
+        decides), and a panel's endpoint parallel limit counts the runs of other repositories
+        and panels on the endpoint ("panel member k of n waits: ..."). Optional: absent or
+        unreadable = as before
       * the roster's "ext" (top level and per entry) is an object reserved for other
         implementations: validated as an object, never read, never written
     Exit codes: 0 usable (a panel: every member), 1 a refusal or a failure, 5 a required
     reviewer is not available (or failed in a panel), 6 a detached background whose final status
-    could not be written (its result is only in its log); -Status / -Wait: 0, 1, 2, 3, 4.
+    could not be written (its result is only in its log); -Status / -Wait: 0, 1, 2, 3, 4;
+    (wave 26b) -Kick: 0 done, 1 no such member or not running, 4 refused.
 
     Engines (0.4.0): the CLI that carries the consultation - `codex` (the default, all of
     the above), `agy` (Google's Antigravity CLI for the Gemini models) or `muse` (Meta's Muse
@@ -292,7 +324,12 @@
         quota with its reset time)
     Both engines: a change of the working tree or the collab directory detected after the
     run fails it as class permission - also when it had already failed for another reason
-    (that reason stays in the provider failure's message). (wave 24c) The working tree is
+    (that reason stays in the provider failure's message). (wave 26b, D9) Not so for muse,
+    which the bridge runs write-DISABLED (--disable-write --disable-shell): there the change
+    cannot be the reviewer's - it becomes a warning ("the collab directory changed during the
+    run (1 file: .collab/t/state.md) - muse ran write-disabled, the change is not the
+    reviewer's"), the reply stays usable; agy keeps the failure (F12). Ledger tree_check
+    {outcome clean|warned|failed, files[]} (null for codex). (wave 24c) The working tree is
     compared by file CONTENTS (every tracked file's blob, every untracked file's hash): a
     commit, a moved HEAD or a staged change that leaves every file as it was is no change -
     ledger revision_moved "<old> -> <new>" notes a moved HEAD.
@@ -301,7 +338,24 @@
       * -TimeoutSec unset: the purpose's default - chore 600, checkpoint and none 900, framing
         and decision 1800, diff-review, core-contract and stuck 2400, acceptance 3600 s; an
         explicit -TimeoutSec always wins (ledger timeout_sec, timeout_source purpose|explicit;
-        a -Panel's members inherit the resolved value)
+        a -Panel's members inherit the resolved value). (wave 26b, D11) A roster entry's
+        "timeout_sec" (an integer >= 60) replaces the purpose default for that reviewer (a
+        panel member or a single run of that entry; timeout_source roster; its continuation
+        budget follows it unless -ContinueSec is given); the panel's Timeout line lists these
+        exceptions ("3600 s per member; #7 alibaba :: qwen3.8-max 1200 s (roster)")
+      * (wave 26b, D12 - ROADMAP R18) -StallSec <s>: a run whose engine event stream (codex
+        --json items, agy stream-json, muse MSP records - line by line) produced no event for
+        that long while its process lives is stopped like a timeout: the same continuation
+        turn and salvage, bridge_outcome "failed: stalled after N s without an event (process
+        tree killed)", ledger stall {seconds, last_event}. Default 900; a roster entry's
+        "stall_sec" overrides it for that reviewer (an explicit -StallSec wins); 0 = off
+      * (wave 26b, D10) -Kick -Member <NN> [-Id <id8>]: from another shell, stop ONE running
+        member of a panel (or a single run) of -Task by its handoff number - a detached panel
+        with -Id, a foreground panel without (the member polls <task>/.consult.kick-<NN> while
+        its engine turn runs). Its process tree is stopped, its partial output salvaged, it is
+        recorded "failed: stopped by the operator (-Kick)" (provider_failure class operator -
+        no endpoint's fault), the panel goes on with the others; -Status shows "stopped by the
+        operator (-Kick)". Exit 0 done, 1 no such member or not running, 4 refused
       * continuation: when the bridge kills the MAIN turn on its timeout and the turn's thread
         is known (codex: thread.started; agy: the conversation of its init event; muse: its
         session stream), ONE more turn continues that thread (codex `exec ... resume <thread>`
@@ -332,7 +386,11 @@
         reads it). A panel member continues in its own process (its guard grows by
         -ContinueSec)
       * salvage: when a turn was killed on its timeout (the main turn without a successful
-        continuation, the continuation, a denial retry, a format repair) the bridge writes
+        continuation, the continuation, a denial retry, a format repair) - (wave 26b) or
+        stopped by the stall cut or the operator's -Kick, and (D15) when ANY failed run's event
+        streams hold at least one agent message, reasoning text or tool call (a provider failure
+        mid-run, a denial, a tree-check failure; the footer then says "the run ended: <why>"
+        instead of "killed at"; a stream without content leaves nothing) - the bridge writes
         handoffs/NN-<engine>-<slug>.partial.md - the reply's header, then per turn every agent
         message and reasoning text of its event stream in order and its tool calls (the
         command line of a shell command), then "killed at <t> s of <T> s; thread <id> -
@@ -671,7 +729,26 @@ param(
     [switch]$Prune,
 
     # INTERNAL (wave 25): set by -Detach for its background process. Never pass it yourself.
-    [string]$DetachId = ''
+    [string]$DetachId = '',
+
+    # (wave 26b, D12 - ROADMAP R18) The stall cut: a run whose engine event stream (codex --json
+    # items, agy stream-json, muse MSP records) produced no event for this many seconds while its
+    # process lives is stopped like a timeout - the continuation turn and the salvage; bridge_outcome
+    # "failed: stalled after N s without an event (process tree killed)", ledger stall {seconds,
+    # last_event}. -1 (the default) = the roster entry's stall_sec, else 900; 0 = off. A panel
+    # passes it to every member (an explicit value wins over the roster's).
+    [int]$StallSec = -1,
+
+    # (wave 26b, D10) Stop ONE running member of a panel (or a single run) of -Task by its handoff
+    # number: -Kick -Member <NN> [-Id <id8> of a detached run]. Writes <task>/.consult.kick-<NN>;
+    # the member stops its engine's process tree, salvages the partial output (.partial.md) and
+    # records "failed: stopped by the operator (-Kick)" (class operator); the panel goes on with the
+    # others. Waits up to 60 s for the member to take it. Exit 0 done, 1 no such member or not
+    # running (4: the query is refused).
+    [switch]$Kick,
+
+    # (wave 26b, D10) -Kick only: the member's handoff number (NN, as the panel prints it).
+    [string]$Member = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -967,6 +1044,57 @@ function Write-DetachedReport {
             foreach ($l in ([string]$rec.summary -split "`n")) { Write-Host $l }
         }
     }
+}
+
+# ---- (wave 26b, D10) -Kick -Member <NN> [-Id <id8>]: stop one running member
+if ($Kick -or $script:ScriptBound.ContainsKey('Member')) {
+    if (-not $Kick) { Stop-StatusQuery "-Member goes with -Kick." }
+    $extra = @($script:ScriptBound.Keys | Where-Object { @('Task', 'CollabDir', 'Kick', 'Member', 'Id') -notcontains $_ -and $script:CommonParameterNames -notcontains $_ })
+    if ($extra.Count -gt 0) { Stop-StatusQuery "-Kick takes only -Task, -CollabDir, -Member and -Id; not -$(@($extra | Sort-Object) -join ', -')." }
+    if ($Task -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { Stop-StatusQuery "-Task must be a slug (letters, digits, dot, dash, underscore)." }
+    if (([string]$Member).Trim() -notmatch '^[0-9]{1,4}$') { Stop-StatusQuery "-Kick needs -Member <NN>: the member's handoff number as the panel prints it (e.g. -Member 03); got '$Member'." }
+    $kickNn = '{0:D2}' -f [int]([string]$Member).Trim()
+    $want = $Id.Trim().ToLowerInvariant()
+    if ($script:ScriptBound.ContainsKey('Id') -and $want -notmatch '^[0-9a-f][0-9a-f-]{0,35}$') { Stop-StatusQuery "-Id takes a detach id or its beginning (hexadecimal, as -Detach printed it); got '$Id'." }
+    $kRepo = Resolve-RepoRoot -Cwd (Get-Location).Path
+    $kCollab = Resolve-CollabRoot -RepoRoot $kRepo -CollabDir $CollabDir
+    $kTaskDir = Join-Path $kCollab $Task
+    $kickFail = { param([string]$Why) Write-Host "codex-consult: -Kick: $Why" -ForegroundColor Red; exit 1 }
+    if (-not [IO.Directory]::Exists($kTaskDir)) { & $kickFail "no task directory '$kTaskDir'." }
+    # a detached run named by -Id: the member must be one of ITS members, running
+    if ($want) {
+        $w8 = $want.Replace('-', '')
+        if ($w8.Length -gt 8) { $w8 = $w8.Substring(0, 8) }
+        $kRuns = @(Read-DetachedRuns -TaskDir $kTaskDir | Where-Object { $_.Id8.StartsWith($w8) -and ($want.Length -le 8 -or ($_.Record -and ([string]$_.Record.id).ToLowerInvariant().StartsWith($want))) })
+        if ($kRuns.Count -eq 0) { & $kickFail "no detached run $want in task $Task." }
+        if ($kRuns.Count -gt 1) { Stop-StatusQuery "-Id $want names $($kRuns.Count) detached runs of task $($Task); give more of the id." }
+        $kRec = $kRuns[0].Record
+        $kMem = @(@(Get-PropertyValue $kRec 'members' @()) | Where-Object { $_ -and [string](Get-PropertyValue $_ 'handoff' '') -eq $kickNn }) | Select-Object -First 1
+        if (-not $kMem) { & $kickFail "detached run $($kRuns[0].Id8) has no member with handoff $kickNn." }
+        if ([string]$kMem.state -ne 'running') { & $kickFail "member $kickNn of detached run $($kRuns[0].Id8) is not running (state $($kMem.state))." }
+    }
+    # the run's recovery record: a member's .consult.pending-<NN>.json, a single run's .consult.pending.json
+    $kItem = $null
+    foreach ($p in (Get-PendingPaths -TaskDir $kTaskDir)) {
+        $rd = Read-PendingFile -Path $p
+        if ($rd.Exists -and $rd.Record -and [string](Get-PropertyValue $rd.Record 'nn' '') -eq $kickNn) { $kItem = $rd.Record; break }
+    }
+    if (-not $kItem) { & $kickFail "no run with handoff $kickNn is in progress in task $Task (no recovery record names it)." }
+    $kChild = 0
+    [void][int]::TryParse([string](Get-PropertyValue $kItem 'child_pid' ''), [ref]$kChild)
+    if ([string]$kItem.state -ne 'running' -or $kChild -le 0 -or -not (Test-RecordedProcess -ProcessId $kChild -StartTime (ConvertTo-StartIso (Get-PropertyValue $kItem 'child_start_time' ''))).Alive) {
+        & $kickFail "the run with handoff $kickNn has no engine turn running (state $($kItem.state))."
+    }
+    $kPath = Get-KickPath -TaskDir $kTaskDir -Nn $kickNn
+    Write-Utf8NoBom -Path $kPath -Text ((Get-IsoTimestamp) + " -Kick from pid $PID`n")
+    $kWatch = [System.Diagnostics.Stopwatch]::StartNew()
+    while ([IO.File]::Exists($kPath) -and $kWatch.Elapsed.TotalSeconds -lt 60) { Start-Sleep -Milliseconds 250 }
+    if ([IO.File]::Exists($kPath)) {
+        $null = Remove-PendingFile -Path $kPath
+        & $kickFail "the run with handoff $kickNn did not take the kick within 60 s (its engine turn may have ended meanwhile); the kick file was removed."
+    }
+    Write-Host "codex-consult: -Kick: member $kickNn of task $Task stopped - its engine's process tree is stopped, its partial output salvaged; it records ""failed: stopped by the operator (-Kick)"" (the panel goes on with the others)."
+    exit 0
 }
 
 # ---- -Status [-Id <id>] [-Prune] / -Wait [-Id <id>] [-WaitTimeoutSec <s>] (D6, D7)
@@ -1449,11 +1577,19 @@ function Invoke-EngineTurn {
             $null = Stop-ProcessTree -Process $proc
         }
         if ($registered) {
-            if (-not $proc.WaitForExit($Timeout * 1000)) {
+            # (wave 26b, D10) the operator's kick is polled here too (no stall cut on these turns)
+            $turnWait = Wait-EngineProcess -Process $proc -TimeoutSec $Timeout -KickPath $script:KickPath
+            if (-not $turnWait.Exited) {
                 $surv = Stop-ProcessTree -Process $proc   # [int[]]; never wrap in @()
-                $t.Problem = "timeout after $Timeout s (process tree killed)"
+                $stopWhat = "timeout after $Timeout s"
+                if ($turnWait.Reason -eq 'kick') {
+                    $script:RunKicked = $true
+                    $stopWhat = 'stopped by the operator (-Kick)'
+                    $null = Remove-PendingFile -Path $script:KickPath
+                }
+                $t.Problem = "$stopWhat (process tree killed)"
                 if ($surv.Count -gt 0) {
-                    $t.Problem = "timeout after $Timeout s (process tree killed; $($surv.Count) processes survived: pid $($surv -join ', '))"
+                    $t.Problem = "$stopWhat (process tree killed; $($surv.Count) processes survived: pid $($surv -join ', '))"
                     $t.KeepPending = $true
                     try {
                         $pendingRecord.state = 'survivors'
@@ -1486,22 +1622,61 @@ function Invoke-EngineTurn {
 # is compared by CONTENT (Compare-TreeContent): a commit, a moved HEAD or a staged change that
 # leaves every file as it was is no change - only a file whose content appeared, disappeared or
 # changed is.
-function Get-EngineTreeProblem {
+#
+# (wave 26b, D9) Get-EngineTreeCheck: the same check, structured. An engine the bridge runs with
+# its write capability DISABLED by its own flags (the spec's WriteDisabled: muse --disable-write
+# --disable-shell) cannot have made the change: every part becomes a warning ("the collab
+# directory changed during the run (1 file: .collab/t/state.md) - muse ran write-disabled, the
+# change is not the reviewer's") and the reply stays usable - Outcome 'warned'. agy keeps the
+# failure (F12: --sandbox does not block writes) - Outcome 'failed', Problem the text above.
+# { Outcome ('clean' | 'warned' | 'failed'); Problem ('' unless failed); Warnings (string[]);
+# Files (string[]: the tree's paths, the collab directory's paths as shown, 'brief', the
+# artifacts) } - the ledger's tree_check is { outcome, files[] }.
+function Get-EngineTreeCheck {
     param($RevBefore, $RevAfter, [bool]$BriefChanged, [string[]]$ChangedArtifacts, [hashtable]$CollabBefore, [hashtable]$CollabAfter, [string[]]$OwnPrefixes, [string]$Engine, [string]$CollabShown = '')
     $cut = { param([string[]]$Names) $n = @($Names); $list = (@($n | Select-Object -First 5) -join ', '); if ($n.Count -gt 5) { $list += ', ...' }; "$($n.Count) file$(if ($n.Count -ne 1) { 's' }): $list" }
+    $spec = Get-EngineSpec -Name $Engine
+    $writeOff = [bool](Get-PropertyValue $spec 'WriteDisabled' $false)
     $why = New-Object System.Collections.Generic.List[string]
+    $warn = New-Object System.Collections.Generic.List[string]
+    $files = New-Object System.Collections.Generic.List[string]
+    $notMine = "$Engine ran write-disabled, the change is not the reviewer's"
     $tree = Compare-TreeContent -Before $RevBefore -After $RevAfter
     if ($tree.Changed) {
+        foreach ($p in @($tree.Paths)) { $files.Add([string]$p) }
         $why.Add("the working tree changed during the run (by the reviewer or anyone else): $(& $cut $tree.Paths)")
+        $warn.Add("the working tree changed during the run ($(& $cut $tree.Paths)) - $notMine")
     }
     $collab = Compare-DirectorySnapshot -Before $CollabBefore -After $CollabAfter -IgnorePrefixes $OwnPrefixes
-    if ($collab.Count -gt 0) { $why.Add("the collab directory changed during the run (by the reviewer or anyone else): $(& $cut ([string[]]@($collab | ForEach-Object { $CollabShown + $_ })))") }
-    if ($BriefChanged) { $why.Add('the brief changed during the run (by the reviewer or anyone else)') }
-    if (@($ChangedArtifacts).Count -gt 0) { $why.Add("artifact(s) changed during the run (by the reviewer or anyone else): $(@($ChangedArtifacts) -join ', ')") }
-    if ($why.Count -eq 0) { return '' }
-    $note = [string](Get-EngineSpec -Name $Engine).TreeNote
+    if ($collab.Count -gt 0) {
+        $shown = [string[]]@($collab | ForEach-Object { $CollabShown + $_ })
+        foreach ($p in $shown) { $files.Add($p) }
+        $why.Add("the collab directory changed during the run (by the reviewer or anyone else): $(& $cut $shown)")
+        $warn.Add("the collab directory changed during the run ($(& $cut $shown)) - $notMine")
+    }
+    if ($BriefChanged) {
+        $files.Add('brief')
+        $why.Add('the brief changed during the run (by the reviewer or anyone else)')
+        $warn.Add("the brief changed during the run - $notMine")
+    }
+    if (@($ChangedArtifacts).Count -gt 0) {
+        foreach ($p in @($ChangedArtifacts)) { $files.Add([string]$p) }
+        $why.Add("artifact(s) changed during the run (by the reviewer or anyone else): $(@($ChangedArtifacts) -join ', ')")
+        $warn.Add("artifact(s) changed during the run ($(@($ChangedArtifacts) -join ', ')) - $notMine")
+    }
+    $r = [pscustomobject]@{ Outcome = 'clean'; Problem = ''; Warnings = [string[]]@(); Files = [string[]]$files.ToArray() }
+    if ($why.Count -eq 0) { return $r }
+    if ($writeOff) { $r.Outcome = 'warned'; $r.Warnings = [string[]]$warn.ToArray(); return $r }
+    $note = [string]$spec.TreeNote
     if (-not $note) { $note = "$Engine's sandbox does not block writes" }
-    return (($why.ToArray() -join '; ') + " - $note")
+    $r.Outcome = 'failed'
+    $r.Problem = (($why.ToArray() -join '; ') + " - $note")
+    return $r
+}
+
+function Get-EngineTreeProblem {
+    param($RevBefore, $RevAfter, [bool]$BriefChanged, [string[]]$ChangedArtifacts, [hashtable]$CollabBefore, [hashtable]$CollabAfter, [string[]]$OwnPrefixes, [string]$Engine, [string]$CollabShown = '')
+    return (Get-EngineTreeCheck -RevBefore $RevBefore -RevAfter $RevAfter -BriefChanged $BriefChanged -ChangedArtifacts $ChangedArtifacts -CollabBefore $CollabBefore -CollabAfter $CollabAfter -OwnPrefixes $OwnPrefixes -Engine $Engine -CollabShown $CollabShown).Problem
 }
 
 # ----------------------------------------------------------------------------- presets + prompt text
@@ -1581,6 +1756,9 @@ if ($PanelSpec) {
     $Sandbox = [string]$pa.sandbox
     $MaxWords = [int]$pa.max_words
     $TimeoutSec = [int]$pa.timeout_sec
+    # (wave 26b, D12) the stall cut the panel run resolved for this member (-StallSec, the roster
+    # entry's stall_sec, else 900)
+    $StallSec = [int](Get-PropertyValue $pa 'stall_sec' 900)
     # (wave 24) the panel run resolved the timeout, its source, the continuation budget and the
     # range statistics once; the member inherits them
     $memberTimeoutSource = [string](Get-PropertyValue $pa 'timeout_source' 'explicit')
@@ -1685,6 +1863,7 @@ if ($PSBoundParameters.ContainsKey('MaxWords') -and $MaxWords -le 0) {
 # (wave 24, T1) the timeout: an explicit -TimeoutSec wins, else the purpose's default; a panel
 # member inherits the panel run's resolution (value and source).
 $timeoutSource = 'explicit'
+$continueGiven = $PSBoundParameters.ContainsKey('ContinueSec')
 if ($panelMember) { $timeoutSource = $memberTimeoutSource }
 elseif (-not $PSBoundParameters.ContainsKey('TimeoutSec')) {
     $TimeoutSec = [int]$presetTimeout[$Purpose]
@@ -1697,6 +1876,12 @@ if ($PSBoundParameters.ContainsKey('ContinueSec') -and $ContinueSec -lt 0) {
     Stop-WithError "-ContinueSec must be 0 (no continuation after a timeout kill) or a number of seconds (got $ContinueSec)."
 }
 if ($ContinueSec -lt 0) { $ContinueSec = [Math]::Min($TimeoutSec, 900) }
+# (wave 26b, D12) -StallSec: 0 = off, else seconds; unset (-1) = the roster entry's stall_sec, else
+# 900 (resolved once the reviewer is known; a panel resolves it per member)
+$stallGiven = $PSBoundParameters.ContainsKey('StallSec')
+if ($stallGiven -and $StallSec -lt 0) {
+    Stop-WithError "-StallSec must be 0 (no stall cut) or a number of seconds without an event (got $StallSec)."
+}
 $Range = $Range.Trim()
 if ($Range -and $rangePurposes -notcontains $Purpose) {
     Stop-WithError "-Range goes with -Purpose diff-review or acceptance (got $(if ($Purpose) { "-Purpose $Purpose" } else { 'no -Purpose' })): it sizes a review of that range."
@@ -1826,6 +2011,16 @@ $collabRoot = Resolve-CollabRoot -RepoRoot $repoRoot -CollabDir $CollabDir
 
 $taskDir = Join-Path $collabRoot $Task
 $handoffsDir = Join-Path $taskDir 'handoffs'
+# (wave 26b, D16) the new prompt's size for a reviewer with a roster context_tokens, estimated
+# before any reviewer is chosen: (the ask + the brief it points to) / 4 characters a token
+$promptEstimateChars = ([string]$Prompt).Length
+if ($Brief) {
+    foreach ($base in @($(if ([IO.Path]::IsPathRooted($Brief)) { '' } else { $callerCwd }), $repoRoot)) {
+        $bp = $(if ($base) { Join-Path $base $Brief } else { $Brief })
+        if (Test-Path -LiteralPath $bp -PathType Leaf) { $promptEstimateChars += [int](Get-Item -LiteralPath $bp).Length; break }
+    }
+}
+$promptEstimate = [int][Math]::Ceiling($promptEstimateChars / 4.0)
 # (wave 26, R16) the role blocks - <CollabDir>/roles/<name>.md, else the plugin's
 # templates/role-<name>.md - are resolved now: an unknown role refuses the run, nothing started
 $pluginRoot = Split-Path -Parent $PSScriptRoot
@@ -2037,9 +2232,10 @@ function Start-PanelMember {
         sibling_nns       = [object[]]$siblings
         concurrency       = $panelPlan.Effective
         limits            = $panelLimits
-        asked             = $panelRunners.Count
+        asked             = $panelRoute.SizeAsked
         routing           = $panelRoute.Routing
         role              = $(if ($panelRoleOf.ContainsKey([int]$pm.Entry.Position)) { [string]$panelRoleOf[[int]$pm.Entry.Position] } else { '' })
+        roles_note        = $panelRolesNote
         panel_warnings    = [object[]]@($panelWarnings)
         args              = [pscustomobject]@{
             collab_dir       = $CollabDir
@@ -2050,9 +2246,10 @@ function Start-PanelMember {
             effort           = $Effort
             sandbox          = $Sandbox
             max_words        = $MaxWords
-            timeout_sec      = $TimeoutSec
-            timeout_source   = $timeoutSource
-            continue_sec     = $ContinueSec
+            timeout_sec      = $Slot.TimeoutSec
+            timeout_source   = $Slot.TimeoutSource
+            continue_sec     = $Slot.ContinueSec
+            stall_sec        = $Slot.StallSec
             range            = $Range
             range_stat       = $rangeRecord
             reply_name       = $Slot.ReplyName
@@ -2171,7 +2368,7 @@ if ($panelRun) {
     $panelClock = Get-ConsultClock -Peek
     if ($panelClock.Error) { Stop-WithError $panelClock.Error }
     $panelAllConsults = Read-AllTaskConsults -CollabRoot $collabRoot
-    $panelSelection = Select-PanelMembers -Roster $roster -Config $panelConfig -Consults $panelAllConsults -Launcher ([string]$codexExePath) -LoginCache @{} -UtcNow $panelClock.Now.UtcDateTime -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Model $Model -Purpose $Purpose -All:$PanelAll -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers
+    $panelSelection = Select-PanelMembers -Roster $roster -Config $panelConfig -Consults $panelAllConsults -Launcher ([string]$codexExePath) -LoginCache @{} -UtcNow $panelClock.Now.UtcDateTime -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Model $Model -Purpose $Purpose -All:$PanelAll -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers -EstimateTokens $promptEstimate
     $panelEntries = @($panelSelection.Members)
     if ($panelEntries.Count -eq 0) { Stop-WithError $panelSelection.Error }
     # (wave 26, D7) the required reviewers - -Require, else the roster's "require" for the purpose -
@@ -2214,11 +2411,14 @@ if ($panelRun) {
     $panelWarnings = [string[]]@($panelRoute.Warnings)
     # (wave 26, R16) the members' roles: -Role for every member, -Roles by score rank (D8)
     $panelRoleOf = @{}
+    $panelRolesNote = ''
     if ($Role) { foreach ($pm in $panelRunners) { $panelRoleOf[[int]$pm.Entry.Position] = $Role } }
     elseif ($roleList.Count -gt 0) {
         $roleAssign = Select-RoleAssignment -Members $panelRunners -Roles $roleList
         if ($roleAssign.Error) { Stop-WithError "$($roleAssign.Error); nothing was started." }
         $panelRoleOf = $roleAssign.Of
+        # (wave 26b, D4) no assignment honours every willingness: the greedy rank order, said
+        if ($roleAssign.Note) { $panelRolesNote = $roleAssign.Note; $panelWarnings = [string[]]@(@($panelWarnings) + @($roleAssign.Note)) }
     }
     # -MaxModelSteps goes to the members whose engine has a step cap (muse); none -> refused.
     if ($MaxModelSteps -gt 0 -and @($panelRunners | Where-Object { (Get-EngineSpec ([string]$_.Entry.Engine)).StepsFlag }).Count -eq 0) {
@@ -2290,10 +2490,27 @@ if ($panelRun) {
             # denial-retry turn of min(timeout, 300) s when enabled, (wave 24) the timeout
             # continuation's -ContinueSec, the 60 s write-lock wait, 120 s slack. TEST HOOK:
             # CODEX_CONSULT_TEST_PANEL_GUARD_SEC.
-            $guard = Get-PanelMemberGuard -TimeoutSec $TimeoutSec -ContinueSec $ContinueSec -Repair:$repairEnabled -DenialRetry:([bool]((Get-EngineSpec $engineK).DenialRetry -and $DenialRetry -eq 1))
+            # (wave 26b, D11) the roster entry's own timeout_sec replaces the purpose default for
+            # this member (an explicit -TimeoutSec wins for all); its continuation budget follows
+            # it unless -ContinueSec was given
+            $slotTimeout = $TimeoutSec
+            $slotTimeoutSource = $timeoutSource
+            $slotContinue = $ContinueSec
+            $entryTimeout = [int](Get-PropertyValue $pm.Entry 'TimeoutSec' 0)
+            if ($timeoutSource -ne 'explicit' -and $entryTimeout -gt 0) {
+                $slotTimeout = $entryTimeout
+                $slotTimeoutSource = 'roster'
+                if (-not $continueGiven) { $slotContinue = [Math]::Min($entryTimeout, 900) }
+            }
+            # (wave 26b, D12) the member's stall cut: -StallSec, else its entry's stall_sec, else 900
+            $slotStall = 900
+            if ($stallGiven) { $slotStall = $StallSec }
+            elseif ([int](Get-PropertyValue $pm.Entry 'StallSec' -1) -ge 0) { $slotStall = [int]$pm.Entry.StallSec }
+            $guard = Get-PanelMemberGuard -TimeoutSec $slotTimeout -ContinueSec $slotContinue -Repair:$repairEnabled -DenialRetry:([bool]((Get-EngineSpec $engineK).DenialRetry -and $DenialRetry -eq 1))
             if ($guardHook -gt 0) { $guard = $guardHook }
             $slot = [pscustomobject]@{
                 Pm = $pm; K = $k; N = ($panelNumbers.N + $k - 1); Nn = $nnK; Engine = $engineK
+                TimeoutSec = $slotTimeout; TimeoutSource = $slotTimeoutSource; ContinueSec = $slotContinue; StallSec = $slotStall; ExternalWaitShown = $false
                 ReplyName = "$ReplyName-$slug"; Reply = "handoffs/$nnK-$((Get-EngineSpec $engineK).Prefix)-$ReplyName-$slug.md"
                 RecordPath = (Get-MemberPendingPath -TaskDir $taskDir -Nn $nnK); ConsultId = [guid]::NewGuid().ToString()
                 Group = [int]$panelPlan.GroupOf[[int]$pm.Entry.Position]; Guard = $guard
@@ -2302,6 +2519,14 @@ if ($panelRun) {
             }
             $panelSlots.Add($slot)
             $slotOf[[int]$pm.Entry.Position] = $slot
+        }
+        # (wave 26b, D13) the endpoint fingerprints of every endpoint group (the machine-wide count)
+        $panelGroupFps = @{}
+        foreach ($s in $panelSlots) {
+            $gi = [int]$s.Group
+            if (-not $panelGroupFps.ContainsKey($gi)) { $panelGroupFps[$gi] = [string[]]@() }
+            $fpS = [string]$s.Pm.Identity.Fingerprint
+            if ($fpS -and $panelGroupFps[$gi] -notcontains $fpS) { $panelGroupFps[$gi] = [string[]]@($panelGroupFps[$gi] + $fpS) }
         }
 
         # (wave 25, R12) -Detach: the panel's checks passed (D2: the launchers, the records, the
@@ -2355,7 +2580,9 @@ if ($panelRun) {
                 $t
             })
         Write-Host "Concurrency: $($panelPlan.Text) - endpoint groups: $($groupTexts -join ', '); -PanelConcurrency $(if ($PanelConcurrency -gt 0) { $PanelConcurrency } else { '0 (no cap)' })"
-        Write-Host "Timeout: $TimeoutSec s per member ($(if ($timeoutSource -eq 'purpose') { "the default of purpose $purposeLabel" } else { '-TimeoutSec' })); continuation after a timeout kill: $(if ($ContinueSec -gt 0) { "up to $ContinueSec s on the same thread" } else { 'off (-ContinueSec 0)' })"
+        # (wave 26b, D11) the members whose roster entry sets its own timeout_sec are listed
+        $timeoutExceptions = @($panelSlots | Where-Object { $_.TimeoutSource -eq 'roster' } | ForEach-Object { "#$($_.Pm.Entry.Position) $(Format-ReviewerLineage -Provider $_.Pm.Identity.Provider -Model $_.Pm.Identity.Model -Engine ([string]$_.Pm.Identity.Engine)) $($_.TimeoutSec) s (roster)" })
+        Write-Host "Timeout: $TimeoutSec s per member ($(Format-TimeoutSource -Source $timeoutSource -PurposeLabel $purposeLabel))$(if ($timeoutExceptions.Count -gt 0) { '; ' + ($timeoutExceptions -join '; ') }); continuation after a timeout kill: $(if ($ContinueSec -gt 0) { "up to $ContinueSec s on the same thread" } else { 'off (-ContinueSec 0)' })"
         if ($rangeStat) { Write-Host "Range: $Range - $rangeText ($($rangeStat.Insertions) insertions, $($rangeStat.Deletions) deletions)" }
         if ($rangeWarning) { Write-Host "WARNING: $rangeWarning" -ForegroundColor Yellow }
         if ($panelPendingRefusal) { Write-Host "pending     : the real run would be REFUSED - $panelPendingRefusal" -ForegroundColor Yellow }
@@ -2457,6 +2684,20 @@ if ($panelRun) {
                 if ($PanelConcurrency -gt 0 -and $running -ge $PanelConcurrency) { break }
                 $grp = $panelPlan.Groups[$slot.Group]
                 if (@($panelSlots | Where-Object { $_.Group -eq $slot.Group -and $_.State -eq 'running' }).Count -ge $grp.Limit) { continue }
+                # (wave 26b, D13) the runs of this machine OUTSIDE the panel on the group's endpoints
+                # (another repository's members, another panel, a single run - the machine-wide
+                # health file's running[]) count against the group's limit too
+                if (-not $DryRun) {
+                    $extRun = Get-MachineRunningCount -Fingerprints $panelGroupFps[[int]$slot.Group] -ExcludePanel $panelId
+                    if ($extRun.Count -gt 0 -and (@($panelSlots | Where-Object { $_.Group -eq $slot.Group -and $_.State -eq 'running' }).Count + $extRun.Count) -ge $grp.Limit) {
+                        if (-not $slot.ExternalWaitShown) {
+                            $slot.ExternalWaitShown = $true
+                            $extWho = @($extRun.Rows | ForEach-Object { "$([string](Get-PropertyValue $_ 'label' '')) in $([string](Get-PropertyValue $_ 'repo' '')) task $([string](Get-PropertyValue $_ 'task' '')) handoff $([string](Get-PropertyValue $_ 'nn' '')) (pid $([string](Get-PropertyValue $_ 'pid' '')))" }) -join '; '
+                            Write-Host "  panel member $($slot.K) of $($panelRunners.Count) waits: $($extRun.Count) run(s) elsewhere on this machine use its endpoint (parallel limit $($grp.Limit)): $extWho"
+                        }
+                        continue
+                    }
+                }
                 # within an endpoint group the roster order holds
                 if (@($panelSlots | Where-Object { $_.Group -eq $slot.Group -and $_.State -eq 'waiting' -and $_.K -lt $slot.K }).Count -gt 0) { continue }
                 Start-PanelMember $slot
@@ -2584,13 +2825,14 @@ if ($panelRun) {
                 Set-DetachedMember -Position ([int]$slot.Pm.Entry.Position) -Values @{ state = $dState; outcome = $dOutcome; wall_seconds = $(if (@('done', 'killed') -contains $slot.State) { $slot.Wall } else { $null }) } -NoSave
             }
         }
-        # (wave 26, D6) asked k (the seats), started j, usable i - the ledger's panel record gets
-        # the same numbers below
+        # (wave 26, D6) asked k, started j, usable i - the ledger's panel record gets the same
+        # numbers below; (wave 26b, D2 / F19-1) asked is the size REQUESTED (the purpose's,
+        # -PanelSize; -PanelAll: every eligible), not the seats after the clamp
         $panelUsable = @($panelSlots | Where-Object { Test-PanelSlotUsable $_ }).Count
         $requiredMissing = @($panelSlots | Where-Object { $_.Pm.Required -and -not (Test-PanelSlotUsable $_) })
         Write-Host ""
         # (a "(" inside a string nested in "$(...)" would end the subexpression early: built in pieces)
-        $panelHead = "$panelStarted of $($panelEntries.Count) entries ran " + '(' + "asked $($panelRunners.Count), started $panelStarted, usable $panelUsable; wall clock $panelWall s; $($panelPlan.Text)" + ')'
+        $panelHead = "$panelStarted of $($panelEntries.Count) entries ran " + '(' + "asked $($panelRoute.SizeAsked), started $panelStarted, usable $panelUsable; wall clock $panelWall s; $($panelPlan.Text)" + ')'
         if ($DryRun) { $panelHead = "$($panelRunners.Count) of $($panelEntries.Count) entries would run " + '(dry run) (' + "wall clock $panelWall s; $($panelPlan.Text)" + ')' }
         Write-Summary "Panel $($panelShort): $panelHead"
         foreach ($row in $rows) {
@@ -2755,7 +2997,7 @@ if ($roster.Exists) {
         $rosterEntry = Find-RosterEntry -Roster $roster -Provider $identityProvider -Model $identityModel
     } else {
         $rosterRule = 'walk'
-        $walk = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -Model $Model -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers
+        $walk = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -Model $Model -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers -EstimateTokens $promptEstimate
         if ($walk.Error) { Stop-WithError $walk.Error }
         $rosterEntry = $walk.Entry
         $rosterSkipped = @($walk.Skipped)
@@ -2777,6 +3019,25 @@ if ($roster.Exists) {
         $extraConfigSource = 'roster'
         $rosterApplied.Add('codex_config')
     }
+}
+# (wave 26b, D16) a single run's explicit reviewer (-Provider, -Thread) whose context window the
+# new prompt alone would fill beyond 80% is refused before anything starts (a roster walk skips it)
+if (-not $panelMember -and $rosterEntry -and $rosterRule -ne 'walk') {
+    $ctxRefusal = Get-ContextSkip -Entry $rosterEntry -EstimateTokens $promptEstimate
+    if ($ctxRefusal) { Stop-WithError "$ctxRefusal - roster entry #$($rosterEntry.Position); nothing was started (a shorter brief, or another reviewer)." }
+}
+# (wave 26b, D11) a single run's roster entry with its own timeout_sec: it replaces the purpose
+# default (an explicit -TimeoutSec wins; a panel member got its value from the panel run)
+if (-not $panelMember -and $rosterEntry -and $timeoutSource -eq 'purpose' -and [int](Get-PropertyValue $rosterEntry 'TimeoutSec' 0) -gt 0) {
+    $TimeoutSec = [int]$rosterEntry.TimeoutSec
+    $timeoutSource = 'roster'
+    if (-not $continueGiven) { $ContinueSec = [Math]::Min($TimeoutSec, 900) }
+    $rosterApplied.Add('timeout_sec')
+}
+# (wave 26b, D12) a single run's stall cut: -StallSec, else its roster entry's stall_sec, else 900
+if (-not $panelMember -and -not $stallGiven) {
+    $StallSec = 900
+    if ($rosterEntry -and [int](Get-PropertyValue $rosterEntry 'StallSec' -1) -ge 0) { $StallSec = [int]$rosterEntry.StallSec; $rosterApplied.Add('stall_sec') }
 }
 # (wave 26, D7) -Require on a single run (with -Provider): every required reviewer must be available
 # by the roster walk's verdict (stricter than a plain -Provider run: a usage limit without a reset
@@ -2963,6 +3224,7 @@ if ($panelMember) {
         started     = $null
         usable      = $null
         routing     = (Get-PropertyValue $panelMember 'routing' $null)
+        roles_note  = [string](Get-PropertyValue $panelMember 'roles_note' '')
     }
 }
 if ($rosterLine -and -not $DryRun) { Write-Host $rosterLine }
@@ -3279,6 +3541,8 @@ try {
     # ------------------------------------------------------------------------- prompt
 
     $nl = "`r`n"
+    # (wave 26b, D16) the reviewer's context window (its roster entry's context_tokens), 0 = unknown
+    $contextTokens = $(if ($rosterEntry) { [int](Get-PropertyValue $rosterEntry 'ContextTokens' 0) } else { 0 })
     $promptParts = New-Object System.Collections.ArrayList
     # Structured mode: the output contract comes FIRST, before the ask and the brief - a
     # reviewer that reads a long brief first tends to answer in prose (handoffs 17/18).
@@ -3286,6 +3550,8 @@ try {
         [void]$promptParts.Add('FINAL OUTPUT CONTRACT: your ENTIRE final message must be exactly one bare JSON object (schema_version "1") - no code fence, no text before or after it. The Markdown answer lives only inside its reply_markdown string; each defect goes in findings[]. A prose final message cannot be ingested, however good the answer is.')
     }
     if ($Prompt) { [void]$promptParts.Add($Prompt.Trim()) }
+    # (wave 26b, D16) a reviewer with a known context window is told so, right after the ask
+    if ($contextTokens -gt 0) { [void]$promptParts.Add("Your context window is $contextTokens tokens: read only what the brief points to; prefer targeted reads.") }
     if ($roleInfo) {
         # (wave 26, R16, D8) the role: after the ask, before the brief - never inside the output
         # contract; it narrows what the reviewer looks at, nothing else changes
@@ -3359,6 +3625,39 @@ try {
     # Always the LAST line: it ties a rollout file to this run (Find-ThreadInRollouts).
     [void]$promptParts.Add("Consultation id: $consultId")
     $promptText = [string]::Join("$nl$nl", $promptParts.ToArray())
+    # (wave 26b, D16) fork/resume on a reviewer with a context window: the continued thread's last
+    # recorded context (the ledger entry's usage.input_tokens, else its event stream's last usage)
+    # plus this prompt's estimate ((prompt + brief) / 4) beyond 80% of context_tokens -> a NEW
+    # thread instead, recorded (ledger mode_fallback {from, to, reason}; a summary line); the
+    # prompt then names the reviewer's previous reply file so it can re-read its earlier review
+    $modeFallbackRecord = $null
+    if ($contextTokens -gt 0 -and ($Mode -eq 'fork' -or $Mode -eq 'resume') -and $parentThread) {
+        $parentEntry = @($consults | Where-Object { [string](Get-PropertyValue $_ 'thread' '') -eq $parentThread }) | Select-Object -Last 1
+        $priorTokens = 0
+        $priorUsage = $(if ($parentEntry) { Get-PropertyValue $parentEntry 'usage' $null } else { $null })
+        if ($null -ne $priorUsage) { [void][int]::TryParse([string](Get-PropertyValue $priorUsage 'input_tokens' ''), [ref]$priorTokens) }
+        if ($priorTokens -le 0 -and $parentEntry -and [string](Get-PropertyValue $parentEntry 'events' '')) {
+            $pev = Join-Path $taskDir ([string]$parentEntry.events)
+            if ((Get-EntryEngine $parentEntry) -eq 'codex' -and (Test-Path -LiteralPath $pev -PathType Leaf)) {
+                try { $pu = Get-UsageFromEvents -Path $pev; if ($pu) { [void][int]::TryParse([string](Get-PropertyValue $pu 'input_tokens' ''), [ref]$priorTokens) } } catch { }
+            }
+        }
+        $briefChars = 0
+        if ($briefPath -and (Test-Path -LiteralPath $briefPath -PathType Leaf)) { $briefChars = [int](Get-Item -LiteralPath $briefPath).Length }
+        $newEstimate = [int][Math]::Ceiling(($promptText.Length + $briefChars) / 4.0)
+        if (($priorTokens + $newEstimate) -gt $script:ContextShare * $contextTokens) {
+            $modeFallbackRecord = [pscustomobject]@{ from = $Mode; to = 'new'; reason = "the $Mode thread $parentThread last carried $priorTokens tokens; with this prompt (est. $newEstimate) that exceeds 80% of the reviewer's context window ($contextTokens tokens)" }
+            Write-Host "codex-consult: mode $Mode -> new: $($modeFallbackRecord.reason)" -ForegroundColor Yellow
+            $prevReply = $(if ($parentEntry -and [string](Get-PropertyValue $parentEntry 'reply' '')) { Get-RepoRelativePath -Root $repoRoot -Path (Join-Path $taskDir ([string]$parentEntry.reply)) } else { '' })
+            $Mode = 'new'
+            $parentThread = ''
+            $parentNote = "mode fallback: $($modeFallbackRecord.reason)"
+            if ($prevReply) {
+                $promptParts.Insert($promptParts.Count - 1, "Your previous reply in this task is ``$($prevReply.Replace('\', '/'))``: this consultation starts a new thread because the previous one is too large for your context window - re-read that reply if you need your earlier review.")
+                $promptText = [string]::Join("$nl$nl", $promptParts.ToArray())
+            }
+        }
+    }
 
     # ------------------------------------------------------------------------- argv
 
@@ -3454,6 +3753,7 @@ try {
             thread_source                   = $(if ($isCodex) { 'events|rollout (verified by consultation id)|unknown' } else { 'events|unknown' })
             thread_candidate                = $(if ($isCodex) { '<"" or an unverified rollout uuid>' } else { '<"" or a conversation id that is never a parent>' })
             mode                            = $Mode
+            mode_fallback                   = $modeFallbackRecord
             command                         = $commandStr
             brief                           = $briefRef
             range                           = $rangeRecord
@@ -3488,6 +3788,7 @@ try {
             format_retry                    = $(if (-not $repairEnabled) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events, schema_transport} after a format-repair turn>' })
             denial_retry                    = $(if (-not $engineSpec.DenialRetry -or $DenialRetry -ne 1) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, events} after a denial-retry turn>' })
             timeout_continue                = $(if ($ContinueSec -le 0) { '<null, or {thread, wall_seconds 0, outcome "not attempted: -ContinueSec 0", events null, usage null} after a timeout kill>' } else { "<null, or {thread, wall_seconds, outcome, events, usage} of ONE continuation turn (up to $ContinueSec s) after a timeout kill of the main turn>" })
+            stall                           = $(if ($StallSec -le 0) { $null } else { "<null, or {seconds, last_event} when the stream went $StallSec s without an event while the process lived (stopped like a timeout)>" })
             base_commit                     = $revBefore.base_commit
             reviewed_revision               = $revBefore.reviewed_revision
             tree_sha256                     = $revBefore.tree_sha256
@@ -3501,6 +3802,7 @@ try {
             fingerprint_note                = $revBefore.fingerprint_note
             artifacts                       = [object[]]$previewArtifacts
             artifacts_changed_during_review = '<true|false>'
+            tree_check                      = $(if ($isCodex) { $null } else { "<{outcome clean|$(if ($engineSpec.WriteDisabled) { 'warned' } else { 'failed' }), files[]}: the engine's tree check (the working tree, the collab directory, the brief, the artifacts)>" })
             bridge_outcome                  = '<usable reply | failed: ...>'
             provider_failure                = '<null, or {class auth|quota|capability|transport|unknown, kind burst|"", code, message, when, retry_after, hint} of a failed run>'
             warnings                        = [object[]]$runWarnings.ToArray()
@@ -3549,7 +3851,7 @@ try {
         if ($roleInfo) { Write-Host "role        : $($roleInfo.Name) ($($roleInfo.Source): $($roleInfo.Path)) - in the prompt after the ask" }
         if ($singleRequired -and @($singleRequired.Positions).Count -gt 0) { Write-Host "required    : $(@($singleRequired.Positions | ForEach-Object { "#$_" }) -join ', ') available (-Require)" }
         Write-Host "effort      : $(if ($null -eq $effortSent) { 'nothing' } else { $effortSent }) sent (requested $($effortPlan.Requested), mapping $($effortPlan.Mapping), by $($effortPlan.Basis))"
-        Write-Host "timeout     : $TimeoutSec s ($(if ($timeoutSource -eq 'purpose') { "the default of purpose $purposeLabel; -TimeoutSec overrides" } else { '-TimeoutSec' })); continuation after a timeout kill: $(if ($ContinueSec -gt 0) { "one turn of up to $ContinueSec s on the same thread (-ContinueSec; 0 = off)" } else { 'off (-ContinueSec 0)' })"
+        Write-Host "timeout     : $TimeoutSec s ($(if ($timeoutSource -eq 'purpose') { "the default of purpose $purposeLabel; -TimeoutSec overrides" } else { Format-TimeoutSource -Source $timeoutSource -PurposeLabel $purposeLabel })); continuation after a timeout kill: $(if ($ContinueSec -gt 0) { "one turn of up to $ContinueSec s on the same thread (-ContinueSec; 0 = off)" } else { 'off (-ContinueSec 0)' })"
         if ($rangeStat) { Write-Host "range       : $Range - $rangeText ($($rangeStat.Insertions) insertions, $($rangeStat.Deletions) deletions)" }
         if ($peakWarning) { Write-Host "peak        : $peakLabel" -ForegroundColor Yellow; Write-Host $peakWarning -ForegroundColor Yellow }
         else { Write-Host "peak        : $peakLabel" }
@@ -3680,6 +3982,10 @@ try {
     # TEST HOOK: CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS=<ms> | <model>=<ms>[|...] - a pause between
     # the `launching` record and the guarded start of the MAIN turn (wave 24b, F08-1: a sign-in
     # that changes after the preflight is seen by the launch guard).
+    # (wave 26b, D10) this run's kick file (-Kick -Member <NN>); one left from an earlier run of
+    # the same number is stale
+    $script:KickPath = Get-KickPath -TaskDir $taskDir -Nn $nn
+    $null = Remove-PendingFile -Path $script:KickPath
     $launchPause = Get-TestHookMs -Value ([string]$env:CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS) -Model ([string]$identity.Model)
     if ($launchPause -gt 0) { Start-Sleep -Milliseconds $launchPause }
 
@@ -3690,6 +3996,12 @@ try {
     # (wave 24) the main turn was killed on the timeout (and how many processes survived it)
     $mainTimedOut = $false
     $mainSurvivors = 0
+    # (wave 26b, D12) the main turn was stopped by the stall cut (a kind of timeout: $mainTimedOut
+    # too); ledger stall. (D10) $script:RunKicked: the operator stopped a turn (-Kick).
+    $mainStalled = $false
+    $stallRecord = $null
+    $mainWait = $null
+    $script:RunKicked = $false
     # (wave 24b, F08-1) the main turn starts through the ONE guarded start as every other turn:
     # the launch invariant read afresh (muse: auth.json and the environment) right before it
     $launch = Start-EngineProcess -Launcher $engineLauncher -Argv $argv -StdoutPath $eventsPath -StderrPath $stderrPath -StdinPath $stdinPath
@@ -3729,7 +4041,12 @@ try {
         } else {
             # (wave 25) a detached run: its member runs
             Set-DetachedMember -Position $detachMemberPosition -Values @{ state = 'running' }
-            $finished = $proc.WaitForExit($TimeoutSec * 1000)
+            # (wave 26b, D13) running on the endpoint: counted by every panel of this machine
+            $null = Register-MachineRunning -Fingerprint ([string]$identity.Fingerprint) -Label ([string]$identity.Provider) -Repo $repoRoot -Task $Task -Nn $nn -Panel $(if ($panelMember) { [string]$panelMember.id } else { '' })
+            # (wave 26b, D10, D12) the wait watches the timeout, the stall cut (-StallSec: no event
+            # line for that long) and the operator's kick file
+            $mainWait = Wait-EngineProcess -Process $proc -TimeoutSec $TimeoutSec -StallSec $StallSec -EventsPath $eventsPath -KickPath $script:KickPath
+            $finished = $mainWait.Exited
             if (-not $finished) {
                 # The launcher is usually a shim (codex.cmd -> node -> codex.exe): kill
                 # the whole tree, or the real codex keeps running after we give up.
@@ -3740,11 +4057,26 @@ try {
                 foreach ($hookPid in @(([string]$env:CODEX_CONSULT_TEST_SURVIVORS).Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[0-9]+$' })) {
                     if ((Get-Process -Id ([int]$hookPid) -ErrorAction SilentlyContinue) -and ($survivors -notcontains [int]$hookPid)) { $survivors = [int[]]@($survivors + [int]$hookPid) }
                 }
-                $bridgeOutcome = "failed: timeout after $TimeoutSec s (process tree killed)"
+                $stopText = "timeout after $TimeoutSec s"
+                if ($mainWait.Reason -eq 'stall') {
+                    # (wave 26b, D12) stopped like a timeout: the continuation turn and the salvage follow
+                    $mainStalled = $true
+                    $stopText = "stalled after $StallSec s without an event"
+                    $stallRecord = [pscustomobject]@{ seconds = $StallSec; last_event = $(if ($null -ne $mainWait.LastEvent) { Format-OffsetIso $mainWait.LastEvent } else { $null }) }
+                }
+                $bridgeOutcome = "failed: $stopText (process tree killed)"
                 $mainTimedOut = $true
+                if ($mainWait.Reason -eq 'kick') {
+                    # (wave 26b, D10) the operator stopped it: no continuation; the salvage follows
+                    $script:RunKicked = $true
+                    $mainTimedOut = $false
+                    $stopText = 'stopped by the operator (-Kick)'
+                    $bridgeOutcome = "failed: $stopText"
+                    $null = Remove-PendingFile -Path $script:KickPath
+                }
                 $mainSurvivors = $survivors.Count
                 if ($survivors.Count -gt 0) {
-                    $bridgeOutcome = "failed: timeout after $TimeoutSec s (process tree killed; $($survivors.Count) processes survived: pid $($survivors -join ', '); the next run for this task is refused until they exit)"
+                    $bridgeOutcome = "failed: $stopText (process tree killed; $($survivors.Count) processes survived: pid $($survivors -join ', '); the next run for this task is refused until they exit)"
                     # (5) survivors - kept after this run.
                     $keepPending = $true
                     try {
@@ -3805,6 +4137,10 @@ try {
     $repairProblem = ''
     $repairEngineEvents = ''
     $treeProblem = ''
+    # (wave 26b, D9) the ledger's tree_check {outcome, files[]} (null for codex: no check) and
+    # the warnings a write-disabled engine's check added (replaced when the check runs again)
+    $treeCheckRecord = $null
+    $treeCheckWarnings = [string[]]@()
     $extraEvents = New-Object System.Collections.Generic.List[string]
     $replyJsonRel = ''
 
@@ -3920,7 +4256,12 @@ try {
         # Read-only check (A17): the tree, the collab directory, the brief, the artifacts. A
         # detected change forces class permission (wave 23, D12) - also when the run had already
         # failed for another reason: that reason stays in the provider failure's message.
-        $treeProblem = Get-EngineTreeProblem -RevBefore $revBefore -RevAfter $revAfter -BriefChanged $briefChanged -ChangedArtifacts $changedArtifacts -CollabBefore $collabBefore -CollabAfter (Get-CollabSnapshot -Dir $collabRoot) -OwnPrefixes $ownPrefixes -Engine $engineName -CollabShown $collabShown
+        $treeCheck = Get-EngineTreeCheck -RevBefore $revBefore -RevAfter $revAfter -BriefChanged $briefChanged -ChangedArtifacts $changedArtifacts -CollabBefore $collabBefore -CollabAfter (Get-CollabSnapshot -Dir $collabRoot) -OwnPrefixes $ownPrefixes -Engine $engineName -CollabShown $collabShown
+        $treeProblem = $treeCheck.Problem
+        $treeCheckRecord = [pscustomobject]@{ outcome = $treeCheck.Outcome; files = [object[]]@($treeCheck.Files) }
+        # (wave 26b, D9) a write-disabled engine (muse): the change is a warning, the reply stays
+        $treeCheckWarnings = [string[]]@($treeCheck.Warnings)
+        foreach ($w in $treeCheckWarnings) { $engineWarnings.Add($w) }
         if ($treeProblem) {
             $agyFailureClass = 'permission'
             if ($bridgeOutcome -eq 'usable reply') {
@@ -4064,7 +4405,7 @@ try {
         } else {
             $contParts = New-Object System.Collections.Generic.List[string]
             if (-not $Raw) { $contParts.Add([string]$promptParts[0]) }
-            $contParts.Add("Your previous turn was stopped by a time limit after $TimeoutSec s. Do not start over and do not read more files than you must: finish now and output your final answer in the required format.")
+            $contParts.Add($(if ($mainStalled) { "Your previous turn was stopped after $StallSec s without any output." } else { "Your previous turn was stopped by a time limit after $TimeoutSec s." }) + ' Do not start over and do not read more files than you must: finish now and output your final answer in the required format.')
             # (wave 24b, F07-1) a prompt-only transport: the endpoint never receives the schema -
             # the continuation re-sends the reply format and the schema, as the denial retry does
             if (-not $Raw -and $schemaTransport -eq 'prompt-only') {
@@ -4098,7 +4439,7 @@ try {
                 $contPromptFile = $(if ($promptByFile) { $continuePromptPath } else { '' })
             }
             $extraEvents.Add("handoffs/$continueEventsName")
-            Write-Host "codex-consult: the main turn was killed at $wallSeconds s of $TimeoutSec s; one continuation turn on thread $continueThread (up to $ContinueSec s)" -ForegroundColor Yellow
+            Write-Host "codex-consult: the main turn was $(if ($mainStalled) { "stopped at $wallSeconds s ($StallSec s without an event)" } else { "killed at $wallSeconds s of $TimeoutSec s" }); one continuation turn on thread $continueThread (up to $ContinueSec s)" -ForegroundColor Yellow
             $continueTurn = Invoke-EngineTurn -Argv $contArgv -StdinText $contStdin -EventsPath $continueEventsPath -StdinPath $contStdinPath -StderrPath $continueStderrPath -Timeout $ContinueSec -Note 'timeout continuation turn' -PromptPath $contPromptFile -PromptText $continuePrompt
             if ($continueTurn.KeepPending) { $keepPending = $true }
             if ($continueTurn.Started) { $engineTurns++ }
@@ -4322,11 +4663,15 @@ try {
                     $null = Stop-ProcessTree -Process $repairProc
                 }
                 if ($repairRegistered) {
-                    if (-not $repairProc.WaitForExit($repairTimeout * 1000)) {
+                    # (wave 26b, D10) the operator's kick is polled here too
+                    $repairWait = Wait-EngineProcess -Process $repairProc -TimeoutSec $repairTimeout -KickPath $script:KickPath
+                    if (-not $repairWait.Exited) {
                         $repairSurvivors = Stop-ProcessTree -Process $repairProc   # [int[]]; never wrap in @()
-                        $repairProblem = "timeout after $repairTimeout s (process tree killed)"
+                        $repairStop = "timeout after $repairTimeout s"
+                        if ($repairWait.Reason -eq 'kick') { $script:RunKicked = $true; $repairStop = 'stopped by the operator (-Kick)'; $null = Remove-PendingFile -Path $script:KickPath }
+                        $repairProblem = "$repairStop (process tree killed)"
                         if ($repairSurvivors.Count -gt 0) {
-                            $repairProblem = "timeout after $repairTimeout s (process tree killed; $($repairSurvivors.Count) processes survived: pid $($repairSurvivors -join ', '))"
+                            $repairProblem = "$repairStop (process tree killed; $($repairSurvivors.Count) processes survived: pid $($repairSurvivors -join ', '))"
                             $keepPending = $true
                             try {
                                 $pendingRecord.state = 'survivors'
@@ -4429,7 +4774,13 @@ try {
         $artifactsFinal = @($artifactHashes | ForEach-Object { [pscustomobject]@{ path = $_.path; sha256 = $_.sha256; sha256_after = (Get-FileSha256OrMissing -Path $_.full) } })
         $changedArtifacts = @($artifactsFinal | Where-Object { $_.sha256 -ne $_.sha256_after } | ForEach-Object { $_.path })
         $artifactsChanged = ($changedArtifacts.Count -gt 0)
-        $treeProblem = Get-EngineTreeProblem -RevBefore $revBefore -RevAfter $revAfter -BriefChanged $briefChanged -ChangedArtifacts $changedArtifacts -CollabBefore $collabBefore -CollabAfter (Get-CollabSnapshot -Dir $collabRoot) -OwnPrefixes $ownPrefixes -Engine $engineName -CollabShown $collabShown
+        $treeCheck = Get-EngineTreeCheck -RevBefore $revBefore -RevAfter $revAfter -BriefChanged $briefChanged -ChangedArtifacts $changedArtifacts -CollabBefore $collabBefore -CollabAfter (Get-CollabSnapshot -Dir $collabRoot) -OwnPrefixes $ownPrefixes -Engine $engineName -CollabShown $collabShown
+        $treeProblem = $treeCheck.Problem
+        $treeCheckRecord = [pscustomobject]@{ outcome = $treeCheck.Outcome; files = [object[]]@($treeCheck.Files) }
+        # (wave 26b, D9) the whole run's warnings replace the main turn's
+        foreach ($w in $treeCheckWarnings) { [void]$engineWarnings.Remove($w) }
+        $treeCheckWarnings = [string[]]@($treeCheck.Warnings)
+        foreach ($w in $treeCheckWarnings) { $engineWarnings.Add($w) }
         if ($treeProblem) {
             $agyFailureClass = 'permission'
             if ($bridgeOutcome -eq 'usable reply') {
@@ -4456,8 +4807,13 @@ try {
             msp_schema_version = $mspVersion
         }
     }
+    # (wave 26b, D10) a turn the operator stopped (-Kick): the run failed by the operator's hand -
+    # class operator (no endpoint's fault: the health views never read it as an outage)
+    if ($script:RunKicked -and $bridgeOutcome -notlike 'failed: stopped by the operator*') { $bridgeOutcome = 'failed: stopped by the operator (-Kick)' }
     $providerFailure = $null
-    if ($bridgeOutcome -ne 'usable reply' -and -not $isCodex -and $agyFailureClass -eq 'permission') {
+    if ($script:RunKicked) {
+        $providerFailure = New-ProviderFailure -Texts @('stopped by the operator (-Kick)') -Class 'operator'
+    } elseif ($bridgeOutcome -ne 'usable reply' -and -not $isCodex -and $agyFailureClass -eq 'permission') {
         # the tree check's forced class (D12) outranks the evidence of every turn
         $providerFailure = New-ProviderFailure -Texts @(@($agyFailureTexts) + @(($bridgeOutcome -replace '^failed:\s*', ''))) -Class $agyFailureClass
     } elseif ($bridgeOutcome -ne 'usable reply' -and $continueFailure) {
@@ -4491,11 +4847,27 @@ try {
     # <T> s; thread <id> - continue with `<arguments>`". Ledger partial_reply; bridge_outcome is
     # unchanged (a killed main turn stays "failed: timeout ..."); the summary prints the file and
     # the exact resume command.
-    $isKilled = { param([string]$Problem) return [bool]($Problem -and $Problem -match '^timeout after ') }
+    $isKilled = { param([string]$Problem) return [bool]($Problem -and $Problem -match '^(timeout after |stopped by the operator)') }
     $continueKilled = [bool]($continueTurn -and (& $isKilled ([string]$continueTurn.Problem)))
     $retryKilled = [bool]($retryTurn -and (& $isKilled ([string]$retryTurn.Problem)))
     $repairKilled = $(if ($isCodex) { & $isKilled ([string]$repairProblem) } else { [bool]($repairTurn -and (& $isKilled ([string]$repairTurn.Problem))) })
-    $partialNeeded = [bool](($mainTimedOut -and -not $continued) -or $continueKilled -or $retryKilled -or $repairKilled)
+    $partialNeeded = [bool](($mainTimedOut -and -not $continued) -or $continueKilled -or $retryKilled -or $repairKilled -or $script:RunKicked)
+    # (wave 26b, D15) ANY failed run keeps what its reviewer produced: a provider failure mid-run
+    # (a 429 after retries, a 401/403 quota, a network error), a denial, a tree-check failure - when
+    # an event stream of the run holds at least one agent message, reasoning text or tool call.
+    # Same file, same ledger field; the footer says why the run ended. A stream with no content (a
+    # 401 on the first request) leaves nothing.
+    $partialOnFailure = $false
+    if (-not $partialNeeded -and -not (Test-UsableOutcome $bridgeOutcome)) {
+        foreach ($sp in @($eventsPath, $retryEventsPath, $continueEventsPath, $(if ($isCodex) { $repairEventsPath } else { $repairEngineEvents }))) {
+            if (-not $sp -or -not (Test-Path -LiteralPath $sp -PathType Leaf)) { continue }
+            $sv = Read-TurnSalvage -Engine $engineName -Path $sp
+            if (@($sv.Items | Where-Object { $_ }).Count -gt 0 -or @($sv.Tools | Where-Object { $_ }).Count -gt 0) { $partialOnFailure = $true; break }
+        }
+        if ($partialOnFailure) { $partialNeeded = $true }
+    }
+    $endedWhy = ConvertTo-OneLine ($bridgeOutcome -replace '^failed:\s*', '')
+    if ($endedWhy.Length -gt 200) { $endedWhy = $endedWhy.Substring(0, 200) + '...' }
     $partialRel = ''
     $partialPath = ''
     $partialBody = ''
@@ -4507,8 +4879,12 @@ try {
         $partialRel = "handoffs/$partialName"
         $turns = New-Object System.Collections.Generic.List[object]
         $killedAt = New-Object System.Collections.Generic.List[string]
-        $turns.Add([pscustomobject]@{ Label = 'Turn 1 - the main turn'; Note = $(if ($mainTimedOut) { "killed at $wallSeconds s of $TimeoutSec s" } else { 'it ended by itself' }); Salvage = (Read-TurnSalvage -Engine $engineName -Path $eventsPath) })
-        if ($mainTimedOut) { $killedAt.Add("$wallSeconds s of $TimeoutSec s (the main turn)") }
+        $mainKickedHere = [bool]($script:RunKicked -and $mainWait -and $mainWait.Reason -eq 'kick')
+        $mainNote = $(if ($mainStalled) { "stopped at $wallSeconds s: $StallSec s without an event" } elseif ($mainKickedHere) { "stopped by the operator (-Kick) at $wallSeconds s" } elseif ($mainTimedOut) { "killed at $wallSeconds s of $TimeoutSec s" } elseif ($partialOnFailure) { "it ended at $wallSeconds s: $endedWhy" } else { 'it ended by itself' })
+        $turns.Add([pscustomobject]@{ Label = 'Turn 1 - the main turn'; Note = $mainNote; Salvage = (Read-TurnSalvage -Engine $engineName -Path $eventsPath) })
+        if ($mainStalled) { $killedAt.Add("$wallSeconds s, $StallSec s without an event (the main turn)") }
+        elseif ($mainKickedHere) { $killedAt.Add("$wallSeconds s by the operator (the main turn)") }
+        elseif ($mainTimedOut) { $killedAt.Add("$wallSeconds s of $TimeoutSec s (the main turn)") }
         if ($retryTurn) {
             $turns.Add([pscustomobject]@{ Label = "Turn $($turns.Count + 1) - the denial retry"; Note = $(if ($retryKilled) { "killed at $($retryTurn.Wall) s of $retryTimeout s" } elseif ($denialRetryRecord -and $denialRetryRecord.succeeded) { 'it answered' } else { 'it failed' }); Salvage = (Read-TurnSalvage -Engine $engineName -Path $retryEventsPath) })
             if ($retryKilled) { $killedAt.Add("$($retryTurn.Wall) s of $retryTimeout s (the denial retry)") }
@@ -4534,6 +4910,8 @@ try {
         # continuation's thread, an engine's candidate from its own stream)
         $resumeThread = $(if ($threadId) { $threadId } elseif ($continueThread) { $continueThread } elseif (-not $isCodex -and $threadCandidate) { $threadCandidate } else { '' })
         $killedText = $(if ($killedAt.Count -eq 1) { $killedAt[0] -replace ' \([^)]*\)$', '' } else { $killedAt.ToArray() -join ', ' })
+        # (wave 26b, D15) no turn was killed: the footer says why the run ended
+        $endedText = $(if ($killedAt.Count -gt 0) { "killed at $killedText" } else { "the run ended: $endedWhy" })
         if ($resumeThread) {
             $resumeParts = New-Object System.Collections.Generic.List[string]
             $resumeParts.Add("-Task $Task")
@@ -4575,10 +4953,10 @@ try {
             if ($EngineExe -and -not $isCodex) { $resumeParts.Add("-EngineExe $(& $qa $EngineExe)") }
             $resumeParts.Add('-Prompt "finish your review"')
             $resumeArgs = $resumeParts.ToArray() -join ' '
-            $partialFooter = "killed at $killedText; thread $resumeThread - continue with ``$resumeArgs``"
+            $partialFooter = "$endedText; thread $resumeThread - continue with ``$resumeArgs``"
             $resumeCommand = "$(if ($script:LegacyPS) { 'powershell -NoProfile -ExecutionPolicy Bypass' } else { 'pwsh -NoProfile' }) -File ""$PSCommandPath"" $resumeArgs"
         } else {
-            $partialFooter = "killed at $killedText; the thread of the killed turn is not known - no resume is possible (start again with -Mode new)"
+            $partialFooter = "$endedText; the thread of the $(if ($killedAt.Count -gt 0) { 'killed' } else { 'failed' }) turn is not known - no resume is possible (start again with -Mode new)"
         }
     }
 
@@ -4711,7 +5089,7 @@ try {
         else { $headerLines.Add("Denial retry: failed in $($denialRetryRecord.wall_seconds) s - the first turn produced nothing (a tool was auto-denied) and the retry turn on conversation ``$threadId`` did not produce a usable reply.") }
     }
     # (wave 24) the timeout: what applied, the continuation, the salvaged partial reply
-    $timeoutHeader = "Timeout: $TimeoutSec s ($(if ($timeoutSource -eq 'purpose') { "the default of purpose $purposeLabel" } else { '-TimeoutSec' })); continuation after a timeout kill: $(if ($ContinueSec -gt 0) { "up to $ContinueSec s" } else { 'off (-ContinueSec 0)' })."
+    $timeoutHeader = "Timeout: $TimeoutSec s ($(Format-TimeoutSource -Source $timeoutSource -PurposeLabel $purposeLabel)); continuation after a timeout kill: $(if ($ContinueSec -gt 0) { "up to $ContinueSec s" } else { 'off (-ContinueSec 0)' })."
     if ($rangeStat) { $timeoutHeader += " Range: ``$Range`` - $rangeText ($($rangeStat.Insertions) insertions, $($rangeStat.Deletions) deletions)." }
     $headerLines.Add($timeoutHeader)
     if ($timeoutContinueRecord) {
@@ -4820,6 +5198,7 @@ try {
         thread_source                   = $threadSource
         thread_candidate                = $threadCandidate
         mode                            = $Mode
+        mode_fallback                   = $modeFallbackRecord
         command                         = $commandStr
         brief                           = $briefRef
         range                           = $rangeRecord
@@ -4854,6 +5233,7 @@ try {
         format_retry                    = $formatRetryRecord
         denial_retry                    = $denialRetryRecord
         timeout_continue                = $timeoutContinueRecord
+        stall                           = $stallRecord
         base_commit                     = $revBefore.base_commit
         reviewed_revision               = $revBefore.reviewed_revision
         tree_sha256                     = $revBefore.tree_sha256
@@ -4867,6 +5247,7 @@ try {
         fingerprint_note                = $revBefore.fingerprint_note
         artifacts                       = [object[]]$artifactsFinal
         artifacts_changed_during_review = $artifactsChanged
+        tree_check                      = $treeCheckRecord
         bridge_outcome                  = $bridgeOutcome
         provider_failure                = $providerFailure
         warnings                        = [object[]]$engineWarnings.ToArray()
@@ -4927,6 +5308,12 @@ try {
         if ($rmError) { $pendingNote = "could not remove $pendingPath ($rmError); the next run will find codex gone and consume it" }
     }
     Exit-StoreCommit -Commit $commit
+    # (wave 26b, D13) the machine-wide health: this run leaves running[], and its outcome on the
+    # endpoint (a usable reply, or a provider failure other than the operator's) goes in - for the
+    # roster walks of every repository of this machine. Optional: a file that cannot be written is
+    # left as it is.
+    $null = Unregister-MachineRunning
+    $null = Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot
 
     # ------------------------------------------------------------------------- output
 
@@ -4948,6 +5335,7 @@ try {
     # `summary`, with the member's final state (D3, D11)
     if (-not (Test-UsableOutcome $bridgeOutcome)) {
         Write-Summary "codex-consult: $bridgeOutcome (wall $wallSeconds s)" Red
+        if ($modeFallbackRecord) { Write-Summary "mode       : $($modeFallbackRecord.from) -> new ($($modeFallbackRecord.reason))" Yellow }
         # (wave 24b) the next step for a failure the bridge can explain (a context-window limit)
         if ($failureHint) { Write-Summary "hint       : $failureHint" Yellow }
         if ($continueLine) { Write-Summary $continueLine Yellow }
@@ -4969,6 +5357,7 @@ try {
     }
 
     Write-Summary "codex-consult: $bridgeOutcome - $lineageShown, mode $Mode, thread $threadId (source: $threadSource), wall $wallSeconds s"
+    if ($modeFallbackRecord) { Write-Summary "mode       : $($modeFallbackRecord.from) -> new ($($modeFallbackRecord.reason))" Yellow }
     if ($continueLine) { Write-Summary $continueLine Yellow }
     foreach ($pl in $partialLines) { Write-Summary $pl Yellow }
     foreach ($w in $engineWarnings) { Write-Summary "warning    : $w" Yellow }
@@ -5026,5 +5415,7 @@ try {
         Remove-Item -LiteralPath $lastMsgPath -Force -ErrorAction SilentlyContinue
     }
     Exit-StoreCommit -Commit $commit
+    # (wave 26b, D13) whatever happened, this run no longer runs on its endpoint
+    if (-not $DryRun) { $null = Unregister-MachineRunning }
     Exit-TaskLock -Lock $lock
 }

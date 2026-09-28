@@ -11,6 +11,9 @@
 # <guid>, removed at the end.
 param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
+# (wave 26b, D13) the machine-wide health file stays out of these cases (every case its own
+# repository; harness-fixes26b.ps1 points CODEX_CONSULT_HEALTH at scratch files of its own)
+$env:CODEX_CONSULT_HEALTH = 'none'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 # (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's
@@ -632,7 +635,7 @@ if (Want 'F02-5') {
 if (Want 'LEDGER') {
     $r = New-Repo 'ledger'
     $h = New-Home 'ledger' $baseToml
-    $order = 'n,when,purpose,topics,role,consult_id,reviewer,lineage,preflight,preflight_warning,roster,panel,parent_thread,thread,thread_source,thread_candidate,mode,command,brief,range,prompt_chars,reply,reply_json,events,partial_reply,model,effort,effort_requested,effort_sent,effort_mapping,effort_caps,effort_confirmed,max_words,sandbox,timeout_sec,timeout_source,continue_sec,extra_config,extra_config_source,peak,peak_schedule,peak_source,peak_evaluated_at,structured,schema,schema_transport,schema_transport_source,validation_error,format_retry,denial_retry,timeout_continue,base_commit,reviewed_revision,tree_sha256,tree_sha256_after,tree_changed_during_review,revision_moved,changed_files,brief_sha256,brief_sha256_after,brief_changed_during_review,fingerprint_note,artifacts,artifacts_changed_during_review,bridge_outcome,provider_failure,warnings,verdict,verdict_reason,findings,finding_ids,prior_findings,unchecked_prior_blockers,usage,engine_run,wall_seconds,finished_at,commit_wait_ms'
+    $order = 'n,when,purpose,topics,role,consult_id,reviewer,lineage,preflight,preflight_warning,roster,panel,parent_thread,thread,thread_source,thread_candidate,mode,mode_fallback,command,brief,range,prompt_chars,reply,reply_json,events,partial_reply,model,effort,effort_requested,effort_sent,effort_mapping,effort_caps,effort_confirmed,max_words,sandbox,timeout_sec,timeout_source,continue_sec,extra_config,extra_config_source,peak,peak_schedule,peak_source,peak_evaluated_at,structured,schema,schema_transport,schema_transport_source,validation_error,format_retry,denial_retry,timeout_continue,stall,base_commit,reviewed_revision,tree_sha256,tree_sha256_after,tree_changed_during_review,revision_moved,changed_files,brief_sha256,brief_sha256_after,brief_changed_during_review,fingerprint_note,artifacts,artifacts_changed_during_review,tree_check,bridge_outcome,provider_failure,warnings,verdict,verdict_reason,findings,finding_ids,prior_findings,unchecked_prior_blockers,usage,engine_run,wall_seconds,finished_at,commit_wait_ms'
     $log = Join-Path $work 'ledger-log.txt'
     Clear-TestEnv
     $env:CODEX_HOME = $h; $env:FAKE_CODEX_SLEEP = '5'; $env:FAKE_CODEX_REPLY = $advise; $env:FAKE_CODEX_LOG = $log
