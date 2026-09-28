@@ -5434,6 +5434,1060 @@
                                        "wall_seconds":  3601.7,
                                        "finished_at":  "2026-09-27T23:09:54+02:00",
                                        "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  18,
+                                       "when":  "2026-09-28T05:55:50+02:00",
+                                       "purpose":  "acceptance",
+                                       "topics":  [
+
+                                                  ],
+                                       "role":  "",
+                                       "consult_id":  "14c06665-395c-45db-87b0-fd478233168d",
+                                       "reviewer":  {
+                                                        "provider":  "ZAI",
+                                                        "provider_source":  "roster",
+                                                        "model":  "glm-5.3",
+                                                        "model_source":  "roster",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "29edbb79ed7ddf2244796778196d47f9d7beae8c785399a1aa4c358b3633a886",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://api.z.ai/api/v1",
+                                                                                "name":  "Z.ai GLM Coding Plan",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "ZAI :: glm-5.3",
+                                       "preflight":  "ok: env ZAI_API_KEY set",
+                                       "preflight_warning":  "",
+                                       "roster":  {
+                                                      "path":  "C:/Users/Dmytro/AppData/Local/Temp/claude/C--Users-Dmytro-claude-codex-consult/2e5096df-2bb2-46b1-8e0e-f97f37eaab90/scratchpad/roster-wave25-accept.json",
+                                                      "position":  2,
+                                                      "skipped":  [
+                                                                      {
+                                                                          "provider":  "openai",
+                                                                          "model":  "gpt-6-astra",
+                                                                          "engine":  "codex",
+                                                                          "reason":  "usage limit until 2026-09-28T20:35:00+02:00"
+                                                                      },
+                                                                      {
+                                                                          "provider":  "gemini",
+                                                                          "model":  "gemini-3.8-flash-high",
+                                                                          "engine":  "agy",
+                                                                          "reason":  "usage limit until 2026-09-28T21:30:55+02:00"
+                                                                      },
+                                                                      {
+                                                                          "provider":  "gemini",
+                                                                          "model":  "gemini-3.1-pro-high",
+                                                                          "engine":  "agy",
+                                                                          "reason":  "usage limit until 2026-09-28T21:30:55+02:00"
+                                                                      }
+                                                                  ],
+                                                      "applied":  [
+                                                                      "model"
+                                                                  ]
+                                                  },
+                                       "panel":  {
+                                                     "id":  "a011f18e-8ca7-4458-bea5-2239a404c5ed",
+                                                     "position":  1,
+                                                     "of":  2,
+                                                     "members":  [
+                                                                     {
+                                                                         "provider":  "openai",
+                                                                         "model":  "gpt-6-astra",
+                                                                         "state":  "skipped",
+                                                                         "reason":  "usage limit until 2026-09-28T20:35:00+02:00"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "ZAI",
+                                                                         "model":  "glm-5.3",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "mimo",
+                                                                         "model":  "mimo-v2.6-pro",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.8-flash-high",
+                                                                         "state":  "skipped",
+                                                                         "reason":  "usage limit until 2026-09-28T21:30:55+02:00"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.1-pro-high",
+                                                                         "state":  "skipped",
+                                                                         "reason":  "usage limit until 2026-09-28T21:30:55+02:00"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "deepseek-v4.1-flash",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 2"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "dola-seed-2.0-pro",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 2"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "meta",
+                                                                         "model":  "muse-spark-1.3-contributor",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 2"
+                                                                     }
+                                                                 ],
+                                                     "concurrency":  2,
+                                                     "limits":  {
+                                                                    "ZAI":  1,
+                                                                    "mimo":  1
+                                                                },
+                                                     "asked":  2,
+                                                     "routing":  {
+                                                                     "mode":  "routed",
+                                                                     "order":  "routed",
+                                                                     "fallback":  "",
+                                                                     "seed":  "6a14f995add450264cf69f9d925fcb70f9aa806f825d5cdda6f159f52b988c4c",
+                                                                     "nonce":  "2026-09-28",
+                                                                     "nonce_source":  "date",
+                                                                     "size":  2,
+                                                                     "size_asked":  2,
+                                                                     "size_source":  "-PanelSize",
+                                                                     "reserve":  0,
+                                                                     "eligible":  [
+                                                                                      {
+                                                                                          "position":  2,
+                                                                                          "lineage":  "ZAI :: glm-5.3",
+                                                                                          "lab":  "zhipu",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.625,
+                                                                                          "basis":  "purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  3,
+                                                                                          "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                          "lab":  "xiaomi",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.7812,
+                                                                                          "basis":  "purpose",
+                                                                                          "ratings":  6,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  6,
+                                                                                          "lineage":  "byteplus :: deepseek-v4.1-flash",
+                                                                                          "lab":  "deepseek",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.4167,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  4,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  7,
+                                                                                          "lineage":  "byteplus :: dola-seed-2.0-pro",
+                                                                                          "lab":  "bytedance",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.25,
+                                                                                          "basis":  "purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  8,
+                                                                                          "lineage":  "meta :: muse-spark-1.3-contributor [muse]",
+                                                                                          "lab":  "meta",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.125,
+                                                                                          "basis":  "neutral",
+                                                                                          "ratings":  0,
+                                                                                          "required":  false
+                                                                                      }
+                                                                                  ],
+                                                                     "picked":  [
+                                                                                    {
+                                                                                        "slot":  1,
+                                                                                        "position":  2,
+                                                                                        "lineage":  "ZAI :: glm-5.3",
+                                                                                        "lab":  "zhipu",
+                                                                                        "rule":  "required"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  2,
+                                                                                        "position":  3,
+                                                                                        "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                        "lab":  "xiaomi",
+                                                                                        "rule":  "required"
+                                                                                    }
+                                                                                ],
+                                                                     "explored":  [
+
+                                                                                  ],
+                                                                     "required":  [
+                                                                                      "ZAI :: glm-5.3",
+                                                                                      "mimo :: mimo-v2.6-pro"
+                                                                                  ]
+                                                                 },
+                                                     "roles_note":  "",
+                                                     "started":  2,
+                                                     "usable":  2
+                                                 },
+                                       "parent_thread":  "01a0e475-6ca1-77e1-b104-945fc2b309ce",
+                                       "thread":  "01a0e627-a152-73e0-b6d7-56723a5d3628",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "fork",
+                                       "mode_fallback":  null,
+                                       "command":  "codex exec --sandbox read-only --color never --json -m glm-5.3 -c model_reasoning_effort=\"high\" -c model_provider=\"ZAI\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-7f753c0b4c2e428aaefd4740079cee4f.md --output-schema C:\\Users\\Dmytro\\claude-codex-consult\\plugins\\codex-consult\\schemas\\consult-reply.schema.json fork 01a0e475-6ca1-77e1-b104-945fc2b309ce -",
+                                       "brief":  ".collab/companions-2026-09-26/handoffs/24-claude-wave26b-reacceptance.md",
+                                       "range":  {
+                                                     "spec":  "f29f5ca..35d4a32",
+                                                     "files":  63,
+                                                     "insertions":  9808,
+                                                     "deletions":  256,
+                                                     "lines":  10064
+                                                 },
+                                       "prompt_chars":  39434,
+                                       "reply":  "handoffs/25-codex-reply-zai.md",
+                                       "reply_json":  "handoffs/25-codex-reply-zai.reply.json",
+                                       "events":  "handoffs/25-codex-reply-zai.events.jsonl",
+                                       "partial_reply":  "",
+                                       "model":  "glm-5.3",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "zai-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  900,
+                                       "sandbox":  "read-only",
+                                       "timeout_sec":  3600,
+                                       "timeout_source":  "purpose",
+                                       "continue_sec":  900,
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-09-28T05:55:50+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "output-schema",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  {
+                                                            "attempted":  true,
+                                                            "reason":  "findings[0] is missing \u0027supersedes\u0027",
+                                                            "succeeded":  true,
+                                                            "thread":  "01a0e627-a152-73e0-b6d7-56723a5d3628",
+                                                            "wall_seconds":  117,
+                                                            "usage":  {
+                                                                          "input_tokens":  21034979,
+                                                                          "cached_input_tokens":  19003776,
+                                                                          "output_tokens":  90720,
+                                                                          "reasoning_output_tokens":  52013
+                                                                      },
+                                                            "drift":  [
+                                                                          "11 of the 12 prose sentences (\u003e= 60 chars) are not in reply_markdown (first: \u0027model/purpose (6029-6032)\"},{\"id\":\"f22-7\",\"status\":\"fixed\",\"...\u0027)"
+                                                                      ],
+                                                            "original":  "handoffs/25-codex-reply-zai.original.md",
+                                                            "events":  null,
+                                                            "schema_transport":  "prompt-only"
+                                                        },
+                                       "denial_retry":  null,
+                                       "timeout_continue":  null,
+                                       "stall":  null,
+                                       "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                       "reviewed_revision":  "e868859",
+                                       "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078",
+                                       "tree_sha256_after":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078",
+                                       "tree_changed_during_review":  false,
+                                       "revision_moved":  null,
+                                       "changed_files":  0,
+                                       "brief_sha256":  "65b6a66ee54dfd51f16cdac3e30d7c0cdbd935d10ff3ebe3b5214be254baf6c2",
+                                       "brief_sha256_after":  "65b6a66ee54dfd51f16cdac3e30d7c0cdbd935d10ff3ebe3b5214be254baf6c2",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (0 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "tree_check":  null,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ACCEPT",
+                                       "verdict_reason":  "All eight wave-26 HOLD findings are fixed as decided (F22-1\u0027s containment verified in code), the day\u0027s additions implement D9-D16 with only declared deviations, and the two residual risks found are minor.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  0,
+                                                        "minor":  1,
+                                                        "note":  1
+                                                    },
+                                       "finding_ids":  [
+                                                           "F25-1",
+                                                           "F25-2"
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F22-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-6",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-7",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F19-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-4",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-6",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-7",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-8",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-12",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-13",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-14",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-15",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-6",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-7",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-8",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-9",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-10",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-11",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-12",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-3",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-4",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-6",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-7",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-8",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-11",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-12",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-13",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-14",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-15",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-16",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-17",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-18",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-2",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-3",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-4",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-6",
+                                                                  "status":  "not-checked"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+                                                                        "F02-12"
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  20672804,
+                                                     "cached_input_tokens":  19001024,
+                                                     "output_tokens":  86650,
+                                                     "reasoning_output_tokens":  52013
+                                                 },
+                                       "engine_run":  null,
+                                       "wall_seconds":  1548.7,
+                                       "finished_at":  "2026-09-28T06:23:37+02:00",
+                                       "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  19,
+                                       "when":  "2026-09-28T05:55:50+02:00",
+                                       "purpose":  "acceptance",
+                                       "topics":  [
+
+                                                  ],
+                                       "role":  "",
+                                       "consult_id":  "32739c73-9a54-40bd-9b15-1377e585ab02",
+                                       "reviewer":  {
+                                                        "provider":  "mimo",
+                                                        "provider_source":  "roster",
+                                                        "model":  "mimo-v2.6-pro",
+                                                        "model_source":  "roster",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "47cd6ee7e4ff9e9edca22c003d603d4c7fd722e8b85c63b4d02ef69f97ed8051",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://token-plan-ams.xiaomimimo.com/v1",
+                                                                                "name":  "Xiaomi MiMo Token Plan",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "mimo :: mimo-v2.6-pro",
+                                       "preflight":  "ok: env MIMO_API_KEY set",
+                                       "preflight_warning":  "",
+                                       "roster":  {
+                                                      "path":  "C:/Users/Dmytro/AppData/Local/Temp/claude/C--Users-Dmytro-claude-codex-consult/2e5096df-2bb2-46b1-8e0e-f97f37eaab90/scratchpad/roster-wave25-accept.json",
+                                                      "position":  3,
+                                                      "skipped":  [
+                                                                      {
+                                                                          "provider":  "openai",
+                                                                          "model":  "gpt-6-astra",
+                                                                          "engine":  "codex",
+                                                                          "reason":  "usage limit until 2026-09-28T20:35:00+02:00"
+                                                                      },
+                                                                      {
+                                                                          "provider":  "gemini",
+                                                                          "model":  "gemini-3.8-flash-high",
+                                                                          "engine":  "agy",
+                                                                          "reason":  "usage limit until 2026-09-28T21:30:55+02:00"
+                                                                      },
+                                                                      {
+                                                                          "provider":  "gemini",
+                                                                          "model":  "gemini-3.1-pro-high",
+                                                                          "engine":  "agy",
+                                                                          "reason":  "usage limit until 2026-09-28T21:30:55+02:00"
+                                                                      }
+                                                                  ],
+                                                      "applied":  [
+                                                                      "model",
+                                                                      "codex_config"
+                                                                  ]
+                                                  },
+                                       "panel":  {
+                                                     "id":  "a011f18e-8ca7-4458-bea5-2239a404c5ed",
+                                                     "position":  2,
+                                                     "of":  2,
+                                                     "members":  [
+                                                                     {
+                                                                         "provider":  "openai",
+                                                                         "model":  "gpt-6-astra",
+                                                                         "state":  "skipped",
+                                                                         "reason":  "usage limit until 2026-09-28T20:35:00+02:00"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "ZAI",
+                                                                         "model":  "glm-5.3",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "mimo",
+                                                                         "model":  "mimo-v2.6-pro",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.8-flash-high",
+                                                                         "state":  "skipped",
+                                                                         "reason":  "usage limit until 2026-09-28T21:30:55+02:00"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.1-pro-high",
+                                                                         "state":  "skipped",
+                                                                         "reason":  "usage limit until 2026-09-28T21:30:55+02:00"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "deepseek-v4.1-flash",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 2"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "dola-seed-2.0-pro",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 2"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "meta",
+                                                                         "model":  "muse-spark-1.3-contributor",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 2"
+                                                                     }
+                                                                 ],
+                                                     "concurrency":  2,
+                                                     "limits":  {
+                                                                    "ZAI":  1,
+                                                                    "mimo":  1
+                                                                },
+                                                     "asked":  2,
+                                                     "routing":  {
+                                                                     "mode":  "routed",
+                                                                     "order":  "routed",
+                                                                     "fallback":  "",
+                                                                     "seed":  "6a14f995add450264cf69f9d925fcb70f9aa806f825d5cdda6f159f52b988c4c",
+                                                                     "nonce":  "2026-09-28",
+                                                                     "nonce_source":  "date",
+                                                                     "size":  2,
+                                                                     "size_asked":  2,
+                                                                     "size_source":  "-PanelSize",
+                                                                     "reserve":  0,
+                                                                     "eligible":  [
+                                                                                      {
+                                                                                          "position":  2,
+                                                                                          "lineage":  "ZAI :: glm-5.3",
+                                                                                          "lab":  "zhipu",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.625,
+                                                                                          "basis":  "purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  3,
+                                                                                          "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                          "lab":  "xiaomi",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.7812,
+                                                                                          "basis":  "purpose",
+                                                                                          "ratings":  6,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  6,
+                                                                                          "lineage":  "byteplus :: deepseek-v4.1-flash",
+                                                                                          "lab":  "deepseek",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.4167,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  4,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  7,
+                                                                                          "lineage":  "byteplus :: dola-seed-2.0-pro",
+                                                                                          "lab":  "bytedance",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.25,
+                                                                                          "basis":  "purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  8,
+                                                                                          "lineage":  "meta :: muse-spark-1.3-contributor [muse]",
+                                                                                          "lab":  "meta",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.125,
+                                                                                          "basis":  "neutral",
+                                                                                          "ratings":  0,
+                                                                                          "required":  false
+                                                                                      }
+                                                                                  ],
+                                                                     "picked":  [
+                                                                                    {
+                                                                                        "slot":  1,
+                                                                                        "position":  2,
+                                                                                        "lineage":  "ZAI :: glm-5.3",
+                                                                                        "lab":  "zhipu",
+                                                                                        "rule":  "required"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  2,
+                                                                                        "position":  3,
+                                                                                        "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                        "lab":  "xiaomi",
+                                                                                        "rule":  "required"
+                                                                                    }
+                                                                                ],
+                                                                     "explored":  [
+
+                                                                                  ],
+                                                                     "required":  [
+                                                                                      "ZAI :: glm-5.3",
+                                                                                      "mimo :: mimo-v2.6-pro"
+                                                                                  ]
+                                                                 },
+                                                     "roles_note":  "",
+                                                     "started":  2,
+                                                     "usable":  2
+                                                 },
+                                       "parent_thread":  "01a0e475-5a51-7963-8365-e341cfd32148",
+                                       "thread":  "01a0e627-a22d-7681-be3b-6250f9fad1f4",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "fork",
+                                       "mode_fallback":  null,
+                                       "command":  "codex exec --sandbox read-only --color never --json -m mimo-v2.6-pro -c model_reasoning_effort=\"high\" -c model_provider=\"mimo\" -c model_catalog_json=\"C:/Users/Dmytro/.codex/model-catalogs.json\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-71aa418e5d3447da9ecb1d4a5a3ba663.md fork 01a0e475-5a51-7963-8365-e341cfd32148 -",
+                                       "brief":  ".collab/companions-2026-09-26/handoffs/24-claude-wave26b-reacceptance.md",
+                                       "range":  {
+                                                     "spec":  "f29f5ca..35d4a32",
+                                                     "files":  63,
+                                                     "insertions":  9808,
+                                                     "deletions":  256,
+                                                     "lines":  10064
+                                                 },
+                                       "prompt_chars":  41817,
+                                       "reply":  "handoffs/26-codex-reply-mimo.md",
+                                       "reply_json":  "handoffs/26-codex-reply-mimo.reply.json",
+                                       "events":  "handoffs/26-codex-reply-mimo.events.jsonl",
+                                       "partial_reply":  "",
+                                       "model":  "mimo-v2.6-pro",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "mimo-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  900,
+                                       "sandbox":  "read-only",
+                                       "timeout_sec":  3600,
+                                       "timeout_source":  "purpose",
+                                       "continue_sec":  900,
+                                       "extra_config":  [
+                                                            "model_catalog_json=\"C:/Users/Dmytro/.codex/model-catalogs.json\""
+                                                        ],
+                                       "extra_config_source":  "roster",
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-09-28T05:55:50+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "timeout_continue":  {
+                                                                "thread":  "01a0e627-a22d-7681-be3b-6250f9fad1f4",
+                                                                "wall_seconds":  176,
+                                                                "outcome":  "usable reply",
+                                                                "events":  "handoffs/26-codex-reply-mimo.continue.events.jsonl",
+                                                                "usage":  {
+                                                                              "input_tokens":  31643397,
+                                                                              "cached_input_tokens":  23991040,
+                                                                              "output_tokens":  126952,
+                                                                              "reasoning_output_tokens":  75847
+                                                                          }
+                                                            },
+                                       "stall":  {
+                                                     "seconds":  900,
+                                                     "last_event":  "2026-09-28T06:21:00+02:00"
+                                                 },
+                                       "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                       "reviewed_revision":  "e868859",
+                                       "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078",
+                                       "tree_sha256_after":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078",
+                                       "tree_changed_during_review":  false,
+                                       "revision_moved":  null,
+                                       "changed_files":  0,
+                                       "brief_sha256":  "65b6a66ee54dfd51f16cdac3e30d7c0cdbd935d10ff3ebe3b5214be254baf6c2",
+                                       "brief_sha256_after":  "65b6a66ee54dfd51f16cdac3e30d7c0cdbd935d10ff3ebe3b5214be254baf6c2",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (0 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "tree_check":  null,
+                                       "bridge_outcome":  "usable reply (after a timeout continuation)",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "HOLD",
+                                       "verdict_reason":  "Wave 26b fixes the targeted findings, but kick acknowledgment races, silent health-merge update loss, and false stall kills remain major defects.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  3,
+                                                        "minor":  2,
+                                                        "note":  1
+                                                    },
+                                       "finding_ids":  [
+                                                           "F26-1",
+                                                           "F26-2",
+                                                           "F26-3",
+                                                           "F26-4",
+                                                           "F26-5",
+                                                           "F26-6"
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F02-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-2",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-3",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-4",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-5",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-6",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-7",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-8",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-12",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-13",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-14",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-15",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-2",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-3",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-6",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-7",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-8",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-9",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-10",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-11",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-12",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-2",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-3",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-4",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-5",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-6",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-7",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-8",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-11",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-12",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-13",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-14",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-15",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-16",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-17",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-18",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-2",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-3",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-4",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-5",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F15-6",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F19-1",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-6",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F22-7",
+                                                                  "status":  "fixed"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  null,
+                                       "engine_run":  null,
+                                       "wall_seconds":  2411.4,
+                                       "finished_at":  "2026-09-28T06:38:59+02:00",
+                                       "commit_wait_ms":  0
                                    }
                                ]
               }

@@ -132,6 +132,22 @@
                                                      "note":  "Get-RoutingRate replaces the additive score with the specified prior-based rate at common.ps1:5810-5815.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "fixed at wave 26; score code untouched here",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave scoring work is outside the assigned F22/F19 ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -279,6 +295,22 @@
                                                      "note":  "Ratings are normalized and keyed by consult_id across tasks at common.ps1:5735-5807.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "rating reader re-read; consult_id keying intact, needJoin improved",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave telemetry work is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -417,6 +449,22 @@
                                                      "note":  "The window uses consultation time and latest-rating replacement; residual rating-selection bias is listed as unproven.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "consult_when windowing intact in the re-read reader",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave telemetry work is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -542,6 +590,22 @@
                                                      "note":  "Topic slugs are deduplicated and fractional topic evidence is pooled at common.ps1:5839-5852.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 26 topic scoring untouched here",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Topic scoring is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -676,6 +740,22 @@
                                                      "note":  "D1 reserves diversity only for qualifying labs and otherwise draws by weight at common.ps1:5903-5955.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "draw code re-read; reserve unchanged in effect, restated per D5",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Diversity behavior is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -814,6 +894,22 @@
                                                      "note":  "Purpose sizes, precedence, capped sizes and started-member counting are defined and tested.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 26 size semantics; only size_asked reporting changed",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Panel-size semantics are outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -948,6 +1044,22 @@
                                                      "note":  "The explicit nonce and SHA-256 seed precede selection at common.ps1:5865-5900.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "seed logic re-read; nonce sources intact",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Routing seed behavior is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -1082,6 +1194,22 @@
                                                      "note":  "Routed mode falls back to roster order only when no eligible lineage has three marks at common.ps1:6003-6017.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "routed default + \u0027no ratings\u0027 fallback intact (6299)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Routing fallback behavior is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -1552,6 +1680,22 @@
                                                      "note":  "Required matchers, roster defaults, pinning and exit 5 are implemented and tested.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "-Require paths untouched here",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "-Require is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -1690,6 +1834,22 @@
                                                      "note":  "Role slugs, repository precedence, prompt placement, conflict and count rules are implemented; symlink containment is a new finding.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "role resolution re-read; slug + precedence intact",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Roles are outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -1837,6 +1997,22 @@
                                                      "note":  "harness-companions adds deterministic score, draw, route, require, role, rate and scoreboard boundaries.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "suite not executed in this read-only review",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Companions-wave tests are outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -1971,6 +2147,22 @@
                                                      "note":  "The five-member statement is labelled a heuristic and UNIQ supplies a measurement.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "UNIQ claim untouched beyond path normalisation",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Documentation evidence is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -2118,6 +2310,22 @@
                                                      "note":  "The rate prior, hierarchy and consultation-time window replace the additive score.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 26 score formula untouched",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R15 scoring is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -2256,6 +2464,22 @@
                                                      "note":  "Lab reserve excludes below-neutral entries and uses vendor-derived labs.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "vendor-table labs re-read in the draw path",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R14 diversity is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -2385,6 +2609,22 @@
                                                      "note":  "Slugs are validated before path construction at common.ps1:6077-6083.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "slug checked before any path join (6421)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R16 role traversal is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -2717,6 +2957,22 @@
                                                      "note":  "No-evidence routing is explicit roster order with recorded fallback at common.ps1:6003-6017.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "fallback logic intact (6299)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R15 fallback is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -2846,6 +3102,22 @@
                                                      "note":  "SHA-256, canonical sorting and fixed golden sequences replace runtime RNG behavior.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "SHA-256 seed, length-prefixed now; no GetHashCode",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R15 seed portability is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -2975,6 +3247,22 @@
                                                      "note":  "Roles are assigned by score rank and willingness at common.ps1:6106-6132.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "roles by score rank with exact willingness matching",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R16 role assignment is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -3109,6 +3397,22 @@
                                                      "note":  "A required member without a usable reply blocks later starts and exits 5 at codex-consult.ps1:2431-2470,2635-2637.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "required-failure paths untouched here",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "-Require behavior is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -3243,6 +3547,22 @@
                                                      "note":  "Roster allowlists and require validation accept and validate the new keys at common.ps1:5243-5365.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "allowlists gained timeout_sec/stall_sec/context_tokens with validation (5484, 5495-5512)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Roster schema work is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -3377,6 +3697,22 @@
                                                      "note":  "-Rate copies topics and Read-AllTaskRatings uses the denormalized record or consult_id completion.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "topic attribution untouched here",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Topic telemetry is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -3506,6 +3842,22 @@
                                                      "note":  "Started-member semantics and no-backfill are explicit; explicit -PanelSize suppresses the floor warning.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "no-backfill residual unchanged",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Panel sizing is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -3649,6 +4001,22 @@
                                                      "note":  "Select-PanelRouting composes required pins, lab reserve and one weighted draw.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "one selection rule intact in the re-read draw",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R14/R15 selection is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -3801,6 +4169,22 @@
                                                      "note":  "Consult_id keying removes cross-task n joins.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "consult_id keying intact",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Telemetry joins are outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -3944,6 +4328,22 @@
                                                      "note":  "Get-ModelLab derives labs from model prefixes, never provider labels.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "lab mapping untouched beyond the seed change",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Lab grouping is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -4092,6 +4492,22 @@
                                                      "note":  "The bounded prior rate avoids floor collapse and volume dominance.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "score formula untouched",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R15 scoring is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -4235,6 +4651,22 @@
                                                      "note":  "The nonce and seed are computed before the draw and recorded in routing.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "nonce = date/-PanelSeed; dry run and real run share it",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R15 seeding is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -4378,6 +4810,22 @@
                                                      "note":  "Big-endian SHA-256 uniforms and golden sequences specify cross-runtime behavior.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "SHA-256 counter stream + 53-bit uniforms intact; reference-draw.py documents it",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R15 portability is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -4521,6 +4969,22 @@
                                                      "note":  "Single -Provider requirements use roster-walk availability semantics.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "-Require availability untouched here",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "-Require availability is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -4673,6 +5137,22 @@
                                                      "note":  "Matchers compare provider/model/engine fields and cover model-less entries by position or label.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "matcher core untouched; delimiter inputs now refused at load",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "-Require matching is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -5065,6 +5545,22 @@
                                                      "note":  "Eligible non-seated members have the explicit not-picked state and are excluded from skips.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "not-picked state untouched here",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Panel state modeling is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -5221,6 +5717,22 @@
                                                      "note":  "Order-sensitive assertions were rewritten around routing.picked and seat order.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "suite not executed",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R14/R15 test compatibility is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -5368,6 +5880,22 @@
                                                      "note":  "lab, roles, require and ext are allowlisted and validated fail-closed.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "allowlists extended for the new keys",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Roster schema work is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -5511,6 +6039,22 @@
                                                      "note":  "Ranking, draw and exploration share the post-gate eligible set.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "eligible-set gating untouched",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Exploration gates are outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -5654,6 +6198,22 @@
                                                      "note":  "Exit 5 is implemented and documented in README and the skill.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "exit tables; 5 documented previously, no regression seen",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Exit-code documentation is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -5797,6 +6357,22 @@
                                                      "note":  "Role names, precedence, count checks and score-rank assignment are explicit.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "slug/precedence/surplus refusal intact in the re-read role code",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "R16 roles are outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -5944,6 +6520,22 @@
                                                      "note":  "The peak code fact is corrected and the declared no-backfill behavior is documented.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "OffPeakOnly untouched",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Panel sizing and peak behavior are outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -6096,6 +6688,22 @@
                                                      "note":  "Topics are copied to marks, stores are read once, and warnings use the ledger warnings field.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "telemetry schema untouched beyond needJoin",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Telemetry details are outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -7309,6 +7917,22 @@
                                                      "note":  "Failure classification prioritizes complete quota/billing evidence before context capability.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c, outside this range",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Failure-classification work is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -7404,6 +8028,22 @@
                                                      "note":  "Listing identity/health caches use unambiguous cache keys through New-ListingCache.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c, outside this range",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Identity-cache work is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -7494,6 +8134,22 @@
                                                      "note":  "Informational stderr filtering prevents benign auth/quota words from suppressing continuation.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c, outside this range",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Killed-turn classification is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -7584,6 +8240,22 @@
                                                      "note":  "Class hints use classification evidence rather than only truncated message text.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c, outside this range",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Failure hints are outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -7678,6 +8350,22 @@
                                                      "note":  "The resume serializer includes ReplyName and SkipPreflight with the other replay options.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "resume serializer re-read; -ReplyName/-SkipPreflight included (4932-4937)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Resume serialization is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -7772,6 +8460,22 @@
                                                      "note":  "Every no-process launch path restores the prior recovery record state.",
                                                      "base_commit":  "20491b1fb2542b02ba1482c4f4126faf06cb7176",
                                                      "tree_sha256":  "8a02d86109e77c4852c634fc42775e39d33ab9a52bef05fa15b7be7ad6759321"
+                                                 },
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c, outside this range",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Recovery-record restoration is outside the assigned ruling scope.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                                  }
                                              ]
                      },
@@ -7814,7 +8518,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F26-5"
                                            ],
                          "source":  {
                                         "consult":  14,
@@ -7844,7 +8548,22 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "size_asked + \u0027panel size reduced\u0027 warning + summary asked from the request (6293, 6319, 6337; 2235, 2835)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "size_asked and a down-clamp warning were added, but the required-pin increase remains silent; narrowed by finding #5.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 }
                                              ]
                      },
                      {
@@ -7916,7 +8635,7 @@
                      },
                      {
                          "id":  "F22-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -7957,7 +8676,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F26-6"
                                            ],
                          "source":  {
                                         "consult":  17,
@@ -7984,15 +8703,39 @@
                                              "evidence":  "",
                                              "base_commit":  "35d4a32cde6939f372c79e89a2c936e3c0d353a4",
                                              "tree_sha256":  "1cc6fb290de131789266c24bcbc754d5333ff46f3f5136eb4b3bb1b2ec22b62f"
+                                         },
+                                         {
+                                             "when":  "2026-09-28T06:43:33+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "wave 26b re-acceptance in 35d4a32",
+                                             "evidence":  "handoffs/25-codex-reply-zai.md and handoffs/26-codex-reply-mimo.md: prior_findings F22-1 fixed by both reviewers",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-RoleFileProblem + Resolve-RoleFile reparse/containment checks (common.ps1:6391-6439); ROLEFILE junction tests",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "File and directory reparse checks plus containment reject the stated symlink/junction threat at common.ps1:6391-6434; hard links/TOCTOU are finding #6.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F22-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -8051,15 +8794,39 @@
                                              "evidence":  "",
                                              "base_commit":  "35d4a32cde6939f372c79e89a2c936e3c0d353a4",
                                              "tree_sha256":  "1cc6fb290de131789266c24bcbc754d5333ff46f3f5136eb4b3bb1b2ec22b62f"
+                                         },
+                                         {
+                                             "when":  "2026-09-28T06:43:37+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "wave 26b re-acceptance in 35d4a32",
+                                             "evidence":  "handoffs/25-codex-reply-zai.md and handoffs/26-codex-reply-mimo.md: prior_findings F22-2 fixed by both reviewers",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-RosterStringProblem refuses matcher/seed delimiters (5429, 5487-5493)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Reserved delimiters and edge whitespace are rejected and matchers compare fields.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F22-3",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -8114,15 +8881,39 @@
                                              "evidence":  "",
                                              "base_commit":  "35d4a32cde6939f372c79e89a2c936e3c0d353a4",
                                              "tree_sha256":  "1cc6fb290de131789266c24bcbc754d5333ff46f3f5136eb4b3bb1b2ec22b62f"
+                                         },
+                                         {
+                                             "when":  "2026-09-28T06:43:39+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "wave 26b re-acceptance in 35d4a32",
+                                             "evidence":  "handoffs/25-codex-reply-zai.md and handoffs/26-codex-reply-mimo.md: prior_findings F22-3 fixed by both reviewers",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "augmenting-path exact matching + lexicographic assignment, greedy fallback with roles_note (6457-6545)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Exact feasibility-checked role matching replaces greedy willingness violations.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F22-4",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -8181,15 +8972,39 @@
                                              "evidence":  "",
                                              "base_commit":  "35d4a32cde6939f372c79e89a2c936e3c0d353a4",
                                              "tree_sha256":  "1cc6fb290de131789266c24bcbc754d5333ff46f3f5136eb4b3bb1b2ec22b62f"
+                                         },
+                                         {
+                                             "when":  "2026-09-28T06:43:42+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "wave 26b re-acceptance in 35d4a32",
+                                             "evidence":  "handoffs/25-codex-reply-zai.md and handoffs/26-codex-reply-mimo.md: prior_findings F22-4 fixed by both reviewers",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "length-prefixed seed fields and lineages (6144-6154); reference-draw.py",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Seed fields are length-prefixed.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F22-5",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -8248,10 +9063,34 @@
                                              "evidence":  "",
                                              "base_commit":  "35d4a32cde6939f372c79e89a2c936e3c0d353a4",
                                              "tree_sha256":  "1cc6fb290de131789266c24bcbc754d5333ff46f3f5136eb4b3bb1b2ec22b62f"
+                                         },
+                                         {
+                                             "when":  "2026-09-28T06:43:44+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "wave 26b re-acceptance in 35d4a32",
+                                             "evidence":  "handoffs/25-codex-reply-zai.md and handoffs/26-codex-reply-mimo.md: prior_findings F22-5 fixed by both reviewers",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "reserve over seats left after pins; routing.reserve (6205-6208, 6339)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The lab reserve is computed after required pins and recorded.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 }
                                              ]
                      },
                      {
@@ -8283,7 +9122,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F26-4"
                                            ],
                          "source":  {
                                         "consult":  17,
@@ -8313,12 +9152,27 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "needJoin on any missing field incl. model/purpose (6029-6032)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Missing properties are completed, but present empty fields still bypass completion; narrowed by finding #4.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F22-7",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -8377,6 +9231,501 @@
                                              "evidence":  "",
                                              "base_commit":  "35d4a32cde6939f372c79e89a2c936e3c0d353a4",
                                              "tree_sha256":  "1cc6fb290de131789266c24bcbc754d5333ff46f3f5136eb4b3bb1b2ec22b62f"
+                                         },
+                                         {
+                                             "when":  "2026-09-28T06:43:47+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "wave 26b re-acceptance in 35d4a32",
+                                             "evidence":  "handoffs/25-codex-reply-zai.md and handoffs/26-codex-reply-mimo.md: prior_findings F22-7 fixed by both reviewers",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  18,
+                                                     "when":  "2026-09-28T06:23:37+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "ConvertTo-LocationPath normalisation (scoreboard:165-172)",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 },
+                                                 {
+                                                     "consult":  19,
+                                                     "when":  "2026-09-28T06:38:59+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "UNIQ paths normalize separators, case, repeated separators and leading `./`.",
+                                                     "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                                     "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F25-1",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7897
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7901
+                                           }
+                                       ],
+                         "claim":  "The stall cut counts only complete event lines, so a reviewer legitimately inside one long silent tool call (a build or test run that emits nothing between item.started and item.completed) is cut as \u0027stalled\u0027 once StallSec (default 900 s) passes without an event, and its continuation is told to finish now without the tool\u0027s result. This is exactly what D12 defines, but it makes the default unsafe for reviews whose tool calls can exceed 15 minutes.",
+                         "trigger":  "A codex member runs a single command that produces no event lines for more than 900 s while its process stays alive.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:7892-7906",
+                                              "observation":  "the loop breaks with Reason \u0027stall\u0027 when no complete line has been appended for StallSec while the process lives; no distinction between a stuck stream and an in-flight tool call"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:4408",
+                                              "observation":  "the continuation prompt then says the turn \u0027was stopped after N s without any output\u0027 and asks the reviewer to finish now"
+                                          }
+                                      ],
+                         "verification":  "Run a fake that emits item.started for a command, stays silent 1000 s, then completes: with the default StallSec the turn is cut before completion.",
+                         "remedy":  "Treat a started-but-incomplete tool item (or a live child process of the engine) as activity, or document the bound and recommend a higher stall_sec for build-heavy reviewers.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  18,
+                                        "reply":  "handoffs/25-codex-reply-zai.md",
+                                        "thread":  "01a0e627-a152-73e0-b6d7-56723a5d3628",
+                                        "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                        "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-28T06:23:37+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F25-2",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7896
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  4812
+                                           }
+                                       ],
+                         "claim":  "A kick file written in the final poll tick of a turn that exits normally is never seen by that turn; if the run then starts another turn (a format repair or denial retry), that turn\u0027s first poll sees the stale file, is killed, and the whole run\u0027s outcome is overwritten to \u0027failed: stopped by the operator (-Kick)\u0027 even though the main reply was usable — its text survives only in the salvaged .partial.md. This matches the operator\u0027s stop intent, but the usable classification is lost.",
+                         "trigger":  "-Kick -Member \u003cNN\u003e is written in the ~1 s window after the member\u0027s main turn exits successfully but before its format repair starts.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:7892-7897",
+                                              "observation":  "the kick file is only polled while a turn runs; a file appearing after WaitForExit returns is not consumed"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:4810-4815",
+                                              "observation":  "RunKicked forces bridgeOutcome to \u0027failed: stopped by the operator (-Kick)\u0027 regardless of an earlier usable reply"
+                                          }
+                                      ],
+                         "verification":  "With fakes, write the kick file in the tick between a usable prose main turn and its format repair; inspect bridge_outcome and partial_reply.",
+                         "remedy":  "When the kick was not seen by the main turn, record the operator stop as a warning on a usable reply instead of overwriting the outcome, or consume a stale kick file before starting any further turn.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  18,
+                                        "reply":  "handoffs/25-codex-reply-zai.md",
+                                        "thread":  "01a0e627-a152-73e0-b6d7-56723a5d3628",
+                                        "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                        "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-28T06:23:37+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F26-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7895
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7896
+                                           }
+                                       ],
+                         "claim":  "The kick protocol has no atomic acknowledgement: Wait-EngineProcess checks process exit before checking the kick file, so a member that exits after `-Kick` creates the file but before the next poll never consumes it. The kick command then waits for deletion and the stale file remains for the next run with the same handoff number.",
+                         "trigger":  "`-Kick -Member NN` is issued during the instant when the member finishes naturally or reaches its timeout.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 35d4a32:plugins/codex-consult/scripts/codex-consult-common.ps1:7881-7908",
+                                              "observation":  "the loop returns on WaitForExit success before examining KickPath; only a detected kick removes the file."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "kick writer and polling protocol",
+                                              "observation":  "a file created after the last successful poll can remain while -Kick waits for acknowledgement."
+                                          }
+                                      ],
+                         "verification":  "Race a fake member\u0027s exit against kick creation repeatedly and assert every invocation reaches a deterministic acknowledged or no-longer-running result without leaving `.consult.kick-*`.",
+                         "remedy":  "Use an atomic claim token or acknowledgement file, and have member finalization consume any kick addressed to it; make `-Kick` distinguish consumed, superseded and already-finished outcomes.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  19,
+                                        "reply":  "handoffs/26-codex-reply-mimo.md",
+                                        "thread":  "01a0e627-a22d-7681-be3b-6250f9fad1f4",
+                                        "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                        "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-28T06:38:59+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F26-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5094
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5107
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5071
+                                           }
+                                       ],
+                         "claim":  "The machine-wide health update can silently lose records when lock acquisition times out, and the promised same-instant tie-break by later `until` is not represented: machine records expose retry_after but not their stored `until`, then merge by timestamp and n without an `until` comparison.",
+                         "trigger":  "Two repositories write conflicting records at the same timestamp, or a writer cannot acquire `\u003chealth\u003e.lock` for 10 seconds.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 35d4a32:plugins/codex-consult/scripts/codex-consult-common.ps1:5094-5138",
+                                              "observation":  "lock timeout returns false without persisting or surfacing the pending update."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 35d4a32:plugins/codex-consult/scripts/codex-consult-common.ps1:5066-5088",
+                                              "observation":  "conversion does not carry the record\u0027s stored until or provide the declared later-until tie-break."
+                                          }
+                                      ],
+                         "verification":  "Concurrently write equal-time conflicting records and separately hold the lock for 11 seconds; inspect final health and caller-visible errors.",
+                         "remedy":  "Queue or retry updates with an explicit failure signal, and merge records with keys `(when, until)` or explicitly implement the declared tie-break.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  19,
+                                        "reply":  "handoffs/26-codex-reply-mimo.md",
+                                        "thread":  "01a0e627-a22d-7681-be3b-6250f9fad1f4",
+                                        "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                        "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-28T06:38:59+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F26-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7873
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7897
+                                           }
+                                       ],
+                         "claim":  "The stall detector measures only complete newline-delimited stream output, so a healthy member executing one long tool call is killed after `stall_sec` even though its process is actively working and may emit no complete event until the call returns.",
+                         "trigger":  "A reviewer starts a tool call that runs longer than the default 900-second stall window without intermediate complete event lines.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 35d4a32:plugins/codex-consult/scripts/codex-consult-common.ps1:7849-7905",
+                                              "observation":  "only newline growth resets the silent timer; process CPU, child activity and an open tool-call state are ignored."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "long-running tool semantics",
+                                              "observation":  "tool implementations need not emit complete event lines while executing."
+                                          }
+                                      ],
+                         "verification":  "Run a fake tool call that writes no complete line for longer than StallSec and verify whether it survives while visibly active.",
+                         "remedy":  "Reset the timer for recognized tool-start/activity events and child-process activity, or require explicit idleness before cutting; keep a hard overall timeout as the safety bound.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  19,
+                                        "reply":  "handoffs/26-codex-reply-mimo.md",
+                                        "thread":  "01a0e627-a22d-7681-be3b-6250f9fad1f4",
+                                        "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                        "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-28T06:38:59+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F26-4",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6029
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6052
+                                           }
+                                       ],
+                         "claim":  "Legacy-rating completion checks property presence rather than required-field validity, so a mark containing empty `purpose`, `topics`, or `engine` fields bypasses ledger completion and can route under an empty purpose or lose topic credit.",
+                         "trigger":  "A legacy rating has consult_id and provider/model but carries `purpose:\"\"`, `topics:[]`, or `engine:\"\"`.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 35d4a32:plugins/codex-consult/scripts/codex-consult-common.ps1:6029-6057",
+                                              "observation":  "needJoin omits empty-value checks for these fields, while later replacement occurs only when a property is absent."
+                                          }
+                                      ],
+                         "verification":  "Feed such a mark with a matching ledger entry and inspect the normalized purpose, topics and engine.",
+                         "remedy":  "Treat missing or invalid values uniformly, join the ledger for every incomplete field, and discard records still unresolvable.",
+                         "supersedes":  [
+                                            "F22-6"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  19,
+                                        "reply":  "handoffs/26-codex-reply-mimo.md",
+                                        "thread":  "01a0e627-a22d-7681-be3b-6250f9fad1f4",
+                                        "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                        "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-28T06:38:59+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F26-5",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6295
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6318
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  2836
+                                           }
+                                       ],
+                         "claim":  "Panel size is still adjusted silently in the upward direction: required reviewers raise the seat count above `size_asked`, but the warning covers only a downward clamp and the dry-run summary omits `asked`.",
+                         "trigger":  "`-PanelSize 2 -Require a,b,c` has three required eligible reviewers and seats three.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 35d4a32:plugins/codex-consult/scripts/codex-consult-common.ps1:6291-6319",
+                                              "observation":  "the required-count raise precedes the warning, which compares only against the reduced case."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 35d4a32:plugins/codex-consult/scripts/codex-consult.ps1:2835-2836",
+                                              "observation":  "the dry-run summary does not state the requested count."
+                                          }
+                                      ],
+                         "verification":  "Dry-run the trigger and inspect warnings and summary wording for both size directions.",
+                         "remedy":  "Warn whenever effective size differs from requested size and show `asked/effective` in both dry-run and real summaries.",
+                         "supersedes":  [
+                                            "F19-1"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  19,
+                                        "reply":  "handoffs/26-codex-reply-mimo.md",
+                                        "thread":  "01a0e627-a22d-7681-be3b-6250f9fad1f4",
+                                        "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                        "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-28T06:38:59+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F26-6",
+                         "status":  "wontfix",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6398
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6433
+                                           }
+                                       ],
+                         "claim":  "Role containment proves absence of reparse points but not stable final-target identity: a hard link or replacement between validation and reading can still expose another file.",
+                         "trigger":  "A privileged or concurrent actor replaces a validated role file or supplies a hard-link alias before Read-SharedText.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "git show 35d4a32:plugins/codex-consult/scripts/codex-consult-common.ps1:6391-6434",
+                                              "observation":  "checks and the later read are separate filesystem operations; no file handle is opened and validated atomically."
+                                          }
+                                      ],
+                         "verification":  "Replace a role file between validation and read under a test hook and observe which contents enter the prompt.",
+                         "remedy":  "Open once with no-follow semantics, validate the opened handle\u0027s final path and metadata, then read that handle; otherwise document hard links and TOCTOU as accepted.",
+                         "supersedes":  [
+                                            "F22-1"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  19,
+                                        "reply":  "handoffs/26-codex-reply-mimo.md",
+                                        "thread":  "01a0e627-a22d-7681-be3b-6250f9fad1f4",
+                                        "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                        "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-28T06:38:59+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
+                                         },
+                                         {
+                                             "when":  "2026-09-28T06:43:00+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "accepted limitation: a hard link is indistinguishable from the file itself and the check does not defend against a hostile repository; documented in README Roles (wave 26c)",
+                                             "evidence":  "",
+                                             "base_commit":  "e86885902470d8f046bcaa66fdea437830dc8411",
+                                             "tree_sha256":  "8f4f3c592c0ef6b14083ceb2f16ed9bb5eed977b66c65485dfc97e8f27359078"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -8531,6 +9880,38 @@
                         "useful":  "yes",
                         "note":  "wave 26 acceptance: verified the implemented findings; F22-1 major (role file symlink) and six minors",
                         "when":  "2026-09-27T23:13:36+02:00"
+                    },
+                    {
+                        "n":  18,
+                        "consult_id":  "14c06665-395c-45db-87b0-fd478233168d",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-09-28T05:55:50+02:00",
+                        "useful":  "yes",
+                        "note":  "wave 26b re-acceptance: ACCEPT, F22-1 containment verified in code, 27 prior checked; F25-1/2",
+                        "when":  "2026-09-28T06:42:11+02:00"
+                    },
+                    {
+                        "n":  19,
+                        "consult_id":  "32739c73-9a54-40bd-9b15-1377e585ab02",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-09-28T05:55:50+02:00",
+                        "useful":  "yes",
+                        "note":  "wave 26b re-acceptance: HOLD with three majors on the new member-control and health code (kick ack race, health merge loss, false stall)",
+                        "when":  "2026-09-28T06:42:14+02:00"
                     }
                 ]
 }
