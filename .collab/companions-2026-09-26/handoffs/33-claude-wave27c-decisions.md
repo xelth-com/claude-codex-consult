@@ -80,12 +80,30 @@ D20. The host hint of Z Code (seen live, task `r13-host`): the shell tool of Z C
      directory `.zcode`, `.codex` or `.claude`), recorded `coordinator.host_by: markers | path | none`. README
      "Z Code" says what was observed: no session-start line reaches the context of a desktop session - the
      second `AGENTS.md` line covers it.
-D21. The scrub list for Z Code is completed from what its shell tool really carries: the exact names the
-     operator reads from inside a Z Code session (names only), with every `ZCODE_TELEMETRY*` name (device
-     and user identifiers), ZCODE_WORKSPACE_IDENTITY and ZCODE_PROCESS_LABEL among them; harmless build facts
-     (ZCODE_ENV, ZCODE_APP_VERSION) stay. The list in the README names the date and the build it was read
-     from.
+D21. The scrub list for Z Code is the whole prefix `ZCODE_` (REPLACES the list of names first written here,
+     and the prefix `ZCODE_PLUGIN` of 27b). Read by the operator inside a Z Code session on 2026-09-29
+     (desktop 3.14.3, names only): ZCODE_APP_VERSION, ZCODE_BASE_URL, ZCODE_BUILD_COMMIT_ID,
+     ZCODE_BUILTIN_PROVIDER_CONFIG_FILE, ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED, ZCODE_ENV,
+     ZCODE_PERSONAL_PROVIDER_CONFIG_FILE, ZCODE_PROCESS_LABEL, ZCODE_RG_BINARY, ZCODE_RUNTIME_ENV,
+     ZCODE_UGREP_BINARY, ZCODE_WINDOWS_APP_INSTALL_DIR. Two of them point at the provider configuration
+     files of the operator; no reviewer engine reads any `ZCODE_` variable, so nothing is lost by removing
+     them all, and a name a later build adds is covered. (The `CLAUDE_CODE_` names stay exact: the settings of
+     the operator must reach a future claude engine.) The host hint of D20 follows: ANY variable with the
+     prefix `ZCODE_` gives `zcode`, checked after the codex markers and before the claude-code ones.
+
+Added from the full report of the Z Code coordinator (the operator pasted it after the run):
+D22. The brief templates name no host (a residue of D6 of R13): `templates/brief-review.md` and every other
+     template say `# Handoff <NN> - <coordinator>: <slug>`; the harness grep of D6 covers the templates.
+D23. Where the three `AGENTS.md` lines go, per host, including the global file: the README names it for each
+     host (Codex CLI `~/.codex/AGENTS.md`, Z Code `~/.zcode/AGENTS.md`, Kimi Code the project file only). A
+     coordinator that finds no `codex-consult:` line in its instructions and none in its context runs the
+     hook one-liner once - the `consult-codex` skill says so in its first section.
+D24. Tool time limits of the hosts: a blocking bridge call is cut when the limit of the shell tool is shorter
+     than the timeout of the run (seen: Kimi Code 300 s in the foreground, Z Code 600 s; a checkpoint run
+     has 900 s). The `consult-codex` and `coordinate` skills say: when the limit of your shell tool is
+     shorter than the timeout of the purpose, or unknown, start the run with `-Detach` and come back with
+     `-Wait` or `-Status`; "means per host" lists the limits seen with their dates.
 
 Harness cases for every D item with code (fakes only); D16 with a fake whose tree cannot be enumerated.
-Re-acceptance: by mimo (required) with glm; the brief lists D1-D21 and the commit. It can run together with
+Re-acceptance: by mimo (required) with glm; the brief lists D1-D24 and the commit. It can run together with
 the acceptance of wave 28.

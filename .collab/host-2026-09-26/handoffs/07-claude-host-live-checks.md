@@ -34,6 +34,16 @@ H4. The process tree was NOT killed: process inspection is denied inside the san
 
 Decisions: D16-D19 of `.collab/companions-2026-09-26/handoffs/33-claude-wave27c-decisions.md`.
 
+Second run, outside the sandbox (`codex exec --dangerously-bypass-approvals-and-sandbox`, approved by the
+operator for this check, a fresh scratch repository): reviewer `mimo :: mimo-v2.6-pro`, usable reply in
+502.1 s, brief `01-coordinator-reviewer-trust.md` (`-BriefPrefix coordinator`), the same ledger values
+(`host: codex`, `source: explicit`, the three CODEX names scrubbed), the consultation rated `partly` by the
+coordinator: the reply was generic and the event stream of the reviewer showed two `wait` calls of the
+multi-agent tool and no command that read the brief. Remarks of the coordinator: the placeholders and the
+template naming of the skills are written for another host (D13, D22); the session has no recurring wake of
+its own, it polled in bounded steps. Candidate for the roadmap: reviewer children run with the multi-agent
+tools of the engine switched off (a reviewer has nobody to wait for).
+
 ## Z Code (desktop 3.14.3, CLI 0.16.9)
 
 Install and update through its plugin manager verified (three skills, the SessionStart hook). The live
