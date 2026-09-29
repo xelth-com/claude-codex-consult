@@ -280,7 +280,7 @@ optional participant whose "done" is never trusted and who never closes a findin
   historical defects plus clean controls at a fixed budget) on an officially supported route;
   leaderboard rank is not that evidence. Consider replacing a role before adding a reviewer.
 
-- **R17 — Telemetry and complaints to the maintainer's intake, opt-in (planned for 0.5).** So
+- **R17 — Telemetry and complaints to the maintainer's intake, on by default (implemented in the 0.5.0 candidate, wave 28; the intake itself is not deployed yet - events wait in the local spool).** So
   that the bridge can be improved when someone the maintainer never hears from uses it, a run
   can report ONE anonymised event per consultation, and the operator can file a complaint, to
   the maintainer's intake (`https://xelth.com/T/v2/...`, the "T-hub" spec kept in that site's
@@ -334,6 +334,26 @@ optional participant whose "done" is never trusted and who never closes a findin
   endpoint (pid + start time liveness); every roster walk reads it beside the repository's ledgers,
   and the endpoint parallel limit counts running members of every repository. Absent or unreadable
   = today's behaviour.
+- **R21 — The scoreboard says what is computed and what is asserted (candidate, from use on
+  2026-09-28).** A rating is the judge's assertion; a finding verified with evidence is closer to a
+  measurement. The scoreboard shows both in one score. A column for the evidence behind each
+  number (verified findings with their evidence against ratings alone) lets a reader see how much
+  of a reviewer's standing rests on checked work.
+- **R22 — Reviewer child hygiene beyond the environment (candidate, from the live host checks of
+  2026-09-29).** Wave 27 removes the coordinator's session markers from a reviewer's environment.
+  Two things still reach a reviewer that it has no use for: the plugins, skills and hooks of the
+  host the engine belongs to (after the plugin is installed on the Codex host, every `codex exec`
+  reviewer sees the coordinator's skills), and the engine's multi-agent tools (one reviewer spent
+  its run in `wait` calls with nobody to wait for and never read the brief). Reviewer children
+  start with the coordinator's plugin switched off and without multi-agent tools, per engine, and
+  the ledger records what was switched off.
+- **R23 — Waiting without losing the cache (rule in wave 27b, description in wave 27d).** A
+  coordinator with a large context never lets its prompt cache expire by oversight: a recurring
+  wake while anything runs or is awaited (another session's window included), the boundary
+  between refreshing the cache and compacting computed from the prices (README "Waiting: keep the
+  prompt cache or compact"), compaction at wave boundaries and only while the cache is warm. Open:
+  a host-independent way for the agent to compact its own context (on the host checked, the agent
+  has none).
 
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
