@@ -1,0 +1,94 @@
+{
+    "task_id":  "r13-host",
+    "findings":  [
+                     {
+                         "id":  "F02-1",
+                         "status":  "wontfix",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/r13-host/handoffs/01-zcode-checkpoint.md",
+                                               "line":  5
+                                           },
+                                           {
+                                               "path":  ".collab/companions-2026-09-26/findings.json",
+                                               "line":  null
+                                           },
+                                           {
+                                               "path":  ".collab/companions-2026-09-26/sessions.json",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The brief says the base is `ab479c8` + uncommitted \"collab artifacts of wave 27b only\" and that \"only this brief and the bridge\u0027s own outputs under `.collab/r13-host/` are new\"; the tree actually carries uncommitted work of a different task - modified `.collab/companions-2026-09-26/findings.json` and `sessions.json` (2190 insertions across the two) plus nine untracked files under `.collab/companions-2026-09-26/handoffs/`. The \"Changed files\" table lists only the brief.",
+                         "trigger":  "Anyone using the brief to decide exactly what is new under review, or running `git status` in the repo root.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "git status --porcelain / git diff --stat (repo root)",
+                                              "observation":  "` M .collab/companions-2026-09-26/findings.json`, ` M .collab/companions-2026-09-26/sessions.json`, nine `??` files under `.collab/companions-2026-09-26/handoffs/`, and `?? .collab/r13-host/`; no source file appears as modified. HEAD is ab479c8."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/r13-host/handoffs/01-zcode-checkpoint.md line 5 and the \"Changed files\" paragraph",
+                                              "observation":  "The brief claims the uncommitted set is wave 27b artifacts only and that the brief is the only hand-written new file."
+                                          }
+                                      ],
+                         "verification":  "Run `git status --porcelain` and `git diff --stat` in the repo root and compare the output with the brief\u0027s \"Changed files\" table.",
+                         "remedy":  "Commit or stash the companions-task artifacts before the checkpoint run, or rewrite the baseline line and the \"Changed files\" table to name every uncommitted path.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-reply-byteplus.md",
+                                        "thread":  "01a0ed8c-a072-7ae3-bea0-e91b02e6c69c",
+                                        "base_commit":  "ab479c81942ebd88c28c8206b3e64ec579f81f1b",
+                                        "tree_sha256":  "d4485dee9d2901e715c90f9dcc4a8ebe55a90efb877fbee0593716a021be7500"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-29T16:33:28+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "ab479c81942ebd88c28c8206b3e64ec579f81f1b",
+                                             "tree_sha256":  "d4485dee9d2901e715c90f9dcc4a8ebe55a90efb877fbee0593716a021be7500"
+                                         },
+                                         {
+                                             "when":  "2026-09-29T16:35:49+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "Accurate observation, no action: the brief is the point-in-time record its reply hash binds to (brief_sha256 in the ledger); its header did disclose the uncommitted wave-27b collab artifacts and the reviewer confirmed no source file changed. The next brief on this task, if any, names every uncommitted path in the table.",
+                                             "evidence":  "",
+                                             "base_commit":  "ab479c81942ebd88c28c8206b3e64ec579f81f1b",
+                                             "tree_sha256":  "d4485dee9d2901e715c90f9dcc4a8ebe55a90efb877fbee0593716a021be7500"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     }
+                 ],
+    "ratings":  [
+                    {
+                        "n":  1,
+                        "consult_id":  "11ed9d0b-0acb-4d54-87ab-a59a7014892d",
+                        "lineage":  "byteplus :: deepseek-v4.1-flash",
+                        "provider":  "byteplus",
+                        "model":  "deepseek-v4.1-flash",
+                        "engine":  "codex",
+                        "purpose":  "checkpoint",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-09-29T16:23:26+02:00",
+                        "useful":  "yes",
+                        "note":  "First live Z Code host run: answered Q1 substantively, verified all four claimed invariants against the code with line citations, and its RC1-RC3 checks correctly predicted the two host anomalies (coordinator.host=unknown, empty child_env_scrubbed) that I then confirmed against Get-CoordinatorHost/Get-HostMarkerNames.",
+                        "when":  "2026-09-29T16:35:59+02:00"
+                    }
+                ]
+}
