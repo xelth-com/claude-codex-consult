@@ -20,8 +20,9 @@ companions design review; and the wave 25 acceptance's carry-overs) are in, and 
 R20 - and the supervisor's addenda D15, D16), wave 26c (the wave 26b re-acceptance's decisions D1-D6
 of `.collab/companions-2026-09-26/handoffs/27-claude-wave26c-decisions.md`) and wave 27 (host
 invariance and the coordinator's manual - ROADMAP R13, R19, decisions D1-D9 of
-`.collab/host-2026-09-26/handoffs/05-claude-r13-decisions.md`); planned next: opt-out telemetry
-(R17).
+`.collab/host-2026-09-26/handoffs/05-claude-r13-decisions.md`), wave 27c (the fix round of their
+acceptance, decisions D1-D24 of `.collab/companions-2026-09-26/handoffs/33-claude-wave27c-decisions.md`)
+and wave 28 (telemetry and complaints to the maintainer's intake, on by default - ROADMAP R17).
 
 ### Added
 
@@ -525,6 +526,89 @@ invariance and the coordinator's manual - ROADMAP R13, R19, decisions D1-D9 of
       alone on both hosts. The suites ran `harness-host` at 48 (before the idle watchdog); the final
       50 ran alone on both hosts, as did `harness-engines` TREE and `harness-visibility` UNIT24C
       (they read the README).
+- **Wave 28 - telemetry and complaints to the maintainer's intake, ON by default (ROADMAP R17).**
+  Installing the plugin means accepting its terms (README "Telemetry (on by default)").
+  - The switch: `CODEX_CONSULT_TELEMETRY` (unset or empty, `on`, `1`, `true`, `yes` - on; `off`,
+    `0`, `false`, `no`, `none` - off; any other value counts as OFF: a switch that cannot be read
+    never sends) and `codex-consult.ps1 -Telemetry on|off` for one run (a panel passes it to its
+    members in the PanelSpec; a detached background gets it with its arguments).
+    `Get-TelemetrySwitch` lives in `codex-consult-detached.ps1` so the SessionStart hook can print
+    it. Off writes nothing of telemetry: no spool line, no salt, no notice marker.
+  - The event (`codex-consult-common.ps1`, section "telemetry"): after EVERY ledger commit - a
+    usable or a failed run, each panel member - `Submit-TelemetryEvent` builds ONE event from the
+    COMMITTED entry through the closed allowlist `ConvertTo-TelemetryDetails` / `New-TelemetryEvent`
+    (`app_id` codex-consult, `app_version` from `plugin.json`, `instance_id` = sha256(the 32 salt
+    bytes of `<codex home>/telemetry-salt` || the UTF-8 machine name), `event_type` consultation,
+    `severity` info | warning (quota, auth, the operator's -Kick) | error, `title` = the outcome
+    class `usable` | `usable-after-continuation` | `failed:<class>`, `details` {engine, provider,
+    model, purpose, outcome, wall_seconds, tokens {in, cached, out}, findings {blocker, major,
+    minor, note}, structured, format_retry, denial_retry, timeout_continue, panel_size, ps_version,
+    os, bridge_version}, `tags` [engine, provider], `client_time` (UTC), `os`, `runtime`) and
+    appends it as ONE NDJSON line `{v, kind, queued_unix, body}` to `<codex
+    home>/telemetry-spool/<utc yyyy-mm-dd>.ndjson` - the body a JSON STRING, so the sender posts
+    the exact bytes built. The provider label and the model id go through patterns (a path shape
+    becomes `other`), the purpose and the failure class through closed sets.
+  - The send: `Start-TelemetrySender` starts `scripts/codex-telemetry.ps1 -Flush -Telemetry on`
+    (new) detached - the same PowerShell, a hidden window through ShellExecute (no inherited
+    handle), in the temp directory, through `Hide-HostMarkers` like every engine child (the
+    coordinator's session markers, the messaging socket and token among them, never reach it) -
+    and never waits for it. A panel member only spools; its panel run starts ONE sender after the
+    members' counts are committed; a run that keeps its recovery record starts none.
+    `Invoke-TelemetryFlush`: the sender lock `<spool>/.flush.lock` (held open exclusively; a
+    concurrent sender exits 2), the spool oldest first, lines older than 7 days and lines that are
+    no spool line dropped, events in batches of at most 100 (`{"events": [...]}` to
+    `<intake>/v2/events`), complaint lines one by one (`<intake>/v2/complaints`), a 3 s connect
+    probe and 5 s in all per request (`Invoke-TelemetryPost`), delivered only on a 2xx JSON object
+    with `"ok": true`; a 429 with `Retry-After` of at most 60 s is waited for and resent once
+    (`Invoke-TelemetrySend`), nothing else is retried; the first failure ends the flush; delivered
+    and dropped lines are removed as a multiset of exact lines under the file's exclusive handle
+    (lines appended meanwhile stay); `<spool>/.last` {time, result, delivered, kept, dropped,
+    http}. The intake: `CODEX_CONSULT_TELEMETRY_URL`, else `https://xelth.com/T`; https only -
+    plain http only for a loopback host (`Get-TelemetryUrl`).
+  - The notice: the first real run after an install or an update (no marker `<codex
+    home>/telemetry-notice-<version>`) - a run the coordinator started or a `-Detach` foreground,
+    never a dry run, a panel member or a detached background - prints five lines (what is sent,
+    what never is, the switch, `-Complain` and `-Status`, the terms and the README section) while
+    telemetry is on. The dry run prints `telemetry   : on (<source>) - ...` / `telemetry   : off
+    (<source>) - nothing is spooled or sent`; the SessionStart hook's pointer line ends with `;
+    telemetry: on|off`.
+  - `-Complain "<text>" [-Contact <c>] [-Yes]` (`codex-consult.ps1 -Task <t>`, or
+    `codex-telemetry.ps1` with an optional `-Task`): the payload {app_id, app_version,
+    instance_id, text (at most 8 KiB of UTF-8), context {consultation - the task's last ledger
+    entry through the same allowlist, or null; bridge_version; os; runtime}, contact} printed in
+    full - exactly the body sent -, `send? [y/N]` unless `-Yes` (a redirected stdin is read as the
+    answer; no answer is no), sent synchronously (10 s); `public_ref` printed, or the payload kept
+    in the spool as a complaint line the sender retries. Exit 0 delivered, 1 refused or not
+    confirmed, 3 not delivered (kept). Independent of the switch (an explicit, confirmed send).
+  - `codex-telemetry.ps1 -Status`: the switch and its source, the intake URL, the spool's counts
+    (events, complaints, unreadable lines, the oldest), the last flush's result (the ONE line an
+    undeliverable intake - today's HTML page - ever costs), the instance id, the notice's state.
+    Reads only.
+  - Docs: README "## Telemetry (on by default)" (the terms line, the exact payload and a key
+    table, what is never sent, how it travels, the intake, `-Complain`, `-Status`, your data), the
+    installer's bullet, the options (`-Telemetry`, `-Complain`), the variables
+    (`CODEX_CONSULT_TELEMETRY`, `CODEX_CONSULT_TELEMETRY_URL`, the test hook
+    `CODEX_CONSULT_TEST_TELEMETRY_ENV`), the ledger note (the fields the event reads), the hook
+    and component rows, "How it works"; one paragraph each in the `consult-codex` and
+    `setup-providers` skills; the plugin and marketplace descriptions name the opt-out telemetry.
+  - Tests: `tests/harness-telemetry.ps1` (new, the sixteenth in `tests/run-all.ps1`) - UNIT,
+    SPOOL, NOTICE (+ DRYRUN), SEND (+ ENV), FLUSH (R429, NONJSON, DROP, LOCK, BATCH, URL),
+    COMPLAIN, STATUS, HOOK, DOCS, GUARD; the intake is a local `System.Net.HttpListener` on
+    127.0.0.1 or a closed loopback port, never the real one. Every OTHER harness sets
+    `CODEX_CONSULT_TELEMETRY=off` and `CODEX_CONSULT_TELEMETRY_URL=http://127.0.0.1:9/` at its top,
+    and so does `run-all.ps1` for its children; `harness-host` HOOK expects the pointer line with
+    `; telemetry: off`.
+  - Deviations and open points: (1) the hook's `telemetry: on|off` is appended to the POINTER
+    line (the availability line is asserted verbatim by three harnesses); (2) the ledger gets no
+    telemetry field (its field order is asserted by five harnesses; the event is derived from the
+    committed entry, README's ledger note lists the fields it reads); (3) severity `warning` also
+    covers `failed:operator` (a `-Kick` is neither a limit nor a bridge failure); (4) the notice is
+    printed only while telemetry is on; (5) a complaint does not depend on the switch; (6) the
+    intake's own delete endpoint is not in the v2 contract this client was built against - README
+    "Your data" asks for deletion through `-Complain` (the payload carries the instance id) and
+    says so; (7) the connect timeout is a TCP probe of the host (or of the system proxy for the
+    URL) before the request, since `HttpWebRequest` has no connect timeout of its own.
+  - Assertions (with wave 27c in the same runs): `harness-telemetry` 55 (new); the final `tests/run-all.ps1` runs of 2026-09-29 (Windows PowerShell 5.1, then PowerShell 7.6.6 from 20:29 to 22:19), the same counts on both, `17 harness(es), 0 failed`: `harness-0.3` 229, `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending` 26, `harness-fixes` 45 (the two F04-10 cases passed this time), `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 51, `harness-host` 52, `harness-telemetry` 55, `harness-fixes27c` 36.
 
 ### Changed
 
@@ -875,6 +959,102 @@ invariance and the coordinator's manual - ROADMAP R13, R19, decisions D1-D9 of
     the stored-until tie-break, the lock held elsewhere), STALLTOOL (4: the flight tracker for the
     three engines, an 8 s silent tool call, a 7 s byte drip, the continuation's wording), JOINBLANK
     (1), SIZERAISE (1). `fake-codex3.ps1`: `FAKE_CODEX_TOOL_OPEN`, `FAKE_CODEX_DRIP`.
+- **Wave 27c - the fix round of the waves 26c/27/27b acceptance** (panel 222af1cb on c6f6966: glm
+  ACCEPT, mimo HOLD, dola-seed ACCEPT, qwen3.8-max ACCEPT; findings F29-1..2, F30-1..9, F32-1..11;
+  the live host checks H1-H4 and the Z Code run; decisions D1-D24 of
+  `.collab/companions-2026-09-26/handoffs/33-claude-wave27c-decisions.md`). Code in
+  `codex-consult-common.ps1` (C) and `codex-consult.ps1` (B) unless named.
+  - D1 (F30-1 major, F29-2, F32-1, F30-6) the kick per request: `Read-KickRecord`,
+    `New-KickRequest` (a `{id, when, pid}` record written to a temporary file and renamed only when
+    absent - a second caller JOINS it), `Clear-StaleKickAck` (an acknowledgement older than 60 s of
+    another id: swept by any `-Kick` and by the member's run start), `Confirm-Kick` (the
+    acknowledgement `{id, result: stopped | late, when, pid}`, atomic) (C); the `-Kick` caller waits
+    for ITS id, only the creator retires the acknowledgement (after a 1 s grace for joiners), none
+    removes one before writing (B, the `-Kick` block; the run start's sweep). The acknowledgement's
+    result word is `stopped` (was `kicked`).
+  - D2 (F30-5) a kick of the TIMEOUT CONTINUATION keeps the timeout outcome and its salvage (no
+    provider failure from the cancelled turn), `warnings[]` `kick: the operator stopped the timeout
+    continuation (-Kick); ...` (B, `$kickedContinuation` before the provider failure) - a small code
+    alignment beside the documentation, since the code replaced the outcome by the operator's.
+  - D3 (F30-2 major) `Hide-HostMarkers` is transactional - the snapshot first, the removals in
+    `try`, a failing removal puts everything back and throws `host markers could not be hidden
+    (<name>: <why>)`; `Invoke-WithoutHostMarkers` (C). `Start-EngineProcess` refuses the start with
+    `bridge failure: host markers could not be hidden (...)`; the detached background, the version
+    probe and (wave 28) `Start-TelemetrySender` go through it too. Test hook
+    `CODEX_CONSULT_TEST_HIDE_FAIL`.
+  - D4 (F30-4) `Remove-HostMarkersFromStartInfo` returns why a block is not clean; `Start-ProbeProcess`
+    / `New-ProbeStartInfo` (C): the start-info path, else a FRESH start info while the markers are
+    hidden from the process environment, else the probe is skipped - `codex login status`, `agy
+    models`, `Invoke-LauncherCapture` read `not checked - ... was skipped: ...` and the run's
+    `warnings[]` says why (`$script:ProbeWarnings`). Test hook `CODEX_CONSULT_TEST_PROBE_SCRUB_FAIL`.
+  - D5 (F30-3 major, F32-8) `Read-StreamChunk` scans only the new bytes (`[Array]::IndexOf`), keeps a
+    carry of at most 1 MiB, skips a longer line to its end and counts it (`Discarding`, `Oversized`);
+    `Wait-EngineProcess` reports `Oversized`, the run warns once `oversized_lines: N ...` (C, B).
+  - D6 (F32-7) the tool-call suspension of the stall cut ends after max(3 x `-StallSec`, 1800 s)
+    (test hook `CODEX_CONSULT_TEST_TOOL_CAP_SEC`); the silent time then counts from the last byte and
+    the outcome says `- no output for N s (a tool call open for M s)` (`Wait-EngineProcess` ToolOpen;
+    B's stall text).
+  - D7 (F30-7, F29-1, F32-3) `Update-MachineHealth` names EVERY failure (`lock timeout`, `the directory
+    ... does not exist`, `write failed: <why>`) and every failure is retried (B: `$machineHealthCause`).
+  - D8 (F32-2) `Update-MachineHealth -Attempts -AttemptSec` (C); inside the write lock ONE attempt of
+    at most 1 s, the ledger warning `machine-wide health not updated at the commit (<cause>); retried
+    after it`; the full retry (3 x 5 s) after `Exit-StoreCommit`, the summary line `warning    :
+    machine-wide health not updated (<cause>)` when it fails again (B).
+  - D9 (F30-8, F32-6) `Resolve-CoordinatorIdentity -Defaults` (`Get-CodexConfigDefaults`) resolves a
+    TRIPLE; `Get-CoordinatorMatch` (own | provider | ''), `Format-CoordinatorWarning -Kind provider`
+    ("a reviewer from the coordinator's own provider (model not named)") (C); both warning sites (B).
+  - D10 (F30-9) `Get-IdentityStringProblem` - the one character rule of the roster's provider and
+    model strings and of the coordinator value (C; the roster validator calls it).
+  - D11 (F32-4) `coordinator.in_roster`; the console line and the dry run's `(not in the roster - no
+    reviewer can match it)` (`Format-CoordinatorText`, `Format-CoordinatorId`; B after the resolution).
+  - D12 (F32-5) `#n` naming no position: `coordinator.unresolved`, the warning `CODEX_CONSULT_COORDINATOR
+    '#n' names no roster position here ...` in every entry of the run; only an unparseable value is
+    refused.
+  - D13 (F32-9) the hook's pointer line carries the full `-Explain coordinate` command with the
+    script's own path (`codex-consult-hook.ps1`); `-Explain` replaces `${CLAUDE_PLUGIN_ROOT}` by the
+    plugin directory (B, the `-Explain` block).
+  - D14 (F32-10) `Test-TestMode`, `Get-TestHookValue`, `Get-IgnoredTestHooks` (C): every
+    `CODEX_CONSULT_TEST_*` read (and `CODEX_CONSULT_NOW` - an extension: it is a test hook too) goes
+    through the gate; without `CODEX_CONSULT_TEST_MODE=1` it is ignored and the run warns once
+    (`test hook(s) ignored - ...`). Every harness and `run-all.ps1` set `CODEX_CONSULT_TEST_MODE=1`.
+  - D15 (F32-11) `-Explain` disposes its output stream (`try`/`finally`).
+  - D16 (H4 major) `Get-DescendantTree` (the enumeration and whether it was denied),
+    `Invoke-TaskKillTree`, `Stop-ProcessTreeChecked` (C; `Stop-ProcessTree` stays its wrapper); the
+    three turn kills (main, `Invoke-EngineTurn`, the codex repair) use it through `Add-KillCheck` /
+    `Format-KillText` (B): `(process tree killed)` only when confirmed, else `(kill not confirmed:
+    <why>; pid <n> may still run)`, a warning, NO continuation (`timeout_continue.outcome` `not
+    attempted: the kill of the main turn was not confirmed ...`), ledger `kill_confirmed` (a NEW key
+    right after `stall`: `null` no kill, `true`, `false`). Test hook `CODEX_CONSULT_TEST_KILL_DENIED`
+    (the enumeration and taskkill denied).
+  - D17 (H1) `plugins/codex-consult/README.md` (new, short); the skills define "the README" as the
+    repository README with its URL. D18 (H2) `powershell` on Windows, `pwsh` elsewhere and the
+    WindowsApps alias - README, the three skills. D19 (H3) README "Codex CLI": what was observed in the
+    sandbox. D20 any `ZCODE_` variable is the `zcode` hint (after the codex markers, before
+    claude-code), else the install path (`Get-CoordinatorHostHint`; `coordinator.host_by`). D21 the
+    WHOLE prefix `ZCODE_` is scrubbed (the names read inside a Z Code session, 2026-09-29, desktop
+    3.14.3; the exact `CLAUDE_CODE_` names stay exact). D22 the brief templates say `# Handoff <NN> -
+    <coordinator>: <slug>`; harness-host's D6 grep covers `templates/`. D23 README: where the three
+    `AGENTS.md` lines go per host (`~/.codex/AGENTS.md`, `~/.zcode/AGENTS.md`, Kimi Code the project
+    file only); `consult-codex`'s first section: no `codex-consult:` line - run the hook one-liner.
+    D24 `consult-codex` and `coordinate`: a shell tool whose limit is shorter than the purpose's
+    timeout, or unknown - `-Detach`, then `-Wait` / `-Status`; the limits seen (Kimi Code 300 s, Z
+    Code 600 s, 2026-09-29).
+  - Tests: `tests/harness-fixes27c.ps1` (new, registered in `run-all.ps1` after `harness-telemetry`):
+    TESTMODE, HIDE, STREAM, HEALTH, COORD, POINTER, KILL, KICK, ZCODE, DOCS. Changed expectations:
+    `harness-host` (the record's keys and resolved triples, the refusals of an unparseable value only,
+    `#5` no refusal, the pointer line, `-Explain`'s substitution, the ZCODE_ hint and two observed
+    names in its marker set, the templates grep), `harness-fixes26b` (KICKACK: the JSON
+    acknowledgement; HEALTHLOCK: the commit's wording), the ledger field order (`kill_confirmed`) in
+    `harness-0.3`, `harness-engines`, `harness-format`, `harness-muse`.
+  - Deviations: (1) D16's `pid <n>` is the root's pid - when the root exited and its children could
+    not be enumerated, the why says "the root exited, its children may not have"; (2) the D11 console
+    line is printed for a run the coordinator started (and the `-Detach` foreground), not by a panel
+    member or a detached background; (3) `oversized_lines` is a warning, not a ledger key (the
+    ledger's field order is asserted by five harnesses); (4) D14 covers `CODEX_CONSULT_NOW` too; (5)
+    D20's path hint needs `<dir>/plugins/` under `.zcode`, `.codex` or `.claude` (a checkout under
+    `.claude/worktrees/` is no install); (6) the shell tool limits of Claude Code and Codex CLI are
+    listed as not measured.
+  - Assertions: `harness-fixes27c` 36 (new), `harness-host` 52 (+2); the final `tests/run-all.ps1` runs of 2026-09-29 (Windows PowerShell 5.1, then PowerShell 7.6.6 from 20:29 to 22:19), the same counts on both, `17 harness(es), 0 failed`: `harness-0.3` 229, `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending` 26, `harness-fixes` 45 (the two F04-10 cases passed this time), `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 51, `harness-host` 52, `harness-telemetry` 55, `harness-fixes27c` 36.
 
 ### Known limitations
 

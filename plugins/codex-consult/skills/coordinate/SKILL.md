@@ -81,8 +81,14 @@ execute, reviewers advise, you decide. These rules hold on every host; the means
 
 ## The bridge's own means (every host)
 
-Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/`. On macOS/Linux use `pwsh -NoProfile -File` in place of
-`powershell -NoProfile -ExecutionPolicy Bypass -File`.
+Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/`. On Windows use `powershell` (always present - `pwsh` there may be
+only the WindowsApps alias, which a host's sandbox can refuse to execute); on macOS, Linux and a real
+PowerShell 7 install use `pwsh -NoProfile -File` in place of `powershell -NoProfile -ExecutionPolicy Bypass -File`.
+
+**Your shell tool's time limit (wave 27c).** A blocking bridge call is cut when the shell tool of your
+host has a limit shorter than the run's timeout (a checkpoint run has 900 s, an acceptance 3600 s):
+when that limit is shorter than the timeout of the purpose, or unknown, start the run with `-Detach`
+and come back with `-Wait` or `-Status`. The limits seen are listed under "Means per host".
 
 - `-Detach` - check a run (or `-Panel`) like a real run, park it in a background process and
   return at once with its id, its status file and the come-back commands.
@@ -146,15 +152,22 @@ above.
 substitutes the plugin root in the skills and the hook, so these texts and the SessionStart line
 work unchanged; it reads `AGENTS.md`. The bridge infers your host as `zcode`; still set
 `CODEX_CONSULT_COORDINATOR` to the model the app runs. COMPACT: an operator command, not
-verified for a scheduled prompt (rule 3's no-means branch until it is).
+verified for a scheduled prompt (rule 3's no-means branch until it is). Shell tool limit: 600 s (seen
+2026-09-29) - a run with a longer timeout goes with `-Detach`. Its shell tool carries ZCODE_APP_VERSION and
+ZCODE_PROCESS_LABEL (the hint `zcode`), not ZCODE_SESSION_ID; no `codex-consult:` session-start line
+reached a desktop session (2026-09-29) - the second `AGENTS.md` line (the hook one-liner) covers it.
 
 **Kimi Code.** No plugin system and no hooks: the operator starts `kimi` with
 `--skills-dir <clone>/plugins/codex-consult/skills` and sets `CODEX_CONSULT_ROOT` - it does not
 substitute the plugin root, so the first sentence of this skill applies (its shell tool on
 Windows is Git Bash). Run the hook one-liner at the start; `AGENTS.md` is read from the working
 directory only. It sets no host marker (`coordinator.host` stays `unknown`): name yourself in
-`CODEX_CONSULT_COORDINATOR`. A headless `-p` run takes neither `--yolo` nor `--auto`. COMPACT:
-an operator command, not verified for a scheduled prompt (rule 3's no-means branch until it is).
+`CODEX_CONSULT_COORDINATOR`. A headless `-p` run takes neither `--yolo` nor `--auto`. Shell tool limit: 300 s in the foreground (seen
+2026-09-29) - a run with a longer timeout goes with `-Detach`. COMPACT: an operator command, not
+verified for a scheduled prompt (rule 3's no-means branch until it is).
+
+The shell tool limits of Claude Code and Codex CLI were not measured in the checks of 2026-09-29: when
+yours is unknown, the `-Detach` rule above applies.
 
 **A plain shell or any other host.** The watchdog is cron or a scheduled task that runs `-Status`;
 the skill texts come from `codex-consult.ps1 -Explain coordinate|consult|providers`; the

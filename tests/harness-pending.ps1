@@ -5,6 +5,12 @@ $ErrorActionPreference = 'Stop'
 # (wave 26b, D13) the machine-wide health file stays out of these cases (every case its own
 # repository; harness-fixes26b.ps1 points CODEX_CONSULT_HEALTH at scratch files of its own)
 $env:CODEX_CONSULT_HEALTH = 'none'
+# (wave 28) telemetry off and the intake pointed at nothing reachable: no harness but
+# harness-telemetry spools an event or contacts an intake
+$env:CODEX_CONSULT_TELEMETRY = 'off'
+$env:CODEX_CONSULT_TELEMETRY_URL = 'http://127.0.0.1:9/'
+# (wave 27c, D14) the test hooks (CODEX_CONSULT_TEST_*, CODEX_CONSULT_NOW) are honoured only in test mode
+$env:CODEX_CONSULT_TEST_MODE = '1'
 # These cases use the Codex home of the machine; a reviewer roster there
 # (<codex home>/codex-consult-roster.json) must not change what they test: none = no roster.
 $env:CODEX_CONSULT_ROSTER = 'none'

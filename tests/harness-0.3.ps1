@@ -14,6 +14,12 @@ $ErrorActionPreference = 'Stop'
 # (wave 26b, D13) the machine-wide health file stays out of these cases (every case its own
 # repository; harness-fixes26b.ps1 points CODEX_CONSULT_HEALTH at scratch files of its own)
 $env:CODEX_CONSULT_HEALTH = 'none'
+# (wave 28) telemetry off and the intake pointed at nothing reachable: no harness but
+# harness-telemetry spools an event or contacts an intake
+$env:CODEX_CONSULT_TELEMETRY = 'off'
+$env:CODEX_CONSULT_TELEMETRY_URL = 'http://127.0.0.1:9/'
+# (wave 27c, D14) the test hooks (CODEX_CONSULT_TEST_*, CODEX_CONSULT_NOW) are honoured only in test mode
+$env:CODEX_CONSULT_TEST_MODE = '1'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 # (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's
@@ -635,7 +641,7 @@ if (Want 'F02-5') {
 if (Want 'LEDGER') {
     $r = New-Repo 'ledger'
     $h = New-Home 'ledger' $baseToml
-    $order = 'n,when,purpose,topics,role,consult_id,reviewer,lineage,coordinator,preflight,preflight_warning,roster,panel,parent_thread,thread,thread_source,thread_candidate,mode,mode_fallback,command,child_env_scrubbed,brief,range,prompt_chars,reply,reply_json,events,partial_reply,model,effort,effort_requested,effort_sent,effort_mapping,effort_caps,effort_confirmed,max_words,sandbox,timeout_sec,timeout_source,continue_sec,extra_config,extra_config_source,peak,peak_schedule,peak_source,peak_evaluated_at,structured,schema,schema_transport,schema_transport_source,validation_error,format_retry,denial_retry,timeout_continue,stall,base_commit,reviewed_revision,tree_sha256,tree_sha256_after,tree_changed_during_review,revision_moved,changed_files,brief_sha256,brief_sha256_after,brief_changed_during_review,fingerprint_note,artifacts,artifacts_changed_during_review,tree_check,bridge_outcome,provider_failure,warnings,verdict,verdict_reason,findings,finding_ids,prior_findings,unchecked_prior_blockers,usage,engine_run,wall_seconds,finished_at,commit_wait_ms'
+    $order = 'n,when,purpose,topics,role,consult_id,reviewer,lineage,coordinator,preflight,preflight_warning,roster,panel,parent_thread,thread,thread_source,thread_candidate,mode,mode_fallback,command,child_env_scrubbed,brief,range,prompt_chars,reply,reply_json,events,partial_reply,model,effort,effort_requested,effort_sent,effort_mapping,effort_caps,effort_confirmed,max_words,sandbox,timeout_sec,timeout_source,continue_sec,extra_config,extra_config_source,peak,peak_schedule,peak_source,peak_evaluated_at,structured,schema,schema_transport,schema_transport_source,validation_error,format_retry,denial_retry,timeout_continue,stall,kill_confirmed,base_commit,reviewed_revision,tree_sha256,tree_sha256_after,tree_changed_during_review,revision_moved,changed_files,brief_sha256,brief_sha256_after,brief_changed_during_review,fingerprint_note,artifacts,artifacts_changed_during_review,tree_check,bridge_outcome,provider_failure,warnings,verdict,verdict_reason,findings,finding_ids,prior_findings,unchecked_prior_blockers,usage,engine_run,wall_seconds,finished_at,commit_wait_ms'
     $log = Join-Path $work 'ledger-log.txt'
     Clear-TestEnv
     $env:CODEX_HOME = $h; $env:FAKE_CODEX_SLEEP = '5'; $env:FAKE_CODEX_REPLY = $advise; $env:FAKE_CODEX_LOG = $log

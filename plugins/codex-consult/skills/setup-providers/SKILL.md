@@ -10,12 +10,17 @@ disable-model-invocation: false
 
 `${CLAUDE_PLUGIN_ROOT}` is the plugin directory; from a plain shell set `CODEX_CONSULT_ROOT` to it and use that instead.
 
+"The README" below is the repository README: <https://github.com/xelth-com/claude-codex-consult/blob/main/README.md>.
+
 This procedure wires one or more reviewers so `codex-consult.ps1` can reach them. A
 reviewer goes through `codex exec` (the default engine) or, per roster entry, through
 Google's Antigravity CLI `agy` (the `agy` engine, section 3b) or Meta's Muse Code CLI `muse`
-(the `muse` engine, section 3f); the bridge itself never makes an HTTP call. Scripts:
-`${CLAUDE_PLUGIN_ROOT}/scripts/`. Commands are shown for Windows PowerShell; on macOS/Linux
-use `pwsh -NoProfile -File` in place of `powershell -NoProfile -ExecutionPolicy Bypass -File`.
+(the `muse` engine, section 3f); the bridge itself makes no HTTP call to a provider (its one HTTP
+client is the telemetry sender, to the maintainer's intake - section 6). Scripts:
+`${CLAUDE_PLUGIN_ROOT}/scripts/`. Commands are shown for Windows PowerShell, which is always present
+on Windows (`pwsh` there may be only the WindowsApps alias, which a host's sandbox can refuse to
+execute); on macOS, Linux and a real PowerShell 7 install use `pwsh -NoProfile -File` in place of
+`powershell -NoProfile -ExecutionPolicy Bypass -File`.
 `<codex home>` is `$CODEX_HOME` when set, else `~/.codex`.
 
 ## Invariants (never break these)
@@ -456,6 +461,10 @@ consent, run one live `-Purpose chore` consultation to confirm the route end to 
 - **`"auth": "none"`** in a roster entry: only for a table with neither `env_key` nor a
   bearer token (e.g. a local endpoint); it has no effect on a table that names an
   `env_key`. Such a host is not in caps-v1, so it also needs `-NativeEffort`.
+- **Telemetry (on by default):** the bridge reports ONE anonymised event per consultation to the
+  maintainer's intake (the repository README, section "Telemetry (on by default)"); tell the user on a new machine - they
+  switch it off with the user variable `CODEX_CONSULT_TELEMETRY=off`, and `codex-telemetry.ps1
+  -Status` shows the switch, the spool and the instance id.
 
 ## 7. Record it
 

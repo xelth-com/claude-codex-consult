@@ -1,4 +1,4 @@
-# Runs every harness of this directory (wave 27: fifteen, harness-host the last) ONE AT A TIME (they must never run concurrently:
+# Runs every harness of this directory (wave 28 + 27c: seventeen, harness-fixes27c the last) ONE AT A TIME (they must never run concurrently:
 # the recovery checks look for codex-like processes and would see each other's fake
 # codex), each in a child process of the PowerShell that runs this script. Prints one
 # summary line per harness and the FAIL lines of a failed one; the full output of each
@@ -17,10 +17,17 @@ $psExe = (Get-Process -Id $PID).Path
 if (-not $ScriptsDir) { $ScriptsDir = [string]$env:CODEX_CONSULT_SCRIPTS_DIR }
 $scripts = if ($ScriptsDir) { (Resolve-Path -LiteralPath $ScriptsDir).Path } else { Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')).Path 'plugins\codex-consult\scripts' }
 if (-not (Test-Path -LiteralPath (Join-Path $scripts 'codex-consult.ps1') -PathType Leaf)) { Write-Host "run-all: no codex-consult.ps1 in '$scripts' (-ScriptsDir / CODEX_CONSULT_SCRIPTS_DIR)" -ForegroundColor Red; exit 1 }
-$harnesses = @('harness-0.3', 'harness-roster', 'harness-format', 'harness-engines', 'harness-muse', 'harness-panel', 'harness-pending', 'harness-fixes', 'harness-lock2', 'harness-3b', 'harness-visibility', 'harness-detach', 'harness-companions', 'harness-fixes26b', 'harness-host')
+$harnesses = @('harness-0.3', 'harness-roster', 'harness-format', 'harness-engines', 'harness-muse', 'harness-panel', 'harness-pending', 'harness-fixes', 'harness-lock2', 'harness-3b', 'harness-visibility', 'harness-detach', 'harness-companions', 'harness-fixes26b', 'harness-host', 'harness-telemetry', 'harness-fixes27c')
 # (wave 27) the coordinator's own settings never reach a harness: a CODEX_CONSULT_COORDINATOR of the
 # operator would add warnings, a CODEX_CONSULT_BRIEF_PREFIX could refuse every run
 foreach ($k in @('CODEX_CONSULT_COORDINATOR', 'CODEX_CONSULT_BRIEF_PREFIX')) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
+# (wave 28, R17) telemetry off and the intake pointed at nothing reachable for every child: no harness
+# spools an event into a real codex home or contacts the real intake (harness-telemetry sets its own
+# switch and its local intake)
+$env:CODEX_CONSULT_TELEMETRY = 'off'
+$env:CODEX_CONSULT_TELEMETRY_URL = 'http://127.0.0.1:9/'
+# (wave 27c, D14) the test hooks (CODEX_CONSULT_TEST_*, CODEX_CONSULT_NOW) are honoured only in test mode
+$env:CODEX_CONSULT_TEST_MODE = '1'
 $only = @($Only | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 foreach ($o in $only) { if ($harnesses -notcontains $o) { Write-Host "run-all: unknown harness '$o' (known: $($harnesses -join ', '))" -ForegroundColor Red; exit 1 } }
 $tmpBase = if ($env:TEMP) { $env:TEMP } else { [IO.Path]::GetTempPath() }

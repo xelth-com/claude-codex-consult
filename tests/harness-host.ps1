@@ -18,6 +18,12 @@
 param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
 $env:CODEX_CONSULT_HEALTH = 'none'
+# (wave 28) telemetry off and the intake pointed at nothing reachable: no harness but
+# harness-telemetry spools an event or contacts an intake
+$env:CODEX_CONSULT_TELEMETRY = 'off'
+$env:CODEX_CONSULT_TELEMETRY_URL = 'http://127.0.0.1:9/'
+# (wave 27c, D14) the test hooks (CODEX_CONSULT_TEST_*, CODEX_CONSULT_NOW) are honoured only in test mode
+$env:CODEX_CONSULT_TEST_MODE = '1'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $ScriptsDir) { $ScriptsDir = [string]$env:CODEX_CONSULT_SCRIPTS_DIR }
@@ -86,6 +92,8 @@ $markerSet = [ordered]@{
     CLAUDE_CODE_MESSAGING_SOCKET = 'fake-socket-27b'; CLAUDE_CODE_MESSAGING_TOKEN = 'tok-27b-dummy'; CLAUDE_CODE_SESSION_ATTENDED = '1'
     CLAUDE_CODE_EXECPATH = 'C:\fake-27b\host.exe'; CLAUDE_PID = '4242'; CLAUDE_EFFORT = 'high'
     ZCODE_SESSION_ID = 'zs-27b-dummy'; ZCODE_PROJECT_DIR = 'C:\fake-27b\project'; ZCODE_PLUGIN_ROOT = 'C:\fake-27b\zplugin'
+    # (wave 27c, D21) two of the names read inside a Z Code session (2026-09-29) - the whole ZCODE_ prefix
+    ZCODE_BASE_URL = 'https://fake-27c.invalid/zcode'; ZCODE_PERSONAL_PROVIDER_CONFIG_FILE = 'C:\fake-27c\providers.json'
 }
 $markerNamesSorted = [string[]]@($markerSet.Keys)
 [Array]::Sort($markerNamesSorted, [StringComparer]::Ordinal)
@@ -96,6 +104,8 @@ function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     # every host marker of this process (the harness may run inside an agent session)
     foreach ($k in (Get-HostMarkerNames)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
+    # (wave 27c, D20) the zcode hint's build facts (no markers) are removed too
+    foreach ($k in @('ZCODE_APP_VERSION', 'ZCODE_ENV')) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     $env:CODEX_CONSULT_HEALTH = 'none'
 }
 function Set-CaseEnv {
@@ -209,6 +219,8 @@ $prose = Reply 'prose.md' ("1. The first answer: the invalidation path looks cor
 $roster2 = Write-Roster 'two' '{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1"},{"provider":"ZAI","model":"glm-5.3"}]}'
 $note = '`${CLAUDE_PLUGIN_ROOT}` is the plugin directory; from a plain shell set `CODEX_CONSULT_ROOT` to it and use that instead.'
 $pointer = 'codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain coordinate)'
+# (wave 27c, D13) the pointer line carries the full command of the plugin's own script
+$pointerHead = 'codex-consult: coordinator rules - skill codex-consult:coordinate '
 $warnText = "a second opinion from the coordinator's own model"
 $readme = Text (Join-Path $repoRoot 'README.md')
 
@@ -256,6 +268,9 @@ if (Want 'GREP') {
     Check 'GREP' 'D6 the README names "Claude" only in the host sections (Install, For the coordinator; the Engines, Alternatives, Roadmap and Tested-on product references)' ($readmeHits.Count -eq 0) ($readmeHits -join ' || ')
     $scriptHits = @(Get-ChildItem -LiteralPath $scripts -Filter '*.ps1' | ForEach-Object { $sf = $_; $n = 0; foreach ($l in ((Text $sf.FullName) -split "`n")) { $n++; if ($l -cmatch '\bClaude\b') { "$($sf.Name):$n" } } })
     Check 'GREP' 'D6 no script says "Claude": the synopses, .DESCRIPTION/.EXAMPLE text and the hook header say the coordinator (codex-consult.ps1: "from any coordinator")' ($scriptHits.Count -eq 0 -and (Text $consultPs) -match 'from any coordinator' -and (Text $hookPs) -match "the coordinator's session") ($scriptHits -join ', ')
+    # (wave 27c, D22) the brief templates name no host either
+    $tplHits = @(Get-ChildItem -LiteralPath (Join-Path $pluginDir 'templates') -Filter '*.md' | ForEach-Object { $tf = $_; $n = 0; foreach ($l in ((Text $tf.FullName) -split "`n")) { $n++; if ($l -cmatch '\bClaude\b') { "$($tf.Name):$n" } } })
+    Check 'GREP' '(wave 27c, D22) no brief template names a host: templates/*.md carry no "Claude" - "# Handoff <NN> - <coordinator>: <slug>" in brief-review.md and brief-framing.md' ($tplHits.Count -eq 0 -and (Text (Join-Path $pluginDir 'templates\brief-review.md')).Contains('# Handoff <NN> - <coordinator>: <slug>') -and (Text (Join-Path $pluginDir 'templates\brief-framing.md')).Contains('# Handoff <NN> - <coordinator>: <slug>')) ($tplHits -join ', ')
     Check 'GREP' 'D6 the brief name is documented as the coordinator''s brief prefix (README and consult-codex: <NN>-<prefix>-<slug>.md, default claude, -BriefPrefix / CODEX_CONSULT_BRIEF_PREFIX)' ($readme -match "coordinator's brief prefix" -and $readme.Contains('CODEX_CONSULT_BRIEF_PREFIX') -and (Text (Join-Path $pluginDir 'skills\consult-codex\SKILL.md')).Contains('<NN>-<prefix>-<slug>.md')) ''
 }
 
@@ -293,7 +308,8 @@ if (Want 'MATCHER') {
             @{ ZCODE_SESSION_ID = 'zs-1'; CLAUDECODE = '1'; CLAUDE_CODE_ENTRYPOINT = 'cli'; AI_AGENT = 'claude-code_9_agent' },
             @{ ZCODE_PROJECT_DIR = 'C:\p'; CODEX_THREAD_ID = 'x' },
             @{ ZCODE_SESSION_ID = 'zs-1'; CODEX_SESSION_ID = 'y'; CLAUDECODE = '1' },
-            @{ ZCODE_PLUGIN_ROOT = 'C:\z'; CLAUDE_PLUGIN_ROOT = 'C:\c'; CLAUDE_CODE_USE_BEDROCK = '0' })) {
+            @{ ZCODE_PLUGIN_ROOT = 'C:\z'; CLAUDE_PLUGIN_ROOT = 'C:\c'; CLAUDE_CODE_USE_BEDROCK = '0' },
+            @{ CLAUDE_PLUGIN_ROOT = 'C:\c'; CLAUDE_CODE_USE_BEDROCK = '0' })) {
         Clear-TestEnv
         foreach ($k in $case.Keys) { Set-Item "env:$k" $case[$k] }
         $hr = (Resolve-CoordinatorIdentity -Value '' -Roster $roster).Record
@@ -301,20 +317,22 @@ if (Want 'MATCHER') {
         foreach ($k in $case.Keys) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     }
     Clear-TestEnv
-    Check 'MATCHER' 'wave 27b the host hint zcode: ZCODE_SESSION_ID -> zcode; ZCODE_PROJECT_DIR alone -> zcode (source inferred); zcode wins over the claude-code markers (CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, AI_AGENT claude-code*); codex (CODEX_THREAD_ID, CODEX_SESSION_ID) wins over zcode; a plugin-root variable (ZCODE_PLUGIN_ROOT, CLAUDE_PLUGIN_ROOT) or an operator setting is no hint -> unknown / none' (($hh -join ',') -eq 'zcode/inferred,zcode/inferred,zcode/inferred,codex/inferred,codex/inferred,unknown/none') ($hh -join ',')
-    Check 'MATCHER' 'D3 CODEX_CONSULT_COORDINATOR parsed by the matcher: "openai :: gpt-5.1" -> {openai, gpt-5.1, engine null, explicit}; "#2" -> the roster entry resolved {gemini, g-3, agy}; a label -> {openai, model null}; the ledger record has exactly provider, model, engine, host, source' ($c2.Record.provider -eq 'openai' -and $c2.Record.model -eq 'gpt-5.1' -and $null -eq $c2.Record.engine -and $c2.Record.source -eq 'explicit' -and $c3.Record.provider -eq 'gemini' -and $c3.Record.model -eq 'g-3' -and $c3.Record.engine -eq 'agy' -and $c4.Record.provider -eq 'openai' -and $null -eq $c4.Record.model -and (($c2.Record.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'provider,model,engine,host,source') "$($c2.Record | ConvertTo-Json -Compress) $($c3.Record | ConvertTo-Json -Compress)"
-    $refusals = @(foreach ($v in @('#7', 'open ai', 'openai :: gpt 5', 'openai [bogus]', 'x :: ')) { $r = Resolve-CoordinatorIdentity -Value $v -Roster $roster; [bool]($r.Error -and -not $r.Record -and $r.Error.Contains('cannot be used') -and $r.Error.EndsWith('nothing was started.')) })
-    Check 'MATCHER' 'D3 a value that does not resolve is refused: a roster position the roster does not have (#7), a provider that is not a label (open ai), a model with white space, an unknown engine, a lineage without a model' (@($refusals | Where-Object { $_ }).Count -eq 5) ($refusals -join ',')
+    Check 'MATCHER' 'wave 27b the host hint zcode: ZCODE_SESSION_ID -> zcode; ZCODE_PROJECT_DIR alone -> zcode (source inferred); zcode wins over the claude-code markers (CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, AI_AGENT claude-code*); codex (CODEX_THREAD_ID, CODEX_SESSION_ID) wins over zcode; (wave 27c, D20) ANY ZCODE_ variable is the zcode hint (a ZCODE_PLUGIN_ROOT too); CLAUDE_PLUGIN_ROOT or an operator setting is no hint -> unknown / none' (($hh -join ',') -eq 'zcode/inferred,zcode/inferred,zcode/inferred,codex/inferred,codex/inferred,zcode/inferred,unknown/none') ($hh -join ',')
+    Check 'MATCHER' 'D3 CODEX_CONSULT_COORDINATOR parsed by the matcher: "openai :: gpt-5.1" -> {openai, gpt-5.1, engine null, explicit}; "#2" -> the roster entry resolved {gemini, g-3, agy}; (wave 27c, D9) a RESOLVED triple - the lineage''s engine from its roster entry (codex); a label -> the model of its one roster entry {openai, gpt-5.1, codex}; the ledger record has exactly provider, model, engine, host, host_by, source, in_roster, unresolved' ($c2.Record.provider -eq 'openai' -and $c2.Record.model -eq 'gpt-5.1' -and $c2.Record.engine -eq 'codex' -and $c2.Record.source -eq 'explicit' -and $c3.Record.provider -eq 'gemini' -and $c3.Record.model -eq 'g-3' -and $c3.Record.engine -eq 'agy' -and $c4.Record.provider -eq 'openai' -and $c4.Record.model -eq 'gpt-5.1' -and $c4.Record.engine -eq 'codex' -and (($c2.Record.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'provider,model,engine,host,host_by,source,in_roster,unresolved') "$($c2.Record | ConvertTo-Json -Compress) $($c3.Record | ConvertTo-Json -Compress)"
+    $refusals = @(foreach ($v in @('openai [bogus]', 'x :: ', 'a::b', 'p :: m|x')) { $r = Resolve-CoordinatorIdentity -Value $v -Roster $roster; [bool]($r.Error -and -not $r.Record -and $r.Error.Contains('cannot be used') -and $r.Error.EndsWith('nothing was started.')) })
+    Check 'MATCHER' '(wave 27c, D10, D12) only a value that cannot be PARSED is refused: an unknown engine, a lineage without a model, a delimiter of the roster''s character rule inside a provider or a model (''::'', ''|'')' (@($refusals | Where-Object { $_ }).Count -eq 4) ($refusals -join ',')
+    $accepted = @(foreach ($v in @('#7', 'open ai', 'openai :: gpt 5')) { $r = Resolve-CoordinatorIdentity -Value $v -Roster $roster; if ($r.Error) { "!$v" } else { "$($r.Record.provider)/$($r.Record.model)/$($r.Record.in_roster)/$($r.Record.unresolved)" } })
+    Check 'MATCHER' '(wave 27c, D10-D12) no longer refused: #7 (no such position here - unresolved, with a warning), a provider with an interior blank and a model with one (the roster''s own character rule) - recorded, in_roster false' (($accepted -join ' ') -eq '//False/#7 open ai//False/ openai/gpt 5/False/') ($accepted -join ' ')
     $cmp = @(
         (Test-CoordinatorReviewer -Coordinator $c2.Record -Provider 'openai' -Model 'gpt-5.1' -Engine 'codex'),
         (Test-CoordinatorReviewer -Coordinator $c2.Record -Provider 'openai' -Model 'gpt-5.2' -Engine 'codex'),
         (Test-CoordinatorReviewer -Coordinator $c2.Record -Provider 'OpenAI' -Model 'gpt-5.1' -Engine 'codex'),
         (Test-CoordinatorReviewer -Coordinator $c3.Record -Provider 'gemini' -Model 'g-3' -Engine 'agy'),
         (Test-CoordinatorReviewer -Coordinator $c3.Record -Provider 'gemini' -Model 'g-3' -Engine 'codex'),
-        (Test-CoordinatorReviewer -Coordinator $c4.Record -Provider 'openai' -Model 'anything' -Engine 'codex'),
+        (Test-CoordinatorReviewer -Coordinator $c4.Record -Provider 'openai' -Model 'gpt-5.1' -Engine 'codex'),
         (Test-CoordinatorReviewer -Coordinator $c1.Record -Provider 'openai' -Model 'gpt-5.1' -Engine 'codex')
     )
-    Check 'MATCHER' 'D3 compared on the RESOLVED identity field by field (Test-ReviewerMatch - the -Require comparison): the same model -> yes; another model, another spelling of the provider -> no; an engine-qualified identity only on that engine; a label -> every model of it; an inferred host alone never' (($cmp -join ',') -eq 'True,False,False,True,False,True,False') ($cmp -join ',')
+    Check 'MATCHER' 'D3 compared on the RESOLVED identity field by field (Test-ReviewerMatch - the -Require comparison): the same model -> yes; another model, another spelling of the provider -> no; an engine-qualified identity only on that engine; (wave 27c, D9) a label -> the model it resolved to; an inferred host alone never' (($cmp -join ',') -eq 'True,False,False,True,False,True,False') ($cmp -join ',')
     foreach ($k in $markerSet.Keys) { Set-Item "env:$k" $markerSet[$k] }
     foreach ($k in $keptSet.Keys) { Set-Item "env:$k" $keptSet[$k] }
     $before = (Get-HostMarkerNames) -join ','
@@ -332,10 +350,10 @@ if (Want 'MATCHER') {
 # =============================================================== REFUSE: an unparseable coordinator refuses before anything starts (D3)
 if (Want 'REFUSE') {
     $r = New-Repo 'refuse'
-    $d = Consult $r '' @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_COORDINATOR = 'open ai' }
-    $x = Consult $r '' @('-Prompt', 'x') @{ CODEX_CONSULT_COORDINATOR = 'openai :: gpt 5'; FAKE_CODEX_REPLY = $advise }
+    $d = Consult $r '' @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_COORDINATOR = 'open::ai' }
+    $x = Consult $r '' @('-Prompt', 'x') @{ CODEX_CONSULT_COORDINATOR = 'openai :: gpt|5'; FAKE_CODEX_REPLY = $advise }
     $p = Consult $r $roster2 @('-Panel', '-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_COORDINATOR = '#5' }
-    Check 'REFUSE' 'D3 CODEX_CONSULT_COORDINATOR that does not parse: the dry run and a real run exit 1 with "codex-consult: CODEX_CONSULT_COORDINATOR=''...'' cannot be used: ... nothing was started." - nothing written (no task directory); a panel with a roster position the roster does not have (#5) too' ($d.Code -eq 1 -and $d.First -match "^codex-consult: CODEX_CONSULT_COORDINATOR='open ai' cannot be used: the provider 'open ai' is not a provider label" -and $x.Code -eq 1 -and $x.First -match 'cannot be used: the model .gpt 5. contains white space' -and -not (Test-Path (Join-Path $r '.collab')) -and $p.Code -eq 1 -and $p.First -match "'#5' names no roster position \(the roster has 2 entries\)") "$($d.First) || $($x.First) || $($p.First)"
+    Check 'REFUSE' 'D3 CODEX_CONSULT_COORDINATOR that does not parse: the dry run and a real run exit 1 with "codex-consult: CODEX_CONSULT_COORDINATOR=''...'' cannot be used: ... nothing was started." - nothing written (no task directory); (wave 27c, D12) a panel with a roster position the roster does not have (#5) is NO refusal: exit 0, the warning "CODEX_CONSULT_COORDINATOR ''#5'' names no roster position here"' ($d.Code -eq 1 -and $d.First -match "^codex-consult: CODEX_CONSULT_COORDINATOR='open::ai' cannot be used: the provider 'open::ai' must not contain '::'" -and $x.Code -eq 1 -and $x.First -match "cannot be used: the model 'gpt\|5' must not contain '\|'" -and -not (Test-Path (Join-Path $r '.collab')) -and $p.Code -eq 0 -and $p.Out -match "CODEX_CONSULT_COORDINATOR '#5' names no roster position here") "$($d.First) || $($x.First) || $($p.First)"
 }
 
 # =============================================================== WARN: the coordinator's own model seated as the reviewer (D3)
@@ -345,12 +363,12 @@ if (Want 'WARN') {
     $pv = @($d.Previews)[0]
     $wl = @(($d.Out -split "`n") | Where-Object { $_ -match '^WARNING: coordinator: ' })
     Check 'WARN' 'D3 dry run, the reviewer (openai :: gpt-5.1 from the config) IS the coordinator: "WARNING: coordinator: openai :: gpt-5.1 is the coordinator''s own model (CODEX_CONSULT_COORDINATOR) - a second opinion from the coordinator''s own model, ..." (not refused, exit 0); the preview''s warnings[] carries it; "coordinator : openai :: gpt-5.1; host codex (inferred, a hint); source explicit"' ($d.Code -eq 0 -and $wl.Count -eq 1 -and $wl[0].Contains($warnText) -and @($pv.warnings | Where-Object { ([string]$_).Contains($warnText) }).Count -eq 1 -and $d.Out -match '(?m)^coordinator : openai :: gpt-5\.1; host codex \(inferred, a hint\); source explicit$') ($wl -join ' || ')
-    Check 'WARN' 'D3/F04-10 the preview''s `coordinator` {provider openai, model gpt-5.1, engine null, host codex, source explicit} right after `lineage` - a NEW key, `host` stays the machine name elsewhere; `child_env_scrubbed` [CODEX_SESSION_ID] right after `command`' ($pv.coordinator.provider -eq 'openai' -and $pv.coordinator.model -eq 'gpt-5.1' -and $null -eq $pv.coordinator.engine -and $pv.coordinator.host -eq 'codex' -and $pv.coordinator.source -eq 'explicit' -and (($pv.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -match 'reviewer,lineage,coordinator,preflight' -and (($pv.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -match 'command,child_env_scrubbed,brief' -and (@($pv.child_env_scrubbed) -join ',') -eq 'CODEX_SESSION_ID') ($pv.coordinator | ConvertTo-Json -Compress)
+    Check 'WARN' 'D3/F04-10 the preview''s `coordinator` {provider openai, model gpt-5.1, engine codex (wave 27c, D9: resolved - no roster entry names another), host codex, source explicit} right after `lineage` - a NEW key, `host` stays the machine name elsewhere; `child_env_scrubbed` [CODEX_SESSION_ID] right after `command`' ($pv.coordinator.provider -eq 'openai' -and $pv.coordinator.model -eq 'gpt-5.1' -and $pv.coordinator.engine -eq 'codex' -and $pv.coordinator.host -eq 'codex' -and $pv.coordinator.source -eq 'explicit' -and (($pv.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -match 'reviewer,lineage,coordinator,preflight' -and (($pv.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -match 'command,child_env_scrubbed,brief' -and (@($pv.child_env_scrubbed) -join ',') -eq 'CODEX_SESSION_ID') ($pv.coordinator | ConvertTo-Json -Compress)
     $d2 = Consult $r '' @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_COORDINATOR = 'ZAI :: glm-5.3' }
     Check 'WARN' 'D3 another coordinator model (ZAI :: glm-5.3) seats no warning; no host marker -> host unknown, source explicit (the identity is given)' ($d2.Code -eq 0 -and $d2.Out -notmatch 'WARNING: coordinator:' -and @($d2.Previews)[0].coordinator.host -eq 'unknown' -and @($d2.Previews)[0].coordinator.source -eq 'explicit') ''
     $x = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'w') @{ CODEX_CONSULT_COORDINATOR = 'openai'; CLAUDECODE = '1'; FAKE_CODEX_REPLY = $advise }
     $e = @(Ledger $r)[-1]
-    Check 'WARN' 'D3 a real run, coordinator given as a label (openai) in a claude-code host: exit 0 (a warning, never a refusal), ledger coordinator {openai, null, null, claude-code, explicit}, warnings[] holds the coordinator warning, the console printed it' ($x.Code -eq 0 -and $e.coordinator.provider -eq 'openai' -and $null -eq $e.coordinator.model -and $e.coordinator.host -eq 'claude-code' -and $e.coordinator.source -eq 'explicit' -and @($e.warnings | Where-Object { ([string]$_).Contains($warnText) }).Count -eq 1 -and $x.Out -match 'WARNING: coordinator: openai :: gpt-5\.1 is the coordinator') ($e.coordinator | ConvertTo-Json -Compress)
+    Check 'WARN' 'D3 a real run, coordinator given as a label (openai) in a claude-code host: exit 0 (a warning, never a refusal), ledger coordinator {openai, gpt-5.1 (wave 27c, D9: the config''s model - no roster), codex, claude-code, explicit}, warnings[] holds the coordinator warning, the console printed it' ($x.Code -eq 0 -and $e.coordinator.provider -eq 'openai' -and $e.coordinator.model -eq 'gpt-5.1' -and $e.coordinator.host -eq 'claude-code' -and $e.coordinator.source -eq 'explicit' -and @($e.warnings | Where-Object { ([string]$_).Contains($warnText) }).Count -eq 1 -and $x.Out -match 'WARNING: coordinator: openai :: gpt-5\.1 is the coordinator') ($e.coordinator | ConvertTo-Json -Compress)
     $y = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'n') @{ FAKE_CODEX_REPLY = $advise }
     $e2 = @(Ledger $r)[-1]
     Check 'WARN' 'D3 neither a value nor a marker: coordinator {null, null, null, unknown, none}, child_env_scrubbed [], no warning' ($y.Code -eq 0 -and $null -eq $e2.coordinator.provider -and $e2.coordinator.host -eq 'unknown' -and $e2.coordinator.source -eq 'none' -and @($e2.child_env_scrubbed).Count -eq 0 -and @($e2.warnings).Count -eq 0) ($e2.coordinator | ConvertTo-Json -Compress)
@@ -423,13 +441,14 @@ if (Want 'EXPLAIN') {
     foreach ($pair in @(@('coordinate', 'coordinate'), @('consult', 'consult-codex'), @('providers', 'setup-providers'))) {
         $o = Run-ToFile $consultPs $r @('-Explain', $pair[0])
         $skillText = Text (Join-Path $pluginDir "skills\$($pair[1])\SKILL.md")
-        $body = ($skillText -replace '\A---\r?\n[\s\S]*?\r?\n---\r?\n', '').TrimStart("`r", "`n").TrimEnd()
+        # (wave 27c, D13) ${CLAUDE_PLUGIN_ROOT} replaced by the plugin directory: runnable as written
+        $body = ($skillText -replace '\A---\r?\n[\s\S]*?\r?\n---\r?\n', '').TrimStart("`r", "`n").TrimEnd().Replace('${CLAUDE_PLUGIN_ROOT}', $pluginDir)
         $first = ($o.Text -split "`n")[0]
-        $ok = ($o.Code -eq 0 -and $first.StartsWith("codex-consult -Explain $($pair[0]): the $($pair[1]) skill, ") -and $first.Contains('${CLAUDE_PLUGIN_ROOT} in it is the plugin directory') -and $o.Text -ceq ($first + "`n`n" + $body + "`n"))
+        $ok = ($o.Code -eq 0 -and $first.StartsWith("codex-consult -Explain $($pair[0]): the $($pair[1]) skill, ") -and $first.Contains('${CLAUDE_PLUGIN_ROOT} in it is replaced by the plugin directory') -and $o.Text -ceq ($first + "`n`n" + $body + "`n") -and -not $o.Text.Substring($first.Length).Contains('${CLAUDE_PLUGIN_ROOT}'))
         if (-not $ok) { $okAll = $false }
         $ev.Add("$($pair[0]) exit $($o.Code) $($o.Bytes.Length) bytes")
     }
-    Check 'EXPLAIN' 'D5 -Explain coordinate|consult|providers: exit 0, one line naming the skill and the plugin directory, then the SKILL.md body without its front matter - byte for byte, UTF-8 (the em dashes and arrows intact)' $okAll ($ev -join ', ')
+    Check 'EXPLAIN' 'D5 -Explain coordinate|consult|providers: exit 0, one line naming the skill and the plugin directory, then the SKILL.md body without its front matter - byte for byte, UTF-8 (the em dashes and arrows intact) - (wave 27c, D13) with every ${CLAUDE_PLUGIN_ROOT} replaced by the plugin directory' $okAll ($ev -join ', ')
     $b = Run-Raw $consultPs $r @('-Explain', 'bogus')
     $t = Run-Raw $consultPs $r @('-Explain', 'consult', '-Task', 't')
     $dd = Run-Raw $consultPs $r @('-Explain', 'consult', '-DryRun')
@@ -449,7 +468,7 @@ if (Want 'HOOK') {
     $env:Path = "$bin;$savedPath"
     try { $h = Run-Raw $hookPs $r @() @{ CODEX_CONSULT_ROSTER = $roster2; CODEX_HOME = $codexHome; RT_ZAI_KEY = 'zai-test-key' } } finally { $env:Path = $savedPath }
     $hl = @(($h.Out -split "`n") | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ })
-    Check 'HOOK' 'D5 the SessionStart hook prints the availability line, then ONE pointer line: "codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain coordinate)"; exit 0' ($h.Code -eq 0 -and $hl.Count -eq 2 -and $hl[0].StartsWith('codex-consult: ') -and $hl[0] -ne $pointer -and $hl[1] -ceq $pointer) ($hl -join ' || ')
+    Check 'HOOK' 'D5 the SessionStart hook prints the availability line, then ONE pointer line: "codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain coordinate)" - (wave 28) ending "; telemetry: off" (every harness but harness-telemetry runs with CODEX_CONSULT_TELEMETRY=off); exit 0' ($h.Code -eq 0 -and $hl.Count -eq 2 -and $hl[0].StartsWith('codex-consult: ') -and -not $hl[0].StartsWith($pointerHead) -and $hl[1] -ceq ($pointerHead + '(or powershell -NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $scripts 'codex-consult.ps1') + '" -Explain coordinate); telemetry: off')) ($hl -join ' || ')
     $hooksJson = Text (Join-Path $pluginDir 'hooks\hooks.json')
     Check 'HOOK' 'D5 the documented one-liner carries -ExecutionPolicy Bypass: hooks.json''s Windows branch and the README''s hook one-liner for a host without hooks' ($hooksJson.Contains('powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult-hook.ps1\"') -and $readme -match 'powershell -NoProfile -ExecutionPolicy Bypass -File "?\$P/scripts/codex-consult-hook\.ps1') ''
 }

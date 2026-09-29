@@ -9,7 +9,8 @@
     Contents: a few small helpers the readers need (Read-SharedText, Get-PropertyValue,
     ConvertTo-OneLine, Test-IsJsonObject, ConvertTo-JsonText, ConvertTo-WhenOffset,
     Get-GitOutput, Resolve-RepoRoot, Resolve-CollabRoot, Get-ProcessStartIso,
-    Test-SameStartTime, Test-PidAlive) and the readers of a detached run's status file
+    Test-SameStartTime, Test-PidAlive; wave 28: Get-TelemetrySwitch, the switch the hook prints)
+    and the readers of a detached run's status file
     (Get-DetachedPaths, New-DetachedMember, ConvertTo-DetachedTime, ConvertTo-DetachedRecord,
     Read-DetachedStatus, Read-DetachedRuns, Format-DetachedSpan, Get-DetachedJudgement,
     Format-DetachedListLine, Get-DetachedPhrase). Nothing here writes a file.
@@ -160,6 +161,23 @@ function Test-PidAlive {
     if ($null -eq $live) { return $false }
     if ($StartTime -and $live -and -not (Test-SameStartTime -A $live -B $StartTime)) { return $false }
     return $true
+}
+
+# (wave 28, R17) The telemetry switch - shared with the SessionStart hook, which prints it. A run's
+# -Telemetry on|off ($Override) wins; else CODEX_CONSULT_TELEMETRY: unset or empty - ON (the
+# default); on, 1, true, yes - on; off, 0, false, no, none - off; ANY OTHER VALUE counts as off (a
+# switch that cannot be read never sends). Reads the environment only. { On; Text ('on' | 'off');
+# Source ('-Telemetry' | 'the default' | 'CODEX_CONSULT_TELEMETRY' | ... (not on or off: counts as
+# off)) }.
+function Get-TelemetrySwitch {
+    param([string]$Override = '')
+    $o = ([string]$Override).Trim().ToLowerInvariant()
+    if ($o -eq 'on' -or $o -eq 'off') { return [pscustomobject]@{ On = ($o -eq 'on'); Text = $o; Source = '-Telemetry' } }
+    $v = ([string][Environment]::GetEnvironmentVariable('CODEX_CONSULT_TELEMETRY')).Trim().ToLowerInvariant()
+    if (-not $v) { return [pscustomobject]@{ On = $true; Text = 'on'; Source = 'the default' } }
+    if (@('on', '1', 'true', 'yes') -contains $v) { return [pscustomobject]@{ On = $true; Text = 'on'; Source = 'CODEX_CONSULT_TELEMETRY' } }
+    if (@('off', '0', 'false', 'no', 'none') -contains $v) { return [pscustomobject]@{ On = $false; Text = 'off'; Source = 'CODEX_CONSULT_TELEMETRY' } }
+    return [pscustomobject]@{ On = $false; Text = 'off'; Source = "CODEX_CONSULT_TELEMETRY='$v' (not on or off: counts as off)" }
 }
 
 # ----------------------------------------------------------------------------- detached runs (wave 25, R12): the readers

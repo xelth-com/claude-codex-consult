@@ -89,6 +89,15 @@
                          Get-CoordinatorHost (a hint), Resolve-CoordinatorIdentity
                          (CODEX_CONSULT_COORDINATOR), Test-CoordinatorReviewer,
                          Format-CoordinatorText, Format-CoordinatorWarning
+      * telemetry        (wave 28, R17) Get-BridgeVersion, Get-TelemetryPaths, Get-TelemetryUrl,
+                         Get-TelemetryInstanceId (the salted instance id), Get-TelemetryOutcome,
+                         ConvertTo-TelemetryDetails (THE allowlist), New-TelemetryEvent,
+                         Add-TelemetrySpoolLine, Submit-TelemetryEvent (the bridge's call after a
+                         commit), Start-TelemetrySender, Show-TelemetryNotice, Invoke-TelemetryPost /
+                         Invoke-TelemetrySend (the 429 rule), Invoke-TelemetryFlush (the sender),
+                         Get-TelemetrySpoolCounts, Read-TelemetryLast, Invoke-TelemetryComplaint
+                         (-Complain); the switch - Get-TelemetrySwitch - lives in
+                         codex-consult-detached.ps1 (the hook prints it)
 
     Windows PowerShell 5.1 and PowerShell 7 compatible, no external dependencies.
     Keep this file ASCII: Windows PowerShell reads a BOM-less script in the ANSI
@@ -262,6 +271,35 @@ function Stop-WithError {
     # (wave 25, R12, D3) a detached run records the refusal as its final status before it exits
     if ($script:StopWithErrorHook) { try { & $script:StopWithErrorHook "$($script:ToolName): $Message" $Code } catch { } }
     exit $Code
+}
+
+# (wave 27c, D14 / F32-10) A test hook's value: a CODEX_CONSULT_TEST_* variable (and the test clock
+# CODEX_CONSULT_NOW) is honoured ONLY while CODEX_CONSULT_TEST_MODE=1 is set too - every harness sets
+# it; without it the variable is ignored ('' here) and the run warns once (Get-IgnoredTestHooks), so
+# a hook left in an operator's environment never changes a real consultation.
+function Test-TestMode {
+    return ([string][Environment]::GetEnvironmentVariable('CODEX_CONSULT_TEST_MODE')).Trim() -eq '1'
+}
+function Get-TestHookValue {
+    param([string]$Name)
+    if (-not (Test-TestMode)) { return '' }
+    return [string][Environment]::GetEnvironmentVariable($Name)
+}
+# The test hooks set in this process's environment that are IGNORED (no CODEX_CONSULT_TEST_MODE=1):
+# their names, sorted ordinal (empty in test mode).
+function Get-IgnoredTestHooks {
+    if (Test-TestMode) { return , ([string[]]@()) }
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($k in @([Environment]::GetEnvironmentVariables().Keys)) {
+        $n = [string]$k
+        $u = $n.ToUpperInvariant()
+        if (($u.StartsWith('CODEX_CONSULT_TEST_') -and $u -ne 'CODEX_CONSULT_TEST_MODE') -or $u -eq 'CODEX_CONSULT_NOW') {
+            if (([string][Environment]::GetEnvironmentVariable($n)).Trim() -and -not $names.Contains($n)) { $names.Add($n) }
+        }
+    }
+    $arr = [string[]]$names.ToArray()
+    [Array]::Sort($arr, [StringComparer]::Ordinal)
+    return , $arr
 }
 
 # ----------------------------------------------------------------------------- git
@@ -2770,7 +2808,7 @@ $script:DayNames = @('sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat')
 $script:ConsultClockCalls = 0
 function Get-ConsultClock {
     param([switch]$Peek)
-    $raw = [string]$env:CODEX_CONSULT_NOW
+    $raw = (Get-TestHookValue 'CODEX_CONSULT_NOW')
     $call = $script:ConsultClockCalls
     if (-not $Peek) { $script:ConsultClockCalls++ }
     if (-not $raw.Trim()) {
@@ -2992,6 +3030,22 @@ function New-CredentialResult {
     return [pscustomobject]@{ State = $State; Reason = $Reason; Detail = ($prefix + $Reason) }
 }
 
+# (wave 27c, D4) A launcher probe's ProcessStartInfo: no shell, no window, stdin/stdout/stderr
+# redirected, UTF-8 output. Built fresh by every Start-ProbeProcess attempt.
+function New-ProbeStartInfo {
+    param([string]$Launcher, [string]$Arguments)
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $Launcher
+    $psi.Arguments = $Arguments
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.StandardOutputEncoding = $script:Utf8NoBom
+    $psi.StandardErrorEncoding = $script:Utf8NoBom
+    return $psi
+}
 # `<launcher> login status` with a timeout; stdout and stderr are both read (the status
 # line may come on either) and decoded as UTF-8 (the Codex CLI writes UTF-8; the default
 # would be the console code page). { State ok|missing|unknown; Reason; Detail }.
@@ -3000,18 +3054,10 @@ function Get-CodexLoginStatus {
     if (-not $Launcher) { return (New-CredentialResult 'unknown' 'codex CLI not found, `codex login status` could not run') }
     $p = $null
     try {
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = $Launcher
-        $psi.Arguments = 'login status'
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
-        $psi.RedirectStandardInput = $true
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.StandardOutputEncoding = $script:Utf8NoBom
-        $psi.StandardErrorEncoding = $script:Utf8NoBom
-        Remove-HostMarkersFromStartInfo $psi
-        $p = [System.Diagnostics.Process]::Start($psi)
+        # (wave 27c, D4) through Start-ProbeProcess: never started with the host markers
+        $start = Start-ProbeProcess -Make { New-ProbeStartInfo -Launcher $Launcher -Arguments 'login status' }
+        if ($start.Skipped) { return (New-CredentialResult 'unknown' "not checked - ``codex login status`` was skipped: $($start.Skipped)") }
+        $p = $start.Proc
     } catch {
         return (New-CredentialResult 'unknown' "``codex login status`` could not be started ($(ConvertTo-OneLine $_.Exception.Message))")
     }
@@ -3290,18 +3336,10 @@ function Get-AgyModelsStatus {
     if (-not $Launcher) { return (New-CredentialResult 'missing' 'agy CLI not found on PATH') }
     $p = $null
     try {
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = $Launcher
-        $psi.Arguments = 'models'
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
-        $psi.RedirectStandardInput = $true
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.StandardOutputEncoding = $script:Utf8NoBom
-        $psi.StandardErrorEncoding = $script:Utf8NoBom
-        Remove-HostMarkersFromStartInfo $psi
-        $p = [System.Diagnostics.Process]::Start($psi)
+        # (wave 27c, D4) through Start-ProbeProcess: never started with the host markers
+        $start = Start-ProbeProcess -Make { New-ProbeStartInfo -Launcher $Launcher -Arguments 'models' }
+        if ($start.Skipped) { return (New-CredentialResult 'unknown' "not checked - ``agy models`` was skipped: $($start.Skipped)") }
+        $p = $start.Proc
     } catch {
         return (New-CredentialResult 'unknown' "``agy models`` could not be started ($(ConvertTo-OneLine $_.Exception.Message))")
     }
@@ -3353,7 +3391,7 @@ function Get-EngineCredential {
     if ($NoNetwork -and -not ($spec.PSObject.Properties['LocalSignIn'] -and $spec.LocalSignIn)) { return [pscustomobject]@{ State = 'unknown'; Reason = 'sign-in not checked'; Detail = 'not checked (launcher present; run codex-providers.ps1)' } }
     if ($TimeoutSec -le 0) {
         $TimeoutSec = $script:AgyModelsTimeoutSec
-        $hook = ([string]$env:CODEX_CONSULT_TEST_LOGIN_TIMEOUT).Trim()
+        $hook = ((Get-TestHookValue 'CODEX_CONSULT_TEST_LOGIN_TIMEOUT')).Trim()
         if ($hook -match '^[0-9]+$' -and [int]$hook -gt 0) { $TimeoutSec = [int]$hook }
     }
     $key = "engine:$Engine|$Launcher"
@@ -3408,18 +3446,11 @@ function Invoke-LauncherCapture {
     $r = [pscustomobject]@{ Started = $false; Exit = -1; TimedOut = $false; Out = ''; Err = '' }
     $p = $null
     try {
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = $Launcher
-        $psi.Arguments = $Arguments
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
-        $psi.RedirectStandardInput = $true
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.StandardOutputEncoding = $script:Utf8NoBom
-        $psi.StandardErrorEncoding = $script:Utf8NoBom
-        Remove-HostMarkersFromStartInfo $psi
-        $p = [System.Diagnostics.Process]::Start($psi)
+        # (wave 27c, D4) through Start-ProbeProcess: never started with the host markers (skipped: not
+        # started, the caller sees Started $false)
+        $start = Start-ProbeProcess -Make { New-ProbeStartInfo -Launcher $Launcher -Arguments $Arguments }
+        if ($start.Skipped) { return $r }
+        $p = $start.Proc
     } catch { return $r }
     $r.Started = $true
     try {
@@ -5112,25 +5143,29 @@ function ConvertTo-MachineHealthEntries {
 # row of $RemovePid (> 0), adds $AddRunning to running[] - then prunes and writes it atomically.
 # $true when written; never throws.
 function Update-MachineHealth {
-    param($AddEndpoint = $null, $AddRunning = $null, [int]$RemovePid = 0)
-    # (wave 26c, D2 / F26-2) why the last update was not written: 'lock timeout' (the caller retries
-    # once, then warns), '' otherwise
+    param($AddEndpoint = $null, $AddRunning = $null, [int]$RemovePid = 0, [int]$Attempts = 3, [double]$AttemptSec = 0)
+    # (wave 26c, D2 / F26-2; wave 27c, D7 / F30-7, F29-1, F32-3) why the last update was not written -
+    # EVERY failure names its cause: 'lock timeout', 'the directory ... does not exist', 'write failed:
+    # <why>'; '' when written or when there is nothing to write (no file configured)
     $script:MachineHealthLastError = ''
     $path = Get-MachineHealthPath
     if (-not $path) { return $false }
     $lockFs = $null
     try {
         $dir = [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($path))
-        if (-not [IO.Directory]::Exists($dir)) { return $false }
-        # (wave 26c, D2) the lock: 3 attempts of 5 s each (TEST HOOK: CODEX_CONSULT_TEST_HEALTH_LOCK_SEC
-        # = the seconds of one attempt)
-        $attemptSec = 5
+        if (-not [IO.Directory]::Exists($dir)) { $script:MachineHealthLastError = "the directory $dir does not exist"; return $false }
+        # (wave 26c, D2) the lock: $Attempts attempts of 5 s each (TEST HOOK: CODEX_CONSULT_TEST_HEALTH_LOCK_SEC
+        # = the seconds of one attempt); (wave 27c, D8) $AttemptSec > 0 caps one attempt (the one
+        # attempt inside the task write lock: at most 1 s)
+        # (NB: never $attemptSec - PowerShell names are case-insensitive, that is the parameter)
+        $oneAttemptSec = 5
         $hookSec = 0
-        if ([int]::TryParse([string]$env:CODEX_CONSULT_TEST_HEALTH_LOCK_SEC, [ref]$hookSec) -and $hookSec -gt 0) { $attemptSec = $hookSec }
-        for ($attempt = 1; $attempt -le 3 -and $null -eq $lockFs; $attempt++) {
+        if ([int]::TryParse((Get-TestHookValue 'CODEX_CONSULT_TEST_HEALTH_LOCK_SEC'), [ref]$hookSec) -and $hookSec -gt 0) { $oneAttemptSec = $hookSec }
+        if ($AttemptSec -gt 0 -and $AttemptSec -lt $oneAttemptSec) { $oneAttemptSec = $AttemptSec }
+        for ($attempt = 1; $attempt -le $Attempts -and $null -eq $lockFs; $attempt++) {
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
             $delay = 25
-            while ($null -eq $lockFs -and $watch.Elapsed.TotalSeconds -lt $attemptSec) {
+            while ($null -eq $lockFs -and $watch.Elapsed.TotalSeconds -lt $oneAttemptSec) {
                 try { $lockFs = [IO.File]::Open("$path.lock", [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None) }
                 catch [System.IO.IOException] {
                     Start-Sleep -Milliseconds $delay
@@ -5162,6 +5197,7 @@ function Update-MachineHealth {
         $script:MachineHealthCache = $null
         return $true
     } catch {
+        $script:MachineHealthLastError = "write failed: $(ConvertTo-OneLine $_.Exception.Message)"
         return $false
     } finally {
         if ($lockFs) { try { $lockFs.Dispose() } catch { } }
@@ -5172,7 +5208,7 @@ function Update-MachineHealth {
 # failure ($Failure: the ledger's provider_failure; class operator is not the endpoint's). No-op
 # without a fingerprint or a file.
 function Add-MachineHealthRecord {
-    param([string]$Fingerprint, [string]$Outcome, $Failure = $null, [string]$Repo = '')
+    param([string]$Fingerprint, [string]$Outcome, $Failure = $null, [string]$Repo = '', [int]$Attempts = 3, [double]$AttemptSec = 0)
     # (wave 26c, D2) a record that is not written for another reason is no lock timeout
     $script:MachineHealthLastError = ''
     if (-not $Fingerprint -or -not (Get-MachineHealthPath)) { return $false }
@@ -5197,7 +5233,7 @@ function Add-MachineHealthRecord {
         $rec = [pscustomobject]@{ endpoint = $Fingerprint; class = $cls; kind = $kind; until = $(if ($null -ne $until) { Format-OffsetIso $until } else { $null }); retry_after = $(if ($null -ne $ra) { Format-OffsetIso $ra } else { $null }); repo = $Repo; when = (Format-OffsetIso $when); message = $msg }
     }
     if ($null -eq $rec) { return $false }
-    return (Update-MachineHealth -AddEndpoint $rec)
+    return (Update-MachineHealth -AddEndpoint $rec -Attempts $Attempts -AttemptSec $AttemptSec)
 }
 
 # This run's row in running[] while its engine turns run (the bridge's pid and start time).
@@ -5469,22 +5505,28 @@ function Resolve-RequiredReviewers {
 # never inherits them, so a nested codex reviewer cannot take its coordinator's session for its
 # own. Everything else is kept: CODEX_HOME, the provider keys, PATH, the bridge's own
 # CODEX_CONSULT_* variables. The ledger's `child_env_scrubbed` names what was removed (never a
-# value). Names: exact, plus every name that starts with a prefix (every CODEX_SANDBOX*, every
-# ZCODE_PLUGIN*). (wave 27b) The list is completed with what a host session really hands its
+# value). Names: exact, plus every name that starts with a prefix (every CODEX_SANDBOX*, and - wave
+# 27c - every ZCODE_*). (wave 27b) The list is completed with what a host session really hands its
 # children - a session id, its messaging socket and TOKEN, its attendance, its executable path, its
-# pid and effort, a Z Code session and project -, so a reviewer child never inherits the
+# pid and effort -, so a reviewer child never inherits the
 # coordinator's session channel. EXACT names on purpose, never the whole CLAUDE_CODE_ prefix: the
 # operator's own settings (CLAUDE_CODE_USE_BEDROCK and the like) must still reach an engine, and
 # CLAUDE_PLUGIN_ROOT / CLAUDE_PLUGIN_DATA (the plugin's own directories) are kept.
+# (wave 27c, D21) Z Code: the WHOLE prefix ZCODE_ - what the shell tool of Z Code really carries
+# (read inside a Z Code session on 2026-09-29, desktop 3.14.3: ZCODE_APP_VERSION, ZCODE_BASE_URL,
+# ZCODE_BUILD_COMMIT_ID, ZCODE_BUILTIN_PROVIDER_CONFIG_FILE, ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED,
+# ZCODE_ENV, ZCODE_PERSONAL_PROVIDER_CONFIG_FILE, ZCODE_PROCESS_LABEL, ZCODE_RG_BINARY,
+# ZCODE_RUNTIME_ENV, ZCODE_UGREP_BINARY, ZCODE_WINDOWS_APP_INSTALL_DIR - two of them point at the
+# operator's provider configuration files; no reviewer engine reads a ZCODE_ variable); the
+# CLAUDE_CODE_ names stay EXACT
 $script:HostMarkerNames = @(
     'CODEX_SESSION_ID', 'CODEX_THREAD_ID', 'CODEX_CI',
     'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'AI_AGENT',
     'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_BRIDGE_SESSION_ID', 'CLAUDE_CODE_CHILD_SESSION',
     'CLAUDE_CODE_MESSAGING_SOCKET', 'CLAUDE_CODE_MESSAGING_TOKEN', 'CLAUDE_CODE_SESSION_ATTENDED',
-    'CLAUDE_CODE_EXECPATH', 'CLAUDE_PID', 'CLAUDE_EFFORT',
-    'ZCODE_SESSION_ID', 'ZCODE_PROJECT_DIR'
+    'CLAUDE_CODE_EXECPATH', 'CLAUDE_PID', 'CLAUDE_EFFORT'
 )
-$script:HostMarkerPrefixes = @('CODEX_SANDBOX', 'ZCODE_PLUGIN')
+$script:HostMarkerPrefixes = @('CODEX_SANDBOX', 'ZCODE_')
 
 # Whether a variable name is a host marker (Windows: case-insensitive, like its environment).
 function Test-HostMarkerName {
@@ -5508,17 +5550,34 @@ function Get-HostMarkerNames {
     return , $arr
 }
 
-# Removes the host markers from THIS process's environment right before an engine child is started
+# Removes the host markers from THIS process's environment right before a child is started
 # (Start-Process has no environment parameter on Windows PowerShell 5.1: the child inherits the
 # process's block) and returns what was removed (name -> value) for Restore-HostMarkers, which the
 # caller runs in a `finally` right after the start - the bridge's own process keeps its markers.
+# (wave 27c, D3 / F30-2) TRANSACTIONAL: the snapshot of every marker is taken FIRST, the removals
+# run inside `try`, and a removal that fails puts back everything removed so far and THROWS
+# "host markers could not be hidden (<name>: <why>)" - the caller refuses the start (a child never
+# starts with part of the markers). TEST HOOK (test mode only, D14): CODEX_CONSULT_TEST_HIDE_FAIL=
+# <name> makes the removal of that marker fail.
 function Hide-HostMarkers {
     $saved = [ordered]@{}
-    foreach ($n in (Get-HostMarkerNames)) {
-        $saved[$n] = [Environment]::GetEnvironmentVariable($n)
-        # a real null: PowerShell passes $null to a [string] argument as '' - which PowerShell 7
-        # (.NET) keeps as an EMPTY variable instead of removing it
-        [Environment]::SetEnvironmentVariable($n, [NullString]::Value)
+    foreach ($n in (Get-HostMarkerNames)) { $saved[$n] = [Environment]::GetEnvironmentVariable($n) }
+    $failOn = ([string](Get-TestHookValue 'CODEX_CONSULT_TEST_HIDE_FAIL')).Trim()
+    $removed = [ordered]@{}
+    $current = ''
+    try {
+        foreach ($n in @($saved.Keys)) {
+            $current = [string]$n
+            if ($failOn -and $current -ieq $failOn) { throw 'the removal was refused (test hook CODEX_CONSULT_TEST_HIDE_FAIL)' }
+            # a real null: PowerShell passes $null to a [string] argument as '' - which PowerShell 7
+            # (.NET) keeps as an EMPTY variable instead of removing it
+            [Environment]::SetEnvironmentVariable($current, [NullString]::Value)
+            $removed[$current] = $saved[$current]
+        }
+    } catch {
+        $why = ConvertTo-OneLine $_.Exception.Message
+        try { Restore-HostMarkers -Saved $removed } catch { }
+        throw "host markers could not be hidden ($($current): $why)"
     }
     return $saved
 }
@@ -5529,103 +5588,262 @@ function Restore-HostMarkers {
     foreach ($n in @($Saved.Keys)) { [Environment]::SetEnvironmentVariable([string]$n, [string]$Saved[$n]) }
 }
 
+# (wave 27c, D3) THE way a child is started without the host markers: hides them (transactional,
+# Hide-HostMarkers), runs $Action, restores them in `finally`. A hide that fails runs nothing and
+# throws "host markers could not be hidden (<name>: <why>)". Returns what $Action returned.
+function Invoke-WithoutHostMarkers {
+    param([scriptblock]$Action)
+    $saved = Hide-HostMarkers
+    try { return (& $Action) } finally { Restore-HostMarkers -Saved $saved }
+}
+
 # The same for a ProcessStartInfo (the launcher probes): its environment block without the markers.
+# (wave 27c, D4 / F30-4) '' when the block holds no marker afterwards, else why not (a removal that
+# failed, a marker still there) - never fails open silently: the caller then starts the probe
+# through Invoke-WithoutHostMarkers, or skips it. TEST HOOK (test mode only):
+# CODEX_CONSULT_TEST_PROBE_SCRUB_FAIL=1 makes this report a failure.
 function Remove-HostMarkersFromStartInfo {
     param($StartInfo)
+    if ((Get-TestHookValue 'CODEX_CONSULT_TEST_PROBE_SCRUB_FAIL').Trim() -eq '1') { return 'the start-info block could not be scrubbed (test hook CODEX_CONSULT_TEST_PROBE_SCRUB_FAIL)' }
     try {
         $block = $StartInfo.EnvironmentVariables
         foreach ($k in @($block.Keys)) { if (Test-HostMarkerName ([string]$k)) { $block.Remove([string]$k) } }
-    } catch { }
+        $left = @(@($block.Keys) | Where-Object { Test-HostMarkerName ([string]$_) })
+        if ($left.Count -gt 0) { return "the start-info block still holds $($left -join ', ')" }
+        return ''
+    } catch { return "the start-info block could not be scrubbed ($(ConvertTo-OneLine $_.Exception.Message))" }
+}
+
+# (wave 27c, D4) Starts a launcher probe (`codex login status`, `agy models`, `<launcher> --version`
+# and the like) without the host markers: $Make builds a fresh ProcessStartInfo; its block is
+# scrubbed (Remove-HostMarkersFromStartInfo); when that fails the probe starts from a FRESH start
+# info while the markers are hidden from this process (Invoke-WithoutHostMarkers); when that fails
+# too the probe is SKIPPED. { Proc ($null when skipped); Skipped ('' or why); Note ('' or how it was
+# started instead) }. Start errors throw, as [Process]::Start does.
+$script:ProbeWarnings = New-Object System.Collections.Generic.List[string]
+function Start-ProbeProcess {
+    param([scriptblock]$Make)
+    $r = [pscustomobject]@{ Proc = $null; Skipped = ''; Note = '' }
+    $psi = & $Make
+    $why = Remove-HostMarkersFromStartInfo $psi
+    if (-not $why) { $r.Proc = [System.Diagnostics.Process]::Start($psi); return $r }
+    $hidden = $null
+    try { $hidden = Hide-HostMarkers } catch {
+        $r.Skipped = "$why; $(ConvertTo-OneLine $_.Exception.Message)"
+        if (-not $script:ProbeWarnings.Contains("a launcher probe was skipped: $($r.Skipped)")) { $script:ProbeWarnings.Add("a launcher probe was skipped: $($r.Skipped)") }
+        return $r
+    }
+    try {
+        $fresh = & $Make
+        $r.Proc = [System.Diagnostics.Process]::Start($fresh)
+        $r.Note = "$why - started with the markers hidden from the bridge's own environment"
+    } finally { Restore-HostMarkers -Saved $hidden }
+    return $r
 }
 
 # (D3, F03-3, F04-5) The coordinator's host - a HINT inferred from its markers, never an identity:
 # `codex` (CODEX_SESSION_ID or CODEX_THREAD_ID - looked at FIRST: a codex session started from a
 # claude-code session inherits that session's markers, and its own are the innermost), (wave 27b)
-# `zcode` (ZCODE_SESSION_ID or ZCODE_PROJECT_DIR - looked at before claude-code: Z Code sets no
-# claude-code marker of its own, so a claude-code marker next to its own is taken as inherited), `claude-code`
-# (CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, or AI_AGENT starting with claude-code), else `unknown`.
-function Get-CoordinatorHost {
+# `zcode` (looked at before claude-code: Z Code sets no claude-code marker of its own, so a
+# claude-code marker next to its own is taken as inherited) - (wave 27c, D20) ANY variable with the
+# prefix ZCODE_ (the shell tool of Z Code carries neither ZCODE_SESSION_ID nor ZCODE_PROJECT_DIR, but
+# its ZCODE_APP_VERSION, ZCODE_PROCESS_LABEL and more) -, `claude-code` (CLAUDECODE,
+# CLAUDE_CODE_ENTRYPOINT, or AI_AGENT starting with claude-code), else - no marker of any host - the
+# install path of the running script: a plugin cache under a directory `.zcode`, `.codex` or
+# `.claude` (`<dir>/plugins/...`) names that host. { Host; By ('markers' | 'path' | 'none') }.
+function Get-CoordinatorHostHint {
+    param([string]$ScriptPath = $PSScriptRoot)
     $get = { param($n) [string][Environment]::GetEnvironmentVariable($n) }
-    if ((& $get 'CODEX_SESSION_ID') -or (& $get 'CODEX_THREAD_ID')) { return 'codex' }
-    if ((& $get 'ZCODE_SESSION_ID') -or (& $get 'ZCODE_PROJECT_DIR')) { return 'zcode' }
-    if ((& $get 'CLAUDECODE') -or (& $get 'CLAUDE_CODE_ENTRYPOINT') -or (& $get 'AI_AGENT').StartsWith('claude-code', [StringComparison]::OrdinalIgnoreCase)) { return 'claude-code' }
-    return 'unknown'
+    if ((& $get 'CODEX_SESSION_ID') -or (& $get 'CODEX_THREAD_ID')) { return [pscustomobject]@{ Host = 'codex'; By = 'markers' } }
+    foreach ($k in @([Environment]::GetEnvironmentVariables().Keys)) { if (([string]$k).ToUpperInvariant().StartsWith('ZCODE_') -and (& $get ([string]$k))) { return [pscustomobject]@{ Host = 'zcode'; By = 'markers' } } }
+    if ((& $get 'CLAUDECODE') -or (& $get 'CLAUDE_CODE_ENTRYPOINT') -or (& $get 'AI_AGENT').StartsWith('claude-code', [StringComparison]::OrdinalIgnoreCase)) { return [pscustomobject]@{ Host = 'claude-code'; By = 'markers' } }
+    $p = [string]$ScriptPath
+    if ($p -match '(?i)[\\/]\.(zcode|codex|claude)[\\/]plugins[\\/]') {
+        return [pscustomobject]@{ Host = @{ zcode = 'zcode'; codex = 'codex'; claude = 'claude-code' }[$Matches[1].ToLowerInvariant()]; By = 'path' }
+    }
+    return [pscustomobject]@{ Host = 'unknown'; By = 'none' }
+}
+
+# The host hint alone (a string) - see Get-CoordinatorHostHint.
+function Get-CoordinatorHost {
+    param([string]$ScriptPath = $PSScriptRoot)
+    return (Get-CoordinatorHostHint -ScriptPath $ScriptPath).Host
+}
+# (wave 27c, D10 / F30-9) THE character rule of a provider label and a model id - the roster's
+# validator and CODEX_CONSULT_COORDINATOR share it: a non-empty string without surrounding blanks
+# and without the matcher's and the seed's delimiters ('::', '[', ']', '|', ',', '#' -
+# Get-RosterStringProblem). Interior blanks are allowed. '' or why not ("is empty", "has
+# surrounding blanks", "must not contain '::'").
+function Get-IdentityStringProblem {
+    param($Value)
+    if (-not ($Value -is [string]) -or -not $Value.Trim()) { return 'is empty' }
+    if ($Value -cne $Value.Trim()) { return 'has surrounding blanks' }
+    $bad = Get-RosterStringProblem $Value
+    if ($bad) { return "must not contain $bad" }
+    return ''
+}
+
+# (wave 27c, D9) The Codex config's defaults the bridge would run with: { Provider (model_provider,
+# else openai); Model (the top-level model, '' when none) } - a model-less roster entry and a bare
+# label of the default provider resolve to them.
+function Get-CodexConfigDefaults {
+    $r = [pscustomobject]@{ Provider = 'openai'; Model = '' }
+    try {
+        $cfg = Read-CodexConfigSubset -Path (Get-CodexConfigPath)
+        if ($cfg.Exists -and $cfg.Ok) {
+            $top = $cfg.Tables['']
+            if ($top -and $top.Ok) {
+                $pp = Get-TomlString -Table $top -Key 'model_provider'
+                if ($pp.Present -and -not $pp.Reason -and $pp.Value) { $r.Provider = [string]$pp.Value }
+                $mm = Get-TomlString -Table $top -Key 'model'
+                if ($mm.Present -and -not $mm.Reason -and $mm.Value) { $r.Model = [string]$mm.Value }
+            }
+        }
+    } catch { }
+    return $r
 }
 
 # (D3, F03-2, F04-4) The coordinator's identity, resolved ONCE at the start of a run (a panel member
 # and a detached background take their run's - never inferred again downstream): the value of
 # CODEX_CONSULT_COORDINATOR (optional) parsed by the reviewer matcher (ConvertFrom-ReviewerMatcher)
-# - `<provider> :: <model>` [` [<engine>]`], a roster position `#<n>` (resolved to that entry's
-# provider, model and engine) or a provider label - and the host inferred from the markers (a hint:
-# no warning comes from it). A value that does not parse, a position the roster does not have, a
-# provider that is not a label (letters, digits, dot, dash, underscore) or a model with white space
-# is refused (Error). { Record - the ledger's `coordinator` {provider, model, engine, host, source:
-# explicit | inferred | none}; Error ('' or the refusal) }.
+# - `<provider> :: <model>` [` [<engine>]`], a roster position `#<n>` or a provider label - and the
+# host hint (Get-CoordinatorHostHint: markers, else the install path; no warning comes from it).
+# (wave 27c, D9 / F30-8, F32-6) A RESOLVED TRIPLE, through the same rules as a seated reviewer: `#n`
+# is that entry's provider, its model - else the model the bridge would run (the Codex config's,
+# $Defaults) - and its engine; a label is the model of its roster entry (else, for the config's
+# own provider, the config's model) - several entries of different models leave the model unnamed;
+# a lineage without an engine takes its roster entry's, else codex. (D10) Only a value that cannot be
+# PARSED - the matcher's grammar, the shared character rule (Get-IdentityStringProblem) - is refused
+# (Error). (D11 / F32-4) A coordinator no roster entry matches is said, not refused: in_roster false.
+# (D12 / F32-5) `#n` that names no position here is no refusal: unresolved "#n" and a warning. {
+# Record - the ledger's `coordinator` {provider, model, engine, host, host_by (markers | path |
+# none), source (explicit | inferred | none), in_roster ($null without a roster or an identity),
+# unresolved ($null, or the `#n` that named nothing)}; Error ('' or the refusal); Warnings }.
 function Resolve-CoordinatorIdentity {
-    param([string]$Value, $Roster = $null)
-    $hostHint = Get-CoordinatorHost
-    $r = [pscustomobject]@{ Record = $null; Error = '' }
+    param([string]$Value, $Roster = $null, $Defaults = $null, [string]$ScriptPath = $PSScriptRoot)
+    $hint = Get-CoordinatorHostHint -ScriptPath $ScriptPath
+    if ($null -eq $Defaults) { $Defaults = [pscustomobject]@{ Provider = 'openai'; Model = '' } }
+    $r = [pscustomobject]@{ Record = $null; Error = ''; Warnings = [string[]]@() }
+    $hasRoster = [bool]($Roster -and $Roster.Exists)
+    $mk = {
+        param($P, $M, $E, [string]$Src, $InRoster, $Unresolved)
+        [pscustomobject]@{ provider = $P; model = $M; engine = $E; host = $hint.Host; host_by = $hint.By; source = $Src; in_roster = $InRoster; unresolved = $Unresolved }
+    }
     $v = ([string]$Value).Trim()
     if (-not $v) {
-        $r.Record = [pscustomobject]@{ provider = $null; model = $null; engine = $null; host = $hostHint; source = $(if ($hostHint -ne 'unknown') { 'inferred' } else { 'none' }) }
+        $r.Record = & $mk $null $null $null $(if ($hint.Host -ne 'unknown') { 'inferred' } else { 'none' }) $null $null
         return $r
     }
     $m = ConvertFrom-ReviewerMatcher -Matcher $v
     $why = [string]$m.Error
-    if (-not $why -and $m.Kind -eq 'position') {
-        $entry = $null
-        if ($Roster -and $Roster.Exists) { $entry = @($Roster.Entries | Where-Object { [int]$_.Position -eq [int]$m.Position }) | Select-Object -First 1 }
-        if (-not $entry) { $why = "'$v' names no roster position$(if ($Roster -and $Roster.Exists) { " (the roster has $(@($Roster.Entries).Count) entries)" } else { ' (there is no reviewer roster)' })" }
-        else {
-            $m.Provider = [string]$entry.Provider
-            $m.Model = $(if ([string]$entry.Model) { [string]$entry.Model } else { $null })
-            $m.Engine = [string]$entry.Engine
-        }
-    }
     if (-not $why -and $m.Kind -ne 'position') {
-        if ($m.Provider -cnotmatch '^[A-Za-z0-9._-]+$') { $why = "the provider '$($m.Provider)' is not a provider label (letters, digits, dot, dash, underscore)" }
-        elseif ($null -ne $m.Model -and $m.Model -match '\s') { $why = "the model '$($m.Model)' contains white space" }
+        $pp = Get-IdentityStringProblem ([string]$m.Provider)
+        if ($pp) { $why = "the provider '$($m.Provider)' $pp" }
+        elseif ($null -ne $m.Model) { $mp = Get-IdentityStringProblem ([string]$m.Model); if ($mp) { $why = "the model '$($m.Model)' $mp" } }
     }
     if ($why) {
         $r.Error = "CODEX_CONSULT_COORDINATOR='$v' cannot be used: $why - give '<provider> :: <model>' (optionally ' [<engine>]'), a roster position '#<n>' or a provider label; nothing was started."
         return $r
     }
-    $r.Record = [pscustomobject]@{ provider = [string]$m.Provider; model = $m.Model; engine = $(if ($m.Engine) { [string]$m.Engine } else { $null }); host = $hostHint; source = 'explicit' }
+    $entries = @()
+    if ($hasRoster) { $entries = @($Roster.Entries) }
+    $modelOf = { param($e) if ([string]$e.Model) { [string]$e.Model } elseif (-not [string]$e.Engine -or [string]$e.Engine -eq 'codex') { [string]$Defaults.Model } else { '' } }
+    if ($m.Kind -eq 'position') {
+        $entry = @($entries | Where-Object { [int]$_.Position -eq [int]$m.Position }) | Select-Object -First 1
+        if (-not $entry) {
+            $r.Record = & $mk $null $null $null 'explicit' $(if ($hasRoster) { $false } else { $null }) $v
+            $r.Warnings = [string[]]@("CODEX_CONSULT_COORDINATOR '$v' names no roster position here$(if ($hasRoster) { " (the roster has $($entries.Count) entries)" } else { ' (there is no reviewer roster)' }) - the coordinator is not known; no self-review warning can be given")
+            return $r
+        }
+        $em = & $modelOf $entry
+        $r.Record = & $mk ([string]$entry.Provider) $(if ($em) { $em } else { $null }) $(if ([string]$entry.Engine) { [string]$entry.Engine } else { 'codex' }) 'explicit' $true $null
+        return $r
+    }
+    $hits = @($entries | Where-Object { Test-ReviewerMatch -Parsed $m -Provider ([string]$_.Provider) -Model ([string]$_.Model) -Engine ([string]$_.Engine) })
+    $model = $m.Model
+    $engine = $(if ($m.Engine) { [string]$m.Engine } else { $null })
+    if ($m.Kind -eq 'lineage') {
+        if (-not $engine) { $engine = $(if ($hits.Count -gt 0 -and [string]$hits[0].Engine) { [string]$hits[0].Engine } else { 'codex' }) }
+    } else {
+        # a label: the model of its roster entries when they name ONE model (and one engine); none in
+        # the roster - the config's model for the config's own provider
+        $models = @($hits | ForEach-Object { & $modelOf $_ } | Where-Object { $_ } | Select-Object -Unique)
+        $engines = @($hits | ForEach-Object { if ([string]$_.Engine) { [string]$_.Engine } else { 'codex' } } | Select-Object -Unique)
+        if ($hits.Count -gt 0) {
+            if ($models.Count -eq 1 -and $engines.Count -eq 1 -and @($hits | Where-Object { -not (& $modelOf $_) }).Count -eq 0) { $model = [string]$models[0]; $engine = [string]$engines[0] }
+        } elseif ([string]$m.Provider -ceq [string]$Defaults.Provider -and [string]$Defaults.Model -and (-not $engine -or $engine -eq 'codex')) {
+            $model = [string]$Defaults.Model; $engine = 'codex'
+        }
+    }
+    $r.Record = & $mk ([string]$m.Provider) $(if ($model) { [string]$model } else { $null }) $engine 'explicit' $(if ($hasRoster) { [bool]($hits.Count -gt 0) } else { $null }) $null
     return $r
 }
 
-# (D3) Whether a seated reviewer - its RESOLVED provider, model and engine - is the coordinator's
-# own model: an explicit identity only (an inferred host names no model), compared by
-# Test-ReviewerMatch like -Require compares - never a lineage string.
+# (wave 27c, D9) How a seated reviewer - its RESOLVED provider, model and engine - relates to the
+# coordinator: 'own' (provider, model and engine all equal - "the coordinator's own model"),
+# 'provider' (the coordinator names only its provider - no model could be resolved - and the
+# reviewer is of that provider: the weaker warning), else ''. An explicit identity only (an inferred
+# host names no model); the provider and the model compared ordinal.
+function Get-CoordinatorMatch {
+    param($Coordinator, [string]$Provider, [string]$Model, [string]$Engine)
+    if (-not $Coordinator -or [string](Get-PropertyValue $Coordinator 'source' '') -ne 'explicit') { return '' }
+    $cp = [string](Get-PropertyValue $Coordinator 'provider' '')
+    if (-not $cp -or $cp -cne $Provider) { return '' }
+    if (-not $Engine) { $Engine = 'codex' }
+    $cm = [string](Get-PropertyValue $Coordinator 'model' '')
+    $ce = [string](Get-PropertyValue $Coordinator 'engine' '')
+    if ($ce -and $ce -ne $Engine) { return '' }
+    if (-not $cm) { return 'provider' }
+    if ($cm -ceq $Model -and (-not $ce -or $ce -eq $Engine)) { return 'own' }
+    return ''
+}
+
+# (D3) Whether a seated reviewer is the coordinator's own model (Get-CoordinatorMatch 'own').
 function Test-CoordinatorReviewer {
     param($Coordinator, [string]$Provider, [string]$Model, [string]$Engine)
-    if (-not $Coordinator -or [string](Get-PropertyValue $Coordinator 'source' '') -ne 'explicit' -or -not [string](Get-PropertyValue $Coordinator 'provider' '')) { return $false }
-    $parsed = [pscustomobject]@{ Provider = [string]$Coordinator.provider; Model = (Get-PropertyValue $Coordinator 'model' $null); Engine = [string](Get-PropertyValue $Coordinator 'engine' '') }
-    return (Test-ReviewerMatch -Parsed $parsed -Provider $Provider -Model $Model -Engine $Engine)
+    return ((Get-CoordinatorMatch -Coordinator $Coordinator -Provider $Provider -Model $Model -Engine $Engine) -eq 'own')
 }
 
 # The coordinator as shown (the dry run, the warning): `<provider> :: <model>` (` [<engine>]` when
-# named), a label alone, or `(no identity given)`; then the host hint and the source.
+# not codex), a label alone, or `(no identity given)`; then the host hint and the source; (wave 27c)
+# an unresolved `#n`, and "(not in the roster - no reviewer can match it)" (D11).
 function Format-CoordinatorText {
     param($Coordinator)
     if (-not $Coordinator) { return '(none)' }
     $p = [string](Get-PropertyValue $Coordinator 'provider' '')
     $m = [string](Get-PropertyValue $Coordinator 'model' '')
     $e = [string](Get-PropertyValue $Coordinator 'engine' '')
+    $un = [string](Get-PropertyValue $Coordinator 'unresolved' '')
     $who = '(no identity given - CODEX_CONSULT_COORDINATOR is not set)'
-    if ($p) {
-        $who = $(if ($m) { "$p :: $m" } else { "$p (every model of it)" })
-        if ($e) { $who += " [$e]" }
+    if ($un) { $who = "$un (names no roster position here)" }
+    elseif ($p) {
+        $who = $(if ($m) { "$p :: $m" } else { "$p (model not named)" })
+        if ($e -and $e -ne 'codex') { $who += " [$e]" }
     }
-    return "$who; host $([string](Get-PropertyValue $Coordinator 'host' 'unknown')) (inferred, a hint); source $([string](Get-PropertyValue $Coordinator 'source' 'none'))"
+    $by = [string](Get-PropertyValue $Coordinator 'host_by' 'markers')
+    $text = "$who; host $([string](Get-PropertyValue $Coordinator 'host' 'unknown')) ($(if ($by -eq 'path') { 'inferred from the install path, a hint' } else { 'inferred, a hint' })); source $([string](Get-PropertyValue $Coordinator 'source' 'none'))"
+    if ((Get-PropertyValue $Coordinator 'in_roster' $null) -eq $false -and -not $un) { $text += ' (not in the roster - no reviewer can match it)' }
+    return $text
 }
 
-# The warning when a seated reviewer is the coordinator's own model (D3; not a refusal).
+# The coordinator's identity alone, as the console line of D11 names it.
+function Format-CoordinatorId {
+    param($Coordinator)
+    $p = [string](Get-PropertyValue $Coordinator 'provider' '')
+    $m = [string](Get-PropertyValue $Coordinator 'model' '')
+    $e = [string](Get-PropertyValue $Coordinator 'engine' '')
+    $who = $(if ($m) { "$p :: $m" } else { $p })
+    if ($e -and $e -ne 'codex') { $who += " [$e]" }
+    return $who
+}
+
+# The warning when a seated reviewer is the coordinator's own model (D3; not a refusal) - (wave 27c,
+# D9) or, -Kind provider, a reviewer of the coordinator's own provider while no model is named.
 function Format-CoordinatorWarning {
-    param([string]$Lineage)
+    param([string]$Lineage, [string]$Kind = 'own')
+    if ($Kind -eq 'provider') { return "coordinator: $Lineage is a reviewer from the coordinator's own provider (model not named) (CODEX_CONSULT_COORDINATOR) - it may be the coordinator's own model" }
     return "coordinator: $Lineage is the coordinator's own model (CODEX_CONSULT_COORDINATOR) - a second opinion from the coordinator's own model, not an independent one"
 }
-
 function Get-RosterPath {
     $p = ([string]$env:CODEX_CONSULT_ROSTER).Trim()
     if ($p -ieq 'none') { return [pscustomobject]@{ Path = ''; FromEnv = $true; Disabled = $true } }
@@ -5759,11 +5977,11 @@ function Read-ReviewerRoster {
             }
             $provider = $null
             if ($item.PSObject.Properties['provider']) { $provider = $item.provider }
-            if (-not ($provider -is [string]) -or -not $provider.Trim() -or $provider -cne $provider.Trim()) { $why = "$at needs a provider: a non-empty string without surrounding blanks"; break }
+            if (Get-IdentityStringProblem $provider) { $why = "$at needs a provider: a non-empty string without surrounding blanks"; break }
             $model = ''
             if ($item.PSObject.Properties['model']) {
                 $mv = $item.model
-                if (-not ($mv -is [string]) -or -not $mv.Trim() -or $mv -cne $mv.Trim()) { $why = "${at}: model must be a non-empty string without surrounding blanks (omit it to use the Codex config's model)"; break }
+                if (Get-IdentityStringProblem $mv) { $why = "${at}: model must be a non-empty string without surrounding blanks (omit it to use the Codex config's model)"; break }
                 $model = $mv
             }
             $cfgItems = [string[]]@()
@@ -7452,7 +7670,7 @@ function Exit-TaskLock {
 # TEST HOOK: CODEX_CONSULT_TEST_WRITE_LOCK_SEC=<s> shortens it.
 function Get-WriteLockTimeout {
     $v = 0.0
-    if ([double]::TryParse([string]$env:CODEX_CONSULT_TEST_WRITE_LOCK_SEC, [System.Globalization.NumberStyles]::Float, $script:Invariant, [ref]$v) -and $v -gt 0) { return $v }
+    if ([double]::TryParse((Get-TestHookValue 'CODEX_CONSULT_TEST_WRITE_LOCK_SEC'), [System.Globalization.NumberStyles]::Float, $script:Invariant, [ref]$v) -and $v -gt 0) { return $v }
     return 60.0
 }
 
@@ -8053,9 +8271,15 @@ function Test-PendingActive {
 
 # ----------------------------------------------------------------------------- processes
 
-# Descendant pids of $RootId (Windows: CIM; elsewhere: pgrep -P). Best effort.
-function Get-DescendantPids {
+# (wave 27c, D16) The descendants of $RootId (Windows: CIM; elsewhere: pgrep -P) and whether the
+# process table could be read at all: { Pids (int[]); Denied ('' or why the children could not be
+# enumerated - a restricted host, e.g. a sandbox that denies process inspection) }. TEST HOOK (test
+# mode only, D14): CODEX_CONSULT_TEST_KILL_DENIED=1 - the enumeration is denied (and so is
+# taskkill, Invoke-TaskKillTree).
+function Get-DescendantTree {
     param([int]$RootId)
+    $r = [pscustomobject]@{ Pids = [int[]]@(); Denied = '' }
+    if ((Get-TestHookValue 'CODEX_CONSULT_TEST_KILL_DENIED').Trim() -eq '1') { $r.Denied = 'process inspection denied (test hook CODEX_CONSULT_TEST_KILL_DENIED)'; return $r }
     $found = New-Object System.Collections.Generic.List[int]
     $queue = New-Object System.Collections.Generic.Queue[int]
     $queue.Enqueue($RootId)
@@ -8064,7 +8288,11 @@ function Get-DescendantPids {
     try {
         $all = @()
         if ($script:OnWindows) {
-            try { $all = @(Get-CimInstance -ClassName Win32_Process -Property ProcessId, ParentProcessId -ErrorAction Stop) } catch { $all = @() }
+            try { $all = @(Get-CimInstance -ClassName Win32_Process -Property ProcessId, ParentProcessId -ErrorAction Stop) } catch { $r.Denied = "the process table could not be read ($(ConvertTo-OneLine $_.Exception.Message))"; return $r }
+            if ($all.Count -eq 0) { $r.Denied = 'the process table came back empty'; return $r }
+        } elseif (-not (Get-Command pgrep -ErrorAction SilentlyContinue)) {
+            $r.Denied = 'pgrep is not available'
+            return $r
         }
         while ($queue.Count -gt 0) {
             $cur = $queue.Dequeue()
@@ -8085,9 +8313,29 @@ function Get-DescendantPids {
     } finally {
         $ErrorActionPreference = $previous
     }
-    return , ([int[]]$found.ToArray())
+    $r.Pids = [int[]]$found.ToArray()
+    return $r
 }
 
+# Descendant pids of $RootId (Get-DescendantTree). Best effort.
+function Get-DescendantPids {
+    param([int]$RootId)
+    return , ([int[]](Get-DescendantTree -RootId $RootId).Pids)
+}
+
+# (wave 27c, D16) `taskkill /PID <root> /T /F` (Windows): its exit code (0 = the whole tree was
+# terminated), -1 when it could not run. Under the D16 test hook it is "denied": exit 1, nothing run.
+function Invoke-TaskKillTree {
+    param([int]$RootId)
+    if ((Get-TestHookValue 'CODEX_CONSULT_TEST_KILL_DENIED').Trim() -eq '1') { return 1 }
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $global:LASTEXITCODE = 0
+        & taskkill.exe /PID $RootId /T /F 2>$null | Out-Null
+        return [int]$LASTEXITCODE
+    } catch { return -1 } finally { $ErrorActionPreference = $previous }
+}
 # (wave 26b, D10) The operator's kick file of the run with handoff number $Nn:
 # <task>/.consult.kick-<NN> - written by `-Kick -Member <NN>` (from another shell), polled by the
 # run while its engine turn runs; the run deletes it once the turn's process tree is stopped (the
@@ -8097,59 +8345,136 @@ function Get-KickPath {
     return (Join-Path $TaskDir ".consult.kick-$Nn")
 }
 
-# (wave 26c, D1 / F26-1, F25-2) The member TAKES the operator's kick: it writes the
-# acknowledgement <kick file>.ack ("kicked <iso>" - the turn is being stopped; "late <iso>" - the
-# turn had already finished, the outcome stays) and removes the kick file. `-Kick` waits for the
-# acknowledgement. Never throws.
-function Confirm-Kick {
-    param([string]$KickPath, [string]$What = 'kicked')
-    if (-not $KickPath) { return }
-    try { Write-Utf8NoBom -Path "$KickPath.ack" -Text ("$What $(Get-IsoTimestamp) pid $PID`n") } catch { }
-    $null = Remove-PendingFile -Path $KickPath
+# (wave 27c, D1 / F30-1, F29-2, F32-1, F30-6) The kick protocol, per REQUEST: the kick file and its
+# acknowledgement are small JSON records { id (a GUID), when, pid[, result] }. Read-KickRecord reads
+# one tolerantly: { Exists; Id ('' for an older plain-text file); Result; When ($null when unknown -
+# then the file's own write time counts) }.
+function Read-KickRecord {
+    param([string]$Path)
+    $r = [pscustomobject]@{ Exists = $false; Id = ''; Result = ''; When = $null }
+    if (-not $Path -or -not [IO.File]::Exists($Path)) { return $r }
+    $r.Exists = $true
+    $text = Read-SharedText -Path $Path
+    try {
+        $o = ConvertFrom-Json -InputObject $text
+        if (Test-IsJsonObject $o) {
+            $r.Id = [string](Get-PropertyValue $o 'id' '')
+            $r.Result = [string](Get-PropertyValue $o 'result' '')
+            $r.When = ConvertTo-WhenOffset (Get-PropertyValue $o 'when' '')
+        }
+    } catch {
+        # an older plain-text record: "kicked <iso> ..." / "late <iso> ..."
+        if ($text -match '^(kicked|late)\b') { $r.Result = $(if ($Matches[1] -eq 'late') { 'late' } else { 'stopped' }) }
+    }
+    if ($null -eq $r.When) { try { $r.When = [DateTimeOffset]([IO.File]::GetLastWriteTimeUtc($Path)) } catch { } }
+    return $r
 }
 
+# (wave 27c, D1) A caller's kick request: a new request is written ATOMICALLY (a temporary file,
+# then a rename that never replaces) - when a kick file is already there the caller JOINS it (takes
+# its id) and never overwrites it. { Id; Created ($true: this caller made the request - only it
+# removes the acknowledgement after reading it); Error }.
+function New-KickRequest {
+    param([string]$KickPath)
+    $r = [pscustomobject]@{ Id = ''; Created = $false; Error = '' }
+    $id = [guid]::NewGuid().ToString()
+    $tmp = "$KickPath.$([guid]::NewGuid().ToString('N')).tmp"
+    try { Write-Utf8NoBom -Path $tmp -Text ((ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ id = $id; when = (Get-IsoTimestamp); pid = $PID })) + "`n") } catch { $r.Error = ConvertTo-OneLine $_.Exception.Message; return $r }
+    try {
+        for ($i = 0; $i -lt 20; $i++) {
+            try { [IO.File]::Move($tmp, $KickPath); $r.Id = $id; $r.Created = $true; return $r } catch { }
+            $existing = Read-KickRecord -Path $KickPath
+            if ($existing.Exists -and $existing.Id) { $r.Id = $existing.Id; return $r }
+            Start-Sleep -Milliseconds 100
+        }
+        $r.Error = "the kick file '$KickPath' is there but carries no request id"
+        return $r
+    } finally { try { if ([IO.File]::Exists($tmp)) { [IO.File]::Delete($tmp) } } catch { } }
+}
+
+# (wave 27c, D1) An acknowledgement older than 60 s that is not $KeepId's is swept (by any later
+# -Kick, and by the next run start of the member). $true when one was removed.
+function Clear-StaleKickAck {
+    param([string]$KickPath, [string]$KeepId = '')
+    $ack = Read-KickRecord -Path "$KickPath.ack"
+    if (-not $ack.Exists -or ($KeepId -and $ack.Id -eq $KeepId)) { return $false }
+    if ($null -ne $ack.When -and ([DateTimeOffset]::Now - $ack.When).TotalSeconds -lt 60) { return $false }
+    return (-not (Remove-PendingFile -Path "$KickPath.ack"))
+}
+
+# (wave 26c, D1 / F26-1, F25-2) The member TAKES the operator's kick: (wave 27c, D1) it writes the
+# acknowledgement <kick file>.ack - atomically - holding the request's id and the result: "stopped"
+# (the turn is being stopped) or "late" (the turn had already finished, the outcome stays), and
+# removes the kick file. The callers wait for THEIR id. Never throws.
+function Confirm-Kick {
+    param([string]$KickPath, [string]$What = 'stopped')
+    if (-not $KickPath) { return }
+    $req = Read-KickRecord -Path $KickPath
+    try { Write-TextAtomic -Path "$KickPath.ack" -Text ((ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ id = $req.Id; result = $What; when = (Get-IsoTimestamp); pid = $PID })) + "`n") } catch { }
+    $null = Remove-PendingFile -Path $KickPath
+}
 # (wave 26c, D3) The bytes appended to an event stream since byte $Offset, and the COMPLETE lines
 # among them: { Offset (the new end); Bytes (the growth - any byte counts as activity); Lines
 # (string[], the complete lines, UTF-8); Carry (byte[]: the unfinished last line, completed by the
-# next read) }. Shared read; a file that is absent or cannot be read yet counts as no growth.
+# next read); Discarding (the unfinished line is an oversized one being skipped); Oversized (lines
+# discarded by this read) }. Shared read; a file that is absent or cannot be read yet counts as no
+# growth.
+# (wave 27c, D5 / F30-3, F32-8) BOUNDED: only the newly read bytes are scanned for line ends
+# ([Array]::IndexOf), the carry is the text after the last line end and is capped at $CarryCap (1
+# MiB) - a longer unfinished line is discarded up to its end and counted (Oversized); the stall
+# timer's activity is the byte count, independent of parsing.
+$script:StreamCarryCap = 1048576
 function Read-StreamChunk {
-    param([string]$Path, [long]$Offset = 0, [byte[]]$Carry = @())
-    $r = [pscustomobject]@{ Offset = $Offset; Bytes = 0; Lines = [string[]]@(); Carry = [byte[]]@($Carry) }
+    param([string]$Path, [long]$Offset = 0, [byte[]]$Carry = @(), [bool]$Discarding = $false, [int]$CarryCap = $script:StreamCarryCap)
+    $r = [pscustomobject]@{ Offset = $Offset; Bytes = 0; Lines = [string[]]@(); Carry = [byte[]]@($Carry); Discarding = $Discarding; Oversized = 0 }
     if (-not $Path) { return $r }
     $fs = $null
     try {
         $fs = New-Object IO.FileStream($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
-        if ($fs.Length -lt $Offset) { $Offset = 0; $Carry = @() }
+        if ($fs.Length -lt $Offset) { $Offset = 0; $Carry = @(); $Discarding = $false }
         [void]$fs.Seek($Offset, [IO.SeekOrigin]::Begin)
-        $ms = New-Object IO.MemoryStream
-        if (@($Carry).Count -gt 0) { $ms.Write([byte[]]$Carry, 0, @($Carry).Count) }
+        $pending = New-Object IO.MemoryStream
+        if (@($Carry).Count -gt 0) { $pending.Write([byte[]]$Carry, 0, @($Carry).Count) }
+        $lines = New-Object System.Collections.Generic.List[string]
         $buf = New-Object byte[] 65536
-        $grown = 0
+        $grown = [long]0
+        $oversized = 0
         while ($true) {
             $got = $fs.Read($buf, 0, $buf.Length)
             if ($got -le 0) { break }
-            $ms.Write($buf, 0, $got)
             $grown += $got
-        }
-        $all = $ms.ToArray()
-        $lines = New-Object System.Collections.Generic.List[string]
-        $start = 0
-        for ($i = 0; $i -lt $all.Length; $i++) {
-            if ($all[$i] -eq 10) {
-                $lines.Add($script:Utf8NoBom.GetString($all, $start, $i - $start).TrimEnd("`r"))
-                $start = $i + 1
+            $start = 0
+            while ($start -lt $got) {
+                $nl = [Array]::IndexOf($buf, [byte]10, $start, $got - $start)
+                if ($nl -lt 0) {
+                    # no line end in the rest: it joins the unfinished line (unless that one is skipped)
+                    if (-not $Discarding) {
+                        $pending.Write($buf, $start, $got - $start)
+                        if ($pending.Length -gt $CarryCap) { $Discarding = $true; $oversized++; $pending.SetLength(0) }
+                    }
+                    break
+                }
+                if ($Discarding) {
+                    # the oversized line ends here: skipped, never parsed
+                    $Discarding = $false
+                } else {
+                    $pending.Write($buf, $start, $nl - $start)
+                    if ($pending.Length -gt $CarryCap) { $oversized++ }
+                    else { $lines.Add($script:Utf8NoBom.GetString($pending.GetBuffer(), 0, [int]$pending.Length).TrimEnd("`r")) }
+                }
+                $pending.SetLength(0)
+                $start = $nl + 1
             }
         }
-        $rest = New-Object byte[] ($all.Length - $start)
-        if ($rest.Length -gt 0) { [Array]::Copy($all, $start, $rest, 0, $rest.Length) }
         $r.Offset = $Offset + $grown
         $r.Bytes = $grown
         $r.Lines = [string[]]$lines.ToArray()
-        $r.Carry = $rest
+        $r.Carry = $pending.ToArray()
+        $r.Discarding = $Discarding
+        $r.Oversized = $oversized
     } catch { } finally { if ($fs) { $fs.Dispose() } }
     return $r
 }
-
 # (wave 26c, D3 / F26-3, F25-1) The tool calls in flight in an engine's event stream, updated per
 # complete line ($Open: a HashSet[string] of their keys): codex `item.started` of a
 # command_execution, mcp_tool_call or web_search item until its `item.completed` (by the item id;
@@ -8221,25 +8546,39 @@ function Update-ToolFlight {
 # seen); LastEvent (DateTimeOffset of the last line seen, $null when none); Silent (seconds
 # without output outside a tool call at the stall cut); ToolWait (seconds the timer was suspended
 # for tool calls) }.
+# (wave 27c, D5) Oversized: the event lines longer than 1 MiB skipped by the bounded reader. (D6 /
+# F32-7) A tool call cannot suspend the stall timer for ever: once tool calls have been in flight
+# longer than max(3 x -StallSec, 1800 s) (TEST HOOK, test mode only: CODEX_CONSULT_TEST_TOOL_CAP_SEC)
+# the suspension ends - the silent time is then counted from the last byte of the stream, and the
+# cut says so: ToolOpen = the seconds the tool call(s) had been open (0 when the cut was an
+# ordinary one).
 function Wait-EngineProcess {
     param($Process, [int]$TimeoutSec, [int]$StallSec = 0, [string]$EventsPath = '', [string]$KickPath = '', [string]$Engine = 'codex')
-    $r = [pscustomobject]@{ Exited = $false; Reason = ''; KickLate = $false; Events = 0; LastEvent = $null; Silent = 0; ToolWait = 0 }
+    $r = [pscustomobject]@{ Exited = $false; Reason = ''; KickLate = $false; Events = 0; LastEvent = $null; Silent = 0; ToolWait = 0; Oversized = 0; ToolOpen = 0 }
     $tick = 1000
     $hook = 0
-    if ([int]::TryParse([string]$env:CODEX_CONSULT_TEST_WAIT_TICK_MS, [ref]$hook) -and $hook -gt 0) { $tick = $hook }
+    if ([int]::TryParse((Get-TestHookValue 'CODEX_CONSULT_TEST_WAIT_TICK_MS'), [ref]$hook) -and $hook -gt 0) { $tick = $hook }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     $limitMs = [long]$TimeoutSec * 1000
     $stallMs = [long]$StallSec * 1000
     $offset = [long]0
     $carry = [byte[]]@()
+    $discarding = $false
     $lastMs = [long]0
+    # (wave 27c, D6) the last growth of the stream (never moved by a tool suspension), when the tool
+    # calls in flight opened, and the cap of the suspension
+    $lastByteMs = [long]0
+    $openSinceMs = [long]-1
+    $toolCapMs = [long]([Math]::Max(3 * [long]$StallSec, 1800)) * 1000
+    $capHook = 0
+    if ([int]::TryParse((Get-TestHookValue 'CODEX_CONSULT_TEST_TOOL_CAP_SEC'), [ref]$capHook) -and $capHook -gt 0) { $toolCapMs = [long]$capHook * 1000 }
     $toolMs = [long]0
     $open = New-Object 'System.Collections.Generic.HashSet[string]'
     # before the loop: a kick for a turn still running stops it (one for a turn that has already
     # exited is taken as late right below)
     $exitedAlready = $false
     try { $exitedAlready = [bool]$Process.HasExited } catch { }
-    if ($KickPath -and -not $exitedAlready -and [IO.File]::Exists($KickPath)) { $r.Reason = 'kick'; Confirm-Kick -KickPath $KickPath -What 'kicked'; return $r }
+    if ($KickPath -and -not $exitedAlready -and [IO.File]::Exists($KickPath)) { $r.Reason = 'kick'; Confirm-Kick -KickPath $KickPath -What 'stopped'; return $r }
     while ($true) {
         $left = $limitMs - $watch.ElapsedMilliseconds
         if ($left -le 0) { $r.Reason = 'timeout'; break }
@@ -8248,20 +8587,34 @@ function Wait-EngineProcess {
             if ($KickPath -and [IO.File]::Exists($KickPath)) { $r.KickLate = $true; Confirm-Kick -KickPath $KickPath -What 'late' }
             break
         }
-        if ($KickPath -and [IO.File]::Exists($KickPath)) { $r.Reason = 'kick'; Confirm-Kick -KickPath $KickPath -What 'kicked'; break }
+        if ($KickPath -and [IO.File]::Exists($KickPath)) { $r.Reason = 'kick'; Confirm-Kick -KickPath $KickPath -What 'stopped'; break }
         if ($stallMs -gt 0 -and $EventsPath) {
             $nowMs = $watch.ElapsedMilliseconds
-            $g = Read-StreamChunk -Path $EventsPath -Offset $offset -Carry $carry
+            $g = Read-StreamChunk -Path $EventsPath -Offset $offset -Carry $carry -Discarding $discarding
             $offset = $g.Offset
             $carry = $g.Carry
-            if ($g.Bytes -gt 0) { $lastMs = $nowMs }
+            $discarding = $g.Discarding
+            $r.Oversized += $g.Oversized
+            if ($g.Bytes -gt 0) { $lastMs = $nowMs; $lastByteMs = $nowMs }
             if (@($g.Lines).Count -gt 0) { $r.Events += @($g.Lines).Count; $r.LastEvent = [DateTimeOffset]::Now }
             $wasOpen = ($open.Count -gt 0)
             foreach ($ln in $g.Lines) { Update-ToolFlight -Engine $Engine -Line $ln -Open $open }
-            if ($wasOpen -or $open.Count -gt 0) {
+            if ($open.Count -gt 0) { if ($openSinceMs -lt 0) { $openSinceMs = $nowMs } } else { $openSinceMs = [long]-1 }
+            $openFor = $(if ($openSinceMs -ge 0) { $nowMs - $openSinceMs } else { [long]0 })
+            if (($wasOpen -or $open.Count -gt 0) -and $openFor -lt $toolCapMs) {
                 # a tool call in flight (or one that just ended): the silent timer does not run
                 $toolMs += [Math]::Max([long]0, $nowMs - $lastMs)
                 $lastMs = $nowMs
+                continue
+            }
+            if ($open.Count -gt 0) {
+                # (D6) open past the cap: the silent time counts from the stream's last byte
+                if (($nowMs - $lastByteMs) -ge $stallMs) {
+                    $r.Reason = 'stall'
+                    $r.Silent = [int][Math]::Floor(($nowMs - $lastByteMs) / 1000)
+                    $r.ToolOpen = [int][Math]::Floor($openFor / 1000)
+                    break
+                }
                 continue
             }
             if (($nowMs - $lastMs) -ge $stallMs) {
@@ -8278,22 +8631,38 @@ function Wait-EngineProcess {
 # Kills the process AND its descendants (the launcher is usually a shim: cmd.exe or
 # node in front of the real codex binary). Windows: taskkill /T /F; elsewhere: the
 # pgrep -P tree. Best effort; returns the pids (root included) still alive after it,
-# as an [int[]] (empty when the whole tree is gone).
+# as an [int[]] (empty when the whole tree is gone) - Stop-ProcessTreeChecked says more.
 # A kill returns before the OS has torn the process down: the killed pids are polled
 # (100 ms steps, up to 3 s) and only those still alive after that wait are survivors.
 # A process merely still exiting must not be recorded as a survivor - that would keep
 # .consult.pending.json in state 'survivors' and block the task until a later run.
 function Stop-ProcessTree {
     param($Process)
-    if ($null -eq $Process) { return , ([int[]]@()) }
+    return , ([int[]](Stop-ProcessTreeChecked -Process $Process).Survivors)
+}
+
+# (wave 27c, D16 / H4) The tree kill, CONFIRMED: { Survivors (int[] - the pids known alive after
+# it); Confirmed ($true only when the root exited and every known descendant is gone - and, where
+# the children could not be enumerated, taskkill /T /F reported the whole tree terminated); Why ('' or
+# why it is not confirmed); RootPid }. When the enumeration is denied (a restricted host) the kill
+# falls back to `taskkill /PID <root> /T /F` - once before the root is killed, and once more when the
+# root is still there - and checks the root again. A kill that is not confirmed must never be
+# reported as "(process tree killed)", and no continuation turn may follow it (the orphan may still
+# hold the thread).
+function Stop-ProcessTreeChecked {
+    param($Process)
+    $res = [pscustomobject]@{ Survivors = [int[]]@(); Confirmed = $true; Why = ''; RootPid = 0 }
+    if ($null -eq $Process) { return $res }
     $rootId = $Process.Id
-    $descendants = Get-DescendantPids -RootId $rootId
+    $res.RootPid = $rootId
+    $tree = Get-DescendantTree -RootId $rootId
+    $descendants = [int[]]$tree.Pids
+    $denied = [string]$tree.Denied
+    $taskkillExit = $null
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        if ($script:OnWindows) {
-            try { & taskkill.exe /PID $rootId /T /F 2>$null | Out-Null } catch { }
-        }
+        if ($script:OnWindows) { $taskkillExit = Invoke-TaskKillTree -RootId $rootId }
         # The root before its descendants: a root that outlives its children reacts to
         # their death (a shell or node shim carries on and may start new processes).
         try { if (-not $Process.HasExited) { $Process.Kill() } } catch { }
@@ -8306,6 +8675,7 @@ function Stop-ProcessTree {
     }
     # Get-Process by pid is the liveness probe on every platform (kill -0 semantics).
     $deadline = [DateTime]::UtcNow.AddSeconds(3)
+    $rootGone = $true
     while ($true) {
         $alive = New-Object System.Collections.Generic.List[int]
         $rootGone = $true
@@ -8317,9 +8687,27 @@ function Stop-ProcessTree {
         if ($alive.Count -eq 0 -or [DateTime]::UtcNow -ge $deadline) { break }
         Start-Sleep -Milliseconds 100
     }
-    return , ([int[]]$alive.ToArray())
+    if ($denied) {
+        # the children are not known: the fallback taskkill once more when the root is still there,
+        # then the root checked again
+        if (-not $rootGone -and $script:OnWindows) {
+            $taskkillExit = Invoke-TaskKillTree -RootId $rootId
+            try { $null = $Process.WaitForExit(3000) } catch { }
+            try { $rootGone = $Process.HasExited } catch { $rootGone = $true }
+            if ($rootGone) { [void]$alive.Remove($rootId) }
+        }
+        if (-not $rootGone) {
+            $res.Confirmed = $false
+            $res.Why = "the children could not be enumerated ($denied) and the root process did not exit"
+        } elseif (-not $script:OnWindows -or $taskkillExit -ne 0) {
+            $res.Confirmed = $false
+            $res.Why = "the children could not be enumerated ($denied)$(if ($script:OnWindows) { " and taskkill /T /F failed (exit $taskkillExit)" }) - the root exited, its children may not have"
+        }
+    }
+    if ($alive.Count -gt 0) { $res.Confirmed = $false }
+    $res.Survivors = [int[]]$alive.ToArray()
+    return $res
 }
-
 # ----------------------------------------------------------------------------- detached runs (wave 25, R12): the writers
 #
 # (wave 26, F07-3) The readers of the detached runs - the status record, its judgement, the -List
@@ -8416,4 +8804,688 @@ function ConvertFrom-DetachArgs {
         $spec[[string]$k] = $v
     }
     return $spec
+}
+
+# ----------------------------------------------------------------------------- telemetry (wave 28, R17)
+#
+# ONE anonymised event per consultation and the operator's complaints, to the maintainer's intake
+# (the T-hub v2 contract: POST <base>/v2/events, POST <base>/v2/complaints). ON by default;
+# CODEX_CONSULT_TELEMETRY=off, or -Telemetry off for one run, switches it off (Get-TelemetrySwitch,
+# codex-consult-detached.ps1). Never in a consultation's critical path: after the ledger commit the
+# bridge appends one NDJSON line to <codex home>/telemetry-spool/<yyyy-mm-dd>.ndjson (UTC date;
+# Submit-TelemetryEvent) and starts ONE detached sender (codex-telemetry.ps1 -Flush -
+# Start-TelemetrySender), which it does not wait for. The event is built from the COMMITTED ledger
+# entry through a closed allowlist (ConvertTo-TelemetryDetails, New-TelemetryEvent): the engine, the
+# provider label, the model, the purpose, the outcome class, wall seconds, token and finding counts,
+# a few booleans, the panel size, the PowerShell version, the OS, the plugin version and a salted
+# instance id - never a task name, a brief, a prompt, a path, a thread id, a finding text, a key, a
+# user name or the machine name in clear.
+#
+# A spool line: {"v":1,"kind":"event"|"complaint","queued_unix":<s>,"body":"<the JSON sent>"} - the
+# body travels as a JSON STRING, so the sender posts exactly the bytes that were built (no
+# re-serialisation: PowerShell 7's ConvertFrom-Json would turn the ISO client_time into a date).
+# Every writer of a spool file opens it EXCLUSIVELY (FileShare.None, retried ~2 s): the bridge's
+# append, the sender's read and its rewrite; the sender removes what it delivered or dropped as a
+# multiset of exact lines, so lines appended while it posted stay.
+
+$script:TelemetryAppId = 'codex-consult'
+$script:TelemetryDefaultUrl = 'https://xelth.com/T'
+$script:TelemetrySpoolDays = 7
+$script:TelemetryBatchMax = 100
+$script:TelemetryRetryAfterMax = 60
+$script:TelemetryTextMaxBytes = 8192
+# The closed sets of the event (anything else becomes 'other' / 'unknown')
+$script:TelemetryEventKeys = @('app_id', 'app_version', 'instance_id', 'event_type', 'severity', 'title', 'details', 'tags', 'client_time', 'os', 'runtime')
+$script:TelemetryDetailKeys = @('engine', 'provider', 'model', 'purpose', 'outcome', 'wall_seconds', 'tokens', 'findings', 'structured', 'format_retry', 'denial_retry', 'timeout_continue', 'panel_size', 'ps_version', 'os', 'bridge_version')
+$script:TelemetryFailureClasses = @('auth', 'quota', 'capability', 'transport', 'permission', 'operator', 'unknown', 'timeout', 'stalled', 'bridge')
+$script:BridgeVersion = $null
+
+# The plugin's version (.claude-plugin/plugin.json next to this scripts directory), read once;
+# 'unknown' when it cannot be read.
+function Get-BridgeVersion {
+    if ($null -ne $script:BridgeVersion) { return $script:BridgeVersion }
+    $v = 'unknown'
+    try {
+        $mf = Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) '.claude-plugin') 'plugin.json'
+        if (Test-Path -LiteralPath $mf -PathType Leaf) {
+            $c = [string](Get-PropertyValue (ConvertFrom-Json -InputObject (Read-SharedText -Path $mf)) 'version' '')
+            if ($c -match '^[0-9A-Za-z][0-9A-Za-z.+-]{0,31}$') { $v = $c }
+        }
+    } catch { }
+    $script:BridgeVersion = $v
+    return $v
+}
+
+# Where telemetry keeps its files, under the Codex home; $null without one. { Home; Spool (the
+# directory); Salt; Last (the last flush's result); Lock (the sender's lock); Notice (the marker of
+# the notice for this plugin version) }.
+function Get-TelemetryPaths {
+    $h = Get-CodexHome
+    if (-not $h) { return $null }
+    $spool = Join-Path $h 'telemetry-spool'
+    return [pscustomobject]@{
+        Home   = $h
+        Spool  = $spool
+        Salt   = (Join-Path $h 'telemetry-salt')
+        Last   = (Join-Path $spool '.last')
+        Lock   = (Join-Path $spool '.flush.lock')
+        Notice = (Join-Path $h ('telemetry-notice-' + (Get-BridgeVersion)))
+    }
+}
+
+# The intake's base URL: CODEX_CONSULT_TELEMETRY_URL, else https://xelth.com/T. Only https - plain
+# http only for a LOOPBACK host (a local test intake: 127.0.0.1, localhost, ::1). { Base (no
+# trailing slash; '' when refused); Source; Error }.
+function Get-TelemetryUrl {
+    $raw = ([string][Environment]::GetEnvironmentVariable('CODEX_CONSULT_TELEMETRY_URL')).Trim()
+    $src = 'CODEX_CONSULT_TELEMETRY_URL'
+    if (-not $raw) { $raw = $script:TelemetryDefaultUrl; $src = 'the default' }
+    $r = [pscustomobject]@{ Base = ''; Source = $src; Error = '' }
+    $u = $null
+    if (-not [Uri]::TryCreate($raw, [UriKind]::Absolute, [ref]$u) -or -not $u.Host) {
+        $r.Error = "the intake URL '$raw' ($src) is not an absolute URL"
+        return $r
+    }
+    if ($u.Scheme -ne 'https' -and -not ($u.Scheme -eq 'http' -and $u.IsLoopback)) {
+        $r.Error = "the intake URL '$raw' ($src) is refused: only https (plain http only for a loopback test intake)"
+        return $r
+    }
+    $r.Base = $raw.TrimEnd('/')
+    return $r
+}
+
+# The instance id: the lowercase hex SHA-256 of the 32 salt bytes followed by the UTF-8 bytes of
+# the machine name - the machine name never leaves in clear, and a new salt makes a new instance.
+# The salt: <codex home>/telemetry-salt, 64 lowercase hex digits, created ONCE (-Create; a racing
+# run's salt wins - the file is moved into place only when absent). '' without a salt (and not
+# -Create) or when it cannot be made.
+function Get-TelemetryInstanceId {
+    param([switch]$Create)
+    $p = Get-TelemetryPaths
+    if (-not $p) { return '' }
+    $hex = ''
+    if ([IO.File]::Exists($p.Salt)) { $hex = (Read-SharedText -Path $p.Salt).Trim() }
+    if ($hex -cnotmatch '^[0-9a-f]{64}$') {
+        if (-not $Create) { return '' }
+        try {
+            [void][IO.Directory]::CreateDirectory($p.Home)
+            # a racing run (a panel's members) may have moved its salt into place meanwhile: that
+            # one is taken; only a salt that is still unreadable is replaced (a new instance)
+            if ([IO.File]::Exists($p.Salt)) {
+                $again = (Read-SharedText -Path $p.Salt).Trim()
+                if ($again -cmatch '^[0-9a-f]{64}$') { $hex = $again } else { [IO.File]::Delete($p.Salt) }
+            }
+            if ($hex -cnotmatch '^[0-9a-f]{64}$') {
+                $bytes = New-Object byte[] 32
+                $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+                try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+                $tmp = "$($p.Salt).$([guid]::NewGuid().ToString('N')).tmp"
+                Write-Utf8NoBom -Path $tmp -Text ((ConvertTo-HexString $bytes) + "`n")
+                # moved into place only when absent: a salt another run moved there first wins
+                try { [IO.File]::Move($tmp, $p.Salt) } catch { try { [IO.File]::Delete($tmp) } catch { } }
+                $hex = (Read-SharedText -Path $p.Salt).Trim()
+            }
+        } catch { return '' }
+        if ($hex -cnotmatch '^[0-9a-f]{64}$') { return '' }
+    }
+    $salt = New-Object byte[] 32
+    for ($i = 0; $i -lt 32; $i++) { $salt[$i] = [Convert]::ToByte($hex.Substring($i * 2, 2), 16) }
+    $name = $script:Utf8NoBom.GetBytes([string][Environment]::MachineName)
+    $all = New-Object byte[] ($salt.Length + $name.Length)
+    [Array]::Copy($salt, 0, $all, 0, $salt.Length)
+    [Array]::Copy($name, 0, $all, $salt.Length, $name.Length)
+    return (Get-Sha256Hex -Bytes $all)
+}
+
+# 'windows 10.0.26200' | 'linux <major>.<minor>' | 'macos <major>.<minor>' - the family and version.
+function Get-TelemetryOs {
+    $ver = [Environment]::OSVersion.Version
+    if ($script:OnWindows) { return "windows $($ver.Major).$($ver.Minor).$($ver.Build)" }
+    if ($IsMacOS) { return "macos $($ver.Major).$($ver.Minor)" }
+    return "linux $($ver.Major).$($ver.Minor)"
+}
+
+# 'powershell 5.1' (Windows PowerShell) | 'pwsh 7.x'.
+function Get-TelemetryRuntime {
+    $v = $PSVersionTable.PSVersion
+    return "$(if ($script:LegacyPS) { 'powershell' } else { 'pwsh' }) $($v.Major).$($v.Minor)"
+}
+
+# A value of the event from a closed pattern: the value when it matches, else $Other ('' in:
+# $Empty).
+function Get-TelemetryToken {
+    param([string]$Value, [string]$Pattern, [string]$Empty = 'unknown', [string]$Other = 'other')
+    $v = ([string]$Value).Trim()
+    if (-not $v) { return $Empty }
+    if ($v -cmatch $Pattern) { return $v }
+    return $Other
+}
+
+# A non-negative whole number of the entry, or $null.
+function Get-TelemetryCount {
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    $n = [long]0
+    if ([long]::TryParse([string]$Value, [System.Globalization.NumberStyles]::Integer, $script:Invariant, [ref]$n) -and $n -ge 0) { return $n }
+    return $null
+}
+
+# The outcome of a committed ledger entry: { Outcome - usable | usable-after-continuation |
+# failed:<class>; Severity - info (usable) | warning (a provider limit or auth failure, or the
+# operator's -Kick) | error (every other failure); Class }. The class is the provider failure's
+# (auth, quota, capability, transport, permission, operator, unknown), else from the outcome:
+# timeout, stalled, or bridge (a failure of the bridge or the engine without a provider class).
+function Get-TelemetryOutcome {
+    param($Entry)
+    $bo = [string](Get-PropertyValue $Entry 'bridge_outcome' '')
+    if (Test-UsableOutcome $bo) {
+        $o = $(if ($bo -like '*after a timeout continuation*') { 'usable-after-continuation' } else { 'usable' })
+        return [pscustomobject]@{ Outcome = $o; Severity = 'info'; Class = '' }
+    }
+    $cls = [string](Get-PropertyValue (Get-PropertyValue $Entry 'provider_failure' $null) 'class' '')
+    if (-not $cls) {
+        if ($bo -like 'failed: timeout*') { $cls = 'timeout' }
+        elseif ($bo -like 'failed: stalled*') { $cls = 'stalled' }
+        elseif ($bo -like '*stopped by the operator*') { $cls = 'operator' }
+        else { $cls = 'bridge' }
+    }
+    if ($script:TelemetryFailureClasses -cnotcontains $cls) { $cls = 'unknown' }
+    $sev = $(if (@('auth', 'quota', 'operator') -contains $cls) { 'warning' } else { 'error' })
+    return [pscustomobject]@{ Outcome = "failed:$cls"; Severity = $sev; Class = $cls }
+}
+
+# The event's `details` from a committed ledger entry - THE allowlist: every value is built here
+# from a closed set, a number, a boolean or a pattern-checked token (the provider label: letters,
+# digits, dot, dash, underscore; the model id: such segments joined by at most two ':' or '/', no
+# drive or path shape). Nothing else of the entry is read.
+function ConvertTo-TelemetryDetails {
+    param($Entry)
+    $rev = Get-PropertyValue $Entry 'reviewer' $null
+    $engine = [string](Get-PropertyValue $rev 'engine' 'codex')
+    if ($script:EngineNames -cnotcontains $engine) { $engine = 'other' }
+    $provider = Get-TelemetryToken -Value ([string](Get-PropertyValue $rev 'provider' '')) -Pattern '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'
+    $modelRaw = [string](Get-PropertyValue $rev 'model' '')
+    if (-not $modelRaw) { $modelRaw = [string](Get-PropertyValue $Entry 'model' '') }
+    $model = Get-TelemetryToken -Value $modelRaw -Pattern '^(?![A-Za-z]:)[A-Za-z0-9][A-Za-z0-9._+-]*(?:[:/][A-Za-z0-9][A-Za-z0-9._+-]*){0,2}$'
+    if ($model.Length -gt 80) { $model = 'other' }
+    $purpose = [string](Get-PropertyValue $Entry 'purpose' '')
+    if (-not $purpose) { $purpose = 'none' } elseif ($script:ConsultPurposes -cnotcontains $purpose) { $purpose = 'other' }
+    $usage = Get-PropertyValue $Entry 'usage' $null
+    $fc = Get-PropertyValue $Entry 'findings' $null
+    $fcount = { param($k) $n = Get-TelemetryCount (Get-PropertyValue $fc $k $null); if ($null -eq $n) { [long]0 } else { $n } }
+    $fr = Get-PropertyValue $Entry 'format_retry' $null
+    $dr = Get-PropertyValue $Entry 'denial_retry' $null
+    $tc = Get-PropertyValue $Entry 'timeout_continue' $null
+    $panelSize = [long]0
+    $pr = Get-PropertyValue $Entry 'panel' $null
+    if ($pr) { $ps = Get-TelemetryCount (Get-PropertyValue $pr 'of' $null); if ($null -ne $ps) { $panelSize = $ps } }
+    $wall = Get-TelemetryCount ([Math]::Round([double](Get-PropertyValue $Entry 'wall_seconds' 0)))
+    $psv = Get-TelemetryToken -Value ([string]$PSVersionTable.PSVersion) -Pattern '^[0-9][0-9A-Za-z.+-]{0,31}$'
+    return [pscustomobject]@{
+        engine           = $engine
+        provider         = $provider
+        model            = $model
+        purpose          = $purpose
+        outcome          = (Get-TelemetryOutcome $Entry).Outcome
+        wall_seconds     = $(if ($null -eq $wall) { [long]0 } else { $wall })
+        tokens           = [pscustomobject]@{
+            in     = (Get-TelemetryCount (Get-PropertyValue $usage 'input_tokens' $null))
+            cached = (Get-TelemetryCount (Get-PropertyValue $usage 'cached_input_tokens' $null))
+            out    = (Get-TelemetryCount (Get-PropertyValue $usage 'output_tokens' $null))
+        }
+        findings         = [pscustomobject]@{ blocker = (& $fcount 'blocker'); major = (& $fcount 'major'); minor = (& $fcount 'minor'); note = (& $fcount 'note') }
+        structured       = ((Get-PropertyValue $Entry 'structured' $false) -eq $true)
+        format_retry     = [bool]($fr -and (Get-PropertyValue $fr 'attempted' $false) -eq $true)
+        denial_retry     = [bool]($dr -and (Get-PropertyValue $dr 'attempted' $false) -eq $true)
+        timeout_continue = [bool]($tc -and -not ([string](Get-PropertyValue $tc 'outcome' '')).StartsWith('not attempted'))
+        panel_size       = $panelSize
+        ps_version       = $psv
+        os               = (Get-TelemetryOs)
+        bridge_version   = (Get-BridgeVersion)
+    }
+}
+
+# The event of one committed consultation (the intake's v2 event; the keys in
+# $script:TelemetryEventKeys order). client_time is UTC.
+function New-TelemetryEvent {
+    param($Entry, [string]$InstanceId)
+    $d = ConvertTo-TelemetryDetails $Entry
+    $o = Get-TelemetryOutcome $Entry
+    return [pscustomobject]@{
+        app_id      = $script:TelemetryAppId
+        app_version = (Get-BridgeVersion)
+        instance_id = $InstanceId
+        event_type  = 'consultation'
+        severity    = $o.Severity
+        title       = $o.Outcome
+        details     = $d
+        tags        = [object[]]@($d.engine, $d.provider)
+        client_time = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant)
+        os          = (Get-TelemetryOs)
+        runtime     = (Get-TelemetryRuntime)
+    }
+}
+
+# Opens a spool file EXCLUSIVELY (FileShare.None), retrying for about 2 s; $null when it does not
+# exist ($Mode Open) or stays busy.
+function Open-TelemetrySpoolFile {
+    param([string]$Path, [System.IO.FileMode]$Mode = [System.IO.FileMode]::Open)
+    for ($i = 0; $i -lt 40; $i++) {
+        if ($Mode -eq [System.IO.FileMode]::Open -and -not [IO.File]::Exists($Path)) { return $null }
+        try { return (New-Object System.IO.FileStream($Path, $Mode, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)) } catch { Start-Sleep -Milliseconds 50 }
+    }
+    return $null
+}
+
+# The non-empty lines of an open spool file (UTF-8), from its start.
+function Read-TelemetryStreamLines {
+    param($Stream)
+    $Stream.Position = 0
+    $sr = New-Object System.IO.StreamReader($Stream, $script:Utf8NoBom, $false, 4096, $true)
+    try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
+    return , ([string[]]@($text -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ }))
+}
+
+# Appends ONE line to today's spool file (UTC date): {v, kind, queued_unix, body}. '' when written,
+# else why not (never throws).
+function Add-TelemetrySpoolLine {
+    param([string]$Kind, [string]$BodyJson)
+    try {
+        $p = Get-TelemetryPaths
+        if (-not $p) { return 'no codex home (CODEX_HOME, else ~/.codex)' }
+        [void][IO.Directory]::CreateDirectory($p.Spool)
+        $line = ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ v = 1; kind = $Kind; queued_unix = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); body = $BodyJson })
+        $file = Join-Path $p.Spool ([DateTime]::UtcNow.ToString('yyyy-MM-dd', $script:Invariant) + '.ndjson')
+        $fs = Open-TelemetrySpoolFile -Path $file -Mode ([System.IO.FileMode]::OpenOrCreate)
+        if (-not $fs) { return "the spool file '$file' stayed busy" }
+        try {
+            [void]$fs.Seek(0, [System.IO.SeekOrigin]::End)
+            $bytes = $script:Utf8NoBom.GetBytes($line + "`n")
+            $fs.Write($bytes, 0, $bytes.Length)
+            $fs.Flush()
+        } finally { $fs.Dispose() }
+        return ''
+    } catch { return (ConvertTo-OneLine $_.Exception.Message) }
+}
+
+# One spool line parsed: { Line; Kind; Queued (unix s); Body (the JSON text) }, or $null when it is
+# not a spool line.
+function ConvertFrom-TelemetrySpoolLine {
+    param([string]$Line)
+    try { $o = ConvertFrom-Json -InputObject $Line } catch { return $null }
+    if (-not (Test-IsJsonObject $o)) { return $null }
+    $kind = [string](Get-PropertyValue $o 'kind' '')
+    $body = Get-PropertyValue $o 'body' $null
+    $q = Get-TelemetryCount (Get-PropertyValue $o 'queued_unix' $null)
+    if (@('event', 'complaint') -cnotcontains $kind -or -not ($body -is [string]) -or -not $body -or $null -eq $q) { return $null }
+    return [pscustomobject]@{ Line = $Line; Kind = $kind; Queued = $q; Body = [string]$body }
+}
+
+# Starts THE detached sender: `<this host> -NoProfile [-ExecutionPolicy Bypass] -File
+# codex-telemetry.ps1 -Flush -Telemetry on`, hidden (Windows: ShellExecute - no handle of this
+# process is inherited, the caller's pipes close when the bridge exits; elsewhere /bin/sh -c 'exec
+# nohup ... </dev/null >/dev/null 2>&1'), WITHOUT the coordinator's host markers (Hide-HostMarkers,
+# like every engine child), in the temp directory; never waited for. '' when started, else why not.
+function Start-TelemetrySender {
+    $self = Join-Path $PSScriptRoot 'codex-telemetry.ps1'
+    if (-not [IO.File]::Exists($self)) { return "'$self' does not exist" }
+    $hostExe = (Get-Process -Id $PID).Path
+    $cwd = [IO.Path]::GetTempPath()
+    $hidden = $null
+    try {
+        $hidden = Hide-HostMarkers
+        if ($script:OnWindows) {
+            $argLine = '-NoProfile -ExecutionPolicy Bypass -File ' + (ConvertTo-ProcArg $self) + ' -Flush -Telemetry on'
+            $null = Start-Process -FilePath $hostExe -ArgumentList $argLine -WorkingDirectory $cwd -WindowStyle Hidden
+        } else {
+            $q = { param([string]$s) "'" + $s.Replace("'", "'\''") + "'" }
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = '/bin/sh'
+            [void]$psi.ArgumentList.Add('-c')
+            [void]$psi.ArgumentList.Add('exec nohup ' + (& $q $hostExe) + ' -NoProfile -File ' + (& $q $self) + ' -Flush -Telemetry on </dev/null >/dev/null 2>&1')
+            $psi.UseShellExecute = $false
+            $psi.WorkingDirectory = $cwd
+            $scrub = Remove-HostMarkersFromStartInfo $psi
+            if ($scrub) { throw "host markers could not be hidden ($scrub)" }
+            $null = [System.Diagnostics.Process]::Start($psi)
+        }
+        return ''
+    } catch {
+        return (ConvertTo-OneLine $_.Exception.Message)
+    } finally {
+        Restore-HostMarkers -Saved $hidden
+    }
+}
+
+# The bridge's call after a ledger commit (a single run, a panel member, a detached background):
+# with telemetry on, the event of the committed $Entry goes into the spool and - unless -NoSender (a
+# panel member: its panel run starts one sender when every member is done; a run that keeps its
+# recovery record) - the detached sender is started. Silent, never throws, never waits: '' when
+# done, else why not (for a verbose trace only).
+function Submit-TelemetryEvent {
+    param($Entry, $Switch, [switch]$NoSender)
+    if (-not $Switch -or -not $Switch.On) { return '' }
+    try {
+        $id = Get-TelemetryInstanceId -Create
+        if (-not $id) { return 'no instance id (the salt could not be created)' }
+        $ev = New-TelemetryEvent -Entry $Entry -InstanceId $id
+        $why = Add-TelemetrySpoolLine -Kind 'event' -BodyJson (ConvertTo-Json -Compress -Depth 6 -InputObject $ev)
+        if ($why) { return $why }
+        if (-not $NoSender) { $why = Start-TelemetrySender }
+        return $why
+    } catch { return (ConvertTo-OneLine $_.Exception.Message) }
+}
+
+# The first run after an install (no marker <codex home>/telemetry-notice-<plugin version>) prints
+# the five-line notice once and writes the marker - only while telemetry is on (off: nothing is
+# printed or written).
+function Show-TelemetryNotice {
+    param($Switch)
+    if (-not $Switch -or -not $Switch.On) { return }
+    $p = Get-TelemetryPaths
+    if (-not $p -or [IO.File]::Exists($p.Notice)) { return }
+    $u = Get-TelemetryUrl
+    $where = $(if ($u.Base) { $u.Base } else { $script:TelemetryDefaultUrl })
+    Write-Host "codex-consult: telemetry is ON (this notice is shown once per version): after each consultation ONE anonymised event goes to the maintainer's intake ($where) - engine, provider label, model, purpose, outcome class, wall seconds, token and finding counts, PowerShell version, OS, plugin version, a salted instance id." -ForegroundColor Yellow
+    Write-Host "codex-consult: never sent - task names, briefs, prompts, replies, finding texts, paths, thread ids, keys, user names, the machine name." -ForegroundColor Yellow
+    Write-Host "codex-consult: switch it off with CODEX_CONSULT_TELEMETRY=off (one run: -Telemetry off); events wait in $($p.Spool) and a background sender delivers them - never blocking a consultation." -ForegroundColor Yellow
+    Write-Host "codex-consult: complain or suggest: codex-consult.ps1 -Task <task> -Complain ""<text>"" (prints the exact payload and asks before sending); state: codex-telemetry.ps1 -Status." -ForegroundColor Yellow
+    Write-Host "codex-consult: installing this plugin means accepting these terms - README, section ""Telemetry (on by default)"", says what is sent and how to delete your data." -ForegroundColor Yellow
+    try {
+        [void][IO.Directory]::CreateDirectory($p.Home)
+        Write-Utf8NoBom -Path $p.Notice -Text ((Get-IsoTimestamp) + "`n")
+    } catch { }
+}
+
+# One POST of a JSON body to the intake: a TCP connect probe of $ConnectMs (the proxy's address when
+# the system proxy is used for the URL), then the request within what is left of $TotalMs. Delivered
+# only on a 2xx answer that is a JSON object with "ok": true - anything else (a timeout, an HTML page,
+# a 4xx/5xx, a JSON without ok) is not delivered. { Delivered; Status (0: no HTTP answer); Json;
+# Why; RetryAfter (seconds; -1 when not given) }.
+function Invoke-TelemetryPost {
+    param([string]$Url, [string]$Body, [int]$ConnectMs = 3000, [int]$TotalMs = 5000)
+    $r = [pscustomobject]@{ Delivered = $false; Status = 0; Json = $null; Why = ''; RetryAfter = -1 }
+    $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    if ($script:LegacyPS) { try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { } }
+    $uri = [Uri]$Url
+    $target = $uri
+    try {
+        $proxy = [Net.WebRequest]::DefaultWebProxy
+        if ($proxy -and -not $uri.IsLoopback -and -not $proxy.IsBypassed($uri)) { $pu = $proxy.GetProxy($uri); if ($pu) { $target = $pu } }
+    } catch { }
+    $tcp = New-Object System.Net.Sockets.TcpClient
+    try {
+        $ar = $tcp.BeginConnect($target.Host, $target.Port, $null, $null)
+        if (-not $ar.AsyncWaitHandle.WaitOne($ConnectMs)) { $r.Why = "no connection to $($target.Host):$($target.Port) within $([Math]::Round($ConnectMs / 1000.0, 1)) s"; return $r }
+        $tcp.EndConnect($ar)
+    } catch {
+        $ex = $_.Exception
+        while ($ex.InnerException) { $ex = $ex.InnerException }
+        $r.Why = "could not connect to $($target.Host):$($target.Port) ($(ConvertTo-OneLine $ex.Message))"
+        return $r
+    } finally { try { $tcp.Close() } catch { } }
+    $left = [int][Math]::Max(500, $TotalMs - $watch.ElapsedMilliseconds)
+    $resp = $null
+    try {
+        $req = [System.Net.HttpWebRequest]::Create($uri)
+        $req.Method = 'POST'
+        $req.ContentType = 'application/json; charset=utf-8'
+        $req.Accept = 'application/json'
+        $req.UserAgent = "codex-consult/$(Get-BridgeVersion)"
+        $req.Timeout = $left
+        $req.ReadWriteTimeout = $left
+        $req.AllowAutoRedirect = $false
+        $req.KeepAlive = $false
+        $bytes = $script:Utf8NoBom.GetBytes($Body)
+        $req.ContentLength = $bytes.Length
+        $s = $req.GetRequestStream()
+        try { $s.Write($bytes, 0, $bytes.Length) } finally { $s.Dispose() }
+        $resp = $req.GetResponse()
+    } catch {
+        $ex = $_.Exception
+        while ($ex -and -not ($ex -is [System.Net.WebException])) { $ex = $ex.InnerException }
+        if ($ex -and $ex.Response) { $resp = $ex.Response }
+        else {
+            $m = $_.Exception
+            while ($m.InnerException) { $m = $m.InnerException }
+            $r.Why = "no answer ($(ConvertTo-OneLine $m.Message))"
+            return $r
+        }
+    }
+    try {
+        $r.Status = [int]$resp.StatusCode
+        $ctype = [string]$resp.ContentType
+        $ra = [string]$resp.Headers['Retry-After']
+        if ($ra) {
+            $sec = 0
+            if ([int]::TryParse($ra.Trim(), [ref]$sec)) { $r.RetryAfter = [Math]::Max(0, $sec) }
+            else {
+                $when = [DateTimeOffset]::MinValue
+                if ([DateTimeOffset]::TryParse($ra, $script:Invariant, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$when)) { $r.RetryAfter = [int][Math]::Max(0, [Math]::Ceiling(($when - [DateTimeOffset]::UtcNow).TotalSeconds)) }
+            }
+        }
+        # the answer's text, at most 64 K characters
+        $sb = New-Object System.Text.StringBuilder
+        $rs = $resp.GetResponseStream()
+        try {
+            $sr = New-Object System.IO.StreamReader($rs, $script:Utf8NoBom)
+            $buf = New-Object char[] 8192
+            while ($sb.Length -lt 65536) {
+                $n = $sr.Read($buf, 0, $buf.Length)
+                if ($n -le 0) { break }
+                [void]$sb.Append($buf, 0, $n)
+            }
+        } finally { $rs.Dispose() }
+        $text = $sb.ToString()
+        $obj = $null
+        try { if ($text.Trim().StartsWith('{')) { $obj = ConvertFrom-Json -InputObject $text } } catch { $obj = $null }
+        if ($obj -and (Test-IsJsonObject $obj)) { $r.Json = $obj }
+        if ($r.Status -ge 200 -and $r.Status -lt 300 -and $r.Json -and (Get-PropertyValue $r.Json 'ok' $false) -eq $true) {
+            $r.Delivered = $true
+        } elseif (-not $r.Json) {
+            $r.Why = "HTTP $($r.Status)$(if ($ctype) { " ($(($ctype -split ';')[0].Trim()))" }) is not the intake's JSON answer"
+        } else {
+            $r.Why = "HTTP $($r.Status)$(if ((Get-PropertyValue $r.Json 'error' '')) { ": $(ConvertTo-OneLine ([string]$r.Json.error))" } else { ' without ok: true' })"
+        }
+    } finally { try { $resp.Close() } catch { } }
+    return $r
+}
+
+# POSTs with the intake's rate rule: a 429 whose Retry-After is at most 60 s is waited for and the
+# SAME request sent once more; a longer or missing Retry-After, or a second 429, stops there. No
+# other retry.
+function Invoke-TelemetrySend {
+    param([string]$Url, [string]$Body, [int]$ConnectMs = 3000, [int]$TotalMs = 5000)
+    $r = Invoke-TelemetryPost -Url $Url -Body $Body -ConnectMs $ConnectMs -TotalMs $TotalMs
+    if ($r.Status -eq 429) {
+        if ($r.RetryAfter -ge 0 -and $r.RetryAfter -le $script:TelemetryRetryAfterMax) {
+            Start-Sleep -Seconds $r.RetryAfter
+            $r = Invoke-TelemetryPost -Url $Url -Body $Body -ConnectMs $ConnectMs -TotalMs $TotalMs
+            if ($r.Status -eq 429) { $r.Why = 'HTTP 429 again after its Retry-After' }
+        } else {
+            $r.Why = "HTTP 429 (Retry-After $(if ($r.RetryAfter -ge 0) { "$($r.RetryAfter) s, more than $($script:TelemetryRetryAfterMax) s" } else { 'not given' }): not retried now)"
+        }
+    }
+    return $r
+}
+
+# Removes $Lines (a multiset of exact lines) from a spool file under its exclusive handle - lines
+# appended meanwhile stay; an emptied file is deleted. '' when done, else why not.
+function Remove-TelemetrySpoolLines {
+    param([string]$Path, [string[]]$Lines)
+    if (@($Lines).Count -eq 0) { return '' }
+    $fs = Open-TelemetrySpoolFile -Path $Path
+    if (-not $fs) { return "the spool file '$Path' stayed busy" }
+    $empty = $false
+    try {
+        $remove = New-Object 'System.Collections.Generic.Dictionary[string,int]'
+        foreach ($l in $Lines) { if ($remove.ContainsKey($l)) { $remove[$l]++ } else { $remove[$l] = 1 } }
+        $keep = New-Object System.Collections.Generic.List[string]
+        foreach ($l in (Read-TelemetryStreamLines $fs)) {
+            if ($remove.ContainsKey($l) -and $remove[$l] -gt 0) { $remove[$l]--; continue }
+            $keep.Add($l)
+        }
+        $fs.SetLength(0)
+        $fs.Position = 0
+        if ($keep.Count -gt 0) {
+            $bytes = $script:Utf8NoBom.GetBytes(($keep.ToArray() -join "`n") + "`n")
+            $fs.Write($bytes, 0, $bytes.Length)
+        } else { $empty = $true }
+        $fs.Flush()
+    } finally { $fs.Dispose() }
+    if ($empty) { try { [IO.File]::Delete($Path) } catch { } }
+    return ''
+}
+
+# The spool as it is: { Files; Events; Complaints; Invalid; Oldest (unix s or $null) } - read-only.
+function Get-TelemetrySpoolCounts {
+    $c = [pscustomobject]@{ Files = 0; Events = 0; Complaints = 0; Invalid = 0; Oldest = $null }
+    $p = Get-TelemetryPaths
+    if (-not $p -or -not [IO.Directory]::Exists($p.Spool)) { return $c }
+    foreach ($f in @(Get-ChildItem -LiteralPath $p.Spool -File -Filter '*.ndjson' | Sort-Object Name)) {
+        $c.Files++
+        foreach ($l in @((Read-SharedText -Path $f.FullName) -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ })) {
+            $s = ConvertFrom-TelemetrySpoolLine $l
+            if (-not $s) { $c.Invalid++; continue }
+            if ($s.Kind -eq 'event') { $c.Events++ } else { $c.Complaints++ }
+            if ($null -eq $c.Oldest -or $s.Queued -lt $c.Oldest) { $c.Oldest = $s.Queued }
+        }
+    }
+    return $c
+}
+
+# THE flush (codex-telemetry.ps1 -Flush; the detached sender): under the sender lock
+# <spool>/.flush.lock (held open exclusively - a concurrent sender is refused), every spool file
+# oldest first: lines older than 7 days and lines that are not spool lines are dropped; events go in
+# batches of at most 100 ({"events": [...]}) to <base>/v2/events, complaints one by one to
+# <base>/v2/complaints; the delivered and dropped lines are removed, the rest stays. The first
+# delivery that fails stops the flush (nothing is hammered; the next run's sender tries again).
+# Writes <spool>/.last {time, result, delivered, kept, dropped, http}. { Exit (0 done or nothing to
+# send, 1 something not delivered or the URL refused, 2 another sender holds the lock); Result;
+# Delivered; Kept; Dropped }.
+function Invoke-TelemetryFlush {
+    param([int]$ConnectMs = 3000, [int]$TotalMs = 5000)
+    $res = [pscustomobject]@{ Exit = 0; Result = ''; Delivered = 0; Kept = 0; Dropped = 0; Http = $null }
+    $p = Get-TelemetryPaths
+    if (-not $p) { $res.Exit = 1; $res.Result = 'no codex home (CODEX_HOME, else ~/.codex)'; return $res }
+    if (-not [IO.Directory]::Exists($p.Spool)) { $res.Result = 'nothing to send (no spool)'; return $res }
+    $lock = $null
+    try { $lock = New-Object System.IO.FileStream($p.Lock, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None) } catch {
+        $res.Exit = 2; $res.Result = 'another flush is running (its lock is held)'; return $res
+    }
+    try {
+        $url = Get-TelemetryUrl
+        $stop = ''
+        if ($url.Error) { $stop = $url.Error }
+        $cutoff = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - ($script:TelemetrySpoolDays * 86400)
+        foreach ($f in @(Get-ChildItem -LiteralPath $p.Spool -File -Filter '*.ndjson' | Sort-Object Name)) {
+            if ($stop) { break }
+            $fs = Open-TelemetrySpoolFile -Path $f.FullName
+            if (-not $fs) { continue }
+            try { $lines = Read-TelemetryStreamLines $fs } finally { $fs.Dispose() }
+            $drop = New-Object System.Collections.Generic.List[string]
+            $done = New-Object System.Collections.Generic.List[string]
+            $events = New-Object System.Collections.Generic.List[object]
+            $complaints = New-Object System.Collections.Generic.List[object]
+            foreach ($l in $lines) {
+                $s = ConvertFrom-TelemetrySpoolLine $l
+                if (-not $s -or $s.Queued -lt $cutoff) { $drop.Add($l); continue }
+                if ($s.Kind -eq 'event') { $events.Add($s) } else { $complaints.Add($s) }
+            }
+            for ($i = 0; $i -lt $events.Count -and -not $stop; $i += $script:TelemetryBatchMax) {
+                $batch = @($events.GetRange($i, [Math]::Min($script:TelemetryBatchMax, $events.Count - $i)))
+                $r = Invoke-TelemetrySend -Url "$($url.Base)/v2/events" -Body ('{"events":[' + (@($batch | ForEach-Object { $_.Body }) -join ',') + ']}') -ConnectMs $ConnectMs -TotalMs $TotalMs
+                if ($r.Status) { $res.Http = $r.Status }
+                if ($r.Delivered) { foreach ($b in $batch) { $done.Add($b.Line) }; $res.Delivered += $batch.Count }
+                else { $stop = $r.Why }
+            }
+            foreach ($cp in $complaints) {
+                if ($stop) { break }
+                $r = Invoke-TelemetrySend -Url "$($url.Base)/v2/complaints" -Body $cp.Body -ConnectMs $ConnectMs -TotalMs $TotalMs
+                if ($r.Status) { $res.Http = $r.Status }
+                if ($r.Delivered) { $done.Add($cp.Line); $res.Delivered++ } else { $stop = $r.Why }
+            }
+            $res.Dropped += $drop.Count
+            $why = Remove-TelemetrySpoolLines -Path $f.FullName -Lines ([string[]]@($done.ToArray() + $drop.ToArray()))
+            if ($why -and -not $stop) { $stop = $why }
+        }
+        $counts = Get-TelemetrySpoolCounts
+        $res.Kept = $counts.Events + $counts.Complaints + $counts.Invalid
+        if ($stop) {
+            $res.Exit = 1
+            $res.Result = "not delivered: $stop - delivered $($res.Delivered), kept $($res.Kept), dropped $($res.Dropped)"
+        } elseif ($res.Delivered -eq 0 -and $res.Dropped -eq 0) {
+            $res.Result = 'nothing to send'
+        } else {
+            $res.Result = "delivered $($res.Delivered), kept $($res.Kept), dropped $($res.Dropped)$(if ($res.Dropped -gt 0) { " (older than $($script:TelemetrySpoolDays) days or unreadable)" })"
+        }
+        try { Write-JsonFile -Path $p.Last -Object ([pscustomobject]@{ time = (Get-IsoTimestamp); result = $res.Result; delivered = $res.Delivered; kept = $res.Kept; dropped = $res.Dropped; http = $res.Http }) } catch { }
+    } finally { $lock.Dispose() }
+    return $res
+}
+
+# The last flush's record (<spool>/.last): the object, or $null when there is none (or it cannot
+# be read).
+function Read-TelemetryLast {
+    $p = Get-TelemetryPaths
+    if (-not $p -or -not [IO.File]::Exists($p.Last)) { return $null }
+    try { return (ConvertFrom-JsonKeepOffset -Text (Read-SharedText -Path $p.Last)) } catch { return $null }
+}
+
+# -Complain (codex-consult.ps1 -Task <t> -Complain, codex-telemetry.ps1 -Complain): the payload
+# {app_id, app_version, instance_id, text (at most 8 KiB of UTF-8), context {consultation - the
+# task's last ledger entry through the event's allowlist (ConvertTo-TelemetryDetails), or null;
+# bridge_version; os; runtime}, contact (or null)} is printed in full, then `send? [y/N]` unless
+# -Yes, then sent synchronously (10 s; a 429 as in Invoke-TelemetrySend). Delivered: the
+# public_ref is printed. Not delivered: the payload is kept in the spool as a complaint line - the
+# sender retries it. Independent of the telemetry switch (an explicit, confirmed send). Exit 0
+# delivered, 1 refused or not confirmed, 3 not delivered (kept in the spool).
+function Invoke-TelemetryComplaint {
+    param([string]$Text, [string]$Contact = '', $Entry = $null, [switch]$Yes, [int]$TotalMs = 10000)
+    $t = [string]$Text
+    if (-not $t.Trim()) { Write-Host 'codex-consult: -Complain needs a text: -Complain "<what went wrong or what you miss>".' -ForegroundColor Red; return 1 }
+    $tb = $script:Utf8NoBom.GetByteCount($t)
+    if ($tb -gt $script:TelemetryTextMaxBytes) { Write-Host "codex-consult: the complaint's text is $tb bytes (UTF-8); the intake takes at most $($script:TelemetryTextMaxBytes) - shorten it; nothing was sent." -ForegroundColor Red; return 1 }
+    $c = ([string]$Contact).Trim()
+    if ($c.Length -gt 256) { Write-Host 'codex-consult: -Contact takes at most 256 characters; nothing was sent.' -ForegroundColor Red; return 1 }
+    $p = Get-TelemetryPaths
+    if (-not $p) { Write-Host 'codex-consult: no codex home (CODEX_HOME, else ~/.codex): no instance id and no spool; nothing was sent.' -ForegroundColor Red; return 1 }
+    $u = Get-TelemetryUrl
+    if ($u.Error) { Write-Host "codex-consult: $($u.Error); nothing was sent." -ForegroundColor Red; return 1 }
+    $id = Get-TelemetryInstanceId -Create
+    if (-not $id) { Write-Host "codex-consult: the instance id could not be made (the salt $($p.Salt)); nothing was sent." -ForegroundColor Red; return 1 }
+    $payload = [pscustomobject]@{
+        app_id      = $script:TelemetryAppId
+        app_version = (Get-BridgeVersion)
+        instance_id = $id
+        text        = $t
+        context     = [pscustomobject]@{
+            consultation   = $(if ($Entry) { ConvertTo-TelemetryDetails $Entry } else { $null })
+            bridge_version = (Get-BridgeVersion)
+            os             = (Get-TelemetryOs)
+            runtime        = (Get-TelemetryRuntime)
+        }
+        contact     = $(if ($c) { $c } else { $null })
+    }
+    $json = ConvertTo-Json -Depth 6 -InputObject $payload
+    Write-Host "codex-consult: the complaint - exactly this JSON goes to $($u.Base)/v2/complaints:"
+    Write-Host $json
+    if (-not $Yes) {
+        $answer = ''
+        try {
+            if ([Console]::IsInputRedirected) { Write-Host 'send? [y/N] ' -NoNewline; $answer = [Console]::In.ReadLine() }
+            else { $answer = Read-Host 'send? [y/N]' }
+        } catch { $answer = '' }
+        if (([string]$answer).Trim() -notmatch '^(?i:y|yes)$') { Write-Host 'codex-consult: not sent (no confirmation; -Yes sends without asking).'; return 1 }
+    }
+    $r = Invoke-TelemetrySend -Url "$($u.Base)/v2/complaints" -Body $json -ConnectMs 3000 -TotalMs $TotalMs
+    if ($r.Delivered) {
+        $ref = ConvertTo-OneLine ([string](Get-PropertyValue $r.Json 'public_ref' ''))
+        Write-Host "codex-consult: complaint delivered - public_ref $(if ($ref) { $ref } else { '(none given)' }) (quote it when you write to the maintainer)."
+        return 0
+    }
+    $why = Add-TelemetrySpoolLine -Kind 'complaint' -BodyJson (ConvertTo-Json -Compress -Depth 6 -InputObject $payload)
+    if ($why) { Write-Host "codex-consult: not delivered ($($r.Why)); it could not be kept in the spool either ($why) - nothing was sent." -ForegroundColor Yellow; return 3 }
+    Write-Host "codex-consult: not delivered ($($r.Why)); kept in the spool as a complaint line ($($p.Spool)) - the sender retries it after the next consultation, or run codex-telemetry.ps1 -Flush." -ForegroundColor Yellow
+    return 3
 }

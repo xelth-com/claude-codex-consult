@@ -11,6 +11,12 @@ $ErrorActionPreference = 'Stop'
 # (wave 26b, D13) the machine-wide health file stays out of these cases (every case its own
 # repository; harness-fixes26b.ps1 points CODEX_CONSULT_HEALTH at scratch files of its own)
 $env:CODEX_CONSULT_HEALTH = 'none'
+# (wave 28) telemetry off and the intake pointed at nothing reachable: no harness but
+# harness-telemetry spools an event or contacts an intake
+$env:CODEX_CONSULT_TELEMETRY = 'off'
+$env:CODEX_CONSULT_TELEMETRY_URL = 'http://127.0.0.1:9/'
+# (wave 27c, D14) the test hooks (CODEX_CONSULT_TEST_*, CODEX_CONSULT_NOW) are honoured only in test mode
+$env:CODEX_CONSULT_TEST_MODE = '1'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 # (wave 25, T4) the scripts under test: -ScriptsDir, else CODEX_CONSULT_SCRIPTS_DIR, else this checkout's
@@ -142,7 +148,7 @@ if (Want 'REPAIR') {
     Check 'REPAIR' 'prose first, valid JSON on resume -> structured true, the finding ingested, verdict HOLD, format_retry.succeeded true with the original parse error as reason' ($x.Code -eq 0 -and $e.structured -eq $true -and @($e.finding_ids).Count -eq 1 -and $e.verdict -eq 'HOLD' -and $fr.attempted -eq $true -and $fr.succeeded -eq $true -and $fr.reason -and $fr.reason.Length -le 200 -and $e.validation_error -eq '') "reason=$($fr.reason)"
     $names = ($e.PSObject.Properties | ForEach-Object { $_.Name }) -join ','
     $frNames = ($fr.PSObject.Properties | ForEach-Object { $_.Name }) -join ','
-    Check 'REPAIR' 'ledger: format_retry right after validation_error (then denial_retry, 0.4.0), fields attempted,reason,succeeded,thread,wall_seconds,usage,drift,original,events,schema_transport (0.4.0: events null for codex - its repair stream is not kept; wave 23b: schema_transport prompt-only - the codex repair turn never passes --output-schema); no drift for a faithful conversion' ($names -match 'validation_error,format_retry,denial_retry,timeout_continue,stall,base_commit' -and $frNames -eq 'attempted,reason,succeeded,thread,wall_seconds,usage,drift,original,events,schema_transport' -and $fr.schema_transport -eq 'prompt-only' -and $null -eq $fr.events -and @($fr.drift).Count -eq 0 -and $null -ne $fr.usage) "$frNames / drift=$(@($fr.drift) -join '; ')"
+    Check 'REPAIR' 'ledger: format_retry right after validation_error (then denial_retry, 0.4.0), fields attempted,reason,succeeded,thread,wall_seconds,usage,drift,original,events,schema_transport (0.4.0: events null for codex - its repair stream is not kept; wave 23b: schema_transport prompt-only - the codex repair turn never passes --output-schema); no drift for a faithful conversion' ($names -match 'validation_error,format_retry,denial_retry,timeout_continue,stall,kill_confirmed,base_commit' -and $frNames -eq 'attempted,reason,succeeded,thread,wall_seconds,usage,drift,original,events,schema_transport' -and $fr.schema_transport -eq 'prompt-only' -and $null -eq $fr.events -and @($fr.drift).Count -eq 0 -and $null -ne $fr.usage) "$frNames / drift=$(@($fr.drift) -join '; ')"
     Check 'REPAIR' 'thread unchanged: the entry keeps the first thread, the repair (resume) reported the same one' ($e.thread -and $fr.thread -eq $e.thread -and $e.thread_source -eq 'events') "$($e.thread) / $($fr.thread)"
     $orig = Join-Path $td ($fr.original -replace '/', '\')
     $replyJson = Join-Path $td ($e.reply_json -replace '/', '\')

@@ -2,7 +2,7 @@ Write in English.
 <!-- Serves -Purpose framing | decision | stuck. -->
 <!-- The script never writes briefs - you fill this by hand and pass it via -Brief. -->
 
-# Handoff <NN> - Claude: <slug>
+# Handoff <NN> - <coordinator>: <slug>
 
 Date: <date>. Base commit: `<sha>`<+ uncommitted, if any>.
 

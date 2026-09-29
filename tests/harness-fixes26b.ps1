@@ -22,6 +22,12 @@
 param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
 $env:CODEX_CONSULT_HEALTH = 'none'
+# (wave 28) telemetry off and the intake pointed at nothing reachable: no harness but
+# harness-telemetry spools an event or contacts an intake
+$env:CODEX_CONSULT_TELEMETRY = 'off'
+$env:CODEX_CONSULT_TELEMETRY_URL = 'http://127.0.0.1:9/'
+# (wave 27c, D14) the test hooks (CODEX_CONSULT_TEST_*, CODEX_CONSULT_NOW) are honoured only in test mode
+$env:CODEX_CONSULT_TEST_MODE = '1'
 $sp = $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $ScriptsDir) { $ScriptsDir = [string]$env:CODEX_CONSULT_SCRIPTS_DIR }
@@ -589,7 +595,7 @@ if (Want 'KICKACK') {
     [IO.File]::WriteAllText($kf, "kick`n")
     $wl = Wait-EngineProcess -Process $pe -TimeoutSec 20 -KickPath $kf
     $ackL = $(if (Test-Path -LiteralPath "$kf.ack") { [IO.File]::ReadAllText("$kf.ack") } else { '' })
-    Check 'KICKACK' '26c D1 (F26-1, F25-2): a kick file found once the turn''s process has exited is taken LATE - Wait-EngineProcess: Exited, KickLate, no kick reason; the kick file removed, the acknowledgement <kick file>.ack says "late"' ($wl.Exited -and $wl.KickLate -and $wl.Reason -eq '' -and -not (Test-Path -LiteralPath $kf) -and $ackL -match '^late ') "exited $($wl.Exited) late $($wl.KickLate) reason '$($wl.Reason)' ack '$($ackL.Trim())'"
+    Check 'KICKACK' '26c D1 (F26-1, F25-2): a kick file found once the turn''s process has exited is taken LATE - Wait-EngineProcess: Exited, KickLate, no kick reason; the kick file removed, the acknowledgement <kick file>.ack says "late" (wave 27c, D1: a JSON record {id, result late})' ($wl.Exited -and $wl.KickLate -and $wl.Reason -eq '' -and -not (Test-Path -LiteralPath $kf) -and $ackL -match '"result":"late"') "exited $($wl.Exited) late $($wl.KickLate) reason '$($wl.Reason)' ack '$($ackL.Trim())'"
     Remove-Item -LiteralPath "$kf.ack" -ErrorAction SilentlyContinue
     $pl = Start-Process -FilePath $psExe -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 30' -PassThru -WindowStyle Hidden
     [IO.File]::WriteAllText($kf, "kick`n")
@@ -598,7 +604,7 @@ if (Want 'KICKACK') {
     $kw0.Stop()
     try { Stop-Process -Id $pl.Id -Force -ErrorAction SilentlyContinue } catch { }
     $ackK = $(if (Test-Path -LiteralPath "$kf.ack") { [IO.File]::ReadAllText("$kf.ack") } else { '' })
-    Check 'KICKACK' '26c D1: a kick file already there when the wait starts on a LIVE turn is taken before the wait loop (reason kick at once), acknowledged "kicked", the kick file removed' ($wk.Reason -eq 'kick' -and -not $wk.Exited -and -not $wk.KickLate -and $kw0.Elapsed.TotalSeconds -lt 1 -and $ackK -match '^kicked ' -and -not (Test-Path -LiteralPath $kf)) "reason '$($wk.Reason)' in $([math]::Round($kw0.Elapsed.TotalSeconds, 2)) s ack '$($ackK.Trim())'"
+    Check 'KICKACK' '26c D1: a kick file already there when the wait starts on a LIVE turn is taken before the wait loop (reason kick at once), acknowledged (wave 27c, D1: result "stopped"), the kick file removed' ($wk.Reason -eq 'kick' -and -not $wk.Exited -and -not $wk.KickLate -and $kw0.Elapsed.TotalSeconds -lt 1 -and $ackK -match '"result":"stopped"' -and -not (Test-Path -LiteralPath $kf)) "reason '$($wk.Reason)' in $([math]::Round($kw0.Elapsed.TotalSeconds, 2)) s ack '$($ackK.Trim())'"
     # -Kick against a run whose member never polls (a fabricated running record, a live child): exit 3, the file stays;
     # once the child is gone: exit 1 and the stale kick file is removed
     $r = New-Repo 'kickack'
@@ -654,7 +660,7 @@ if (Want 'HEALTHLOCK') {
         $x = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'hl') @{ FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_HEALTH = $hL; CODEX_CONSULT_TEST_HEALTH_LOCK_SEC = '1' }
     } finally { $lk.Dispose() }
     $el = @(Ledger $r)[-1]
-    Check 'HEALTHLOCK' '26c D2: the health file''s lock held elsewhere (3 attempts of the hook''s 1 s each, then the one retry at the ledger commit): the run still delivers (usable reply, exit 0), warnings[] and the summary say "machine-wide health not updated (lock timeout)", the ledger keeps the truth; nothing was written to the file' ($x.Code -eq 0 -and $el.bridge_outcome -eq 'usable reply' -and @($el.warnings) -contains 'machine-wide health not updated (lock timeout)' -and $x.Out -match '(?m)^warning    : machine-wide health not updated \(lock timeout\)$' -and -not (Test-Path -LiteralPath $hL)) "exit $($x.Code) | $(@($el.warnings) -join ' / ')"
+    Check 'HEALTHLOCK' '26c D2: the health file''s lock held elsewhere (3 attempts of the hook''s 1 s each, then the one retry at the ledger commit): the run still delivers (usable reply, exit 0), (wave 27c, D8) warnings[] says "machine-wide health not updated at the commit (lock timeout); retried after it" and the summary - after the full retry outside the write lock - "machine-wide health not updated (lock timeout)", the ledger keeps the truth; nothing was written to the file' ($x.Code -eq 0 -and $el.bridge_outcome -eq 'usable reply' -and @($el.warnings) -contains 'machine-wide health not updated at the commit (lock timeout); retried after it' -and $x.Out -match '(?m)^warning    : machine-wide health not updated \(lock timeout\)$' -and -not (Test-Path -LiteralPath $hL)) "exit $($x.Code) | $(@($el.warnings) -join ' / ')"
 }
 
 # =============================================================== 26c D3: the stall cut outside tool calls

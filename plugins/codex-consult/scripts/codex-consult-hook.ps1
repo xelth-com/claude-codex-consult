@@ -39,9 +39,12 @@
     <CollabDir>/*/.consult.detached-*.status.json, a background's liveness judged by its pid and
     start time (Get-DetachedPhrase). Nothing when there is none.
 
-    (wave 27, R13 D5) Then ONE pointer line, always, whatever the first line says:
+    (wave 27, R13 D5) Then ONE pointer line, always, whatever the first line says - (wave 27c, D13)
+    with the full command of THIS plugin's script, runnable as written on a host that substitutes
+    nothing - and (wave 28, R17) ending with the telemetry switch (on | off; CODEX_CONSULT_TELEMETRY,
+    the environment only):
 
-        codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain coordinate)
+        codex-consult: coordinator rules - skill codex-consult:coordinate (or powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>\scripts\codex-consult.ps1" -Explain coordinate); telemetry: on
 
     Cost: about one second (one `codex login status` for the built-in openai; wave 24b: each
     roster entry's identity and each endpoint's health are resolved once per listing - the
@@ -100,7 +103,14 @@ try {
     if ($detachedPhrase) { $line += $detachedPhrase }
 } catch { }
 Write-Output $line
+# (wave 28, R17) whether telemetry is on (CODEX_CONSULT_TELEMETRY; the environment only)
+$telemetryText = 'unknown'
+try { $telemetryText = (Get-TelemetrySwitch).Text } catch { }
 # (wave 27, R13 D5) the pointer to the coordinator's rules - a host without skills reads them with
-# -Explain coordinate
-Write-Output 'codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain coordinate)'
+# -Explain coordinate; (wave 27c, D13 / F32-9) runnable as written: the full command with this
+# plugin's own script path (powershell on Windows - always present -, pwsh elsewhere); (wave 28)
+# then the telemetry switch
+$explainScript = Join-Path $PSScriptRoot 'codex-consult.ps1'
+$explainCmd = $(if ($null -eq $IsWindows -or $IsWindows) { "powershell -NoProfile -ExecutionPolicy Bypass -File ""$explainScript"" -Explain coordinate" } else { "pwsh -NoProfile -File ""$explainScript"" -Explain coordinate" })
+Write-Output "codex-consult: coordinator rules - skill codex-consult:coordinate (or $explainCmd); telemetry: $telemetryText"
 exit 0

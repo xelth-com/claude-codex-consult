@@ -10,6 +10,8 @@ disable-model-invocation: false
 
 `${CLAUDE_PLUGIN_ROOT}` is the plugin directory; from a plain shell set `CODEX_CONSULT_ROOT` to it and use that instead.
 
+"The README" below is the repository README: <https://github.com/xelth-com/claude-codex-consult/blob/main/README.md> (the plugin directory's own `README.md` is a short index).
+
 Codex is a reasoning partner here, not an executor. **You - the coordinator - keep the final
 word.** It runs read-only by default: it reads the repository and answers, it does not edit.
 How to run workers, waves and waits around consultations (one objective per worker, state on
@@ -33,6 +35,25 @@ findings stores included - and run no git command (commit, checkout, stash, pull
 notes and write them once the panel has closed (`-Status` says done). Both engines are checked
 by evidence: a change during an agy run fails that member; during a muse run it is a warning
 (muse runs write-disabled, wave 26b) - in either case the reviewer read a moving target.
+
+**No `codex-consult:` line?** When neither your instructions nor your context carry a line that starts with
+`codex-consult:` (a host without the SessionStart hook, or one whose hook did not reach you), run the hook
+one-liner once - `powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult-hook.ps1"`
+(`pwsh -NoProfile -File ...` on macOS and Linux): it says which reviewers are out and prints the full
+`-Explain coordinate` command of this installation.
+
+**Your shell tool's time limit.** A blocking bridge call is cut when your host's shell tool has a limit
+shorter than the run's timeout (seen 2026-09-29: Kimi Code 300 s in the foreground, Z Code 600 s; a
+checkpoint run has 900 s, an acceptance 3600 s). When that limit is shorter than the timeout of the
+purpose, or unknown, start the run with `-Detach` and come back with `-Wait` or `-Status` - the
+`coordinate` skill's "Means per host" lists the limits seen.
+
+**Telemetry (on by default).** After each consultation the bridge sends ONE anonymised event
+(engine, provider label, model, purpose, outcome class, counts - never a task, brief, prompt,
+path or name) to the maintainer's intake in the background; `CODEX_CONSULT_TELEMETRY=off` (the
+operator's variable) or `-Telemetry off` for one run switches it off, and a problem with the
+bridge goes to the maintainer with `codex-consult.ps1 -Task <t> -Complain "<text>"` (it prints
+the payload and asks first) - the README (the repository README), section "Telemetry (on by default)".
 
 ## When to consult
 
@@ -127,7 +148,9 @@ repository; the prompt only points at it.
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" -Task <task> -Mode fork -Purpose <purpose> -Brief .collab/<task>/handoffs/<NN>-<prefix>-<slug>.md -Prompt "<one-line ask>" -ReplyName <slug>
 ```
 
-On macOS and Linux (and on Windows with PowerShell 7 installed), use `pwsh -NoProfile -File` instead.
+On Windows use `powershell` as above - it is always present, while `pwsh` there may be only the
+WindowsApps alias, which a host's sandbox can refuse to execute; on macOS, Linux and a real PowerShell 7
+install use `pwsh -NoProfile -File` instead.
 On the FIRST consultation of a task with a reviewer leave `-Mode` out (or pass `-Mode new`): there
 is no thread to fork yet and `-Mode fork` is refused.
 
@@ -136,8 +159,13 @@ it is empty, set it (`<provider> :: <model>` in the roster's spelling, optionall
 ` [<engine>]`, or a roster position `#<n>`) for the session: a reviewer the bridge seats that IS
 your model gets a warning - "a second opinion from the coordinator's own model" - on the console,
 in the dry run and in the ledger's `warnings[]` (never a refusal); a value that does not parse
-is refused before anything starts. The ledger's `coordinator` records it with your host (inferred,
-a hint only: `codex`, `zcode`, `claude-code` or `unknown`).
+is refused before anything starts. (0.5.0, wave 27c) The value is resolved like a seated reviewer - a
+roster position or a label takes its entry's model, else the model the bridge would run; a label whose
+model cannot be told gives only "a reviewer from the coordinator's own provider (model not named)"; a
+value no roster entry matches is said (`coordinator: ... (not in the roster - no reviewer can match
+it)`) and a `#<n>` that names no position here is warned about - neither is refused. The ledger's
+`coordinator` records it with your host (inferred, a hint only: `codex`, `zcode`, `claude-code` or
+`unknown` - from the host's markers, else from the plugin's install path: `host_by`).
 
 `-Purpose` selects the prompt paragraph Codex is asked to answer under, and its default
 effort and word cap:

@@ -465,21 +465,64 @@
     CODEX_CONSULT_COORDINATOR (`<provider> :: <model>` [` [<engine>]`], a roster position `#<n>` or
     a provider label, parsed and compared like -Require): a seated reviewer whose RESOLVED identity
     is the coordinator's warns "a second opinion from the coordinator's own model" (the dry run too;
-    never a refusal); a value that does not parse is refused before anything starts. Its host is
-    inferred as a hint only, in this order (codex: CODEX_SESSION_ID / CODEX_THREAD_ID; zcode:
-    ZCODE_SESSION_ID / ZCODE_PROJECT_DIR; claude-code: CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, AI_AGENT
-    claude-code*; else unknown). Ledger `coordinator {provider, model, engine, host, source
-    explicit|inferred|none}` - `host` elsewhere stays the machine name. Every engine child (the
-    main turn, a denial retry, a format repair, the continuation, the detached background, the
-    launcher probes) is started WITHOUT the coordinator's host markers (CODEX_SESSION_ID,
-    CODEX_THREAD_ID, CODEX_CI, every CODEX_SANDBOX*, CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, AI_AGENT;
-    wave 27b: CLAUDE_CODE_SESSION_ID, CLAUDE_CODE_BRIDGE_SESSION_ID, CLAUDE_CODE_CHILD_SESSION,
-    CLAUDE_CODE_MESSAGING_SOCKET, CLAUDE_CODE_MESSAGING_TOKEN, CLAUDE_CODE_SESSION_ATTENDED,
-    CLAUDE_CODE_EXECPATH, CLAUDE_PID, CLAUDE_EFFORT, ZCODE_SESSION_ID, ZCODE_PROJECT_DIR, every
-    ZCODE_PLUGIN*); exact names, so every other variable is kept (CLAUDE_CODE_USE_BEDROCK and the
-    like, CLAUDE_PLUGIN_ROOT). Ledger `child_env_scrubbed` (the names, never a value).
+    never a refusal); a value that does not parse is refused before anything starts. (wave 27c,
+    D9-D12) The value is RESOLVED like a seated reviewer (the entry's model, else the model the
+    bridge would run): "own model" only when provider, model and engine are equal; a label whose
+    model cannot be told gives "a reviewer from the coordinator's own provider (model not named)";
+    only an unparseable value is refused (the roster's character rule); a value no roster entry
+    matches is said (in_roster false), a `#<n>` that names no position here is warned about
+    (unresolved). Its host is inferred as a hint only, in this order (codex: CODEX_SESSION_ID /
+    CODEX_THREAD_ID; zcode: any ZCODE_ variable; claude-code: CLAUDECODE, CLAUDE_CODE_ENTRYPOINT,
+    AI_AGENT claude-code*; else the install path - a plugin cache under .zcode, .codex, .claude -;
+    else unknown). Ledger `coordinator {provider, model, engine, host, host_by, source
+    explicit|inferred|none, in_roster, unresolved}` - `host` elsewhere stays the machine name. Every
+    engine child (the main turn, a denial retry, a format repair, the continuation, the detached
+    background, the launcher probes, the telemetry sender) is started WITHOUT the coordinator's host
+    markers (CODEX_SESSION_ID, CODEX_THREAD_ID, CODEX_CI, every CODEX_SANDBOX*, CLAUDECODE,
+    CLAUDE_CODE_ENTRYPOINT, AI_AGENT; wave 27b: CLAUDE_CODE_SESSION_ID, CLAUDE_CODE_BRIDGE_SESSION_ID,
+    CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_MESSAGING_SOCKET, CLAUDE_CODE_MESSAGING_TOKEN,
+    CLAUDE_CODE_SESSION_ATTENDED, CLAUDE_CODE_EXECPATH, CLAUDE_PID, CLAUDE_EFFORT; wave 27c: every
+    ZCODE_* - the whole prefix); exact CLAUDE_CODE_ names, so every other variable is kept
+    (CLAUDE_CODE_USE_BEDROCK and the like, CLAUDE_PLUGIN_ROOT). (wave 27c, D3) The hide is
+    transactional: a marker that cannot be removed puts every removed one back and the start is
+    refused ("bridge failure: host markers could not be hidden (<name>: <why>)"). Ledger
+    `child_env_scrubbed` (the names, never a value).
+
+    (wave 27c) Kill, kick, health, test hooks: a process tree kill is CONFIRMED (the root exited and
+    every enumerated descendant; where the children cannot be enumerated - a restricted host - the
+    fallback `taskkill /PID <root> /T /F` and the root again): "(process tree killed)" only then, else
+    "(kill not confirmed: <why>; pid <n> may still run)", ledger kill_confirmed false, a warning and
+    no continuation turn (D16). A -Kick request carries an id, is written atomically and JOINED by a
+    second caller; the acknowledgement holds the id and the result (stopped | late) (D1); a kick of
+    the timeout continuation keeps the timeout outcome and its salvage (D2). The stall reader is
+    bounded (1 MiB carry, oversized lines skipped and counted - D5) and a tool call suspends the stall
+    cut for at most max(3 x -StallSec, 1800 s) (D6). Any failure of the machine-wide health update is
+    retried and named; the retry inside the write lock is one attempt of at most 1 s, the full retry
+    runs after it (D7, D8). A CODEX_CONSULT_TEST_* hook (and CODEX_CONSULT_NOW) is honoured only with
+    CODEX_CONSULT_TEST_MODE=1; otherwise it is ignored and the run warns once (D14).
     -BriefPrefix names the coordinator's briefs (handoffs/<NN>-<prefix>-<slug>.md; default
     claude); -Explain coordinate|consult|providers prints a skill's text for a host without skills.
+
+    (wave 28, R17) Telemetry, ON by default (installing the plugin means accepting its terms - README
+    "Telemetry (on by default)"): after the ledger commit of every consultation (a failed one too;
+    a panel: every member) ONE anonymised event built from the committed entry through a closed
+    allowlist - app_id, app_version, a salted instance id (sha256 of <codex home>/telemetry-salt and
+    the machine name), event_type consultation, severity, the outcome class, details {engine,
+    provider label, model, purpose, outcome, wall_seconds, tokens {in, cached, out}, findings
+    counts, structured, format_retry, denial_retry, timeout_continue, panel_size, ps_version, os,
+    bridge_version}, tags, client_time (UTC), os, runtime; NEVER a task name, brief, prompt, path,
+    thread id, finding text, key, user name or the machine name - goes to <codex
+    home>/telemetry-spool/<yyyy-mm-dd>.ndjson, and ONE detached sender (codex-telemetry.ps1 -Flush,
+    hidden, without the host markers; a panel starts it once when every member is done) delivers
+    it to the intake (CODEX_CONSULT_TELEMETRY_URL, else https://xelth.com/T) - never waited for,
+    never failing a run. CODEX_CONSULT_TELEMETRY=off (or -Telemetry off for one run) writes and
+    sends nothing. The first real run after an install prints a five-line notice once (marker
+    <codex home>/telemetry-notice-<version>); the dry run prints `telemetry   : on|off`, the
+    SessionStart hook's pointer line ends `; telemetry: on|off`. -Task <t> -Complain "<text>"
+    [-Contact <c>] [-Yes] prints the complaint's exact payload (the text, the task's last entry
+    through the same allowlist), asks `send? [y/N]` unless -Yes and prints the public_ref - or
+    keeps it in the spool (exit 0 delivered, 1 refused or not confirmed, 3 not delivered). State:
+    codex-telemetry.ps1 -Status.
 
     Invariants:
       * read-only sandbox by default; danger-full-access is refused outright
@@ -799,7 +842,25 @@ param(
     # (wave 27, R13 D5) coordinate | consult | providers: print the text of the plugin's skill
     # coordinate, consult-codex or setup-providers (its SKILL.md without the front matter, UTF-8)
     # for a host without skills, and exit 0. Read-only; takes no other parameter (not even -Task).
-    [string]$Explain = ''
+    [string]$Explain = '',
+
+    # (wave 28, R17) on | off for this run: ONE anonymised event per consultation to the
+    # maintainer's intake (README "Telemetry (on by default)"). Empty (the default):
+    # CODEX_CONSULT_TELEMETRY, else on. A panel passes it to its members.
+    [string]$Telemetry = '',
+
+    # (wave 28, R17) A complaint or a suggestion to the maintainer: -Task <t> -Complain "<text>"
+    # [-Contact <how to reach you>] [-Yes]. The payload - the text, the task's last ledger entry
+    # through the event's allowlist, the plugin version, the OS - is printed in full, then `send?
+    # [y/N]` unless -Yes; the public_ref is printed, or it is kept in the spool. Takes only -Task,
+    # -CollabDir, -Contact, -Yes. Exit 0 delivered, 1 refused or not confirmed, 3 not delivered (kept).
+    [string]$Complain = '',
+
+    # (wave 28) With -Complain: how the maintainer can reach you (optional).
+    [string]$Contact = '',
+
+    # (wave 28) With -Complain: send without asking.
+    [switch]$Yes
 )
 
 $ErrorActionPreference = 'Stop'
@@ -823,11 +884,18 @@ if ($PSBoundParameters.ContainsKey('Explain')) {
     if (-not (Test-Path -LiteralPath $explainPath -PathType Leaf)) { Stop-WithError "-Explain $($explainKey): '$explainPath' does not exist (an incomplete plugin directory)." }
     $explainBody = [IO.File]::ReadAllText($explainPath, $script:Utf8NoBom)
     if ($explainBody -match '\A---\r?\n[\s\S]*?\r?\n---\r?\n') { $explainBody = $explainBody.Substring($Matches[0].Length) }
-    $explainHead = "codex-consult -Explain $($explainKey): the $($explainSkills[$explainKey]) skill, $explainPath - " + '${CLAUDE_PLUGIN_ROOT}' + " in it is the plugin directory $explainRoot"
+    # (wave 27c, D13 / F32-9) runnable as written on a host that substitutes nothing: every
+    # ${CLAUDE_PLUGIN_ROOT} of the skill text is replaced by this plugin's directory (the skills keep
+    # the variable and the root sentence)
+    $explainHead = "codex-consult -Explain $($explainKey): the $($explainSkills[$explainKey]) skill, $explainPath - " + '${CLAUDE_PLUGIN_ROOT}' + " in it is replaced by the plugin directory $explainRoot"
+    $explainBody = $explainBody.Replace('${CLAUDE_PLUGIN_ROOT}', $explainRoot)
     $explainBytes = $script:Utf8NoBom.GetBytes($explainHead + "`n`n" + $explainBody.TrimStart("`r", "`n").TrimEnd() + "`n")
+    # (wave 27c, D15 / F32-11) the stream flushed AND disposed
     $explainOut = [Console]::OpenStandardOutput()
-    $explainOut.Write($explainBytes, 0, $explainBytes.Length)
-    $explainOut.Flush()
+    try {
+        $explainOut.Write($explainBytes, 0, $explainBytes.Length)
+        $explainOut.Flush()
+    } finally { $explainOut.Dispose() }
     exit 0
 }
 # Every other form needs -Task (it was a Mandatory parameter - that prompted instead of refusing).
@@ -987,7 +1055,7 @@ function Start-DetachedRun {
     # The id: a guid whose id8 names no status or log file of the task yet (D7). TEST HOOK:
     # CODEX_CONSULT_TEST_DETACH_GUIDS=<guid>[,<guid>...] - tried first, in that order.
     $tries = New-Object System.Collections.Generic.List[string]
-    foreach ($g in ([string]$env:CODEX_CONSULT_TEST_DETACH_GUIDS).Split(',')) {
+    foreach ($g in ((Get-TestHookValue 'CODEX_CONSULT_TEST_DETACH_GUIDS')).Split(',')) {
         if ($g.Trim() -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') { $tries.Add($g.Trim().ToLowerInvariant()) }
     }
     for ($i = 0; $i -lt 16; $i++) { $tries.Add([guid]::NewGuid().ToString()) }
@@ -1063,7 +1131,9 @@ function Start-DetachedRun {
             [void]$psi.ArgumentList.Add($bgLine)
             $psi.UseShellExecute = $false
             $psi.WorkingDirectory = $callerCwd
-            Remove-HostMarkersFromStartInfo $psi
+            # (wave 27c, D4) the block must come out clean, else the start is refused
+            $scrub = Remove-HostMarkersFromStartInfo $psi
+            if ($scrub) { throw "host markers could not be hidden ($scrub)" }
             $null = [System.Diagnostics.Process]::Start($psi)
         }
     } catch {
@@ -1151,6 +1221,8 @@ if ($Kick -or $script:ScriptBound.ContainsKey('Member')) {
     # (wave 26c, D1) no such running member: exit 1, and a kick file of that number is removed
     $kickFail = { param([string]$Why) if ([IO.Directory]::Exists($kTaskDir)) { $null = Remove-PendingFile -Path $kPath }; Write-Host "codex-consult: -Kick: $Why" -ForegroundColor Red; exit 1 }
     if (-not [IO.Directory]::Exists($kTaskDir)) { & $kickFail "no task directory '$kTaskDir'." }
+    # (wave 27c, D1) an acknowledgement older than 60 s (nobody's anymore) is swept first
+    $null = Clear-StaleKickAck -KickPath $kPath
     # a detached run named by -Id: the member must be one of ITS members, running
     if ($want) {
         $w8 = $want.Replace('-', '')
@@ -1175,26 +1247,55 @@ if ($Kick -or $script:ScriptBound.ContainsKey('Member')) {
     if ([string]$kItem.state -ne 'running' -or $kChild -le 0 -or -not (Test-RecordedProcess -ProcessId $kChild -StartTime (ConvertTo-StartIso (Get-PropertyValue $kItem 'child_start_time' ''))).Alive) {
         & $kickFail "the run with handoff $kickNn has no engine turn running (state $($kItem.state))."
     }
-    # (wave 26c, D1 / F26-1) the member acknowledges: <kick file>.ack ("kicked" - its turn is being
-    # stopped; "late" - its turn had already finished, the outcome stays). Up to 10 s.
+    # (wave 26c, D1 / F26-1; wave 27c, D1 / F30-1, F29-2, F32-1, F30-6) THE REQUEST: written atomically
+    # with an id - or, when a kick of this member is already pending, JOINED (its id taken, the file
+    # never overwritten). The member acknowledges with <kick file>.ack {id, result: stopped - its turn
+    # is being stopped | late - its turn had already finished, the outcome stays}. This caller waits
+    # up to 10 s for an acknowledgement with ITS id; only the creator of the request removes it after
+    # reading it (after a short grace, so a joiner reads it too), a joiner never.
     $kAck = "$kPath.ack"
-    $null = Remove-PendingFile -Path $kAck
-    Write-Utf8NoBom -Path $kPath -Text ((Get-IsoTimestamp) + " -Kick from pid $PID`n")
+    $kReq = New-KickRequest -KickPath $kPath
+    if ($kReq.Error) { Stop-StatusQuery "-Kick: the kick request could not be written ($($kReq.Error))." }
     $kWatch = [System.Diagnostics.Stopwatch]::StartNew()
-    while (-not [IO.File]::Exists($kAck) -and $kWatch.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 200 }
-    if (-not [IO.File]::Exists($kAck)) {
+    $kGot = $null
+    while ($kWatch.Elapsed.TotalSeconds -lt 10) {
+        $kRead = Read-KickRecord -Path $kAck
+        if ($kRead.Exists -and $kRead.Id -and $kRead.Id -eq $kReq.Id) { $kGot = $kRead; break }
+        Start-Sleep -Milliseconds 200
+    }
+    if (-not $kGot) {
         Write-Host "codex-consult: -Kick: the run with handoff $kickNn did not acknowledge the kick within 10 s - the kick file stays ($kPath): the member takes it at its next poll; a run that has ended leaves it to the next run of that number, which removes it." -ForegroundColor Yellow
         exit 3
     }
-    Start-Sleep -Milliseconds 100
-    $kAckText = Read-SharedText -Path $kAck
-    $null = Remove-PendingFile -Path $kAck
-    if ($kAckText -match '^late\b') {
+    if ($kReq.Created) {
+        Start-Sleep -Milliseconds 1000
+        if ((Read-KickRecord -Path $kAck).Id -eq $kReq.Id) { $null = Remove-PendingFile -Path $kAck }
+    }
+    if ($kGot.Result -eq 'late') {
         Write-Host "codex-consult: -Kick: member $kickNn of task $Task had already finished - the kick is recorded as kick_late in its warnings, its outcome unchanged."
         exit 0
     }
     Write-Host "codex-consult: -Kick: member $kickNn of task $Task stopped - it took the kick; its engine's process tree is being stopped and its partial output salvaged; it records ""failed: stopped by the operator (-Kick)"" (a format repair only: its first reply stands) - the panel goes on with the others."
     exit 0
+}
+
+# ---- (wave 28, R17) -Complain "<text>" [-Contact <c>] [-Yes]: a complaint to the maintainer's intake
+if ($script:ScriptBound.ContainsKey('Complain') -or $script:ScriptBound.ContainsKey('Contact') -or $Yes) {
+    if (-not $script:ScriptBound.ContainsKey('Complain')) { Stop-WithError "-Contact and -Yes go with -Complain ""<text>""." }
+    $extra = @($script:ScriptBound.Keys | Where-Object { @('Task', 'CollabDir', 'Complain', 'Contact', 'Yes') -notcontains $_ -and $script:CommonParameterNames -notcontains $_ })
+    if ($extra.Count -gt 0) { Stop-WithError "-Complain takes only -Task, -CollabDir, -Contact and -Yes; not -$(@($extra | Sort-Object) -join ', -')." }
+    if ($Task -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { Stop-WithError "-Task must be a slug (letters, digits, dot, dash, underscore)." }
+    # the task's last ledger entry (the highest n) - its allowlisted details are the context; none
+    # when the task has no ledger yet
+    $cSessions = Join-Path (Join-Path (Resolve-CollabRoot -RepoRoot (Resolve-RepoRoot -Cwd (Get-Location).Path) -CollabDir $CollabDir) $Task) 'sessions.json'
+    $cEntry = $null
+    if (Test-Path -LiteralPath $cSessions -PathType Leaf) {
+        try { $cEntry = @(Get-PropertyValue (Get-PropertyValue (ConvertFrom-Json -InputObject (Read-SharedText -Path $cSessions)) 'codex' $null) 'consults' @() | Where-Object { $_ }) | Select-Object -Last 1 } catch {
+            Stop-WithError "the ledger '$cSessions' could not be read ($(ConvertTo-OneLine $_.Exception.Message)); nothing was sent."
+        }
+    }
+    if (-not $cEntry) { Write-Host "codex-consult: task '$Task' has no ledger entry yet ($cSessions): the complaint goes without a consultation's context." -ForegroundColor Yellow }
+    exit (Invoke-TelemetryComplaint -Text $Complain -Contact $Contact -Entry $cEntry -Yes:$Yes)
 }
 
 # ---- -Status [-Id <id>] [-Prune] / -Wait [-Id <id>] [-WaitTimeoutSec <s>] (D6, D7)
@@ -1600,8 +1701,13 @@ function Start-EngineProcess {
     # (wave 27, R13 D4) the engine child never inherits the coordinator's host markers (the ledger's
     # child_env_scrubbed); this process gets them back right after the start
     $hiddenMarkers = $null
+    # (wave 27c, D3 / F30-2) transactional: a removal that fails put everything back already - the
+    # start is refused, nothing starts with part of the markers
+    try { $hiddenMarkers = Hide-HostMarkers } catch {
+        $r.Refusal = "bridge failure: $(ConvertTo-OneLine $_.Exception.Message)"
+        return $r
+    }
     try {
-        $hiddenMarkers = Hide-HostMarkers
         $r.Proc = Start-Process -FilePath $Launcher -ArgumentList ((($Argv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')) `
             -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
             -RedirectStandardOutput $StdoutPath `
@@ -1615,6 +1721,24 @@ function Start-EngineProcess {
     return $r
 }
 
+# (wave 27c, D16) One tree kill of this run: kept for the ledger's kill_confirmed; an UNCONFIRMED one
+# (no known survivor, but the tree could not be seen dead) gets a warning naming the pid.
+function Add-KillCheck {
+    param($Check, [string]$Turn)
+    if (-not $Check) { return }
+    $script:KillChecks.Add($Check)
+    if (-not $Check.Confirmed -and @($Check.Survivors).Count -eq 0) {
+        $script:KillWarnings.Add("kill not confirmed ($Turn): $($Check.Why); pid $($Check.RootPid) may still run - check it, and stop it by hand if it does")
+    }
+}
+
+# (wave 27c, D16) How a tree kill is told: "(process tree killed)" only when confirmed; else "(kill
+# not confirmed: <why>; pid <n> may still run)". (Survivors keep their own wording.)
+function Format-KillText {
+    param($Check)
+    if ($Check.Confirmed -or @($Check.Survivors).Count -gt 0) { return '(process tree killed)' }
+    return "(kill not confirmed: $($Check.Why); pid $($Check.RootPid) may still run)"
+}
 # One more turn (an engine's denial retry and format repair; wave 24: the timeout continuation
 # of every engine, codex included) under the SAME task lock and recovery record as the run: the
 # record goes launching -> running (child pid, start time, `events` = this turn's event stream)
@@ -1688,7 +1812,10 @@ function Invoke-EngineTurn {
             # (wave 26c, D1) a kick found after this turn had finished: taken late, the outcome stays
             if ($turnWait.KickLate) { $script:KickLateTurns.Add("the $($Note -replace ' turn$', '')") }
             if (-not $turnWait.Exited) {
-                $surv = Stop-ProcessTree -Process $proc   # [int[]]; never wrap in @()
+                # (wave 27c, D16) the kill confirmed - "(process tree killed)" only then
+                $turnKill = Stop-ProcessTreeChecked -Process $proc
+                Add-KillCheck -Check $turnKill -Turn ($Note -replace ' turn$', '')
+                $surv = [int[]]$turnKill.Survivors
                 $stopWhat = "timeout after $Timeout s"
                 if ($turnWait.Reason -eq 'kick') {
                     $script:RunKicked = $true
@@ -1696,7 +1823,7 @@ function Invoke-EngineTurn {
                     $stopWhat = 'stopped by the operator (-Kick)'
                     $null = Remove-PendingFile -Path $script:KickPath
                 }
-                $t.Problem = "$stopWhat (process tree killed)"
+                $t.Problem = "$stopWhat $(Format-KillText $turnKill)"
                 if ($surv.Count -gt 0) {
                     $t.Problem = "$stopWhat (process tree killed; $($surv.Count) processes survived: pid $($surv -join ', '))"
                     $t.KeepPending = $true
@@ -1890,6 +2017,8 @@ if ($PanelSpec) {
     if ($null -ne $pa.PSObject.Properties['max_model_steps']) { $MaxModelSteps = [int]$pa.max_model_steps }
     # (wave 27) the panel run's brief prefix (shown by a member's dry run)
     if ($null -ne $pa.PSObject.Properties['brief_prefix']) { $BriefPrefix = [string]$pa.brief_prefix }
+    # (wave 28) the panel run's resolved telemetry switch
+    if ($null -ne $pa.PSObject.Properties['telemetry']) { $Telemetry = [string]$pa.telemetry }
     $DryRun = [bool]$pa.dry_run
     # (wave 26) the topics and this member's role come from the panel run (-Roles: assigned there)
     $Topic = [string[]]@(@(Get-PropertyValue $pa 'topics' @()) | Where-Object { $_ } | ForEach-Object { [string]$_ })
@@ -1968,6 +2097,11 @@ if ($replyPrefixes -contains $BriefPrefix) {
 if ($BriefPrefix -cnotmatch '^[a-z][a-z0-9-]{0,31}$') {
     Stop-WithError "the brief prefix '$BriefPrefix' ($briefPrefixSource) must be a lowercase slug (a letter, then letters, digits or dashes; at most 32 characters); nothing was started."
 }
+# (wave 28, R17) the telemetry switch of this run: -Telemetry on|off, else CODEX_CONSULT_TELEMETRY
+# (unset: on); a panel member takes its panel run's
+$Telemetry = ([string]$Telemetry).Trim().ToLowerInvariant()
+if ($Telemetry -and @('on', 'off') -notcontains $Telemetry) { Stop-WithError "-Telemetry must be on or off (got '$Telemetry'); leave it out for CODEX_CONSULT_TELEMETRY (unset: on)." }
+$telemetrySwitch = Get-TelemetrySwitch -Override $Telemetry
 
 # ----------------------------------------------------------------------------- validation
 
@@ -2121,11 +2255,23 @@ if ($panelMember -and $null -ne $panelMember.PSObject.Properties['coordinator'])
     $coordinatorFrom = 'detached'
 }
 if (-not $coordinatorRecord) {
-    $coordinatorResolved = Resolve-CoordinatorIdentity -Value ([string]$env:CODEX_CONSULT_COORDINATOR) -Roster $roster
+    # (wave 27c, D9) resolved to a triple through the seated reviewer's rules - a model-less entry or
+    # label takes the model the bridge would run (the Codex config's)
+    $coordinatorResolved = Resolve-CoordinatorIdentity -Value ([string]$env:CODEX_CONSULT_COORDINATOR) -Roster $roster -Defaults (Get-CodexConfigDefaults)
     if ($coordinatorResolved.Error) { Stop-WithError $coordinatorResolved.Error }
     $coordinatorRecord = $coordinatorResolved.Record
     $childEnvScrubbed = Get-HostMarkerNames
     $coordinatorFrom = 'entry'
+}
+# (wave 27c, D12) a '#n' that names no roster position here: recorded unresolved, warned, the run
+# goes on - every ledger entry of the run says so (a panel member's and a detached run's too)
+$coordinatorWarnings = [string[]]@()
+$coordinatorUnresolved = [string](Get-PropertyValue $coordinatorRecord 'unresolved' '')
+if ($coordinatorUnresolved) { $coordinatorWarnings = [string[]]@("CODEX_CONSULT_COORDINATOR '$coordinatorUnresolved' names no roster position here - the coordinator is not known; no self-review warning can be given") }
+# (wave 27c, D11) a coordinator no roster entry matches: said on the console (and the dry run's
+# coordinator line), never refused - ledger coordinator.in_roster false
+if ($coordinatorFrom -eq 'entry' -and (-not $DryRun -or $detachForeground) -and -not $coordinatorUnresolved -and (Get-PropertyValue $coordinatorRecord 'in_roster' $null) -eq $false) {
+    Write-Host "coordinator: $(Format-CoordinatorId $coordinatorRecord) (not in the roster - no reviewer can match it)"
 }
 # (wave 26, D7) -Require: a panel, or a single run of a chosen reviewer (-Provider)
 if ($requireGiven -and -not $panelRun -and -not $Provider) {
@@ -2258,7 +2404,7 @@ if ($panelMember) {
         # TEST HOOK: CODEX_CONSULT_TEST_MEMBER_PAUSE_MS=<ms> - a pause between the rewrite and the
         # parent check (the harness kills the parent inside it).
         $memberPause = 0
-        if ([int]::TryParse([string]$env:CODEX_CONSULT_TEST_MEMBER_PAUSE_MS, [ref]$memberPause) -and $memberPause -gt 0) { Start-Sleep -Milliseconds $memberPause }
+        if ([int]::TryParse((Get-TestHookValue 'CODEX_CONSULT_TEST_MEMBER_PAUSE_MS'), [ref]$memberPause) -and $memberPause -gt 0) { Start-Sleep -Milliseconds $memberPause }
         if (-not (Test-PidAlive -ProcessId $memberParentPid -StartTime $memberParentStart)) {
             $rmError = Remove-PendingFile -Path $pendingPath
             Stop-WithError "the review panel run that launched this member (pid $memberParentPid) is gone; this panel member was not started - nothing was started and its recovery record '$pendingPath' $(if ($rmError) { "could not be withdrawn ($rmError; the next run consumes it)" } else { 'was withdrawn' })."
@@ -2272,15 +2418,25 @@ $codexVersion = 'unknown'
 if ($codexExePath) {
     # (wave 27, R13 D4) the probe, too, runs without the coordinator's host markers
     $versionHidden = $null
-    try {
-        $versionHidden = Hide-HostMarkers
-        $v = & $codexExePath --version 2>$null
-        if ($v) { $codexVersion = ([string]@($v)[0]).Trim() }
-    } catch { } finally { Restore-HostMarkers -Saved $versionHidden }
+    # (wave 27c, D3/D4) a hide that fails skips the probe (the version stays unknown) - said once
+    $versionSkip = ''
+    try { $versionHidden = Hide-HostMarkers } catch { $versionSkip = ConvertTo-OneLine $_.Exception.Message }
+    if ($versionSkip) { $script:ProbeWarnings.Add("a launcher probe was skipped (codex --version): $versionSkip") }
+    else {
+        try {
+            $v = & $codexExePath --version 2>$null
+            if ($v) { $codexVersion = ([string]@($v)[0]).Trim() }
+        } catch { } finally { Restore-HostMarkers -Saved $versionHidden }
+    }
 }
 # "codex-cli 0.155.1" -> "0.155.1" for the prose header; sessions.json keeps the full string.
 $codexVersionShort = $codexVersion -replace '^codex-cli\s+', ''
 $harness = if ($codexVersion -match '^codex-cli\s') { $codexVersion } else { "codex-cli $codexVersion" }
+
+# (wave 28, R17) the first run after an install - a real run the coordinator started, or the
+# foreground of -Detach; never a dry run, a panel member or a detached background - prints the
+# telemetry notice once (telemetry on only; the marker <codex home>/telemetry-notice-<version>)
+if ((-not $DryRun -or $detachForeground) -and -not $panelMember -and -not $script:DetachRun) { Show-TelemetryNotice -Switch $telemetrySwitch }
 
 # ----------------------------------------------------------------------------- review panel (-Panel)
 #
@@ -2428,6 +2584,7 @@ function Start-PanelMember {
             max_model_steps  = $MaxModelSteps
             topics           = [object[]]@($topicList)
             brief_prefix     = $BriefPrefix
+            telemetry        = $telemetrySwitch.Text
             dry_run          = [bool]$DryRun
         }
     }
@@ -2560,7 +2717,7 @@ if ($panelRun) {
     $panelNonce = $panelClock.Now.UtcDateTime.ToString('yyyy-MM-dd', $script:Invariant)
     $panelNonceSource = 'date'
     if ($PanelSeed) { $panelNonce = $PanelSeed; $panelNonceSource = '-PanelSeed' }
-    elseif (([string]$env:CODEX_CONSULT_TEST_PANEL_SEED).Trim()) { $panelNonce = ([string]$env:CODEX_CONSULT_TEST_PANEL_SEED).Trim(); $panelNonceSource = 'CODEX_CONSULT_TEST_PANEL_SEED' }
+    elseif (((Get-TestHookValue 'CODEX_CONSULT_TEST_PANEL_SEED')).Trim()) { $panelNonce = ((Get-TestHookValue 'CODEX_CONSULT_TEST_PANEL_SEED')).Trim(); $panelNonceSource = 'CODEX_CONSULT_TEST_PANEL_SEED' }
     $panelBriefSha = ''
     if ($Brief) { $panelBriefSha = Get-FileSha256OrMissing -Path $briefProbe }
     $panelRatings = Read-AllTaskRatings -CollabRoot $collabRoot -Consults $panelAllConsults
@@ -2574,8 +2731,10 @@ if ($panelRun) {
     # warned here, the dry run too - not in the members' panel_warnings (each member warns in its own
     # ledger entry)
     $panelCoordinatorWarnings = [string[]]@(foreach ($cpm in $panelRunners) {
-            if (Test-CoordinatorReviewer -Coordinator $coordinatorRecord -Provider ([string]$cpm.Identity.Provider) -Model ([string]$cpm.Identity.Model) -Engine ([string]$cpm.Identity.Engine)) {
-                Format-CoordinatorWarning -Lineage (Format-ReviewerLineage -Provider $cpm.Identity.Provider -Model $cpm.Identity.Model -Engine ([string]$cpm.Identity.Engine))
+            # (wave 27c, D9) 'own' (the resolved triple) or 'provider' (no model named: the weaker one)
+            $cKind = Get-CoordinatorMatch -Coordinator $coordinatorRecord -Provider ([string]$cpm.Identity.Provider) -Model ([string]$cpm.Identity.Model) -Engine ([string]$cpm.Identity.Engine)
+            if ($cKind) {
+                Format-CoordinatorWarning -Kind $cKind -Lineage (Format-ReviewerLineage -Provider $cpm.Identity.Provider -Model $cpm.Identity.Model -Engine ([string]$cpm.Identity.Engine))
             }
         })
     # (wave 26, R16) the members' roles: -Role for every member, -Roles by score rank (D8)
@@ -2644,7 +2803,7 @@ if ($panelRun) {
             $panelListed = @(@($panelStore.findings) | Where-Object { $_ -and $script:OpenStatuses -contains [string](Get-PropertyValue $_ 'status' '') } | ForEach-Object { [string]$_.id })
         }
         $guardHook = 0
-        [void][int]::TryParse([string]$env:CODEX_CONSULT_TEST_PANEL_GUARD_SEC, [ref]$guardHook)
+        [void][int]::TryParse((Get-TestHookValue 'CODEX_CONSULT_TEST_PANEL_GUARD_SEC'), [ref]$guardHook)
         $slotOf = @{}
         $k = 0
         foreach ($pm in $panelRunners) {
@@ -3042,6 +3201,12 @@ if ($panelRun) {
             } catch {
                 Write-Host "codex-consult: the panel's counts were not written to the ledger ($(ConvertTo-OneLine $_.Exception.Message))" -ForegroundColor Yellow
             } finally { Exit-StoreCommit -Commit $countCommit }
+            # (wave 28, R17) every member put its event into the spool: ONE detached sender for the
+            # panel (not waited for; silent)
+            if ($telemetrySwitch.On -and $panelStarted -gt 0) {
+                $telemetryWhy = Start-TelemetrySender
+                if ($telemetryWhy) { Write-Verbose "telemetry: $telemetryWhy" }
+            }
         }
         if (-not $DryRun -and $requiredMissing.Count -gt 0) {
             Write-Summary "  required member$(if ($requiredMissing.Count -ne 1) { 's' }) without a usable reply: $(@($requiredMissing | ForEach-Object { $_.Pm.Shown }) -join ', ') - exit 5"
@@ -3094,6 +3259,12 @@ $rosterApplied = New-Object System.Collections.Generic.List[string]
 $runWarnings = New-Object System.Collections.Generic.List[string]
 # (wave 24, T1) a big -Range for the timeout
 if ($rangeWarning) { $runWarnings.Add($rangeWarning) }
+# (wave 27c, D14 / F32-10) test hooks in the environment without CODEX_CONSULT_TEST_MODE=1: ignored,
+# and said once (the console, the ledger's warnings[])
+$ignoredTestHooks = Get-IgnoredTestHooks
+if ($ignoredTestHooks.Count -gt 0) { $runWarnings.Add("test hook$(if ($ignoredTestHooks.Count -ne 1) { 's' }) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: $($ignoredTestHooks -join ', ')") }
+# (wave 27c, D12) the coordinator's own warnings (a '#n' that names no roster position here)
+foreach ($cw in @($coordinatorWarnings)) { if ($cw) { $runWarnings.Add([string]$cw) } }
 # (wave 26) the panel run's routing warnings (a lab of its own, the floor) - every member's ledger
 if ($panelMember) { foreach ($pw in @(Get-PropertyValue $panelMember 'panel_warnings' @())) { if ($pw) { $runWarnings.Add([string]$pw) } } }
 $identityProvider = $Provider
@@ -3279,8 +3450,11 @@ $lineage = $identity.Lineage
 $lineageShown = Format-ReviewerLineage -Provider $identity.Provider -Model $identity.Model -Engine $engineName
 # (wave 27, R13 D3) the reviewer - its RESOLVED identity - is the coordinator's own model: a
 # warning (the console, the dry run, the ledger's warnings[]), never a refusal
-if (Test-CoordinatorReviewer -Coordinator $coordinatorRecord -Provider ([string]$identity.Provider) -Model ([string]$identity.Model) -Engine $engineName) {
-    $runWarnings.Add((Format-CoordinatorWarning -Lineage $lineageShown))
+# (wave 27c, D9) "own model" only when provider, model and engine are equal; a coordinator named by
+# its provider alone (no model could be resolved) gives the weaker warning
+$coordinatorKind = Get-CoordinatorMatch -Coordinator $coordinatorRecord -Provider ([string]$identity.Provider) -Model ([string]$identity.Model) -Engine $engineName
+if ($coordinatorKind) {
+    $runWarnings.Add((Format-CoordinatorWarning -Kind $coordinatorKind -Lineage $lineageShown))
 }
 # (wave 25) the member's position in a detached run's status file: its roster position, else 1
 $detachMemberPosition = $(if ($rosterEntry) { [int]$rosterEntry.Position } else { 1 })
@@ -3352,6 +3526,9 @@ if (-not $SkipPreflight) {
     }
     if ($preflightRefusal -and (-not $DryRun -or $detachForeground)) { Stop-WithError $preflightRefusal }
 }
+# (wave 27c, D4) a launcher probe that could not be started without the host markers was skipped:
+# why, in warnings[] (the preflight said "not checked")
+foreach ($probeWarning in @($script:ProbeWarnings)) { if ($probeWarning -and -not $runWarnings.Contains([string]$probeWarning)) { $runWarnings.Add([string]$probeWarning) } }
 
 # One line on the roster decision (console, dry run, handoff header) and the ledger's
 # `roster` object ($null without a roster file).
@@ -3966,6 +4143,7 @@ try {
             denial_retry                    = $(if (-not $engineSpec.DenialRetry -or $DenialRetry -ne 1) { $null } else { '<null, or {attempted, reason, succeeded, thread, wall_seconds, usage, events} after a denial-retry turn>' })
             timeout_continue                = $(if ($ContinueSec -le 0) { '<null, or {thread, wall_seconds 0, outcome "not attempted: -ContinueSec 0", events null, usage null} after a timeout kill>' } else { "<null, or {thread, wall_seconds, outcome, events, usage} of ONE continuation turn (up to $ContinueSec s) after a timeout kill of the main turn>" })
             stall                           = $(if ($StallSec -le 0) { $null } else { "<null, or {seconds, last_event} when the stream went $StallSec s without an event while the process lived (stopped like a timeout)>" })
+            kill_confirmed                  = '<null, or true|false after a process tree kill (false: the kill was not confirmed - no continuation followed)>'
             base_commit                     = $revBefore.base_commit
             reviewed_revision               = $revBefore.reviewed_revision
             tree_sha256                     = $revBefore.tree_sha256
@@ -4021,6 +4199,9 @@ try {
         Write-Host "coordinator : $(Format-CoordinatorText $coordinatorRecord)"
         Write-Host "child env   : $(if (@($childEnvScrubbed).Count -gt 0) { "without the host markers $(@($childEnvScrubbed) -join ', ') (every other variable is kept)" } else { 'no host marker set - the environment is passed as it is' })"
         Write-Host "brief prefix: $BriefPrefix ($briefPrefixSource) - the coordinator's briefs are handoffs/<NN>-$BriefPrefix-<slug>.md, this reply $nn-$enginePrefix-$ReplyName.*"
+        # (wave 28, R17)
+        if ($telemetrySwitch.On) { Write-Host "telemetry   : on ($($telemetrySwitch.Source)) - after the commit ONE anonymised event of this consultation goes to the spool and a background sender delivers it (README ""Telemetry (on by default)""; CODEX_CONSULT_TELEMETRY=off or -Telemetry off switches it off)" }
+        else { Write-Host "telemetry   : off ($($telemetrySwitch.Source)) - nothing is spooled or sent" }
         if ($preflightLabel -match 'a real run is refused') { Write-Host "preflight   : $preflightLabel" -ForegroundColor Yellow }
         else { Write-Host "preflight   : $preflightLabel" }
         if ($rosterLine) { Write-Host $rosterLine }
@@ -4167,8 +4348,10 @@ try {
     # the same number is stale
     $script:KickPath = Get-KickPath -TaskDir $taskDir -Nn $nn
     $null = Remove-PendingFile -Path $script:KickPath
-    $null = Remove-PendingFile -Path "$($script:KickPath).ack"
-    $launchPause = Get-TestHookMs -Value ([string]$env:CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS) -Model ([string]$identity.Model)
+    # (wave 27c, D1) an acknowledgement of that number older than 60 s is swept; a younger one is
+    # left to the caller that has not read it yet (a caller only ever reads the ack of its own id)
+    $null = Clear-StaleKickAck -KickPath $script:KickPath
+    $launchPause = Get-TestHookMs -Value ((Get-TestHookValue 'CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS')) -Model ([string]$identity.Model)
     if ($launchPause -gt 0) { Start-Sleep -Milliseconds $launchPause }
 
     $startedAt = Get-Date
@@ -4178,6 +4361,12 @@ try {
     # (wave 24) the main turn was killed on the timeout (and how many processes survived it)
     $mainTimedOut = $false
     $mainSurvivors = 0
+    # (wave 27c, D16) every tree kill of this run, confirmed or not (ledger kill_confirmed), and the
+    # warnings of the unconfirmed ones; the main turn's kill not confirmed: no continuation
+    $script:KillChecks = New-Object System.Collections.Generic.List[object]
+    $script:KillWarnings = New-Object System.Collections.Generic.List[string]
+    $script:TurnWarnings = New-Object System.Collections.Generic.List[string]
+    $mainKillUnconfirmed = $false
     # (wave 26b, D12) the main turn was stopped by the stall cut (a kind of timeout: $mainTimedOut
     # too); ledger stall. (D10) $script:RunKicked: the operator stopped a turn (-Kick).
     $mainStalled = $false
@@ -4234,32 +4423,43 @@ try {
             $mainWait = Wait-EngineProcess -Process $proc -TimeoutSec $TimeoutSec -StallSec $StallSec -EventsPath $eventsPath -KickPath $script:KickPath -Engine $engineName
             $finished = $mainWait.Exited
             if ($mainWait.KickLate) { $script:KickLateTurns.Add('the main turn') }
+            # (wave 27c, D5) event lines longer than 1 MiB the bounded reader skipped: one warning
+            if ($mainWait.Oversized -gt 0) { $script:TurnWarnings.Add("oversized_lines: $($mainWait.Oversized) event line(s) longer than 1 MiB were not parsed by the stall timer's reader (its activity counts bytes; the reply is read from the whole stream)") }
             if (-not $finished) {
                 # The launcher is usually a shim (codex.cmd -> node -> codex.exe): kill
                 # the whole tree, or the real codex keeps running after we give up.
-                $survivors = Stop-ProcessTree -Process $proc   # [int[]]; never wrap in @(): that nests the array
+                # (wave 27c, D16) the kill CONFIRMED: an unconfirmed one is never "(process tree
+                # killed)" and no continuation follows it (the orphan may still hold the thread)
+                $mainKill = Stop-ProcessTreeChecked -Process $proc
+                Add-KillCheck -Check $mainKill -Turn 'main turn'
+                $survivors = [int[]]$mainKill.Survivors
                 # TEST HOOK: CODEX_CONSULT_TEST_SURVIVORS=<pid>[,<pid>] - these pids, when
                 # alive, are reported as survivors of this kill (no test can make a real
                 # process outlive a kill). Only ever adds survivors: a stricter outcome.
-                foreach ($hookPid in @(([string]$env:CODEX_CONSULT_TEST_SURVIVORS).Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[0-9]+$' })) {
+                foreach ($hookPid in @(((Get-TestHookValue 'CODEX_CONSULT_TEST_SURVIVORS')).Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[0-9]+$' })) {
                     if ((Get-Process -Id ([int]$hookPid) -ErrorAction SilentlyContinue) -and ($survivors -notcontains [int]$hookPid)) { $survivors = [int[]]@($survivors + [int]$hookPid) }
                 }
+                # (wave 27c, D16) survivors - the hook's too - mean the kill is not confirmed
+                if ($survivors.Count -gt 0) { $mainKill.Confirmed = $false; $mainKill.Survivors = [int[]]$survivors }
                 $stopText = "timeout after $TimeoutSec s"
                 if ($mainWait.Reason -eq 'stall') {
                     # (wave 26b, D12) stopped like a timeout: the continuation turn and the salvage follow
                     $mainStalled = $true
                     $stopText = "stalled after $StallSec s without an event"
+                    # (wave 27c, D6) a tool call open past the suspension's cap: said in the cut
+                    if ($mainWait.ToolOpen -gt 0) { $stopText += " - no output for $($mainWait.Silent) s (a tool call open for $($mainWait.ToolOpen) s)" }
                     $stallRecord = [pscustomobject]@{ seconds = $StallSec; last_event = $(if ($null -ne $mainWait.LastEvent) { Format-OffsetIso $mainWait.LastEvent } else { $null }) }
                 }
-                $bridgeOutcome = "failed: $stopText (process tree killed)"
+                $bridgeOutcome = "failed: $stopText $(Format-KillText $mainKill)"
                 $mainTimedOut = $true
+                $mainKillUnconfirmed = [bool](-not $mainKill.Confirmed -and $survivors.Count -eq 0)
                 if ($mainWait.Reason -eq 'kick') {
                     # (wave 26b, D10) the operator stopped it: no continuation; the salvage follows
                     $script:RunKicked = $true
                     $script:KickedTurn = 'main'
                     $mainTimedOut = $false
                     $stopText = 'stopped by the operator (-Kick)'
-                    $bridgeOutcome = "failed: $stopText"
+                    $bridgeOutcome = "failed: $stopText$(if ($mainKillUnconfirmed) { " $(Format-KillText $mainKill)" })"
                     $null = Remove-PendingFile -Path $script:KickPath
                 }
                 $mainSurvivors = $survivors.Count
@@ -4309,6 +4509,8 @@ try {
     # lines that came with a usable reply.
     $engineWarnings = New-Object System.Collections.Generic.List[string]
     foreach ($rw in $runWarnings) { $engineWarnings.Add($rw) }
+    # (wave 27c, D16) the main turn's unconfirmed kill (the later turns' are added before the entry)
+    foreach ($kw in @(@($script:TurnWarnings) + @($script:KillWarnings))) { if ($kw -and -not $engineWarnings.Contains([string]$kw)) { $engineWarnings.Add([string]$kw) } }
     $agyTurn = $null
     $agyEvents = $null
     $agyFailureClass = ''
@@ -4568,6 +4770,7 @@ try {
         if ($ContinueSec -le 0) { $continueSkip = '-ContinueSec 0' }
         elseif (-not $continueThread) { $continueSkip = 'the thread of the killed turn is not known' }
         elseif ($mainSurvivors -gt 0) { $continueSkip = "$mainSurvivors process(es) survived the kill" }
+        elseif ($mainKillUnconfirmed) { $continueSkip = "the kill of the main turn was not confirmed ($($mainKill.Why)) - pid $($mainKill.RootPid) may still hold the thread" }
         else {
             # (wave 24b, F08-2) ONE tree check for every engine: the working tree, the brief or an
             # artifact changed while the killed turn ran - codex: the fingerprints taken around the
@@ -4855,10 +5058,12 @@ try {
                     $repairWait = Wait-EngineProcess -Process $repairProc -TimeoutSec $repairTimeout -KickPath $script:KickPath
                     if ($repairWait.KickLate) { $script:KickLateTurns.Add('the format repair') }
                     if (-not $repairWait.Exited) {
-                        $repairSurvivors = Stop-ProcessTree -Process $repairProc   # [int[]]; never wrap in @()
+                        $repairKill = Stop-ProcessTreeChecked -Process $repairProc
+                        Add-KillCheck -Check $repairKill -Turn 'format repair'
+                        $repairSurvivors = [int[]]$repairKill.Survivors
                         $repairStop = "timeout after $repairTimeout s"
                         if ($repairWait.Reason -eq 'kick') { $script:RunKicked = $true; $script:KickedTurn = 'repair'; $repairStop = 'stopped by the operator (-Kick)'; $null = Remove-PendingFile -Path $script:KickPath }
-                        $repairProblem = "$repairStop (process tree killed)"
+                        $repairProblem = "$repairStop $(Format-KillText $repairKill)"
                         if ($repairSurvivors.Count -gt 0) {
                             $repairProblem = "$repairStop (process tree killed; $($repairSurvivors.Count) processes survived: pid $($repairSurvivors -join ', '))"
                             $keepPending = $true
@@ -5001,8 +5206,19 @@ try {
     # (wave 26c, D1 / F25-2) A kick that stopped only the FORMAT REPAIR leaves an earlier usable
     # reply usable (its prose stands, not converted; a warning says so); a kick found after a turn
     # had finished (kick_late) changes no outcome.
-    $kickFailsRun = [bool]($script:RunKicked -and -not ($script:KickedTurn -eq 'repair' -and (Test-UsableOutcome $bridgeOutcome)))
-    if ($script:RunKicked -and -not $kickFailsRun) { $engineWarnings.Add('kick: the operator stopped the format repair (-Kick); the first reply stands, not converted') }
+    # (wave 27c, D2 / F30-5) a kick addresses the RUN of a member, not one turn: found before or during
+    # the timeout continuation it cancels the continuation - the timeout outcome and its salvage stay
+    # (the operator's stop is no provider evidence: no provider failure from the cancelled turn); the
+    # warning names the cancelled turn
+    $kickedContinuation = [bool]($script:RunKicked -and $script:KickedTurn -eq 'continue' -and -not $continued)
+    if ($kickedContinuation) { $continueFailure = $null; $engineWarnings.Add('kick: the operator stopped the timeout continuation (-Kick); the timeout outcome and its salvage stay') }
+    $kickFailsRun = [bool]($script:RunKicked -and -not $kickedContinuation -and -not ($script:KickedTurn -eq 'repair' -and (Test-UsableOutcome $bridgeOutcome)))
+    if ($script:RunKicked -and -not $kickFailsRun -and -not $kickedContinuation) { $engineWarnings.Add('kick: the operator stopped the format repair (-Kick); the first reply stands, not converted') }
+    # (wave 27c, D16) the later turns' unconfirmed kills, and the ledger's kill_confirmed: $null when no
+    # tree was killed, $true when every kill was confirmed without survivors, else $false
+    foreach ($kw in @(@($script:TurnWarnings) + @($script:KillWarnings))) { if ($kw -and -not $engineWarnings.Contains([string]$kw)) { $engineWarnings.Add([string]$kw) } }
+    $killConfirmedRecord = $null
+    if ($script:KillChecks.Count -gt 0) { $killConfirmedRecord = [bool](@($script:KillChecks | Where-Object { -not $_.Confirmed -or @($_.Survivors).Count -gt 0 }).Count -eq 0) }
     foreach ($kl in $script:KickLateTurns) { $engineWarnings.Add("kick_late: the member had already finished ($kl) - the kick changed nothing") }
     if ($kickFailsRun -and $bridgeOutcome -notlike 'failed: stopped by the operator*') { $bridgeOutcome = 'failed: stopped by the operator (-Kick)' }
     $providerFailure = $null
@@ -5035,8 +5251,10 @@ try {
     # health (a usable reply, or a provider failure other than the operator's) - now, before the
     # ledger; a lock timeout is retried once at the ledger commit, and if that fails too the run
     # says so (warnings[], the summary): the repository ledger keeps the truth either way
+    # (wave 27c, D7 / F30-7, F29-1, F32-3) ANY failure of the update is retried - its cause named
     $machineHealthRetry = $false
-    if (-not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot) -and [string]$script:MachineHealthLastError -eq 'lock timeout') { $machineHealthRetry = $true }
+    $machineHealthCause = ''
+    if (-not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot) -and [string]$script:MachineHealthLastError) { $machineHealthRetry = $true; $machineHealthCause = [string]$script:MachineHealthLastError }
 
     # ------------------------------------------------------------------------- salvage
 
@@ -5374,7 +5592,7 @@ try {
     # TEST HOOK: CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=<ms> | <model>=<ms>[|...] - a pause inside
     # the commit, between findings.json and sessions.json (the ORPHAN window a kill can hit;
     # write-lock contention); a map pauses only the runs of that model.
-    $commitPause = Get-TestHookMs -Value ([string]$env:CODEX_CONSULT_TEST_COMMIT_PAUSE_MS) -Model ([string]$identity.Model)
+    $commitPause = Get-TestHookMs -Value ((Get-TestHookValue 'CODEX_CONSULT_TEST_COMMIT_PAUSE_MS')) -Model ([string]$identity.Model)
     if ($commitPause -gt 0) { Start-Sleep -Milliseconds $commitPause }
 
     # ------------------------------------------------------------------------- 4. sessions.json
@@ -5437,6 +5655,7 @@ try {
         denial_retry                    = $denialRetryRecord
         timeout_continue                = $timeoutContinueRecord
         stall                           = $stallRecord
+        kill_confirmed                  = $killConfirmedRecord
         base_commit                     = $revBefore.base_commit
         reviewed_revision               = $revBefore.reviewed_revision
         tree_sha256                     = $revBefore.tree_sha256
@@ -5488,12 +5707,17 @@ try {
     }
     # (`tool` is the codex version; an agy run leaves it as it is)
     if ($isCodex) { $ledger.codex.tool = $codexVersion }
-    # (wave 26c, D2) the machine-wide health update that timed out on its lock: once more, then the
-    # warning into this entry (and the summary below)
+    # (wave 26c, D2) the machine-wide health update that failed: once more at the commit - (wave 27c,
+    # D8 / F32-2) ONE attempt of at most 1 s, so the retry never extends the hold on this task's write
+    # lock; failing again, this entry's warning says so and the full retry (3 x 5 s) runs after the
+    # lock is released
+    $machineHealthAfterLock = $false
     if ($machineHealthRetry) {
-        if (-not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot)) {
-            $engineWarnings.Add('machine-wide health not updated (lock timeout)')
+        if (-not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot -Attempts 1 -AttemptSec 1)) {
+            if ([string]$script:MachineHealthLastError) { $machineHealthCause = [string]$script:MachineHealthLastError }
+            $engineWarnings.Add("machine-wide health not updated at the commit ($machineHealthCause); retried after it")
             $entry.warnings = [object[]]$engineWarnings.ToArray()
+            $machineHealthAfterLock = $true
         }
     }
     Add-LedgerEntry -Sessions $ledger -Entry $entry
@@ -5519,9 +5743,23 @@ try {
         if ($rmError) { $pendingNote = "could not remove $pendingPath ($rmError); the next run will find codex gone and consume it" }
     }
     Exit-StoreCommit -Commit $commit
+    # (wave 27c, D8) the full retry of the machine-wide health, outside the write lock; failing again,
+    # the summary says so with its cause (the ledger entry already carries the commit's warning)
+    $machineHealthLine = ''
+    if ($machineHealthAfterLock) {
+        if (-not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot)) {
+            $machineHealthLine = "warning    : machine-wide health not updated ($(if ([string]$script:MachineHealthLastError) { [string]$script:MachineHealthLastError } else { $machineHealthCause }))"
+        }
+    }
     # (wave 26b, D13) the machine-wide health: this run leaves running[] (its outcome went in before
     # the ledger - wave 26c, D2). Optional: a file that cannot be written is left as it is.
     $null = Unregister-MachineRunning
+    # (wave 28, R17) telemetry on: ONE event built from the COMMITTED entry through the allowlist
+    # goes into the spool, and the detached sender starts (not waited for) - a panel member leaves
+    # the sender to its panel run, a run that keeps its recovery record (survivors, a failed
+    # registration) starts none (the next run's sender delivers). Silent; never fails the run.
+    $telemetryWhy = Submit-TelemetryEvent -Entry $entry -Switch $telemetrySwitch -NoSender:([bool]($panelMember -or $keepPending))
+    if ($telemetryWhy) { Write-Verbose "telemetry: $telemetryWhy" }
 
     # ------------------------------------------------------------------------- output
 
@@ -5550,6 +5788,7 @@ try {
         foreach ($pl in $partialLines) { Write-Summary $pl Yellow }
         if ($pendingNote) { Write-Summary "pending    : $pendingNote" Yellow }
         if ($commitWaitLine) { Write-Summary $commitWaitLine }
+        if ($machineHealthLine) { Write-Summary $machineHealthLine Yellow }
         foreach ($d in $driftLines) { Write-Summary $d Yellow }
         Write-Summary "reply file : $replyPath"
         if ($replyJsonRel) { Write-Summary "reply json : $replyJsonPath" }
@@ -5599,6 +5838,7 @@ try {
     }
     if ($pendingNote) { Write-Summary "pending    : $pendingNote" Yellow }
     if ($commitWaitLine) { Write-Summary $commitWaitLine }
+    if ($machineHealthLine) { Write-Summary $machineHealthLine Yellow }
     foreach ($d in $driftLines) { Write-Summary $d Yellow }
     Write-Summary "reply file : $replyPath"
     if ($replyJsonRel) { Write-Summary "reply json : $replyJsonPath" }

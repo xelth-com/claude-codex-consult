@@ -12,12 +12,13 @@ needs no ChatGPT plan.
 
 - **What it is:** a dependency-free PowerShell bridge that runs `codex exec` for a review (or, per roster entry, another CLI "engine": Google's Antigravity CLI `agy` for the Gemini models, Meta's Muse Code CLI `muse` for the Muse Code subscription - see "Engines"), records the consultation as files (brief, verbatim reply, JSON ledger), and manages reviewer identity, availability, a roster/panel and structured findings.
 - **Prerequisites.** Check each with the command; do not assume:
-  - [ ] Windows PowerShell 5.1 or PowerShell 7: `powershell -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` or `pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` → `5.1.…` or `7.…`
+  - [ ] Windows PowerShell 5.1 or PowerShell 7: `powershell -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` or `pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` → `5.1.…` or `7.…` (on Windows use `powershell` - always present; `pwsh` there may be only the WindowsApps alias, which a host's sandbox can refuse to execute; `pwsh` on macOS, Linux and a real PowerShell 7 install)
   - [ ] git: `git --version` → `git version …`
   - [ ] Codex CLI on PATH: `codex --version` → `codex-cli 0.148` or newer (tested with `codex-cli 0.155.1`)
   - [ ] a reviewer: `codex login status` → `Logged in using ChatGPT`, **or** a `[model_providers.<name>]` table whose `env_key` variable the USER has set. Never create, print or paste an API key.
   - [ ] optional, Gemini through the `agy` engine: `agy models` → lines `<model id><TAB><name>` (the USER installed Google's Antigravity CLI and signed in by running `agy` once; you never handle the login). See "Engines".
   - [ ] optional, Meta Muse through the `muse` engine: the USER installed Muse Code and signed in with `muse login` with the user variable `TBH_CREDENTIAL_BACKEND=file` set first (required on every OS: the bridge launches muse only on an oauth sign-in it can read from `~/.config/muse/auth.json`); `codex-providers.ps1` then shows the roster's muse row with `ok: signed in (~/.config/muse/auth.json: providers.meta, mechanism oauth)`. `META_API_KEY` and `MODEL_API_KEY` must NOT be set (a muse run is refused then: it would bill per token). You never read `auth.json` or handle the login. See "Engines (wave 23)".
+- **Telemetry, on by default (0.5.0):** after every consultation ONE anonymised event (engine, provider label, model, purpose, outcome class, counts, versions, a salted instance id - never a task, brief, prompt, path or name) goes to the maintainer's intake; installing the plugin means accepting these terms. Tell the operator before the first consultation; `CODEX_CONSULT_TELEMETRY=off` (a user variable the OPERATOR sets) switches it off. The exact payload: "Telemetry (on by default)".
 - **Install:** the section "Install" - one host each: the plugin system of your agent host (the operator runs the install commands), or a clone for any shell.
 - **Verify:** `codex-providers.ps1` → at least one row `available`; then a `-DryRun` consultation → first line `DRY RUN - nothing was executed and no file was written.` and a line `preflight   : available (…)`. Exact commands: "Setup on a new machine", steps 0 and 9.
 - **First consultation:** the `consult-codex` skill (`codex-consult:consult-codex <task-id> <question>`), or the command under "Usage".
@@ -71,9 +72,9 @@ operator may keep in `~/.codex/agents/<tier>.toml` (`name`, `description`,
 `developer_instructions`, no model key) - the plugin ships EXAMPLES to copy,
 `<plugin>/install/examples/codex-agents/{opus,sonnet,haiku}-worker.toml`, and never writes one.
 
-Then the operator pastes these three lines into the project's `AGENTS.md` (or
-`~/.codex/AGENTS.md`), with `<plugin>` replaced by the plugin directory above (re-point it after
-an upgrade):
+Then the operator pastes these three lines into the project's `AGENTS.md` or the global one of
+Codex CLI, `~/.codex/AGENTS.md` (`<codex home>/AGENTS.md`), with `<plugin>` replaced by the plugin
+directory above (re-point it after an upgrade):
 
 ```text
 codex-consult: follow skill codex-consult:coordinate for delegation, waves and waits, and skill codex-consult:consult-codex for consultations; without skills read them with: powershell -NoProfile -ExecutionPolicy Bypass -File <plugin>/scripts/codex-consult.ps1 -Explain coordinate (or -Explain consult).
@@ -84,10 +85,15 @@ codex-consult: CODEX_CONSULT_COORDINATOR names you as "<provider> :: <model>" in
 The sandbox: a real consultation writes under the repository's `.collab/` and starts the
 reviewer's CLI (`codex exec`, `agy`, `muse`) as a child process that needs the network and
 writes its own session files under `<codex home>`. A coordinator session in the `read-only`
-sandbox can run `-DryRun`, `-Explain` and `codex-providers.ps1` only; for real runs give it
-`workspace-write` with network access and `<codex home>` writable, e.g.
-`codex exec --sandbox workspace-write -c sandbox_workspace_write.network_access=true --add-dir
-<codex home> ...`, or run it without a sandbox where the operator accepts that.
+sandbox can run `-DryRun`, `-Explain` and `codex-providers.ps1` only. (0.5.0, wave 27c) What was
+observed on 2026-09-29 (Windows, codex-cli 0.155.1): in the `workspace-write` sandbox with network
+access enabled (`codex exec --sandbox workspace-write -c sandbox_workspace_write.network_access=true
+--add-dir <codex home> ...`) the reviewer child had no connection - the run timed out -, while
+`-DryRun`, `-Explain` and `-Status` work inside it; process inspection is denied there too (the
+bridge now confirms every tree kill and says when it cannot - "Timeouts"). A real consultation
+therefore needs the coordinator session OUTSIDE the sandbox (the operator's decision), or the
+operator runs the bridge command from a plain shell. `pwsh` inside the sandbox resolved to the
+WindowsApps alias, which the sandbox refused to execute: on Windows use `powershell`.
 
 ### Z Code
 
@@ -103,9 +109,16 @@ ships; there is no `zcode` on PATH):
 
 Expect the plugin enabled with its skills and the SessionStart hook. Z Code substitutes both
 `${CLAUDE_PLUGIN_ROOT}` and `${ZCODE_PLUGIN_ROOT}` in skills, hooks and commands, so the skills
-work unchanged. It reads `AGENTS.md`: the three lines above apply, `<plugin>` being the directory
-Z Code installed the plugin to. A live coordinator session runs inside the app (a headless `-p`
-run outside it stops at "Select a model before continuing"). The bridge infers the host `zcode`.
+work unchanged. It reads `AGENTS.md` - the project's, or its global `~/.zcode/AGENTS.md`: the three
+lines above apply, `<plugin>` being the directory Z Code installed the plugin to. A live
+coordinator session runs inside the app (a headless `-p` run outside it stops at "Select a model
+before continuing"). (wave 27c) Observed in a desktop session (2026-09-29, desktop 3.14.3): its
+shell tool carries `ZCODE_*` variables (`ZCODE_APP_VERSION`, `ZCODE_ENV`, `ZCODE_PROCESS_LABEL`,
+two provider configuration file paths and more) but neither `ZCODE_SESSION_ID` nor
+`ZCODE_PROJECT_DIR`; the bridge infers the host `zcode` from ANY `ZCODE_` variable and scrubs the
+whole prefix from every child. No `codex-consult:` session-start line reached the context of that
+desktop session - the second `AGENTS.md` line (run the hook one-liner) covers it. Its shell tool
+cut a blocking call at 600 s: a run with a longer timeout goes with `-Detach`.
 
 ### Kimi Code
 
@@ -122,8 +135,10 @@ It does not substitute `${CLAUDE_PLUGIN_ROOT}` (the skill text arrives literally
 skill's first sentence says to use it instead; its shell tool on Windows is Git Bash
 (`$CODEX_CONSULT_ROOT`). No hooks: the session-start line comes from the hook one-liner
 (`codex-consult-hook.ps1`, below), the rules from the `coordinate` skill or `-Explain coordinate`.
-Paste the three lines above into the PROJECT's `AGENTS.md` (Kimi Code reads it from the working
-directory only, not from a parent directory or the home), `<plugin>` = `<clone>/plugins/codex-consult`.
+Paste the three lines above into the PROJECT's `AGENTS.md` - the project file only (Kimi Code reads
+it from the working directory only, not from a parent directory or the home), `<plugin>` =
+`<clone>/plugins/codex-consult`. Its shell tool cut a blocking call at 300 s in the foreground
+(2026-09-29): a run with a longer timeout goes with `-Detach` (then `-Wait` / `-Status`).
 It sets no environment marker of its own (`coordinator.host` stays `unknown`), so the coordinator
 names itself: `CODEX_CONSULT_COORDINATOR`, e.g. `kimi :: k3` (the label and model your roster
 uses for it). A headless `-p` run takes neither `--yolo` nor `--auto`.
@@ -145,8 +160,11 @@ a skill's text for a host that has no skills.
 
 The plugin's one hook is SessionStart (`hooks/hooks.json` → `scripts/codex-consult-hook.ps1`):
 two lines into the coordinator's context - who is out and until when, then
-`codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain
-coordinate)`. Claude Code runs it at every session start of a project where the plugin is
+`codex-consult: coordinator rules - skill codex-consult:coordinate (or powershell -NoProfile
+-ExecutionPolicy Bypass -File "<plugin>/scripts/codex-consult.ps1" -Explain coordinate); telemetry:
+on` - (wave 27c, D13) the full command with this installation's own script path, runnable as
+printed on a host that substitutes nothing (`pwsh -NoProfile -File ...` off Windows); (wave 28) the
+telemetry switch, `on` or `off`. Claude Code runs it at every session start of a project where the plugin is
 enabled. Codex CLI knows the same event and reads `hooks/hooks.json`, and it runs a plugin's
 hooks only once they are trusted; whether it does for this plugin is part of the host's
 acceptance run. Z Code recognises the hook at the install and substitutes the plugin root in it,
@@ -171,11 +189,20 @@ the plugin as the `coordinate` skill (invariants first, then the means per host 
 tier contract: deep reasoning, default execution, cheap read-only recon); `consult-codex` is the consultation
 procedure. Set `CODEX_CONSULT_COORDINATOR` to your own model (`<provider> :: <model>` [`
 [<engine>]`], a roster position `#<n>`, or a provider label): the bridge parses it with the
-`-Require` matcher, refuses a value that does not parse before anything starts, and warns - on
-the console, in the dry run and in the ledger's `warnings[]`, never refusing - when it seats
-your own model as a reviewer ("a second opinion from the coordinator's own model"). Your host
-is inferred from its environment as a hint only (ledger `coordinator.host`), and every engine
-child is started without your host's markers (ledger `child_env_scrubbed`). Your briefs are
+`-Require` matcher, refuses only a value that does not parse (the roster's own character rule -
+interior blanks are fine, `::`, `[`, `]`, `|`, `,`, `#` inside a name are not) before anything
+starts, and warns - on the console, in the dry run and in the ledger's `warnings[]`, never
+refusing - when it seats your own model as a reviewer ("a second opinion from the coordinator's
+own model"). (0.5.0, wave 27c) The value is resolved like a seated reviewer: `#<n>` and a label
+take the model of their roster entry, else the model the bridge would run (the Codex config's);
+"own model" is said only when provider, model and engine are equal, and a label whose model
+cannot be told (two roster models of it) gives the weaker "a reviewer from the coordinator's own
+provider (model not named)". A value no roster entry matches is said, not refused (`coordinator:
+<id> (not in the roster - no reviewer can match it)`, ledger `coordinator.in_roster` false); a
+`#<n>` that names no position in THIS repository's roster is warned about and recorded
+`coordinator.unresolved` - the run goes on. Your host is inferred as a hint only (ledger
+`coordinator.host`, from its markers, else from the plugin's install path - `coordinator.host_by`),
+and every engine child is started without your host's markers (ledger `child_env_scrubbed`). Your briefs are
 named with the coordinator's brief prefix, `handoffs/<NN>-<prefix>-<slug>.md`: `claude` by
 default (every existing ledger uses it), another slug through `-BriefPrefix` or
 `CODEX_CONSULT_BRIEF_PREFIX` - never `codex`, `agy` or `muse`, the bridge's reply prefixes.
@@ -201,8 +228,10 @@ Claude Code agents are namespaced (`codex-consult:opus-worker`).
 Run each step, compare with the expected output, and stop and tell the user at the first
 mismatch you cannot fix without them. `<codex home>` is `$CODEX_HOME` when set, else
 `~/.codex`. Commands are shown for Windows PowerShell
-(`powershell -NoProfile -ExecutionPolicy Bypass -File …`); on macOS/Linux run
-`pwsh -NoProfile -File …` with the same arguments.
+(`powershell -NoProfile -ExecutionPolicy Bypass -File …`), which is always present on Windows; on
+macOS, Linux and a real PowerShell 7 install run `pwsh -NoProfile -File …` with the same arguments.
+(Wave 27c, D18) On Windows `pwsh` may be only the WindowsApps alias, which a host's sandbox can
+refuse to execute (seen in the Codex CLI sandbox, 2026-09-29): use `powershell` there.
 
 **0. Locate the scripts.** Inside this plugin's skills, `${CLAUDE_PLUGIN_ROOT}` is the
 plugin directory. From a plain shell, `$P` is the newest version in the plugin cache of the host
@@ -421,7 +450,9 @@ verdicts with the date, and anything left unavailable and why.
 | skill `coordinate` (`/codex-consult:coordinate`) | (0.5.0, wave 27, R19) the coordinator's rules: one objective per worker, a fresh worker per wave with its state on disk, polling a state file instead of a blocking wait (a watchdog wake below the host's prompt-cache lifetime), compaction at wave boundaries, never redoing a worker's work, English to reviewers, the live-member rule, rating every consultation, asking the operator before going on without a required reviewer, the bridge's own means (`-Detach`, `-Status`, `-Wait`, `-Kick`), the worker tier contract, then the means per host. Host-neutral; `codex-consult.ps1 -Explain coordinate` prints it where a host has no skills |
 | agents `agents/opus-worker.md`, `sonnet-worker.md`, `haiku-worker.md` | (wave 27) the worker tiers of the `coordinate` skill as agent files for the host that reads them (namespaced `codex-consult:<tier>-worker`): deep reasoning, default execution, cheap read-only recon (no Edit/Write tool); the model is the tier ALIAS `opus`, `sonnet`, `haiku` - never a version |
 | examples `install/examples/codex-agents/*.toml` | (wave 27) the same three tiers as agent files for Codex CLI (`name`, `description`, `developer_instructions`, no model key) - EXAMPLES the operator may copy to `~/.codex/agents/`; the plugin never installs or writes them |
-| hook `SessionStart` (`hooks/hooks.json` → `scripts/codex-consult-hook.ps1`) | at every session start (`startup`, `resume`) in a project where the plugin is enabled - on a host that runs the plugin's hooks; elsewhere the one-liner of "Hooks on each host" - adds TWO lines to the agent's context: (wave 27) the second is always `codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain coordinate)`; the first is the availability line (0.5.0, the line `codex-providers.ps1 -Short` prints): what is OUT, per roster entry, with the reset in local time and a rounded relative hint, then the count - `codex-consult: out - openai :: gpt-6-astra (until Sun 20:35, in 2d 10h), gemini :: * (until Sun 21:30, in 2d 11h); 9 of 11 reviewers available`, or `codex-consult: all 11 reviewers available`. Every entry is judged with the roster walk's own verdict (credentials, the launch invariant, the endpoint health of THIS repository's ledgers: an auth failure, a usage limit with a reset ahead, one without a reset for 60 minutes after it was hit); the entries of one endpoint group that share the state collapse to `<label> :: *`; nothing is cut. An agy entry's sign-in is not checked here (no network call): `not checked - gemini :: * (sign-in not checked); 7 of 11 reviewers available, 2 out, 2 not checked` - unless THIS repository's ledgers hold a usable agy reply from the last 60 minutes; a muse entry's local check and billing guard run (`meta :: <model> (refused: META_API_KEY is set)`). Without a roster: the providers (`... (no reviewer roster)`). `codex-consult: codex CLI not found on PATH - follow the setup-providers skill ...` when Codex is missing; `codex-consult: reviewer check failed - <why>` for an unusable roster or config. It runs `codex-providers.ps1 -Short -Json -NoNetwork`: nothing written, exit code always 0, about one second (`codex login status`), timeout 30 s; `pwsh` when present, else `powershell`. Disable it with the plugin (the host's plugin switch, e.g. `/plugin disable codex-consult`) — hooks have no per-plugin switch |
+| `README.md` (the plugin directory) | (wave 27c, D17) a short index for an installed plugin: what it is, the three skills, `-Explain` for a host without skills, and the URL of this repository README |
+| hook `SessionStart` (`hooks/hooks.json` → `scripts/codex-consult-hook.ps1`) | at every session start (`startup`, `resume`) in a project where the plugin is enabled - on a host that runs the plugin's hooks; elsewhere the one-liner of "Hooks on each host" - adds TWO lines to the agent's context: (wave 27) the second is always `codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain coordinate); telemetry: on` - (wave 28) ending with the telemetry switch, `on` or `off` ("Telemetry (on by default)"); the first is the availability line (0.5.0, the line `codex-providers.ps1 -Short` prints): what is OUT, per roster entry, with the reset in local time and a rounded relative hint, then the count - `codex-consult: out - openai :: gpt-6-astra (until Sun 20:35, in 2d 10h), gemini :: * (until Sun 21:30, in 2d 11h); 9 of 11 reviewers available`, or `codex-consult: all 11 reviewers available`. Every entry is judged with the roster walk's own verdict (credentials, the launch invariant, the endpoint health of THIS repository's ledgers: an auth failure, a usage limit with a reset ahead, one without a reset for 60 minutes after it was hit); the entries of one endpoint group that share the state collapse to `<label> :: *`; nothing is cut. An agy entry's sign-in is not checked here (no network call): `not checked - gemini :: * (sign-in not checked); 7 of 11 reviewers available, 2 out, 2 not checked` - unless THIS repository's ledgers hold a usable agy reply from the last 60 minutes; a muse entry's local check and billing guard run (`meta :: <model> (refused: META_API_KEY is set)`). Without a roster: the providers (`... (no reviewer roster)`). `codex-consult: codex CLI not found on PATH - follow the setup-providers skill ...` when Codex is missing; `codex-consult: reviewer check failed - <why>` for an unusable roster or config. It runs `codex-providers.ps1 -Short -Json -NoNetwork`: nothing written, exit code always 0, about one second (`codex login status`), timeout 30 s; `pwsh` when present, else `powershell`. Disable it with the plugin (the host's plugin switch, e.g. `/plugin disable codex-consult`) — hooks have no per-plugin switch |
+| script `scripts/codex-telemetry.ps1` | (0.5.0, wave 28, R17) the telemetry's sender (`-Flush`, started detached by the bridge after a ledger commit), the operator's complaint (`-Complain`) and the state (`-Status`) - "Telemetry (on by default)" |
 | evals `evals/` (`claude plugin eval <plugin dir> --ablation none --allow-tools Bash` — the `--allow-tools Bash` operator grant is REQUIRED for the two cases that run the bridge; they are silently downgraded without it) | the install test: two cases a fresh agent must pass with only this plugin loaded — `dry-run-consultation` (reach the bridge through the `consult-codex` skill, run `-DryRun` for task `eval-smoke`, report the fixed first line, the preflight and reviewer lines, write nothing) and `providers-listing` (use `codex-providers.ps1`, one verdict per provider, no invented verdict). Graders: `tool_used`, `regex` on the trace, `file_exists: false`, an `llm` rubric. A machine with no usable reviewer still passes when reported honestly. The third case `command-plan` (tag `readonly`) needs no shell grant and runs everywhere: the agent must produce the exact dry-run command and the files a real run writes, from the skill, without executing anything. Shell-granted cases need a sandbox backend: Linux/macOS have one; on Windows the eval runner refuses to run a shell tool unconfined (`sandbox required but unavailable`), so there run `--case command-plan` only. Results land in `evals/results/` (ignored by git) |
 
 Per-provider alias skills a user may keep in `~/.claude/skills/` (say, one that maps "ask
@@ -435,8 +466,9 @@ the plugin; nothing here needs or installs them.
 Three steps per consultation: write a brief, run one command, read and record. The
 `consult-codex` skill is the procedure; this section and the ones below are the reference.
 `$P` is the plugin directory (setup step 0); inside the plugin's skills the same commands
-use `${CLAUDE_PLUGIN_ROOT}`. On macOS/Linux replace `powershell -NoProfile
--ExecutionPolicy Bypass -File` with `pwsh -NoProfile -File`.
+use `${CLAUDE_PLUGIN_ROOT}`. On macOS, Linux and a real PowerShell 7 install replace `powershell
+-NoProfile -ExecutionPolicy Bypass -File` with `pwsh -NoProfile -File`; on Windows keep
+`powershell` (always present - `pwsh` may be only the WindowsApps alias a host sandbox refuses).
 
 **1. Write the brief** to `.collab/<task>/handoffs/<NN>-<prefix>-<slug>.md`. `<NN>` is the next
 free two-digit prefix; you and the bridge share one sequence, so the directory reads as a
@@ -585,9 +617,27 @@ continuation turn follows ("Your previous turn was stopped after no output for N
 tool call. ..."), then the salvage; `bridge_outcome` `failed: stalled after N s without an event
 (process tree killed)` when no continuation saved it; ledger `stall {seconds, last_event}` (the
 threshold, and when the last event line was seen - `null`: none since the start). A panel passes
-the resolved value to each member.
+the resolved value to each member. (Wave 27c, D6) A tool call cannot suspend the timer for ever:
+once tool calls have been in flight longer than max(3 x `-StallSec`, 1800 s) with no growth of the
+stream, the timer resumes from the stream's last byte, and the cut says so - `failed: stalled after
+N s without an event - no output for S s (a tool call open for M s)`. (D5) The stream is read
+bounded: only the new bytes are scanned for line ends, the unfinished line is kept up to 1 MiB - a
+longer one is skipped to its end, never parsed, and counted (`warnings[]`: `oversized_lines: N ...`,
+once per run); the timer's activity is the byte count, whatever parses.
 
-**Stopping one member: `-Kick` (wave 26b, D10).** From another shell, `codex-consult.ps1 -Task
+**The kill, confirmed (wave 27c, D16).** After a process tree kill the bridge checks that the root
+process exited and that every descendant it enumerated is gone. Where the children cannot be
+enumerated (a restricted host - the Codex CLI sandbox denies process inspection, 2026-09-29) it falls
+back to `taskkill /PID <root> /T /F` and checks the root again. The outcome says `(process tree
+killed)` ONLY when the kill is confirmed; otherwise `(kill not confirmed: <why>; pid <n> may still
+run)`, the ledger's `kill_confirmed` is `false`, `warnings[]` says `kill not confirmed (<turn>): ...`
+- check that pid and stop it by hand - and NO continuation turn follows (`timeout_continue.outcome`
+`not attempted: the kill of the main turn was not confirmed (...)`): an orphaned reviewer may still
+hold its thread ("the thread already has an active writer"). Such an orphan also still holds the
+output pipe of a caller that waits for the bridge's output (a coordinator's blocking shell call
+returns only when the orphan exits) - one more reason to start runs in such a host with `-Detach`.
+
+**Member control - stopping one member: `-Kick` (wave 26b, D10).** From another shell, `codex-consult.ps1 -Task
 <task> -Kick -Member <NN>` (a foreground panel: the parent's members each poll
 `<task>/.consult.kick-<NN>` while their engine turn runs) or `-Kick -Id <id8> -Member <NN>` (a
 detached run: the member must be one of its running members) stops that member: its engine's
@@ -596,14 +646,25 @@ stopped by the operator (-Kick)` with `provider_failure.class` `operator` (never
 outage), no continuation follows, and the panel goes on with the others (`-Status` shows the
 member `failed: stopped by the operator (-Kick)`). (Wave 26c, D1) The member checks the kick
 file before its wait loop, on every poll and ONCE MORE after its process exited, and acknowledges
-it: `<task>/.consult.kick-<NN>.ack` (`kicked` - its turn is being stopped; `late` - its turn had
+it: `<task>/.consult.kick-<NN>.ack` (`stopped` - its turn is being stopped; `late` - its turn had
 already finished: it records `kick_late: the member had already finished (...)` in `warnings[]`
-and its outcome is unchanged); the kick file is removed. A kick that stops only the FORMAT
-REPAIR leaves the first reply usable (`warnings[]`: `kick: the operator stopped the format repair
-(-Kick); the first reply stands, not converted`). `-Kick` waits up to 10 s for the
-acknowledgement. Exit `0` acknowledged, `1` no such member or not running (a kick file of that
-number is removed), `3` no acknowledgement in time (the kick file stays: the member takes it at
-its next poll; the next run of that number removes a stale one), `4` refused.
+and its outcome is unchanged); the kick file is removed. (Wave 27c, D1) Per REQUEST: the kick file
+is a small record `{id, when, pid}` written atomically (a temporary file, then a rename that never
+replaces) - a caller that finds one present JOINS it (takes its id) and never overwrites it; the
+acknowledgement holds the request's id and the result (`stopped` or `late`); each caller waits for
+an acknowledgement with ITS id; only the caller that created the request removes it after reading
+it (a joiner never), and no caller removes one before writing. An acknowledgement older than 60 s
+that is not the caller's is swept by any later `-Kick` and by the next run start of that number -
+so two operators kicking one member at once both get the same, true answer. A kick addresses the
+RUN of a member, not one turn (D2): found before or during the FORMAT REPAIR it cancels the repair
+and the first reply stays usable (`warnings[]`: `kick: the operator stopped the format repair
+(-Kick); the first reply stands, not converted`); found before or during the TIMEOUT CONTINUATION
+it cancels the continuation and the timeout outcome with its salvage stays (`warnings[]`: `kick:
+the operator stopped the timeout continuation (-Kick); the timeout outcome and its salvage stay`).
+`-Kick` waits up to 10 s for the acknowledgement. Exit `0` acknowledged, `1` no such member or not
+running (a kick file of that number is removed), `3` no acknowledgement in time (the kick file
+stays: the member takes it at its next poll; the next run of that number removes a stale one), `4`
+refused.
 
 **The continuation.** When the bridge kills the MAIN turn on its timeout and the turn's thread
 is known (codex: its `thread.started`; agy: the conversation of its init event; muse: its session
@@ -619,7 +680,7 @@ the scoreboard, a panel's exit code), ledger `timeout_continue {thread, wall_sec
 events, usage}`, the summary line `continued  : the main turn was killed at <t> s of <T> s; one
 continuation turn on thread <id> answered in <w> s`. No continuation (`outcome` `not attempted:
 <why>`) when the thread is unknown, when processes survived the kill (they may still write to
-it), when files changed during the run (`files changed during the run (the working tree | the
+it), (wave 27c, D16) when the kill was not confirmed, when files changed during the run (`files changed during the run (the working tree | the
 collab directory | the brief | artifact(s))` - one tree check for every engine, a codex
 `-Sandbox workspace-write` run included; 0.5.0 wave 24c: the working tree by file CONTENTS - a
 commit or a moved HEAD meanwhile, such as the coordinator committing the collab files, is no
@@ -875,7 +936,7 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
     "identity_note": ""
   },
   "lineage": "ZAI :: glm-5.3",
-  "coordinator": { "provider": "openai", "model": "gpt-5.1", "engine": null, "host": "codex", "source": "explicit" },
+  "coordinator": { "provider": "openai", "model": "gpt-5.1", "engine": "codex", "host": "codex", "host_by": "markers", "source": "explicit", "in_roster": true, "unresolved": null },
   "preflight": "ok: env ZAI_API_KEY set",
   "preflight_warning": "",
   "roster": null,
@@ -922,6 +983,7 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "denial_retry": null,
   "timeout_continue": null,
   "stall": null,
+  "kill_confirmed": null,
   "base_commit": "4e9cc4f0…",
   "reviewed_revision": "4e9cc4f + uncommitted",
   "tree_sha256": "9c2a…",
@@ -969,7 +1031,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `reviewer.provider_fingerprint` / `reviewer.provider_config` | SHA-256 of the canonical endpoint (`""` when identity is unresolved); `{base_url, wire_api}` of the table (no `wire_api` key when the table has none), or `{builtin: "openai"}`; for the agy engine SHA-256 of `cc-engine-v1\|agy` and `{engine, launcher}`; for the muse engine SHA-256 of `cc-engine-v1\|muse` and `{engine, launcher, credential_mechanism}` (the sign-in's `providers.meta.mechanism`, e.g. `oauth`; `null` when it cannot be read) |
 | `reviewer.identity_note` | why identity is unresolved, or how it was derived (e.g. a user-defined `[model_providers.openai]` table); `""` otherwise |
 | `lineage` | `<provider> :: <model>`, display only; matching never compares this string |
-| `coordinator` | (0.5.0, wave 27; right after `lineage`) who asked: `{provider, model, engine, host, source}`. `provider`/`model`/`engine` from `CODEX_CONSULT_COORDINATOR` (`<provider> :: <model>` [` [<engine>]`], a roster position `#<n>` resolved to its entry, or a label - then `model` is `null`), else `null`; `host` the coordinator's agent host inferred from its environment, a HINT only, in this order - `codex` (`CODEX_SESSION_ID`/`CODEX_THREAD_ID`, looked at first), `zcode` (wave 27b: `ZCODE_SESSION_ID`/`ZCODE_PROJECT_DIR`), `claude-code` (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `AI_AGENT` starting with `claude-code`) or `unknown` (a host that sets no marker, e.g. Kimi Code); `source` `explicit` (the variable is set), `inferred` (a host marker only) or `none`. Resolved once per run: a panel member and a detached run carry their run's. NOT the `host` of the lock, recovery and status records, which stays the machine name |
+| `coordinator` | (0.5.0, wave 27; right after `lineage`) who asked: `{provider, model, engine, host, host_by, source, in_roster, unresolved}`. `provider`/`model`/`engine` from `CODEX_CONSULT_COORDINATOR` (`<provider> :: <model>` [` [<engine>]`], a roster position `#<n>`, or a label), else `null` - (wave 27c, D9) a RESOLVED triple, through the rules of a seated reviewer: `#<n>` and a label take the model of their roster entry, else the model the bridge would run (the Codex config's), a lineage its entry's engine, else `codex`; `model` stays `null` for a label whose model cannot be told (two roster models of it); `host` the coordinator's agent host, a HINT only, in this order - `codex` (`CODEX_SESSION_ID`/`CODEX_THREAD_ID`, looked at first), `zcode` (wave 27c, D20: ANY `ZCODE_` variable), `claude-code` (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `AI_AGENT` starting with `claude-code`), else the install path of the running script (a plugin cache under `.zcode`, `.codex` or `.claude`), else `unknown` (e.g. Kimi Code from a clone); `host_by` `markers`, `path` or `none`; `source` `explicit` (the variable is set), `inferred` (a host hint only) or `none`; `in_roster` (D11) `true`/`false` - `false`: no roster entry matches, said on the console, never refused - or `null` (no roster, no identity); `unresolved` (D12) `null`, or the `#<n>` that named no roster position here (a warning; the run goes on). Resolved once per run: a panel member and a detached run carry their run's. NOT the `host` of the lock, recovery and status records, which stays the machine name |
 | `preflight` | `ok: <credential detail>` or `skipped` (`-SkipPreflight`); any other verdict refuses the run |
 | `preflight_warning` | a recent usage limit that did not refuse the run, else `""` |
 | `roster` | `null` without a roster; else `{path, position, skipped: [{provider, model, engine, reason}], applied: []}`, `applied` naming what the roster entry supplied (`engine`, `model`, `codex_config`; wave 26b: `timeout_sec`, `stall_sec`); (wave 26b, D16) a skip `reason` may be `brief too large for this reviewer's context (est. N of M tokens)` |
@@ -978,7 +1040,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `thread_source` | `events`, `rollout (verified by consultation id)` or `unknown` |
 | `thread_candidate` | an unverified rollout uuid (agy: a conversation id the run could not verify - a failed resume's new conversation, the init id of a run without a result) kept for diagnosis only; never a parent |
 | `mode` / `command` | `new`, `fork` or `resume`; the full argv as one string (prompt on stdin) |
-| `child_env_scrubbed` | (0.5.0, wave 27; right after `command`) the NAMES of the coordinator's host markers that no engine child got (sorted; never a value; `[]` when none was set): `CODEX_SESSION_ID`, `CODEX_THREAD_ID`, `CODEX_CI`, every `CODEX_SANDBOX*`, `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `AI_AGENT`; (wave 27b) what a host session hands its children besides - `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_BRIDGE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_CODE_SESSION_ATTENDED`, `CLAUDE_CODE_EXECPATH`, `CLAUDE_PID`, `CLAUDE_EFFORT`, `ZCODE_SESSION_ID`, `ZCODE_PROJECT_DIR`, every `ZCODE_PLUGIN*` - so a reviewer never inherits the coordinator's session channel (its messaging socket and token). Every engine child - the main turn, a denial retry, a format repair, the continuation, the detached background, the launcher probes - is started without them; every other variable (`CODEX_HOME`, the provider keys, `PATH`, `CODEX_CONSULT_*`) is kept. EXACT names on purpose, never the whole `CLAUDE_CODE_` prefix: the operator's own settings (`CLAUDE_CODE_USE_BEDROCK` and the like) must still reach an engine, and `CLAUDE_PLUGIN_ROOT` / `CLAUDE_PLUGIN_DATA` stay |
+| `child_env_scrubbed` | (0.5.0, wave 27; right after `command`) the NAMES of the coordinator's host markers that no engine child got (sorted; never a value; `[]` when none was set): `CODEX_SESSION_ID`, `CODEX_THREAD_ID`, `CODEX_CI`, every `CODEX_SANDBOX*`, `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `AI_AGENT`; (wave 27b) what a host session hands its children besides - `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_BRIDGE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_CODE_SESSION_ATTENDED`, `CLAUDE_CODE_EXECPATH`, `CLAUDE_PID`, `CLAUDE_EFFORT` - so a reviewer never inherits the coordinator's session channel (its messaging socket and token); (wave 27c, D21) every `ZCODE_*` - the whole prefix: read inside a Z Code session on 2026-09-29 (desktop 3.14.3), its shell tool carries `ZCODE_APP_VERSION`, `ZCODE_BASE_URL`, `ZCODE_BUILD_COMMIT_ID`, `ZCODE_BUILTIN_PROVIDER_CONFIG_FILE`, `ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED`, `ZCODE_ENV`, `ZCODE_PERSONAL_PROVIDER_CONFIG_FILE`, `ZCODE_PROCESS_LABEL`, `ZCODE_RG_BINARY`, `ZCODE_RUNTIME_ENV`, `ZCODE_UGREP_BINARY`, `ZCODE_WINDOWS_APP_INSTALL_DIR` (two of them point at the operator's provider configuration files; no reviewer engine reads a `ZCODE_` variable). Every engine child - the main turn, a denial retry, a format repair, the continuation, the detached background, the launcher probes, (wave 28) the telemetry sender - is started without them; every other variable (`CODEX_HOME`, the provider keys, `PATH`, `CODEX_CONSULT_*`) is kept. EXACT names for the `CLAUDE_CODE_` ones, never that whole prefix: the operator's own settings (`CLAUDE_CODE_USE_BEDROCK` and the like) must still reach an engine, and `CLAUDE_PLUGIN_ROOT` / `CLAUDE_PLUGIN_DATA` stay. (wave 27c, D3) The hide is transactional: a marker that cannot be removed puts every removed one back and refuses the start (`bridge failure: host markers could not be hidden (<name>: <why>)`); a launcher probe whose start-info cannot be scrubbed runs with the markers hidden from the bridge's own environment, else it is skipped - "not checked" and a warning (D4) |
 | `mode_fallback` | (wave 26b, D16; after `mode`) `null`, or `{from: "fork"\|"resume", to: "new", reason}` when a reviewer with a roster `context_tokens` would have continued a thread whose last recorded context plus this prompt exceeds 80% of its window - the run started a new thread instead, and its prompt names the reviewer's previous reply file |
 | `brief` / `prompt_chars` | the brief path (`""` without one); the prompt length |
 | `range` | (0.5.0) `null` without `-Range`, else `{spec, files, insertions, deletions, lines}` of `git diff --shortstat <spec>` |
@@ -996,7 +1058,8 @@ This is the only place field meanings are listed; other sections refer to them b
 | `format_retry` | `null` (no repair attempted, or off), else `{attempted, reason, succeeded, thread, wall_seconds, usage, drift, original, events, schema_transport}` - `events` (0.4.0) the repair turn's event stream, handoffs-relative, when one is kept (agy: `handoffs/NN-agy-<slug>.repair.events.jsonl`; muse: `handoffs/NN-muse-<slug>.repair.events.jsonl`), else `null` (codex: its repair stream is a temp file); `schema_transport` (wave 23b) the repair turn's transport: codex `prompt-only` (its repair never passes `--output-schema`), an engine the main turn's - `native`, or `prompt-only` with no schema flag and the schema in the repair prompt |
 | `denial_retry` | (0.4.0, agy; always `null` for muse, which has no denial retry) `null` (not attempted), else `{attempted, reason, succeeded, thread, wall_seconds, usage, events}`: the one extra turn after a run that produced nothing because a tool was auto-denied (see "Engines"); `events` = that turn's event stream (`handoffs/NN-agy-<slug>.denial-retry.events.jsonl`, `null` when no turn ran) |
 | `timeout_continue` | (0.5.0) `null` unless the main turn was killed on its timeout; else `{thread, wall_seconds, outcome, events, usage}` of the ONE continuation turn - `outcome` `usable reply`, `failed: <why>` or `not attempted: <why>` (then `wall_seconds` 0, `events` and `usage` `null`); (wave 24c) a reply the checks rejected: `failed: not a usable reply - <why>; its text is kept in handoffs/<NN>-<engine>-<slug>.partial.md under "continuation reply (rejected)"` |
-| `stall` | (wave 26b, D12; after `timeout_continue`) `null`, or `{seconds, last_event}` when the main turn was stopped by the stall cut (`-StallSec`, the roster's `stall_sec`): the threshold, and when the last event line was seen (`null`: none since the start) |
+| `stall` | (wave 26b, D12; after `timeout_continue`) `null`, or `{seconds, last_event}` when the main turn was stopped by the stall cut (`-StallSec`, the roster's `stall_sec`): the threshold, and when the last event line was seen (`null`: none since the start). (wave 27c, D6) A tool call in flight suspends the cut, but no longer than max(3 x `-StallSec`, 1800 s): past that, the silent time counts from the stream's last byte and the outcome says `... - no output for N s (a tool call open for M s)`; (D5) the stream is read with a bounded carry of 1 MiB - a longer unfinished line is skipped and counted (`oversized_lines: N ...` in `warnings[]`) |
+| `kill_confirmed` | (wave 27c, D16; right after `stall`) `null` when no process tree was killed; `true` when every kill of the run was CONFIRMED (the root exited and every known descendant is gone); `false` when one was not - the children could not be enumerated (a restricted host, e.g. a sandbox that denies process inspection) and `taskkill /PID <root> /T /F` could not confirm the tree, or processes survived. An unconfirmed kill is never told "(process tree killed)": the outcome says `(kill not confirmed: <why>; pid <n> may still run)`, `warnings[]` says `kill not confirmed (<turn>): ...`, and NO continuation turn follows it (the orphan may still hold the thread) |
 | `base_commit` … `fingerprint_note` | revision binding: see "Binding a review to a revision"; (wave 24c) `tree_changed_during_review` compares file contents, and `revision_moved` (after it) is `null`, or `"<old base_commit> -> <new>"` when HEAD moved during the run - informational, never a tree change by itself |
 | `artifacts` / `artifacts_changed_during_review` | `[{path, sha256, sha256_after}]` per `-Artifact`; whether any changed during the run |
 | `tree_check` | (wave 26b, D9; after `artifacts_changed_during_review`) `null` for codex (no check); for an engine `{outcome, files}`: `clean`, `warned` (muse - write-disabled by the bridge's flags: a change is not the reviewer's, the reply stays usable, `warnings[]` says so) or `failed` (agy - its sandbox does not block writes); `files` the changed paths (the working tree's, the collab directory's as shown, `brief`, the artifacts) |
@@ -1019,6 +1082,15 @@ as written and only its `thread` is read; entries written before 0.3.0 have no `
 "Reviewer identity and lineage"); a pre-wave-7 `lineage` in the slash form
 (`ZAI/glm-5.3`) still matches, since matching compares `reviewer.provider` and
 `reviewer.model`.
+
+(0.5.0, wave 28, R17) The telemetry event ("Telemetry (on by default)") is built from the
+COMMITTED entry and reads only these fields: `reviewer.engine`, `reviewer.provider`,
+`reviewer.model` (else `model`), `purpose`, `bridge_outcome`, `provider_failure.class`,
+`wall_seconds`, `usage.input_tokens` / `cached_input_tokens` / `output_tokens`, `findings`,
+`structured`, `format_retry.attempted`, `denial_retry.attempted`, `timeout_continue.outcome` and
+`panel.of`. The ledger gets no telemetry field: whether a consultation was reported is the run's
+switch (`-Telemetry`, `CODEX_CONSULT_TELEMETRY`), and what left the machine is in the spool until
+it is delivered.
 
 ---
 
@@ -1467,7 +1539,7 @@ environment refuses the run with and without `-SkipPreflight`):
 | Check | Refusal |
 |---|---|
 | credentials: `openai` or a table with `requires_openai_auth = true` → `codex login status` (15 s timeout, UTF-8); any other table → its `env_key` variable is set, or it has an `experimental_bearer_token`, or the roster entry says `"auth": "none"` and the table names neither | `provider ZAI is not usable: env ZAI_API_KEY not set; nothing was started (run codex-providers.ps1 for the full picture)` |
-| availability can be established (a resolved identity; `codex login status` runs and finishes) | `provider ZAI: availability could not be established (…); pass -SkipPreflight to launch anyway, or fix the check` |
+| availability can be established (a resolved identity; `codex login status` runs and finishes - (wave 27c, D4) and is never started with the coordinator's host markers: a probe whose start-info cannot be scrubbed runs with the markers hidden from the bridge's own environment, else it is SKIPPED - the preflight reads `not checked - ...` and `warnings[]` says why) | `provider ZAI: availability could not be established (…); pass -SkipPreflight to launch anyway, or fix the check` |
 | no `auth` failure on this ENDPOINT in the last 24 h (unless a later run there succeeded) | `provider ZAI is not usable: the last run on this endpoint was rejected as unauthenticated at <when> (<message>); if you rotated the credential, pass -SkipPreflight once` |
 | no usage limit whose named reset time lies ahead | `provider ZAI is not usable: its usage limit (hit at <when>: <message>) lasts until <iso>; nothing was started (pass -SkipPreflight to launch anyway)` |
 | (0.5.0, wave 24b) no usage limit WITHOUT a reset time hit in the last 60 minutes | `provider ZAI is not usable: it hit a usage limit at <iso> (<message>) and named no reset time - out for 60 minutes, until <iso + 60 min>; nothing was started (pass -SkipPreflight to launch anyway)` |
@@ -1507,8 +1579,14 @@ write happens under `<file>.lock` (an exclusive open; (wave 26c, D2) three attem
 not acquired = not written) and prunes: an endpoint record older than 24 h whose `until` has
 passed, a running row whose pid and start time are gone. (Wave 26c, D2) A run writes its outcome
 record BEFORE its ledger entry; when that write timed out on the lock it is retried once at the
-ledger commit, and if it fails again the run says so - `warnings[]` and the summary: `machine-wide
-health not updated (lock timeout)` - while the repository ledger keeps the truth. Every
+ledger commit, and if it fails again the run says so - while the repository ledger keeps the
+truth. (Wave 27c, D7) ANY failure of that write is retried, and its cause is named: `lock
+timeout`, `the directory <dir> does not exist`, `write failed: <why>`. (D8) The retry at the commit
+never extends the hold on the task's write lock (which the other members of a panel wait for):
+inside the lock ONE attempt of at most 1 s - failing, the ledger entry says `machine-wide health
+not updated at the commit (<cause>); retried after it` - and after the lock is released the full
+retry (3 x 5 s); failing again, the summary says `warning    : machine-wide health not updated
+(<cause>)`. Every
 endpoint-health question - the roster walk, the panel's selection, `-Require`,
 `codex-providers.ps1`, the SessionStart line - reads the file's records beside the repository's
 ledgers as ONE record set: the newest record decides, as within one ledger (a later usable reply
@@ -2355,6 +2433,139 @@ a hard question - a routed panel already uses the same scores.
 
 ---
 
+## Telemetry (on by default)
+
+(0.5.0, wave 28 - ROADMAP R17.) **Installing this plugin means accepting these terms.** After
+every consultation the bridge reports ONE anonymised event to the maintainer's intake, so the
+bridge can be improved by people the maintainer never hears from; the operator can also send a
+complaint or a suggestion. It is ON by default - an opt-in intake collects nothing - and one
+line switches it off:
+
+```powershell
+$env:CODEX_CONSULT_TELEMETRY = 'off'     # or set it as a user variable; one run: -Telemetry off
+```
+
+`CODEX_CONSULT_TELEMETRY`: unset or empty - on; `on`, `1`, `true`, `yes` - on; `off`, `0`,
+`false`, `no`, `none` - off; ANY other value counts as off (a switch that cannot be read never
+sends). `codex-consult.ps1 -Telemetry on|off` decides for one run (a panel passes it to its
+members). Off means nothing of telemetry is written or sent: no spool line, no salt, no notice.
+The first real run after an install (or an update: the marker is per plugin version) prints a
+five-line notice once - what is sent, what never is, the switch, `-Complain`, these terms -
+while telemetry is on; the dry run prints `telemetry   : on (<source>) - ...` or `telemetry   :
+off (<source>) - nothing is spooled or sent`; the SessionStart hook's pointer line ends with
+`; telemetry: on` or `; telemetry: off`.
+
+**What is sent - the exact payload** (`POST <intake>/v2/events`, `{"events": [...]}`, at most
+100 per request), built from the COMMITTED ledger entry through a closed allowlist
+(`ConvertTo-TelemetryDetails`; every value a closed set, a number, a boolean or a checked token):
+
+```json
+{
+  "app_id": "codex-consult",
+  "app_version": "0.5.0",
+  "instance_id": "5ba1dfa7108eabedec5ee84a332c647aeea71a1b3a2e42088499db1019b8fa7d",
+  "event_type": "consultation",
+  "severity": "info",
+  "title": "usable",
+  "details": {
+    "engine": "codex",
+    "provider": "ZAI",
+    "model": "glm-5.3",
+    "purpose": "acceptance",
+    "outcome": "usable",
+    "wall_seconds": 213,
+    "tokens": { "in": 515000, "cached": 402000, "out": 9100 },
+    "findings": { "blocker": 0, "major": 2, "minor": 1, "note": 0 },
+    "structured": true,
+    "format_retry": false,
+    "denial_retry": false,
+    "timeout_continue": false,
+    "panel_size": 4,
+    "ps_version": "7.6.6",
+    "os": "windows 10.0.26200",
+    "bridge_version": "0.5.0"
+  },
+  "tags": ["codex", "ZAI"],
+  "client_time": "2026-09-29T14:14:33Z",
+  "os": "windows 10.0.26200",
+  "runtime": "pwsh 7.6"
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `app_id`, `app_version`, `details.bridge_version` | `codex-consult` and the plugin's version (`.claude-plugin/plugin.json`) |
+| `instance_id` | SHA-256 of the 32 random bytes in `<codex home>/telemetry-salt` (64 hex digits, created once by the first event) followed by the UTF-8 machine name: the machine name never leaves in clear, and a new salt makes a new, unlinkable instance |
+| `severity`, `title`, `details.outcome` | `info` - `usable` or `usable-after-continuation`; `warning` - `failed:quota`, `failed:auth` (a provider limit or sign-in) or `failed:operator` (`-Kick`); `error` - every other `failed:<class>`: the provider failure's class (`capability`, `transport`, `permission`, `unknown`), else `timeout`, `stalled` or `bridge` |
+| `details.engine`, `provider`, `model`, `purpose` | the engine (`codex`, `agy`, `muse`); the provider LABEL of the roster/config (letters, digits, dot, dash, underscore - anything else is sent as `other`); the model id (segments of letters, digits, `.`, `_`, `+`, `-` joined by at most two `:` or `/`; a path shape is sent as `other`); the purpose (`none` without one) |
+| `details.wall_seconds`, `tokens`, `findings` | the entry's wall time (rounded), token counts (`null` when the engine reports none) and finding counts by severity |
+| `details.structured`, `format_retry`, `denial_retry`, `timeout_continue` | booleans: a valid structured reply; a format repair, a denial retry, a timeout continuation turn attempted |
+| `details.panel_size` | the members of the panel this consultation belonged to; `0` for a single run |
+| `details.ps_version`, `os`, `runtime` | `$PSVersionTable.PSVersion`; the OS family and version; `powershell 5.1` or `pwsh 7.x` |
+| `tags`, `client_time` | `[engine, provider]`; when the event was built, UTC |
+
+**Never sent:** task names, briefs, prompts, replies, paths, thread ids, consultation ids,
+finding texts or ids, messages, warnings, keys, user names, the machine name in clear. A unit
+test walks every key of real events and of an event built from a hostile entry
+(`tests/harness-telemetry.ps1` UNIT, SPOOL).
+
+**How it travels.** Never in a consultation's critical path. After the ledger commit (a failed
+run's too; each panel member its own) the event is appended as ONE NDJSON line to the spool,
+`<codex home>/telemetry-spool/<yyyy-mm-dd>.ndjson` (UTC date; a line is `{"v":1, "kind":"event",
+"queued_unix":<s>, "body":"<the JSON above as a string>"}`), and ONE detached sender starts -
+`codex-telemetry.ps1 -Flush`, the same PowerShell, a hidden window, WITHOUT the coordinator's
+host markers (like every engine child), not waited for (a panel starts one when every member is
+done). The sender takes `<spool>/.flush.lock` (a concurrent sender is refused), reads the spool
+oldest first, drops lines older than 7 days, posts the events in batches of at most 100 and the
+complaint lines one by one - a 3 s connect probe and 5 s in all per request -, removes what was
+delivered and keeps the rest; the first failure ends the flush and the next consultation's
+sender tries again. Delivered means a 2xx answer that is a JSON object with `"ok": true`;
+anything else - an HTML page (the intake is not deployed yet: `https://xelth.com/T/health`
+answers HTML today), a 4xx/5xx, a timeout - keeps the spool and costs exactly one line in
+`codex-telemetry.ps1 -Status`, never a warning in a consultation. A `429` whose `Retry-After` is
+at most 60 s is waited for and the same request sent once more; a longer one, a missing one or a
+second 429 ends the flush. No other retry. The result is written to `<spool>/.last` `{time,
+result, delivered, kept, dropped, http}`. `codex-telemetry.ps1 -Flush` sends by hand (exit `0`
+done or nothing to send, `1` something not delivered, `2` another sender holds the lock).
+
+**The intake.** `https://xelth.com/T` (the "T-hub" v2 contract: `POST /v2/events`, `POST
+/v2/complaints`, `GET /health`); `CODEX_CONSULT_TELEMETRY_URL` names another base URL - https
+only (plain http only for a loopback host: a local test intake). Every harness but
+`harness-telemetry` runs with `CODEX_CONSULT_TELEMETRY=off`, and that one talks to a local
+`HttpListener` only.
+
+**Complaints and suggestions:**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult.ps1" -Task <task> -Complain "<text>" [-Contact "<how to reach you>"] [-Yes]
+powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-telemetry.ps1" -Complain "<text>" [-Task <task>] [-Contact "<c>"] [-Yes]
+```
+
+The payload `{app_id, app_version, instance_id, text (at most 8 KiB of UTF-8), context
+{consultation - the task's LAST ledger entry through the same allowlist as `details`, or `null`;
+bridge_version; os; runtime}, contact (or null)}` is printed in full - exactly the bytes that are
+sent -, then `send? [y/N]` unless `-Yes`, then it goes to `<intake>/v2/complaints`
+synchronously (10 s). Delivered: `complaint delivered - public_ref <ref>` - quote it when you
+write to the maintainer. Not delivered: `not delivered (<why>); kept in the spool as a complaint
+line` - the sender retries it with the events. A complaint is an explicit, confirmed send: it
+does not depend on the switch. Exit `0` delivered, `1` refused or not confirmed, `3` not
+delivered (kept). `-Complain` takes only `-Task`, `-CollabDir`, `-Contact`, `-Yes`.
+
+**State:** `codex-telemetry.ps1 -Status` - the switch and where it comes from, the intake URL,
+the spool's counts, the last flush's result, the instance id (not secret), whether the notice
+was shown for this version. Reads only.
+
+**Your data.** Locally: `<codex home>/telemetry-spool/` (what has not left yet), `<codex
+home>/telemetry-salt`, `<codex home>/telemetry-notice-<version>` - delete them at will;
+without the salt the next event starts a new instance id, which cannot be linked to the old
+one. At the intake: the events are keyed by your instance id (`codex-telemetry.ps1 -Status`
+prints it); ask for their deletion with `codex-telemetry.ps1 -Complain "Delete all data of this
+instance." -Yes` - the complaint carries the instance id - before you delete the salt. The
+intake's own delete endpoint is not part of the v2 contract this client was built against; this
+section names it when the intake publishes one.
+
+---
+
 ## Project isolation
 
 One user-scope install serves every project without mixing them: the ledger and handoffs
@@ -2421,6 +2632,8 @@ nor writes it.
 | `-Kick -Member <NN> [-Id <id>]` | — | (wave 26b) from another shell: stop ONE running member of a panel (or a single run) of `-Task` by its handoff number - a detached run with `-Id`, a foreground panel without; its process tree is stopped, its partial output salvaged, it records `failed: stopped by the operator (-Kick)` (class `operator`) and the panel goes on; (wave 26c) waits up to 10 s for the member's acknowledgement; exit `0` acknowledged, `1` no such member or not running, `3` no acknowledgement in time, `4` refused. Takes only `-Task`, `-CollabDir`, `-Member`, `-Id` |
 | `-BriefPrefix <slug>` | `CODEX_CONSULT_BRIEF_PREFIX`, else `claude` | (wave 27, R13) the coordinator's brief prefix: its briefs are `handoffs/<NN>-<prefix>-<slug>.md`; a lowercase slug; a reply prefix (`codex`, `agy`, `muse`) is refused before anything starts (exit `1`, the dry run too); the dry run prints `brief prefix:`; the bridge never writes a brief |
 | `-Explain coordinate\|consult\|providers` | — | (wave 27, R13) prints the plugin's skill `coordinate`, `consult-codex` or `setup-providers` - one line naming the file and the plugin directory, then the SKILL.md without its front matter, UTF-8 - for a host without skills; read-only, exit `0`; takes no other parameter (not even `-Task`); an unknown name exits `1` |
+| `-Telemetry on\|off` | `CODEX_CONSULT_TELEMETRY`, else `on` | (wave 28, R17) this run's telemetry switch: `on` spools ONE anonymised event after the commit and starts the detached sender, `off` writes and sends nothing; a panel passes it to its members; another value is refused (exit `1`); the dry run prints `telemetry   : on\|off (<source>)` ("Telemetry (on by default)") |
+| `-Complain "<text>" [-Contact <c>] [-Yes]` | — | (wave 28, R17) a complaint or suggestion to the maintainer's intake: prints the exact payload (the text - at most 8 KiB -, the task's last ledger entry through the event's allowlist, the plugin version, the OS, the instance id), asks `send? [y/N]` unless `-Yes`, prints the `public_ref` - or keeps it in the spool; exit `0` delivered, `1` refused or not confirmed, `3` not delivered (kept). Takes only `-Task`, `-CollabDir`, `-Contact`, `-Yes`; independent of the switch |
 
 Exit codes of `codex-consult.ps1` (a run; `-Status`/`-Wait` have their own table in
 "Non-blocking consultation"):
@@ -2447,10 +2660,12 @@ Environment variables:
 | a table's `env_key` (e.g. `ZAI_API_KEY`) | the user only | the provider credential; the bridge only checks that it is set |
 | `OPENAI_BASE_URL` | user | folded into the built-in `openai` identity (drift when it changes) |
 | `CODEX_CONSULT_ROSTER` | user | roster file path (must exist), or `none` |
-| `CODEX_CONSULT_COORDINATOR` | the coordinator (its session) | (wave 27, R13) the coordinator's own model: `<provider> :: <model>` [` [<engine>]`], a roster position `#<n>` or a provider label, parsed like `-Require`; a reviewer whose resolved identity it names gets a warning (never a refusal); a value that does not parse refuses the run before anything starts; ledger `coordinator` |
+| `CODEX_CONSULT_COORDINATOR` | the coordinator (its session) | (wave 27, R13) the coordinator's own model: `<provider> :: <model>` [` [<engine>]`], a roster position `#<n>` or a provider label, parsed like `-Require`; a reviewer whose resolved identity it names gets a warning (never a refusal); a value that does not parse refuses the run before anything starts; ledger `coordinator`. (Wave 27c, D9-D12) Resolved like a seated reviewer (a triple: the entry's model, else the model the bridge would run); "own model" only when provider, model and engine are equal, the weaker "a reviewer from the coordinator's own provider (model not named)" for a label whose model cannot be told; only a value that cannot be PARSED is refused (the roster's character rule); one no roster entry matches is said (`coordinator.in_roster` false), a `#<n>` that names no position here is warned about (`coordinator.unresolved`) |
 | `CODEX_CONSULT_BRIEF_PREFIX` | the coordinator | (wave 27, R13) the coordinator's brief prefix when `-BriefPrefix` is not given (default `claude`); a reply prefix (`codex`, `agy`, `muse`) is refused |
 | `CODEX_CONSULT_ROOT` | the operator or the coordinator (a shell) | (wave 27, R13) the plugin directory for commands typed in a plain shell - the skills' `${CLAUDE_PLUGIN_ROOT}`; the scripts do not read it (they find their siblings themselves) |
-| `CODEX_SESSION_ID`, `CODEX_THREAD_ID`, `CODEX_CI`, `CODEX_SANDBOX*`, `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `AI_AGENT`; (wave 27b) `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_BRIDGE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_CODE_SESSION_ATTENDED`, `CLAUDE_CODE_EXECPATH`, `CLAUDE_PID`, `CLAUDE_EFFORT`, `ZCODE_SESSION_ID`, `ZCODE_PROJECT_DIR`, `ZCODE_PLUGIN*` | the coordinator's host | (wave 27, R13) host markers: read once for the ledger's `coordinator.host` (a hint: the codex, then the Z Code, then the claude-code markers), never passed to an engine child (ledger `child_env_scrubbed`). Exact names: `CLAUDE_CODE_USE_BEDROCK` and the like, `CLAUDE_PLUGIN_ROOT` and `CLAUDE_PLUGIN_DATA` are kept |
+| `CODEX_SESSION_ID`, `CODEX_THREAD_ID`, `CODEX_CI`, `CODEX_SANDBOX*`, `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `AI_AGENT`; (wave 27b) `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_BRIDGE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_CODE_SESSION_ATTENDED`, `CLAUDE_CODE_EXECPATH`, `CLAUDE_PID`, `CLAUDE_EFFORT`; (wave 27c) `ZCODE_*` (the whole prefix - read inside a Z Code session on 2026-09-29, desktop 3.14.3) | the coordinator's host | (wave 27, R13) host markers: read once for the ledger's `coordinator.host` (a hint: the codex markers, then any `ZCODE_` variable, then the claude-code markers, else the install path), never passed to an engine child (ledger `child_env_scrubbed`). Exact `CLAUDE_CODE_` names: `CLAUDE_CODE_USE_BEDROCK` and the like, `CLAUDE_PLUGIN_ROOT` and `CLAUDE_PLUGIN_DATA` are kept |
+| `CODEX_CONSULT_TELEMETRY` | the operator (tests: `off`) | (wave 28, R17) the telemetry switch: unset or empty, `on`, `1`, `true`, `yes` - on (the default); `off`, `0`, `false`, `no`, `none` - off; any other value counts as off. `-Telemetry on\|off` overrides it for one run ("Telemetry (on by default)") |
+| `CODEX_CONSULT_TELEMETRY_URL` | tests only (a local intake) | (wave 28) the intake's base URL instead of `https://xelth.com/T`; https only - plain http only for a loopback host |
 | `CODEX_CONSULT_HEALTH` | user (tests: a scratch path, or `none`) | (wave 26b, R20) the machine-wide endpoint health file ("Preflight and endpoint health"); default `<codex home>/codex-consult-health.json`; `none`: no file, read nor written |
 | `CODEX_CONSULT_PEAK_<PROVIDER>`, `CODEX_CONSULT_PEAK_<PROVIDER>_EXCEPT` | user | peak windows |
 | `CODEX_CONSULT_EXE` | user | codex launcher path |
@@ -2458,7 +2673,7 @@ Environment variables:
 | `CODEX_CONSULT_MUSE_EXE` | user | muse launcher path (the `muse` engine) |
 | `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the bridge can read; required (wave 23b: without a readable oauth sign-in no muse run is launched, `-SkipPreflight` included); passed to muse unchanged |
 | `META_API_KEY`, `MODEL_API_KEY` | nobody, for the bridge | must NOT be set: a muse run is refused while either is (it would bill per token instead of the subscription) |
-| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED` | tests only | test hooks; never set them in normal use (the last: the routing seed's nonce when `-PanelSeed` is not given) |
+| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of the host markers in its environment) |
 | `CODEX_CONSULT_SCRIPTS_DIR` | tests only | (0.5.0, T4) the scripts directory `tests/run-all.ps1` and every harness test when `-ScriptsDir` is not given (e.g. an installed copy of the plugin); unset: the checkout's `plugins/codex-consult/scripts` |
 
 ---
@@ -2466,7 +2681,9 @@ Environment variables:
 ## How it works
 
 The bridge shells out to the documented `codex exec` CLI and makes no HTTP call to any
-provider; a plan's credentials are only ever used by the Codex CLI itself. Four invocation
+provider; a plan's credentials are only ever used by the Codex CLI itself. (0.5.0, wave 28) The
+plugin's one HTTP client is the telemetry sender (`codex-telemetry.ps1`), which talks only to the
+maintainer's intake, detached from every consultation ("Telemetry (on by default)"). Four invocation
 rules are load-bearing; keep them if you change the command:
 
 1. **Exec options precede the subcommand:**
@@ -2511,15 +2728,15 @@ JSON-RPC surface; a thin wrapper around `codex exec` is the stable surface.
 
 | Platform | What ran |
 |---|---|
-| Windows 11, Windows PowerShell 5.1, Codex CLI 0.155.1 | all fifteen harnesses (see "Tests"; last full run 2026-09-29, 0.5.0 waves 26c-27b: green but `harness-fixes`' two environmental F04-10 cases; the timing cases a concurrent build broke passed alone). Live: the 0.2.0 release review (`.collab/bridge-0.2-2026-09-23/`: framing `new`, acceptance `fork`, re-acceptance `resume`; three HOLDs with 11, 3 and 1 findings, then ACCEPT on 2026-09-24 after four fix waves; 12 findings verified, 2 superseded, 1 accepted limitation) and the 0.3.0 rounds below. The first live call hit the account's usage limit, which exercised the whole failure path (thread id still parsed from `thread.started`, the message lifted from the event stream, reply file and ledger entry written, non-zero exit) |
-| PowerShell 7.6 on Windows 11 | all fifteen harnesses (last full run 2026-09-29 under 7.6.6: the same counts as on 5.1, the same two F04-10 cases). One pwsh-only defect fixed in 0.2.0: `ConvertFrom-Json` turns ISO-8601 strings into `[datetime]`, which broke the start-time comparison that recognises a live lock holder or codex child; those reads now normalise through a JSON-text helper |
+| Windows 11, Windows PowerShell 5.1, Codex CLI 0.155.1 | all seventeen harnesses (see "Tests"; last full run 2026-09-29, 0.5.0 waves 27c and 28: `17 harness(es), 0 failed`; before, waves 26c-27b: green but `harness-fixes`' two environmental F04-10 cases). Live: the 0.2.0 release review (`.collab/bridge-0.2-2026-09-23/`: framing `new`, acceptance `fork`, re-acceptance `resume`; three HOLDs with 11, 3 and 1 findings, then ACCEPT on 2026-09-24 after four fix waves; 12 findings verified, 2 superseded, 1 accepted limitation) and the 0.3.0 rounds below. The first live call hit the account's usage limit, which exercised the whole failure path (thread id still parsed from `thread.started`, the message lifted from the event stream, reply file and ledger entry written, non-zero exit) |
+| PowerShell 7.6 on Windows 11 | all seventeen harnesses (last full run 2026-09-29 under 7.6.6, waves 27c and 28: the same counts as on 5.1, `17 harness(es), 0 failed`). One pwsh-only defect fixed in 0.2.0: `ConvertFrom-Json` turns ISO-8601 strings into `[datetime]`, which broke the start-time comparison that recognises a live lock holder or codex child; those reads now normalise through a JSON-text helper |
 | Linux (WSL Ubuntu 24.04, PowerShell 7.6, ext4), 2026-09-24 | with a bash fake `codex`: dry run, full structured run, lock contention through the advisory `flock` (second consultation and `-Status` refused, `-List` works, lock inode unchanged), timeout with the tree killed and no survivors, recovery of `launching` and `survivors` records through the `ps` scan, `chmod +x` changing the fingerprint, `$HOME/.codex` resolution, atomic `findings.json` replacement. Three Linux-only defects fixed: start times read by .NET can differ by under a second between readers (one-second tolerance off Windows); the holder's lock file could not be read back through a shared `FileStream` (read via `cat` off Windows); the timeout kill stopped children before the root (root first now). Known and left: an atomic replace resets the store's Unix permission bits; dates in messages render in an invariant format |
 | macOS | **not exercised**; the Linux run covers the same pwsh code paths |
 | 0.3.0 live (`.collab/bridge-0.3-2026-09-24/`) | design review and two acceptance rounds on the `openai` lineage (a `new` thread, then the first `resume` under the provenance rules); GLM-5.3 through `-Provider ZAI` (plain-Markdown reply kept with no verdict); MiMo through `-Provider mimo` with a per-run catalog (first attempt refused by the endpoint, `--output-schema` unsupported, lifted into the ledger; then, `prompt-only`, a bare-JSON HOLD ingested as F09-1..4 while reporting five earlier ids fixed); the first live panel (`-PanelAll`, real roster) found F15-1..4 through GLM-5.3 and MiMo after the weighty member was skipped on a known reset time; with the output contract buried after the schema the z.ai route answered in prose twice, and after the contract-first prompt it returned bare JSON (two cheap reviewers had independently diagnosed that cause). `codex-providers.ps1` on the real config: `openai` (`Logged in using ChatGPT`), `ZAI` and `mimo` (env keys) available. An earlier 0.2.0 smoke test of GLM-5.3 is in `.collab/multi-model-2026-09-23/` |
 | Coordinator host: Claude Code | the coordinator of every live run above (the plugin through `/plugin install`, its skills and the SessionStart hook) |
-| Coordinator host: Codex CLI 0.155.1 | install verified (`codex plugin add` mirrors the plugin into its cache and lists the skills as `codex-consult:<skill>`); live coordinator run pending |
-| Coordinator host: Z Code (desktop 3.14.3, CLI 0.16.9) | install verified (the plugin enabled, its skills and SessionStart hook recognised, both root variables substituted); live coordinator run pending |
-| Coordinator host: Kimi Code 0.27.0 | live coordinator run 2026-09-29 (headless `-p`, `--skills-dir <clone>/plugins/codex-consult/skills`, `CODEX_CONSULT_ROOT`, the three `AGENTS.md` lines): one checkpoint consultation from the README and the skills alone - reviewer `mimo :: mimo-v2.6-pro`, usable reply in 143 s, brief prefix `kimi`, ledger `coordinator.source: explicit`, `host: unknown`, `child_env_scrubbed: []` (the host sets no marker). Its remarks went into the skill (the first consultation of a task) and the `AGENTS.md` lines (the operator's `CODEX_CONSULT_COORDINATOR` is kept) |
+| Coordinator host: Codex CLI 0.155.1 | the operator installed the plugin with the two documented commands; live coordinator runs 2026-09-29 with `codex exec`: the session-start line in the context, the three skills listed (`codex-consult:consult-codex`, `:coordinate`, `:setup-providers`), the operator's `CODEX_CONSULT_COORDINATOR` kept, ledger `coordinator {openai :: gpt-6-astra, host: codex, source: explicit}`, `child_env_scrubbed: [CODEX_CI, CODEX_SESSION_ID, CODEX_THREAD_ID]`. Inside `--sandbox workspace-write` with network access enabled the reviewer child had no connection (timeout after 900 s; the process tree was not killed - wave 27c D16; `pwsh` was the WindowsApps alias the sandbox refused - D18). Outside the sandbox (the operator's decision): one checkpoint consultation, reviewer `mimo :: mimo-v2.6-pro`, usable reply in 502 s, brief prefix `coordinator` |
+| Coordinator host: Z Code (desktop 3.14.3, CLI 0.16.9) | install verified (the plugin enabled, its skills and SessionStart hook recognised, both root variables substituted); live coordinator run 2026-09-29 inside the app: one checkpoint consultation, reviewer `byteplus :: deepseek-v4.1-flash`, usable reply in 598 s, brief prefix `zcode`, the run started in a background shell because the host's shell tool stops at 600 s (wave 27c D24); with the code of wave 27b the host was recorded `unknown` and nothing was scrubbed - its shell tool carries twelve `ZCODE_` names, none of the two probed (D20, D21); no session-start line reaches the context of a desktop session (D23) |
+| Coordinator host: Kimi Code 0.27.0 | live coordinator run 2026-09-29 (headless `-p`, `--skills-dir <clone>/plugins/codex-consult/skills`, `CODEX_CONSULT_ROOT`, the three `AGENTS.md` lines): one checkpoint consultation from the README and the skills alone - reviewer `mimo :: mimo-v2.6-pro`, usable reply in 143 s, brief prefix `kimi`, ledger `coordinator.source: explicit`, `host: unknown`, `child_env_scrubbed: []` (the host sets no marker). Its remarks went into the skill (the first consultation of a task) and the `AGENTS.md` lines (the operator's `CODEX_CONSULT_COORDINATOR` is kept). Shell tool limit: 300 s in the foreground (wave 27c D24) |
 
 A report from a macOS run is the most useful contribution right now.
 
@@ -2556,6 +2773,10 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 | `CODEX_CONSULT_COORDINATOR='…' cannot be used: …` | (wave 27) give `<provider> :: <model>` (optionally ` [<engine>]`), a roster position `#<n>` the roster has, or a provider label - or unset the variable |
 | `the brief prefix '…' … is a reply prefix` / `must be a lowercase slug` | (wave 27) `-BriefPrefix` / `CODEX_CONSULT_BRIEF_PREFIX` name the coordinator's briefs: a lowercase slug other than `codex`, `agy`, `muse` (the default `claude` is fine for every host) |
 | `WARNING: coordinator: <lineage> is the coordinator's own model …` | (wave 27) the seated reviewer is your own model: a second opinion, not an independent one - pick another reviewer (`-Provider`, the roster) when independence matters |
+| `the <engine> run is refused before launch: bridge failure: host markers could not be hidden (<name>: <why>)` | (wave 27c, D3) a host marker of the coordinator's session could not be removed from the environment the engine child would inherit; every removed one was put back and nothing was started. Retry; if it persists, start the coordinator session with fewer inherited variables |
+| `failed: timeout after N s (kill not confirmed: ...; pid <n> may still run)` / `warning    : kill not confirmed (...)` | (wave 27c, D16) the process tree could not be seen dead (a restricted host - a sandbox that denies process inspection): check the pid (and its children) and stop them by hand; no continuation was attempted. Run consultations outside such a sandbox ("Codex CLI") |
+| `WARNING: test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` | (wave 27c, D14) a harness variable leaked into your environment: unset it (it changed nothing) |
+| `WARNING: CODEX_CONSULT_COORDINATOR '#<n>' names no roster position here ...` / `coordinator: <id> (not in the roster - no reviewer can match it)` | (wave 27c, D11, D12) your coordinator value names nobody in THIS repository's roster: nothing is refused, but no self-review warning can be given - name yourself as `<provider> :: <model>` in the roster's spelling |
 
 ---
 
@@ -2582,7 +2803,9 @@ anything not listed, rerun with `-DryRun` and compare the argv.
   `-Wait`), and T4 (the harnesses take `-ScriptsDir`); waves 26-26c (companions, `-Kick`, the
   stall cut, the machine-wide health); wave 27 - R13 (the host is a parameter: one plugin for
   every host, `CODEX_CONSULT_COORDINATOR`, the child environment without host markers,
-  `-Explain`, `-BriefPrefix`) and R19 (the `coordinate` skill, the worker tiers).
+  `-Explain`, `-BriefPrefix`) and R19 (the `coordinate` skill, the worker tiers); wave 28 - R17
+  (telemetry and complaints to the maintainer's intake, on by default: "Telemetry (on by
+  default)").
 - Help wanted: runs on macOS (the `-Detach` background there is `/bin/sh -c 'exec nohup ...'`,
   not exercised by the Windows-only harnesses); a bash port; a `UserPromptSubmit` hook injector;
   the reverse direction (a Codex-side tool that consults Claude); an MCP server variant.
@@ -2591,7 +2814,7 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 
 ## Tests
 
-`tests/run-all.ps1` runs the fifteen harnesses one at a time against a FAKE `codex` shim (and
+`tests/run-all.ps1` runs the seventeen harnesses one at a time against a FAKE `codex` shim (and
 a FAKE `agy` for `harness-engines` and `harness-panel`, a FAKE `muse` for `harness-muse`): no
 real `codex`, `agy` or `muse`, no quota spent, no real credential read (`harness-muse` gives
 every child a scratch home with a fake `auth.json`, a scratch `LOCALAPPDATA` and a PATH
@@ -2612,7 +2835,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1 -ScriptsDi
 (0.5.0, T4) `-ScriptsDir <dir>` - else the environment variable `CODEX_CONSULT_SCRIPTS_DIR`, else
 the checkout's `plugins/codex-consult/scripts` - names the scripts under test; `run-all.ps1`
 passes it to every harness (each takes it too) and names it in its summary line
-(`run-all: 15 harness(es), 0 failed; scripts: <dir>`).
+(`run-all: 17 harness(es), 0 failed; scripts: <dir>`). (Wave 28, wave 27c) Every harness and `run-all.ps1` set
+`CODEX_CONSULT_TELEMETRY=off` (the intake pointed at a closed loopback port - only `harness-telemetry` talks to
+a local `HttpListener`) and `CODEX_CONSULT_TEST_MODE=1` (the bridge honours its test hooks only then).
 
 Assertions per harness (Windows PowerShell 5.1, 2026-09-27, 0.5.0 wave 26): `harness-0.3` 229,
 `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 72,
@@ -2640,7 +2865,12 @@ the idle watchdog); every other harness as above, `harness-fixes` 43 + 2 (the tw
 fail while a real `codex.exe` runs on the machine). `harness-0.3`, `harness-roster`,
 `harness-format`, `harness-engines`, `harness-muse`, `harness-panel`, `harness-visibility`,
 `harness-detach`, `harness-companions`, `harness-fixes26b` and `harness-host` also run under pwsh
-(2026-09-29: all fifteen ran under 7.6.6). Many cases wait on real timeouts and time a fake
+(2026-09-29: all fifteen ran under 7.6.6). (2026-09-29, waves 27c and 28 - the final `tests/run-all.ps1` runs on Windows PowerShell 5.1
+and PowerShell 7.6.6, the same counts on both, `17 harness(es), 0 failed`) `harness-0.3` 229, `harness-roster` 119,
+`harness-format` 37, `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending` 26, `harness-fixes`
+45 (the two F04-10 cases passed), `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51,
+`harness-companions` 42, `harness-fixes26b` 51, `harness-host` 52 (+2: the templates grep of D22, the values no longer
+refused), `harness-telemetry` 55 (new, wave 28), `harness-fixes27c` 36 (new, wave 27c). Many cases wait on real timeouts and time a fake
 reviewer: on a loaded machine (another heavy application or build, a disk that runs full) the
 timing cases of `harness-panel` (RUN, GUARD), `harness-detach` (PANEL) and `harness-visibility`
 (CONT) can fail spuriously - re-run that section alone. A full run takes about one and a half to
