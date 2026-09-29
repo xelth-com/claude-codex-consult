@@ -143,6 +143,80 @@ It sets no environment marker of its own (`coordinator.host` stays `unknown`), s
 names itself: `CODEX_CONSULT_COORDINATOR`, e.g. `kimi :: k3` (the label and model your roster
 uses for it). A headless `-p` run takes neither `--yolo` nor `--auto`.
 
+### Qwen Code
+
+Qwen Code (`qwen`, checked with 0.15.6) installs this plugin as an extension straight from the
+repository's Claude marketplace (the source form `<marketplace-url>:<plugin-name>`). In the
+operator's terminal:
+
+```
+qwen extensions install https://github.com/xelth-com/claude-codex-consult:codex-consult --consent
+```
+
+Expect the whole plugin directory in `~/.qwen/extensions/codex-consult`, enabled; `qwen extensions
+list` shows the skills and the three agents. At the install Qwen Code replaces
+`${CLAUDE_PLUGIN_ROOT}` in the skill text by the install path, so the skills' commands run as
+written. `hooks/hooks.json` is copied, but no hook is listed for the extension: the session-start
+line comes from the hook one-liner (the second `AGENTS.md` line). Update: `qwen extensions update
+codex-consult`; remove: `qwen extensions uninstall codex-consult`. The three lines above go into the
+project's `AGENTS.md` (its bundled documentation: Qwen Code reads it beside its own `QWEN.md`) or its
+global `~/.qwen/QWEN.md`, `<plugin>` = `~/.qwen/extensions/codex-consult`. Headless: a positional
+prompt, `-y` for automatic approval. Its shell tool's time limit is unknown: start a run with
+`-Detach`. Not run live by the maintainer: the free Qwen OAuth quota ended on 2026-04-15, so the
+session had no model access (choosing another route with `/auth` is the operator's step).
+
+### OpenCode
+
+OpenCode (`opencode`, 1.17.18) has no Claude-layout plugins (its plugins are npm modules), but it
+discovers skills in fixed places - its documentation (opencode.ai/docs/skills, read 2026-09-29): in
+a project `.opencode/skills/<name>/SKILL.md`, `.claude/skills/<name>/SKILL.md` or
+`.agents/skills/<name>/SKILL.md` (walking up to the git worktree root); globally
+`~/.config/opencode/skills/*/SKILL.md`, `~/.claude/skills/*/SKILL.md` or
+`~/.agents/skills/*/SKILL.md`. No option adds a directory, and a skill's name must equal its
+directory name (lower case, digits, single hyphens - the plugin's skills satisfy it). So the
+operator clones the repository and LINKS each skill directory - a link, never a copy, so that a
+`git pull` updates the skills:
+
+```
+git clone https://github.com/xelth-com/claude-codex-consult <clone>
+# for <name> in consult-codex, coordinate, setup-providers (create ~/.config/opencode/skills first):
+#   Windows (a junction):  cmd /c mklink /J "%USERPROFILE%\.config\opencode\skills\<name>" "<clone>\plugins\codex-consult\skills\<name>"
+#   elsewhere:             ln -s <clone>/plugins/codex-consult/skills/<name> ~/.config/opencode/skills/<name>
+```
+
+It does not substitute `${CLAUDE_PLUGIN_ROOT}`: set `CODEX_CONSULT_ROOT=<clone>/plugins/codex-consult`
+in the environment `opencode` starts from. It runs no Claude-layout hooks: the hook one-liner gives
+the session-start line. The three lines above go into the project's `AGENTS.md` (found walking up
+to the worktree root) or the global `~/.config/opencode/AGENTS.md`, `<plugin>` =
+`<clone>/plugins/codex-consult`. Headless: `opencode run "<prompt>"`. Its shell tool's time limit is
+unknown: start a run with `-Detach`. Not run live by the maintainer: the provider configured on the
+machine refused the authentication.
+
+### Muse Code
+
+Muse Code (`muse`, 1.4.0) installs skills one at a time from a directory: `muse skills install
+<path> [--scope user]`; `muse skills update <skill-id>` refreshes one, `muse skills list` shows the
+source of each (user, project, built-in, plugin), and `muse skills import --from claude|codex`
+imports the skills of those hosts. **Muse Code is also a REVIEWER engine of the bridge** ("Engines
+(wave 23)"), and skills installed at user scope are visible to the reviewer sessions too: install
+the three skills at PROJECT scope, in the repositories where Muse Code coordinates - never with
+`--scope user` - and check the source column of `muse skills list`:
+
+```
+git clone https://github.com/xelth-com/claude-codex-consult <clone>
+# in the project, for <name> in consult-codex, coordinate, setup-providers:
+muse skills install <clone>/plugins/codex-consult/skills/<name>
+```
+
+Set `CODEX_CONSULT_ROOT=<clone>/plugins/codex-consult` (that Muse Code substitutes
+`${CLAUDE_PLUGIN_ROOT}` is not known) and run the hook one-liner at the start. The three lines above
+go into the project's `AGENTS.md`, `<plugin>` = `<clone>/plugins/codex-consult`; Muse Code also
+includes the personal rules of other hosts on its own. Headless: `muse exec --prompt-file <file>
+--workspace <dir>`. Its shell tool is PowerShell with a default wait of 10 s and a maximum of 300 s:
+a run with a longer timeout goes with `-Detach` (then `-Wait` / `-Status`). Not run live by the
+maintainer as a coordinator: on Windows its shell tool needs the sandbox setup of Muse Code done once
+with elevated rights ("sandbox users are not ready").
+
 ### Any shell (a clone)
 
 ```powershell
@@ -168,8 +242,10 @@ telemetry switch, `on` or `off`. Claude Code runs it at every session start of a
 enabled. Codex CLI knows the same event and reads `hooks/hooks.json`, and it runs a plugin's
 hooks only once they are trusted; whether it does for this plugin is part of the host's
 acceptance run. Z Code recognises the hook at the install and substitutes the plugin root in it,
-so it runs as on Claude Code. Kimi Code has no hooks. Until a host's run is confirmed, and on any
-host without hooks, the one-liner does the same (the AGENTS.md rule above):
+so it runs as on Claude Code. Kimi Code has no hooks. Qwen Code copies `hooks/hooks.json` with the
+extension but lists no hook for it; OpenCode runs no Claude-layout hooks; for Muse Code none was
+checked. Until a host's run is confirmed, and on any host without hooks, the one-liner does the same
+(the AGENTS.md rule above):
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult-hook.ps1"
@@ -184,7 +260,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-consult-ho
 ## For the coordinator
 
 The coordinator is the session that plans, delegates to workers, consults reviewers and keeps
-the final word - on Claude Code, Codex CLI, Z Code, Kimi Code or a shell. Its rules ship with
+the final word - on Claude Code, Codex CLI, Z Code, Kimi Code, a shell, or (documented, not run
+live) Qwen Code, OpenCode and Muse Code. Its rules ship with
 the plugin as the `coordinate` skill (invariants first, then the means per host and the worker
 tier contract: deep reasoning, default execution, cheap read-only recon); `consult-codex` is the consultation
 procedure. Set `CODEX_CONSULT_COORDINATOR` to your own model (`<provider> :: <model>` [`
@@ -207,11 +284,14 @@ named with the coordinator's brief prefix, `handoffs/<NN>-<prefix>-<slug>.md`: `
 default (every existing ledger uses it), another slug through `-BriefPrefix` or
 `CODEX_CONSULT_BRIEF_PREFIX` - never `codex`, `agy` or `muse`, the bridge's reply prefixes.
 
-The `coordinate` skill also carries the idle watchdog (its rule 3): one recurring wake armed at
-your first delegation, an idle clock from the last activity of any kind, and after two idle wakes
-(three while something still runs) a handover and a compaction - or, where the agent cannot
-compact itself, the handover and one line to the operator. The host's auto-compact threshold is
-the operator's lever: it keeps every wake and every cold resume small.
+The `coordinate` skill also carries the idle watchdog (its rule 3): one recurring wake every 30
+minutes, armed at your first delegation or wait and kept while any running work exists (a worker,
+a detached panel, a shell job, another session's window, the operator's announced step, a
+cooldown); compaction at wave boundaries and before a wait longer than the boundary; when idle, the
+handover and a compaction at the second idle wake - or, where the agent cannot compact itself, one
+line to the operator and the wake kept. The host's auto-compact threshold is the operator's lever:
+it keeps every wake and every cold resume small. Why a wake pays, and when compacting pays more:
+the next section, "Waiting: keep the prompt cache or compact".
 
 If your own CLAUDE.md or AGENTS.md carries a private "supervisor / worker delegation" block (the
 worker tiers, waves, waits, the language rule), shrink it to a pointer - "Coordinator rules:
@@ -220,6 +300,117 @@ project convention). The plugin never edits a CLAUDE.md or an AGENTS.md: that mi
 pasting the AGENTS.md lines above, is the operator's. A same-named agent file of your own
 (`~/.claude/agents/opus-worker.md`, `~/.codex/agents/opus-worker.toml`) stays yours; the plugin's
 Claude Code agents are namespaced (`codex-consult:opus-worker`).
+
+## Waiting: keep the prompt cache or compact
+
+A coordinator waits a lot: for its workers, a review panel, another session, the operator. This
+section explains what a wait costs, why the `coordinate` skill keeps a recurring wake, and when
+compacting the conversation is cheaper than keeping it. It assumes no knowledge of prompt caching.
+
+**The prompt cache.** Every request of a coordinator carries its whole context - the instructions,
+the tools and the conversation so far, often several hundred thousand tokens. The model's vendor
+keeps a context it has just processed in a *prompt cache* for a limited *lifetime*: one hour in the
+coordinator sessions where this was measured, five minutes by default on the API (one hour on
+request). A request that repeats the cached context within the lifetime pays only the cheap *cache
+read* for it and starts the lifetime anew - a *refresh*. A request after the lifetime finds nothing
+and pays a *cache write* of the whole context - here called a *cold resume*.
+
+**Three prices.** Beside plain input, a token is paid as a cache read (a small fraction of the
+input price), as a cache write (twice the input price with the one-hour lifetime, 1.25 times with
+five minutes) or as output (what the model writes, the dearest). API list prices of 2026-09, USD
+per million tokens:
+
+| Model of the coordinator | Input / output | Cache read | Cache write, 1 h lifetime | One cold resume costs as much as |
+|---|---|---|---|---|
+| Claude Fable 5.1 | 10 / 50 | 0.25 (0.025 x input) | 20 (2 x input) | 80 cache reads - 40 hours of refreshes every 30 minutes |
+| Claude Opus 5.5 | 4 / 20 | 0.20 (0.05 x input) | 8 (2 x input) | 40 cache reads - 20 hours |
+| Claude Sonnet 5.5 | 2 / 10 | 0.20 (0.1 x input) | 4 (2 x input) | 20 cache reads - 10 hours |
+
+**Refreshing, and what counts as running work.** The `coordinate` skill arms ONE recurring wake
+every 30 minutes at the first delegation or wait of a session. A wake is a small turn: it reads the
+whole context from the cache (the refresh), adds about 1K tokens of new input - written to the
+cache at the write price - and about 300 tokens of output. On the API a refresh needs no turn:
+repeat the previous request with `max_tokens: 0` (not streamed), and only the cache read is billed.
+The wake stays armed, and the session does not count as idle, while any *running work* exists:
+
+- a worker or subagent of your own that has not reported;
+- a detached panel or consultation (a background `-Wait` is its notification);
+- a long shell job you started (a test suite, a build);
+- a window you gave ANOTHER session, or a step of another session you depend on, until it says it is done;
+- a step of the operator with a named end ("I install it and come back");
+- a cooldown with a named end (a provider's `retry_after`, a quota window) before a run you will repeat.
+
+Idle is only: none of these, and nothing to do without the operator.
+
+**Keep or compact: the boundary.** To *compact* is to let the model write a summary of the
+conversation and go on from it: the small new context - the *compact window*, about 50K tokens with
+the host's own instructions and tools - replaces the large one. Before a long wait there are three
+ways: keep the large context warm with wakes; compact, remove the wake and read the compact window
+cold at the end; or let the large cache expire and pay its cold resume. With C the context in
+tokens, P the input and Pout the output price per token, r the cache-read and w the cache-write
+multiplier:
+
+```text
+one wake       = r x P x C + turn           turn = 1K x w x P (new input) + 300 x Pout
+keep, n wakes  = n x one wake + r x P x C   (the resume reads the warm context)
+compact        = r x P x C + S x Pout + w x P x C2   (one read, the summary S of about 10K
+                 output tokens, the cold write of the compact window C2 of about 50K at the resume)
+let it expire  = w x P x C                  (the cold resume)
+boundary       = (S x Pout + w x P x C2) / one wake   wakes; hours = wakes / 2
+```
+
+Keeping and compacting both read the large context once, so keeping is cheaper while its wakes cost
+less than the summary and the cold write of the compact window - at 1M on Claude Fable 5.1, (1.75 -
+0.25) / 0.285 = 5.3 wakes, 2.6 hours. In USD, a wake every 30 minutes:
+
+| Context C | Claude Fable 5.1: keep is cheaper up to | one wake | compact | let it expire | Claude Opus 5.5: keep up to | Claude Sonnet 5.5: keep up to |
+|---|---|---|---|---|---|---|
+| 1M | 2.6 hours | 0.29 | 1.75 | 20 | 1.4 hours | 0.7 hours |
+| 850K | 3.0 hours | 0.25 | 1.71 | 17 | 1.6 hours | 0.8 hours |
+| 500K | 4.7 hours | 0.16 | 1.63 | 10 | 2.6 hours | 1.4 hours |
+| 300K | 6.8 hours | 0.11 | 1.58 | 6 | 4.1 hours | 2.2 hours |
+| 150K | 10.3 hours | 0.07 | 1.54 | 3 | 6.8 hours | 4.1 hours |
+
+The price of compacting hardly depends on C (it is mostly the summary and the cold write of the
+compact window); the price of keeping grows with C - the larger the context, the earlier compaction
+wins. The cheaper a cache read is relative to the model's other prices (a small r), the longer
+keeping pays: the boundary comes earlier on the cheaper models. Above about 80K tokens, compacting
+is cheaper than letting the cache expire, however long the wait. A third way - compact, then
+keep the small compact window warm - beats reading it cold on Claude Fable 5.1 only for waits under
+about eight to ten hours (depending on how much of it is already cached), by less than one USD: a
+refinement, not another rule.
+
+Worked example: a night of 8 hours at 850K tokens on Claude Fable 5.1. Keeping the context warm
+costs 16 wakes x 0.2475 = 3.96 USD, plus 0.21 USD for the read at the resume: about 4.2 USD.
+Compacting before the night and reading the compact window cold in the morning costs 1.71 USD.
+Letting the large cache expire costs one cold resume: 17 USD.
+
+What the money does not show: after a compaction every working turn reads the compact window
+instead of the large context (0.01 instead of 0.21 USD a turn in the example) - in favour of
+compaction; a compaction drops the detail the summary did not keep - against it, which is why the
+rule compacts at wave boundaries, with the state on disk.
+
+**The rule** (the `coordinate` skill, rule 3):
+
+1. While running work goes on: keep the wake. No compaction in the middle of a wave.
+2. At a wave boundary (the report is read, the state is on disk): compact, or start a fresh session from the state file.
+3. A wait of known length: shorter than the boundary - refresh; longer - compact first (while the cache is warm), then remove the wake and let something wake you at the end.
+4. Idle: idle wake 1 - one line in the state file; idle wake 2 - the handover, then compact and remove the wake.
+5. Where the agent cannot compact itself (Claude Code, verified on 2026-09-29: no tool for it, and a scheduled `/compact` arrives as ordinary text): it says so to the operator in one line before a long wait or at idle wake 2, and keeps the wake; it removes it only after half the refreshes a cold resume is worth (40 wakes on Claude Fable 5.1, 20 on Claude Opus 5.5, 10 on Claude Sonnet 5.5).
+6. Compact only while the cache is warm: after it expired, a compaction costs as much as a cold resume.
+7. The operator's lever: the host's auto-compact threshold keeps C small all the time.
+
+**Measured, taken, estimated.** Observed: the one-hour lifetime in the coordinator sessions where it
+was measured, and (2026-09-29) that Claude Code gives its agent no way to compact itself. Taken from
+the vendor: the API list prices of 2026-09 and the multipliers. Estimated: the wake's turn (1K
+tokens in, 300 out), the summary (10K) and the compact window (50K). Every cost and boundary in this
+section is computed from these with the formulas above; none is read from a bill.
+
+**Caveats.** Prices change: take the current ones from the vendor's pricing page (for the Claude
+models, Anthropic's API pricing) and recompute with the formulas. Subscription plans meter usage
+their own way; the USD figures describe the API. The numbers assume a wake every 30 minutes: a
+longer interval stretches every boundary in proportion (the same number of wakes) and leaves less
+margin before a one-hour lifetime ends.
 
 ---
 
@@ -2737,6 +2928,9 @@ JSON-RPC surface; a thin wrapper around `codex exec` is the stable surface.
 | Coordinator host: Codex CLI 0.155.1 | the operator installed the plugin with the two documented commands; live coordinator runs 2026-09-29 with `codex exec`: the session-start line in the context, the three skills listed (`codex-consult:consult-codex`, `:coordinate`, `:setup-providers`), the operator's `CODEX_CONSULT_COORDINATOR` kept, ledger `coordinator {openai :: gpt-6-astra, host: codex, source: explicit}`, `child_env_scrubbed: [CODEX_CI, CODEX_SESSION_ID, CODEX_THREAD_ID]`. Inside `--sandbox workspace-write` with network access enabled the reviewer child had no connection (timeout after 900 s; the process tree was not killed - wave 27c D16; `pwsh` was the WindowsApps alias the sandbox refused - D18). Outside the sandbox (the operator's decision): one checkpoint consultation, reviewer `mimo :: mimo-v2.6-pro`, usable reply in 502 s, brief prefix `coordinator` |
 | Coordinator host: Z Code (desktop 3.14.3, CLI 0.16.9) | install verified (the plugin enabled, its skills and SessionStart hook recognised, both root variables substituted); live coordinator run 2026-09-29 inside the app: one checkpoint consultation, reviewer `byteplus :: deepseek-v4.1-flash`, usable reply in 598 s, brief prefix `zcode`, the run started in a background shell because the host's shell tool stops at 600 s (wave 27c D24); with the code of wave 27b the host was recorded `unknown` and nothing was scrubbed - its shell tool carries twelve `ZCODE_` names, none of the two probed (D20, D21); no session-start line reaches the context of a desktop session (D23) |
 | Coordinator host: Kimi Code 0.27.0 | live coordinator run 2026-09-29 (headless `-p`, `--skills-dir <clone>/plugins/codex-consult/skills`, `CODEX_CONSULT_ROOT`, the three `AGENTS.md` lines): one checkpoint consultation from the README and the skills alone - reviewer `mimo :: mimo-v2.6-pro`, usable reply in 143 s, brief prefix `kimi`, ledger `coordinator.source: explicit`, `host: unknown`, `child_env_scrubbed: []` (the host sets no marker). Its remarks went into the skill (the first consultation of a task) and the `AGENTS.md` lines (the operator's `CODEX_CONSULT_COORDINATOR` is kept). Shell tool limit: 300 s in the foreground (wave 27c D24) |
+| Coordinator host: Qwen Code 0.15.6 | install verified 2026-09-29: `qwen extensions install https://github.com/xelth-com/claude-codex-consult:codex-consult --consent` put the whole plugin directory, enabled, into `~/.qwen/extensions/codex-consult`; `qwen extensions list` showed the skills and the three agents; `${CLAUDE_PLUGIN_ROOT}` in the skill text was replaced by the install path; `hooks/hooks.json` was copied, no hook listed. Live coordinator run: none (the free Qwen OAuth quota ended on 2026-04-15 - the session had no model access; `/auth` is the operator's step) |
+| Coordinator host: OpenCode 1.17.18 | nothing verified on the machine: the skill directories and the name rule are those of its documentation (opencode.ai/docs/skills, read 2026-09-29). Live coordinator run: none (the provider configured on the machine refused the authentication) |
+| Coordinator host: Muse Code 1.4.0 | the commands exist (`muse skills install`, `update`, `list`, `import --from claude\|codex`) and the headless mode (`muse exec --prompt-file <file> --workspace <dir>`) answers. Live coordinator run: none (on Windows its shell tool needs the sandbox setup of Muse Code done once with elevated rights - "sandbox users are not ready"); as a reviewer engine see "Engines (wave 23)" |
 
 A report from a macOS run is the most useful contribution right now.
 
@@ -2870,7 +3064,10 @@ and PowerShell 7.6.6, the same counts on both, `17 harness(es), 0 failed`) `harn
 `harness-format` 37, `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending` 26, `harness-fixes`
 45 (the two F04-10 cases passed), `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51,
 `harness-companions` 42, `harness-fixes26b` 51, `harness-host` 52 (+2: the templates grep of D22, the values no longer
-refused), `harness-telemetry` 55 (new, wave 28), `harness-fixes27c` 36 (new, wave 27c). Many cases wait on real timeouts and time a fake
+refused), `harness-telemetry` 55 (new, wave 28), `harness-fixes27c` 36 (new, wave 27c). (2026-09-29, wave 27d -
+documentation only; `harness-host` alone on Windows PowerShell 5.1 and PowerShell 7.6.6) `harness-host` 58 (+6: the waiting
+rule's revision 5 in the skill and the README section "Waiting: keep the prompt cache or compact", every number recomputed
+from the formula; the Qwen Code, OpenCode and Muse Code sections and rows). Many cases wait on real timeouts and time a fake
 reviewer: on a loaded machine (another heavy application or build, a disk that runs full) the
 timing cases of `harness-panel` (RUN, GUARD), `harness-detach` (PANEL) and `harness-visibility`
 (CONT) can fail spuriously - re-run that section alone. A full run takes about one and a half to

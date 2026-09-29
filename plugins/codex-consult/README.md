@@ -18,6 +18,10 @@ troubleshooting - is the repository README:
 | `coordinate` | the coordinator's rules: workers and waves, waiting without blocking (`-Detach`, `-Status`, `-Wait`, `-Kick`), compaction, the worker tiers, the means per host |
 | `setup-providers` | wiring reviewers on a machine: the Codex login, provider tables, the roster, the `agy` and `muse` engines, verification |
 
+Why `coordinate` keeps a recurring wake while it waits, and when it compacts instead (the prompt
+cache, its prices, the boundary, a worked example): the repository README, section "Waiting: keep
+the prompt cache or compact".
+
 `${CLAUDE_PLUGIN_ROOT}` in the skills is this directory; from a plain shell set `CODEX_CONSULT_ROOT`
 to it and use that instead.
 

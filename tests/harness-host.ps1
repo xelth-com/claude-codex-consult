@@ -10,7 +10,10 @@
 # a host session's id, messaging socket and token, attendance, executable path, pid and effort, a Z
 # Code session and project, every ZCODE_PLUGIN* - with the operator's CLAUDE_CODE_USE_BEDROCK and
 # CLAUDE_PLUGIN_ROOT kept; the host hint zcode and its order; the README's Z Code and Kimi Code host
-# sections and the documented lists. FAKES ONLY: fake-codex3.cmd; CODEX_HOME
+# sections and the documented lists. (wave 27d) The waiting rule, revision 5, in the coordinate skill
+# and the README section "Waiting: keep the prompt cache or compact" - every number recomputed from the
+# formula and the prices; the Qwen Code, OpenCode and Muse Code host sections, rows and host lines
+# (documented, not run live). FAKES ONLY: fake-codex3.cmd; CODEX_HOME
 # and CODEX_CONSULT_ROSTER point at scratch files, CODEX_CONSULT_HEALTH is 'none'; the host markers of
 # the process that runs the harness are removed first and every case sets its own; the API key
 # variables hold dummy test values. Runs under the host it is started with (powershell 5.1 or pwsh 7,
@@ -212,6 +215,31 @@ function Read-FrontMatter {
     }
     return [pscustomobject]@{ Fm = $fm; Body = $body; Text = $t }
 }
+# (wave 27d) the arithmetic of the waiting rule (README "Waiting: keep the prompt cache or compact"),
+# in [decimal] so that a half rounds as printed (away from zero): the API prices per token of
+# 2026-09, the cache-read multiplier R and the one-hour cache-write multiplier W; the wake's turn
+# (1K new input written to the cache, 300 output), the summary (10K output), the compact window (50K)
+$waitModels = [ordered]@{
+    'Claude Fable 5.1'  = @{ P = [decimal]'0.00001';  Pout = [decimal]'0.00005'; R = [decimal]'0.025'; W = [decimal]'2' }
+    'Claude Opus 5.5'   = @{ P = [decimal]'0.000004'; Pout = [decimal]'0.00002'; R = [decimal]'0.05';  W = [decimal]'2' }
+    'Claude Sonnet 5.5' = @{ P = [decimal]'0.000002'; Pout = [decimal]'0.00001'; R = [decimal]'0.1';   W = [decimal]'2' }
+}
+$waitContexts = [ordered]@{ '1M' = [decimal]1000000; '850K' = [decimal]850000; '500K' = [decimal]500000; '300K' = [decimal]300000; '150K' = [decimal]150000 }
+# one wake = R*P*C + turn; compact = R*P*C + S*Pout + W*P*C2; the boundary = (S*Pout + W*P*C2) / one wake
+# wakes, hours = wakes / 2 (keeping reads the context once too, at the resume)
+function Get-WaitNumbers {
+    param([hashtable]$M, [decimal]$C)
+    $turn = [decimal]1000 * $M.W * $M.P + [decimal]300 * $M.Pout
+    $read = $M.R * $M.P * $C
+    $wake = $read + $turn
+    $tail = [decimal]10000 * $M.Pout + $M.W * $M.P * [decimal]50000
+    return [pscustomobject]@{ Read = $read; Wake = $wake; Compact = $read + $tail; Expire = $M.W * $M.P * $C; Hours = $tail / $wake / [decimal]2; Tail = $tail }
+}
+function Format-Dec {
+    param([decimal]$V, [int]$Digits)
+    $f = $(if ($Digits -gt 0) { '0.' + ('0' * $Digits) } else { '0' })
+    return ([Math]::Round($V, $Digits, [MidpointRounding]::AwayFromZero)).ToString($f, [Globalization.CultureInfo]::InvariantCulture)
+}
 
 $adviseJson = '{"schema_version":"1","verdict":"ADVISE","verdict_reason":"r","reply_markdown":"m","findings":[],"prior_findings":[],"unproven":[],"first_run_checklist":[]}'
 $advise = Reply 'advise.json' $adviseJson
@@ -245,7 +273,8 @@ if (Want 'GREP') {
         for ($i = 0; $i -lt $lines.Count; $i++) {
             $l = $lines[$i]
             if ($l -match '^## ') { $section = $l }
-            if ($l -cmatch '\bClaude\b' -and $section -ne '## Means per host') { $claudeHits.Add("$($leaf):$($i + 1)") }
+            # (wave 27d) a model name (Claude Fable 5.1, the prices of the waiting rule) names no host
+            if (($l -creplace '\bClaude (Fable|Opus|Sonnet|Haiku) \d+(\.\d+)?', '') -cmatch '\bClaude\b' -and $section -ne '## Means per host') { $claudeHits.Add("$($leaf):$($i + 1)") }
             if ($l -ceq $note) { continue }
             foreach ($m in [regex]::Matches($l, '\$\{CLAUDE_PLUGIN_ROOT\}(.{0,12})')) {
                 if ($m.Groups[1].Value -notmatch '^/(scripts|templates|skills|schemas|install|hooks|agents)/') { $rootHits.Add("$($leaf):$($i + 1)") }
@@ -255,9 +284,9 @@ if (Want 'GREP') {
     }
     Check 'GREP' 'D2 every skill (consult-codex, coordinate, setup-providers) opens with the one-sentence root note right after its title: "`${CLAUDE_PLUGIN_ROOT}` is the plugin directory; from a plain shell set `CODEX_CONSULT_ROOT` to it and use that instead."' (($names -join ',') -eq 'consult-codex,coordinate,setup-providers' -and $noteMissing.Count -eq 0) "skills $($names -join ','); missing in $($noteMissing -join ',')"
     Check 'GREP' 'D2/D6 `${CLAUDE_PLUGIN_ROOT}` appears in the skills only in the root note and as a path prefix into the plugin (/scripts/, /templates/, /skills/, /install/ ...) - the `<skill dir>/../..` fallback is gone' ($rootHits.Count -eq 0) ($rootHits -join ', ')
-    Check 'GREP' 'D6 "Claude" appears in the skills only in the coordinate skill''s "Means per host" section (the coordinator, the judge everywhere else)' ($claudeHits.Count -eq 0) ($claudeHits -join ', ')
-    # README: "Claude" only in the host sections
-    $allowed = '^## (Install|For the coordinator|Engines|Alternatives|Roadmap|Tested on)'
+    Check 'GREP' 'D6 "Claude" appears in the skills only in the coordinate skill''s "Means per host" section (the coordinator, the judge everywhere else) - (wave 27d) a model name such as "Claude Fable 5.1" in the waiting rule is no host' ($claudeHits.Count -eq 0) ($claudeHits -join ', ')
+    # README: "Claude" only in the host sections - (wave 27d) and in "Waiting", whose prices are those of Claude models
+    $allowed = '^## (Install|For the coordinator|Waiting: keep the prompt cache or compact|Engines|Alternatives|Roadmap|Tested on)'
     $readmeHits = New-Object System.Collections.Generic.List[string]
     $section = ''
     $rl = @($readme -split "`r?`n")
@@ -265,7 +294,7 @@ if (Want 'GREP') {
         if ($rl[$i] -match '^## ') { $section = $rl[$i] }
         if ($rl[$i] -cmatch '\bClaude\b' -and $section -notmatch $allowed) { $readmeHits.Add("$($i + 1): $($rl[$i].Substring(0, [Math]::Min(60, $rl[$i].Length)))") }
     }
-    Check 'GREP' 'D6 the README names "Claude" only in the host sections (Install, For the coordinator; the Engines, Alternatives, Roadmap and Tested-on product references)' ($readmeHits.Count -eq 0) ($readmeHits -join ' || ')
+    Check 'GREP' 'D6 the README names "Claude" only in the host sections (Install, For the coordinator; the Engines, Alternatives, Roadmap and Tested-on product references; wave 27d: Waiting, the prices of the Claude models)' ($readmeHits.Count -eq 0) ($readmeHits -join ' || ')
     $scriptHits = @(Get-ChildItem -LiteralPath $scripts -Filter '*.ps1' | ForEach-Object { $sf = $_; $n = 0; foreach ($l in ((Text $sf.FullName) -split "`n")) { $n++; if ($l -cmatch '\bClaude\b') { "$($sf.Name):$n" } } })
     Check 'GREP' 'D6 no script says "Claude": the synopses, .DESCRIPTION/.EXAMPLE text and the hook header say the coordinator (codex-consult.ps1: "from any coordinator")' ($scriptHits.Count -eq 0 -and (Text $consultPs) -match 'from any coordinator' -and (Text $hookPs) -match "the coordinator's session") ($scriptHits -join ', ')
     # (wave 27c, D22) the brief templates name no host either
@@ -491,20 +520,31 @@ if (Want 'SKILL') {
     $fmOk = ($cs.Fm['name'] -eq 'coordinate' -and $cs.Fm['description'].Length -gt 80 -and $cs.Fm.ContainsKey('argument-hint') -and $cs.Fm.ContainsKey('allowed-tools') -and $cs.Fm['disable-model-invocation'] -eq 'false')
     Check 'SKILL' 'D7 the coordinate skill: front matter name coordinate, a description, argument-hint, allowed-tools, disable-model-invocation false (the same shape as the other skills)' $fmOk (($cs.Fm.Keys | Sort-Object) -join ',')
     $b = $cs.Body
-    $needles = @('## Invariants', 'One objective per worker', 'A fresh worker per wave', 'STATE.md', 'Wait without blocking', 'the idle watchdog', 'at wave boundaries', "Never redo a worker's work", 'English to reviewers', 'The live-member rule', 'Rate every consultation', 'required reviewer', "## The bridge's own means", '-Detach', '-Status', '-Wait', '-Kick', '## Worker tiers (the contract)', 'deep reasoning', 'default execution', 'cheap read-only recon', '## Means per host', '**Claude Code.**', '**Codex CLI.**', '**Z Code.**', '**Kimi Code.**', '**A plain shell', '~/.codex/agents/<tier>.toml', 'SubagentStop', 'PreCompact', 'install/examples/codex-agents/')
+    $needles = @('## Invariants', 'One objective per worker', 'A fresh worker per wave', 'STATE.md', 'Wait without blocking', 'the idle watchdog', 'at wave boundaries', "Never redo a worker's work", 'English to reviewers', 'The live-member rule', 'Rate every consultation', 'required reviewer', "## The bridge's own means", '-Detach', '-Status', '-Wait', '-Kick', '## Worker tiers (the contract)', 'deep reasoning', 'default execution', 'cheap read-only recon', '## Means per host', '**Claude Code.**', '**Codex CLI.**', '**Z Code.**', '**Kimi Code.**', '**Qwen Code.**', '**OpenCode.**', '**Muse Code.**', '**A plain shell', '~/.codex/agents/<tier>.toml', 'SubagentStop', 'PreCompact', 'install/examples/codex-agents/')
     $missing = @($needles | Where-Object { -not $b.Contains($_) })
     $order = @($b.IndexOf('## Invariants'), $b.IndexOf("## The bridge's own means"), $b.IndexOf('## Worker tiers'), $b.IndexOf('## Means per host'))
-    Check 'SKILL' 'D7 its body: the invariants (one objective per worker, a fresh worker per wave with its STATE.md, polling instead of a blocking wait, the idle watchdog, compaction at wave boundaries, never redo a worker''s work, English, the live-member rule, rating, the required reviewer), the bridge''s own means (-Detach, -Status, -Wait, -Kick), the tier contract, then the means per host (Claude Code, Codex CLI, wave 27b Z Code and Kimi Code, a plain shell) - in that order' ($missing.Count -eq 0 -and ($order -join ',') -eq ((@($order) | Sort-Object) -join ',') -and $order[0] -ge 0) ("missing: " + ($missing -join ' | '))
-    # (wave 27b, B9) rule 3: the idle watchdog (the operator's specification, revision 2) and COMPACT per host
-    $r3 = [regex]::Match($b, '(?s)\n3\. \*\*Wait without blocking; the idle watchdog\.\*\*(.*?)\r?\n4\. \*\*').Groups[1].Value
-    $idleNeedles = @('FIRST delegation', 'ONE recurring wake', 'every 30 minutes', 'stays armed', 'the next delegation', 'LAST activity', 'small reads only', 'restarts at zero', 'background `-Wait`', 'idle wake 1', 'idle wake 2', 'idle wake 3', 'known end', 'Where the agent has none', 'ONE line', 'nine hours', 'auto-compact', 'Why:')
-    $idleMissing = @($idleNeedles | Where-Object { -not $r3.Contains($_) })
-    $itemAt = @(foreach ($mk in @('1. *Arming.*', '2. *Idle clock.*', '3. *Every wake:*', '4. *Something must wake you', '5. *Nothing runs', '6. *Something still runs', '7. *COMPACT')) { $r3.IndexOf($mk) })
+    Check 'SKILL' 'D7 its body: the invariants (one objective per worker, a fresh worker per wave with its STATE.md, polling instead of a blocking wait, the idle watchdog, compaction at wave boundaries, never redo a worker''s work, English, the live-member rule, rating, the required reviewer), the bridge''s own means (-Detach, -Status, -Wait, -Kick), the tier contract, then the means per host (Claude Code, Codex CLI, wave 27b Z Code and Kimi Code, wave 27d Qwen Code, OpenCode and Muse Code, a plain shell) - in that order' ($missing.Count -eq 0 -and ($order -join ',') -eq ((@($order) | Sort-Object) -join ',') -and $order[0] -ge 0) ("missing: " + ($missing -join ' | '))
+    # (wave 27d) rule 3: waiting without losing the cache (the operator's rule, revision 5) and COMPACT per host
+    $r3 = [regex]::Match($b, '(?s)\n3\. \*\*Wait without blocking; keep the cache warm or compact \(the idle watchdog\)\.\*\*(.*?)\r?\n4\. \*\*').Groups[1].Value
+    $r3n = $r3 -replace '\s+', ' '
+    $idleNeedles = @('prompt cache', 'cold resume', 'refresh', '*Running work*', 'running work', 'has not reported', 'background `-Wait`', 'long shell job', 'ANOTHER session', 'named end', 'retry_after', 'Idle is only', 'ONE recurring wake every 30 minutes', 'off the round minutes', 'FIRST delegation or wait', 'kept when the work ends', 'small reads only', 'one line without a tool call', 'restarts at zero', 'middle of a wave', 'wave boundary', 'known length', 'idle wake 1', 'idle wake 2', '*No means to compact*', 'SAY it', 'KEEP the wake', '40 wakes on Claude Fable 5.1, 20 on Claude Opus 5.5, 10 on Claude Sonnet 5.5', 'while the cache is warm', 'auto-compact threshold', '*The boundary*', 'https://github.com/xelth-com/claude-codex-consult', '"Waiting: keep the prompt cache or compact"')
+    $idleMissing = @($idleNeedles | Where-Object { -not $r3n.Contains($_) })
+    $itemAt = @(foreach ($mk in @('*Running work*', '*The wake:*', '*The rule:*', '1. While running work', '2. At a wave boundary', '3. A wait of known length', '4. Idle:', '5. *No means to compact*', '6. Compact only while the cache is warm', '7. The operator''s lever', '*The boundary*')) { $r3n.IndexOf($mk) })
     $mph = $(if ($b.IndexOf('## Means per host') -ge 0) { $b.Substring($b.IndexOf('## Means per host')) } else { '' })
-    $hostCompact = @(foreach ($hn in @('**Claude Code.**', '**Codex CLI.**', '**Z Code.**', '**Kimi Code.**')) { $at = $mph.IndexOf($hn); $next = $mph.IndexOf("`n**", [Math]::Max(0, $at) + 1); $para = $(if ($at -ge 0) { $mph.Substring($at, $(if ($next -gt $at) { $next - $at } else { $mph.Length - $at })) } else { '' }); [bool]$para.Contains('COMPACT:') })
-    $ccPara = $(if ($mph.IndexOf('**Claude Code.**') -ge 0) { $mph.Substring($mph.IndexOf('**Claude Code.**'), [Math]::Min(700, $mph.Length - $mph.IndexOf('**Claude Code.**'))) } else { '' })
-    Check 'SKILL' 'wave 27b (B9) rule 3 is the idle watchdog, items 1-7 in order: arming ONE recurring wake at the FIRST delegation (30 minutes; it stays armed; the next delegation re-arms), the idle clock from the LAST activity, small reads on every wake, a background -Wait for a detached panel, nothing runs -> idle wake 2 handover + COMPACT, something runs -> idle wake 3 (a known end waited without compaction), the no-means branch (ONE line to the operator; keep the wake under about nine hours), the auto-compact lever, the why in one sentence; "Means per host" gives COMPACT for Claude Code (no means, verified 2026-09-29, a scheduled /compact arrives as ordinary text), Codex CLI, Z Code and Kimi Code' ($r3 -and $idleMissing.Count -eq 0 -and ($itemAt -join ',') -eq ((@($itemAt) | Sort-Object) -join ',') -and $itemAt[0] -ge 0 -and @($hostCompact | Where-Object { $_ }).Count -eq 4 -and $ccPara.Contains('no means') -and $ccPara.Contains('2026-09-29') -and $ccPara.Contains('ordinary text')) ("missing: " + ($idleMissing -join ' | ') + " | items at $($itemAt -join ',') | COMPACT per host $($hostCompact -join ',')")
-    Check 'SKILL' 'wave 27b (B9) README "For the coordinator" names the idle watchdog (the coordinate skill''s rule 3) and the operator''s lever, the host''s auto-compact threshold' ([regex]::Match($readme, '(?ms)^## For the coordinator\r?\n(.*?)(?=^## )').Groups[1].Value -match 'idle watchdog' -and [regex]::Match($readme, '(?ms)^## For the coordinator\r?\n(.*?)(?=^## )').Groups[1].Value -match 'auto-compact threshold') ''
+    $hostParas = [ordered]@{}
+    foreach ($hn in @('**Claude Code.**', '**Codex CLI.**', '**Z Code.**', '**Kimi Code.**', '**Qwen Code.**', '**OpenCode.**', '**Muse Code.**')) { $at = $mph.IndexOf($hn); $next = $mph.IndexOf("`n**", [Math]::Max(0, $at) + 1); $hostParas[$hn] = $(if ($at -ge 0) { ($mph.Substring($at, $(if ($next -gt $at) { $next - $at } else { $mph.Length - $at }))) -replace '\s+', ' ' } else { '' }) }
+    $hostCompact = @(foreach ($hn in $hostParas.Keys) { [bool]([string]$hostParas[$hn]).Contains('COMPACT:') })
+    $ccPara = [string]$hostParas['**Claude Code.**']
+    Check 'SKILL' 'wave 27d rule 3 is the waiting rule (revision 5), in order: the goal (a prompt cache never lost by oversight; a cold resume writes the whole context, a refresh reads it), the six cases of running work, the wake (ONE every 30 minutes, off the round minutes, armed at the FIRST delegation or wait, kept; small reads; one line without a tool call), the rule''s seven items (keep the wake, no compaction mid-wave; the wave boundary; a wait of known length; idle wakes 1 and 2; no means to compact - SAY it, KEEP the wake, 40/20/10 wakes; compact while warm; the auto-compact threshold), the boundary and the pointer to the README section with its URL; "Means per host" gives COMPACT for every host (Claude Code: no means, verified 2026-09-29, a scheduled /compact arrives as ordinary text)' ($r3 -and $idleMissing.Count -eq 0 -and ($itemAt -join ',') -eq ((@($itemAt) | Sort-Object) -join ',') -and $itemAt[0] -ge 0 -and @($hostCompact | Where-Object { $_ }).Count -eq 7 -and $ccPara.Contains('no means') -and $ccPara.Contains('2026-09-29') -and $ccPara.Contains('ordinary text')) ("missing: " + ($idleMissing -join ' | ') + " | items at $($itemAt -join ',') | COMPACT per host $($hostCompact -join ',')")
+    # (wave 27d) the skill's boundary table and its line for the other two models, recomputed from the formula
+    $skRows = @(foreach ($cn in $waitContexts.Keys) { $x = Get-WaitNumbers $waitModels['Claude Fable 5.1'] $waitContexts[$cn]; "| $cn | $(Format-Dec $x.Hours 1) hours | $(Format-Dec $x.Wake 2) USD | $(Format-Dec $x.Compact 2) USD |" })
+    $skLines = @(foreach ($mn in @('Claude Opus 5.5', 'Claude Sonnet 5.5')) { "$($mn): " + ((@(foreach ($cn in $waitContexts.Keys) { Format-Dec (Get-WaitNumbers $waitModels[$mn] $waitContexts[$cn]).Hours 1 })) -join ', ') + ' hours' })
+    $skMissing = @(@($skRows | Where-Object { -not $r3.Contains($_) }) + @($skLines | Where-Object { -not $r3n.Contains($_) }))
+    Check 'SKILL' 'wave 27d (A3) the skill''s boundary rows (Claude Fable 5.1: keep up to, one wake, compact) and the line for Claude Opus 5.5 and Claude Sonnet 5.5 are the numbers the formula gives (API prices of 2026-09, a wake every 30 minutes, turn 1K new input written + 300 output, summary 10K, compact window 50K)' ($skMissing.Count -eq 0) ("missing: " + ($skMissing -join ' || '))
+    $newHosts = @(foreach ($hn in @('**Qwen Code.**', '**OpenCode.**', '**Muse Code.**')) { $p = [string]$hostParas[$hn]; [bool]($p.Contains('not run live') -and $p.Contains('-Detach') -and $p.Contains('hook one-liner')) })
+    Check 'SKILL' 'wave 27d (B3) "Means per host" has Qwen Code, OpenCode and Muse Code - documented, not run live; each with the hook one-liner and -Detach (tool limit unknown for Qwen Code and OpenCode; Muse Code PowerShell at most 300 s, the skills at PROJECT scope because Muse Code is also a reviewer engine)' (@($newHosts | Where-Object { $_ }).Count -eq 3 -and ([string]$hostParas['**Qwen Code.**']).Contains('unknown') -and ([string]$hostParas['**OpenCode.**']).Contains('unknown') -and ([string]$hostParas['**Muse Code.**']).Contains('300 s') -and ([string]$hostParas['**Muse Code.**']).Contains('PROJECT scope') -and ([string]$hostParas['**Muse Code.**']).Contains('reviewer engine')) ($newHosts -join ',')
+    $forCoord = [regex]::Match($readme, '(?ms)^## For the coordinator\r?\n(.*?)(?=^## )').Groups[1].Value
+    Check 'SKILL' 'wave 27b (B9) README "For the coordinator" names the idle watchdog (the coordinate skill''s rule 3) and the operator''s lever, the host''s auto-compact threshold; (wave 27d, A4) it points at "Waiting: keep the prompt cache or compact", and so does the plugin''s own README' ($forCoord -match 'idle watchdog' -and $forCoord -match 'auto-compact threshold' -and ($forCoord -replace '\s+', ' ').Contains('"Waiting: keep the prompt cache or compact"') -and ((Text (Join-Path $pluginDir 'README.md')) -replace '\s+', ' ').Contains('"Waiting: keep the prompt cache or compact"')) ''
     $cc = Text (Join-Path $pluginDir 'skills\consult-codex\SKILL.md')
     Check 'SKILL' 'D7 consult-codex cross-links coordinate (its path and -Explain coordinate)' ($cc.Contains('${CLAUDE_PLUGIN_ROOT}/skills/coordinate/SKILL.md') -and $cc.Contains('-Explain coordinate')) ''
 }
@@ -561,7 +601,7 @@ if (Want 'README') {
     $hs = [string]$subs['Hooks on each host']
     $zOk = ($zs.Contains('plugins marketplace add xelth-com/claude-codex-consult') -and $zs.Contains('plugins install codex-consult@claude-codex-consult') -and $zs.Contains('${ZCODE_PLUGIN_ROOT}') -and $zs.Contains('${CLAUDE_PLUGIN_ROOT}') -and $zs.Contains('AGENTS.md'))
     $kOk = ($ks.Contains('--skills-dir') -and $ks.Contains('CODEX_CONSULT_ROOT') -and $ks.Contains('/plugins/codex-consult/skills') -and $ks.Contains('AGENTS.md') -and $ks.Contains('-Explain coordinate') -and $ks.Contains('codex-consult-hook.ps1') -and $ks.Contains('CODEX_CONSULT_COORDINATOR'))
-    Check 'README' 'wave 27b "## Install" has its host sections in order - Claude Code, Codex CLI, Z Code, Kimi Code, Any shell (a clone), Hooks on each host; Z Code: the two plugin commands (plugins marketplace add xelth-com/claude-codex-consult, plugins install codex-consult@claude-codex-consult), both root variables (${CLAUDE_PLUGIN_ROOT}, ${ZCODE_PLUGIN_ROOT}), AGENTS.md; Kimi Code: a clone, CODEX_CONSULT_ROOT, --skills-dir <clone>/plugins/codex-consult/skills, the AGENTS.md snippet, no hook (the hook one-liner, -Explain coordinate), CODEX_CONSULT_COORDINATOR; "Hooks on each host" names both' ($heads -eq 'Claude Code | Codex CLI | Z Code | Kimi Code | Any shell (a clone) | Hooks on each host' -and $zOk -and $kOk -and $hs.Contains('Z Code') -and $hs.Contains('Kimi Code')) "sections: $heads; Z Code $zOk; Kimi Code $kOk"
+    Check 'README' 'wave 27b "## Install" has its host sections in order - Claude Code, Codex CLI, Z Code, Kimi Code, (wave 27d) Qwen Code, OpenCode, Muse Code, Any shell (a clone), Hooks on each host; Z Code: the two plugin commands (plugins marketplace add xelth-com/claude-codex-consult, plugins install codex-consult@claude-codex-consult), both root variables (${CLAUDE_PLUGIN_ROOT}, ${ZCODE_PLUGIN_ROOT}), AGENTS.md; Kimi Code: a clone, CODEX_CONSULT_ROOT, --skills-dir <clone>/plugins/codex-consult/skills, the AGENTS.md snippet, no hook (the hook one-liner, -Explain coordinate), CODEX_CONSULT_COORDINATOR; "Hooks on each host" names both' ($heads -eq 'Claude Code | Codex CLI | Z Code | Kimi Code | Qwen Code | OpenCode | Muse Code | Any shell (a clone) | Hooks on each host' -and $zOk -and $kOk -and $hs.Contains('Z Code') -and $hs.Contains('Kimi Code')) "sections: $heads; Z Code $zOk; Kimi Code $kOk"
     $lines = @($readme -split "`r?`n")
     $ledRow = [string](@($lines | Where-Object { $_ -match '^\| `child_env_scrubbed` \|' }) | Select-Object -First 1)
     $varRow = [string](@($lines | Where-Object { $_ -match '^\| `CODEX_SESSION_ID`, ' }) | Select-Object -First 1)
@@ -574,6 +614,66 @@ if (Want 'README') {
     $iCodex = $coordRow.IndexOf('`codex`'); $iZ = $coordRow.IndexOf('`zcode`'); $iC = $coordRow.IndexOf('`claude-code`')
     $ccSkill = Text (Join-Path $pluginDir 'skills\consult-codex\SKILL.md')
     Check 'README' 'wave 27b the documented lists match the code: the ledger''s child_env_scrubbed row and the variables table name every exact marker name and every prefix of the script (ZCODE_PLUGIN* included), the ledger row keeps CLAUDE_CODE_USE_BEDROCK and CLAUDE_PLUGIN_ROOT (exact names, not the prefix); the coordinator row lists the host values in the hint''s order codex, zcode, claude-code; the consult-codex skill names zcode' ($ledRow -and $varRow -and $missingDoc.Count -eq 0 -and $ledRow.Contains('CLAUDE_CODE_USE_BEDROCK') -and $ledRow.Contains('CLAUDE_PLUGIN_ROOT') -and $iCodex -ge 0 -and $iZ -gt $iCodex -and $iC -gt $iZ -and $ccSkill.Contains('`zcode`')) ("missing: " + ($missingDoc -join ', ') + " | order $iCodex/$iZ/$iC")
+    # (wave 27d, B1, B4) three more coordinator hosts, documented and not run live
+    $hostNeedles = [ordered]@{
+        'Qwen Code' = @('qwen extensions install https://github.com/xelth-com/claude-codex-consult:codex-consult --consent', '~/.qwen/extensions/codex-consult', 'qwen extensions list', '${CLAUDE_PLUGIN_ROOT}', 'hooks/hooks.json', 'qwen extensions update codex-consult', 'qwen extensions uninstall codex-consult', 'AGENTS.md', '`-y`', '-Detach')
+        'OpenCode'  = @('opencode.ai/docs/skills', '.opencode/skills/<name>/SKILL.md', '~/.config/opencode/skills', 'mklink /J', 'ln -s', 'never a copy', 'CODEX_CONSULT_ROOT', 'AGENTS.md', 'opencode run', '-Detach')
+        'Muse Code' = @('muse skills install', 'muse skills update', 'muse skills list', 'muse skills import --from claude|codex', 'REVIEWER engine', 'PROJECT scope', '--scope user', 'CODEX_CONSULT_ROOT', 'AGENTS.md', 'muse exec --prompt-file', '300 s', '-Detach')
+    }
+    $hostMiss = New-Object System.Collections.Generic.List[string]
+    foreach ($hn in $hostNeedles.Keys) {
+        $hsec = ([string]$subs[$hn]) -replace '\s+', ' '
+        foreach ($nd in $hostNeedles[$hn]) { if (-not $hsec.Contains($nd)) { $hostMiss.Add("$($hn): $nd") } }
+        $paras = @(([string]$subs[$hn]).Trim() -split '\r?\n\s*\r?\n')
+        if (-not (($paras[-1] -replace '\s+', ' ') -match 'Not run live by the maintainer( as a coordinator)?: \S')) { $hostMiss.Add("$($hn): no closing 'Not run live by the maintainer: <reason>'") }
+        if (-not $hs.Contains($hn)) { $hostMiss.Add("Hooks on each host: $hn") }
+    }
+    Check 'README' 'wave 27d (B1) "### Qwen Code" (the extension installed from the repository''s marketplace, its path, the list, the plugin root substituted, hooks.json copied but no hook, update and removal, AGENTS.md, -y), "### OpenCode" (the skill directories of its documentation, one LINK per skill - a junction or a symbolic link, never a copy -, CODEX_CONSULT_ROOT, AGENTS.md, opencode run) and "### Muse Code" (muse skills install/update/list/import, the reviewer-engine warning - PROJECT scope, never --scope user -, CODEX_CONSULT_ROOT, AGENTS.md, muse exec, the 300 s shell tool); each closes with "Not run live by the maintainer: <reason>" and -Detach for the unknown or short tool limit; "Hooks on each host" names all three' ($hostMiss.Count -eq 0) ($hostMiss -join ' || ')
+    $tested = [regex]::Match($readme, '(?ms)^## Tested on\r?\n(.*?)(?=^## )').Groups[1].Value
+    $rowsB2 = @(foreach ($rh in @('| Coordinator host: Qwen Code 0.15.6 |', '| Coordinator host: OpenCode 1.17.18 |', '| Coordinator host: Muse Code 1.4.0 |')) { $row = [string](@($tested -split "`r?`n" | Where-Object { $_.StartsWith($rh) }) | Select-Object -First 1); [bool]($row -and $row -match 'Live coordinator run: none \(') })
+    Check 'README' 'wave 27d (B2) "Tested on" has one row per new host - Qwen Code 0.15.6 (the install and what the extension list showed), OpenCode 1.17.18 (nothing on the machine; the paths from its documentation of 2026-09-29), Muse Code 1.4.0 (the commands exist, the headless mode answers) - each with "Live coordinator run: none (<reason>)"' (@($rowsB2 | Where-Object { $_ }).Count -eq 3 -and $tested.Contains('qwen extensions list') -and $tested.Contains('opencode.ai/docs/skills') -and $tested.Contains('muse exec --prompt-file')) ($rowsB2 -join ',')
+    # (wave 27d, A2, A5) the waiting section: its place, its terms, both tables, the rule, what was measured, the caveats
+    $heads2 = [string[]]@([regex]::Matches($readme, '(?m)^## ([^\r\n]+)') | ForEach-Object { $_.Groups[1].Value.Trim() })
+    $wi = [array]::IndexOf($heads2, 'Waiting: keep the prompt cache or compact')
+    $wsec = [regex]::Match($readme, '(?ms)^## Waiting: keep the prompt cache or compact\r?\n(.*?)(?=^---|^## )').Groups[1].Value
+    $wn = $wsec -replace '\s+', ' '
+    $wNeedles = @('prompt cache', 'lifetime', 'one hour', 'five minutes by default on the API', 'cache read', 'cache write', 'refresh', 'cold resume', 'compact window', 'running work', 'max_tokens: 0', 'has not reported', 'background `-Wait`', 'long shell job', 'ANOTHER session', 'named end', 'retry_after', 'Idle is only', 'one wake', 'keep, n wakes', 'let it expire', 'boundary', 'Worked example', 'What the money does not show', '**The rule**', 'wave boundary', '**Measured, taken, estimated.**', 'none is read from a bill', '**Caveats.**', 'pricing page', 'Subscription plans')
+    $wMissing = @($wNeedles | Where-Object { -not $wn.Contains($_) })
+    $t1 = '| Model of the coordinator | Input / output | Cache read | Cache write, 1 h lifetime | One cold resume costs as much as |'
+    $t2 = '| Context C | Claude Fable 5.1: keep is cheaper up to | one wake | compact | let it expire | Claude Opus 5.5: keep up to | Claude Sonnet 5.5: keep up to |'
+    $ruleBlock = [regex]::Match($wsec, '(?s)\*\*The rule\*\*(.*?)\*\*Measured').Groups[1].Value
+    $ruleAt = @(foreach ($k in 1..7) { $m = [regex]::Match($ruleBlock, "(?m)^$k\. "); if ($m.Success) { $m.Index } else { -1 } })
+    Check 'README' 'wave 27d (A2, A5) "## Waiting: keep the prompt cache or compact" right after "For the coordinator": the prompt cache and its lifetime (one hour in the sessions measured, five minutes by default on the API), the three prices, the refresh (the recurring wake; max_tokens: 0 on the API), the six cases of running work, the compact window and the cold resume, the formula, both tables, the worked example, what the money does not show, the rule in seven lines, what was measured and what is computed, the caveats with the vendor''s pricing page' ($wi -gt 0 -and $heads2[$wi - 1] -eq 'For the coordinator' -and $wsec -and $wMissing.Count -eq 0 -and $wsec.Contains($t1) -and $wsec.Contains($t2) -and ($ruleAt -join ',') -eq ((@($ruleAt) | Sort-Object) -join ',') -and $ruleAt[0] -ge 0) ("missing: " + ($wMissing -join ' | ') + " | heading at $wi | rule items at $($ruleAt -join ',')")
+    # (wave 27d, A3) every number of the section recomputed from the formula and the prices
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    $numMiss = New-Object System.Collections.Generic.List[string]
+    $halves = New-Object System.Collections.Generic.List[string]
+    foreach ($mn in $waitModels.Keys) {
+        $m = $waitModels[$mn]
+        $ratio = $m.W / $m.R
+        $halves.Add((Format-Dec ($ratio / 2) 0))
+        $row = "| $mn | $(Format-Dec ($m.P * 1000000) 0) / $(Format-Dec ($m.Pout * 1000000) 0) | $(Format-Dec ($m.R * $m.P * 1000000) 2) ($($m.R.ToString('0.###', $inv)) x input) | $(Format-Dec ($m.W * $m.P * 1000000) 0) ($(Format-Dec $m.W 0) x input) | $(Format-Dec $ratio 0) cache reads - $(Format-Dec ($ratio / 2) 0) hours"
+        if (-not $wsec.Contains($row)) { $numMiss.Add($row) }
+    }
+    $fab = $waitModels['Claude Fable 5.1']
+    foreach ($cn in $waitContexts.Keys) {
+        $f = Get-WaitNumbers $fab $waitContexts[$cn]
+        $o = Get-WaitNumbers $waitModels['Claude Opus 5.5'] $waitContexts[$cn]
+        $s = Get-WaitNumbers $waitModels['Claude Sonnet 5.5'] $waitContexts[$cn]
+        $row = "| $cn | $(Format-Dec $f.Hours 1) hours | $(Format-Dec $f.Wake 2) | $(Format-Dec $f.Compact 2) | $(Format-Dec $f.Expire 0) | $(Format-Dec $o.Hours 1) hours | $(Format-Dec $s.Hours 1) hours |"
+        if (-not $wsec.Contains($row)) { $numMiss.Add($row) }
+    }
+    $n850 = Get-WaitNumbers $fab ([decimal]850000)
+    $wantText = @(
+        "16 wakes x $(Format-Dec $n850.Wake 4) = $(Format-Dec (16 * $n850.Wake) 2) USD, plus $(Format-Dec $n850.Read 2) USD for the read at the resume: about $(Format-Dec (16 * $n850.Wake + $n850.Read) 1) USD",
+        "reading the compact window cold in the morning costs $(Format-Dec $n850.Compact 2) USD",
+        "one cold resume: $(Format-Dec $n850.Expire 0) USD",
+        "($(Format-Dec ($fab.R * $fab.P * 50000) 2) instead of $(Format-Dec $n850.Read 2) USD a turn in the example)",
+        "($($halves[0]) wakes on Claude Fable 5.1, $($halves[1]) on Claude Opus 5.5, $($halves[2]) on Claude Sonnet 5.5)")
+    foreach ($wt in $wantText) { if (-not $wn.Contains($wt)) { $numMiss.Add($wt) } }
+    $cross = @(foreach ($mn in $waitModels.Keys) { $m = $waitModels[$mn]; [Math]::Round((Get-WaitNumbers $m ([decimal]1)).Tail / (($m.W - $m.R) * $m.P), 0) })
+    if (@($cross | Where-Object { $_ -lt 70000 -or $_ -gt 80000 }).Count -gt 0 -or -not $wn.Contains('Above about 80K tokens')) { $numMiss.Add("the expire/compact crossover $($cross -join ', ')") }
+    Check 'README' 'wave 27d (A3) every number of the waiting section is the formula''s: table 1 (input / output, cache read and write per million tokens, one cold resume = W/R cache reads = W/R/2 hours of refreshes), table 2 (Claude Fable 5.1: keep up to, one wake, compact, let it expire; Claude Opus 5.5 and Claude Sonnet 5.5: keep up to), the worked example (8 hours at 850K on Claude Fable 5.1), a working turn after a compaction, the rule''s 40/20/10 wakes (half of W/R) and "above about 80K tokens" (compacting cheaper than letting the cache expire)' ($numMiss.Count -eq 0) ("missing: " + ($numMiss -join ' || '))
 }
 
 } finally {

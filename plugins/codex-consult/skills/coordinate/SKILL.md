@@ -26,35 +26,57 @@ execute, reviewers advise, you decide. These rules hold on every host; the means
    next), writes logs and bulky output to files, and its report IS its written artifact (the
    CHANGELOG entry of the wave, or a report file). A worker never resumes a full context: the
    next wave starts a fresh worker that reads the files.
-3. **Wait without blocking; the idle watchdog.** Poll a state file - the worker's `STATE.md`, the
-   bridge's `-Status` - instead of a blocking wait; message a worker or `-Kick` a member that hangs.
-   1. *Arming.* At your FIRST delegation of the session (a worker, a panel, a long shell job) arm
-      ONE recurring wake, every 30 minutes, off the round minutes. It stays armed when the work
-      ends - that is how idleness is noticed; only items 5 and 6 remove it, the next delegation
-      arms it again.
-   2. *Idle clock.* It counts from the LAST activity of any kind: the operator's last message, your
-      own last action, the last worker, shell or panel that finished or reported. A worker running
-      for two hours does not make the session idle when another finished ten minutes ago.
-   3. *Every wake:* small reads only (a state file's tail, a log's tail). Anything finished or
-      needing action is activity: act, and the idle count restarts at zero.
-   4. *Something must wake you when work ends:* the host's completion notification (a worker, a
-      background shell). A detached panel notifies nobody - start a background `-Wait` for it;
-      its exit is the notification.
-   5. *Nothing runs, nothing can be done without the operator:* idle wake 1 - one line in the state
-      file ("idle since <time>"; the first may come sooner than 30 minutes); idle wake 2 - write
-      the handover, COMPACT, remove the wake.
-   6. *Something still runs, its remaining time unknown:* idle wakes 1 and 2 - check and note;
-      idle wake 3 - write the handover, COMPACT, remove the wake (item 4 wakes you at its end). A
-      job with a known end is waited for without compaction.
-   7. *COMPACT is the host's means* ("Means per host"). Where the agent has none: at item 5's wake
-      2 write the handover, remove the wake and tell the operator in ONE line ("idle <n> min;
-      state in <file>; on return start fresh from it or compact first"); at item 6 KEEP the wake
-      while the expected wait is under about nine hours (about twenty wakes cost one cold resume),
-      past that write the handover and remove it. The operator's lever: the host's auto-compact
-      threshold keeps every wake and every cold resume small.
+3. **Wait without blocking; keep the cache warm or compact (the idle watchdog).** Poll a state file -
+   the worker's `STATE.md`, the bridge's `-Status` - instead of a blocking wait; message a worker or
+   `-Kick` a member that hangs. The goal: a large context never loses its prompt cache by oversight.
+   After the cache's lifetime the next request pays a cache WRITE of the whole context (a cold
+   resume); a request inside the lifetime - a refresh - pays one cache read.
+   - *Running work* keeps the wake armed and the idle count at zero: a worker or subagent of yours
+     that has not reported; a detached panel or consultation (start a background `-Wait` - its exit
+     is the notification); a long shell job you started (a suite, a build); a window you gave
+     ANOTHER session, or a step of another session you depend on, until it says it is done; a step
+     of the operator with a named end ("I install it and come back"); a cooldown with a named end
+     (a provider's `retry_after`, a quota window) before a run you will repeat. Idle is only: none
+     of these, and nothing can be done without the operator.
+   - *The wake:* ONE recurring wake every 30 minutes (two marks an hour, off the round minutes),
+     armed at the FIRST delegation or wait of the session and kept when the work ends. Every wake:
+     small reads only (a state file's tail, a log's tail); a wake within a few minutes of any other
+     activity answers in one line without a tool call. Anything finished or needing action is
+     activity: act, and the idle count restarts at zero.
+   - *The rule:*
+     1. While running work goes on: keep the wake. No compaction in the middle of a wave.
+     2. At a wave boundary (the report is read, the state is on disk): compact, or start a fresh
+        session from the state file, before the next wave.
+     3. A wait of known length: shorter than the boundary below - refresh; longer - compact first
+        (while the cache is warm), then remove the wake and let something wake you at the end.
+     4. Idle: idle wake 1 - one line in the state file ("idle since <time>"); idle wake 2 - write
+        the handover, COMPACT, remove the wake.
+     5. *No means to compact* (COMPACT is the host's means - "Means per host"): SAY it - one line
+        to the operator before a long wait begins or at idle wake 2 ("long wait: compact now, the
+        cache is warm; state in <file>") - and KEEP the wake; remove it only after half the
+        refreshes a cold resume is worth (40 wakes on Claude Fable 5.1, 20 on Claude Opus 5.5, 10
+        on Claude Sonnet 5.5).
+     6. Compact only while the cache is warm: after it expired a compaction costs as much as a
+        cold resume.
+     7. The operator's lever: the host's auto-compact threshold keeps the context small all the
+        time.
+   - *The boundary* (API prices of 2026-09, a wake every 30 minutes). Compact = one read of the
+     context, a summary of about 10K output tokens and, at the resume, a cold write of the compact
+     window of about 50K; keeping reads the context once too, at the resume - so keeping is cheaper
+     while its wakes cost less than the summary and that cold write:
 
-   Why: a wake costs a cache read of the whole context, while a compaction costs about one such
-   read and makes everything after it nearly free - so it must happen while the cache is warm.
+     | Context | Claude Fable 5.1: keep is cheaper up to | one wake | compact |
+     |---|---|---|---|
+     | 1M | 2.6 hours | 0.29 USD | 1.75 USD |
+     | 850K | 3.0 hours | 0.25 USD | 1.71 USD |
+     | 500K | 4.7 hours | 0.16 USD | 1.63 USD |
+     | 300K | 6.8 hours | 0.11 USD | 1.58 USD |
+     | 150K | 10.3 hours | 0.07 USD | 1.54 USD |
+
+     The same rows on Claude Opus 5.5: 1.4, 1.6, 2.6, 4.1, 6.8 hours; on Claude Sonnet 5.5: 0.7,
+     0.8, 1.4, 2.2, 4.1 hours. The reasons, the prices and the arithmetic: the repository README
+     (<https://github.com/xelth-com/claude-codex-consult/blob/main/README.md>), section "Waiting:
+     keep the prompt cache or compact".
 4. **Compaction or a fresh session at wave boundaries**, not in the middle of a wave: the state
    files make the boundary loss-free, a mid-wave compaction does not.
 5. **Never redo a worker's work.** Once a worker reports, read the report and verify in your own
@@ -166,8 +188,27 @@ directory only. It sets no host marker (`coordinator.host` stays `unknown`): nam
 2026-09-29) - a run with a longer timeout goes with `-Detach`. COMPACT: an operator command, not
 verified for a scheduled prompt (rule 3's no-means branch until it is).
 
-The shell tool limits of Claude Code and Codex CLI were not measured in the checks of 2026-09-29: when
-yours is unknown, the `-Detach` rule above applies.
+**Qwen Code.** Documented, not run live. It installs this plugin as an extension and replaces the
+plugin root in the skill text at the install, so these commands run as written; it lists no hook for
+the extension - run the hook one-liner at the start. It reads the project's `AGENTS.md` beside its
+`QWEN.md`. Shell tool limit: unknown - start a run with `-Detach`, then `-Wait` / `-Status`. COMPACT:
+not verified (rule 3's no-means branch until it is).
+
+**OpenCode.** Documented, not run live. No Claude-layout plugins: the operator links each skill
+directory of a clone into `~/.config/opencode/skills/<name>`; it does not substitute the plugin root,
+so the first sentence of this skill applies (`CODEX_CONSULT_ROOT`). No hooks: run the hook one-liner
+at the start. Shell tool limit: unknown - `-Detach`, then `-Wait` / `-Status`. COMPACT: not verified
+(rule 3's no-means branch until it is).
+
+**Muse Code.** Documented, not run live as a coordinator. The operator installs each skill with
+`muse skills install <path>` at PROJECT scope: Muse Code is also a reviewer engine of the bridge, and
+a skill at user scope would reach the reviewer sessions too. Set `CODEX_CONSULT_ROOT` (the plugin
+root is not known to be substituted) and run the hook one-liner at the start. Its shell tool is
+PowerShell with a default wait of 10 s and at most 300 s: a run with a longer timeout goes with
+`-Detach`, then `-Wait` / `-Status`. COMPACT: not verified (rule 3's no-means branch until it is).
+
+The shell tool limits of Claude Code, Codex CLI, Qwen Code and OpenCode were not measured in the checks
+of 2026-09-29: when yours is unknown, the `-Detach` rule above applies.
 
 **A plain shell or any other host.** The watchdog is cron or a scheduled task that runs `-Status`;
 the skill texts come from `codex-consult.ps1 -Explain coordinate|consult|providers`; the

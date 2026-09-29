@@ -21,8 +21,10 @@ R20 - and the supervisor's addenda D15, D16), wave 26c (the wave 26b re-acceptan
 of `.collab/companions-2026-09-26/handoffs/27-claude-wave26c-decisions.md`) and wave 27 (host
 invariance and the coordinator's manual - ROADMAP R13, R19, decisions D1-D9 of
 `.collab/host-2026-09-26/handoffs/05-claude-r13-decisions.md`), wave 27c (the fix round of their
-acceptance, decisions D1-D24 of `.collab/companions-2026-09-26/handoffs/33-claude-wave27c-decisions.md`)
-and wave 28 (telemetry and complaints to the maintainer's intake, on by default - ROADMAP R17).
+acceptance, decisions D1-D24 of `.collab/companions-2026-09-26/handoffs/33-claude-wave27c-decisions.md`),
+wave 28 (telemetry and complaints to the maintainer's intake, on by default - ROADMAP R17) and wave 27d
+(documentation only: waiting without losing the prompt cache, and three more coordinator hosts
+documented but not run live).
 
 ### Added
 
@@ -609,6 +611,92 @@ and wave 28 (telemetry and complaints to the maintainer's intake, on by default 
     says so; (7) the connect timeout is a TCP probe of the host (or of the system proxy for the
     URL) before the request, since `HttpWebRequest` has no connect timeout of its own.
   - Assertions (with wave 27c in the same runs): `harness-telemetry` 55 (new); the final `tests/run-all.ps1` runs of 2026-09-29 (Windows PowerShell 5.1, then PowerShell 7.6.6 from 20:29 to 22:19), the same counts on both, `17 harness(es), 0 failed`: `harness-0.3` 229, `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending` 26, `harness-fixes` 45 (the two F04-10 cases passed this time), `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 51, `harness-host` 52, `harness-telemetry` 55, `harness-fixes27c` 36.
+- **Wave 27d - documentation: waiting without losing the prompt cache, and three more coordinator
+  hosts, documented and not run live.** No script under `plugins/codex-consult/scripts/` changed.
+  - The waiting rule, revision 5 (the operator's, 2026-09-29): the `coordinate` skill's rule 3 is now
+    "Wait without blocking; keep the cache warm or compact (the idle watchdog)" - the goal (a large
+    context never loses its prompt cache by oversight: a cold resume writes the whole context, a
+    refresh reads it), the six cases of RUNNING WORK that keep the wake armed and the idle count at
+    zero (a worker or subagent that has not reported, a detached panel or consultation, a shell job,
+    a window given to another session, an operator step with a named end, a cooldown with a named
+    end), the wake (one every 30 minutes, armed at the first delegation or WAIT, kept; a wake close
+    to other activity answers in one line without a tool call), the rule's seven items (keep the
+    wake, no compaction mid-wave; compact or start fresh at a wave boundary; a wait of known length
+    against the boundary; idle wakes 1 and 2; no means to compact - say it in one line, keep the wake,
+    remove it after half the refreshes a cold resume is worth: 40 / 20 / 10 wakes on Claude Fable
+    5.1 / Claude Opus 5.5 / Claude Sonnet 5.5; compact only while warm; the auto-compact threshold),
+    the boundary table in a compact form and the pointer to the README. Gone from revision 2: the
+    idle wake 3 while something runs (running work keeps the idle count at zero) and "keep the wake
+    under about nine hours" (now the 40 / 20 / 10 wakes). "Means per host" keeps its COMPACT lines.
+  - README "## Waiting: keep the prompt cache or compact" (new, after "For the coordinator"), for a
+    reader who never thought about prompt caching: the cache and its lifetime (one hour in the
+    coordinator sessions measured, five minutes by default on the API), the three prices and their
+    table, the refresh (the recurring wake; on the API a request with `max_tokens: 0`) and the six
+    cases of running work, compaction and the compact window, the formulas, the boundary table (five
+    context sizes, three models; one wake, compact and let-it-expire for Claude Fable 5.1), what the
+    table shows, a worked example (8 hours at 850K on Claude Fable 5.1: keep about 4.2 USD, compact
+    1.71 USD, let it expire 17 USD), what the money does not show, the rule in seven lines, what was
+    measured, taken and estimated, the caveats and the vendor's pricing page. "For the coordinator"
+    describes revision 5 and points at the section; the plugin's own README names it.
+  - Every number recomputed from the rule file's formula and the API prices; where the result
+    differs, the documentation uses the recomputed one: (1) the boundary counts the one read of the
+    large context on BOTH sides - keeping reads it at the resume, compacting reads it to compact - so
+    it is (S x Pout + w x P x C2) / one wake; the rule file divided (r x P x C + S x Pout + w x P x
+    C2) by one wake and so overstated every boundary by just under one wake (Claude Fable 5.1 at
+    1M: 1.50 / 0.285 = 5.26 wakes = 2.6 hours, not 1.75 / 0.285 = 6.14 wakes = 3.1 hours); (2) the
+    wake's turn is 1K new input written to the cache at the write price plus 300 output (Claude
+    Fable 5.1: 0.020 + 0.015 = 0.035 USD); the rule file's rows were not all computed with one
+    value - with its own formula its Claude Fable 5.1 150K row gives 10.6 hours (it said 11.5), its
+    Claude Sonnet 5.5 rows 1.2 at 1M and 4.5 at 150K (it said 1.5 and 4); (3) the boundaries now
+    (hours at 1M, 850K, 500K, 300K, 150K): Claude Fable 5.1 2.6, 3.0, 4.7, 6.8, 10.3 (was 3, 3.5, 5,
+    7, 11.5), Claude Opus 5.5 1.4, 1.6, 2.6, 4.1, 6.8 (was 2, 2, 3, 4.5, 7), Claude Sonnet 5.5 0.7,
+    0.8, 1.4, 2.2, 4.1 (was 1.5, 1.5, 2, 2.5, 4); the one-wake and compact columns are unchanged but
+    for rounding (1M: 0.285 prints 0.29); (4) the worked example keeps for 16 x 0.2475 = 3.96 USD
+    plus the resume's read of 0.21 USD, about 4.2 USD (was "about 3.9"); (5) "letting a LARGE
+    context expire without compaction is never the cheap way for a wait under a day" became "above
+    about 80K tokens, compacting is cheaper than letting the cache expire, however long the wait" -
+    compacting wins above (S x Pout + w x P x C2) / ((w - r) x P) = 76K, 77K, 79K tokens, and the
+    length of the wait does not enter (keeping, by contrast, does lose to expiry on a long enough
+    wait: 48 hours at 1M on Claude Sonnet 5.5 cost 96 x 0.207 + 0.20 = 20.07 USD against 4 USD); (6)
+    the third way (compact, then refresh the compact window) pays on Claude Fable 5.1 only for waits
+    under about eight to ten hours, not "about nine": 8.3 hours when the host's instructions (about
+    40K) are still cached and the 10K summary is written at the first wake, 10.4 hours when the whole
+    compact window is already cached - the saving stays under one USD (at most 0.94).
+  - Three more coordinator hosts, documented and NOT run live (the operator's decision: each needs a
+    setup of its own on the maintainer's machine): README "## Install" gains "### Qwen Code" (0.15.6:
+    `qwen extensions install https://github.com/xelth-com/claude-codex-consult:codex-consult
+    --consent` installs the plugin from the repository's Claude marketplace into
+    `~/.qwen/extensions/codex-consult`, the plugin root substituted in the skill text,
+    `hooks/hooks.json` copied but no hook listed; update and removal; the three lines in the
+    project's `AGENTS.md` or `~/.qwen/QWEN.md`; not run live: the free Qwen OAuth quota ended on
+    2026-04-15), "### OpenCode" (1.17.18: no Claude-layout plugins; one directory LINK per skill into
+    `~/.config/opencode/skills/<name>` - a junction on Windows, a symbolic link elsewhere, never a
+    copy - after the skill directories of its documentation; `CODEX_CONSULT_ROOT`; the project's
+    `AGENTS.md` or `~/.config/opencode/AGENTS.md`; not run live: the provider configured on the
+    machine refused the authentication) and "### Muse Code" (1.4.0: `muse skills
+    install|update|list|import`; the skills at PROJECT scope, since Muse Code is also a reviewer
+    engine and user-scope skills reach the reviewer sessions; `CODEX_CONSULT_ROOT`; the PowerShell
+    shell tool, 10 s by default, 300 s at most; not run live as a coordinator: its shell tool needs
+    the one-time elevated sandbox setup on Windows). "Hooks on each host", "For the coordinator",
+    "Tested on" (one row each, "live coordinator run: none (<reason>)") and the `coordinate` skill's
+    "Means per host" (one paragraph each: `-Detach` for an unknown or short tool limit, COMPACT not
+    verified) name them. The context files (Qwen Code reads the project's `AGENTS.md` beside
+    `QWEN.md`; OpenCode's global `AGENTS.md`; Muse Code's `AGENTS.md`) come from the documentation
+    bundled with Qwen Code 0.15.6 and the text of the installed OpenCode and Muse Code binaries - not
+    checked live.
+  - Tests: `harness-host.ps1` - GREP: a model name ("Claude Fable 5.1") names no host in the skills,
+    and "Waiting" joins the README sections that may say "Claude"; SKILL: rule 3 revision 5 (its
+    needles, the order of its parts and seven items, COMPACT for all seven hosts), the skill's
+    boundary rows and model line recomputed from the formula in `[decimal]` (`Get-WaitNumbers`,
+    `Format-Dec`), the three new hosts in "Means per host", "For the coordinator" and the plugin
+    README pointing at the section; README: the host sections in order with the three new ones and
+    their contents, the three "Tested on" rows, the waiting section (its place, terms, both tables,
+    the rule's seven lines, what was measured, the caveats) and every number of it recomputed from
+    the formula and the prices.
+  - Assertions (each harness alone, Windows PowerShell 5.1 and PowerShell 7.6.6, 2026-09-29 23:09 to
+    2026-09-30 00:31, the same counts on both): `harness-host` 58 (+6); the harnesses that read the
+    changed documents, unchanged: `harness-telemetry` 55, `harness-fixes27c` 36, `harness-engines` 97,
+    `harness-visibility` 121. No full suite: no script changed.
 
 ### Changed
 
