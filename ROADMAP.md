@@ -219,8 +219,8 @@ optional participant whose "done" is never trusted and who never closes a findin
   hooks a host already runs (a SessionStart/Stop hook may print "panel <id> finished").
   Measured by the coordinator's blocked time per consultation (from the panel's wall clock
   to seconds) with unchanged ledger, findings and recovery semantics.
-- **R13 — Host invariance: the same bridge for a Codex-first (or any) coordinator (planned
-  for 0.5).** The bridge scripts already run from any coordinator - a Codex CLI session, Cursor,
+- **R13 — Host invariance: the same bridge for a Codex-first (or any) coordinator (implemented in the 0.5.0 candidate, wave 27 and 27b - hosts Claude Code, Codex CLI, Z Code, Kimi Code, any shell;
+  the live coordinator runs are listed in README "Tested on").** The bridge scripts already run from any coordinator - a Codex CLI session, Cursor,
   a shell - and a reviewer needs no ChatGPT plan (a provider table with an `env_key`
   authenticates on its own; the preflight checks `codex login status` only for `openai`).
   What is Claude-Code-specific is the packaging: the `.claude-plugin` manifest, `hooks.json`,
@@ -302,7 +302,7 @@ optional participant whose "done" is never trusted and who never closes a findin
   harness). README "Telemetry (opt-in)" with the exact payload and the privacy statement.
   Non-goals: any identifying data, any send without the switch, any send that can slow or fail
   a run.
-- **R18 — Member control: stall auto-cut, `-Kick`, per-entry timeouts (wave 26b, from live use on
+- **R18 — Member control: stall auto-cut, `-Kick`, per-entry timeouts (wave 26b; wave 26c: kick acknowledgement, the stall timer on bytes and suspended during tool calls; from live use on
   2026-09-27).** A coordinator watching a panel could not shorten one slow member: a reviewer that
   had stopped producing events held the panel for its whole budget (1800 s plus the 900 s
   continuation), and the only manual remedy was killing its process by hand. Pieces: (a) a stall
@@ -314,7 +314,7 @@ optional participant whose "done" is never trusted and who never closes a findin
   output salvaged, the member recorded `failed: stopped by the operator (-Kick)` (class `operator`),
   the panel goes on; (c) a roster entry's `timeout_sec` replacing the purpose default for that
   member (an explicit `-TimeoutSec` still wins for all). Non-goal: restarting a kicked member.
-- **R19 — The coordinator's manual ships with the bridge (wave 27, with R13).** The rules a
+- **R19 — The coordinator's manual ships with the bridge (implemented in wave 27 with R13: the `coordinate` skill, the agent files, `-Explain`; the idle watchdog rule added in wave 27b).** The rules a
   coordinator needs to run consultations well - waves and briefs, a fresh worker per wave, reports
   as files, non-blocking waits (`-Detach`, background runs, a watchdog wake below the prompt-cache
   TTL that reads the worker's state file and messages or kicks it), context hygiene (the
@@ -325,7 +325,7 @@ optional participant whose "done" is never trusted and who never closes a findin
   the worker agent definitions ship in the plugin's `agents/` (the Codex host gets its
   counterparts from the R13 install script), and the SessionStart hook prints one pointer line
   beside the availability line. Reviewed with R13 in one design panel.
-- **R20 — Machine-wide endpoint health (wave 26b).** Endpoint health lives in the ledgers of one
+- **R20 — Machine-wide endpoint health (wave 26b; wave 26c: lock retries and the retry at the ledger commit).** Endpoint health lives in the ledgers of one
   repository, so two repositories consulting the same endpoint at once cannot see each other's
   bursts: on 2026-09-27 a BytePlus member of this repository's acceptance panel failed with 429
   after 2568 s while another repository's panels used the same endpoint. A small store under the
