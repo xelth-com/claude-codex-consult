@@ -8,8 +8,14 @@ disable-model-invocation: false
 
 # Consult Codex
 
-Codex is a reasoning partner here, not an executor. **You keep the final word.**
-It runs read-only by default: it reads the repository and answers, it does not edit.
+`${CLAUDE_PLUGIN_ROOT}` is the plugin directory; from a plain shell set `CODEX_CONSULT_ROOT` to it and use that instead.
+
+Codex is a reasoning partner here, not an executor. **You - the coordinator - keep the final
+word.** It runs read-only by default: it reads the repository and answers, it does not edit.
+How to run workers, waves and waits around consultations (one objective per worker, state on
+disk, polling instead of blocking, the worker tiers, the means of your host) is the `coordinate`
+skill (`${CLAUDE_PLUGIN_ROOT}/skills/coordinate/SKILL.md`; a host without skills:
+`codex-consult.ps1 -Explain coordinate`).
 
 Every consultation leaves two files you can commit — your brief and Codex's
 verbatim reply — plus one entry in a JSON ledger. A `<task-id>` groups one
@@ -97,8 +103,12 @@ handle the key yourself.
 ## 1. Write the brief
 
 Write it yourself, in English, to
-`.collab/<task>/handoffs/<NN>-claude-<slug>.md` — `<NN>` is the next free 2-digit
-prefix in that `handoffs/` directory (the script picks the next one for its reply).
+`.collab/<task>/handoffs/<NN>-<prefix>-<slug>.md` — `<NN>` is the next free 2-digit
+prefix in that `handoffs/` directory (the script picks the next one for its reply), and
+`<prefix>` is the coordinator's brief prefix: `claude` by default (the name every install's
+ledgers already use), or your host's own slug through `CODEX_CONSULT_BRIEF_PREFIX` /
+`-BriefPrefix`; never `codex`, `agy` or `muse` - those name the bridge's replies and are refused.
+The dry run prints it (`brief prefix:`).
 Create the directory if it does not exist. Start from a template:
 `${CLAUDE_PLUGIN_ROOT}/templates/brief-framing.md` for framing, decision or stuck;
 `${CLAUDE_PLUGIN_ROOT}/templates/brief-review.md` for checkpoint, core-contract,
@@ -114,10 +124,20 @@ repository; the prompt only points at it.
 ## 2. Run one command
 
 ```
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" -Task <task> -Mode fork -Purpose <purpose> -Brief .collab/<task>/handoffs/<NN>-claude-<slug>.md -Prompt "<one-line ask>" -ReplyName <slug>
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" -Task <task> -Mode fork -Purpose <purpose> -Brief .collab/<task>/handoffs/<NN>-<prefix>-<slug>.md -Prompt "<one-line ask>" -ReplyName <slug>
 ```
 
 On macOS and Linux (and on Windows with PowerShell 7 installed), use `pwsh -NoProfile -File` instead.
+On the FIRST consultation of a task with a reviewer leave `-Mode` out (or pass `-Mode new`): there
+is no thread to fork yet and `-Mode fork` is refused.
+
+`CODEX_CONSULT_COORDINATOR` names your own model - keep the operator's value when it is set; when
+it is empty, set it (`<provider> :: <model>` in the roster's spelling, optionally
+` [<engine>]`, or a roster position `#<n>`) for the session: a reviewer the bridge seats that IS
+your model gets a warning - "a second opinion from the coordinator's own model" - on the console,
+in the dry run and in the ledger's `warnings[]` (never a refusal); a value that does not parse
+is refused before anything starts. The ledger's `coordinator` records it with your host (inferred,
+a hint only: `codex`, `zcode`, `claude-code` or `unknown`).
 
 `-Purpose` selects the prompt paragraph Codex is asked to answer under, and its default
 effort and word cap:
@@ -374,7 +394,7 @@ quota) killed it - resume it instead (see "Run one command").
 
 ## Role split: the operator's council
 
-Treat every reviewer in play — Claude (this coordinator), Codex, and any roster member
+Treat every reviewer in play — you (the coordinator), Codex, and any roster member
 — as a council with these rules, not as a primary reviewer plus optional extras:
 
 - **The coordinator is an equal participant, not a rubber stamp**, and is the judge by
@@ -419,7 +439,7 @@ Treat every reviewer in play — Claude (this coordinator), Codex, and any roste
   findings.** A stand-in's ACCEPT is recorded, but the tag waits for the one who raised
   them.
 
-When a fresh-context verifier of the same model family (Claude, in the mechanics role)
+When a fresh-context verifier of the coordinator's own model family (in the mechanics role)
 is also reviewing, that split is a further, orthogonal division of labor, not exclusive
 responsibilities — either may challenge anything the other says:
 
@@ -471,17 +491,23 @@ it, a `"weighty"` entry only joins on the weighty purposes.
   and its siblings' handoffs (a muse member's only warns - see "Live members" above).
 - **A member that hangs** (wave 26b): its stall cut stops it when its event stream stays silent
   for `-StallSec` (default 900 s, a roster entry's `stall_sec`) - like a timeout, with the
-  continuation turn and the salvage. To stop one member yourself, from another shell:
+  continuation turn and the salvage; (wave 26c) any output resets that timer, and it does not
+  run while the member is inside a tool call (one long build is never cut; the timeout still
+  bounds it). To stop one member yourself, from another shell:
   `codex-consult.ps1 -Task <task> -Kick -Member <NN>` (a detached panel: add `-Id <id8>`) - its
   partial output is salvaged, it is recorded `failed: stopped by the operator (-Kick)` (class
-  `operator`, not the endpoint's fault) and the panel goes on with the others. Ask the operator
-  before kicking a member that is merely slow.
+  `operator`, not the endpoint's fault) and the panel goes on with the others. `-Kick` exits `0`
+  once the member acknowledged (a member that had already finished records `kick_late`, its
+  outcome unchanged), `3` when it did not within 10 s - the kick file stays for its next poll.
+  Ask the operator before kicking a member that is merely slow.
 - **Other repositories count** (wave 26b): a member whose endpoint is busy with a run of another
   repository or panel on this machine waits for it (`panel member k of n waits: ...`) - the
   endpoint's parallel limit is machine-wide; do not start a second panel to "get around" it.
 - **A reduced panel says so** (wave 26b): `panel size reduced: asked 4, eligible 2` means the
   roster could not seat the size the purpose asks for - for a framing, decision or acceptance
-  panel tell the operator who is missing before relying on the smaller panel.
+  panel tell the operator who is missing before relying on the smaller panel. (Wave 26c) `panel
+  size raised: asked 1, required 3` means the required reviewers took more seats than asked -
+  the panel costs more than you planned.
 - **Per-lineage** — each member forks the newest thread of its own lineage (or starts
   one); never fork or resume one member's thread under another's provider/model.
 - **Members see the same open-findings snapshot** — every member is shown the findings
@@ -511,7 +537,7 @@ A panel acceptance runs 15-60 minutes. Do not sit in it: add `-Detach` to the co
 carry on with other work.
 
 ```
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" -Task <task> -Panel -Purpose acceptance -TimeoutSec 3600 -Brief .collab/<task>/handoffs/<NN>-claude-<slug>.md -ReplyName <slug> -Detach
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" -Task <task> -Panel -Purpose acceptance -TimeoutSec 3600 -Brief .collab/<task>/handoffs/<NN>-<prefix>-<slug>.md -ReplyName <slug> -Detach
 ```
 
 - **It is checked before it returns.** A refusal (a missing brief, no available reviewer, no
@@ -557,7 +583,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 3. **The prompt goes on stdin.** The script pipes it via `-`. A prompt passed as a
    positional argument is re-expanded by the Windows `codex.cmd` shim, which eats
    `%VAR%` patterns.
-4. **Claude keeps the final word.** A consultation is evidence, not an instruction.
+4. **The coordinator keeps the final word.** A consultation is evidence, not an instruction.
 5. **Project isolation.** Everything is scoped to the git repository you run from:
    the ledger lives under `<repo>/<CollabDir>/<task>/`, the parent thread for
    `fork`/`resume` comes only from *that* repository's `sessions.json`, and a

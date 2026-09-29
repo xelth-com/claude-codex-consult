@@ -190,7 +190,9 @@ function Hook {
     $env:Path = "$bin;$safePath"
     Push-Location $Repo
     $p = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    $out = (& $psExe -NoProfile -ExecutionPolicy Bypass -File $hookPs 2>&1 | ForEach-Object { "$_" }) -join "`n"
+    # (wave 27) the availability line alone: the hook's second line (the pointer to the
+    # coordinator's rules) is harness-host's
+    $out = (& $psExe -NoProfile -ExecutionPolicy Bypass -File $hookPs 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -notmatch '^codex-consult: coordinator rules - ' }) -join "`n"
     $ErrorActionPreference = $p
     Pop-Location
     Restore-Env

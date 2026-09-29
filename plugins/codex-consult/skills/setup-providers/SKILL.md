@@ -8,6 +8,8 @@ disable-model-invocation: false
 
 # Set up reviewers for codex-consult
 
+`${CLAUDE_PLUGIN_ROOT}` is the plugin directory; from a plain shell set `CODEX_CONSULT_ROOT` to it and use that instead.
+
 This procedure wires one or more reviewers so `codex-consult.ps1` can reach them. A
 reviewer goes through `codex exec` (the default engine) or, per roster entry, through
 Google's Antigravity CLI `agy` (the `agy` engine, section 3b) or Meta's Muse Code CLI `muse`
@@ -90,8 +92,8 @@ Conventions:
 - Only in the user-level `<codex home>/config.toml`: the bridge reads no other Codex
   config, so a table anywhere else is invisible to its identity and preflight.
 
-Then tell the user to set the key themselves and restart Claude Code (a running session
-does not see a variable set after it started):
+Then tell the user to set the key themselves and restart the coordinator's session (a running
+session - of any host - does not see a variable set after it started):
 
 - Windows: `setx ZAI_API_KEY "<key>"` in their own terminal
 - macOS/Linux: `export ZAI_API_KEY="<key>"` in `~/.bashrc`, `~/.zshrc` or `~/.profile`
@@ -186,7 +188,7 @@ wire_api = "responses"
   `model_supports_reasoning_summaries = true`: pass it per entry as `"codex_config":
   ["model_supports_reasoning_summaries=true"]` (some Kimi code models reject it - check the
   first run's ledger).
-- Quota (Lite, the docs' estimate on `dola-seed-2.0-lite` in Claude Code): about 1,200
+- Quota (Lite, the docs' estimate on `dola-seed-2.0-lite` as a coding agent): about 1,200
   requests per sliding 5 hours, 9,000 per week, 18,000 per subscription month; Pro five
   times that. One quota for every model and tool. No refunds; the subscription authorises
   the vendor to use inputs and outputs for training.
@@ -273,14 +275,14 @@ therefore REFUSES a muse run while either variable is set, and there is no opt-o
 1. **Install** (ask the user): the official Muse Code installer. On Windows it puts `muse.cmd`
    (a launcher for the versioned binary, which it may update) into
    `%LOCALAPPDATA%\Programs\muse` and adds that directory to the USER Path - a shell (and a
-   Claude Code session) started before the install does not see it; the bridge falls back to
+   coordinator's session) started before the install does not see it; the bridge falls back to
    that location by itself. Check without spending a prompt: `muse --version` -> a version
    line (or `Test-Path "$env:LOCALAPPDATA\Programs\muse\muse.cmd"` -> `True`). Elsewhere: the
    user passes `-EngineExe <path>` or sets `CODEX_CONSULT_MUSE_EXE`.
 2. **Credential backend - the USER sets it BEFORE signing in, on every OS:** the keychain
    write fails on Windows and the bridge cannot read a keychain anywhere, so the credential must
    go to a file: the user variable `TBH_CREDENTIAL_BACKEND=file` (e.g. `[Environment]::SetEnvironmentVariable('TBH_CREDENTIAL_BACKEND', 'file', 'User')`,
-   then a new shell / a restarted Claude Code). Without a readable oauth sign-in the bridge
+   then a new shell / a restarted coordinator session). Without a readable oauth sign-in the bridge
    REFUSES every muse launch (`the muse engine is refused: the Muse sign-in is not established
    as oauth (TBH_CREDENTIAL_BACKEND is not set: the keychain backend cannot be read): ...`) -
    `-SkipPreflight` does not change that.
@@ -397,7 +399,7 @@ wired one `available` with `ok: Logged in using ChatGPT` or `ok: env <NAME> set`
 then `roster: <path> -> would select <provider> :: <model>` and `availability: all <n> reviewers
 available` (the SessionStart line; `codex-providers.ps1 -Short` prints it alone). Other
 verdicts - the roster walk's own: `unavailable (missing: env <NAME> not set)` (not set, or
-Claude Code not restarted), `unavailable (usage limit until <iso>)`, `unavailable (usage limit
+the coordinator's session not restarted), `unavailable (usage limit until <iso>)`, `unavailable (usage limit
 hit <iso>, reset unknown; retry after <iso>)` (a limit without a reset time, for 60 minutes;
 `burst limit (429) hit ...` - a 429 that names no usage window or quota - for 10, wave 24c),
 `unknown (<reason>)` (login check failed, or the config cannot be scanned). An agy roster label gets its own row: `available  gemini  4,5

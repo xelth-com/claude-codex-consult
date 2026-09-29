@@ -98,7 +98,7 @@ $noCliPath = (@(([string]$savedEnv['Path']) -split ';' | Where-Object { $d = $_;
 $bin = Join-Path $work 'bin'
 [void][IO.Directory]::CreateDirectory($bin)
 [IO.File]::WriteAllText((Join-Path $bin 'codex.cmd'), "@echo off`r`nset ""FAKE_CODEX_ARGS=%*""`r`npowershell -NoProfile -ExecutionPolicy Bypass -File ""$(Join-Path $sp 'fake-codex3.ps1')""`r`nexit /b %ERRORLEVEL%`r`n")
-$fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_PIDFILE', 'FAKE_CODEX_PIDDIR', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_FAIL_ON', 'FAKE_CODEX_HANG_ON', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_REPLY_MAP', 'FAKE_AGY_REPLY', 'FAKE_AGY_WRITE', 'FAKE_AGY_DELAY_MS', 'FAKE_AGY_STATUS', 'FAKE_AGY_ERROR')
+$fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_PIDFILE', 'FAKE_CODEX_PIDDIR', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_FAIL_ON', 'FAKE_CODEX_HANG_ON', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_HOLD_FILE', 'FAKE_CODEX_HOLD_SEC', 'FAKE_CODEX_REPLY_MAP', 'FAKE_AGY_REPLY', 'FAKE_AGY_WRITE', 'FAKE_AGY_DELAY_MS', 'FAKE_AGY_STATUS', 'FAKE_AGY_ERROR')
 $testVars = @('RT_ZAI_KEY', 'RT_MIMO_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_AGY_EXE', 'CODEX_CONSULT_MUSE_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_PANEL_GUARD_SEC', 'CODEX_CONSULT_TEST_DETACH_GUIDS', 'CODEX_CONSULT_TEST_WRITE_LOCK_SEC', 'CODEX_CONSULT_SCRIPTS_DIR', 'T4_MARKER')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
@@ -149,6 +149,42 @@ function Status {
 function WaitRun {
     param([string]$Repo, [string[]]$ArgList = @())
     return (Consult $Repo '' (@('-Wait') + $ArgList) @{} -NoCodexExe)
+}
+# (wave 27b) -Wait started WITHOUT blocking (the caller releases a held reviewer once it waits):
+# { Proc; OutPath } for Complete-WaitRun, which returns what WaitRun returns ({ Code; Out; First })
+function Start-WaitRun {
+    param([string]$Repo, [string[]]$ArgList = @())
+    Set-CaseEnv '' @{}
+    $outP = Join-Path $work ('wait-' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.out')
+    $all = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $consultPs, '-Task', 't', '-Wait') + @($ArgList)
+    $argText = (@($all | ForEach-Object { if ([string]$_ -match '[\s"]') { '"' + ([string]$_ -replace '"', '\"') + '"' } else { [string]$_ } }) -join ' ')
+    $proc = Start-Process -FilePath $psExe -ArgumentList $argText -WorkingDirectory $Repo -NoNewWindow -PassThru -RedirectStandardOutput $outP -RedirectStandardError "$outP.err"
+    if ($PSVersionTable.PSVersion.Major -lt 6) { try { $null = $proc.Handle } catch { } }
+    Restore-Env
+    return [pscustomobject]@{ Proc = $proc; OutPath = $outP }
+}
+# A redirected output file read while its writer may still run (shared), decoded as PowerShell
+# decodes a captured native command's output ([Console]::OutputEncoding)
+function Read-ProcOut {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return '' }
+    try {
+        $fs = New-Object IO.FileStream($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+        try { $ms = New-Object IO.MemoryStream; $fs.CopyTo($ms); return [Console]::OutputEncoding.GetString($ms.ToArray()) } finally { $fs.Dispose() }
+    } catch { return '' }
+}
+function Complete-WaitRun {
+    param($Started)
+    if (-not $Started.Proc.WaitForExit(300000)) { try { $Started.Proc.Kill() } catch { } }
+    $Started.Proc.WaitForExit()
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($p in @($Started.OutPath, "$($Started.OutPath).err")) {
+        $t = (Read-ProcOut $p) -replace "`r`n", "`n"
+        if ($t.EndsWith("`n")) { $t = $t.Substring(0, $t.Length - 1) }
+        if ($t) { foreach ($l in ($t -split "`n")) { $lines.Add($l) } }
+    }
+    $text = ($lines.ToArray() -join "`n")
+    return [pscustomobject]@{ Code = $Started.Proc.ExitCode; Out = $text; First = (($text -split "`n") | Select-Object -First 1) }
 }
 function Run-Tool {
     param([string]$Script, [string]$Repo, [string[]]$ArgList, [string]$Roster = '', [hashtable]$Env = @{})
@@ -231,7 +267,8 @@ function Hook {
     Set-CaseEnv $Roster @{}
     Push-Location $Repo
     $p = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    $out = (& $psExe -NoProfile -ExecutionPolicy Bypass -File $hookPs 2>&1 | ForEach-Object { "$_" }) -join "`n"
+    # (wave 27) the availability line alone (the pointer line is harness-host's)
+    $out = (& $psExe -NoProfile -ExecutionPolicy Bypass -File $hookPs 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -notmatch '^codex-consult: coordinator rules - ' }) -join "`n"
     $ErrorActionPreference = $p
     Pop-Location
     Restore-Env
@@ -390,12 +427,15 @@ if (Want 'REFUSE') {
 if (Want 'SINGLE') {
     $r = New-Repo 'single'
     $repos.Add($r)
-    $f = Consult $r '' @('-Detach', '-Prompt', 'x', '-ReplyName', 'sd') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_DELAY_MS = '12000' }
+    # (wave 27b) the fake reviewer HOLDS until the release file exists (at most 120 s): the "while it
+    # runs" checks below never race the run's end, however long each script call takes
+    $release = Join-Path $work 'single-release.flag'
+    $f = Consult $r '' @('-Detach', '-Prompt', 'x', '-ReplyName', 'sd') @{ FAKE_CODEX_REPLY = $adviseF; FAKE_CODEX_HOLD_FILE = $release; FAKE_CODEX_HOLD_SEC = '120' }
     $id8 = Id8Of $f.Out
     $run = Run8 $r $id8
     $st0 = $(if ($run -and $run.Record) { $run.Record.state } else { '' })
     $outLines = @($f.Out -split "`n")
-    Check 'SINGLE' 'the foreground returns at once (well before the reviewer''s 12 s; exit 0) printing three lines - "Detached <id8>: a single run of openai :: gpt-5.1 (...) - it runs in the background (detach id <guid>; budget 2400 s).", the status file and the log, the come-back commands (-Status -Id <id8> / -Wait -Id <id8>)' ($f.Code -eq 0 -and $f.Sec -lt 10 -and $outLines.Count -eq 3 -and $outLines[0] -match "^Detached $id8`: a single run of openai :: gpt-5\.1 \(purpose none, timeout 900 s\) - it runs in the background \(detach id $id8-[0-9a-f-]{27}; budget 2400 s\)\.$" -and $outLines[1] -match "^status file: .*\\\.collab\\t\\\.consult\.detached-$id8\.status\.json \(console output: .*\\\.consult\.detached-$id8\.log\)$" -and $outLines[2] -match "^come back  : codex-consult\.ps1 -Task t -Status -Id $id8 .* -Wait -Id $id8 ") "$($f.Sec) s; $($outLines[0])"
+    Check 'SINGLE' 'the foreground returns at once (while the reviewer is still held; exit 0) printing three lines - "Detached <id8>: a single run of openai :: gpt-5.1 (...) - it runs in the background (detach id <guid>; budget 2400 s).", the status file and the log, the come-back commands (-Status -Id <id8> / -Wait -Id <id8>)' ($f.Code -eq 0 -and $f.Sec -lt 10 -and $outLines.Count -eq 3 -and $outLines[0] -match "^Detached $id8`: a single run of openai :: gpt-5\.1 \(purpose none, timeout 900 s\) - it runs in the background \(detach id $id8-[0-9a-f-]{27}; budget 2400 s\)\.$" -and $outLines[1] -match "^status file: .*\\\.collab\\t\\\.consult\.detached-$id8\.status\.json \(console output: .*\\\.consult\.detached-$id8\.log\)$" -and $outLines[2] -match "^come back  : codex-consult\.ps1 -Task t -Status -Id $id8 .* -Wait -Id $id8 ") "$($f.Sec) s; $($outLines[0])"
     Check 'SINGLE' 'the status file right after: not done (starting or running), kind run, budget_sec 2400 (D4: the member guard 2280 + 120), one member pending/running with the lineage; the `args` of the starting record are gone once the background reported (D5)' ($run -and $run.Record -and @('starting', 'running') -contains $st0 -and $run.Record.kind -eq 'run' -and $run.Record.budget_sec -eq 2400 -and @($run.Record.members).Count -eq 1 -and $run.Record.members[0].lineage -eq 'openai :: gpt-5.1') "state $st0"
     $running = Wait-For { $x = Run8 $r $id8; $x -and $x.Record.state -eq 'running' -and $x.Record.members[0].state -eq 'running' } 60
     $x = Run8 $r $id8
@@ -406,7 +446,12 @@ if (Want 'SINGLE') {
     Check 'SINGLE' 'D5: the background''s self-report - state running, its own pid and start time (alive), this host, no args; the member running with n=1, handoff 01 (numbers taken under the lock)' ($running -and [int]$x.Record.pid -gt 0 -and (Test-PidAlive -ProcessId ([int]$x.Record.pid) -StartTime ([string]$x.Record.start_time)) -and $x.Record.host -eq [Environment]::MachineName -and -not $x.Record.args -and $x.Record.members[0].n -eq 1 -and $x.Record.members[0].handoff -eq '01') "pid $($x.Record.pid)"
     Check 'SINGLE' '-Status while it runs: exit 2, "detached <id8> (single run, reply name sd): running since <t> (<s>), 0 of 1 members finished", the member line "#1 openai :: gpt-5.1 - running (n=1, handoff 01)", the log path; -Id <id8> the same' ($s1.Code -eq 2 -and $s1.First -match "^detached $id8 \(single run, reply name sd\): running since \S+ \([0-9]+ s\), 0 of 1 members finished$" -and $s1.Out -match '(?m)^  #1 openai :: gpt-5\.1 - running \(n=1, handoff 01\)$' -and $s1.Out -match "(?m)^  log: .*\.consult\.detached-$id8\.log$" -and $s1i.Code -eq 2 -and $s1i.First -match "^detached $id8 \(single run, reply name sd\): running since ") $s1.First
     Check 'SINGLE' 'codex-findings -List shows the running detached run ("detached <id8>: running since ..., 0 of 1 members finished (codex-consult.ps1 -Task t -Status -Id <id8>)"); the SessionStart hook line ends "; 1 detached consultation running (task t)"' ($l1.Code -eq 0 -and $l1.Out -match "(?m)^detached $id8`: running since \S+ \([0-9]+ s\), 0 of 1 members finished \(codex-consult\.ps1 -Task t -Status -Id $id8\)$" -and $h1 -match '; 1 detached consultation running \(task t\)$') "$(Line $l1.Out 'detached') | $h1"
-    $w = WaitRun $r @('-Id', $id8)
+    # -Wait must find the run still open: it starts first, and the reviewer is released once -Wait
+    # says it waits (its stdout read shared while it runs; decoded like a captured native output)
+    $w = Start-WaitRun $r @('-Id', $id8)
+    $null = Wait-For { (Read-ProcOut $w.OutPath) -match '(?m)^codex-consult: waiting for ' } 120
+    [IO.File]::WriteAllText($release, 'go')
+    $w = Complete-WaitRun $w
     $done = Run8 $r $id8
     $log = Read-SharedText -Path $done.Log
     $sum = @(([string]$done.Record.summary) -split "`n")

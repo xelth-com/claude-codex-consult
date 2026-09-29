@@ -18,11 +18,14 @@ desktop.ini
 # and a panel member's .consult.pending-<NN>.json exist only during or after an
 # interrupted consultation; a detached consultation's status file and console log
 # (.consult.detached-<id8>.status.json, .consult.detached-<id8>.log; -Status -Prune
-# removes old ones) are runtime state too. None of them belongs in history.
+# removes old ones) are runtime state too; so are an operator's kick file and the member's
+# acknowledgement (.consult.kick-<NN>, .consult.kick-<NN>.ack; wave 26c). None of them belongs
+# in history.
 .consult.lock
 .consult.write.lock
 .consult.pending.json
 .consult.pending-*.json
+.consult.kick-*
 .consult.detached-*
 
 # Local eval runs (claude plugin eval) - reports and transcripts, never committed.

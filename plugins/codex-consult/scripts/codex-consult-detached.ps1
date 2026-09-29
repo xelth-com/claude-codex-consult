@@ -277,6 +277,10 @@ function ConvertTo-DetachedRecord {
         summary        = [string](Get-PropertyValue $Record 'summary' '')
         log            = [string](Get-PropertyValue $Record 'log' '')
         args           = $(if ([string](Get-PropertyValue $Record 'args' '')) { [string]$Record.args } else { $null })
+        # (wave 27, R13 D3/D4) the coordinator the foreground resolved and the host markers it kept
+        # from the background: the run takes both from here (its own environment has no markers)
+        coordinator        = (Get-PropertyValue $Record 'coordinator' $null)
+        child_env_scrubbed = [object[]]@(@(Get-PropertyValue $Record 'child_env_scrubbed' @()) | Where-Object { $_ } | ForEach-Object { [string]$_ })
     }
 }
 

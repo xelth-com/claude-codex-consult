@@ -9,7 +9,12 @@
 # stall_sec, D12); the machine-wide endpoint health file (a 429 of one repository honoured by the
 # roster walk of another; a member running in one repository counted against the endpoint's
 # parallel limit in the other; pruning; D13). D9 (the write-disabled tree check) is covered in
-# harness-muse.ps1 (TREE), where the muse sign-in fakes live. FAKES ONLY: fake-codex3.cmd;
+# harness-muse.ps1 (TREE), where the muse sign-in fakes live. (wave 26c, decisions D1-D5 of
+# handoffs/27-claude-wave26c-decisions.md) KICKACK the kick acknowledged (late, before the loop,
+# -Kick exit 3 and 1, a kick of the format repair only), HEALTHLOCK the stored until and the lock
+# timeout's retry and warning, STALLTOOL the stall cut outside tool calls and on byte growth,
+# JOINBLANK a legacy rating's empty fields, SIZERAISE the size raised by required reviewers.
+# FAKES ONLY: fake-codex3.cmd;
 # CODEX_HOME, CODEX_CONSULT_ROSTER and CODEX_CONSULT_HEALTH point at scratch files (the machine-wide
 # health file is 'none' unless a case names a scratch file of its own); the API key variables hold
 # dummy test values. Runs under the host it is started with (powershell 5.1 or pwsh 7, Windows).
@@ -80,8 +85,8 @@ function Write-Roster {
     [IO.File]::WriteAllText($p, $Json, $u8)
     return $p
 }
-$fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_FAIL_ON', 'FAKE_CODEX_HANG_ON', 'FAKE_CODEX_HANG_NEW', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_REPLY_MAP', 'FAKE_CODEX_SLEEP', 'FAKE_CODEX_ITEMS', 'FAKE_CODEX_RESUME_REPLY', 'FAKE_CODEX_STDERR', 'FAKE_CODEX_EXIT', 'FAKE_CODEX_FAIL_EVENT')
-$testVars = @('RT_ZAI_KEY', 'RT_MIMO_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_PANEL_SEED', 'CODEX_CONSULT_TEST_PANEL_GUARD_SEC')
+$fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_FAIL_ON', 'FAKE_CODEX_HANG_ON', 'FAKE_CODEX_HANG_NEW', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_REPLY_MAP', 'FAKE_CODEX_SLEEP', 'FAKE_CODEX_ITEMS', 'FAKE_CODEX_RESUME_REPLY', 'FAKE_CODEX_STDERR', 'FAKE_CODEX_EXIT', 'FAKE_CODEX_FAIL_EVENT', 'FAKE_CODEX_TOOL_OPEN', 'FAKE_CODEX_DRIP', 'FAKE_CODEX_RESUME_LOG')
+$testVars = @('RT_ZAI_KEY', 'RT_MIMO_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_PANEL_SEED', 'CODEX_CONSULT_TEST_PANEL_GUARD_SEC', 'CODEX_CONSULT_TEST_HEALTH_LOCK_SEC')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     Get-ChildItem env: | Where-Object { $_.Name -like 'CODEX_CONSULT_PEAK_*' } | ForEach-Object { Remove-Item "env:$($_.Name)" -ErrorAction SilentlyContinue }
@@ -567,6 +572,142 @@ if (Want 'HEALTH') {
     [IO.File]::WriteAllText($hD, '{ not json', $u8)
     $bad = Consult $rb $rz @('-DryRun', '-Prompt', 'x') @{ CODEX_CONSULT_HEALTH = $hD }
     Check 'HEALTH' 'D13: every write prunes - a record older than 24 h whose until passed goes, one whose until lies ahead (a weekly limit) stays, a running row whose pid + start time is gone goes; a file that does not parse is read as empty (the walk works as before)' ($wrote -and (@($pr.endpoints | ForEach-Object { $_.endpoint }) -join ',') -eq 'e-long,e-new' -and @($pr.running).Count -eq 0 -and $bad.Code -eq 0 -and @($bad.Previews)[0].reviewer.provider -eq 'ZAI') "$(@($pr.endpoints | ForEach-Object { $_.endpoint }) -join ',') running $(@($pr.running).Count) | bad file: $($bad.Code)"
+}
+
+# ======================================================================= wave 26c (decisions D1-D6 of
+# .collab/companions-2026-09-26/handoffs/27-claude-wave26c-decisions.md; F25-1/2, F26-1..5)
+$prose26c = Reply 'prose-26c.md' ("1. The first answer: the invalidation path looks correct, because every writer takes the lock before it touches the cache entry and releases it after the write.`n" + "2. The second answer: the retry path has no test at all and should get one before the release, since a silent retry loop hides the real failure.`n")
+
+# =============================================================== 26c D1: the kick acknowledged
+if (Want 'KICKACK') {
+    $kd = Join-Path $work 'kickunit'
+    [void][IO.Directory]::CreateDirectory($kd)
+    $kf = Join-Path $kd '.consult.kick-05'
+    $pe = Start-Process -FilePath $psExe -ArgumentList '-NoProfile', '-Command', 'exit 0' -PassThru -WindowStyle Hidden
+    if ($PSVersionTable.PSVersion.Major -lt 6) { try { $null = $pe.Handle } catch { } }
+    $null = $pe.WaitForExit(20000)
+    [IO.File]::WriteAllText($kf, "kick`n")
+    $wl = Wait-EngineProcess -Process $pe -TimeoutSec 20 -KickPath $kf
+    $ackL = $(if (Test-Path -LiteralPath "$kf.ack") { [IO.File]::ReadAllText("$kf.ack") } else { '' })
+    Check 'KICKACK' '26c D1 (F26-1, F25-2): a kick file found once the turn''s process has exited is taken LATE - Wait-EngineProcess: Exited, KickLate, no kick reason; the kick file removed, the acknowledgement <kick file>.ack says "late"' ($wl.Exited -and $wl.KickLate -and $wl.Reason -eq '' -and -not (Test-Path -LiteralPath $kf) -and $ackL -match '^late ') "exited $($wl.Exited) late $($wl.KickLate) reason '$($wl.Reason)' ack '$($ackL.Trim())'"
+    Remove-Item -LiteralPath "$kf.ack" -ErrorAction SilentlyContinue
+    $pl = Start-Process -FilePath $psExe -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 30' -PassThru -WindowStyle Hidden
+    [IO.File]::WriteAllText($kf, "kick`n")
+    $kw0 = [Diagnostics.Stopwatch]::StartNew()
+    $wk = Wait-EngineProcess -Process $pl -TimeoutSec 20 -KickPath $kf
+    $kw0.Stop()
+    try { Stop-Process -Id $pl.Id -Force -ErrorAction SilentlyContinue } catch { }
+    $ackK = $(if (Test-Path -LiteralPath "$kf.ack") { [IO.File]::ReadAllText("$kf.ack") } else { '' })
+    Check 'KICKACK' '26c D1: a kick file already there when the wait starts on a LIVE turn is taken before the wait loop (reason kick at once), acknowledged "kicked", the kick file removed' ($wk.Reason -eq 'kick' -and -not $wk.Exited -and -not $wk.KickLate -and $kw0.Elapsed.TotalSeconds -lt 1 -and $ackK -match '^kicked ' -and -not (Test-Path -LiteralPath $kf)) "reason '$($wk.Reason)' in $([math]::Round($kw0.Elapsed.TotalSeconds, 2)) s ack '$($ackK.Trim())'"
+    # -Kick against a run whose member never polls (a fabricated running record, a live child): exit 3, the file stays;
+    # once the child is gone: exit 1 and the stale kick file is removed
+    $r = New-Repo 'kickack'
+    $td = Join-Path $r '.collab\t'
+    [void][IO.Directory]::CreateDirectory($td)
+    $sl = Start-Process -FilePath $psExe -ArgumentList '-NoProfile', '-Command', 'Start-Sleep 90' -PassThru -WindowStyle Hidden
+    Start-Sleep -Milliseconds 500
+    $rec = New-PendingRecord -State 'running' -N 7 -Nn '07' -Reply 'handoffs/07-codex-x.md' -Started (Get-IsoTimestamp) -Launcher 'x' -ConsultId (Guid-Of 881001)
+    $rec.child_pid = $sl.Id
+    $rec.child_start_time = [string](Get-ProcessStartIso -ProcessId $sl.Id)
+    Write-PendingFile -Path (Join-Path $td '.consult.pending.json') -Record $rec
+    $kw1 = [Diagnostics.Stopwatch]::StartNew()
+    $k3 = Run-Tool $consultPs $r @('-Task', 't', '-Kick', '-Member', '07')
+    $kw1.Stop()
+    $stays = Test-Path -LiteralPath (Join-Path $td '.consult.kick-07')
+    try { Stop-Process -Id $sl.Id -Force -ErrorAction SilentlyContinue } catch { }
+    Start-Sleep -Milliseconds 500
+    $k1b = Run-Tool $consultPs $r @('-Task', 't', '-Kick', '-Member', '07')
+    Check 'KICKACK' '26c D1: -Kick waits up to 10 s for the acknowledgement - a member that never takes it: exit 3 after ~10 s ("did not acknowledge the kick within 10 s - the kick file stays"), the kick file still there; once no engine turn runs: exit 1 and that stale kick file is removed' ($k3.Code -eq 3 -and $k3.Out -match 'did not acknowledge the kick within 10 s' -and $kw1.Elapsed.TotalSeconds -ge 9 -and $kw1.Elapsed.TotalSeconds -lt 40 -and $stays -and $k1b.Code -eq 1 -and $k1b.Out -match 'no engine turn running' -and -not (Test-Path -LiteralPath (Join-Path $td '.consult.kick-07'))) "exit $($k3.Code) after $([math]::Round($kw1.Elapsed.TotalSeconds, 1)) s, stays $stays | then exit $($k1b.Code)"
+    # a kick that stops only the FORMAT REPAIR: the first reply stands (usable, not converted)
+    $r2 = New-Repo 'kickrepair'
+    $bg = Start-Consult $r2 '' @('-Prompt', 'x', '-ReplyName', 'kr', '-TimeoutSec', '120') @{ FAKE_CODEX_REPLY = $prose26c; FAKE_CODEX_RESUME_REPLY = $advise; FAKE_CODEX_HANG_ON = ' resume ' } -Name 'kickrepair'
+    $pend = Join-Path $r2 '.collab\t\.consult.pending.json'
+    $inRepair = $false
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while (-not $inRepair -and $sw.Elapsed.TotalSeconds -lt 60) {
+        try { $pr0 = [IO.File]::ReadAllText($pend) | ConvertFrom-Json; if ($pr0.state -eq 'running' -and $pr0.note -eq 'format repair turn') { $inRepair = $true } } catch { }
+        if (-not $inRepair) { Start-Sleep -Milliseconds 250 }
+    }
+    $kr = Run-Tool $consultPs $r2 @('-Task', 't', '-Kick', '-Member', '01')
+    $res = Wait-Consult $bg 90
+    $er = @(Ledger $r2)[-1]
+    Check 'KICKACK' '26c D1 (F25-2): -Kick while only the format repair runs (exit 0, acknowledged): the first reply STANDS - bridge_outcome "usable reply", provider_failure null (no operator class), format_retry failed, warnings[] "kick: the operator stopped the format repair (-Kick); the first reply stands, not converted"' ($inRepair -and $kr.Code -eq 0 -and $res.Done -and $er.bridge_outcome -eq 'usable reply' -and $null -eq $er.provider_failure -and $er.format_retry.succeeded -eq $false -and @($er.warnings | Where-Object { ([string]$_).StartsWith('kick: the operator stopped the format repair (-Kick)') }).Count -eq 1) "repair seen $inRepair; kick $($kr.Code) $($kr.First) | $($er.bridge_outcome) | $(@($er.warnings) -join ' / ')"
+}
+
+# =============================================================== 26c D2: the machine-wide health update
+if (Want 'HEALTHLOCK') {
+    $hT = Join-Path $work 'health-tie.json'
+    $hit = [DateTimeOffset]::Now.AddMinutes(-5)
+    $tie = [pscustomobject]@{ health_version = 1; endpoints = @(
+            [pscustomobject]@{ endpoint = 'e-tie'; class = 'quota'; kind = ''; until = (Iso $hit.AddMinutes(120)); retry_after = $null; repo = 'a'; when = (Iso $hit); message = 'usage limit' },
+            [pscustomobject]@{ endpoint = 'e-tie'; class = 'quota'; kind = ''; until = (Iso $hit.AddMinutes(20)); retry_after = $null; repo = 'b'; when = (Iso $hit); message = 'usage limit' }); running = @() }
+    [IO.File]::WriteAllText($hT, (ConvertTo-Json -InputObject $tie -Depth 5), $u8)
+    $savedH = $env:CODEX_CONSULT_HEALTH
+    $env:CODEX_CONSULT_HEALTH = $hT
+    $eh = Get-EndpointHealth -Consults @() -Fingerprint 'e-tie'
+    $env:CODEX_CONSULT_HEALTH = $savedH
+    Check 'HEALTHLOCK' '26c D2 (F26-2): the record conversion carries the STORED until - two quota records of one endpoint at the same moment: the later until decides (out until hit + 120 min, not the recomputed hit + 60)' ($null -ne $eh.Quota -and (Iso $eh.Quota.Until) -eq (Iso $hit.AddMinutes(120))) "$(if ($eh.Quota) { Iso $eh.Quota.Until } else { 'no quota' })"
+    $hL = Join-Path $work 'health-lock.json'
+    $r = New-Repo 'healthlock'
+    $lk = [IO.File]::Open("$hL.lock", [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    try {
+        $x = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'hl') @{ FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_HEALTH = $hL; CODEX_CONSULT_TEST_HEALTH_LOCK_SEC = '1' }
+    } finally { $lk.Dispose() }
+    $el = @(Ledger $r)[-1]
+    Check 'HEALTHLOCK' '26c D2: the health file''s lock held elsewhere (3 attempts of the hook''s 1 s each, then the one retry at the ledger commit): the run still delivers (usable reply, exit 0), warnings[] and the summary say "machine-wide health not updated (lock timeout)", the ledger keeps the truth; nothing was written to the file' ($x.Code -eq 0 -and $el.bridge_outcome -eq 'usable reply' -and @($el.warnings) -contains 'machine-wide health not updated (lock timeout)' -and $x.Out -match '(?m)^warning    : machine-wide health not updated \(lock timeout\)$' -and -not (Test-Path -LiteralPath $hL)) "exit $($x.Code) | $(@($el.warnings) -join ' / ')"
+}
+
+# =============================================================== 26c D3: the stall cut outside tool calls
+if (Want 'STALLTOOL') {
+    $open = New-Object 'System.Collections.Generic.HashSet[string]'
+    Update-ToolFlight -Engine 'codex' -Line '{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"make"}}' -Open $open
+    $c1 = $open.Count
+    Update-ToolFlight -Engine 'codex' -Line '{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"command_execution soon"}}' -Open $open
+    $c2 = $open.Count
+    Update-ToolFlight -Engine 'codex' -Line '{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"make"}}' -Open $open
+    $c3 = $open.Count
+    Update-ToolFlight -Engine 'agy' -Line '{"event":"step_update","step_update":{"step_index":4,"state":"ACTIVE","step_type":"tool","tool_name":"run_command"}}' -Open $open
+    $c4 = $open.Count
+    Update-ToolFlight -Engine 'agy' -Line '{"event":"step_update","step_update":{"step_index":4,"state":"DONE","step_type":"tool","tool_name":"run_command"}}' -Open $open
+    $c5 = $open.Count
+    Update-ToolFlight -Engine 'muse' -Line '{"payload_type":"task.lifecycle.proposed","payload":{"task_id":"t1","event":{"kind":"proposed","task_id":"t1","task_kind":"tool.read_file"}}}' -Open $open
+    $c6 = $open.Count
+    Update-ToolFlight -Engine 'muse' -Line '{"payload_type":"task.lifecycle.completed","payload":{"task_id":"t1","event":{"kind":"completed","task_id":"t1"}}}' -Open $open
+    $c7 = $open.Count
+    Check 'STALLTOOL' '26c D3 (F26-3): the tool calls in flight - codex item.started of a command_execution until its item.completed (an agent message in between changes nothing), an agy tool step ACTIVE until DONE, a muse tool.* task until its task.lifecycle.completed' ((@($c1, $c2, $c3, $c4, $c5, $c6, $c7) -join ',') -eq '1,1,0,1,0,1,0') (@($c1, $c2, $c3, $c4, $c5, $c6, $c7) -join ',')
+    $r = New-Repo 'stalltool'
+    $w1 = [Diagnostics.Stopwatch]::StartNew()
+    $t1 = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'to', '-StallSec', '3', '-TimeoutSec', '60') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_TOOL_OPEN = '8' }
+    $w1.Stop()
+    $e1 = @(Ledger $r)[-1]
+    Check 'STALLTOOL' '26c D3 (F25-1): one silent tool call of 8 s (item.started, nothing, item.completed) with -StallSec 3 is NOT cut - the timer is suspended while it is in flight: usable reply, stall null, the run took the 8 s' ($t1.Code -eq 0 -and $e1.bridge_outcome -eq 'usable reply' -and $null -eq $e1.stall -and $w1.Elapsed.TotalSeconds -ge 8) "$($e1.bridge_outcome) in $([math]::Round($w1.Elapsed.TotalSeconds, 1)) s"
+    $t2 = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'dr', '-StallSec', '3', '-TimeoutSec', '60') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DRIP = '7' }
+    $e2 = @(Ledger $r)[-1]
+    Check 'STALLTOOL' '26c D3: a line written one byte a second for 7 s (no newline until the end) with -StallSec 3 is NOT cut - any growth of the stream resets the timer: usable reply, stall null' ($t2.Code -eq 0 -and $e2.bridge_outcome -eq 'usable reply' -and $null -eq $e2.stall) "$($e2.bridge_outcome)"
+    $rlog = Join-Path $work 'stall-resume.log'
+    $t3 = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'sc', '-StallSec', '3', '-TimeoutSec', '60') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_NEW = '1'; FAKE_CODEX_RESUME_REPLY = $advise; FAKE_CODEX_RESUME_LOG = $rlog }
+    $e3 = @(Ledger $r)[-1]
+    $rl = $(if (Test-Path -LiteralPath $rlog) { [IO.File]::ReadAllText($rlog) } else { '' })
+    Check 'STALLTOOL' '26c D3: a silent main turn outside any tool call is still cut (stall {seconds 3}), and the continuation says "Your previous turn was stopped after no output for 3 s outside a tool call."' ($null -ne $e3.stall -and [int]$e3.stall.seconds -eq 3 -and $rl.Contains('Your previous turn was stopped after no output for 3 s outside a tool call.')) "$($e3.bridge_outcome)"
+}
+
+# =============================================================== 26c D4: a legacy rating's empty fields
+if (Want 'JOINBLANK') {
+    $r = New-Repo 'joinblank'
+    $cid = Guid-Of 777002
+    $entry = [pscustomobject]@{ n = 1; when = (Iso ([DateTimeOffset]::Now.AddDays(-2))); purpose = 'decision'; topics = [object[]]@('tests'); consult_id = $cid; reviewer = [pscustomobject]@{ provider = 'mimo'; model = 'mimo-v2.6-pro'; engine = 'codex'; provider_fingerprint = 'x' }; bridge_outcome = 'usable reply' }
+    $rating = [pscustomobject]@{ n = 1; consult_id = $cid; provider = 'mimo'; model = ''; purpose = '  '; engine = ''; topics = [object[]]@(); consult_when = ''; useful = 'partly'; note = 'n'; when = (Iso ([DateTimeOffset]::Now)) }
+    Seed-Store $r 'legacy2' -Ratings @($rating) -Entries @($entry)
+    $all = @(Read-AllTaskRatings -CollabRoot (Join-Path $r '.collab'))
+    Check 'JOINBLANK' '26c D4 (F26-4): a rating whose model is EMPTY (and purpose white space, engine empty, topics [], consult_when empty) counts those fields as missing and completes them from its consultation - model mimo-v2.6-pro, purpose decision, engine codex, topics [tests]' ($all.Count -eq 1 -and $all[0].Model -eq 'mimo-v2.6-pro' -and $all[0].Purpose -eq 'decision' -and $all[0].Engine -eq 'codex' -and (@($all[0].Topics) -join ',') -eq 'tests' -and $null -ne $all[0].ConsultWhen) "$($all[0].Lineage) / $($all[0].Purpose) / $(@($all[0].Topics) -join ',')"
+}
+
+# =============================================================== 26c D5: the size raised by the required reviewers
+if (Want 'SIZERAISE') {
+    $r = New-Repo 'sizeraise'
+    $d = Consult $r $roster2 @('-Panel', '-PanelSize', '1', '-Require', 'openai,ZAI', '-DryRun', '-Prompt', 'x')
+    $pv = @($d.Previews)[0]
+    Check 'SIZERAISE' '26c D5 (F26-5): -PanelSize 1 with two required reviewers seats both and says so - "WARNING: panel size raised: asked 1, required 2", the preview''s warnings[], panel.routing size 2, size_asked 1, size_source required, the dry run''s Routing line "size 2 (required; asked 1)"' ($d.Code -eq 0 -and $d.Out -match '(?m)^WARNING: panel size raised: asked 1, required 2$' -and @($pv.warnings | Where-Object { $_ -eq 'panel size raised: asked 1, required 2' }).Count -eq 1 -and $pv.panel.routing.size -eq 2 -and $pv.panel.routing.size_asked -eq 1 -and $pv.panel.routing.size_source -eq 'required' -and $d.Out -match '(?m)^Routing: .* - size 2 \(required; asked 1\)') "$($pv.panel.routing.size)/$($pv.panel.routing.size_asked) $($pv.panel.routing.size_source)"
 }
 
 } finally {

@@ -1,11 +1,14 @@
 <#
 .SYNOPSIS
-    SessionStart hook: one line saying which reviewers are out right now, and until when.
+    SessionStart hook: one line saying which reviewers are out right now, and until when, and
+    one line pointing the coordinator at its rules.
 
 .DESCRIPTION
-    Runs at the start of a Claude Code session in any project where the plugin is
-    enabled (hooks/hooks.json). Prints ONE line to stdout, which Claude Code adds to the
-    agent's context (wave 24, D14-D17 - the line `codex-providers.ps1 -Short` prints):
+    Runs at the start of the coordinator's session in any project where the plugin is enabled
+    (hooks/hooks.json - the host adds the output to the agent's context), or by hand from a host
+    without hooks (the one-liner: powershell -NoProfile -ExecutionPolicy Bypass -File
+    <plugin>/scripts/codex-consult-hook.ps1). Prints the AVAILABILITY line first (wave 24,
+    D14-D17 - the line `codex-providers.ps1 -Short` prints):
 
         codex-consult: out - openai :: gpt-6-astra (until Sun 20:35, in 2d 10h), gemini :: *
         (until Sun 21:30, in 2d 11h); 9 of 11 reviewers available
@@ -36,10 +39,14 @@
     <CollabDir>/*/.consult.detached-*.status.json, a background's liveness judged by its pid and
     start time (Get-DetachedPhrase). Nothing when there is none.
 
+    (wave 27, R13 D5) Then ONE pointer line, always, whatever the first line says:
+
+        codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain coordinate)
+
     Cost: about one second (one `codex login status` for the built-in openai; wave 24b: each
     roster entry's identity and each endpoint's health are resolved once per listing - the
     walk, the availability line and the rows share them - and the ledgers are read once), once
-    per session. Disable the hook by disabling the plugin's hooks in Claude Code settings.
+    per session. Disable the hook with the plugin (the host's plugin switch).
 
     Runs on Windows PowerShell 5.1 and PowerShell 7.
 #>
@@ -93,4 +100,7 @@ try {
     if ($detachedPhrase) { $line += $detachedPhrase }
 } catch { }
 Write-Output $line
+# (wave 27, R13 D5) the pointer to the coordinator's rules - a host without skills reads them with
+# -Explain coordinate
+Write-Output 'codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain coordinate)'
 exit 0

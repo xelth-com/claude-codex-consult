@@ -17,8 +17,11 @@ availability decisions D14-D17 of the companions design review,
 companions design review; and the wave 25 acceptance's carry-overs) are in, and wave 26b (the wave
 26 acceptance's decisions D1-D14 of
 `.collab/companions-2026-09-26/handoffs/23-claude-wave26-acceptance-decisions.md` - ROADMAP R18,
-R20 - and the supervisor's addenda D15, D16); planned next: host invariance (R13), opt-out
-telemetry (R17).
+R20 - and the supervisor's addenda D15, D16), wave 26c (the wave 26b re-acceptance's decisions D1-D6
+of `.collab/companions-2026-09-26/handoffs/27-claude-wave26c-decisions.md`) and wave 27 (host
+invariance and the coordinator's manual - ROADMAP R13, R19, decisions D1-D9 of
+`.collab/host-2026-09-26/handoffs/05-claude-r13-decisions.md`); planned next: opt-out telemetry
+(R17).
 
 ### Added
 
@@ -353,6 +356,175 @@ telemetry (R17).
     implementation of the draw (it reproduces every wave 26 golden value with the old seed text and
     gives the new ones). `fake-codex3.ps1`: `FAKE_CODEX_FAIL_EVENT` (an error event mid-run) and
     `FAKE_CODEX_ITEMS=2` (a second agent message). Every harness sets `CODEX_CONSULT_HEALTH=none`.
+- **Wave 27 - the host is a parameter; the coordinator's manual ships with the plugin (ROADMAP
+  R13, R19; decisions D1-D9 of `.collab/host-2026-09-26/handoffs/05-claude-r13-decisions.md`, the
+  design review's findings F02-1..4, F03-1..7, F04-1..11).**
+  - D1 (F04-1, F04-2, F03-1, F04-9, F02-1, F02-3): README "## Install" for three hosts - Claude
+    Code (the plugin, unchanged), Codex CLI (the SAME plugin through Codex's own plugin system:
+    the operator runs `codex plugin marketplace add xelth-com/claude-codex-consult` and `codex
+    plugin add codex-consult@claude-codex-consult`; update, removal, the plugin cache path, the
+    sandbox a real consultation needs), any shell (a clone, `CODEX_CONSULT_ROOT=<clone>/plugins/
+    codex-consult`). No install script, no copies of skills, nothing the bridge writes into
+    `$HOME`. "Setup on a new machine" step 0 finds the plugin in either host's cache or a clone.
+  - D2 (F02-2, F04-3): the first line after each skill's title (`consult-codex`,
+    `setup-providers`, `coordinate`): "`${CLAUDE_PLUGIN_ROOT}` is the plugin directory; from a
+    plain shell set `CODEX_CONSULT_ROOT` to it and use that instead." Every invocation keeps
+    `${CLAUDE_PLUGIN_ROOT}`; the `<skill dir>/../..` fallback is documented nowhere.
+  - D3 (F03-2, F03-3, F04-4, F04-5, F04-10): `CODEX_CONSULT_COORDINATOR` (optional) - the
+    coordinator's own model: `<provider> :: <model>` [` [<engine>]`], a roster position `#<n>` or a
+    provider label. `codex-consult-common.ps1`: the reviewer matcher split into its one parser
+    `ConvertFrom-ReviewerMatcher` and its one comparison `Test-ReviewerMatch`
+    (`Resolve-ReviewerMatcher`, i.e. `-Require`, now built on them - same results, same messages);
+    `Resolve-CoordinatorIdentity` (a value that does not parse, a position the roster lacks, a
+    provider that is not a label or a model with white space is refused - "CODEX_CONSULT_COORDINATOR=
+    '...' cannot be used: ...; nothing was started.", exit 1, the dry run too),
+    `Get-CoordinatorHost` (the host as a HINT: `codex` - CODEX_SESSION_ID / CODEX_THREAD_ID -,
+    `claude-code` - CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, AI_AGENT claude-code* -, else `unknown`;
+    no warning from it), `Test-CoordinatorReviewer` (the RESOLVED identity field by field, an
+    explicit identity only), `Format-CoordinatorText`, `Format-CoordinatorWarning`.
+    `codex-consult.ps1` resolves it ONCE, right after the roster is read; a panel member takes its
+    panel run's (PanelSpec `coordinator`), a detached run its foreground's (status record
+    `coordinator`) - never inferred downstream. A seated reviewer that is the coordinator's own
+    model warns "coordinator: <lineage> is the coordinator's own model (CODEX_CONSULT_COORDINATOR) -
+    a second opinion from the coordinator's own model, not an independent one" (the run's
+    warnings: console, dry run, handoff header, ledger `warnings[]`; a panel's plan warns per
+    seated member - not through `panel_warnings`, each member warns in its own entry). Ledger
+    `coordinator {provider, model, engine, host, source: explicit | inferred | none}` right after
+    `lineage` - a NEW key; `host` of the lock, recovery and status records stays the machine name
+    (README field table). The dry run prints `coordinator : ...`.
+  - D4 (F04-7): every engine child starts WITHOUT the coordinator's host markers -
+    `CODEX_SESSION_ID`, `CODEX_THREAD_ID`, `CODEX_CI`, every `CODEX_SANDBOX*`, `CLAUDECODE`,
+    `CLAUDE_CODE_ENTRYPOINT`, `AI_AGENT`; everything else kept (`CODEX_HOME`, the keys, `PATH`,
+    `CODEX_CONSULT_*`). `Hide-HostMarkers` / `Restore-HostMarkers` around `Start-EngineProcess`
+    (the main turn, a denial retry, a format repair, the continuation - every turn), the detached
+    background's start (`Start-DetachedRun`) and `codex --version`; `Remove-HostMarkersFromStartInfo`
+    in the probes (`Get-CodexLoginStatus`, `Get-AgyModelsStatus`, `Invoke-LauncherCapture`). Ledger
+    `child_env_scrubbed` (the NAMES captured once, sorted; never a value) right after `command`;
+    the status record and the PanelSpec carry it. The dry run prints `child env   : ...`.
+  - D5 (F04-6, F03-7, F04-8): the SessionStart hook prints a second line, always:
+    `codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1
+    -Explain coordinate)`. `codex-consult.ps1 -Explain coordinate|consult|providers` (the one form
+    without `-Task`): one line naming the SKILL.md and the plugin
+    directory, then the skill without its front matter, as UTF-8 bytes; read-only, exit 0; an
+    unknown name or another parameter exit 1. README "Hooks on each host" documents the one-liner
+    with `-ExecutionPolicy Bypass`.
+  - D6 (F03-4, F02-4): host-neutral wording - the script synopsis ("from any coordinator"), the
+    hook header, both skills (`the coordinator`, "restart the coordinator's session"), the README
+    outside its host sections, the plugin and marketplace descriptions. `-BriefPrefix <slug>` /
+    `CODEX_CONSULT_BRIEF_PREFIX` (default `claude`): the coordinator's brief prefix
+    (`handoffs/<NN>-<prefix>-<slug>.md`); a reply prefix (`codex`, `agy`, `muse`) or a non-slug is
+    refused before anything starts (exit 1); the dry run prints `brief prefix: ...`; a panel
+    passes it to its members.
+  - D7 (F03-5, F03-6, F04-11; Q4-Q6): the skill `coordinate` (host-neutral, English: the
+    invariants, the bridge's own means `-Detach`/`-Status`/`-Wait`/`-Kick`, the worker tier
+    CONTRACT - deep reasoning, default execution, cheap read-only recon - then "Means per host":
+    Claude Code, Codex CLI, a plain shell). `agents/opus-worker.md`, `agents/sonnet-worker.md`,
+    `agents/haiku-worker.md` (model aliases `opus`, `sonnet`, `haiku`; written from the tier
+    contract; the recon tier has no Edit/Write tool). `install/examples/codex-agents/{opus,sonnet,
+    haiku}-worker.toml` (`name`, `description`, `developer_instructions`, no model key) - EXAMPLES,
+    never installed. `consult-codex` links `coordinate`; the README carries the three AGENTS.md
+    lines the operator pastes on the Codex host.
+  - D8: README "## For the coordinator" - the coordinator's identity, brief prefix and rules, and
+    the migration of a private CLAUDE.md delegation block to a pointer; the plugin never edits a
+    CLAUDE.md or an AGENTS.md.
+  - D9: `tests/harness-host.ps1` (new, registered in `tests/run-all.ps1` - fifteen harnesses; the
+    runner clears `CODEX_CONSULT_COORDINATOR` and `CODEX_CONSULT_BRIEF_PREFIX` for its children):
+    GREP (D2/D6 over the skills, the README and the scripts), MATCHER, REFUSE, WARN, ENV (a fake
+    engine that writes what it inherited - `fake-codex3.ps1` `FAKE_CODEX_ENV_DUMP` - for the main
+    turn, a format repair, the timeout continuation, the launcher probes, a detached run and a
+    panel's members), EXPLAIN, HOOK, PREFIX, SKILL, AGENTS, README. The live verification (the
+    operator installs on the Codex host, one `codex exec` coordinator session runs a checkpoint
+    with `mimo :: mimo-v2.6-pro` on task `r13-host`) is the supervisor's.
+  - Deviations from the decisions, said here: (1) the host hint looks at the codex markers FIRST
+    (D3 lists claude-code first) - a codex session started from a claude-code session inherits
+    CLAUDECODE / AI_AGENT, and D9 expects `codex` exactly there; (2) the coordinator value is
+    checked beyond the matcher's parse (a label, a model without white space, an existing `#n`) -
+    a typo would otherwise name nobody silently; (3) the scrub covers the launcher probes too;
+    (4) the Codex agent examples live under the PLUGIN directory
+    (`plugins/codex-consult/install/examples/codex-agents/`) so an installed plugin carries them;
+    (5) the bridge names no briefs, so `-BriefPrefix` is validated, shown and passed on, nothing
+    more; (6) the hook's pointer is a second line, not appended to the availability line; (7)
+    README's Codex sandbox flags (`workspace-write`, `sandbox_workspace_write.network_access`,
+    `--add-dir <codex home>`) and whether Codex runs the plugin's SessionStart hook (hook trust)
+    are unverified until the D9 run.
+  - Wave 27b - two more coordinator hosts and the completed scrub list:
+    - Hosts: README "## Install" gains "### Z Code" (a Claude-layout plugin host: its plugin
+      manager or its CLI - `plugins marketplace add xelth-com/claude-codex-consult`, `plugins
+      install codex-consult@claude-codex-consult`; on Windows the CLI is the desktop app's
+      `resources\glm\zcode.cjs` run with `node`; it substitutes both `${CLAUDE_PLUGIN_ROOT}` and
+      `${ZCODE_PLUGIN_ROOT}`, so the skills and the SessionStart hook work unchanged; it reads
+      `AGENTS.md`) and "### Kimi Code" (no plugin system: a clone, `--skills-dir
+      <clone>/plugins/codex-consult/skills`, `CODEX_CONSULT_ROOT` - it does not substitute the plugin
+      root -, the AGENTS.md lines in the PROJECT's `AGENTS.md`, no hooks - the hook one-liner or
+      `-Explain coordinate` -, `CODEX_CONSULT_COORDINATOR` since it sets no marker of its own).
+      "Hooks on each host", "For the coordinator", the `coordinate` skill's "Means per host" and
+      the plugin and marketplace descriptions name both hosts.
+    - Host hint: `Get-CoordinatorHost` returns `zcode` when `ZCODE_SESSION_ID` or
+      `ZCODE_PROJECT_DIR` is set - order: the codex markers, then zcode, then claude-code, else
+      `unknown`. The ledger's `coordinator.host` values are `codex`, `zcode`, `claude-code`,
+      `unknown` (README field table, `consult-codex`).
+    - Scrub list (D4 completed): observed from inside a child of a host session, the session hands
+      its children far more than the three names wave 27 scrubbed - its session ids, its MESSAGING
+      SOCKET and TOKEN, its attendance, its executable path, its pid and effort -, so a reviewer
+      child still inherited the coordinator's session channel. `$script:HostMarkerNames` gains
+      `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_BRIDGE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`,
+      `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_CODE_SESSION_ATTENDED`,
+      `CLAUDE_CODE_EXECPATH`, `CLAUDE_PID`, `CLAUDE_EFFORT`, `ZCODE_SESSION_ID`,
+      `ZCODE_PROJECT_DIR`; `$script:HostMarkerPrefixes` gains `ZCODE_PLUGIN` (every
+      `ZCODE_PLUGIN*`). EXACT names, never the whole `CLAUDE_CODE_` prefix: the operator's own
+      settings (`CLAUDE_CODE_USE_BEDROCK` and the like) must still reach an engine (a future
+      claude engine included); `CLAUDE_PLUGIN_ROOT` and `CLAUDE_PLUGIN_DATA` are kept. The README's
+      two lists (the `child_env_scrubbed` row, the variables table) and the script synopsis say so.
+    - Tests: `harness-host.ps1` - the marker set holds every new name and `ZCODE_PLUGIN_ROOT` (set
+      in the parent, absent from every engine child's dump, listed in `child_env_scrubbed`; no
+      value in the ledger), `CLAUDE_CODE_USE_BEDROCK` and `CLAUDE_PLUGIN_ROOT` survive (the main
+      turn, the repair, the probes, `Hide-HostMarkers`); MATCHER the zcode hint and its order
+      (codex over zcode, zcode over claude-code; a plugin root is no hint); WARN a Z Code dry run
+      (`host zcode`, the four `ZCODE_*` names scrubbed); README the host sections in order and the
+      documented lists against the script's own; SKILL the two new hosts, the idle watchdog's
+      items 1-7 and the COMPACT line of each host, README's sentences on it. `fake-codex3.ps1`'s
+      environment dump includes `ZCODE_*`. `harness-detach` SINGLE no longer races a loaded
+      machine (its "while it runs" checks failed in 3 of 4 full runs when every script call took
+      7-9 s): the fake reviewer HOLDS until a release file exists (`fake-codex3.ps1`
+      `FAKE_CODEX_HOLD_FILE`, at most `FAKE_CODEX_HOLD_SEC`, default 120 s), `-Wait` is started
+      without blocking and the reviewer is released once `-Wait` says it waits; the assertions are
+      unchanged. `harness-panel` RUN (the panel's wall clock vs the members' walls) and GUARD (a
+      15 s guard vs a normal member's run) stay timing cases: they measure the bridge's own start
+      overhead against fixed budgets, which no release file removes - re-run them alone.
+    - The idle watchdog (the operator's specification, revision 2): the `coordinate` skill's rule 3
+      replaces "a watchdog wake shorter than the prompt-cache lifetime" with seven items - ONE
+      recurring wake (30 minutes, off the round minutes) armed at the FIRST delegation and kept
+      when the work ends; the idle clock from the LAST activity of any kind; small reads on every
+      wake; a background `-Wait` as the notification of a detached panel; nothing running: idle
+      wake 2 - handover, COMPACT, remove the wake; something running: idle wake 3; where the agent
+      cannot compact (Claude Code, verified 2026-09-29: a scheduled `/compact` arrives as ordinary
+      text) the handover and one line to the operator, or the wake kept while the wait is under
+      about nine hours - and the why (a wake costs a cache read of the whole context, a compaction
+      about one). "Means per host" gives each host's COMPACT; README "For the coordinator" names
+      the rule and the operator's lever, the host's auto-compact threshold.
+    - Live coordinator run on Kimi Code 0.27.0 (2026-09-29, headless `-p`, a scratch repository,
+      the README, the three `AGENTS.md` lines and the skills alone): one checkpoint consultation,
+      reviewer `mimo :: mimo-v2.6-pro`, usable reply in 143 s, brief `01-kimi-<slug>.md`
+      (`-BriefPrefix kimi`), ledger `coordinator {source: explicit, host: unknown}`,
+      `child_env_scrubbed: []`. Two remarks of that coordinator were taken: the `consult-codex`
+      skill says to leave `-Mode` out on the first consultation of a task (its example shows
+      `-Mode fork`, which is refused without a thread), and the third `AGENTS.md` line and the
+      skill say to KEEP the operator's `CODEX_CONSULT_COORDINATOR` when it is set (the coordinator
+      had replaced `kimi :: k3` by a guess of its own name).
+    - Assertions (waves 26c, 27, 27b; the final `tests/run-all.ps1` runs of 2026-09-29, Windows
+      PowerShell 5.1 and PowerShell 7.6.6 - the same counts on both): `harness-0.3` 229,
+      `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74,
+      `harness-panel` 54, `harness-pending` 26, `harness-fixes` 43 + the 2 environmental F04-10
+      cases (the operator's own codex.exe runs; never killed), `harness-lock2` 11, `harness-3b` 12,
+      `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 51
+      (+12, wave 26c), `harness-host` 50 (new: 44 in wave 27, +6 in wave 27b). The suites
+      themselves printed `15 harness(es), 3 failed` (5.1) and `2 failed` (7): besides F04-10, another
+      session's release builds ran during them, and `harness-panel` RUN/GUARD (5.1) and
+      `harness-detach` SINGLE (both) failed on timing - panel 54/54 alone on the idle machine;
+      SINGLE was then made independent of machine speed (above) and `harness-detach` passed 51/51
+      alone on both hosts. The suites ran `harness-host` at 48 (before the idle watchdog); the final
+      50 ran alone on both hosts, as did `harness-engines` TREE and `harness-visibility` UNIT24C
+      (they read the README).
 
 ### Changed
 
@@ -417,6 +589,20 @@ telemetry (R17).
   `$memberStatus` (`$status` is now the `-Status` switch). New parameters at the end of the
   parameter list, so no positional binding moved: `-Detach`, `-Status`, `-Id`, `-Wait`,
   `-WaitTimeoutSec`, `-Prune`, `-DetachId` (internal).
+- (wave 27) The ledger entry gains `coordinator` (after `lineage`) and `child_env_scrubbed` (after
+  `command`); the field-order checks of `harness-0.3`, `harness-engines` and `harness-muse` follow.
+  The SessionStart hook prints TWO lines (the availability line first); `harness-visibility`,
+  `harness-detach` and `harness-engines` compare the first. `codex-consult.ps1`: `-Task` is no
+  longer a Mandatory parameter (a missing `-Task` is refused - "-Task <id> is required ...", exit 1 -
+  instead of PowerShell's prompt; parameter sets were tried and dropped: they end the automatic
+  positional binding, which `-Status <id>` bound to `-CollabDir` relies on); two new parameters at the
+  END of the list (`-BriefPrefix`, `-Explain`), so no positional binding moved. The dry run prints three
+  more lines (`coordinator :`, `child env   :`, `brief prefix:`). The README intro, the plugin's
+  and the marketplace's descriptions are host-neutral; a duplicated README paragraph is gone.
+- (wave 26c) `-Kick` waits up to 10 s for an acknowledgement (was 60 s for the kick file to
+  vanish) and exits `3` when none came; the machine-wide health record of a run is written before
+  its ledger entry (was after); the stall cut reads bytes (was complete lines); `Read-StreamGrowth`
+  is replaced by `Read-StreamChunk`.
 
 ### Fixed
 
@@ -641,19 +827,81 @@ telemetry (R17).
     panels). D16 - the skip's estimate is (ask + brief) / 4 before any reviewer is chosen; an
     explicit `-Provider` run is refused instead of skipped.
   - Assertions (Windows PowerShell 5.1): the final `tests/run-all.ps1` run - `harness-0.3` 229, `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74 (+2), `harness-panel` 54, `harness-pending` 26, `harness-fixes` 43 + the 2 environmental F04-10 cases (the user's own codex.exe runs; never killed), `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 39 (`run-all: 14 harness(es), 1 failed` - that one F04-10). Updated for the new behaviour: the ledger field order in `harness-0.3`, `harness-engines`, `harness-muse`, `harness-format`; `harness-visibility` GATES24C (a muse content change is now a warning); `harness-companions` (the goldens, the allowlist message, the floor case's size warning). PowerShell 7: `harness-0.3` 229, `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending` 26, `harness-fixes` 43 + the 2 environmental F04-10 cases (the user's own codex.exe runs; never killed), `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 39 (its KICK section rerun alone after a pwsh-only fix: `-Kick` compares the recorded child start time as `ConvertTo-StartIso`).
+- **Wave 26c - the wave 26b re-acceptance's findings** (`.collab/companions-2026-09-26/`, panel
+  a011f18e: F25-1/2, F26-1..6; decisions D1-D6 of handoff 27; implemented in the wave 27 worktree):
+  - D1, F26-1 (major - a kick written in the instant a member finished was never consumed and
+    stayed for the next run), F25-2 (note - a kick between two turns overwrote a usable reply):
+    `Wait-EngineProcess` checks the kick file BEFORE its wait loop (a live turn only), on every
+    poll, and ONCE MORE after the process exited - a kick found then is taken LATE (`KickLate`):
+    `warnings[]` `kick_late: the member had already finished (<the turn>) - the kick changed
+    nothing`, the outcome unchanged. Every taken kick is acknowledged by `Confirm-Kick`:
+    `<task>/.consult.kick-<NN>.ack` (`kicked` | `late`), the kick file removed; a run removes a
+    stale ack with a stale kick file at its start. `-Kick` waits up to 10 s for the
+    acknowledgement: exit 0 acknowledged (the message says which), 1 no such running member (a
+    kick file of that number is removed), 3 none in time (the kick file stays for the member's next
+    poll). A kick that stops only the FORMAT REPAIR leaves an earlier usable reply usable
+    (`$script:KickedTurn`; `warnings[]` `kick: the operator stopped the format repair (-Kick); the
+    first reply stands, not converted`; no operator class); a kicked main turn, continuation or
+    denial retry fails the run as before. `.gitignore` (and the README's list): `.consult.kick-*`.
+  - D2, F26-2 (major - a machine-wide health update could be lost silently, and the stored `until`
+    did not take part in the tie-break): `Update-MachineHealth` waits for `<file>.lock` in three
+    attempts of 5 s (TEST HOOK `CODEX_CONSULT_TEST_HEALTH_LOCK_SEC`) and records why it did not
+    write (`$script:MachineHealthLastError` = `lock timeout`); a run writes its outcome record
+    BEFORE its ledger entry, retries a lock timeout once at the ledger commit, and if that fails
+    too warns `machine-wide health not updated (lock timeout)` (`warnings[]`, the summary) - the
+    repository ledger keeps the truth. `ConvertTo-MachineHealthEntries` carries the stored `until`
+    (and `retry_after`); `Get-EndpointHealth` uses it as the record's `until`, so two records at
+    the same moment are decided by the later `until`.
+  - D3, F26-3 (major - one long silent tool call was cut as a stall), F25-1 (minor):
+    `Wait-EngineProcess -Engine`: the silent timer resets on ANY growth of the stream
+    (`Read-StreamChunk`: bytes; the complete lines decoded as UTF-8 with the unfinished last line
+    carried over) and is SUSPENDED while a tool call is in flight (`Update-ToolFlight`: codex
+    `item.started` of `command_execution`, `mcp_tool_call`, `web_search` until its
+    `item.completed`; an agy `tool` step `ACTIVE` until another state; a muse task proposed as
+    `tool.*` until its `task.lifecycle` end); the timeout stays the hard bound. The continuation
+    prompt says "Your previous turn was stopped after no output for N s outside a tool call.".
+  - D4, F26-4 (minor): `Read-AllTaskRatings` counts a rating's field as missing when it is absent
+    OR empty / white space (an empty `topics` list too - `Test-BlankField`), joins the ledger by
+    `consult_id` for any missing one and takes the entry's value for it.
+  - D5, F26-5 (minor): more required reviewers than the size asked raise it and say so - `panel size
+    raised: asked k, required r` (console, handoff header, `warnings[]`),
+    `panel.routing.size_source` `required`, `size_asked` the request; the dry run's `Routing:` line
+    says `size r (required; asked k)` (and `; asked k` for a reduced size too).
+  - D6, F26-6 (note, wontfix): README "Roles" says it - a hard link is indistinguishable from the
+    file, the check and the read are separate steps; the check defends against reparse points and
+    paths outside the roles directory, not against a hostile repository.
+  - Tests: `harness-fixes26b.ps1` + KICKACK (4: a late kick, a kick before the loop, `-Kick` exit 3
+    then 1 against a fabricated running record, a kick of the format repair only), HEALTHLOCK (2:
+    the stored-until tie-break, the lock held elsewhere), STALLTOOL (4: the flight tracker for the
+    three engines, an 8 s silent tool call, a 7 s byte drip, the continuation's wording), JOINBLANK
+    (1), SIZERAISE (1). `fake-codex3.ps1`: `FAKE_CODEX_TOOL_OPEN`, `FAKE_CODEX_DRIP`.
 
 ### Known limitations
 
-- (wave 26b) The stall cut counts complete lines of the event stream, not their meaning: an engine
-  that wrote keep-alive lines would never stall; a turn that thinks silently for longer than
-  `-StallSec` before its first line is stopped (raise the entry's `stall_sec`, or `0`).
+- (wave 26b; wave 26c) The stall cut reads the growth of the event stream and the tool calls it
+  names, not their meaning: an engine that wrote keep-alive bytes would never stall, a tool call
+  whose end event never comes suspends the cut until the timeout; a turn that thinks silently
+  for longer than `-StallSec` outside a tool call is stopped (raise the entry's `stall_sec`, or
+  `0`).
+- (wave 27) The coordinator's host is a hint read from environment markers the host sets and its
+  children inherit - a session started inside another host's session may be named by the inner
+  one's markers only; the identity (`CODEX_CONSULT_COORDINATOR`) is the coordinator's word, never
+  checked. The scrub removes the markers from what the bridge starts; an engine CLI sets its own
+  for its own tools. Whether Codex CLI runs the plugin's SessionStart hook (it trusts a plugin's
+  hooks first) and substitutes `${CLAUDE_PLUGIN_ROOT}` in the skills is checked by the live D9 run,
+  not by a harness (the fallbacks: the AGENTS.md lines, `CODEX_CONSULT_ROOT`, `-Explain`).
+  (wave 27b) The scrub list is exact names from what the hosts set on 2026-09-29: a variable a
+  later host version adds is inherited until it is listed. A host that sets no marker (Kimi Code)
+  is `unknown`; a claude-code session started inside a Z Code session is named `zcode`. The Z Code
+  install and the Kimi Code skills directory are verified; their live coordinator runs are pending.
 - (wave 26b) The machine-wide health file is per user profile (`<codex home>`): runs under another
   account or `CODEX_HOME` do not see each other; a `running[]` row of a bridge killed hard stays
   until the next write prunes it (its pid is then gone); two panels that check the count at the
   same instant can both start a member (no reservation - the count is advisory).
-- (wave 26b) `-Kick` reaches a member only while one of its engine turns runs (it polls there);
-  between turns (the tree check, the commit) the kick is not taken and `-Kick` gives up after 60 s
-  (exit 1).
+- (wave 26b; wave 26c) `-Kick` reaches a member only while one of its engine turns runs or right
+  after it exited (it polls there); between turns (the tree check, the commit) a kick waits for the
+  next turn or the next run of that number, and `-Kick` exits 3 after 10 s without an
+  acknowledgement.
 - (wave 26) A panel's size bounds the members STARTED; a member that fails, is refused at launch
   (its peak window, a limit hit meanwhile) or is killed is not replaced (no backfill).
 - (wave 26) The routing score depends on the marks recorded with `-Rate`: an unrated consultation

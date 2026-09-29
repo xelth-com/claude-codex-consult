@@ -35,6 +35,12 @@
 #                                keys the delay by the `-m` model of the turn (`*=<ms>` or a
 #                                bare number: every other model) - the panel cases' per-model
 #                                delay
+#   (wave 27b) FAKE_CODEX_HOLD_FILE=<path>
+#                                after the delay, every exec turn holds until <path> exists
+#                                (checked every 200 ms), at most FAKE_CODEX_HOLD_SEC seconds
+#                                (default 120, so a broken harness cannot hang) - a harness
+#                                releases the reviewer when its "while it runs" checks are done,
+#                                whatever the machine's speed
 #   FAKE_CODEX_REPLY_MAP=<model>=<file>[|<model>=<file>...]
 #                                the reply of a turn of that `-m` model (instead of
 #                                FAKE_CODEX_REPLY; a `resume` turn keeps FAKE_CODEX_RESUME_REPLY)
@@ -54,6 +60,11 @@
 #                                (relative to the working directory) and commit them, after
 #                                FAKE_CODEX_WRITE and before any sleep or hang - a coordinator
 #                                committing while the reviewer runs (HEAD moves)
+#   (wave 26c, the stall cut) FAKE_CODEX_TOOL_OPEN=<s>, FAKE_CODEX_DRIP=<s> - see below
+#   (wave 27, the child environment)
+#   FAKE_CODEX_ENV_DUMP=<dir>    every invocation writes <dir>\<version|login|exec>-<pid>.env: the
+#                                CODEX_*, CLAUDE*, AI_AGENT* and ZCODE_* variables it inherited,
+#                                NAME=VALUE
 $ErrorActionPreference = 'Stop'
 $raw = [string]$env:FAKE_CODEX_ARGS
 # "<model>=<value>|..." -> the value for $Key ('*' or a bare value: the default; $null: none)
@@ -81,6 +92,15 @@ function Write-FakeFile {
         try { [IO.File]::WriteAllText($Path, $Text); return } catch { Start-Sleep -Milliseconds 50 }
     }
     [IO.File]::WriteAllText($Path, $Text)
+}
+# (wave 27, R13 D4) FAKE_CODEX_ENV_DUMP=<dir>: every invocation (a probe or an exec turn) writes
+# <dir>\<kind>-<pid>.env - kind version | login | exec - with one NAME=VALUE line per variable of
+# its environment whose name starts with CODEX_, CLAUDE, AI_AGENT or ZCODE_ (sorted): what the
+# engine child inherited from the bridge
+if ($env:FAKE_CODEX_ENV_DUMP) {
+    $envKind = $(if ($raw -match '--version') { 'version' } elseif ($raw -match '^\s*login\s+status(\s|$)') { 'login' } else { 'exec' })
+    $envLines = @(Get-ChildItem env: | Where-Object { $_.Name -match '^(CODEX_|CLAUDE|AI_AGENT|ZCODE_)' } | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" })
+    Write-FakeFile (Join-Path $env:FAKE_CODEX_ENV_DUMP "$envKind-$PID.env") (($envLines -join "`n") + "`n")
 }
 if ($raw -match '--version') { Write-Output 'codex-cli 0.155.1-fake'; exit 0 }
 # `codex login status` (the bridge's credential preflight): logged in unless
@@ -142,6 +162,11 @@ if ($env:FAKE_CODEX_RESUME_FAIL -and $raw -match ' resume [0-9a-fA-F-]{36}') {
 }
 $delayMs = Get-FakeMapValue $env:FAKE_CODEX_DELAY_MS $model
 if ($delayMs) { Start-Sleep -Milliseconds ([int]$delayMs) }
+if ($env:FAKE_CODEX_HOLD_FILE) {
+    $holdSec = $(if ($env:FAKE_CODEX_HOLD_SEC) { [int]$env:FAKE_CODEX_HOLD_SEC } else { 120 })
+    $holdWatch = [Diagnostics.Stopwatch]::StartNew()
+    while (-not (Test-Path -LiteralPath $env:FAKE_CODEX_HOLD_FILE) -and $holdWatch.Elapsed.TotalSeconds -lt $holdSec) { Start-Sleep -Milliseconds 200 }
+}
 if ($env:FAKE_CODEX_ITEMS) {
     $tag = if ($raw -match ' resume ') { 'resume' } else { 'first' }
     [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"Reading the brief (' + $tag + ' turn)."}}' + "`n")
@@ -149,6 +174,25 @@ if ($env:FAKE_CODEX_ITEMS) {
     [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"git diff --stat HEAD~1 (' + $tag + ')","aggregated_output":"1 file changed","exit_code":0,"status":"completed"}}' + "`n")
     [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"Q1 so far (' + $tag + ' turn): the change looks consistent."}}' + "`n")
     if ($env:FAKE_CODEX_ITEMS -eq '2') { [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"Q2 so far (' + $tag + ' turn): the tests cover it."}}' + "`n") }
+    [Console]::Out.Flush()
+}
+# (wave 26c, D3) on a turn that is NOT `resume <thread>`:
+#   FAKE_CODEX_TOOL_OPEN=<s>   an item.started of a command_execution (no item.completed), then <s>
+#                              seconds of silence - one long tool call in flight - then its
+#                              item.completed (and the turn goes on)
+#   FAKE_CODEX_DRIP=<s>        <s> seconds of one byte per second WITHOUT a newline (a line being
+#                              written), then the newline
+if ($env:FAKE_CODEX_TOOL_OPEN -and $raw -notmatch ' resume ') {
+    [Console]::Out.Write('{"type":"item.started","item":{"id":"item_9","type":"command_execution","command":"long build","aggregated_output":"","exit_code":null,"status":"in_progress"}}' + "`n")
+    [Console]::Out.Flush()
+    Start-Sleep -Seconds ([int]$env:FAKE_CODEX_TOOL_OPEN)
+    [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_9","type":"command_execution","command":"long build","aggregated_output":"ok","exit_code":0,"status":"completed"}}' + "`n")
+    [Console]::Out.Flush()
+}
+if ($env:FAKE_CODEX_DRIP -and $raw -notmatch ' resume ') {
+    [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_8","type":"agent_message","text":"')
+    for ($i = 0; $i -lt [int]$env:FAKE_CODEX_DRIP; $i++) { [Console]::Out.Write('x'); [Console]::Out.Flush(); Start-Sleep -Seconds 1 }
+    [Console]::Out.Write('"}}' + "`n")
     [Console]::Out.Flush()
 }
 # (wave 26b, D15) FAKE_CODEX_FAIL_EVENT=<text>: after the items, an `error` event and a

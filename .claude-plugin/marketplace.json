@@ -1,6 +1,6 @@
 {
   "name": "claude-codex-consult",
-  "description": "Marketplace for codex-consult: a PowerShell bridge that lets a Claude Code agent consult Codex CLI reviewers (the ChatGPT plan or any Responses-API provider) and record every consultation as files; needs PowerShell 5.1 or 7, git and the Codex CLI.",
+  "description": "Marketplace for codex-consult: a PowerShell bridge that lets a coordinating agent (Claude Code, Codex CLI, Z Code, Kimi Code or a plain shell) consult Codex CLI reviewers (the ChatGPT plan or any Responses-API provider) and record every consultation as files; needs PowerShell 5.1 or 7, git and the Codex CLI.",
   "owner": {
     "name": "xelth.com",
     "url": "https://xelth.com"
@@ -10,7 +10,7 @@
       "name": "codex-consult",
       "source": "./plugins/codex-consult",
       "displayName": "Codex Consult",
-      "description": "Runs `codex exec` as a read-only reviewer from Claude Code and records each consultation as files (brief, verbatim reply, JSON ledger, findings tracked by id), with per-reviewer thread lineages, a fail-closed provider preflight, a reviewer roster, a review panel and a second engine (Gemini through Google's Antigravity CLI agy); needs PowerShell 5.1 or 7, git, and the Codex CLI signed in to ChatGPT or given a [model_providers] table whose env key the user sets (agy optional, signed in by the user).",
+      "description": "Runs `codex exec` as a read-only reviewer for a coordinating agent (Claude Code, Codex CLI, Z Code, Kimi Code or a plain shell) and records each consultation as files (brief, verbatim reply, JSON ledger, findings tracked by id), with per-reviewer thread lineages, a fail-closed provider preflight, a reviewer roster, a review panel, further engines (Gemini through Google's Antigravity CLI agy, Meta's Muse Code CLI muse) and the coordinator's rules (the coordinate skill, worker tiers); needs PowerShell 5.1 or 7, git, and the Codex CLI signed in to ChatGPT or given a [model_providers] table whose env key the user sets (agy and muse optional, signed in by the user).",
       "version": "0.5.0",
       "author": {
         "name": "xelth.com",
