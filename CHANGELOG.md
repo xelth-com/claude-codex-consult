@@ -22,9 +22,10 @@ of `.collab/companions-2026-09-26/handoffs/27-claude-wave26c-decisions.md`) and 
 invariance and the coordinator's manual - ROADMAP R13, R19, decisions D1-D9 of
 `.collab/host-2026-09-26/handoffs/05-claude-r13-decisions.md`), wave 27c (the fix round of their
 acceptance, decisions D1-D24 of `.collab/companions-2026-09-26/handoffs/33-claude-wave27c-decisions.md`),
-wave 28 (telemetry and complaints to the maintainer's intake, on by default - ROADMAP R17) and wave 27d
+wave 28 (telemetry and complaints to the maintainer's intake, on by default - ROADMAP R17), wave 27d
 (documentation only: waiting without losing the prompt cache, and three more coordinator hosts
-documented but not run live).
+documented but not run live) and wave 28b (the fix round of their acceptance, decisions D1-D19 of
+`.collab/companions-2026-09-26/handoffs/39-claude-wave28b-decisions.md`).
 
 ### Added
 
@@ -776,6 +777,18 @@ documented but not run live).
   its ledger entry (was after); the stall cut reads bytes (was complete lines); `Read-StreamGrowth`
   is replaced by `Read-StreamChunk`.
 
+- **Wave 28b - what behaves differently** (details under "Fixed", "Wave 28b"): the telemetry event's
+  `provider` is a vendor class and its `model` a name of that vendor's pattern (else `other`),
+  `tags` `[provider, model]` (D1); the spool file is named by the LOCAL date and the event is spooled
+  AT the commit, a failure being a warning (D6, D16); plain-http intakes need test mode (D4); the
+  sender has a 60 s / 8 s deadline, a marker-file lock and an allow-listed environment (D2, D3);
+  `codex-telemetry.ps1 -Forget` (D9); every run in test mode warns `test mode is ON: test hooks are
+  honoured` and no engine child gets a test variable (D10); the host hint by path only under a host's
+  plugin directory of the home, with the new value `qwen-code` (D11); a tool call no longer holds off
+  the stall cut past 2 x `-StallSec` of silence (D12); the machine-health retry goes through the
+  journal and its outcome is in the summary (D13); the ledger gains `context_window` and codex the two
+  `-c` window options (D15); the README host blocks use `CODEX_CONSULT_ROOT` (D17).
+
 ### Fixed
 
 - **Wave 24b - the wave 24 acceptance panel's findings** (`.collab/companions-2026-09-26/`
@@ -1144,6 +1157,107 @@ documented but not run live).
     listed as not measured.
   - Assertions: `harness-fixes27c` 36 (new), `harness-host` 52 (+2); the final `tests/run-all.ps1` runs of 2026-09-29 (Windows PowerShell 5.1, then PowerShell 7.6.6 from 20:29 to 22:19), the same counts on both, `17 harness(es), 0 failed`: `harness-0.3` 229, `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending` 26, `harness-fixes` 45 (the two F04-10 cases passed this time), `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 51, `harness-host` 52, `harness-telemetry` 55, `harness-fixes27c` 36.
 
+- **Wave 28b - the fix round of the waves 27c/28/27d acceptance** (panel a0d1d2a5 on 1de388e: glm
+  and qwen ACCEPT, mimo HOLD on F36-1..5; decisions D1-D19 of
+  `.collab/companions-2026-09-26/handoffs/39-claude-wave28b-decisions.md`):
+  - D1 (F36-1, major): the telemetry event carried the roster label and the model as typed. Now
+    `provider` is the VENDOR CLASS of the endpoint's host (or of the engine) from ONE table in
+    `codex-consult-common.ps1` (`$script:TelemetryVendors`: `openai`, `zai`, `xiaomi`,
+    `byteplus`, `moonshot`, `alibaba`, `google`, `meta`, else `other`), and `model` is the name
+    only when that vendor is known and the name follows its pattern (else `other`); the `tags`
+    carry the same two values (`[provider, model]`, before `[engine, provider label]`). The ledger
+    and every local file keep the real label.
+  - D2 (F36-2, major): the sender had no deadline. One flush ends after 60 s, one request
+    (connect, send, read) after 8 s - HttpClient with the answer buffered inside its timeout, a
+    cancel at the bound and a hard wait (test hooks `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`,
+    `..._FLUSH_MS`); a 429 is waited for only when its `Retry-After` fits the deadline. The lock
+    `<spool>/.flush.lock` is a marker file `{pid, start_time, token, since}` released in `finally`;
+    one older than 5 minutes, or whose owner is gone, is taken over (under an exclusive handle).
+  - D3 (F36-3, major): the sender inherited the bridge's environment. It now starts with an ALLOW
+    list (`Get-TelemetrySenderEnvironment`: the system, locale and proxy variables, `CODEX_HOME`,
+    `CODEX_CONSULT_TELEMETRY`, `CODEX_CONSULT_TELEMETRY_URL`, in test mode the test mode and the
+    sender's own hooks) built into the `ProcessStartInfo` after clearing it; on Windows it is
+    created by `CreateProcessW` without handle inheritance (`Start-NoInheritProcess`, compiled once
+    per process) - the bridge's own environment is never changed for it. The hook
+    `CODEX_CONSULT_TEST_TELEMETRY_ENV` now dumps every variable NAME of the sender.
+  - D4 (F36-9, F37-4): plain http to a loopback intake only with `CODEX_CONSULT_TEST_MODE=1`.
+  - D5 (F36-9): the salt is created atomically - a temporary file moved without overwriting, the
+    loser reads the winner's salt, a salt that parses is never deleted; one that does not parse is
+    moved aside (`telemetry-salt.bad-<guid>`), and moved back when it turns out to parse.
+  - D6 (F35-1, F36-8, F37-6): an event that could not be spooled was dropped silently. The event
+    is now spooled AT the commit (inside the write lock, right before the entry is added), the
+    append waits up to 5 s, and a failure puts `telemetry event not spooled (<why>)` into the
+    entry's `warnings[]` and onto the console; `-Status` counts the events not spooled since the
+    last flush (`<codex home>/telemetry-not-spooled.ndjson`, reset by every flush).
+  - D7 (F36-7, F37-5): a complaint kept in the spool is the EXACT text that was shown and sent at
+    once; the deferred send posts those bytes.
+  - D8: the sender against the intake as it is built - `400` `events[i]: <reason>`: event i
+    dropped (a line in `.last` `rejected`), the rest resent, at most three times per flush; `413`:
+    the batch halved (an event refused alone dropped); `403`: the flush stops, the spool kept, the
+    reason said; any other 4xx: the spool kept, the reason said.
+  - D9: delete my data - `codex-telemetry.ps1 -Forget -PublicRef <ref>` (`DELETE
+    <intake>/v2/instances/<instance id>?public_ref=<ref>`) and `-Forget -Local` (the spool, the
+    salt, the not-spooled count); the README says the intake is live.
+  - D10 (F36-5, major): test mode could leak or stay unnoticed. A run with
+    `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` (console,
+    `warnings[]`; a panel run's plan too); `Hide-HostMarkers -TestVars` (every engine turn, the
+    version probe) and the probes' start info drop `CODEX_CONSULT_TEST_MODE` and every
+    `CODEX_CONSULT_TEST_*`; a panel member and the detached background (the bridge itself) keep
+    them (`Remove-HostMarkersFromStartInfo -KeepTestVars`). No fake relied on a test variable.
+  - D11 (F36-4, major): the host hint by path matched `.claude`/`.codex`/`.zcode` anywhere in the
+    path. It is now anchored at the hosts' plugin directories of the home (`Get-HostPluginRoots`:
+    `~/.claude/plugins/cache`, `~/.codex/plugins/cache`, `<codex home>/plugins/cache`,
+    `~/.zcode/cli/plugins/cache`, `~/.qwen/extensions` - a new hint value `qwen-code`).
+  - D12 (F36-11, F32-7): an open tool call suspended the stall cut until the 1800 s floor. The
+    suspension now ends after 2 x `-StallSec` without growth of the stream (no floor, no completion
+    event needed), and the cut names the open call (`Wait-EngineProcess` `OpenTools`,
+    `Update-ToolFlight -Labels`).
+  - D13 (F36-6, F37-1): the machine-health update lived only in memory between the commit and the
+    retry, and the ledger never said how the retry ended. At the commit the record goes into the
+    journal `<health file>.journal` (a local append); the warning says `a retry follows the
+    commit`; the retry after the lock - or the next run of any repository - applies the journal
+    (idempotently) and empties it; the summary (and a detached run's status record) carries the
+    retry's outcome. The one in-lock attempt of wave 27c is gone. Test hook
+    `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`.
+  - D14 (F37-2, F37-3): the kill check counted a recycled pid as a survivor, and a host without
+    `pgrep` could not enumerate children. The enumeration records each descendant's start time
+    (the check and the kill use it), and falls back to `ps -A -o pid=,ppid=`, then `/proc`
+    (`ConvertFrom-ProcessTable`, `Get-TreeFromPairs`).
+  - D15: a roster `context_tokens` never reached the engine (the k3 member failed with 401 in the
+    middle of a review). A codex reviewer now gets `-c model_context_window=<n>` and `-c
+    model_auto_compact_token_limit=<0.8 n>` on every turn (both keys verified in the installed
+    codex-cli 0.155.1 binary; a value in `-CodexConfig`/`codex_config` wins); ledger
+    `context_window` (after `extra_config_source`).
+  - D16: days are LOCAL - the rollout search (`Get-LocalDayDirs`: every local day from the start to
+    now, invariant digits - the old `'{0:yyyy}' -f` followed the culture's calendar) and the spool
+    file name (`Get-TelemetrySpoolName`). The health file names no day.
+  - D17, D18 (F36-10): the host sections' command blocks use ONE name for the plugin directory,
+    `CODEX_CONSULT_ROOT`, defined in the same block; the hook block works copied as written (it
+    finds the newest install when the variable is unset). The waiting section names a full wake and
+    a cache read apart, and a compaction after the expiry costs a cold resume PLUS the summary.
+  - D19: `harness-pending` (e) injects the registration failure through the new hook
+    `CODEX_CONSULT_TEST_REGISTER_FAIL` (never a patched copy); (e) and `harness-fixes` F04-11 report
+    FAIL rows instead of stopping with an exception.
+  - Deviations: D10 - the sender keeps `CODEX_CONSULT_TEST_MODE` and its own
+    `CODEX_CONSULT_TEST_TELEMETRY_*` hooks in test mode (D3's "in a harness the test mode
+    variables"; D4 needs test mode in the sender to reach a harness's local intake), and
+    `child_env_scrubbed` keeps naming the host markers only. D16 - the panel's routing nonce stays
+    the UTC date (a documented seed, not a location an engine writes). D2 - a lock whose owner
+    process is gone is taken over at once (besides the 5-minute rule), so a killed sender does not
+    block for 5 minutes.
+  - Also fixed during the runs: the vendor table knows `open.bigmodel.cn` (Z.ai's other host in the
+    effort table) as `zai`; `Get-HostPluginRoots` builds its paths without `Join-Path` (which wants the
+    drive to exist); `harness-fixes26b` STALLTOOL's silent tool call is 5 s (under D12's 2 x 3 s bound;
+    `harness-fixes28b` STALL covers the cut); `harness-detach` SINGLE expects the test-mode line after
+    the three detach lines.
+  - Counts (2026-09-30; every new and changed harness first alone on both hosts, then
+    `tests/run-all.ps1` on Windows PowerShell 5.1 - `18 harness(es), 1 failed`: `harness-detach`
+    SINGLE, fixed and run alone on both hosts, 51 passed - and on PowerShell 7.6.6 - `18 harness(es),
+    0 failed`; the same counts on both): `harness-0.3` 229, `harness-roster` 119, `harness-format` 37,
+    `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending` 26, `harness-fixes`
+    45, `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51,
+    `harness-companions` 42, `harness-fixes26b` 51, `harness-host` 62 (+4), `harness-telemetry` 79
+    (+24), `harness-fixes27c` 36, `harness-fixes28b` 20 (new).
 ### Known limitations
 
 - (wave 26b; wave 26c) The stall cut reads the growth of the event stream and the tool calls it

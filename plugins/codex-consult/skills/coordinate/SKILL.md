@@ -55,11 +55,17 @@ execute, reviewers advise, you decide. These rules hold on every host; the means
         to the operator before a long wait begins or at idle wake 2 ("long wait: compact now, the
         cache is warm; state in <file>") - and KEEP the wake; remove it only after half the
         refreshes a cold resume is worth (40 wakes on Claude Fable 5.1, 20 on Claude Opus 5.5, 10
-        on Claude Sonnet 5.5).
-     6. Compact only while the cache is warm: after it expired a compaction costs as much as a
-        cold resume.
+        on Claude Sonnet 5.5 - counted as cache reads; a full wake also pays its turn, so it reaches
+        that money a little sooner).
+     6. Compact only while the cache is warm: after it expired a compaction costs a cold resume
+        PLUS the summary (and the compact window's cold write at the resume).
      7. The operator's lever: the host's auto-compact threshold keeps the context small all the
         time.
+     8. The moment was missed and the cache is cold: the context is read once at full price
+        whatever comes next. Tell the operator the cheap ways: a fresh session from the state file,
+        or switching the session to a cheaper model whose window holds the whole context,
+        compacting there and switching back (README "Waiting", "a cold cache"). With a warm cache
+        never switch the model.
    - *The boundary* (API prices of 2026-09, a wake every 30 minutes). Compact = one read of the
      context, a summary of about 10K output tokens and, at the resume, a cold write of the compact
      window of about 50K; keeping reads the context once too, at the resume - so keeping is cheaper

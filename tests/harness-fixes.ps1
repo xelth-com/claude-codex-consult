@@ -375,16 +375,25 @@ if (Want 'F04-10') {
 
 # =============================================================== F04-11 raw companion must be preserved
 if (Want 'F04-11') {
+    # (wave 28b, D19) every row reports FAIL with what was missing instead of stopping with an exception
     $r = New-Repo 'f11'
     [void][IO.Directory]::CreateDirectory((Join-Path $r '.collab\t\handoffs\02-codex-eleven.reply.json'))   # blocks the copy
     $withF = Reply 'f11.json' ($advise -replace '"findings":\[\]', '"findings":[{"severity":"major","locations":[],"claim":"c","trigger":"t","evidence":[],"verification":"v","remedy":"r","supersedes":[]}]')
-    $x = Run-Consult $r @('-Prompt', 'x', '-ReplyName', 'eleven') @{ FAKE_CODEX_REPLY = $withF }
-    $e = Last-Entry $r
-    $kept = if ($e.bridge_outcome -match 'original kept at (\S+)$') { $Matches[1] } else { '' }
-    Check 'F04-11' 'copy fails -> exit 1, failed outcome naming the kept original' ($x.Code -eq 1 -and $e.bridge_outcome -match '^failed: could not preserve the raw reply \(.+\); original kept at ' -and $kept -and (Test-Path $kept) -and (Sha $kept) -eq (Sha $withF)) "bridge_outcome='$($e.bridge_outcome)'"
-    Check 'F04-11' 'no findings, no verdict, reply_json empty, ledger entry appended, lock not held, pending removed' (-not (Test-Path (Join-Path $r '.collab\t\findings.json')) -and $e.verdict -eq '' -and $e.reply_json -eq '' -and $e.n -eq 1 -and -not (Test-LockHeld (Join-Path $r '.collab\t\.consult.lock')) -and -not (Test-Path (Join-Path $r '.collab\t\.consult.pending.json'))) ''
-    $md = [IO.File]::ReadAllText((Join-Path $r '.collab\t\handoffs\02-codex-eleven.md'))
-    Check 'F04-11' 'header shows the failure, no link to a reply.json' ($md -match 'Bridge outcome: failed: could not preserve' -and $md -notmatch 'Structured reply: `handoffs') ''
+    $why = ''
+    $x = $null; $e = $null
+    try { $x = Run-Consult $r @('-Prompt', 'x', '-ReplyName', 'eleven') @{ FAKE_CODEX_REPLY = $withF } } catch { $why += " | the run threw: $($_.Exception.Message)" }
+    try { $e = Last-Entry $r } catch { $why += " | the ledger could not be read ($($_.Exception.Message))" }
+    $outcome = $(if ($e) { [string]$e.bridge_outcome } else { '(no ledger entry)' })
+    $kept = if ($outcome -match 'original kept at (\S+)$') { $Matches[1] } else { '' }
+    $keptSame = $false
+    try { $keptSame = ($kept -and (Test-Path $kept) -and (Sha $kept) -eq (Sha $withF)) } catch { $why += " | the kept original could not be compared ($($_.Exception.Message))" }
+    Check 'F04-11' 'copy fails -> exit 1, failed outcome naming the kept original' ($null -ne $x -and $x.Code -eq 1 -and $outcome -match '^failed: could not preserve the raw reply \(.+\); original kept at ' -and $keptSame) "exit $(if ($x) { $x.Code } else { '(none)' }); bridge_outcome='$outcome'$why"
+    $lockHeld = $true; try { $lockHeld = Test-LockHeld (Join-Path $r '.collab\t\.consult.lock') } catch { $why += " | the lock could not be tested ($($_.Exception.Message))" }
+    Check 'F04-11' 'no findings, no verdict, reply_json empty, ledger entry appended, lock not held, pending removed' ($null -ne $e -and -not (Test-Path (Join-Path $r '.collab\t\findings.json')) -and $e.verdict -eq '' -and $e.reply_json -eq '' -and $e.n -eq 1 -and -not $lockHeld -and -not (Test-Path (Join-Path $r '.collab\t\.consult.pending.json'))) "$(if ($e) { "verdict='$($e.verdict)' reply_json='$($e.reply_json)' n=$($e.n)" } else { 'no ledger entry' }); lock held=$lockHeld$why"
+    $mdPath = Join-Path $r '.collab\t\handoffs\02-codex-eleven.md'
+    $md = ''
+    try { $md = [IO.File]::ReadAllText($mdPath) } catch { $why += " | the handoff $mdPath could not be read ($($_.Exception.Message))" }
+    Check 'F04-11' 'header shows the failure, no link to a reply.json' ($md -and $md -match 'Bridge outcome: failed: could not preserve' -and $md -notmatch 'Structured reply: `handoffs') "$(if (-not $md) { 'no handoff' })$why"
     if ($kept) { Remove-Item $kept -ErrorAction SilentlyContinue }
 }
 

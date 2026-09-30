@@ -105,6 +105,12 @@ js_repl = false
 $script:fails = 0
 $script:passes = 0
 
+# (wave 28b, D10) every bridge run in test mode carries "test mode is ON: test hooks are honoured" in
+# warnings[] (and on the console): a comparison of warnings[] takes the other entries
+# (Get-RealWarnings) and expects that line once (Test-TestModeWarning)
+$testModeLine = 'test mode is ON: test hooks are honoured'
+function Get-RealWarnings { param($List) @($List) | Where-Object { [string]$_ -ne $testModeLine } }
+function Test-TestModeWarning { param($List) return (@(@($List) | Where-Object { [string]$_ -eq $testModeLine }).Count -eq 1) }
 function Check {
     param([string]$Id, [string]$What, [bool]$Ok, [string]$Evidence = '')
     if ($Ok) { $script:passes++ } else { $script:fails++ }
@@ -641,7 +647,7 @@ if (Want 'F02-5') {
 if (Want 'LEDGER') {
     $r = New-Repo 'ledger'
     $h = New-Home 'ledger' $baseToml
-    $order = 'n,when,purpose,topics,role,consult_id,reviewer,lineage,coordinator,preflight,preflight_warning,roster,panel,parent_thread,thread,thread_source,thread_candidate,mode,mode_fallback,command,child_env_scrubbed,brief,range,prompt_chars,reply,reply_json,events,partial_reply,model,effort,effort_requested,effort_sent,effort_mapping,effort_caps,effort_confirmed,max_words,sandbox,timeout_sec,timeout_source,continue_sec,extra_config,extra_config_source,peak,peak_schedule,peak_source,peak_evaluated_at,structured,schema,schema_transport,schema_transport_source,validation_error,format_retry,denial_retry,timeout_continue,stall,kill_confirmed,base_commit,reviewed_revision,tree_sha256,tree_sha256_after,tree_changed_during_review,revision_moved,changed_files,brief_sha256,brief_sha256_after,brief_changed_during_review,fingerprint_note,artifacts,artifacts_changed_during_review,tree_check,bridge_outcome,provider_failure,warnings,verdict,verdict_reason,findings,finding_ids,prior_findings,unchecked_prior_blockers,usage,engine_run,wall_seconds,finished_at,commit_wait_ms'
+    $order = 'n,when,purpose,topics,role,consult_id,reviewer,lineage,coordinator,preflight,preflight_warning,roster,panel,parent_thread,thread,thread_source,thread_candidate,mode,mode_fallback,command,child_env_scrubbed,brief,range,prompt_chars,reply,reply_json,events,partial_reply,model,effort,effort_requested,effort_sent,effort_mapping,effort_caps,effort_confirmed,max_words,sandbox,timeout_sec,timeout_source,continue_sec,extra_config,extra_config_source,context_window,peak,peak_schedule,peak_source,peak_evaluated_at,structured,schema,schema_transport,schema_transport_source,validation_error,format_retry,denial_retry,timeout_continue,stall,kill_confirmed,base_commit,reviewed_revision,tree_sha256,tree_sha256_after,tree_changed_during_review,revision_moved,changed_files,brief_sha256,brief_sha256_after,brief_changed_during_review,fingerprint_note,artifacts,artifacts_changed_during_review,tree_check,bridge_outcome,provider_failure,warnings,verdict,verdict_reason,findings,finding_ids,prior_findings,unchecked_prior_blockers,usage,engine_run,wall_seconds,finished_at,commit_wait_ms'
     $log = Join-Path $work 'ledger-log.txt'
     Clear-TestEnv
     $env:CODEX_HOME = $h; $env:FAKE_CODEX_SLEEP = '5'; $env:FAKE_CODEX_REPLY = $advise; $env:FAKE_CODEX_LOG = $log
@@ -656,7 +662,7 @@ if (Want 'LEDGER') {
     $names = ($e.PSObject.Properties | ForEach-Object { $_.Name }) -join ','
     $revNames = ($e.reviewer.PSObject.Properties | ForEach-Object { $_.Name }) -join ','
     Check 'LEDGER' 'entry fields in the documented order' ($names -eq $order) $names
-    Check 'LEDGER' 'reviewer fields: provider, provider_source, model, model_source, engine (0.4.0: codex), harness, provider_fingerprint, provider_config, identity_note' ($revNames -eq 'provider,provider_source,model,model_source,engine,harness,provider_fingerprint,provider_config,identity_note' -and $e.reviewer.engine -eq 'codex' -and @($e.warnings).Count -eq 0 -and $null -eq $e.denial_retry) $revNames
+    Check 'LEDGER' 'reviewer fields: provider, provider_source, model, model_source, engine (0.4.0: codex), harness, provider_fingerprint, provider_config, identity_note' ($revNames -eq 'provider,provider_source,model,model_source,engine,harness,provider_fingerprint,provider_config,identity_note' -and $e.reviewer.engine -eq 'codex' -and @(Get-RealWarnings $e.warnings).Count -eq 0 -and (Test-TestModeWarning $e.warnings) -and $null -eq $e.denial_retry) $revNames
     Check 'LEDGER' 'the recovery record carries the consultation id while the run is in flight (= ledger consult_id)' ($midId -and $midId -eq $e.consult_id -and -not (Test-Path $pend)) "pending consult_id=$midId ledger=$($e.consult_id)"
     $guard = (-not $realConfigHash) -or ((Get-FileHash -Algorithm SHA256 -LiteralPath $realConfig).Hash -eq $realConfigHash)
     Check 'LEDGER' 'the user''s own Codex config was never modified (hash compared when it exists)' $guard $(if ($realConfigHash) { 'hash unchanged' } else { 'no user config on this machine' })

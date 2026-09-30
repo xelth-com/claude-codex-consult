@@ -5,22 +5,27 @@
     by default, CODEX_CONSULT_TELEMETRY=off to switch it off.
 
 .DESCRIPTION
-    Three forms, one per call:
+    Four forms, one per call:
 
-      -Flush       THE sender. The bridge starts it detached (hidden, never waited for) after a
-                   ledger commit: under the sender lock <codex home>/telemetry-spool/.flush.lock (a
-                   concurrent sender is refused, exit 2) it reads the spool oldest first, drops
-                   lines older than 7 days, POSTs the events in batches of at most 100 to
-                   <intake>/v2/events and the complaint lines one by one to <intake>/v2/complaints
-                   (a 3 s connect probe, 5 s in all per request; a 429 with Retry-After of at most
-                   60 s is waited for and sent once more - no other retry), removes what was
-                   delivered, keeps the rest, stops at the first failure and writes
-                   <codex home>/telemetry-spool/.last {time, result, delivered, kept, dropped,
-                   http}. Delivered = a 2xx answer that is a JSON object with "ok": true; anything
-                   else (an HTML page, a 4xx/5xx, a timeout) keeps the spool. With telemetry off
-                   (-Telemetry off, else CODEX_CONSULT_TELEMETRY) it sends nothing. Exit 0 done or
-                   nothing to send, 1 something not delivered (or the intake URL refused), 2 another
-                   sender holds the lock.
+      -Flush       THE sender. The bridge starts it detached (hidden, never waited for, with a
+                   minimal allow-listed environment - wave 28b, D3) after a ledger commit: under
+                   the sender lock <codex home>/telemetry-spool/.flush.lock (a marker file; a
+                   concurrent sender is refused, exit 2; a lock older than 5 minutes, or whose
+                   owner is gone, is taken over) it reads the spool oldest first, drops lines older
+                   than 7 days, POSTs the events in batches of at most 100 to <intake>/v2/events
+                   and the complaint lines one by one to <intake>/v2/complaints (a 3 s connect
+                   probe; ONE request is bounded as a whole by 8 s and the whole flush by 60 s -
+                   wave 28b, D2; a 429 with Retry-After of at most 60 s that fits the deadline is
+                   waited for and sent once more), removes what was delivered, keeps the rest and
+                   writes <codex home>/telemetry-spool/.last {time, result, delivered, kept, dropped,
+                   rejected, http}. Delivered = a 2xx answer that is a JSON object with "ok": true.
+                   (D8) A batch refused with 400 "events[i]: reason" drops event i (a line in
+                   `rejected`) and resends the rest - at most three times per flush; 413 halves the
+                   batch; 403 stops the flush and keeps the spool; any other failure (another 4xx,
+                   a 5xx, an HTML page, a timeout) stops there and keeps the spool. With telemetry
+                   off (-Telemetry off, else CODEX_CONSULT_TELEMETRY) it sends nothing. Exit 0 done
+                   or nothing to send, 1 something not delivered (or the intake URL refused), 2
+                   another sender holds the lock.
       -Complain    "<text>" [-Contact <how to reach you>] [-Task <task> [-CollabDir <dir>]]
                    [-Yes]: the payload - the text (at most 8 KiB), the context (the task's last
                    ledger entry through the event's allowlist, the plugin version, the OS), the
@@ -28,17 +33,24 @@
                    synchronously (10 s). Delivered: the public_ref to quote. Not delivered: kept in
                    the spool as a complaint line - the sender retries it. Independent of the
                    switch (an explicit, confirmed send). Exit 0 delivered, 1 refused or not
-                   confirmed, 3 not delivered (kept). codex-consult.ps1 -Task <t> -Complain is the
-                   same with the task given.
-      -Status      the switch and where it comes from, the intake URL, the spool's counts, the last
-                   flush's result, the instance id (not secret: a salted hash), the notice's state.
-                   Reads only; exit 0.
+                   confirmed, 3 not delivered (kept - exactly the JSON that was shown, wave 28b
+                   D7). codex-consult.ps1 -Task <t> -Complain is the same with the task given.
+      -Forget      (wave 28b, D9) delete my data: -PublicRef <ref> sends DELETE
+                   <intake>/v2/instances/<instance id>?public_ref=<ref> (the ref a delivered
+                   complaint printed); -Local removes the local spool, the salt and the count of
+                   events not spooled (the next event makes a new instance id); both may be
+                   given. Exit 0 done, 1 refused, 3 the intake did not confirm the deletion.
+      -Status      the switch and where it comes from, the intake URL, the spool's counts, (wave
+                   28b, D6) the events not spooled since the last flush, the last flush's result,
+                   the instance id (not secret: a salted hash), the notice's state, and test mode
+                   when it is on. Reads only; exit 0.
 
-    The intake: CODEX_CONSULT_TELEMETRY_URL, else https://xelth.com/T; https only (plain http only
-    for a loopback test intake). The spool, the salt, the notice's marker: under the Codex home
-    (CODEX_HOME, else ~/.codex). TEST HOOK: CODEX_CONSULT_TEST_TELEMETRY_ENV=<path> - the sender
-    writes there the NAMES of the coordinator's host markers in its own environment (none: an empty
-    file).
+    The intake: CODEX_CONSULT_TELEMETRY_URL (an operator setting), else https://xelth.com/T; https
+    only - plain http only for a loopback intake AND with CODEX_CONSULT_TEST_MODE=1 (a harness; wave
+    28b, D4). The spool, the salt, the notice's marker: under the Codex home (CODEX_HOME, else
+    ~/.codex). TEST HOOKS (test mode only): CODEX_CONSULT_TEST_TELEMETRY_ENV=<path> - the sender
+    writes there the NAMES of every variable of its own environment (never a value);
+    CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS / _FLUSH_MS - the request and flush bounds.
 
     Windows PowerShell 5.1 and PowerShell 7 compatible, no external dependencies.
 
@@ -72,16 +84,25 @@ param(
     [string]$CollabDir = '.collab',
 
     # With -Flush: on | off - the bridge passes its run's switch; empty: CODEX_CONSULT_TELEMETRY.
-    [string]$Telemetry = ''
+    [string]$Telemetry = '',
+
+    # (wave 28b, D9) Delete my data: with -PublicRef <ref> at the intake, with -Local here.
+    [switch]$Forget,
+
+    # With -Forget: the public_ref a delivered complaint printed (the intake's proof of ownership).
+    [string]$PublicRef = '',
+
+    # With -Forget: remove the local spool, the salt and the not-spooled count.
+    [switch]$Local
 )
 
 $ErrorActionPreference = 'Stop'
 $script:ToolName = 'codex-telemetry'
 . (Join-Path $PSScriptRoot 'codex-consult-common.ps1')
 
-$forms = @(@('Flush', 'Status', 'Complain') | Where-Object { $PSBoundParameters.ContainsKey($_) })
+$forms = @(@('Flush', 'Status', 'Complain', 'Forget') | Where-Object { $PSBoundParameters.ContainsKey($_) })
 if ($forms.Count -ne 1) {
-    Stop-WithError "give exactly one of -Flush, -Status, -Complain ""<text>"" (got $(if ($forms.Count -eq 0) { 'none' } else { '-' + ($forms -join ', -') }))."
+    Stop-WithError "give exactly one of -Flush, -Status, -Complain ""<text>"", -Forget (got $(if ($forms.Count -eq 0) { 'none' } else { '-' + ($forms -join ', -') }))."
 }
 $Telemetry = ([string]$Telemetry).Trim().ToLowerInvariant()
 if ($Telemetry -and @('on', 'off') -notcontains $Telemetry) { Stop-WithError "-Telemetry must be on or off (got '$Telemetry')." }
@@ -92,13 +113,13 @@ $given = @($PSBoundParameters.Keys | Where-Object { $commonNames -notcontains $_
 if ($Flush) {
     $extra = @($given | Where-Object { @('Flush', 'Telemetry') -notcontains $_ })
     if ($extra.Count -gt 0) { Stop-WithError "-Flush takes only -Telemetry; not -$($extra -join ', -')." }
-    # TEST HOOK: the host markers this process inherited (names only) - the bridge starts the
-    # sender without them
+    # TEST HOOK (test mode only): the NAMES of every variable this process inherited (never a value)
+    # - (wave 28b, D3) the bridge starts the sender with the allow-listed environment only
     $envDump = (Get-TestHookValue 'CODEX_CONSULT_TEST_TELEMETRY_ENV')
     if ($envDump) {
-        # (Get-HostMarkerNames hands back the array itself: assigned, never @()-wrapped)
-        $markerNames = Get-HostMarkerNames
-        try { Write-Utf8NoBom -Path $envDump -Text (($markerNames -join "`n") + $(if ($markerNames.Count -gt 0) { "`n" } else { '' })) } catch { }
+        $envNames = [string[]]@([Environment]::GetEnvironmentVariables().Keys | ForEach-Object { [string]$_ })
+        [Array]::Sort($envNames, [StringComparer]::OrdinalIgnoreCase)
+        try { Write-Utf8NoBom -Path $envDump -Text (($envNames -join "`n") + $(if ($envNames.Count -gt 0) { "`n" } else { '' })) } catch { }
     }
     $sw = Get-TelemetrySwitch -Override $Telemetry
     if (-not $sw.On) {
@@ -127,6 +148,14 @@ if ($PSBoundParameters.ContainsKey('Complain')) {
     exit (Invoke-TelemetryComplaint -Text $Complain -Contact $Contact -Entry $entry -Yes:$Yes)
 }
 
+# ----------------------------------------------------------------------------- -Forget (wave 28b, D9)
+if ($Forget) {
+    $extra = @($given | Where-Object { @('Forget', 'PublicRef', 'Local') -notcontains $_ })
+    if ($extra.Count -gt 0) { Stop-WithError "-Forget takes only -PublicRef <ref> and -Local; not -$($extra -join ', -')." }
+    exit (Invoke-TelemetryForget -PublicRef $PublicRef -Local:$Local)
+}
+foreach ($only in @('PublicRef', 'Local')) { if ($PSBoundParameters.ContainsKey($only)) { Stop-WithError "-$only goes with -Forget." } }
+
 # ----------------------------------------------------------------------------- -Status
 $extra = @($given | Where-Object { @('Status') -notcontains $_ })
 if ($extra.Count -gt 0) { Stop-WithError "-Status takes no other parameter; not -$($extra -join ', -')." }
@@ -134,6 +163,7 @@ $sw = Get-TelemetrySwitch
 $p = Get-TelemetryPaths
 $u = Get-TelemetryUrl
 Write-Host "codex-telemetry: telemetry $($sw.Text) ($($sw.Source)) - CODEX_CONSULT_TELEMETRY=off switches it off, -Telemetry off for one run; README ""Telemetry (on by default)"""
+if (Test-TestMode) { Write-Host 'test mode  : ON - CODEX_CONSULT_TEST_MODE=1: test hooks are honoured and plain http to a loopback intake is accepted' -ForegroundColor Yellow }
 Write-Host "intake     : $(if ($u.Error) { "REFUSED - $($u.Error)" } elseif ($u.Source -eq 'the default') { "$($u.Base) (the default; CODEX_CONSULT_TELEMETRY_URL overrides)" } else { "$($u.Base) (CODEX_CONSULT_TELEMETRY_URL)" })"
 if (-not $p) {
     Write-Host 'spool      : none - no codex home (CODEX_HOME, else ~/.codex)'
@@ -142,6 +172,9 @@ if (-not $p) {
 $c = Get-TelemetrySpoolCounts
 $oldest = $(if ($null -ne $c.Oldest) { '; oldest queued ' + [DateTimeOffset]::FromUnixTimeSeconds([long]$c.Oldest).ToLocalTime().ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant) } else { '' })
 Write-Host "spool      : $($p.Spool) - $($c.Events) event(s), $($c.Complaints) complaint(s)$(if ($c.Invalid -gt 0) { ", $($c.Invalid) unreadable line(s)" }) in $($c.Files) file(s)$oldest"
+# (wave 28b, D6) the events that could not be spooled since the last flush
+$ns = Get-TelemetryNotSpooled
+Write-Host "not spooled: $(if ($ns.Count -gt 0) { "$($ns.Count) event(s) since the last flush - the latest $($ns.When): $($ns.Last)" } else { 'none since the last flush' })"
 $last = Read-TelemetryLast
 Write-Host "last flush : $(if ($last) { "$([string](ConvertTo-JsonText (Get-PropertyValue $last 'time' ''))) - $([string](Get-PropertyValue $last 'result' ''))" } else { 'never' })"
 $iid = Get-TelemetryInstanceId

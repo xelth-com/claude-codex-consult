@@ -52,7 +52,7 @@ function New-Repo {
     [void][IO.Directory]::CreateDirectory((Join-Path $r '.collab\t\handoffs'))
     return $r
 }
-function Clear-FakeEnv { foreach ($k in @('FAKE_CODEX_REPLY', 'FAKE_CODEX_SLEEP', 'FAKE_CODEX_FAIL', 'FAKE_CODEX_TOUCH', 'FAKE_CODEX_PIDFILE', 'FAKE_CODEX_LOG', 'FAKE_CODEX_NOUSAGE')) { Remove-Item "env:$k" -ErrorAction SilentlyContinue } }
+function Clear-FakeEnv { foreach ($k in @('FAKE_CODEX_REPLY', 'FAKE_CODEX_SLEEP', 'FAKE_CODEX_FAIL', 'FAKE_CODEX_TOUCH', 'FAKE_CODEX_PIDFILE', 'FAKE_CODEX_LOG', 'FAKE_CODEX_NOUSAGE', 'CODEX_CONSULT_TEST_REGISTER_FAIL')) { Remove-Item "env:$k" -ErrorAction SilentlyContinue } }
 function Run-Script {
     param([string]$Script, [string]$Repo, [string[]]$ArgList, [hashtable]$Env = @{})
     Clear-FakeEnv
@@ -194,31 +194,30 @@ if (Want 'd') {
 
 # ------------------------------------------------------------------ (e) registration write fails
 if (Want 'e') {
-    # fault injection on a COPY of the scripts: the copy's Write-PendingFile throws for
-    # state 'running' (the write right after Start-Process). Everything else is identical.
-    $inj = Join-Path $work 'inject'
-    if (Test-Path $inj) { Remove-Item $inj -Recurse -Force }
-    [void][IO.Directory]::CreateDirectory("$inj\scripts"); [void][IO.Directory]::CreateDirectory("$inj\schemas")
-    Copy-Item "$scripts\*.ps1" "$inj\scripts\"; Copy-Item "$scripts\..\schemas\*.json" "$inj\schemas\"
-    $libc = "$inj\scripts\codex-consult-common.ps1"
-    $t = [IO.File]::ReadAllText($libc)
-    $t = $t.Replace("function Write-PendingFile {`n    param([string]`$Path, `$Record)`n", "function Write-PendingFile {`n    param([string]`$Path, `$Record)`n    if (`$Record.state -eq 'running') { throw 'injected: registration write failed' }`n")
-    [IO.File]::WriteAllText($libc, $t, $u8)
+    # (wave 28b, D19) the registration failure is injected through the bridge's own test hook
+    # CODEX_CONSULT_TEST_REGISTER_FAIL=1 (test mode only) - the scripts under test are the ones given
+    # (-ScriptsDir), never a patched copy; every row reports FAIL with what was missing instead of
+    # stopping the harness with an exception
     $r = New-Repo 'e'
     $pidFile = Join-Path $work 'e-fake.pid'; if (Test-Path $pidFile) { Remove-Item $pidFile }
     $runStart = (Get-Date).AddSeconds(-1)
-    $x = Run-Script "$inj\scripts\codex-consult.ps1" $r @('-CodexExe', $fake, '-Prompt', 'x', '-ReplyName', 'inj') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_SLEEP = '40'; FAKE_CODEX_PIDFILE = $pidFile }
-    Start-Sleep -Milliseconds 800
-    $e = Last-Entry $r
-    $pend = (Read-PendingFile -Path (Join-Path $r '.collab\t\.consult.pending.json')).Record
-    $left = @((Find-CodexProcesses -Since $runStart -Launcher $fake).Found)
-    $grand = if (Test-Path $pidFile) { [int](Get-Content $pidFile) } else { 0 }
-    Check '(e)' 'registration write fails -> exit 1, outcome recorded in the ledger' ($x.Code -eq 1 -and $e.bridge_outcome -eq 'failed: could not register the codex process (injected: registration write failed); codex was stopped') "bridge_outcome='$($e.bridge_outcome)'"
-    Check '(e)' 'codex child tree killed (no launcher process left, fake grandchild dead)' ($left.Count -eq 0 -and ($grand -eq 0 -or -not (Get-Process -Id $grand -ErrorAction SilentlyContinue))) "launcher processes left=$($left.Count); fake pid file: $(if ($grand) { $grand } else { 'not written' })"
-    Check '(e)' "pending stays 'launching' (n/nn of this run), lock not held" ($pend.state -eq 'launching' -and $pend.n -eq 1 -and $pend.nn -eq '01' -and -not (Test-LockHeld (Join-Path $r '.collab\t\.consult.lock'))) "state=$($pend.state) n=$($pend.n) nn=$($pend.nn)"
-    $y = Consult $r @('-Prompt', 'x', '-ReplyName', 'next') @{ FAKE_CODEX_REPLY = $advise }
-    $e2 = Last-Entry $r
-    Check '(e)' 'next (real) run: launching rule finds no codex -> recovered, commits n=2' ($y.Code -eq 0 -and $y.Out -match "(recovered reservation|cleared the recovery record of consult) n=1, nn=01 \(state 'launching'.*Win32_Process scan .*: none found" -and $e2.n -eq 2) "n=$($e2.n) reply=$($e2.reply)"
+    $x = $null; $e = $null; $pend = $null; $left = @(); $grand = 0; $why = ''
+    try {
+        $x = Consult $r @('-Prompt', 'x', '-ReplyName', 'inj') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_SLEEP = '40'; FAKE_CODEX_PIDFILE = $pidFile; CODEX_CONSULT_TEST_REGISTER_FAIL = '1' }
+        Start-Sleep -Milliseconds 800
+    } catch { $why = " | the run threw: $($_.Exception.Message)" }
+    try { $e = Last-Entry $r } catch { $why += " | the ledger could not be read ($($_.Exception.Message))" }
+    try { $pend = (Read-PendingFile -Path (Join-Path $r '.collab\t\.consult.pending.json')).Record } catch { $why += " | the recovery record could not be read ($($_.Exception.Message))" }
+    try { $left = @((Find-CodexProcesses -Since $runStart -Launcher $fake).Found) } catch { $why += " | the process scan failed ($($_.Exception.Message))" }
+    try { $grand = if (Test-Path $pidFile) { [int](Get-Content $pidFile) } else { 0 } } catch { $grand = 0 }
+    $outcome = $(if ($e) { [string]$e.bridge_outcome } else { '(no ledger entry)' })
+    Check '(e)' 'registration write fails (hook CODEX_CONSULT_TEST_REGISTER_FAIL) -> exit 1, outcome recorded in the ledger' ($null -ne $x -and $x.Code -eq 1 -and $null -ne $e -and $outcome -match '^failed: could not register the codex process \(injected: registration write failed.*\); codex was stopped$') "exit $(if ($x) { $x.Code } else { '(none)' }); bridge_outcome='$outcome'$why"
+    Check '(e)' 'codex child tree killed (no launcher process left, fake grandchild dead)' ($left.Count -eq 0 -and ($grand -eq 0 -or -not (Get-Process -Id $grand -ErrorAction SilentlyContinue))) "launcher processes left=$($left.Count); fake pid file: $(if ($grand) { $grand } else { 'not written' })$why"
+    $lockHeld = $true; try { $lockHeld = Test-LockHeld (Join-Path $r '.collab\t\.consult.lock') } catch { }
+    Check '(e)' "pending stays 'launching' (n/nn of this run), lock not held" ($null -ne $pend -and $pend.state -eq 'launching' -and $pend.n -eq 1 -and $pend.nn -eq '01' -and -not $lockHeld) "$(if ($pend) { "state=$($pend.state) n=$($pend.n) nn=$($pend.nn)" } else { 'no recovery record' }); lock held=$lockHeld$why"
+    $y = $null; $e2 = $null
+    try { $y = Consult $r @('-Prompt', 'x', '-ReplyName', 'next') @{ FAKE_CODEX_REPLY = $advise }; $e2 = Last-Entry $r } catch { $why += " | the next run threw: $($_.Exception.Message)" }
+    Check '(e)' 'next (real) run: launching rule finds no codex -> recovered, commits n=2' ($null -ne $y -and $y.Code -eq 0 -and $y.Out -match "(recovered reservation|cleared the recovery record of consult) n=1, nn=01 \(state 'launching'.*Win32_Process scan .*: none found" -and $null -ne $e2 -and $e2.n -eq 2) "n=$(if ($e2) { $e2.n } else { '(none)' }) reply=$(if ($e2) { $e2.reply })$why"
 }
 
 # ------------------------------------------------------------------ (f) the lock file is permanent

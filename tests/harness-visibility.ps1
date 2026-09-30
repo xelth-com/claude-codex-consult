@@ -73,6 +73,12 @@ foreach ($k in @('CODEX_HOME', 'Path', 'USERPROFILE', 'HOME', 'LOCALAPPDATA', 'T
 $script:fails = 0
 $script:passes = 0
 
+# (wave 28b, D10) every bridge run in test mode carries "test mode is ON: test hooks are honoured" in
+# warnings[] (and on the console): a comparison of warnings[] takes the other entries
+# (Get-RealWarnings) and expects that line once (Test-TestModeWarning)
+$testModeLine = 'test mode is ON: test hooks are honoured'
+function Get-RealWarnings { param($List) @($List) | Where-Object { [string]$_ -ne $testModeLine } }
+function Test-TestModeWarning { param($List) return (@(@($List) | Where-Object { [string]$_ -eq $testModeLine }).Count -eq 1) }
 function Check {
     param([string]$Id, [string]$What, [bool]$Ok, [string]$Evidence = '')
     if ($Ok) { $script:passes++ } else { $script:fails++ }
@@ -718,7 +724,7 @@ if (Want 'RANGE') {
     $dw = Consult $r '' @('-DryRun', '-Prompt', 'x', '-Purpose', 'diff-review', '-Range', 'HEAD~1..HEAD', '-TimeoutSec', '900')
     $dn = Consult $r '' @('-DryRun', '-Prompt', 'x', '-Purpose', 'diff-review', '-Range', 'HEAD~1..HEAD')
     $warn = 'a range of 1600 lines with a 900 s timeout: pass -TimeoutSec or a reading plan in the brief'
-    Check 'RANGE' 'T1 a range of 1600 lines with -TimeoutSec 900 WARNS ("WARNING: a range of 1600 lines with a 900 s timeout: pass -TimeoutSec or a reading plan in the brief", ledger warnings[]); with the diff-review default (2400 s) it does not' ($dw.Code -eq 0 -and $dw.Out.Contains("WARNING: $warn") -and @($dw.Preview.warnings) -contains $warn -and $dn.Code -eq 0 -and $dn.Out -notmatch 'WARNING: a range' -and @($dn.Preview.warnings).Count -eq 0) (Line $dw.Out 'WARNING:')
+    Check 'RANGE' 'T1 a range of 1600 lines with -TimeoutSec 900 WARNS ("WARNING: a range of 1600 lines with a 900 s timeout: pass -TimeoutSec or a reading plan in the brief", ledger warnings[]); with the diff-review default (2400 s) it does not' ($dw.Code -eq 0 -and $dw.Out.Contains("WARNING: $warn") -and @($dw.Preview.warnings) -contains $warn -and $dn.Code -eq 0 -and $dn.Out -notmatch 'WARNING: a range' -and @(Get-RealWarnings $dn.Preview.warnings).Count -eq 0 -and (Test-TestModeWarning $dn.Preview.warnings)) (Line $dw.Out 'WARNING:')
     $acc = Reply 'accept.json' '{"schema_version":"1","verdict":"ACCEPT","verdict_reason":"r","reply_markdown":"m","findings":[],"prior_findings":[],"unproven":[],"first_run_checklist":[]}'
     $x = Consult $r '' @('-Prompt', 'x', '-Purpose', 'acceptance', '-Range', 'HEAD~1..HEAD', '-TimeoutSec', '600', '-ReplyName', 'rng') @{ FAKE_CODEX_REPLY = $acc }
     $e = Last-Entry $r

@@ -10,6 +10,13 @@
 # the 7-day drop, the sender lock, batches of 100; -Complain (the printed payload, -Yes, the
 # public_ref, the confirmation, the complaint line and its later delivery, the 8 KiB limit);
 # codex-telemetry.ps1 -Status; the SessionStart hook's `telemetry: on|off`; the documentation.
+# (wave 28b, D1-D9, D16) the vendor table (provider = the vendor class of the endpoint, the model only
+# in its vendor's pattern; a company-like label and model -> other/other, in a unit and a real run);
+# the sender's deadline (one request 2 s by hook against a slow intake, the whole flush), its lock
+# (a live owner refuses, an old lock and a dead owner's are taken over); the allow-listed sender
+# environment; plain http only in test mode; the salt created atomically (four racing processes);
+# a busy spool (5 s, the warning, -Status); the complaint's exact bytes; the intake's 400/413/403/
+# other 4xx; -Forget -PublicRef / -Local; the spool file named by the local date.
 # FAKES ONLY: fake-codex3.cmd; the intake is a LOCAL System.Net.HttpListener on 127.0.0.1 (a free
 # port) or a closed loopback port - CODEX_CONSULT_TELEMETRY_URL always names one of them, never the
 # real intake; CODEX_HOME is a scratch directory per case, CODEX_CONSULT_ROSTER a scratch file or
@@ -92,7 +99,7 @@ function Write-Roster {
     return $p
 }
 $fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_STDERR', 'FAKE_CODEX_EXIT', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_ENV_DUMP')
-$testVars = @('RT_ZAI_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_PANEL_SEED', 'CODEX_CONSULT_COORDINATOR', 'CODEX_CONSULT_BRIEF_PREFIX', 'CODEX_CONSULT_TELEMETRY', 'CODEX_CONSULT_TEST_TELEMETRY_ENV')
+$testVars = @('RT_ZAI_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_PANEL_SEED', 'CODEX_CONSULT_COORDINATOR', 'CODEX_CONSULT_BRIEF_PREFIX', 'CODEX_CONSULT_TELEMETRY', 'CODEX_CONSULT_TEST_TELEMETRY_ENV', 'RT_ACME_KEY', 'CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS', 'CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     foreach ($k in (Get-HostMarkerNames)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
@@ -168,7 +175,8 @@ function Get-DeadUrl {
 }
 $answerOk = @{ Status = 200; Type = 'application/json'; Body = '{"ok":true,"event_ids":[1]}' }
 # Serves up to $Count requests with $Answers in order (the last one repeats) until $TimeoutSec;
-# returns the requests { Method; Path; Type; Body; At (s since the call) }. A $Proc that has exited
+# returns the requests { Method; Path; Query; Type; Body; At (s since the call); When }. An answer's
+# DelayMs holds it back (a slow intake). A $Proc that has exited
 # ends the wait after one more short look.
 function Serve-Intake {
     param($Intake, [object[]]$Answers = @($answerOk), [int]$Count = 1, [double]$TimeoutSec = 60, $Proc = $null)
@@ -187,9 +195,11 @@ function Serve-Intake {
         $Intake.Pending = $null
         $rd = New-Object System.IO.StreamReader($ctx.Request.InputStream, $u8)
         $body = $rd.ReadToEnd()
-        $reqs.Add([pscustomobject]@{ Method = $ctx.Request.HttpMethod; Path = $ctx.Request.Url.AbsolutePath; Type = [string]$ctx.Request.ContentType; Body = $body; At = $watch.Elapsed.TotalSeconds })
+        $reqs.Add([pscustomobject]@{ Method = $ctx.Request.HttpMethod; Path = $ctx.Request.Url.AbsolutePath; Query = $ctx.Request.Url.Query; Type = [string]$ctx.Request.ContentType; Body = $body; At = $watch.Elapsed.TotalSeconds; When = (Get-Date) })
         $a = $Answers[[Math]::Min($reqs.Count - 1, $Answers.Count - 1)]
         try {
+            # (wave 28b, D2) a slow intake: the answer after DelayMs
+            if ($a.DelayMs) { Start-Sleep -Milliseconds ([int]$a.DelayMs) }
             $resp = $ctx.Response
             $resp.StatusCode = [int]$a.Status
             if ($a.Type) { $resp.ContentType = [string]$a.Type }
@@ -317,7 +327,13 @@ if (Want 'UNIT') {
             $(if ($r.Error) { '!' } else { $r.Base })
         })
     $env:CODEX_CONSULT_TELEMETRY_URL = 'http://127.0.0.1:9/'
-    Check 'UNIT' 'Get-TelemetryUrl: default https://xelth.com/T; a loopback http intake is taken (trailing slash dropped); https elsewhere is taken; plain http to another host, a non-URL and another scheme are refused' (($urls -join ' ') -eq 'https://xelth.com/T http://127.0.0.1:1/T http://localhost:5/T https://intake.example/T ! ! !') ($urls -join ' ')
+    Check 'UNIT' 'Get-TelemetryUrl (test mode): default https://xelth.com/T; a loopback http intake is taken (trailing slash dropped); https elsewhere is taken; plain http to another host, a non-URL and another scheme are refused' (($urls -join ' ') -eq 'https://xelth.com/T http://127.0.0.1:1/T http://localhost:5/T https://intake.example/T ! ! !') ($urls -join ' ')
+    # (wave 28b, D4 / F36-9, F37-4) plain http to a loopback intake only WITH test mode
+    $env:CODEX_CONSULT_TEST_MODE = ''
+    $noTm = @(foreach ($u in @('http://127.0.0.1:1/T', 'http://localhost:5/T', 'https://intake.example/T')) { $env:CODEX_CONSULT_TELEMETRY_URL = $u; $r0 = Get-TelemetryUrl; $(if ($r0.Error) { "!$(if ($r0.Error -match 'only with CODEX_CONSULT_TEST_MODE=1') { 'tm' })" } else { $r0.Base }) })
+    $env:CODEX_CONSULT_TEST_MODE = '1'
+    $env:CODEX_CONSULT_TELEMETRY_URL = 'http://127.0.0.1:9/'
+    Check 'UNIT' 'D4 without CODEX_CONSULT_TEST_MODE=1 a plain-http loopback intake (127.0.0.1, localhost) is REFUSED ("plain http to a loopback intake only with CODEX_CONSULT_TEST_MODE=1"); https stays taken' (($noTm -join ' ') -eq '!tm !tm https://intake.example/T') ($noTm -join ' ')
     $h = New-Home 'unit'
     $env:CODEX_HOME = $h
     $none = Get-TelemetryInstanceId
@@ -355,10 +371,78 @@ if (Want 'UNIT') {
     $viol = Test-EventAllowlist $hparsed
     $secrets = @($taskName, $briefName, 'secret', 'thread-', 'handoffs', '11111111-2222', $findingClaim.Substring(0, 20), 'F04-1')
     $leaks = Find-Leaks (Get-Leaves $hparsed) $secrets
-    Check 'UNIT' 'THE allowlist, walked key by key on the event of a hostile entry: exactly app_id..runtime, details engine..bridge_version, tokens {in,cached,out}, findings {blocker,major,minor,note}, tags [engine, provider]; no string leaf carries a task name, a brief, a thread id, a consultation id, a finding text or id, a message, a warning, a path, the machine or the user name' ($viol.Count -eq 0 -and $leaks.Count -eq 0) (($viol + $leaks) -join ' || ')
-    Check 'UNIT' 'the hostile entry''s values: provider and model with a path shape -> other, an unknown purpose -> other, outcome failed:quota (severity warning), counts and booleans carried (format_retry true, timeout_continue false: not attempted), panel_size 3, wall_seconds rounded 42' ($hev.details.provider -eq 'other' -and $hev.details.model -eq 'other' -and $hev.details.purpose -eq 'other' -and $hev.title -eq 'failed:quota' -and $hev.severity -eq 'warning' -and $hev.details.findings.note -eq 4 -and $hev.details.tokens.cached -eq 200 -and $hev.details.format_retry -eq $true -and $hev.details.timeout_continue -eq $false -and $hev.details.panel_size -eq 3 -and $hev.details.wall_seconds -eq 42 -and (@($hev.tags) -join ',') -eq 'codex,other') $hjson
-    $models = @(foreach ($m in @('gpt-5.1', 'moonshotai/kimi-k2', 'qwen3:8b', 'muse-spark-1.3-contributor', '/home/u/m', '~/m', 'a b', 'x/y/z/w', "D:\m")) { (ConvertTo-TelemetryDetails ([pscustomobject]@{ reviewer = [pscustomobject]@{ provider = 'p'; model = $m; engine = 'agy' } })).model })
-    Check 'UNIT' 'model ids: gpt-5.1, moonshotai/kimi-k2, qwen3:8b and muse-spark-1.3-contributor are kept; /home/u/m, ~/m, "a b", x/y/z/w and D:\m become other' (($models -join ' ') -eq 'gpt-5.1 moonshotai/kimi-k2 qwen3:8b muse-spark-1.3-contributor other other other other other') ($models -join ' ')
+    Check 'UNIT' 'THE allowlist, walked key by key on the event of a hostile entry: exactly app_id..runtime, details engine..bridge_version, tokens {in,cached,out}, findings {blocker,major,minor,note}, (wave 28b, D1) tags [provider, model]; no string leaf carries a task name, a brief, a thread id, a consultation id, a finding text or id, a message, a warning, a path, the machine or the user name' ($viol.Count -eq 0 -and $leaks.Count -eq 0) (($viol + $leaks) -join ' || ')
+    Check 'UNIT' 'the hostile entry''s values: provider and model with a path shape -> other, an unknown purpose -> other, outcome failed:quota (severity warning), counts and booleans carried (format_retry true, timeout_continue false: not attempted), panel_size 3, wall_seconds rounded 42, tags [other, other]' ($hev.details.provider -eq 'other' -and $hev.details.model -eq 'other' -and $hev.details.purpose -eq 'other' -and $hev.title -eq 'failed:quota' -and $hev.severity -eq 'warning' -and $hev.details.findings.note -eq 4 -and $hev.details.tokens.cached -eq 200 -and $hev.details.format_retry -eq $true -and $hev.details.timeout_continue -eq $false -and $hev.details.panel_size -eq 3 -and $hev.details.wall_seconds -eq 42 -and (@($hev.tags) -join ',') -eq 'other,other') $hjson
+    # (wave 28b, D1 / F36-1) THE vendor table: the provider is the vendor CLASS of the endpoint (its
+    # host, the built-in openai provider, the engine), the model a name of that vendor's pattern
+    $rv = { param([string]$Engine, $Pc, [string]$Label, [string]$Model) [pscustomobject]@{ reviewer = [pscustomobject]@{ provider = $Label; model = $Model; engine = $Engine; provider_config = $Pc } } }
+    $bu = { param([string]$U) [pscustomobject]@{ base_url = $U; wire_api = 'responses' } }
+    $vcases = @(
+        @((& $rv 'codex' ([pscustomobject]@{ builtin = 'openai' }) 'openai' 'gpt-5.1'), 'openai/gpt-5.1'),
+        @((& $rv 'codex' ([pscustomobject]@{ builtin = 'openai' }) 'openai' 'gpt-6-astra'), 'openai/gpt-6-astra'),
+        @((& $rv 'codex' (& $bu 'https://api.openai.com/v1') 'work-oai' 'o4-mini'), 'openai/o4-mini'),
+        @((& $rv 'codex' (& $bu 'https://api.z.ai/api/v1') 'ZAI' 'glm-5.3'), 'zai/glm-5.3'),
+        @((& $rv 'codex' (& $bu 'https://api.z.ai/api/v1') 'ZAI' 'GLM-4.5-Air'), 'zai/glm-4.5-air'),
+        @((& $rv 'codex' (& $bu 'https://token-plan-ams.xiaomimimo.com/v1') 'mimo' 'mimo-v2.6-pro'), 'xiaomi/mimo-v2.6-pro'),
+        @((& $rv 'codex' (& $bu 'https://ark.ap-southeast.bytepluses.com/api/coding/v3') 'byteplus' 'deepseek-v4.1-flash'), 'byteplus/deepseek-v4.1-flash'),
+        @((& $rv 'codex' (& $bu 'https://ark.ap-southeast.bytepluses.com/api/coding/v3') 'byteplus' 'dola-seed-2.0-pro'), 'byteplus/dola-seed-2.0-pro'),
+        @((& $rv 'codex' (& $bu 'https://api.kimi.ai/coding/v1') 'kimi' 'k3'), 'moonshot/k3'),
+        @((& $rv 'codex' (& $bu 'https://api.moonshot.ai/v1') 'moon' 'kimi-k2.5'), 'moonshot/kimi-k2.5'),
+        @((& $rv 'codex' (& $bu 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1') 'alibaba' 'qwen3.8-max'), 'alibaba/qwen3.8-max'),
+        @((& $rv 'agy' ([pscustomobject]@{ engine = 'agy' }) 'gemini' 'gemini-3.8-flash-high'), 'google/gemini-3.8-flash-high'),
+        @((& $rv 'muse' ([pscustomobject]@{ engine = 'muse' }) 'meta' 'muse-spark-1.3-contributor'), 'meta/muse-spark-1.3-contributor'),
+        @((& $rv 'codex' (& $bu 'https://api.z.ai/api/v1') 'ZAI' 'gpt-5.1'), 'zai/other'),
+        @((& $rv 'codex' (& $bu 'https://api.z.ai/api/v1') 'ZAI' 'glm-acmecorp-private'), 'zai/other'),
+        @((& $rv 'codex' (& $bu 'https://evil-z.ai.example/v1') 'ZAI' 'glm-5.3'), 'other/other'),
+        @((& $rv 'codex' (& $bu 'http://127.0.0.1:8080/v1') 'local' 'qwen3:8b'), 'other/other'),
+        @((& $rv 'agy' ([pscustomobject]@{ engine = 'agy' }) 'gemini' '/home/u/m'), 'google/other'),
+        @((& $rv 'codex' $null 'x' 'gpt-5.1'), 'other/other')
+    )
+    $vgot = @(foreach ($vc in $vcases) { $vd = ConvertTo-TelemetryDetails $vc[0]; "$($vd.provider)/$($vd.model)" })
+    $vwant = @($vcases | ForEach-Object { $_[1] })
+    Check 'UNIT' 'D1 the vendor table: builtin openai (the ChatGPT login) and api.openai.com -> openai; api.z.ai -> zai; *.xiaomimimo.com -> xiaomi; *.bytepluses.com -> byteplus; api.kimi.ai, api.moonshot.ai -> moonshot; *.aliyuncs.com -> alibaba; engine agy -> google, muse -> meta; the model kept (lower case) only when it follows that vendor''s pattern (gpt-5.1 at z.ai, glm-acmecorp-private -> other); a look-alike host, a local endpoint, no endpoint -> other/other' (($vgot -join ' ') -eq ($vwant -join ' ')) (@(for ($i = 0; $i -lt $vgot.Count; $i++) { if ($vgot[$i] -ne $vwant[$i]) { "$($vwant[$i]) got $($vgot[$i])" } }) -join '; ')
+    # the allowlist walks the VALUES: a roster label and a model that look like a company name
+    $corp = & $rv 'codex' (& $bu 'https://llm.acmecorp-internal.example/v1') 'AcmeCorp-Legal' 'acmecorp-contracts-7b'
+    $cev = New-TelemetryEvent -Entry $corp -InstanceId ('cd' * 32)
+    $cjson = ConvertTo-Json -Compress -Depth 6 -InputObject $cev
+    Check 'UNIT' 'D1 a roster label AcmeCorp-Legal on llm.acmecorp-internal.example with the model acmecorp-contracts-7b: provider other, model other, tags [other, other]; the event text holds neither name (case-insensitive)' ($cev.details.provider -eq 'other' -and $cev.details.model -eq 'other' -and (@($cev.tags) -join ',') -eq 'other,other' -and $cjson -inotmatch 'acmecorp') $cjson
+    # (wave 28b, D5 / F36-9) the salt: never replaced once it parses; a bad one moved ASIDE (kept); racing creators agree
+    $h5 = New-Home 'salt'
+    $env:CODEX_HOME = $h5
+    $s5 = Join-Path $h5 'telemetry-salt'
+    [IO.File]::WriteAllText($s5, ('ab' * 32) + "`n", $u8)
+    $keepId = Get-TelemetryInstanceId -Create
+    $kept5 = (Text $s5).Trim() -eq ('ab' * 32)
+    [IO.File]::WriteAllText($s5, "not a salt`n", $u8)
+    $newId = Get-TelemetryInstanceId -Create
+    $aside = @(Get-ChildItem -LiteralPath $h5 -File -Filter 'telemetry-salt.bad-*')
+    $asideOk = ($aside.Count -eq 1 -and (Text $aside[0].FullName).Trim() -eq 'not a salt')
+    $env:CODEX_HOME = $savedCodexHome
+    Check 'UNIT' 'D5 a salt that parses is never replaced (-Create keeps it, the id from it); one that does not parse is moved ASIDE to telemetry-salt.bad-<guid> (kept, not deleted) and a new salt made' ($keepId -and $kept5 -and $newId -and $newId -ne $keepId -and (Text $s5).Trim() -cmatch '^[0-9a-f]{64}$' -and $asideOk) "kept $kept5 aside $($aside.Count)"
+    $h6 = New-Home 'saltrace'
+    $raceCmd = ". '$($scripts.Replace("'", "''"))\codex-consult-common.ps1'; `$env:CODEX_HOME = '$($h6.Replace("'", "''"))'; Get-TelemetryInstanceId -Create"
+    $racers = @(for ($i = 0; $i -lt 4; $i++) { $o = Join-Path $work "race-$i.txt"; [pscustomobject]@{ Out = $o; Proc = (Start-Process -FilePath $psExe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $raceCmd) -NoNewWindow -PassThru -RedirectStandardOutput $o) } })
+    foreach ($rc in $racers) { if (-not $rc.Proc.WaitForExit(60000)) { try { $rc.Proc.Kill() } catch { } } }
+    $raceIds = @($racers | ForEach-Object { (Text $_.Out).Trim() } | Select-Object -Unique)
+    Check 'UNIT' 'D5 four processes creating the salt at once agree on ONE instance id (the move without overwrite: a loser reads the winner''s salt); one salt file, no stray temporary file' ($raceIds.Count -eq 1 -and $raceIds[0] -cmatch '^[0-9a-f]{64}$' -and @(Get-ChildItem -LiteralPath $h6 -File -Filter 'telemetry-salt*').Count -eq 1) "ids: $($raceIds -join ', ')"
+    # (wave 28b, D16) the spool file is named by the LOCAL date
+    $lateUtc = [DateTime]::SpecifyKind([DateTime]::UtcNow.Date.AddHours(23).AddMinutes(59), [DateTimeKind]::Utc)
+    $nm = @((Get-TelemetrySpoolName -At $lateUtc), (Get-TelemetrySpoolName -At $lateUtc.ToLocalTime()), (Get-TelemetrySpoolName -At ([datetime]::new(2026, 9, 29, 23, 59, 59, [DateTimeKind]::Local))), (Get-TelemetrySpoolName -At ([datetime]::new(2026, 9, 30, 0, 0, 1, [DateTimeKind]::Local))))
+    Check 'UNIT' 'D16 the spool file name is the LOCAL date: a UTC instant and its local time give the same name (its local date, not the UTC one); 23:59:59 and 00:00:01 local fall on two days' ($nm[0] -eq ($lateUtc.ToLocalTime().ToString('yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture) + '.ndjson') -and $nm[0] -eq $nm[1] -and $nm[2] -eq '2026-09-29.ndjson' -and $nm[3] -eq '2026-09-30.ndjson') ($nm -join ' ')
+    # (wave 28b, D3 / F36-3) the sender's environment: an ALLOW list
+    $probe = @{ RT_ZAI_KEY = 'zai-test-key'; CODEX_CONSULT_ROSTER = 'x'; CLAUDECODE = '1'; CODEX_CONSULT_TEST_PANEL_SEED = '7'; CODEX_CONSULT_TEST_TELEMETRY_ENV = 'x'; LC_ALL = 'C'; HTTPS_PROXY = 'http://proxy.example:8080' }
+    foreach ($k in $probe.Keys) { Set-Item "env:$k" $probe[$k] }
+    $senv = Get-TelemetrySenderEnvironment
+    $psiS = New-TelemetrySenderStartInfo -Script $telemetryPs -HostExe $psExe
+    $blockNames = @($psiS.EnvironmentVariables.Keys | ForEach-Object { [string]$_ } | Sort-Object)
+    $env:CODEX_CONSULT_TEST_MODE = ''
+    $senvOff = Get-TelemetrySenderEnvironment
+    $env:CODEX_CONSULT_TEST_MODE = '1'
+    $bridgeKept = ([string]$env:RT_ZAI_KEY -eq 'zai-test-key' -and [string]$env:CLAUDECODE -eq '1')
+    foreach ($k in $probe.Keys) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
+    $sNames = @($senv.Keys | ForEach-Object { [string]$_ })
+    $bad = @($sNames | Where-Object { -not (Test-TelemetrySenderEnvName -Name $_ -TestMode $true) })
+    Check 'UNIT' 'D3 the sender''s environment is an ALLOW list (Get-TelemetrySenderEnvironment, the start info''s block cleared and filled from it): LC_ALL, HTTPS_PROXY, PATH, SystemRoot, CODEX_HOME, CODEX_CONSULT_TELEMETRY_URL in; no provider key (RT_ZAI_KEY), no host marker (CLAUDECODE), no CODEX_CONSULT_ROSTER, no CODEX_CONSULT_TEST_PANEL_SEED; in test mode CODEX_CONSULT_TEST_MODE and the sender''s own hook CODEX_CONSULT_TEST_TELEMETRY_ENV - without test mode neither; the bridge''s own environment unchanged' ($sNames -contains 'LC_ALL' -and $sNames -contains 'HTTPS_PROXY' -and ($sNames -contains 'PATH' -or $sNames -contains 'Path') -and $sNames -contains 'SystemRoot' -and $sNames -contains 'CODEX_CONSULT_TELEMETRY_URL' -and $sNames -notcontains 'RT_ZAI_KEY' -and $sNames -notcontains 'CLAUDECODE' -and $sNames -notcontains 'CODEX_CONSULT_ROSTER' -and $sNames -notcontains 'CODEX_CONSULT_TEST_PANEL_SEED' -and $sNames -contains 'CODEX_CONSULT_TEST_MODE' -and $sNames -contains 'CODEX_CONSULT_TEST_TELEMETRY_ENV' -and @($senvOff.Keys | Where-Object { ([string]$_) -like 'CODEX_CONSULT_TEST_*' }).Count -eq 0 -and $bad.Count -eq 0 -and (($blockNames | ForEach-Object { $_.ToLowerInvariant() }) -join ',') -eq ((@($sNames | ForEach-Object { $_.ToLowerInvariant() } | Sort-Object)) -join ',') -and $bridgeKept) "sender: $($sNames -join ',') | block $($blockNames.Count)"
 }
 
 # =============================================================== SPOOL: the event after a usable and a failed run; off writes nothing; a panel
@@ -373,13 +457,14 @@ if (Want 'SPOOL') {
     $e = (Ledger $r $taskName)[-1]
     $sl = $null; $ev = $null
     try { $sl = ConvertFrom-Json $lines[0]; $ev = ConvertFrom-Json ([string]$sl.body) } catch { }
-    $spoolName = [DateTime]::UtcNow.ToString('yyyy-MM-dd') + '.ndjson'
-    Check 'SPOOL' 'a usable run with telemetry on (unset): exit 0, ONE line in <codex home>/telemetry-spool/<utc yyyy-mm-dd>.ndjson - {v 1, kind event, queued_unix, body: the event as a JSON string}' ($ok.Code -eq 0 -and $lines.Count -eq 1 -and (Test-Path -LiteralPath (Join-Path (Join-Path $h 'telemetry-spool') $spoolName)) -and (Names $sl) -eq 'v,kind,queued_unix,body' -and $sl.v -eq 1 -and $sl.kind -eq 'event' -and $null -ne $ev) "$($ok.Code) $($lines.Count) $(if ($lines.Count) { $lines[0].Substring(0, [Math]::Min(120, $lines[0].Length)) })"
+    # (wave 28b, D16) the LOCAL date names the file
+    $spoolName = (Get-Date).ToString('yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture) + '.ndjson'
+    Check 'SPOOL' 'a usable run with telemetry on (unset): exit 0, ONE line in <codex home>/telemetry-spool/<local yyyy-mm-dd>.ndjson - {v 1, kind event, queued_unix, body: the event as a JSON string}' ($ok.Code -eq 0 -and $lines.Count -eq 1 -and (Test-Path -LiteralPath (Join-Path (Join-Path $h 'telemetry-spool') $spoolName)) -and (Names $sl) -eq 'v,kind,queued_unix,body' -and $sl.v -eq 1 -and $sl.kind -eq 'event' -and $null -ne $ev) "$($ok.Code) $($lines.Count) $(if ($lines.Count) { $lines[0].Substring(0, [Math]::Min(120, $lines[0].Length)) })"
     $viol = @(); if ($ev) { $viol = Test-EventAllowlist $ev }
     Check 'SPOOL' 'the REAL event passes the allowlist walk (every key at every level the contract''s, in order)' ($ev -and $viol.Count -eq 0) ($viol -join ' || ')
     $iid = ''; $env:CODEX_HOME = $h; $iid = Get-TelemetryInstanceId; $env:CODEX_HOME = $savedCodexHome
     $d = $(if ($ev) { $ev.details } else { $null })
-    Check 'SPOOL' 'the event is the committed entry''s: engine codex, provider openai, model gpt-5.1, purpose checkpoint, outcome usable (severity info, title usable), findings = the ledger''s (1 major), tokens = the ledger''s usage, structured true, wall_seconds = the ledger''s, panel_size 0, tags [codex, openai], instance_id = this home''s, client_time UTC, runtime/os/bridge_version of this host' ($d -and $d.engine -eq 'codex' -and $d.provider -eq 'openai' -and $d.model -eq 'gpt-5.1' -and $d.purpose -eq 'checkpoint' -and $d.outcome -eq 'usable' -and $ev.severity -eq 'info' -and $ev.title -eq 'usable' -and $d.findings.major -eq $e.findings.major -and $d.findings.major -eq 1 -and $d.tokens.in -eq $e.usage.input_tokens -and $d.tokens.out -eq $e.usage.output_tokens -and $d.structured -eq $true -and [Math]::Abs($d.wall_seconds - [double]$e.wall_seconds) -le 1 -and $d.panel_size -eq 0 -and (@($ev.tags) -join ',') -eq 'codex,openai' -and $ev.instance_id -eq $iid -and [string]$sl.body -match '"client_time":"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ"' -and $ev.runtime -eq (Get-TelemetryRuntime) -and $ev.os -eq (Get-TelemetryOs) -and $d.bridge_version -eq $version) $(if ($ev) { [string]$sl.body } else { '' })
+    Check 'SPOOL' 'the event is the committed entry''s: engine codex, provider openai, model gpt-5.1, purpose checkpoint, outcome usable (severity info, title usable), findings = the ledger''s (1 major), tokens = the ledger''s usage, structured true, wall_seconds = the ledger''s, panel_size 0, (wave 28b, D1) provider openai = the vendor class of the built-in provider, tags [openai, gpt-5.1], instance_id = this home''s, client_time UTC, runtime/os/bridge_version of this host' ($d -and $d.engine -eq 'codex' -and $d.provider -eq 'openai' -and $d.model -eq 'gpt-5.1' -and $d.purpose -eq 'checkpoint' -and $d.outcome -eq 'usable' -and $ev.severity -eq 'info' -and $ev.title -eq 'usable' -and $d.findings.major -eq $e.findings.major -and $d.findings.major -eq 1 -and $d.tokens.in -eq $e.usage.input_tokens -and $d.tokens.out -eq $e.usage.output_tokens -and $d.structured -eq $true -and [Math]::Abs($d.wall_seconds - [double]$e.wall_seconds) -le 1 -and $d.panel_size -eq 0 -and (@($ev.tags) -join ',') -eq 'openai,gpt-5.1' -and $ev.instance_id -eq $iid -and [string]$sl.body -match '"client_time":"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ"' -and $ev.runtime -eq (Get-TelemetryRuntime) -and $ev.os -eq (Get-TelemetryOs) -and $d.bridge_version -eq $version) $(if ($ev) { [string]$sl.body } else { '' })
     $leaks = @()
     if ($ev) { $leaks = Find-Leaks (Get-Leaves $ev) @($taskName, $briefName, 'secret', [string]$e.thread, [string]$e.consult_id, 'handoffs', $r) }
     $rawHits = @(foreach ($s in @($taskName, 'brief-secret', 'prompt-secret', 'finding-secret', [string]$e.thread, [string]$e.consult_id)) { if ($s -and $lines.Count -gt 0 -and $lines[0].Contains($s)) { $s } })
@@ -415,8 +500,40 @@ if (Want 'SPOOL') {
     $plLines = Spool-Lines $h3
     $pl = @($plLines | ForEach-Object { ConvertFrom-Json ([string](ConvertFrom-Json $_).body) })
     $provs = @($pl | ForEach-Object { $_.details.provider } | Sort-Object) -join ','
-    Check 'SPOOL' 'a -Panel of two members: two lines, one per member (providers openai and ZAI), each panel_size 2, outcome usable, allowlist clean' ($pn.Code -eq 0 -and $pl.Count -eq 2 -and $provs -eq 'openai,ZAI' -and @($pl | Where-Object { $_.details.panel_size -eq 2 -and $_.details.outcome -eq 'usable' -and (Test-EventAllowlist $_).Count -eq 0 }).Count -eq 2) "$($pn.Code) $($pl.Count) $provs"
+    Check 'SPOOL' 'a -Panel of two members: two lines, one per member (wave 28b, D1: the vendor classes openai and zai - the label ZAI never), each panel_size 2, outcome usable, allowlist clean' ($pn.Code -eq 0 -and $pl.Count -eq 2 -and $provs -ceq 'openai,zai' -and @($pl | Where-Object { $_.details.panel_size -eq 2 -and $_.details.outcome -eq 'usable' -and (Test-EventAllowlist $_).Count -eq 0 }).Count -eq 2) "$($pn.Code) $($pl.Count) $provs"
     Check 'SPOOL' 'the panel started its sender once every member was done (.last written after the panel)' (Wait-Last $h3 $t3) "$((Last $h3).result)"
+    # (wave 28b, D1 / F36-1) a REAL run of a roster entry whose label and model look like a company
+    $hc = New-Home 'spool-corp'
+    [IO.File]::AppendAllText((Join-Path $hc 'config.toml'), "`n[model_providers.AcmeCorp-Legal]`nbase_url = `"https://llm.acmecorp-internal.example/v1`"`nenv_key = `"RT_ACME_KEY`"`nwire_api = `"responses`"`n", $u8)
+    $rosterC = Write-Roster 'corp' '{"roster_version":1,"reviewers":[{"provider":"AcmeCorp-Legal","model":"acmecorp-contracts-7b"}]}'
+    $rc = New-Repo 'spool-corp'
+    $tc = Get-Date
+    $cr = Consult $rc $hc $dead $taskName @('-Purpose', 'checkpoint', '-Prompt', 'x', '-ReplyName', 'corp', '-NativeEffort', 'high') -Roster $rosterC -Env @{ FAKE_CODEX_REPLY = $reply; RT_ACME_KEY = 'acme-test-key' }
+    $cLines = Spool-Lines $hc
+    $ec = @(Ledger $rc $taskName)[-1]
+    $cev = $null; try { $cev = ConvertFrom-Json ([string](ConvertFrom-Json $cLines[0]).body) } catch { }
+    Check 'SPOOL' 'D1 a real run of the roster entry AcmeCorp-Legal :: acmecorp-contracts-7b (its endpoint llm.acmecorp-internal.example): the ledger keeps the real label and model, the EVENT says provider other, model other, tags [other, other] - the spool line holds neither name' ($cr.Code -eq 0 -and $ec.reviewer.provider -eq 'AcmeCorp-Legal' -and $ec.reviewer.model -eq 'acmecorp-contracts-7b' -and $cLines.Count -eq 1 -and $cev -and $cev.details.provider -eq 'other' -and $cev.details.model -eq 'other' -and (@($cev.tags) -join ',') -eq 'other,other' -and $cLines[0] -inotmatch 'acmecorp') "$($cr.Code) $($ec.reviewer.provider) | $(if ($cLines.Count) { $cLines[0].Substring(0, [Math]::Min(160, $cLines[0].Length)) })"
+    $null = Wait-Last $hc $tc
+    # (wave 28b, D6 / F35-1, F36-8, F37-6) a spool file that stays busy: the event is NOT lost silently
+    $hb = New-Home 'spool-busy'
+    $rb = New-Repo 'spool-busy'
+    $bdir = Join-Path $hb 'telemetry-spool'
+    [void][IO.Directory]::CreateDirectory($bdir)
+    $bfile = Join-Path $bdir (Get-TelemetrySpoolName)
+    $holdFs = New-Object System.IO.FileStream($bfile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    $wb = [System.Diagnostics.Stopwatch]::StartNew()
+    try { $busy = Consult $rb $hb $dead $taskName @('-Prompt', 'x', '-ReplyName', 'busy') -Env @{ FAKE_CODEX_REPLY = $reply } } finally { $holdFs.Dispose() }
+    $busySec = $wb.Elapsed.TotalSeconds
+    $eb = @(Ledger $rb $taskName)[-1]
+    $bw = @(@($eb.warnings) | Where-Object { ([string]$_) -match '^telemetry event not spooled \(the spool file .* stayed busy for 5 s\)$' })
+    $sb = Start-Script $telemetryPs @('-Status') $work $hb $dead ''
+    $xb = Wait-Script $sb
+    Check 'SPOOL' 'D6 the day''s spool file held exclusively by another process for the whole run: the append waits 5 s, then the run (still exit 0) puts "telemetry event not spooled (the spool file ... stayed busy for 5 s)" into warnings[] and onto the console ("warning    : telemetry event not spooled"); -Status counts it ("not spooled: 1 event(s) since the last flush")' ($busy.Code -eq 0 -and $bw.Count -eq 1 -and $busy.Out -match '(?m)^warning    : telemetry event not spooled \(' -and $busySec -ge 5 -and $xb.Out -match '(?m)^not spooled: 1 event\(s\) since the last flush') "exit $($busy.Code) in $([Math]::Round($busySec, 1)) s; warnings: $(@($eb.warnings) -join ' | ') | $((($xb.Out -split "`n") | Where-Object { $_ -like 'not spooled*' }) -join '')"
+    $sf = Start-Script $telemetryPs @('-Flush') $work $hb $dead 'on'
+    $null = Wait-Script $sf
+    $sb2 = Start-Script $telemetryPs @('-Status') $work $hb $dead ''
+    $xb2 = Wait-Script $sb2
+    Check 'SPOOL' 'D6 the next flush starts the count again: -Status "not spooled: none since the last flush"' ($xb2.Out -match '(?m)^not spooled: none since the last flush') ((($xb2.Out -split "`n") | Where-Object { $_ -like 'not spooled*' }) -join '')
 }
 
 # =============================================================== NOTICE / DRYRUN: the notice once per version; the dry run's line
@@ -462,9 +579,13 @@ if (Want 'SEND') {
         $body = $null; try { $body = ConvertFrom-Json $reqs[0].Body } catch { }
         $ev = $(if ($body) { @($body.events)[0] } else { $null })
         Check 'SEND' 'after a usable run the DETACHED sender (the run did not wait for it) POSTs to <intake>/v2/events: ONE request, application/json, {"events":[<the event>]} with this home''s instance id, allowlist clean' ($run.Code -eq 0 -and $reqs.Count -eq 1 -and $reqs[0].Method -eq 'POST' -and $reqs[0].Path -eq '/T/v2/events' -and $reqs[0].Type -like 'application/json*' -and @($body.events).Count -eq 1 -and $ev -and (Test-EventAllowlist $ev).Count -eq 0 -and $ev.details.outcome -eq 'usable') "run $([Math]::Round($runSec, 1)) s; $($reqs.Count) request(s) $(if ($reqs.Count) { "$($reqs[0].Method) $($reqs[0].Path)" })"
-        Check 'SEND' 'delivered ({"ok":true}) = deleted: the spool holds no line afterwards; .last {time, result "delivered 1, kept 0, dropped 0 ...", delivered 1, kept 0, dropped 0, http 200}' ($delivered -and (Spool-Lines $h).Count -eq 0 -and (Last $h).delivered -eq 1 -and (Last $h).kept -eq 0 -and (Last $h).http -eq 200 -and ([string](Last $h).result) -like 'delivered 1, kept 0, dropped 0*' -and (Names (Last $h)) -eq 'time,result,delivered,kept,dropped,http') "$((Last $h).result)"
+        Check 'SEND' 'delivered ({"ok":true}) = deleted: the spool holds no line afterwards; .last {time, result "delivered 1, kept 0, dropped 0 ...", delivered 1, kept 0, dropped 0, (wave 28b) rejected [], http 200}' ($delivered -and (Spool-Lines $h).Count -eq 0 -and (Last $h).delivered -eq 1 -and (Last $h).kept -eq 0 -and (Last $h).http -eq 200 -and ([string](Last $h).result) -like 'delivered 1, kept 0, dropped 0*' -and (Names (Last $h)) -eq 'time,result,delivered,kept,dropped,rejected,http') "$((Last $h).result)"
         $dumpText = Text $dump
-        Check 'ENV' 'the sender starts WITHOUT the coordinator''s host markers (the bridge ran with CLAUDE_CODE_MESSAGING_SOCKET/TOKEN, CODEX_THREAD_ID, ZCODE_SESSION_ID, CLAUDECODE; the sender''s own dump - CODEX_CONSULT_TEST_TELEMETRY_ENV - lists none)' ((Test-Path -LiteralPath $dump) -and -not $dumpText.Trim()) "dump: [$($dumpText.Trim())]"
+        $dumpNames = @($dumpText -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        # (PSExecutionPolicyPreference: PowerShell sets it in its own process for -ExecutionPolicy Bypass)
+        $notAllowed = @($dumpNames | Where-Object { -not (Test-TelemetrySenderEnvName -Name $_ -TestMode $true) -and $_ -ne 'PSExecutionPolicyPreference' })
+        $markerHits = @($dumpNames | Where-Object { Test-HostMarkerName $_ })
+        Check 'ENV' 'the sender starts WITHOUT the coordinator''s host markers (the bridge ran with CLAUDE_CODE_MESSAGING_SOCKET/TOKEN, CODEX_THREAD_ID, ZCODE_SESSION_ID, CLAUDECODE) and - wave 28b, D3 - with the ALLOW-LISTED environment only: its own dump (CODEX_CONSULT_TEST_TELEMETRY_ENV, every variable NAME) holds no marker, no provider key (RT_ZAI_KEY), no CODEX_CONSULT_ROSTER, nothing outside the allow list; it has CODEX_HOME and CODEX_CONSULT_TELEMETRY_URL' ((Test-Path -LiteralPath $dump) -and $dumpNames.Count -gt 0 -and $markerHits.Count -eq 0 -and $notAllowed.Count -eq 0 -and $dumpNames -notcontains 'RT_ZAI_KEY' -and $dumpNames -notcontains 'CODEX_CONSULT_ROSTER' -and $dumpNames -contains 'CODEX_HOME' -and $dumpNames -contains 'CODEX_CONSULT_TELEMETRY_URL') "names: [$($dumpNames -join ',')] not allowed: [$($notAllowed -join ',')]"
     } finally { Stop-Intake $in }
 }
 
@@ -534,6 +655,75 @@ if (Want 'FLUSH') {
         $x = Wait-Script $s
         $sizes = @($reqs | ForEach-Object { @((ConvertFrom-Json $_.Body).events).Count })
         Check 'BATCH' '150 spooled events go in batches of at most 100: two POSTs of 100 and 50 events, oldest first, the spool emptied' ($x.Code -eq 0 -and ($sizes -join ',') -eq '100,50' -and (@((ConvertFrom-Json $reqs[0].Body).events)[0].n -eq 1) -and (Spool-Lines $h).Count -eq 0) "exit $($x.Code), batches $($sizes -join ',')"
+        # (wave 28b, D8) the intake as it is built: 400 "events[i]: reason", 413, 403, another 4xx
+        $seedN = { param([string]$H, [int]$N) for ($i = 1; $i -le $N; $i++) { Seed-Line $H 'event' ('{"app_id":"codex-consult","n":' + $i + '}') } }
+        $ns = { param($Req) @(@((ConvertFrom-Json $Req.Body).events) | ForEach-Object { $_.n }) -join '+' }
+        $h = New-Home 'r400'
+        & $seedN $h 3
+        $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
+        $reqs = Serve-Intake $in -Answers @(@{ Status = 400; Type = 'application/json'; Body = '{"ok":false,"error":"events[1]: title longer than 200 characters"}' }, $answerOk) -Count 3 -TimeoutSec 40 -Proc $s.Proc
+        $x = Wait-Script $s
+        $lr = Last $h
+        Check 'D8' 'a batch refused with 400 "events[1]: <reason>": event 1 is DROPPED (one line in .last rejected naming the reason), the rest resent at once (1+2+3, then 1+3), delivered (exit 0), the spool emptied' ($x.Code -eq 0 -and $reqs.Count -eq 2 -and (& $ns $reqs[0]) -eq '1+2+3' -and (& $ns $reqs[1]) -eq '1+3' -and (Spool-Lines $h).Count -eq 0 -and @($lr.rejected).Count -eq 1 -and ([string]@($lr.rejected)[0]) -match 'refused: title longer than 200 characters' -and $lr.delivered -eq 2) "exit $($x.Code), $(@($reqs | ForEach-Object { & $ns $_ }) -join ' | ') | $($lr.result)"
+        $h = New-Home 'r400x4'
+        & $seedN $h 5
+        $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
+        $reqs = Serve-Intake $in -Answers @(@{ Status = 400; Type = 'application/json'; Body = '{"ok":false,"error":"events[0]: bad severity"}' }) -Count 5 -TimeoutSec 40 -Proc $s.Proc
+        $x = Wait-Script $s
+        $lr = Last $h
+        Check 'D8' 'at most THREE refused events per flush: a fourth 400 stops the flush (exit 1, "a fourth refused event"), 3 lines rejected, the other 2 events kept in the spool' ($x.Code -eq 1 -and $reqs.Count -eq 4 -and @($lr.rejected).Count -eq 3 -and (Spool-Lines $h).Count -eq 2 -and ([string]$lr.result) -match 'a fourth refused event') "exit $($x.Code), $($reqs.Count) request(s) | $($lr.result)"
+        $h = New-Home 'r413'
+        & $seedN $h 4
+        $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
+        $reqs = Serve-Intake $in -Answers @(@{ Status = 413; Type = 'application/json'; Body = '{"ok":false,"error":"body too large"}' }, $answerOk) -Count 4 -TimeoutSec 40 -Proc $s.Proc
+        $x = Wait-Script $s
+        Check 'D8' '413: the batch is HALVED - 1+2+3+4 refused, then 1+2 and 3+4 delivered (exit 0, the spool emptied)' ($x.Code -eq 0 -and $reqs.Count -eq 3 -and (@($reqs | ForEach-Object { & $ns $_ }) -join ' | ') -eq '1+2+3+4 | 1+2 | 3+4' -and (Spool-Lines $h).Count -eq 0) "exit $($x.Code), $(@($reqs | ForEach-Object { & $ns $_ }) -join ' | ')"
+        foreach ($ans in @(@{ Status = 403; Body = '{"ok":false,"error":"unknown app_id"}'; Want = 'HTTP 403 - the intake refuses this app' }, @{ Status = 404; Body = '{"ok":false,"error":"no such route"}'; Want = 'HTTP 404: no such route - the spool is kept' })) {
+            $h = New-Home "r$($ans.Status)"
+            & $seedN $h 2
+            $before = Spool-Bytes $h
+            $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
+            $reqs = Serve-Intake $in -Answers @(@{ Status = $ans.Status; Type = 'application/json'; Body = $ans.Body }) -Count 3 -TimeoutSec 30 -Proc $s.Proc
+            $x = Wait-Script $s
+            Check 'D8' "HTTP $($ans.Status): the flush stops at once (one request, exit 1), the spool byte-identical, .last says why (`"$($ans.Want)`")" ($x.Code -eq 1 -and $reqs.Count -eq 1 -and (Spool-Bytes $h) -eq $before -and ([string](Last $h).result).Contains($ans.Want)) "exit $($x.Code), $($reqs.Count) | $((Last $h).result)"
+        }
+        # (wave 28b, D2 / F36-2) the deadline: ONE request bounded as a whole (test hook: 2 s)
+        $h = New-Home 'slow'
+        & $seedN $h 1
+        $before = Spool-Bytes $h
+        $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on' -Env @{ CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS = '2000' }
+        $reqs = Serve-Intake $in -Answers @(@{ Status = 200; Type = 'application/json'; Body = '{"ok":true}'; DelayMs = 6000 }) -Count 1 -TimeoutSec 30 -Proc $s.Proc
+        $x = Wait-Script $s
+        $bound = $(if ($reqs.Count -eq 1) { try { ($s.Proc.ExitTime - $reqs[0].When).TotalSeconds } catch { 99 } } else { 99 })
+        Check 'D2' 'an intake that answers only after 6 s: the request is cut at its bound (test hook 2 s; 8 s by default) - the sender exits within ~2 s of the request (not after the answer), exit 1 "no answer within 2 s", the spool byte-identical' ($x.Code -eq 1 -and $reqs.Count -eq 1 -and $bound -lt 4 -and ([string](Last $h).result) -match 'no answer within 2 s' -and (Spool-Bytes $h) -eq $before) "exit $($x.Code), exited $([Math]::Round($bound, 1)) s after the request | $((Last $h).result)"
+        # the whole flush (test hooks: flush 3 s, request 2 s): three complaints answered after 1.2 s each
+        $h = New-Home 'deadline'
+        for ($i = 1; $i -le 3; $i++) { Seed-Line $h 'complaint' ('{"text":"c' + $i + '"}') }
+        $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on' -Env @{ CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS = '2000'; CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS = '3000' }
+        $reqs = Serve-Intake $in -Answers @(@{ Status = 200; Type = 'application/json'; Body = '{"ok":true,"public_ref":"x"}'; DelayMs = 1200 }) -Count 3 -TimeoutSec 30 -Proc $s.Proc
+        $x = Wait-Script $s
+        $span = $(if ($reqs.Count -ge 1) { try { ($s.Proc.ExitTime - $reqs[0].When).TotalSeconds } catch { 99 } } else { 99 })
+        Check 'D2' 'the WHOLE flush has a deadline (test hook 3 s; 60 s by default): three complaints answered after 1.2 s each - the flush ends within the deadline (exit 1, "deadline ... was reached" or a request cut at what was left), what was not sent stays in the spool' ($x.Code -eq 1 -and $span -lt 5 -and ([string](Last $h).result) -match 'deadline \(3 s\) was reached|no answer within' -and (Spool-Lines $h).Count -ge 1 -and (Spool-Lines $h).Count -le 2) "exit $($x.Code), $($reqs.Count) request(s), ended $([Math]::Round($span, 1)) s after the first | $((Last $h).result)"
+        # the lock: a live owner refuses, an old lock and a dead owner's are taken over
+        $h = New-Home 'lock2'
+        & $seedN $h 1
+        $lockP = Join-Path (Join-Path $h 'telemetry-spool') '.flush.lock'
+        [IO.File]::WriteAllText($lockP, (ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ pid = $PID; start_time = [string](Get-ProcessStartIso -ProcessId $PID); token = 'harness'; since = (Get-IsoTimestamp) })), $u8)
+        $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
+        $reqs = Serve-Intake $in -Count 1 -TimeoutSec 15 -Proc $s.Proc
+        $x = Wait-Script $s
+        Check 'D2' 'a lock file whose owner is ALIVE and younger than 5 minutes (not held open): refused, exit 2 "another flush is running (pid <n> holds its lock", no request, the lock file left as it was' ($x.Code -eq 2 -and $x.Out -match 'another flush is running \(pid \d+ holds its lock' -and $reqs.Count -eq 0 -and (Text $lockP) -match '"token":"harness"') "exit $($x.Code) | $($x.Out)"
+        [IO.File]::SetLastWriteTimeUtc($lockP, [DateTime]::UtcNow.AddMinutes(-6))
+        $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
+        $reqs = Serve-Intake $in -Count 1 -TimeoutSec 30 -Proc $s.Proc
+        $x = Wait-Script $s
+        Check 'D2' 'the same lock 6 minutes old: TAKEN OVER - delivered (exit 0), .last "a stale sender lock was taken over: older than 5 minutes", the lock released afterwards (no file)' ($x.Code -eq 0 -and $reqs.Count -eq 1 -and ([string](Last $h).result) -match 'taken over: older than 5 minutes' -and -not (Test-Path -LiteralPath $lockP)) "exit $($x.Code) | $((Last $h).result)"
+        & $seedN $h 1
+        [IO.File]::WriteAllText($lockP, '{"pid":999999,"start_time":"2000-01-01T00:00:00.0000000Z","token":"gone","since":"2000-01-01T00:00:00Z"}', $u8)
+        $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
+        $reqs = Serve-Intake $in -Count 1 -TimeoutSec 30 -Proc $s.Proc
+        $x = Wait-Script $s
+        Check 'D2' 'a fresh lock whose owner process is gone: taken over at once (exit 0, "its owner pid 999999 is gone")' ($x.Code -eq 0 -and $reqs.Count -eq 1 -and ([string](Last $h).result) -match 'its owner pid 999999 is gone') "exit $($x.Code) | $((Last $h).result)"
         # the refused URL and the switch
         $h = New-Home 'url'
         Seed-Line $h 'event' $body1
@@ -585,6 +775,7 @@ if (Want 'COMPLAIN') {
         $s = Start-Script $consultPs @('-Task', $taskName, '-Complain', $text, '-Yes') $r $h $in.Url 'off'
         $reqs = Serve-Intake $in -Answers @(@{ Status = 503; Type = 'text/plain'; Body = 'busy' }) -Count 1 -TimeoutSec 60 -Proc $s.Proc
         $x = Wait-Script $s
+        $firstBody = $(if ($reqs.Count) { [string]$reqs[0].Body } else { '' })
         $cl = Spool-Lines $h
         $kept = $null; try { $kept = ConvertFrom-Json $cl[0] } catch { }
         $keptBody = $null; try { $keptBody = ConvertFrom-Json ([string]$kept.body) } catch { }
@@ -593,6 +784,8 @@ if (Want 'COMPLAIN') {
         $reqs = Serve-Intake $in -Answers @(@{ Status = 200; Type = 'application/json'; Body = '{"ok":true,"complaint_id":9,"public_ref":"CC-9S"}' }) -Count 1 -TimeoutSec 60 -Proc $s.Proc
         $x = Wait-Script $s
         Check 'COMPLAIN' 'the sender retries the complaint line: POST <intake>/v2/complaints with the kept payload, delivered, the spool emptied' ($x.Code -eq 0 -and $reqs.Count -eq 1 -and $reqs[0].Path -eq '/T/v2/complaints' -and (ConvertFrom-Json $reqs[0].Body).text -eq $text -and (Spool-Lines $h).Count -eq 0) "exit $($x.Code), $($reqs.Count) $(if ($reqs.Count) { $reqs[0].Path })"
+        # (wave 28b, D7 / F36-7, F37-5) shown = sent = deferred, byte for byte
+        Check 'COMPLAIN' 'D7 the spool kept the EXACT text that was shown and sent at once (the 503 attempt''s body = the kept line''s body, whitespace and line ends included), and the deferred send posted those same bytes' ($firstBody -and $kept -and [string]$kept.body -ceq $firstBody -and $reqs.Count -eq 1 -and [string]$reqs[0].Body -ceq $firstBody -and $firstBody.Contains("`n")) "first $($firstBody.Length) kept $(if ($kept) { ([string]$kept.body).Length }) deferred $(if ($reqs.Count) { $reqs[0].Body.Length })"
         # limits and refusals (nothing sent: an unreachable intake anyway)
         $long = 'x' * 8193
         $s = Start-Script $consultPs @('-Task', $taskName, '-Complain', $long, '-Yes') $r $h $dead 'off'
@@ -636,6 +829,38 @@ if (Want 'STATUS') {
     Check 'STATUS' 'codex-telemetry.ps1 without a form is refused (exit 1: "give exactly one of -Flush, -Status, -Complain")' ($x.Code -eq 1 -and $x.Out -match 'give exactly one of -Flush, -Status, -Complain') $x.Out
 }
 
+# =============================================================== FORGET: delete my data (wave 28b, D9)
+if (Want 'FORGET') {
+    $in = Start-Intake
+    try {
+        $h = New-Home 'forget'
+        Seed-Line $h 'event' '{"a":1}'
+        $env:CODEX_HOME = $h
+        $iid = Get-TelemetryInstanceId -Create
+        $env:CODEX_HOME = $savedCodexHome
+        $s = Start-Script $telemetryPs @('-Forget', '-PublicRef', 'CC-7Q') $work $h $in.Url ''
+        $reqs = Serve-Intake $in -Answers @(@{ Status = 200; Type = 'application/json'; Body = '{"ok":true,"deleted":3}' }) -Count 1 -TimeoutSec 30 -Proc $s.Proc
+        $x = Wait-Script $s
+        Check 'FORGET' 'D9 -Forget -PublicRef CC-7Q: ONE request DELETE <intake>/v2/instances/<this instance id>?public_ref=CC-7Q, exit 0 "the intake deleted the data of instance ...", the local spool and salt untouched' ($x.Code -eq 0 -and $reqs.Count -eq 1 -and $reqs[0].Method -eq 'DELETE' -and $reqs[0].Path -eq "/T/v2/instances/$iid" -and $reqs[0].Query -eq '?public_ref=CC-7Q' -and $x.Out -match 'the intake deleted the data of instance' -and (Spool-Lines $h).Count -eq 1 -and (Test-Path -LiteralPath (Join-Path $h 'telemetry-salt'))) "exit $($x.Code), $(if ($reqs.Count) { "$($reqs[0].Method) $($reqs[0].Path)$($reqs[0].Query)" }) | $($x.Out)"
+        $s = Start-Script $telemetryPs @('-Forget', '-PublicRef', 'CC-7Q') $work $h $in.Url ''
+        $reqs = Serve-Intake $in -Answers @(@{ Status = 404; Type = 'application/json'; Body = '{"ok":false,"error":"unknown public_ref"}' }) -Count 1 -TimeoutSec 30 -Proc $s.Proc
+        $x = Wait-Script $s
+        Check 'FORGET' 'D9 an intake that does not confirm (404): exit 3 "the intake did not confirm the deletion (HTTP 404: unknown public_ref)"' ($x.Code -eq 3 -and $reqs.Count -eq 1 -and $x.Out -match 'did not confirm the deletion \(HTTP 404: unknown public_ref\)') "exit $($x.Code) | $($x.Out)"
+        $s = Start-Script $telemetryPs @('-Forget', '-Local') $work $h (Get-DeadUrl) ''
+        $x = Wait-Script $s
+        $left = @(Get-ChildItem -LiteralPath $h -Force | Where-Object { $_.Name -like 'telemetry-s*' -or $_.Name -like 'telemetry-not*' } | ForEach-Object { $_.Name })
+        Check 'FORGET' 'D9 -Forget -Local: the local spool (every file), the salt and the not-spooled count are removed - exit 0 "removed locally", nothing sent; the next event makes a new instance id' ($x.Code -eq 0 -and $x.Out -match 'removed locally - ' -and $left.Count -eq 0) "exit $($x.Code), left [$($left -join ',')] | $($x.Out)"
+        $s1 = Start-Script $telemetryPs @('-Forget') $work $h (Get-DeadUrl) ''
+        $x1 = Wait-Script $s1
+        $s2 = Start-Script $telemetryPs @('-Forget', '-PublicRef', 'CC-7Q') $work $h $in.Url ''
+        $r2 = Serve-Intake $in -Count 1 -TimeoutSec 8 -Proc $s2.Proc
+        $x2 = Wait-Script $s2
+        $s3 = Start-Script $telemetryPs @('-Status', '-Local') $work $h (Get-DeadUrl) ''
+        $x3 = Wait-Script $s3
+        Check 'FORGET' 'D9 refusals, nothing sent: -Forget alone (exit 1, "needs -PublicRef <ref> ... -Local"), -Forget -PublicRef without a salt (exit 1, "no instance id", no request), -Local without -Forget (exit 1, "-Local goes with -Forget")' ($x1.Code -eq 1 -and $x1.Out -match 'needs -PublicRef <ref>' -and $x2.Code -eq 1 -and $x2.Out -match 'no instance id' -and $r2.Count -eq 0 -and $x3.Code -eq 1 -and $x3.Out -match '-Local goes with -Forget') "$($x1.Code)/$($x2.Code)/$($x3.Code)"
+    } finally { Stop-Intake $in }
+}
+
 # =============================================================== HOOK: the SessionStart line says whether telemetry is on
 if (Want 'HOOK') {
     $r = New-Repo 'hook'
@@ -660,8 +885,8 @@ if (Want 'DOCS') {
     $readme = Text (Join-Path $repoRoot 'README.md')
     $sec = ''
     if ($readme -match '(?s)\n## Telemetry \(on by default\)\r?\n(.*?)\n## ') { $sec = $Matches[1] }
-    $missing = @(foreach ($k in (@($eventKeys -split ',') + @($detailKeys -split ',') + @('installing this plugin means accepting these terms', 'CODEX_CONSULT_TELEMETRY=off', '-Telemetry off', 'telemetry-spool', 'telemetry-salt', '-Complain', 'public_ref', 'codex-telemetry.ps1 -Status', 'codex-telemetry.ps1 -Flush', 'instance_id', 'CODEX_CONSULT_TELEMETRY_URL', '7 days', '429'))) { if ($sec.IndexOf($k, [StringComparison]::OrdinalIgnoreCase) -lt 0) { $k } })
-    Check 'DOCS' 'README "## Telemetry (on by default)": the terms line, the exact payload (every event and details key), the switch, the spool, the salt, the sender, -Complain and public_ref, -Status, the URL override, the 7-day drop, the 429 rule' ($sec -and $missing.Count -eq 0) "missing: $($missing -join ', ')"
+    $missing = @(foreach ($k in (@($eventKeys -split ',') + @($detailKeys -split ',') + @('installing this plugin means accepting these terms', 'CODEX_CONSULT_TELEMETRY=off', '-Telemetry off', 'telemetry-spool', 'telemetry-salt', '-Complain', 'public_ref', 'codex-telemetry.ps1 -Status', 'codex-telemetry.ps1 -Flush', 'instance_id', 'CODEX_CONSULT_TELEMETRY_URL', '7 days', '429', 'codex-telemetry.ps1 -Forget -PublicRef', '-Forget -Local', 'the intake is live', 'vendor class', '`openai`', '`zai`', '`xiaomi`', '`byteplus`', '`moonshot`', '`alibaba`', '`google`', '`meta`', '`other`', 'CODEX_CONSULT_TEST_MODE=1', '60 s', '8 s', 'events[i]', '413', '403', 'not spooled', '5 minutes'))) { if ($sec.IndexOf($k, [StringComparison]::OrdinalIgnoreCase) -lt 0) { $k } })
+    Check 'DOCS' 'README "## Telemetry (on by default)": the terms line, the exact payload (every event and details key), the switch, the spool, the salt, the sender, -Complain and public_ref, -Status, the URL override, the 7-day drop, the 429 rule; (wave 28b) the live intake and delete-my-data (-Forget -PublicRef, -Forget -Local), the vendor table with every class, the http rule of test mode, the 60 s / 8 s bounds and the 5-minute lock, the D8 answers (events[i], 413, 403), the not-spooled warning' ($sec -and $missing.Count -eq 0) "missing: $($missing -join ', ')"
     Check 'DOCS' 'README tables: the options (-Telemetry, -Complain), the environment (CODEX_CONSULT_TELEMETRY, CODEX_CONSULT_TELEMETRY_URL) and "Tests" names harness-telemetry' ($readme -match '\| `-Telemetry on\\\|off`' -and $readme -match '\| `-Complain ' -and $readme -match '\| `CODEX_CONSULT_TELEMETRY` \|' -and $readme -match '\| `CODEX_CONSULT_TELEMETRY_URL` \|' -and $readme -match 'harness-telemetry') ''
     $cs = Text (Join-Path $pluginDir 'skills\consult-codex\SKILL.md')
     $ss = Text (Join-Path $pluginDir 'skills\setup-providers\SKILL.md')

@@ -292,11 +292,13 @@ if (Want 'STREAM') {
     $wn = Wait-EngineProcess -Process $pl2 -TimeoutSec 7 -StallSec 2 -EventsPath $ef
     try { Stop-Process -Id $pl2.Id -Force -ErrorAction SilentlyContinue } catch { }
     Remove-Item env:CODEX_CONSULT_TEST_WAIT_TICK_MS
-    Check 'STREAM' 'D6 (F32-7) a tool call cannot suspend the stall timer for ever: open past the cap (max(3 x stall, 1800 s); test hook 4 s) with no growth, the timer resumes from the last byte - Reason stall, ToolOpen >= 4 s, Silent >= 2 s, well before the timeout; under the cap (1800 s here) the suspension holds until the timeout' ($wc.Reason -eq 'stall' -and $wc.ToolOpen -ge 4 -and $wc.Silent -ge 2 -and $w6.Elapsed.TotalSeconds -lt 15 -and $wn.Reason -eq 'timeout') "capped: $($wc.Reason) open $($wc.ToolOpen) s silent $($wc.Silent) s in $([math]::Round($w6.Elapsed.TotalSeconds, 1)) s | uncapped: $($wn.Reason)"
+    # (wave 28b, D12 - supersedes the 1800 s floor of D6) no floor: without the hook the suspension ends
+    # after 2 x stall (4 s here) without growth, before the 7 s timeout, and the cut names the call
+    Check 'STREAM' 'D6 (F32-7) / wave 28b D12 a tool call cannot suspend the stall timer for ever: open with no growth past the bound (test hook 4 s) - Reason stall, ToolOpen >= 4 s, Silent >= 2 s, well before the timeout; WITHOUT the hook the bound is 2 x stall (4 s here, no 1800 s floor): stall before the 7 s timeout, OpenTools "codex command_execution item_9"' ($wc.Reason -eq 'stall' -and $wc.ToolOpen -ge 4 -and $wc.Silent -ge 2 -and $w6.Elapsed.TotalSeconds -lt 15 -and $wn.Reason -eq 'stall' -and $wn.Silent -ge 4 -and $wn.OpenTools -eq 'codex command_execution item_9') "capped: $($wc.Reason) open $($wc.ToolOpen) s silent $($wc.Silent) s in $([math]::Round($w6.Elapsed.TotalSeconds, 1)) s | uncapped: $($wn.Reason) silent $($wn.Silent) [$($wn.OpenTools)]"
     $r = New-Repo 'toolcap'
     $x = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'tc', '-StallSec', '3', '-ContinueSec', '0') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_TOOL_OPEN = '40'; CODEX_CONSULT_TEST_TOOL_CAP_SEC = '5'; CODEX_CONSULT_TEST_WAIT_TICK_MS = '250' }
     $e = @(Ledger $r)[-1]
-    Check 'STREAM' 'D6 end to end: a codex member whose tool call stays open (FAKE_CODEX_TOOL_OPEN) past the cap is cut: "failed: stalled after 3 s without an event - no output for N s (a tool call open for M s) (process tree killed)", ledger stall {seconds 3}' ($x.Code -eq 1 -and $e.bridge_outcome -match '^failed: stalled after 3 s without an event - no output for \d+ s \(a tool call open for \d+ s\) \(process tree killed\)$' -and $e.stall.seconds -eq 3) "$($e.bridge_outcome)"
+    Check 'STREAM' 'D6 end to end: a codex member whose tool call stays open (FAKE_CODEX_TOOL_OPEN) past the bound is cut: "failed: stalled after 3 s without an event - no output for N s (a tool call open for M s: codex command_execution item_9) (process tree killed)" (wave 28b, D12: the cut names the call), ledger stall {seconds 3}' ($x.Code -eq 1 -and $e.bridge_outcome -match '^failed: stalled after 3 s without an event - no output for \d+ s \(a tool call open for \d+ s: codex command_execution item_9\) \(process tree killed\)$' -and $e.stall.seconds -eq 3) "$($e.bridge_outcome)"
 }
 
 # =============================================================== HEALTH: every failure retried and named (D7), the in-lock retry bounded (D8)
@@ -306,7 +308,9 @@ if (Want 'HEALTH') {
     $x = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'hm') @{ FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_HEALTH = $missing }
     $e = @(Ledger $r)[-1]
     $cause = "the directory $(Split-Path -Parent $missing) does not exist"
-    Check 'HEALTH' 'D7 (F30-7, F29-1, F32-3) a failure that is no lock timeout (the health file''s directory is missing) is retried too and NAMED: warnings[] "machine-wide health not updated at the commit (the directory ... does not exist); retried after it", the summary "warning    : machine-wide health not updated (the directory ... does not exist)"; the run delivers' ($x.Code -eq 0 -and $e.bridge_outcome -eq 'usable reply' -and @($e.warnings) -contains "machine-wide health not updated at the commit ($cause); retried after it" -and $x.Out.Contains("warning    : machine-wide health not updated ($cause)")) "$(@($e.warnings) -join ' / ')"
+    # (wave 28b, D13) the journal lives beside the health file: its directory is missing too
+    $w7 = @(@($e.warnings) | Where-Object { ([string]$_).StartsWith("machine-wide health not updated at the commit ($cause); the journal could not be written (") -and ([string]$_).EndsWith('); a retry follows the commit') })
+    Check 'HEALTH' 'D7 (F30-7, F29-1, F32-3) a failure that is no lock timeout (the health file''s directory is missing) is retried too and NAMED: warnings[] "machine-wide health not updated at the commit (the directory ... does not exist); the journal could not be written (...); a retry follows the commit" (wave 28b, D13), the summary "warning    : machine-wide health not updated by the retry after the commit (the directory ... does not exist)"; the run delivers' ($x.Code -eq 0 -and $e.bridge_outcome -eq 'usable reply' -and $w7.Count -eq 1 -and $x.Out.Contains("warning    : machine-wide health not updated by the retry after the commit ($cause)")) "$(@($e.warnings) -join ' / ')"
     $hL = Join-Path $work 'health-lock.json'
     $env:CODEX_CONSULT_HEALTH = $hL
     $env:CODEX_CONSULT_TEST_HEALTH_LOCK_SEC = '5'
@@ -325,7 +329,7 @@ if (Want 'HEALTH') {
         $x2 = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'hl') @{ FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_HEALTH = $hL; CODEX_CONSULT_TEST_HEALTH_LOCK_SEC = '1' }
     } finally { $lk.Dispose() }
     $e2 = @(Ledger $r)[-1]
-    Check 'HEALTH' 'D8 end to end (the health lock held elsewhere): the ledger entry, written inside the write lock, says "machine-wide health not updated at the commit (lock timeout); retried after it"; the full retry outside the lock fails too and the summary says "machine-wide health not updated (lock timeout)"' ($x2.Code -eq 0 -and @($e2.warnings) -contains 'machine-wide health not updated at the commit (lock timeout); retried after it' -and $x2.Out -match '(?m)^warning    : machine-wide health not updated \(lock timeout\)\r?$') "$(@($e2.warnings) -join ' / ')"
+    Check 'HEALTH' 'D8 end to end (the health lock held elsewhere): the ledger entry, written inside the write lock, says "machine-wide health not updated at the commit (lock timeout); the record is kept in the journal; a retry follows the commit" (wave 28b, D13); the full retry outside the lock fails too and the summary says "machine-wide health not updated by the retry after the commit (lock timeout) - the record waits in <health>.journal for the next run"' ($x2.Code -eq 0 -and @($e2.warnings) -contains 'machine-wide health not updated at the commit (lock timeout); the record is kept in the journal; a retry follows the commit' -and $x2.Out -match '(?m)^warning    : machine-wide health not updated by the retry after the commit \(lock timeout\) - the record waits in .+\.journal for the next run\r?$') "$(@($e2.warnings) -join ' / ')"
 }
 
 # =============================================================== COORD: the coordinator (D9-D12)
@@ -457,10 +461,12 @@ if (Want 'ZCODE') {
         $hh.Add("$($x.Host)/$($x.By)")
     }
     Clear-TestEnv
-    $pz = Get-CoordinatorHostHint -ScriptPath 'C:\Users\u\.zcode\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts'
-    $pc = Get-CoordinatorHostHint -ScriptPath 'C:\Users\u\.codex\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts'
-    $pa = Get-CoordinatorHostHint -ScriptPath 'C:\Users\u\.claude\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts'
-    $pn = Get-CoordinatorHostHint -ScriptPath 'C:\repo\.claude\worktrees\x\plugins\codex-consult\scripts'
+    # (wave 28b, D11) the path hint is ANCHORED at the hosts' plugin directories of the home (here a
+    # harness's home C:\Users\u): Z Code's is <home>\.zcode\cli\plugins\cache
+    $pz = Get-CoordinatorHostHint -ScriptPath 'C:\Users\u\.zcode\cli\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts' -HomeDir 'C:\Users\u' -CodexHome 'C:\Users\u\.codex'
+    $pc = Get-CoordinatorHostHint -ScriptPath 'C:\Users\u\.codex\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts' -HomeDir 'C:\Users\u' -CodexHome 'C:\Users\u\.codex'
+    $pa = Get-CoordinatorHostHint -ScriptPath 'C:\Users\u\.claude\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts' -HomeDir 'C:\Users\u' -CodexHome 'C:\Users\u\.codex'
+    $pn = Get-CoordinatorHostHint -ScriptPath 'C:\repo\.claude\worktrees\x\plugins\codex-consult\scripts' -HomeDir 'C:\Users\u' -CodexHome 'C:\Users\u\.codex'
     Check 'ZCODE' 'D20 the zcode hint from ANY variable with the prefix ZCODE_ (what the shell tool of Z Code really carries: ZCODE_APP_VERSION, ZCODE_PROCESS_LABEL, ZCODE_ENV ...) - after the codex markers, before the claude-code ones; no marker at all -> the install path: a plugin cache under .zcode, .codex, .claude -> zcode, codex, claude-code (by path); a checkout elsewhere and CLAUDE_PLUGIN_ROOT -> unknown (none)' (($hh -join ',') -eq 'zcode/markers,zcode/markers,zcode/markers,zcode/markers,codex/markers,unknown/none' -and "$($pz.Host)/$($pz.By)" -eq 'zcode/path' -and $pc.Host -eq 'codex' -and $pa.Host -eq 'claude-code' -and "$($pn.Host)/$($pn.By)" -eq 'unknown/none') "$($hh -join ',') | $($pz.Host)/$($pz.By) $($pc.Host) $($pa.Host) $($pn.Host)/$($pn.By)"
     $r = New-Repo 'zcode'
     $dumpDir = Join-Path $work 'zcode-env'

@@ -62,6 +62,12 @@ $savedCodexHome = $env:CODEX_HOME
 $script:fails = 0
 $script:passes = 0
 
+# (wave 28b, D10) every bridge run in test mode carries "test mode is ON: test hooks are honoured" in
+# warnings[] (and on the console): a comparison of warnings[] takes the other entries
+# (Get-RealWarnings) and expects that line once (Test-TestModeWarning)
+$testModeLine = 'test mode is ON: test hooks are honoured'
+function Get-RealWarnings { param($List) @($List) | Where-Object { [string]$_ -ne $testModeLine } }
+function Test-TestModeWarning { param($List) return (@(@($List) | Where-Object { [string]$_ -eq $testModeLine }).Count -eq 1) }
 function Check {
     param([string]$Id, [string]$What, [bool]$Ok, [string]$Evidence = '')
     if ($Ok) { $script:passes++ } else { $script:fails++ }
@@ -421,7 +427,7 @@ if (Want 'SIZE') {
     $fl = Consult $r $one @('-Panel', '-Purpose', 'framing', '-DryRun', '-Prompt', 'x')
     $fl2 = Consult $r $one @('-Panel', '-Purpose', 'framing', '-PanelSize', '1', '-DryRun', '-Prompt', 'x')
     $pw = @($fl.Previews)[0]
-    Check 'SIZE' 'D6 floor end to end: a framing panel with one eligible member warns (console "WARNING: panel floor: ...", the member''s ledger warnings[]); with -PanelSize 1 no warning' ($fl.Code -eq 0 -and $fl.Out -match '(?m)^WARNING: panel floor: a framing panel runs 1 member' -and @($pw.warnings | Where-Object { $_ -like 'panel floor:*' }).Count -eq 1 -and $fl2.Out -notmatch 'panel floor' -and @(@($fl2.Previews)[0].warnings).Count -eq 0) "$(@($pw.warnings) -join ' | ')"
+    Check 'SIZE' 'D6 floor end to end: a framing panel with one eligible member warns (console "WARNING: panel floor: ...", the member''s ledger warnings[]); with -PanelSize 1 no warning' ($fl.Code -eq 0 -and $fl.Out -match '(?m)^WARNING: panel floor: a framing panel runs 1 member' -and @($pw.warnings | Where-Object { $_ -like 'panel floor:*' }).Count -eq 1 -and $fl2.Out -notmatch 'panel floor' -and @(Get-RealWarnings @($fl2.Previews)[0].warnings).Count -eq 0 -and (Test-TestModeWarning @($fl2.Previews)[0].warnings)) "$(@($pw.warnings) -join ' | ')"
 }
 
 # =============================================================== ROUTED: the seeded draw end to end

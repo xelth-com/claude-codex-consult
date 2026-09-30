@@ -366,7 +366,10 @@ therefore REFUSES a muse run while either variable is set, and there is no opt-o
   timeout (default 900); `"context_tokens": 256000` (an integer >= 32000) - its context window
   when the plan caps it (e.g. a Kimi Code plan's `k3` at 256K): the bridge tells the reviewer,
   replaces a fork/resume of a thread that would overflow it by a new thread (ledger
-  `mode_fallback`), and skips the entry for a brief too large for it.
+  `mode_fallback`), and skips the entry for a brief too large for it; (wave 28b) a codex reviewer
+  also gets `-c model_context_window=<n>` and `-c model_auto_compact_token_limit=<0.8 n>` (ledger
+  `context_window`; a value in its `codex_config` wins) - for agy and muse the key guards only the
+  start.
 - (wave 26b) The machine-wide endpoint health file `<codex home>/codex-consult-health.json` is
   written and read by the bridge itself (never by hand): every repository of the machine sees
   the others' 429s, usage limits and running members there. `CODEX_CONSULT_HEALTH=<path>` moves
@@ -464,7 +467,10 @@ consent, run one live `-Purpose chore` consultation to confirm the route end to 
 - **Telemetry (on by default):** the bridge reports ONE anonymised event per consultation to the
   maintainer's intake (the repository README, section "Telemetry (on by default)"); tell the user on a new machine - they
   switch it off with the user variable `CODEX_CONSULT_TELEMETRY=off`, and `codex-telemetry.ps1
-  -Status` shows the switch, the spool and the instance id.
+  -Status` shows the switch, the spool and the instance id. The event carries the vendor class of
+  the endpoint (openai, zai, xiaomi, byteplus, moonshot, alibaba, google, meta, else other), never
+  the roster label; `codex-telemetry.ps1 -Forget -PublicRef <ref>` deletes the instance's data at
+  the (live) intake, `-Forget -Local` the local spool and salt.
 
 ## 7. Record it
 

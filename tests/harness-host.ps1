@@ -56,6 +56,12 @@ $savedCodexHome = $env:CODEX_HOME
 $script:fails = 0
 $script:passes = 0
 
+# (wave 28b, D10) every bridge run in test mode carries "test mode is ON: test hooks are honoured" in
+# warnings[] (and on the console): a comparison of warnings[] takes the other entries
+# (Get-RealWarnings) and expects that line once (Test-TestModeWarning)
+$testModeLine = 'test mode is ON: test hooks are honoured'
+function Get-RealWarnings { param($List) @($List) | Where-Object { [string]$_ -ne $testModeLine } }
+function Test-TestModeWarning { param($List) return (@(@($List) | Where-Object { [string]$_ -eq $testModeLine }).Count -eq 1) }
 function Check {
     param([string]$Id, [string]$What, [bool]$Ok, [string]$Evidence = '')
     if ($Ok) { $script:passes++ } else { $script:fails++ }
@@ -400,7 +406,7 @@ if (Want 'WARN') {
     Check 'WARN' 'D3 a real run, coordinator given as a label (openai) in a claude-code host: exit 0 (a warning, never a refusal), ledger coordinator {openai, gpt-5.1 (wave 27c, D9: the config''s model - no roster), codex, claude-code, explicit}, warnings[] holds the coordinator warning, the console printed it' ($x.Code -eq 0 -and $e.coordinator.provider -eq 'openai' -and $e.coordinator.model -eq 'gpt-5.1' -and $e.coordinator.host -eq 'claude-code' -and $e.coordinator.source -eq 'explicit' -and @($e.warnings | Where-Object { ([string]$_).Contains($warnText) }).Count -eq 1 -and $x.Out -match 'WARNING: coordinator: openai :: gpt-5\.1 is the coordinator') ($e.coordinator | ConvertTo-Json -Compress)
     $y = Consult $r '' @('-Prompt', 'x', '-ReplyName', 'n') @{ FAKE_CODEX_REPLY = $advise }
     $e2 = @(Ledger $r)[-1]
-    Check 'WARN' 'D3 neither a value nor a marker: coordinator {null, null, null, unknown, none}, child_env_scrubbed [], no warning' ($y.Code -eq 0 -and $null -eq $e2.coordinator.provider -and $e2.coordinator.host -eq 'unknown' -and $e2.coordinator.source -eq 'none' -and @($e2.child_env_scrubbed).Count -eq 0 -and @($e2.warnings).Count -eq 0) ($e2.coordinator | ConvertTo-Json -Compress)
+    Check 'WARN' 'D3 neither a value nor a marker: coordinator {null, null, null, unknown, none}, child_env_scrubbed [], no warning' ($y.Code -eq 0 -and $null -eq $e2.coordinator.provider -and $e2.coordinator.host -eq 'unknown' -and $e2.coordinator.source -eq 'none' -and @($e2.child_env_scrubbed).Count -eq 0 -and @(Get-RealWarnings $e2.warnings).Count -eq 0 -and (Test-TestModeWarning $e2.warnings)) ($e2.coordinator | ConvertTo-Json -Compress)
     # (wave 27b) a Z Code session: its markers name the host; the plugin roots and the operator's setting are no markers
     $z = Consult $r '' @('-DryRun', '-Prompt', 'x') @{ ZCODE_SESSION_ID = 'zs-27b-dummy'; ZCODE_PROJECT_DIR = 'C:\fake-27b\project'; ZCODE_PLUGIN_ROOT = 'C:\fake-27b\zplugin'; ZCODE_PLUGIN_DATA = 'C:\fake-27b\zdata'; CLAUDE_PLUGIN_ROOT = 'C:\fake-27b\zplugin'; CLAUDE_CODE_USE_BEDROCK = '0' }
     $zp = @($z.Previews)[0]
@@ -499,7 +505,7 @@ if (Want 'HOOK') {
     $hl = @(($h.Out -split "`n") | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ })
     Check 'HOOK' 'D5 the SessionStart hook prints the availability line, then ONE pointer line: "codex-consult: coordinator rules - skill codex-consult:coordinate (or codex-consult.ps1 -Explain coordinate)" - (wave 28) ending "; telemetry: off" (every harness but harness-telemetry runs with CODEX_CONSULT_TELEMETRY=off); exit 0' ($h.Code -eq 0 -and $hl.Count -eq 2 -and $hl[0].StartsWith('codex-consult: ') -and -not $hl[0].StartsWith($pointerHead) -and $hl[1] -ceq ($pointerHead + '(or powershell -NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $scripts 'codex-consult.ps1') + '" -Explain coordinate); telemetry: off')) ($hl -join ' || ')
     $hooksJson = Text (Join-Path $pluginDir 'hooks\hooks.json')
-    Check 'HOOK' 'D5 the documented one-liner carries -ExecutionPolicy Bypass: hooks.json''s Windows branch and the README''s hook one-liner for a host without hooks' ($hooksJson.Contains('powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult-hook.ps1\"') -and $readme -match 'powershell -NoProfile -ExecutionPolicy Bypass -File "?\$P/scripts/codex-consult-hook\.ps1') ''
+    Check 'HOOK' 'D5 the documented one-liner carries -ExecutionPolicy Bypass: hooks.json''s Windows branch and the README''s hook one-liner for a host without hooks (wave 28b, D17: on $env:CODEX_CONSULT_ROOT)' ($hooksJson.Contains('powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult-hook.ps1\"') -and $readme -match 'powershell -NoProfile -ExecutionPolicy Bypass -File "?\$env:CODEX_CONSULT_ROOT/scripts/codex-consult-hook\.ps1') ''
 }
 
 # =============================================================== PREFIX: the coordinator's brief prefix (D6)
@@ -674,6 +680,82 @@ if (Want 'README') {
     $cross = @(foreach ($mn in $waitModels.Keys) { $m = $waitModels[$mn]; [Math]::Round((Get-WaitNumbers $m ([decimal]1)).Tail / (($m.W - $m.R) * $m.P), 0) })
     if (@($cross | Where-Object { $_ -lt 70000 -or $_ -gt 80000 }).Count -gt 0 -or -not $wn.Contains('Above about 80K tokens')) { $numMiss.Add("the expire/compact crossover $($cross -join ', ')") }
     Check 'README' 'wave 27d (A3) every number of the waiting section is the formula''s: table 1 (input / output, cache read and write per million tokens, one cold resume = W/R cache reads = W/R/2 hours of refreshes), table 2 (Claude Fable 5.1: keep up to, one wake, compact, let it expire; Claude Opus 5.5 and Claude Sonnet 5.5: keep up to), the worked example (8 hours at 850K on Claude Fable 5.1), a working turn after a compaction, the rule''s 40/20/10 wakes (half of W/R) and "above about 80K tokens" (compacting cheaper than letting the cache expire)' ($numMiss.Count -eq 0) ("missing: " + ($numMiss -join ' || '))
+}
+
+# =============================================================== PATHHINT: the host hint by path, anchored (wave 28b, D11)
+if (Want 'PATHHINT') {
+    Clear-TestEnv
+    $hHome = 'C:\Users\u'
+    $hCodex = 'D:\ch'
+    $hcases = [ordered]@{
+        'C:\Users\u\.claude\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts'     = 'claude-code/path'
+        'C:\Users\u\.codex\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts'      = 'codex/path'
+        'D:\ch\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts'                  = 'codex/path'
+        'C:\Users\u\.zcode\cli\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts'  = 'zcode/path'
+        'C:\Users\u\.qwen\extensions\codex-consult\scripts'                                     = 'qwen-code/path'
+        'c:\users\U\.CLAUDE\Plugins\Cache\x\scripts'                                            = 'claude-code/path'
+        'C:\Users\u\src\.codex\plugins\cache\x\scripts'                                         = 'unknown/none'
+        'C:\work\.claude\plugins\cache\claude-codex-consult\codex-consult\0.5.0\scripts'        = 'unknown/none'
+        'C:\Users\u\.zcode\plugins\cache\x\scripts'                                             = 'unknown/none'
+        'C:\Users\u\.claude\plugins\cache'                                                      = 'unknown/none'
+        'C:\repo\.claude\worktrees\x\plugins\codex-consult\scripts'                             = 'unknown/none'
+    }
+    $hbad = @(foreach ($k in $hcases.Keys) { $x = Get-CoordinatorHostHint -ScriptPath $k -HomeDir $hHome -CodexHome $hCodex; if ("$($x.Host)/$($x.By)" -ne $hcases[$k]) { "$k -> $($x.Host)/$($x.By) (want $($hcases[$k]))" } })
+    # (Get-HostPluginRoots hands back the array itself: assigned first, then enumerated)
+    $rootList = Get-HostPluginRoots -HomeDir $hHome -CodexHome $hCodex
+    $roots = @($rootList | ForEach-Object { "$($_.Host)=$($_.Root)" })
+    Check 'PATHHINT' 'D11 (F36-4) the host hint by path is ANCHORED: the script root must lie UNDER a host''s plugin directory of the home (<home>\.claude\plugins\cache -> claude-code, <home>\.codex\plugins\cache and <codex home>\plugins\cache -> codex, <home>\.zcode\cli\plugins\cache -> zcode, <home>\.qwen\extensions -> qwen-code; case-insensitive on Windows); a path that merely CONTAINS such a name (a clone, another directory called .codex, the old .zcode\plugins, the plugin directory itself) gives no hint' ($hbad.Count -eq 0 -and $roots.Count -eq 5) (($hbad + $roots) -join ' || ')
+}
+
+# =============================================================== HOSTDOCS: the host blocks and the waiting prices (wave 28b, D17, D18)
+if (Want 'HOSTDOCS') {
+    $inst = [regex]::Match($readme, '(?ms)^## Install\r?\n(.*?)(?=^## )').Groups[1].Value
+    $blockMiss = New-Object System.Collections.Generic.List[string]
+    foreach ($m in [regex]::Matches($inst, '(?ms)^### ([^\r\n]+)\r?\n(.*?)(?=^### |\z)')) {
+        $sec = $m.Groups[1].Value.Trim()
+        foreach ($b in [regex]::Matches($m.Groups[2].Value, '(?ms)^```([a-z]*)\r?\n(.*?)^```')) {
+            # (a ```text block is the AGENTS.md snippet the operator pastes, with its <plugin> placeholder - no command block)
+            if ($b.Groups[1].Value -eq 'text') { continue }
+            $code = $b.Groups[2].Value
+            if ($code -match '\$P\b') { $blockMiss.Add("$($sec): uses `$P") }
+            $usesDir = ($code -match 'CODEX_CONSULT_ROOT' -or $code -match '<clone>[\\/]plugins' -or $code -match '/scripts/codex-consult')
+            if (-not $usesDir) { continue }
+            $defines = ($code -match '\$env:CODEX_CONSULT_ROOT\s*=' -or $code -match '(?m)^\s*export CODEX_CONSULT_ROOT=')
+            if (-not $defines) { $blockMiss.Add("$($sec): a block uses the plugin directory without defining CODEX_CONSULT_ROOT") }
+            if ($code -match '<clone>[\\/]plugins[\\/]codex-consult[\\/]' ) { $blockMiss.Add("$($sec): a block spells the plugin directory out instead of CODEX_CONSULT_ROOT") }
+        }
+    }
+    Check 'HOSTDOCS' 'D17 (F36-10) every command block of a host section of "## Install" that needs the plugin directory uses ONE name for it - CODEX_CONSULT_ROOT - and defines it in the same block (no $P from another section, no spelled-out <clone>/plugins/codex-consult/... path)' ($blockMiss.Count -eq 0) ($blockMiss -join ' || ')
+    # the hook block, copied as written, runs: once with CODEX_CONSULT_ROOT set, once found in a plugin cache
+    $hsec = [regex]::Match($inst, '(?ms)^### Hooks on each host\r?\n(.*?)(?=^### |\z)').Groups[1].Value
+    $hb = [regex]::Match($hsec, '(?ms)^```powershell\r?\n(.*?)^```').Groups[1].Value
+    $hbFile = Join-Path $work 'hook-block.ps1'
+    [IO.File]::WriteAllText($hbFile, $hb, $u8)
+    $rH = New-Repo 'hookblock'
+    $binH = Join-Path $work 'bin-hb'
+    [void][IO.Directory]::CreateDirectory($binH)
+    [IO.File]::WriteAllText((Join-Path $binH 'codex.cmd'), "@echo off`r`nset ""FAKE_CODEX_ARGS=%*""`r`npowershell -NoProfile -ExecutionPolicy Bypass -File ""$(Join-Path $sp 'fake-codex3.ps1')""`r`nexit /b %ERRORLEVEL%`r`n")
+    $cacheHome = Join-Path $work 'hb-codex-home'
+    $copyDir = Join-Path $cacheHome 'plugins\cache\claude-codex-consult\codex-consult\0.5.0'
+    [void][IO.Directory]::CreateDirectory($copyDir)
+    foreach ($item in @(Get-ChildItem -LiteralPath $pluginDir -Force)) { Copy-Item -LiteralPath $item.FullName -Destination $copyDir -Recurse -Force }
+    $savedPath = $env:Path
+    $env:Path = "$binH;$savedPath"
+    try {
+        $hbSet = Run-Raw $hbFile $rH @() @{ CODEX_CONSULT_ROOT = $pluginDir; CODEX_HOME = $codexHome }
+        $hbFound = Run-Raw $hbFile $rH @() @{ CODEX_CONSULT_ROOT = ''; CODEX_HOME = $cacheHome }
+    } finally { $env:Path = $savedPath; Remove-Item env:CODEX_CONSULT_ROOT -ErrorAction SilentlyContinue }
+    $setLines = @(($hbSet.Out -split "`n") | ForEach-Object { $_.TrimEnd("`r").Replace('/', '\') } | Where-Object { $_ })
+    $foundLines = @(($hbFound.Out -split "`n") | ForEach-Object { $_.TrimEnd("`r").Replace('/', '\') } | Where-Object { $_ })
+    $wantSet = Join-Path $scripts 'codex-consult.ps1'
+    $wantFound = Join-Path $copyDir 'scripts\codex-consult.ps1'
+    Check 'HOSTDOCS' 'D17 the hook block of "Hooks on each host" run AS WRITTEN: with CODEX_CONSULT_ROOT set it runs that plugin''s hook (two lines, the pointer names that codex-consult.ps1); with it unset it finds the newest install in a host''s plugin cache (here <codex home>\plugins\cache\...\0.5.0) and runs its hook - never "\scripts\codex-consult-hook.ps1"' ($hb -and $hbSet.Code -eq 0 -and $setLines.Count -eq 2 -and $setLines[1].StartsWith($pointerHead) -and $setLines[1].IndexOf($wantSet, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and $hbFound.Code -eq 0 -and $foundLines.Count -eq 2 -and $foundLines[1].IndexOf($wantFound, [StringComparison]::OrdinalIgnoreCase) -ge 0) "set: $($setLines -join ' / ') || found: $($foundLines -join ' / ')"
+    # D18: the waiting section names its two refresh prices and the compaction after the expiry
+    $wsec = [regex]::Match($readme, '(?ms)^## Waiting: keep the prompt cache or compact\r?\n(.*?)(?=^---|^## )').Groups[1].Value
+    $wn = $wsec -replace '\s+', ' '
+    $d18 = @('a *cache read* alone', 'a *full wake*', 'counts cache reads', 'fewer full wakes', 'compact after expiry = w x P x C + S x Pout + w x P x C2', 'a cold resume PLUS the summary', 'counted as cache reads')
+    $d18Miss = @($d18 | Where-Object { -not $wn.Contains($_) })
+    Check 'HOSTDOCS' 'D18 (F36-10) the waiting section says which price is a FULL WAKE (the cache read plus the wake''s turn) and which a CACHE READ alone (the last column of the price table and the rule''s 40/20/10 count cache reads), and that a compaction after the cache expired costs a cold resume PLUS the summary (the formula "compact after expiry")' ($d18Miss.Count -eq 0) ("missing: " + ($d18Miss -join ' | '))
 }
 
 } finally {

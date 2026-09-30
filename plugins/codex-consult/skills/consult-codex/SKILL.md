@@ -49,8 +49,10 @@ purpose, or unknown, start the run with `-Detach` and come back with `-Wait` or 
 `coordinate` skill's "Means per host" lists the limits seen.
 
 **Telemetry (on by default).** After each consultation the bridge sends ONE anonymised event
-(engine, provider label, model, purpose, outcome class, counts - never a task, brief, prompt,
-path or name) to the maintainer's intake in the background; `CODEX_CONSULT_TELEMETRY=off` (the
+(engine, the vendor class of the endpoint and the model from a closed table - never the provider
+label -, purpose, outcome class, counts - never a task, brief, prompt, path or name) to the
+maintainer's intake in the background (the intake is live; delete the data with
+`codex-telemetry.ps1 -Forget -PublicRef <ref>` or `-Forget -Local`); `CODEX_CONSULT_TELEMETRY=off` (the
 operator's variable) or `-Telemetry off` for one run switches it off, and a problem with the
 bridge goes to the maintainer with `codex-consult.ps1 -Task <t> -Complain "<text>"` (it prints
 the payload and asks first) - the README (the repository README), section "Telemetry (on by default)".
@@ -164,8 +166,9 @@ roster position or a label takes its entry's model, else the model the bridge wo
 model cannot be told gives only "a reviewer from the coordinator's own provider (model not named)"; a
 value no roster entry matches is said (`coordinator: ... (not in the roster - no reviewer can match
 it)`) and a `#<n>` that names no position here is warned about - neither is refused. The ledger's
-`coordinator` records it with your host (inferred, a hint only: `codex`, `zcode`, `claude-code` or
-`unknown` - from the host's markers, else from the plugin's install path: `host_by`).
+`coordinator` records it with your host (inferred, a hint only: `codex`, `zcode`, `claude-code`,
+`qwen-code` or `unknown` - from the host's markers, else from the plugin's install path UNDER a host's
+plugin directory of your home (wave 28b): `host_by`).
 
 `-Purpose` selects the prompt paragraph Codex is asked to answer under, and its default
 effort and word cap:
@@ -520,8 +523,8 @@ it, a `"weighty"` entry only joins on the weighty purposes.
 - **A member that hangs** (wave 26b): its stall cut stops it when its event stream stays silent
   for `-StallSec` (default 900 s, a roster entry's `stall_sec`) - like a timeout, with the
   continuation turn and the salvage; (wave 26c) any output resets that timer, and it does not
-  run while the member is inside a tool call (one long build is never cut; the timeout still
-  bounds it). To stop one member yourself, from another shell:
+  run while the member is inside a tool call as long as the stream still grows - (wave 28b) a
+  tool call with no output for 2 x `-StallSec` is cut too, and the outcome names the call. To stop one member yourself, from another shell:
   `codex-consult.ps1 -Task <task> -Kick -Member <NN>` (a detached panel: add `-Id <id8>`) - its
   partial output is salvaged, it is recorded `failed: stopped by the operator (-Kick)` (class
   `operator`, not the endpoint's fault) and the panel goes on with the others. `-Kick` exits `0`

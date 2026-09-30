@@ -473,8 +473,9 @@
     matches is said (in_roster false), a `#<n>` that names no position here is warned about
     (unresolved). Its host is inferred as a hint only, in this order (codex: CODEX_SESSION_ID /
     CODEX_THREAD_ID; zcode: any ZCODE_ variable; claude-code: CLAUDECODE, CLAUDE_CODE_ENTRYPOINT,
-    AI_AGENT claude-code*; else the install path - a plugin cache under .zcode, .codex, .claude -;
-    else unknown). Ledger `coordinator {provider, model, engine, host, host_by, source
+    AI_AGENT claude-code*; else the install path - wave 28b, D11: only a script UNDER a host's
+    plugin directory of this home: ~/.claude/plugins/cache, ~/.codex/plugins/cache or <codex
+    home>/plugins/cache, ~/.zcode/cli/plugins/cache, ~/.qwen/extensions (qwen-code) -; else unknown). Ledger `coordinator {provider, model, engine, host, host_by, source
     explicit|inferred|none, in_roster, unresolved}` - `host` elsewhere stays the machine name. Every
     engine child (the main turn, a denial retry, a format repair, the continuation, the detached
     background, the launcher probes, the telemetry sender) is started WITHOUT the coordinator's host
@@ -483,7 +484,10 @@
     CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_MESSAGING_SOCKET, CLAUDE_CODE_MESSAGING_TOKEN,
     CLAUDE_CODE_SESSION_ATTENDED, CLAUDE_CODE_EXECPATH, CLAUDE_PID, CLAUDE_EFFORT; wave 27c: every
     ZCODE_* - the whole prefix); exact CLAUDE_CODE_ names, so every other variable is kept
-    (CLAUDE_CODE_USE_BEDROCK and the like, CLAUDE_PLUGIN_ROOT). (wave 27c, D3) The hide is
+    (CLAUDE_CODE_USE_BEDROCK and the like, CLAUDE_PLUGIN_ROOT). (wave 28b, D10) No engine child gets
+    CODEX_CONSULT_TEST_MODE or a CODEX_CONSULT_TEST_* variable either (a panel member and the detached
+    background are the bridge: they keep them), and the telemetry sender starts with an allow-listed
+    environment only. (wave 27c, D3) The hide is
     transactional: a marker that cannot be removed puts every removed one back and the start is
     refused ("bridge failure: host markers could not be hidden (<name>: <why>)"). Ledger
     `child_env_scrubbed` (the names, never a value).
@@ -496,10 +500,13 @@
     second caller; the acknowledgement holds the id and the result (stopped | late) (D1); a kick of
     the timeout continuation keeps the timeout outcome and its salvage (D2). The stall reader is
     bounded (1 MiB carry, oversized lines skipped and counted - D5) and a tool call suspends the stall
-    cut for at most max(3 x -StallSec, 1800 s) (D6). Any failure of the machine-wide health update is
-    retried and named; the retry inside the write lock is one attempt of at most 1 s, the full retry
-    runs after it (D7, D8). A CODEX_CONSULT_TEST_* hook (and CODEX_CONSULT_NOW) is honoured only with
-    CODEX_CONSULT_TEST_MODE=1; otherwise it is ignored and the run warns once (D14).
+    cut only while the stream grows: 2 x -StallSec without growth end it, and the cut names the open
+    call (wave 28b, D12). Any failure of the machine-wide health update is retried and named; (wave
+    28b, D13) at the commit its record goes into the journal <health file>.journal, the retry after
+    the commit - or the next run of any repository - applies it, and the summary says how the retry
+    ended. A CODEX_CONSULT_TEST_* hook (and CODEX_CONSULT_NOW) is honoured only with
+    CODEX_CONSULT_TEST_MODE=1; otherwise it is ignored and the run warns once (D14); (wave 28b, D10) a
+    run in test mode says "test mode is ON: test hooks are honoured" on the console and in warnings[].
     -BriefPrefix names the coordinator's briefs (handoffs/<NN>-<prefix>-<slug>.md; default
     claude); -Explain coordinate|consult|providers prints a skill's text for a host without skills.
 
@@ -508,11 +515,13 @@
     a panel: every member) ONE anonymised event built from the committed entry through a closed
     allowlist - app_id, app_version, a salted instance id (sha256 of <codex home>/telemetry-salt and
     the machine name), event_type consultation, severity, the outcome class, details {engine,
-    provider label, model, purpose, outcome, wall_seconds, tokens {in, cached, out}, findings
+    provider (wave 28b, D1: the vendor class of the endpoint, never the roster label), model (a name
+    of that vendor's pattern, else other), purpose, outcome, wall_seconds, tokens {in, cached, out}, findings
     counts, structured, format_retry, denial_retry, timeout_continue, panel_size, ps_version, os,
     bridge_version}, tags, client_time (UTC), os, runtime; NEVER a task name, brief, prompt, path,
-    thread id, finding text, key, user name or the machine name - goes to <codex
-    home>/telemetry-spool/<yyyy-mm-dd>.ndjson, and ONE detached sender (codex-telemetry.ps1 -Flush,
+    thread id, finding text, key, provider label, user name or the machine name - goes to <codex
+    home>/telemetry-spool/<yyyy-mm-dd>.ndjson (the local date; at the commit - one not spooled is a
+    warning, wave 28b D6), and ONE detached sender (codex-telemetry.ps1 -Flush,
     hidden, without the host markers; a panel starts it once when every member is done) delivers
     it to the intake (CODEX_CONSULT_TELEMETRY_URL, else https://xelth.com/T) - never waited for,
     never failing a run. CODEX_CONSULT_TELEMETRY=off (or -Telemetry off for one run) writes and
@@ -522,7 +531,7 @@
     [-Contact <c>] [-Yes] prints the complaint's exact payload (the text, the task's last entry
     through the same allowlist), asks `send? [y/N]` unless -Yes and prints the public_ref - or
     keeps it in the spool (exit 0 delivered, 1 refused or not confirmed, 3 not delivered). State:
-    codex-telemetry.ps1 -Status.
+    codex-telemetry.ps1 -Status; delete my data: codex-telemetry.ps1 -Forget -PublicRef <ref> | -Local.
 
     Invariants:
       * read-only sandbox by default; danger-full-access is refused outright
@@ -1132,7 +1141,7 @@ function Start-DetachedRun {
             $psi.UseShellExecute = $false
             $psi.WorkingDirectory = $callerCwd
             # (wave 27c, D4) the block must come out clean, else the start is refused
-            $scrub = Remove-HostMarkersFromStartInfo $psi
+            $scrub = Remove-HostMarkersFromStartInfo $psi -KeepTestVars
             if ($scrub) { throw "host markers could not be hidden ($scrub)" }
             $null = [System.Diagnostics.Process]::Start($psi)
         }
@@ -1145,11 +1154,13 @@ function Start-DetachedRun {
         Stop-WithError "could not start the background process ($why); nothing was started$(if ($rmError) { " (the status file '$($paths.Status)' could not be removed: $rmError)" })."
     }
     Restore-HostMarkers -Saved $bgHidden
-    foreach ($w in @($Warnings | Where-Object { $_ })) { Write-Host "WARNING: $w" -ForegroundColor Yellow }
+    foreach ($w in @($Warnings | Where-Object { $_ -and $_ -ne $script:TestModeWarning })) { Write-Host "WARNING: $w" -ForegroundColor Yellow }
     $collabOpt = $(if ($script:ScriptBound.ContainsKey('CollabDir')) { " -CollabDir `"$collabRoot`"" } else { '' })
     Write-Host "Detached $($paths.Id8): $Plan - it runs in the background (detach id $newId; budget $Budget s)."
     Write-Host "status file: $($paths.Status) (console output: $($paths.Log))"
     Write-Host "come back  : codex-consult.ps1 -Task $Task$collabOpt -Status -Id $($paths.Id8) (exit 0 done and usable, 1 a failure, 2 still running); -Wait -Id $($paths.Id8) waits until it is done (default: its budget, $Budget s)"
+    # (wave 28b, D10) the test-mode line after the detach lines (the first line stays "Detached <id8>: ...")
+    if (@($Warnings) -contains $script:TestModeWarning) { Write-Host "WARNING: $($script:TestModeWarning)" -ForegroundColor Yellow }
     exit 0
 }
 
@@ -1628,9 +1639,8 @@ function Find-ThreadInRollouts {
     if (-not $codexHome) { return $found }
     $root = Join-Path $codexHome 'sessions'
     if (-not (Test-Path -LiteralPath $root)) { return $found }
-    $days = @($StartedAt, (Get-Date)) | ForEach-Object {
-        Join-Path (Join-Path (Join-Path $root ('{0:yyyy}' -f $_)) ('{0:MM}' -f $_)) ('{0:dd}' -f $_)
-    } | Select-Object -Unique
+    # (wave 28b, D16) every LOCAL day from the start to now, invariant digits (Get-LocalDayDirs)
+    $days = Get-LocalDayDirs -Root $root -StartedAt $StartedAt -Now (Get-Date)
     $candidates = @()
     foreach ($day in $days) {
         if (Test-Path -LiteralPath $day) {
@@ -1699,11 +1709,12 @@ function Start-EngineProcess {
     if (-not $refusal -and $engineName -ne 'codex') { $refusal = Get-CmdArgvHazard -Launcher $Launcher -Argv $Argv }
     if ($refusal) { $r.Refusal = [string]$refusal; return $r }
     # (wave 27, R13 D4) the engine child never inherits the coordinator's host markers (the ledger's
-    # child_env_scrubbed); this process gets them back right after the start
+    # child_env_scrubbed) - (wave 28b, D10) nor the test-mode variables; this process gets them back
+    # right after the start
     $hiddenMarkers = $null
     # (wave 27c, D3 / F30-2) transactional: a removal that fails put everything back already - the
     # start is refused, nothing starts with part of the markers
-    try { $hiddenMarkers = Hide-HostMarkers } catch {
+    try { $hiddenMarkers = Hide-HostMarkers -TestVars } catch {
         $r.Refusal = "bridge failure: $(ConvertTo-OneLine $_.Exception.Message)"
         return $r
     }
@@ -2420,7 +2431,7 @@ if ($codexExePath) {
     $versionHidden = $null
     # (wave 27c, D3/D4) a hide that fails skips the probe (the version stays unknown) - said once
     $versionSkip = ''
-    try { $versionHidden = Hide-HostMarkers } catch { $versionSkip = ConvertTo-OneLine $_.Exception.Message }
+    try { $versionHidden = Hide-HostMarkers -TestVars } catch { $versionSkip = ConvertTo-OneLine $_.Exception.Message }
     if ($versionSkip) { $script:ProbeWarnings.Add("a launcher probe was skipped (codex --version): $versionSkip") }
     else {
         try {
@@ -2902,6 +2913,8 @@ if ($panelRun) {
         if ($topicList.Count -gt 0) { Write-Host "Topics: $($topicList -join ', ')" }
         foreach ($pw in $panelWarnings) { Write-Host "WARNING: $pw" -ForegroundColor Yellow }
         foreach ($cw in $panelCoordinatorWarnings) { Write-Host "WARNING: $cw" -ForegroundColor Yellow }
+        # (wave 28b, D10) the panel run says it too (each member's warnings[] carries it)
+        if (Test-TestMode) { Write-Host "WARNING: $($script:TestModeWarning)" -ForegroundColor Yellow }
         $groupTexts = @(foreach ($g in $panelPlan.Groups) {
                 $cnt = @($g.Positions).Count
                 $t = "$(@($g.Labels) -join '+') x$cnt"
@@ -3263,6 +3276,10 @@ if ($rangeWarning) { $runWarnings.Add($rangeWarning) }
 # and said once (the console, the ledger's warnings[])
 $ignoredTestHooks = Get-IgnoredTestHooks
 if ($ignoredTestHooks.Count -gt 0) { $runWarnings.Add("test hook$(if ($ignoredTestHooks.Count -ne 1) { 's' }) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: $($ignoredTestHooks -join ', ')") }
+# (wave 28b, D10 / F36-5) test mode never goes unnoticed: a run that finds CODEX_CONSULT_TEST_MODE=1
+# says so on the console and in warnings[] (every harness expects this line); no engine child gets
+# the test-mode variables (Hide-HostMarkers -TestVars)
+if (Test-TestMode) { $runWarnings.Add($script:TestModeWarning) }
 # (wave 27c, D12) the coordinator's own warnings (a '#n' that names no roster position here)
 foreach ($cw in @($coordinatorWarnings)) { if ($cw) { $runWarnings.Add([string]$cw) } }
 # (wave 26) the panel run's routing warnings (a lab of its own, the floor) - every member's ledger
@@ -3580,7 +3597,9 @@ if ($panelMember) {
     }
 }
 if ($rosterLine -and -not $DryRun) { Write-Host $rosterLine }
-if (-not $DryRun) { foreach ($rw in $runWarnings) { Write-Host "WARNING: $rw" -ForegroundColor Yellow } }
+# (wave 28b, D10) the test-mode line is printed with the run's output (after the commit), never before a
+# refusal: a refusal's own message stays the first line
+if (-not $DryRun) { foreach ($rw in $runWarnings) { if ($rw -ne $script:TestModeWarning) { Write-Host "WARNING: $rw" -ForegroundColor Yellow } } }
 if ($preflightWarning -and -not $DryRun) { Write-Host "WARNING: $preflightWarning" -ForegroundColor Yellow }
 
 # Peak window of the provider (evaluated once, now).
@@ -3895,6 +3914,21 @@ try {
     $nl = "`r`n"
     # (wave 26b, D16) the reviewer's context window (its roster entry's context_tokens), 0 = unknown
     $contextTokens = $(if ($rosterEntry) { [int](Get-PropertyValue $rosterEntry 'ContextTokens' 0) } else { 0 })
+    # (wave 28b, D15) the window reaches the ENGINE: a codex reviewer with a roster context_tokens n
+    # gets `-c model_context_window=<n>` and `-c model_auto_compact_token_limit=<0.8 n>` (keys of the
+    # Codex config, both present in codex-cli 0.155.1) on every turn - unless -CodexConfig or the
+    # entry's codex_config already sets that key (the operator's value wins). Ledger
+    # `context_window` {tokens, auto_compact_limit, items} (null without one). For agy and muse the
+    # key guards only the start (the prompt estimate - their CLIs take no such option).
+    $contextConfig = New-Object System.Collections.Generic.List[string]
+    $contextWindowRecord = $null
+    if ($contextTokens -gt 0 -and $isCodex) {
+        $compactAt = [long][Math]::Floor(0.8 * $contextTokens)
+        foreach ($cw in @(@('model_context_window', [long]$contextTokens), @('model_auto_compact_token_limit', $compactAt))) {
+            if (@($extraConfig | Where-Object { ([string]$_).Trim() -match ('^' + [regex]::Escape([string]$cw[0]) + '\s*=') }).Count -eq 0) { $contextConfig.Add("$($cw[0])=$($cw[1])") }
+        }
+        $contextWindowRecord = [pscustomobject]@{ tokens = [long]$contextTokens; auto_compact_limit = $compactAt; items = [object[]]$contextConfig.ToArray() }
+    }
     $promptParts = New-Object System.Collections.ArrayList
     # Structured mode: the output contract comes FIRST, before the ask and the brief - a
     # reviewer that reads a long brief first tends to answer in prose (handoffs 17/18).
@@ -4039,6 +4073,7 @@ try {
         $argv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $effortSent) + '"'))
         if ($identity.ProviderSource) { $argv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
         foreach ($ec in $extraConfig) { $argv += @('-c', $ec) }
+        foreach ($cc in $contextConfig) { $argv += @('-c', $cc) }
         $argv += @('-o', $lastMsgPath)
         if (-not $Raw -and $schemaTransport -eq 'output-schema') { $argv += @('--output-schema', $schemaPath) }
         if ($Mode -eq 'fork') { $argv += @('fork', $parentThread) }
@@ -4130,6 +4165,7 @@ try {
             continue_sec                    = $ContinueSec
             extra_config                    = [object[]]$extraConfig.ToArray()
             extra_config_source             = $extraConfigSource
+            context_window                  = $contextWindowRecord
             peak                            = $peak.Peak
             peak_schedule                   = $peak.Schedule
             peak_source                     = $peak.Source
@@ -4399,6 +4435,9 @@ try {
             $pendingRecord.note = ''
             # A18: the raw event stream of this run (for agy it holds the reply itself).
             $pendingRecord.events = $(if (Get-RepoRelativePath -Root $repoRoot -Path $eventsPath) { Get-RepoRelativePath -Root $repoRoot -Path $eventsPath } else { $eventsPath })
+            # (wave 28b, D19) TEST HOOK (test mode only): CODEX_CONSULT_TEST_REGISTER_FAIL=1 - the
+            # registration write fails (the harnesses inject it here, never by patching a function)
+            if ((Get-TestHookValue 'CODEX_CONSULT_TEST_REGISTER_FAIL').Trim() -eq '1') { throw 'injected: registration write failed (test hook CODEX_CONSULT_TEST_REGISTER_FAIL)' }
             Write-PendingFile -Path $pendingPath -Record $pendingRecord
         } catch {
             $registerError = ConvertTo-OneLine $_.Exception.Message
@@ -4446,8 +4485,9 @@ try {
                     # (wave 26b, D12) stopped like a timeout: the continuation turn and the salvage follow
                     $mainStalled = $true
                     $stopText = "stalled after $StallSec s without an event"
-                    # (wave 27c, D6) a tool call open past the suspension's cap: said in the cut
-                    if ($mainWait.ToolOpen -gt 0) { $stopText += " - no output for $($mainWait.Silent) s (a tool call open for $($mainWait.ToolOpen) s)" }
+                    # (wave 27c, D6; wave 28b, D12) a tool call open while the stream did not grow for 2 x
+                    # the threshold: said in the cut, naming the open call
+                    if ($mainWait.ToolOpen -gt 0 -or $mainWait.OpenTools) { $stopText += " - no output for $($mainWait.Silent) s (a tool call open for $($mainWait.ToolOpen) s$(if ($mainWait.OpenTools) { ": $($mainWait.OpenTools)" }))" }
                     $stallRecord = [pscustomobject]@{ seconds = $StallSec; last_event = $(if ($null -ne $mainWait.LastEvent) { Format-OffsetIso $mainWait.LastEvent } else { $null }) }
                 }
                 $bridgeOutcome = "failed: $stopText $(Format-KillText $mainKill)"
@@ -4813,6 +4853,7 @@ try {
                 $contArgv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $effortSent) + '"'))
                 if ($identity.ProviderSource) { $contArgv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
                 foreach ($ec in $extraConfig) { $contArgv += @('-c', $ec) }
+                foreach ($cc in $contextConfig) { $contArgv += @('-c', $cc) }
                 $contArgv += @('-o', $continueLastPath)
                 if (-not $Raw -and $schemaTransport -eq 'output-schema') { $contArgv += @('--output-schema', $schemaPath) }
                 $contArgv += @('resume', $continueThread, '-')
@@ -5002,6 +5043,7 @@ try {
             $repairArgv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $repairEffort) + '"'))
             if ($identity.ProviderSource) { $repairArgv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
             foreach ($ec in $extraConfig) { $repairArgv += @('-c', $ec) }
+            foreach ($cc in $contextConfig) { $repairArgv += @('-c', $cc) }
             $repairArgv += @('-o', $repairLastPath, 'resume', $threadId, '-')
             Write-Utf8NoBom -Path $repairPromptPath -Text $repairPrompt
             $repairWatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -5252,9 +5294,12 @@ try {
     # ledger; a lock timeout is retried once at the ledger commit, and if that fails too the run
     # says so (warnings[], the summary): the repository ledger keeps the truth either way
     # (wave 27c, D7 / F30-7, F29-1, F32-3) ANY failure of the update is retried - its cause named
+    # (wave 28b, D13 / F36-6, F37-1) the record is built ONCE: the same record goes into the journal at
+    # the commit and into the retry after it (applying is idempotent)
     $machineHealthRetry = $false
     $machineHealthCause = ''
-    if (-not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot) -and [string]$script:MachineHealthLastError) { $machineHealthRetry = $true; $machineHealthCause = [string]$script:MachineHealthLastError }
+    $machineHealthRecord = New-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot
+    if ($machineHealthRecord -and -not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot -Record $machineHealthRecord) -and [string]$script:MachineHealthLastError) { $machineHealthRetry = $true; $machineHealthCause = [string]$script:MachineHealthLastError }
 
     # ------------------------------------------------------------------------- salvage
 
@@ -5642,6 +5687,7 @@ try {
         continue_sec                    = $ContinueSec
         extra_config                    = [object[]]$extraConfig.ToArray()
         extra_config_source             = $extraConfigSource
+        context_window                  = $contextWindowRecord
         peak                            = $peak.Peak
         peak_schedule                   = $peak.Schedule
         peak_source                     = $peak.Source
@@ -5707,17 +5753,30 @@ try {
     }
     # (`tool` is the codex version; an agy run leaves it as it is)
     if ($isCodex) { $ledger.codex.tool = $codexVersion }
-    # (wave 26c, D2) the machine-wide health update that failed: once more at the commit - (wave 27c,
-    # D8 / F32-2) ONE attempt of at most 1 s, so the retry never extends the hold on this task's write
-    # lock; failing again, this entry's warning says so and the full retry (3 x 5 s) runs after the
-    # lock is released
+    # (wave 26c, D2) the machine-wide health update that failed before the commit - (wave 28b, D13 /
+    # F36-6, F37-1) its record goes into the JOURNAL beside the health file now, inside the write lock
+    # (a local append: no wait for the health lock, so the hold on this task's lock does not grow);
+    # this entry's warning says a retry follows the commit; the retry after the lock is released - or
+    # the next run of any repository, should this one die first - applies the journal and empties it
     $machineHealthAfterLock = $false
+    $machineHealthJournalWhy = ''
     if ($machineHealthRetry) {
-        if (-not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot -Attempts 1 -AttemptSec 1)) {
-            if ([string]$script:MachineHealthLastError) { $machineHealthCause = [string]$script:MachineHealthLastError }
-            $engineWarnings.Add("machine-wide health not updated at the commit ($machineHealthCause); retried after it")
+        $machineHealthJournalWhy = Add-MachineHealthJournal -Record $machineHealthRecord
+        $engineWarnings.Add("machine-wide health not updated at the commit ($machineHealthCause); $(if ($machineHealthJournalWhy) { "the journal could not be written ($machineHealthJournalWhy); " } else { 'the record is kept in the journal; ' })a retry follows the commit")
+        $entry.warnings = [object[]]$engineWarnings.ToArray()
+        $machineHealthAfterLock = $true
+    }
+    # (wave 28b, D6 / F35-1, F36-8, F37-6) telemetry on: the event of THIS entry (the allowlist;
+    # warnings[] is not part of it) goes into the spool now, inside the write lock - the append waits
+    # up to 5 s for a busy spool file; an event that is not spooled is said in this entry's
+    # warnings[] and on the console, and counted for codex-telemetry.ps1 -Status
+    $telemetryLine = ''
+    if ($telemetrySwitch.On) {
+        $telemetryWhy = Add-TelemetryEvent -Entry $entry -Switch $telemetrySwitch
+        if ($telemetryWhy) {
+            $engineWarnings.Add("telemetry event not spooled ($telemetryWhy)")
             $entry.warnings = [object[]]$engineWarnings.ToArray()
-            $machineHealthAfterLock = $true
+            $telemetryLine = "warning    : telemetry event not spooled ($telemetryWhy)"
         }
     }
     Add-LedgerEntry -Sessions $ledger -Entry $entry
@@ -5743,25 +5802,33 @@ try {
         if ($rmError) { $pendingNote = "could not remove $pendingPath ($rmError); the next run will find codex gone and consume it" }
     }
     Exit-StoreCommit -Commit $commit
-    # (wave 27c, D8) the full retry of the machine-wide health, outside the write lock; failing again,
-    # the summary says so with its cause (the ledger entry already carries the commit's warning)
+    # (wave 27c, D8) the full retry of the machine-wide health, outside the write lock - (wave 28b,
+    # D13) it applies the journal (this run's record and any other) and empties it; its OUTCOME, either
+    # way, is in the summary (the console, and a detached run's status record)
     $machineHealthLine = ''
     if ($machineHealthAfterLock) {
-        if (-not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot)) {
-            $machineHealthLine = "warning    : machine-wide health not updated ($(if ([string]$script:MachineHealthLastError) { [string]$script:MachineHealthLastError } else { $machineHealthCause }))"
+        if (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot -Record $machineHealthRecord) {
+            $machineHealthLine = 'health     : machine-wide health updated by the retry after the commit (the journal applied)'
+        } else {
+            $machineHealthLine = "warning    : machine-wide health not updated by the retry after the commit ($(if ([string]$script:MachineHealthLastError) { [string]$script:MachineHealthLastError } else { $machineHealthCause }))$(if (-not $machineHealthJournalWhy) { " - the record waits in $(Get-MachineHealthJournalPath) for the next run" })"
         }
     }
     # (wave 26b, D13) the machine-wide health: this run leaves running[] (its outcome went in before
     # the ledger - wave 26c, D2). Optional: a file that cannot be written is left as it is.
     $null = Unregister-MachineRunning
-    # (wave 28, R17) telemetry on: ONE event built from the COMMITTED entry through the allowlist
-    # goes into the spool, and the detached sender starts (not waited for) - a panel member leaves
-    # the sender to its panel run, a run that keeps its recovery record (survivors, a failed
-    # registration) starts none (the next run's sender delivers). Silent; never fails the run.
-    $telemetryWhy = Submit-TelemetryEvent -Entry $entry -Switch $telemetrySwitch -NoSender:([bool]($panelMember -or $keepPending))
-    if ($telemetryWhy) { Write-Verbose "telemetry: $telemetryWhy" }
+    # (wave 28, R17) telemetry on: the event went into the spool at the commit (wave 28b, D6); now the
+    # detached sender starts (not waited for) - a panel member leaves the sender to its panel run, a
+    # run that keeps its recovery record (survivors, a failed registration) starts none (the next
+    # run's sender delivers), and so does a run whose event was not spooled. Never fails the run.
+    if ($telemetrySwitch.On -and -not $telemetryLine -and -not ($panelMember -or $keepPending)) {
+        $senderWhy = Start-TelemetrySender
+        if ($senderWhy) { Write-Verbose "telemetry: the sender did not start ($senderWhy)" }
+    }
 
     # ------------------------------------------------------------------------- output
+
+    # (wave 28b, D10) test mode never goes unnoticed: said with the run's output (and in warnings[])
+    if (Test-TestMode) { Write-Host "WARNING: $($script:TestModeWarning)" -ForegroundColor Yellow }
 
     $commitWaitLine = ''
     if ($commitWaitMs -gt 0) { $commitWaitLine = "write lock : waited $commitWaitMs ms for another commit of this task" }
@@ -5789,6 +5856,7 @@ try {
         if ($pendingNote) { Write-Summary "pending    : $pendingNote" Yellow }
         if ($commitWaitLine) { Write-Summary $commitWaitLine }
         if ($machineHealthLine) { Write-Summary $machineHealthLine Yellow }
+        if ($telemetryLine) { Write-Summary $telemetryLine Yellow }
         foreach ($d in $driftLines) { Write-Summary $d Yellow }
         Write-Summary "reply file : $replyPath"
         if ($replyJsonRel) { Write-Summary "reply json : $replyJsonPath" }
@@ -5839,6 +5907,7 @@ try {
     if ($pendingNote) { Write-Summary "pending    : $pendingNote" Yellow }
     if ($commitWaitLine) { Write-Summary $commitWaitLine }
     if ($machineHealthLine) { Write-Summary $machineHealthLine Yellow }
+    if ($telemetryLine) { Write-Summary $telemetryLine Yellow }
     foreach ($d in $driftLines) { Write-Summary $d Yellow }
     Write-Summary "reply file : $replyPath"
     if ($replyJsonRel) { Write-Summary "reply json : $replyJsonPath" }
