@@ -22032,7 +22032,7 @@
                      },
                      {
                          "id":  "F48-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -22073,6 +22073,15 @@
                                              "evidence":  "",
                                              "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                              "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T21:35:11+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 28d, commit d65e2e9",
+                                             "evidence":  "",
+                                             "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
+                                             "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -22081,7 +22090,7 @@
                      },
                      {
                          "id":  "F48-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -22122,6 +22131,15 @@
                                              "evidence":  "",
                                              "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                              "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T21:35:17+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 28d, commit d65e2e9",
+                                             "evidence":  "",
+                                             "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
+                                             "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -22130,7 +22148,7 @@
                      },
                      {
                          "id":  "F48-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -22171,6 +22189,15 @@
                                              "evidence":  "",
                                              "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                              "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T21:35:22+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 28d, commit d65e2e9",
+                                             "evidence":  "",
+                                             "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
+                                             "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -22179,7 +22206,7 @@
                      },
                      {
                          "id":  "F48-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -22220,6 +22247,15 @@
                                              "evidence":  "",
                                              "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                              "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T21:35:26+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 28d, commit d65e2e9",
+                                             "evidence":  "",
+                                             "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
+                                             "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -22228,7 +22264,7 @@
                      },
                      {
                          "id":  "F49-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -22291,6 +22327,15 @@
                                              "evidence":  "",
                                              "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                              "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T21:35:29+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 28d, commit d65e2e9",
+                                             "evidence":  "",
+                                             "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
+                                             "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -22299,7 +22344,7 @@
                      },
                      {
                          "id":  "F49-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -22345,6 +22390,15 @@
                                              "evidence":  "",
                                              "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                              "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T21:35:32+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 28d, commit d65e2e9",
+                                             "evidence":  "",
+                                             "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
+                                             "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -22353,7 +22407,7 @@
                      },
                      {
                          "id":  "F49-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -22399,6 +22453,15 @@
                                              "evidence":  "",
                                              "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                              "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T21:35:37+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 28d, commit d65e2e9",
+                                             "evidence":  "",
+                                             "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
+                                             "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -22407,7 +22470,7 @@
                      },
                      {
                          "id":  "F49-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -22466,6 +22529,15 @@
                                              "evidence":  "",
                                              "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                              "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T21:35:41+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 28d, commit d65e2e9",
+                                             "evidence":  "",
+                                             "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
+                                             "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -22474,7 +22546,7 @@
                      },
                      {
                          "id":  "F50-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -22520,6 +22592,15 @@
                                              "evidence":  "",
                                              "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                              "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T21:35:46+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 28d, commit d65e2e9",
+                                             "evidence":  "",
+                                             "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
+                                             "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -22528,7 +22609,7 @@
                      },
                      {
                          "id":  "F50-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -22574,6 +22655,15 @@
                                              "evidence":  "",
                                              "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                              "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T21:35:49+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 28d, commit d65e2e9",
+                                             "evidence":  "",
+                                             "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
+                                             "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
                                          }
                                      ],
                          "reviewer_checks":  [
