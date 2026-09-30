@@ -268,6 +268,30 @@
                                                      "note":  "Predates this range (R15 scoring formula); implemented in an earlier wave and not re-verified in e5c6992..fc6978a.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "score untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -551,6 +575,30 @@
                                                      "note":  "Predates this range (task-scoped rating join); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "reader untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -825,6 +873,30 @@
                                                      "note":  "Predates this range (90-day window / rating bias); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "reader untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -1086,6 +1158,30 @@
                                                      "note":  "Predates this range (topic scoring); still listed as proposed, not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "topic scoring untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -1356,6 +1452,30 @@
                                                      "note":  "Predates this range (diversity-before-rank); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "draw untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -1630,6 +1750,30 @@
                                                      "note":  "Predates this range (panel-size semantics); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "size semantics untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -1900,6 +2044,30 @@
                                                      "note":  "Predates this range (panel seed); wave 28c did not change seeding - `-PanelSeed`/UTC-date nonce at codex-consult.ps1:2740-2741, but no draw was re-verified.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "seed untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -2170,6 +2338,30 @@
                                                      "note":  "Predates this range (no-ratings fallback vs -PanelOrder roster); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "fallback untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -2776,6 +2968,30 @@
                                                      "note":  "Predates this range (-Require contract); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "-Require untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -3050,6 +3266,30 @@
                                                      "note":  "Predates this range (role loading safety); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "roles untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -3333,6 +3573,30 @@
                                                      "note":  "Predates this range (harness matrix); wave 28c adds tests/harness-fixes28c.ps1 but the listed boundaries were not re-checked.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "suites not executed in this read-only review",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -3603,6 +3867,30 @@
                                                      "note":  "Predates this range (README five-member claim); not re-verified.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "UNIQ untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -3886,6 +4174,30 @@
                                                      "note":  "Predates this range (R15 score formula); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "formula untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -4160,6 +4472,30 @@
                                                      "note":  "Predates this range (diversity + lab default); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "labs untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -4425,6 +4761,30 @@
                                                      "note":  "Predates this range (-Role traversal); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "role slugs untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -4893,6 +5253,30 @@
                                                      "note":  "Predates this range (no-ratings ordering discontinuity); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "fallback untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -5158,6 +5542,30 @@
                                                      "note":  "Predates this range (seed derivation/GetHashCode); the seed source is unchanged in this range and the draw was not re-verified.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "seed untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -5423,6 +5831,30 @@
                                                      "note":  "Predates this range (-Roles vs draw order); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "role assignment untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -5693,6 +6125,30 @@
                                                      "note":  "Predates this range (-Require failure after start); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "required-failure paths untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -5963,6 +6419,30 @@
                                                      "note":  "Predates this range (roster validator allowlist); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "allowlists unchanged",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -6233,6 +6713,30 @@
                                                      "note":  "Predates this range (topic attribution in the scoreboard); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "topics untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -6498,6 +7002,30 @@
                                                      "note":  "Predates this range (size vs availability, floor warning); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "no-backfill unchanged",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -6777,6 +7305,30 @@
                                                      "note":  "Predates this range (R14/R15 composition); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "draw untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -7065,6 +7617,30 @@
                                                      "note":  "Predates this range (cross-task join by n); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "reader untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -7344,6 +7920,30 @@
                                                      "note":  "Predates this range (lab default from provider label); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "labs untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -7628,6 +8228,30 @@
                                                      "note":  "Predates this range (score ordering); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "score untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -7907,6 +8531,30 @@
                                                      "note":  "Predates this range (panel id as seed); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "seed untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -8186,6 +8834,30 @@
                                                      "note":  "Predates this range (draw determinism across PowerShell versions); not re-verified - the reference draw is tests/reference-draw.py per codex-consult.ps1:184.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "draw untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -8465,6 +9137,30 @@
                                                      "note":  "Predates this range (-Require availability semantics); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "-Require untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -8753,6 +9449,30 @@
                                                      "note":  "Predates this range (-Require lineage matcher); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "matcher untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -9281,6 +10001,30 @@
                                                      "note":  "Predates this range (-PanelSize undefined combinations); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "not-picked untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -9573,6 +10317,30 @@
                                                      "note":  "Predates this range (existing assertions vs draw); not re-verified here.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "suites not executed",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -9856,6 +10624,30 @@
                                                      "note":  "Predates this range (roster parser fail-closed on lab/require); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "allowlists unchanged",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -10135,6 +10927,30 @@
                                                      "note":  "Predates this range (exploration pool post-gate); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "eligible gate untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -10414,6 +11230,30 @@
                                                      "note":  "Predates this range (exit 5 documentation); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "exit codes unchanged",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -10693,6 +11533,30 @@
                                                      "note":  "Predates this range (-Role validation/precedence); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "roles untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -10976,6 +11840,30 @@
                                                      "note":  "Predates this range (per-member -OffPeakOnly re-check); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "OffPeakOnly untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -11264,6 +12152,30 @@
                                                      "note":  "Predates this range (rating topics, findings.json parse cost, warnings home); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "telemetry schema unchanged",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -12613,6 +13525,30 @@
                                                      "note":  "Predates this range (context-overflow vs quota classification); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -12844,6 +13780,30 @@
                                                      "note":  "Predates this range (case-insensitive identity cache); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -13070,6 +14030,30 @@
                                                      "note":  "Predates this range (Get-KilledTurnFailure stderr words); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -13296,6 +14280,30 @@
                                                      "note":  "Predates this range (truncation vs failure hint); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -13526,6 +14534,30 @@
                                                      "note":  "Predates this range (resume serializer options); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "serializer untouched here",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -13756,6 +14788,30 @@
                                                      "note":  "Predates this range (recovery record after Start-Process error); the comment at codex-consult.ps1:1771-1773 claims it is restored on every path that starts nothing, but the behaviour was not re-verified in this range.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "wave 24c",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -13963,6 +15019,30 @@
                                                      "note":  "Predates this range (recorded vs asked panel size); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "size code untouched in this range",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -14687,6 +15767,30 @@
                                                      "note":  "Predates this range (legacy rating completion); not touched by wave 28c.",
                                                      "base_commit":  "9657cf9d6b3f00c985379f52bece5f81606fefc0",
                                                      "tree_sha256":  "9f073e0b355d515c29a01898a7b3891bc1677b2d21f2bcf857dee7f6a86949ab"
+                                                 },
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Outside wave 28d scope; predates this range and was not re-checked in fc6978a..d65e2e9.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "rating reader untouched",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                                  }
                                              ]
                      },
@@ -22032,7 +23136,7 @@
                      },
                      {
                          "id":  "F48-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -22082,15 +23186,47 @@
                                              "evidence":  "",
                                              "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
                                              "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T22:01:13+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "re-acceptance panel 7d9a3136 on d65e2e9: glm, mimo and gemini confirm it fixed (handoffs 53-55)",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Atomic tmp-and-replace rewrite.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D1: Spool is rewritten atomically via temp file and atomic replace; SetLength(0) in-place truncation removed.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "temp-file + atomic replace; never truncated in place; crash hook covered (10227-10275)",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F48-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -22140,15 +23276,47 @@
                                              "evidence":  "",
                                              "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
                                              "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T22:01:18+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "re-acceptance panel 7d9a3136 on d65e2e9: glm, mimo and gemini confirm it fixed (handoffs 53-55)",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Marker owner record and self-healing.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D2: Forgetting marker records owner pid/start_time, removed in finally; self-heals under lock if owner is gone.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "marker names its owner, removed in finally, self-heals under the lock (9449-9475)",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F48-3",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -22198,15 +23366,47 @@
                                              "evidence":  "",
                                              "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
                                              "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T22:01:23+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "re-acceptance panel 7d9a3136 on d65e2e9: glm, mimo and gemini confirm it fixed (handoffs 53-55)",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Owner-bearing lock and 30 s ownerless rule.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D3: Flush lock born with owner metadata; unreadable/ownerless lock held while younger than 30 s.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "lock born with its owner via temp+Move; ownerless held 30 s then removed (10317-10366)",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F48-4",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -22256,15 +23456,47 @@
                                              "evidence":  "",
                                              "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
                                              "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T22:01:27+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "re-acceptance panel 7d9a3136 on d65e2e9: glm, mimo and gemini confirm it fixed (handoffs 53-55)",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "No prompt hash; estimate excludes the line.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D8: Thread reuse does not hash prompt; prompt re-read line length subtracted from context window estimate.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "no prompt hash; the context estimate subtracts the re-read line (4069-4072)",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F49-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -22309,7 +23541,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F54-1"
                                            ],
                          "source":  {
                                         "consult":  34,
@@ -22336,15 +23568,47 @@
                                              "evidence":  "",
                                              "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
                                              "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T22:01:32+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "re-acceptance panel 7d9a3136 on d65e2e9: glm, mimo and gemini confirm it fixed (handoffs 53-55)",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Unverified pids omitted from the recovery record (finding #1).",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D5: Both survivors and unverified descendants named in warnings and outcome text.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Unverified pids named beside survivors in warning, outcome and Problem text (1746-1774, 1860-1862)",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F49-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -22372,7 +23636,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F54-2"
                                            ],
                          "source":  {
                                         "consult":  34,
@@ -22399,15 +23663,47 @@
                                              "evidence":  "",
                                              "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
                                              "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T22:01:37+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "re-acceptance panel 7d9a3136 on d65e2e9: glm, mimo and gemini confirm it fixed (handoffs 53-55)",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Append-only counter without the lock; contention residual is finding #2.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D4: Not-spooled count appended lock-free with retry; flush records seen lines without deleting file.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "append-only lock-free counter with a .last cursor; complete lines only",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F49-3",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -22462,15 +23758,47 @@
                                              "evidence":  "",
                                              "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
                                              "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T22:01:42+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "re-acceptance panel 7d9a3136 on d65e2e9: glm, mimo and gemini confirm it fixed (handoffs 53-55)",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Atomic rewrite.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D1: Spool rewritten atomically via temp file and move/replace (same fix as F48-1).",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "same as F48-1",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F49-4",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -22538,15 +23866,47 @@
                                              "evidence":  "",
                                              "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
                                              "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T22:01:47+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "re-acceptance panel 7d9a3136 on d65e2e9: glm, mimo and gemini confirm it fixed (handoffs 53-55)",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accepted limitation: living owner never taken over; remedy documented.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D3: Hung flush lock diagnosed as stuck after 30 min with explicit operator remedy; cleared on next flush.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "stuck sender reported in .last and -Status with the remedy; auto-recovers when the owner dies",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F50-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -22601,15 +23961,47 @@
                                              "evidence":  "",
                                              "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
                                              "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T22:01:52+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "re-acceptance panel 7d9a3136 on d65e2e9: glm, mimo and gemini confirm it fixed (handoffs 53-55)",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Both model sides lower-cased.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D6: Get-TelemetryModelToken lower-cases both query and table entry before comparing.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "both sides lower-cased (9662-9668)",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 }
                                              ]
                      },
                      {
                          "id":  "F50-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -22664,6 +24056,292 @@
                                              "evidence":  "",
                                              "base_commit":  "d65e2e925bacdf8fe3cc887bfc0c63448f927bfd",
                                              "tree_sha256":  "7ec13d5de64ecc0233aba52c0b6d7fa4929e78822030fd82fcda74a66591e8b8"
+                                         },
+                                         {
+                                             "when":  "2026-09-30T22:01:56+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "",
+                                             "evidence":  "re-acceptance panel 7d9a3136 on d65e2e9: glm, mimo and gemini confirm it fixed (handoffs 53-55)",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  37,
+                                                     "when":  "2026-09-30T21:51:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Inline ask repeated for context members.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  38,
+                                                     "when":  "2026-09-30T21:55:18+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D7: Inline -Prompt with context_tokens gets ask repeated at prompt end before consultation ID.",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 },
+                                                 {
+                                                     "consult":  36,
+                                                     "when":  "2026-09-30T21:59:04+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "the inline ask repeated, folded, cut at 500 (4039-4046)",
+                                                     "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                                     "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F53-1",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  9983
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-telemetry.ps1",
+                                               "line":  190
+                                           }
+                                       ],
+                         "claim":  "The not-spooled counter is an append-only file that no flush ever rotates; only `codex-telemetry.ps1 -Forget -Local` deletes it. Between forgets the file grows without bound — one short JSON line per event that could not be spooled — and `-Status`\u0027s \u0027since the last flush\u0027 count depends on `.last`\u0027s `not_spooled_seen` cursor staying in sync. The volume is tiny in practice (lost events are rare), so this is an observability hygiene note, not a functional defect.",
+                         "trigger":  "A busy or contended spool (or a stuck forgetting marker) over months of operation with many panel commits and no -Forget -Local ever run.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:9976-9984",
+                                              "observation":  "Add-TelemetryNotSpooled appends unconditionally; the comment says \u0027no flush empties it\u0027"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-telemetry.ps1:188-190",
+                                              "observation":  "-Status reads the whole file and counts lines after the .last cursor; nothing prunes it"
+                                          }
+                                      ],
+                         "verification":  "After N forced not-spooled events without a -Forget -Local, count the file\u0027s lines and -Status\u0027s Total: both grow by N and never shrink.",
+                         "remedy":  "Trim the file to the lines after the newest `not_spooled_seen` cursor whenever a flush records a new one (under the telemetry lock), or drop lines older than the spool\u0027s own 7-day horizon.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  36,
+                                        "reply":  "handoffs/53-codex-reply-zai.md",
+                                        "thread":  "01a0f3d5-3f0a-7db0-bd25-91b994a0060f",
+                                        "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                        "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-30T21:59:04+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F54-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1865
+                                           }
+                                       ],
+                         "claim":  "A kill with survivors and an unreadable-start descendant names the unverified pid only on the console; the recovery record\u0027s survivors list still contains only confirmed alive pids, so the next run cannot check the unverified process.",
+                         "trigger":  "A timeout kill leaves one confirmed survivor and one descendant whose start time cannot be read.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult.ps1:1749,1760-1772,1862-1866,4551-4555",
+                                              "observation":  "Warning and outcome include Unverified; pendingRecord.survivors is built from $surv alone."
+                                          }
+                                      ],
+                         "verification":  "Fake the mixed kill and inspect the pending record.",
+                         "remedy":  "Add unverified pids (with their reason) to the recovery record and require the next run to check them.",
+                         "supersedes":  [
+                                            "F49-1"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  37,
+                                        "reply":  "handoffs/54-codex-reply-mimo.md",
+                                        "thread":  "01a0f3d5-3fcb-71c1-ba6a-0bd8845b9f69",
+                                        "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                        "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-30T21:51:56+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F54-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  9977
+                                           }
+                                       ],
+                         "claim":  "Add-TelemetryNotSpooled appends without a lock and silently stops retrying after 5 s, so concurrent producers can lose not-spooled counts despite the append-only design.",
+                         "trigger":  "Two failed commits append while another writer holds the file on Windows PowerShell 5.1.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "common.ps1:9977-9995",
+                                              "observation":  "AppendAllText is retried 100 times then the function returns with no error."
+                                          }
+                                      ],
+                         "verification":  "Hold the file open and force concurrent failed commits; compare -Status with console warnings.",
+                         "remedy":  "Serialize appends with a named mutex or an exclusive append lock and surface a warning when the count cannot be written.",
+                         "supersedes":  [
+                                            "F49-2"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  37,
+                                        "reply":  "handoffs/54-codex-reply-mimo.md",
+                                        "thread":  "01a0f3d5-3fcb-71c1-ba6a-0bd8845b9f69",
+                                        "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                        "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-30T21:51:56+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F54-3",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  9449
+                                           }
+                                       ],
+                         "claim":  "Forgetting-marker liveness uses pid plus a start-time string; a recycled pid with identical start-time resolution is treated as a living owner and can block telemetry indefinitely.",
+                         "trigger":  "-Forget is killed and its pid is reused with the same recorded start time.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "common.ps1:9449-9475",
+                                              "observation":  "Get-TelemetryForgettingOwner delegates liveness to Test-PidAlive with the stored start time."
+                                          }
+                                      ],
+                         "verification":  "Recycle the pid with the same start-time value and attempt a commit.",
+                         "remedy":  "Include a creation nonce or finer-resolution process identity in the marker.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  37,
+                                        "reply":  "handoffs/54-codex-reply-mimo.md",
+                                        "thread":  "01a0f3d5-3fcb-71c1-ba6a-0bd8845b9f69",
+                                        "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                        "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-30T21:51:56+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F54-4",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  4041
+                                           }
+                                       ],
+                         "claim":  "The inline re-read anchor folds a multi-line -Prompt to one whitespace-collapsed, possibly truncated line, which can make distinct asks indistinguishable.",
+                         "trigger":  "A context_tokens member runs with a multi-line prompt longer than 500 characters.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "codex-consult.ps1:4039-4046",
+                                              "observation":  "ConvertTo-OneLine then Substring(0,500) builds the repeated anchor."
+                                          }
+                                      ],
+                         "verification":  "Inspect the final prompt for a multi-line prompt.",
+                         "remedy":  "Hash or excerpt each line, or point to stable offsets instead of one folded line.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  37,
+                                        "reply":  "handoffs/54-codex-reply-mimo.md",
+                                        "thread":  "01a0f3d5-3fcb-71c1-ba6a-0bd8845b9f69",
+                                        "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                        "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-09-30T21:51:56+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
+                                             "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -23135,6 +24813,60 @@
                         "useful":  "yes",
                         "note":  "",
                         "when":  "2026-09-30T16:28:51+02:00"
+                    },
+                    {
+                        "n":  36,
+                        "consult_id":  "6238f064-1419-46cc-90d0-1a33764a9d46",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+                                       "bridge",
+                                       "powershell",
+                                       "telemetry"
+                                   ],
+                        "consult_when":  "2026-09-30T21:40:31+02:00",
+                        "useful":  "yes",
+                        "note":  "",
+                        "when":  "2026-09-30T22:02:00+02:00"
+                    },
+                    {
+                        "n":  37,
+                        "consult_id":  "a830d2df-2bd5-48d8-90f5-25170c423e8c",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+                                       "bridge",
+                                       "powershell",
+                                       "telemetry"
+                                   ],
+                        "consult_when":  "2026-09-30T21:40:31+02:00",
+                        "useful":  "yes",
+                        "note":  "",
+                        "when":  "2026-09-30T22:02:04+02:00"
+                    },
+                    {
+                        "n":  38,
+                        "consult_id":  "d43d4982-cf4d-4087-ad6c-6af12d2f4512",
+                        "lineage":  "gemini :: gemini-3.8-flash-high [agy]",
+                        "provider":  "gemini",
+                        "model":  "gemini-3.8-flash-high",
+                        "engine":  "agy",
+                        "purpose":  "acceptance",
+                        "topics":  [
+                                       "bridge",
+                                       "powershell",
+                                       "telemetry"
+                                   ],
+                        "consult_when":  "2026-09-30T21:41:17+02:00",
+                        "useful":  "partly",
+                        "note":  "confirmed the fixes; no finding of its own",
+                        "when":  "2026-09-30T22:02:09+02:00"
                     }
                 ]
 }

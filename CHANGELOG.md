@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0] - candidate (not tagged)
+## [0.5.0] - 2026-09-30
 
 The next candidate. Wave 24 (the "operator visibility" wave, ROADMAP T1-T3 and the
 availability decisions D14-D17 of the companions design review,
