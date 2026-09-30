@@ -7,7 +7,8 @@
     codex-consult-common.ps1) and reports the built-in openai plus every
     [model_providers.<name>] table - and (0.4.0) one row per provider label that the
     reviewer roster declares with another engine than codex (e.g. "engine": "agy" or, wave
-    23, "engine": "muse"):
+    23, "engine": "muse", or, wave 29, "engine": "claude" - its sign-in is `claude auth
+    status`, local and free, in the child environment of the label's first entry's auth):
 
       verdict      available               credentials present and the table usable
                    unavailable (<reason>)  credentials missing, the table unusable, an
@@ -104,7 +105,8 @@
                    provider, model, engine, lineage, group, state, kind, reason, short,
                    hit, until}]} - the SessionStart hook reads it (with -NoNetwork).
 
-    No network call for codex providers; at most one `agy models` call per agy engine (none
+    No network call for codex providers; at most one `claude auth status` per claude label
+    and auth (none with -NoNetwork); at most one `agy models` call per agy engine (none
     after a usable agy reply within the last 60 minutes, none with -NoNetwork, which the
     SessionStart hook uses); nothing is written; no task lock is taken.
     Exit codes: with -Provider <name>: 0 available, 2 unavailable, 3 unknown, 1 usage
@@ -348,8 +350,10 @@ foreach ($name in $names) {
 foreach ($el in $engineLabels) {
     $spec = Get-EngineSpec -Name $el.Engine
     $engineLauncher = Get-EngineLauncher -Engine $el.Engine -Launchers $engineLaunchers
-    $model = [string](@($roster.Entries | Where-Object { $_.Provider -ceq $el.Name } | Select-Object -First 1).Model)
-    $probe = Get-CachedReviewerIdentity -Cache $listingCache -Config $config -Provider $el.Name -Model $model -Engine $el.Engine -Launcher $engineLauncher
+    $firstOfLabel = @($roster.Entries | Where-Object { $_.Provider -ceq $el.Name } | Select-Object -First 1)
+    $model = [string]$firstOfLabel.Model
+    # (wave 29) the label's first entry's auth (claude: subscription | api-key) - its sign-in check
+    $probe = Get-CachedReviewerIdentity -Cache $listingCache -Config $config -Provider $el.Name -Model $model -Engine $el.Engine -Launcher $engineLauncher -Auth ([string]$firstOfLabel.Auth)
     $health = $null
     if ($probe.Resolved) { $health = Get-CachedEndpointHealth -Cache $listingCache -Consults $consults -Fingerprint $probe.Fingerprint -UtcNow $utcNow }
     # (a usable reply on this endpoint within the last 60 minutes evidences the sign-in: no

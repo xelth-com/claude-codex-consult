@@ -35,6 +35,7 @@ findings stores included - and run no git command (commit, checkout, stash, pull
 notes and write them once the panel has closed (`-Status` says done). Both engines are checked
 by evidence: a change during an agy run fails that member; during a muse run it is a warning
 (muse runs write-disabled, wave 26b) - in either case the reviewer read a moving target.
+(Wave 29) A `claude` member (Claude Code headless) is checked by evidence like agy: a change during its run fails that member.
 
 **No `codex-consult:` line?** When neither your instructions nor your context carry a line that starts with
 `codex-consult:` (a host without the SessionStart hook, or one whose hook did not reach you), run the hook
@@ -246,6 +247,7 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   then `muse login`). Its sign-in is `~/.config/muse/auth.json`; never read that file. The same read-only tree
   check as agy applies. `-EngineExe <path>` names the launcher of the selected engine
   (`-Engine`'s, else the roster's only engine other than codex).
+- (Wave 29) `-Engine claude` (Claude Code headless `claude -p`, for the Claude subscription or an API key; `"engine": "claude"`, label e.g. `anthropic`, `-Model sonnet` or an id such as `claude-opus-5-5`; `model` is required and one of the README's table in "Engines (wave 29)"): the effort goes as `--effort`; modes `new`, `resume` and `fork`; files `handoffs/<NN>-claudecode-<slug>.*`; a denial retry on evidence; `-MaxModelSteps <n>` sends `--max-turns <n>`. Its sign-in is `claude auth login` (the USER does it); never route it through `ANTHROPIC_BASE_URL`. The same strict read-only tree check as agy applies.
 - `-NativeEffort <value>` — send an effort value verbatim when the resolved provider's
   endpoint has no known vocabulary (the run refuses `-Effort` in that case and tells you
   to use this instead).

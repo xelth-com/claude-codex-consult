@@ -10,7 +10,7 @@ needs no ChatGPT plan.
 
 ## For the agent installing this
 
-- **What it is:** a dependency-free PowerShell bridge that runs `codex exec` for a review (or, per roster entry, another CLI "engine": Google's Antigravity CLI `agy` for the Gemini models, Meta's Muse Code CLI `muse` for the Muse Code subscription - see "Engines"), records the consultation as files (brief, verbatim reply, JSON ledger), and manages reviewer identity, availability, a roster/panel and structured findings.
+- **What it is:** a dependency-free PowerShell bridge that runs `codex exec` for a review (or, per roster entry, another CLI "engine": Google's Antigravity CLI `agy` for the Gemini models, Meta's Muse Code CLI `muse` for the Muse Code subscription, Claude Code headless `claude` for the Claude subscription or an API key - see "Engines"), records the consultation as files (brief, verbatim reply, JSON ledger), and manages reviewer identity, availability, a roster/panel and structured findings.
 - **Prerequisites.** Check each with the command; do not assume:
   - [ ] Windows PowerShell 5.1 or PowerShell 7: `powershell -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` or `pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` → `5.1.…` or `7.…` (on Windows use `powershell` - always present; `pwsh` there may be only the WindowsApps alias, which a host's sandbox can refuse to execute; `pwsh` on macOS, Linux and a real PowerShell 7 install)
   - [ ] git: `git --version` → `git version …`
@@ -18,12 +18,13 @@ needs no ChatGPT plan.
   - [ ] a reviewer: `codex login status` → `Logged in using ChatGPT`, **or** a `[model_providers.<name>]` table whose `env_key` variable the USER has set. Never create, print or paste an API key.
   - [ ] optional, Gemini through the `agy` engine: `agy models` → lines `<model id><TAB><name>` (the USER installed Google's Antigravity CLI and signed in by running `agy` once; you never handle the login). See "Engines".
   - [ ] optional, Meta Muse through the `muse` engine: the USER installed Muse Code and signed in with `muse login` with the user variable `TBH_CREDENTIAL_BACKEND=file` set first (required on every OS: the bridge launches muse only on an oauth sign-in it can read from `~/.config/muse/auth.json`); `codex-providers.ps1` then shows the roster's muse row with `ok: signed in (~/.config/muse/auth.json: providers.meta, mechanism oauth)`. `META_API_KEY` and `MODEL_API_KEY` must NOT be set (a muse run is refused then: it would bill per token). You never read `auth.json` or handle the login. See "Engines (wave 23)".
+  - [ ] optional, Claude through the `claude` engine: the USER installed Claude Code (`claude --version` -> `2.1...` or newer) and signed in (`claude auth login`, or `/login` in an interactive session); `codex-providers.ps1` then shows the roster's claude row with `ok: signed in (claude.ai subscription)`. The USER must not route Claude Code through `ANTHROPIC_BASE_URL`, Bedrock, Vertex or Foundry (such a setup is unavailable, and those variables never reach the reviewer). You never handle the login or an API key. See "Engines (wave 29)".
 - **Telemetry, on by default (0.5.0):** after every consultation ONE anonymised event (engine, provider label, model, purpose, outcome class, counts, versions, a salted instance id - never a task, brief, prompt, path or name) goes to the maintainer's intake; installing the plugin means accepting these terms. Tell the operator before the first consultation; `CODEX_CONSULT_TELEMETRY=off` (a user variable the OPERATOR sets) switches it off. The exact payload: "Telemetry (on by default)".
 - **Install:** the section "Install" - one host each: the plugin system of your agent host (the operator runs the install commands), or a clone for any shell.
 - **Verify:** `codex-providers.ps1` → at least one row `available`; then a `-DryRun` consultation → first line `DRY RUN - nothing was executed and no file was written.` and a line `preflight   : available (…)`. Exact commands: "Setup on a new machine", steps 0 and 9.
 - **First consultation:** the `consult-codex` skill (`codex-consult:consult-codex <task-id> <question>`), or the command under "Usage".
 - **Coordinating:** the `coordinate` skill (workers, waves, waits) - "For the coordinator".
-- **More reviewers** (z.ai GLM, Xiaomi MiMo, any Responses-API provider; Gemini through the `agy` engine; Meta Muse through the `muse` engine): follow the `setup-providers` skill.
+- **More reviewers** (z.ai GLM, Xiaomi MiMo, any Responses-API provider; Gemini through the `agy` engine; Meta Muse through the `muse` engine; Claude through the `claude` engine): follow the `setup-providers` skill.
 
 ---
 
@@ -307,6 +308,8 @@ and every engine child is started without your host's markers (ledger `child_env
 named with the coordinator's brief prefix, `handoffs/<NN>-<prefix>-<slug>.md`: `claude` by
 default (every existing ledger uses it), another slug through `-BriefPrefix` or
 `CODEX_CONSULT_BRIEF_PREFIX` - never `codex`, `agy` or `muse`, the bridge's reply prefixes.
+
+(Wave 29) A Claude Code coordinator sets `CODEX_CONSULT_COORDINATOR="anthropic :: <its model id>"` (a trailing `[1m]` is stripped). For a reviewer of the `claude` engine the ENGINE fixes the vendor: the coordinator's provider is compared with `anthropic` (case-insensitive) whatever the roster label, and the models after normalising (`[1m]` stripped, an alias equal to any id of its family); after the run the resolved model is compared again and a warning is added when the answer changed - always a warning, never a refusal ("Engines (wave 29)").
 
 The `coordinate` skill also carries the idle watchdog (its rule 3): one recurring wake every 30
 minutes, armed at your first delegation or wait and kept while any running work exists (a worker,
@@ -607,6 +610,8 @@ panel". An invalid roster refuses **every** run, dry runs included, so validate 
 once: `codex-providers.ps1` must not exit `1`. To use another file, the user sets
 `CODEX_CONSULT_ROSTER=<path>` (the file must exist); `CODEX_CONSULT_ROSTER=none` switches
 the roster off.
+
+(Wave 29) An entry of the `claude` engine carries `"auth": "subscription"` (the default) or `"api-key"` and a `model` from the engine's table: "Engines (wave 29)".
 
 **8. Peak windows (optional).** If a plan bills more at peak hours, the user sets
 `CODEX_CONSULT_PEAK_<PROVIDER>`, e.g. `setx CODEX_CONSULT_PEAK_ZAI "Mon-Fri 14:00-18:00 +08:00"`,
@@ -1283,8 +1288,8 @@ This is the only place field meanings are listed; other sections refer to them b
 | `reviewer.provider` / `reviewer.provider_source` | the provider that answered; how it was decided: `-Provider`, `config`, `codex default`, `roster`, `-Thread` or `unknown` |
 | `reviewer.model` / `reviewer.model_source` | the model that answered (`unknown` when unresolvable); `-Model`, `config`, `roster`, `-Thread` or `unknown` |
 | `reviewer.engine` | (0.4.0) the CLI that carried the run: `codex`, `agy` or (wave 23) `muse` (see "Engines"); an entry without it is `codex`. A thread never mixes engines |
-| `reviewer.harness` | `codex-cli <version>` (`agy-cli <version>` or `agy-cli (version unknown)` for agy; `muse-cli <version>` for muse, from `.muse-version` next to the launcher, else `muse --version`); audit only, never compared |
-| `reviewer.provider_fingerprint` / `reviewer.provider_config` | SHA-256 of the canonical endpoint (`""` when identity is unresolved); `{base_url, wire_api}` of the table (no `wire_api` key when the table has none), or `{builtin: "openai"}`; for the agy engine SHA-256 of `cc-engine-v1\|agy` and `{engine, launcher}`; for the muse engine SHA-256 of `cc-engine-v1\|muse` and `{engine, launcher, credential_mechanism}` (the sign-in's `providers.meta.mechanism`, e.g. `oauth`; `null` when it cannot be read) |
+| `reviewer.harness` | `codex-cli <version>` (`agy-cli <version>` or `agy-cli (version unknown)` for agy; `muse-cli <version>` for muse, from `.muse-version` next to the launcher, else `muse --version`); audit only, never compared (Wave 29) Claude: `claude-cli <ProductVersion>` from the native `claude.exe` file metadata (e.g. `claude-cli 2.1.285.0`), else `claude --version` (an npm shim), else `claude-cli (version unknown)`. |
+| `reviewer.provider_fingerprint` / `reviewer.provider_config` | SHA-256 of the canonical endpoint (`""` when identity is unresolved); `{base_url, wire_api}` of the table (no `wire_api` key when the table has none), or `{builtin: "openai"}`; for the agy engine SHA-256 of `cc-engine-v1\|agy` and `{engine, launcher}`; for the muse engine SHA-256 of `cc-engine-v1\|muse` and `{engine, launcher, credential_mechanism}` (the sign-in's `providers.meta.mechanism`, e.g. `oauth`; `null` when it cannot be read) (Wave 29) For the claude engine: SHA-256 of `cc-engine-v1|claude|<auth>|<model family>` (e.g. `cc-engine-v1|claude|subscription|opus`) and `{engine, launcher, credential_mechanism, auth_method, api_provider}` - `credential_mechanism` is the roster `auth`, `auth_method` and `api_provider` are the `authMethod` and `apiProvider` of `claude auth status` (never the account's e-mail or organisation). |
 | `reviewer.identity_note` | why identity is unresolved, or how it was derived (e.g. a user-defined `[model_providers.openai]` table); `""` otherwise |
 | `lineage` | `<provider> :: <model>`, display only; matching never compares this string |
 | `coordinator` | (0.5.0, wave 27; right after `lineage`) who asked: `{provider, model, engine, host, host_by, source, in_roster, unresolved}`. `provider`/`model`/`engine` from `CODEX_CONSULT_COORDINATOR` (`<provider> :: <model>` [` [<engine>]`], a roster position `#<n>`, or a label), else `null` - (wave 27c, D9) a RESOLVED triple, through the rules of a seated reviewer: `#<n>` and a label take the model of their roster entry, else the model the bridge would run (the Codex config's), a lineage its entry's engine, else `codex`; `model` stays `null` for a label whose model cannot be told (two roster models of it); `host` the coordinator's agent host, a HINT only, in this order - `codex` (`CODEX_SESSION_ID`/`CODEX_THREAD_ID`, looked at first), `zcode` (wave 27c, D20: ANY `ZCODE_` variable), `claude-code` (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `AI_AGENT` starting with `claude-code`), else the install path of the running script - (wave 28b, D11) ANCHORED: only a script UNDER a host's plugin directory of this home, `~/.claude/plugins/cache/` (`claude-code`), `~/.codex/plugins/cache/` or `<codex home>/plugins/cache/` (`codex`), `~/.zcode/cli/plugins/cache/` (`zcode`), `~/.qwen/extensions/` (`qwen-code`); a path that merely contains such a name gives no hint -, else `unknown` (e.g. Kimi Code from a clone); `host_by` `markers`, `path` or `none`; `source` `explicit` (the variable is set), `inferred` (a host hint only) or `none`; `in_roster` (D11) `true`/`false` - `false`: no roster entry matches, said on the console, never refused - or `null` (no roster, no identity); `unresolved` (D12) `null`, or the `#<n>` that named no roster position here (a warning; the run goes on). Resolved once per run: a panel member and a detached run carry their run's. NOT the `host` of the lock, recovery and status records, which stays the machine name |
@@ -1329,7 +1334,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `unchecked_prior_blockers` | open prior blockers the reviewer did not check while answering `ACCEPT` |
 | `usage` / `wall_seconds` | token counts from the event stream (agy: `cache_read_tokens` -> `cached_input_tokens`, `thinking_tokens` -> `reasoning_output_tokens`, plus `total_tokens`; muse: `null` - its records carry no usage); wall time |
 | `compactions` | (wave 28c, D11 / F43-3, F44-6; right after `usage`) how often the reviewer compacted its context during the run, as its ENGINE REPORTED it in the event streams of the run's turns (`Get-CompactionCount`: a `context_compacted` / `compacted` / `thread.compacted` event, or an `item.completed` whose item is a `context_compaction` / `contextCompaction` / `compaction` - the names of the Codex CLI's protocol): a number n > 0 - and the warning `the reviewer compacted its context <n> time(s) - the reply may rest on a summary of the brief`; `unknown` for a member with `context_tokens` when none was reported - the installed codex-cli 0.155.1's `exec --json` stream reports no compaction at all (its item types, read from the binary: agent_message, reasoning, command_execution, file_change, mcp_tool_call, collab_tool_call, web_search, todo_list), so "none seen" is not "none happened"; `null` otherwise. The prompt of a member with `context_tokens` (and a `-Brief`) names the brief again as its last line before the consultation id: ``Before you answer, re-read the brief: `<path>`.`` |
-| `engine_run` | (wave 23) `null` for codex; for an engine `{turns, max_model_steps, msp_schema_version}`: the engine turns started (the main turn, a denial retry, a format repair - each muse turn spends one Muse Code subscription prompt), `-MaxModelSteps` as sent (`null` when not), the MSP `schema_version` of a muse stream (`null` for agy); right after `compactions` (wave 28c; before: `usage`) |
+| `engine_run` | (wave 23) `null` for codex; for an engine `{turns, max_model_steps, msp_schema_version}`: the engine turns started (the main turn, a denial retry, a format repair - each muse turn spends one Muse Code subscription prompt), `-MaxModelSteps` as sent (`null` when not), the MSP `schema_version` of a muse stream (`null` for agy); right after `compactions` (wave 28c; before: `usage`) (Wave 29) For the claude engine `{turns, max_model_steps, msp_schema_version (null), auth, init_tools, mcp_servers, permission_mode, api_key_source, model_resolved, other_models, permission_denials, denied_tools, rate_limit, cost_usd, child_env_allowed, switched_off}`: the init event's proof of every turn, the ONE resolved model of the thread, the raw most-severe `rate_limit_event` info, `total_cost_usd` (local only; notional on a subscription), the NAMES (never values) of the environment variables the child received, and what R22 switched off. |
 | `finished_at` | (0.4.x wave 21) when the entry was committed (`when` is the reviewer's start). The endpoint health's "newest wins" orders by it (older entries: `when` + `wall_seconds`), ties by `n` - a panel's members finish in any order |
 | `commit_wait_ms` | (0.4.x wave 21) how long the commit waited for the write lock because another commit of the task held it (`0`: it was free); the console says `write lock : waited N ms for another commit of this task` when it waited |
 
@@ -2032,6 +2037,7 @@ ships (`caps-v1`, ledger `effort_caps`), never inferred from a host or model pre
 | `token-plan.ap-southeast-1.maas.aliyuncs.com` (Alibaba Model Studio Token Plan, base URL `/compatible-mode/v1`) | `low\|medium\|high\|xhigh` | `qwen3.8-max`, `qwen3.8-flash`, `qwen3.7-max`, `qwen3.7-plus`, `qwen3.6-flash`, `deepseek-v4.1-flash`, `deepseek-v4-pro`, `deepseek-v4-pro-0813`, `deepseek-v4-flash-0731`, `glm-5.3`, `glm-5.2` (11, exact; the plan's `auto` router is not declared) | all four as is (`alibaba-v1`) | `prompt-only` |
 | `engine:agy` (the agy engine) | none: the tier is part of the model id | any model | nothing sent (`model-tier`) | `native` (`--json-schema`) |
 | `engine:muse` (the muse engine, wave 23) | `low\|medium\|high\|xhigh` (`--reasoning-effort`; the CLI also takes none, minimal, max, ultra) | `muse-spark-1.3`, `muse-spark-1.3-contributor` (2, exact: the live-verified subscription models) | all four as is (`muse-v1`) | `native` (`--output-schema`) |
+| `engine:claude` (the claude engine, wave 29) | `low\|medium\|high\|xhigh` (`--effort`; `max` only through `-NativeEffort`) | the ids and aliases of the engine's model table ("Engines (wave 29)") | all four as is (`claude-v1`); the repair turn sends `low`; `effort_confirmed` `null` | `native` (`--json-schema`) |
 | any other host | none (needs `-NativeEffort`) | — | — | `prompt-only` (safe default) |
 
 Anything undeclared (another model on a known host, any model on an unknown host, an
@@ -2115,9 +2121,9 @@ a fabricated one is `examples/codex-consult-roster.json`.
 | `reviewers[].provider` | required: `openai` or a `[model_providers.<name>]` table |
 | `reviewers[].model` | optional: omit it to use the config's top-level `model` |
 | `reviewers[].codex_config` | optional array of `key=value` strings, `-CodexConfig` rules |
-| `reviewers[].auth` | optional `"none"`: the endpoint needs no credential, so a table with no `env_key` and no bearer token passes the check. No effect on a table that names an `env_key`, nor on `openai`/`requires_openai_auth` providers (always `codex login status`) |
+| `reviewers[].auth` | optional `"none"`: the endpoint needs no credential, so a table with no `env_key` and no bearer token passes the check. No effect on a table that names an `env_key`, nor on `openai`/`requires_openai_auth` providers (always `codex login status`) (Wave 29) For the `claude` engine only: `"subscription"` (default; the Claude subscription signed in through Claude Code) or `"api-key"` (`ANTHROPIC_API_KEY`); `"none"` is refused for it. |
 | `reviewers[].panel` | `"always"` (default) or `"weighty"`: joins a `-Panel` run only on `framing`, `decision`, `core-contract`, `acceptance` and `stuck`, or under `-PanelAll` |
-| `reviewers[].engine` | (0.4.0) `"codex"` (default), `"agy"` or (wave 23) `"muse"`: the CLI that carries it (see "Engines"). For `agy` and `muse`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster |
+| `reviewers[].engine` | (0.4.0) `"codex"` (default), `"agy"` or (wave 23) `"muse"`: the CLI that carries it (see "Engines"). For `agy` and `muse`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster (Wave 29) `"claude"`: Claude Code headless (`claude -p`): `provider` is a free label (default `anthropic`), `model` is REQUIRED and must be one of the engine's table (aliases `opus`, `sonnet`, `haiku`, `fable` and the ids listed in "Engines (wave 29)", each optionally ending in `[1m]`), `auth` is `subscription` or `api-key`, `codex_config` is refused. |
 | `reviewers[].lab` | (0.5.0, wave 26) optional: the lab behind the model (`"moonshot"`, `"deepseek"`, ...; canonical lowercase) for a panel's lab diversity. Omitted: the vendor of the model id's prefix (qwen alibaba, deepseek, kimi/k3 moonshot, glm zhipu, dola/seed bytedance, mimo xiaomi, gemini google, muse meta, gpt openai) - never the provider label - else a lab of its own (a routed panel warns) |
 | `reviewers[].roles` | (wave 26) optional array of role names the entry is willing to take under `-Roles` ("Companions") |
 | `reviewers[].timeout_sec` | (wave 26b, D11) optional integer 60-86400: this reviewer's main-turn timeout in place of the purpose's default (a panel member or a single run of the entry; an explicit `-TimeoutSec` still wins for all); ledger `timeout_source` `roster`; the panel's `Timeout:` line lists it (`3600 s per member; #7 alibaba :: qwen3.8-max 1200 s (roster)`) |
@@ -2183,6 +2189,7 @@ own, so a panel takes about as long as its slowest member instead of the sum of 
   after another in roster order, `k` at most k at a time. The first output line says which
   (`at once`, `one after another`, `at most 2 at a time`), a `Concurrency:` line lists the
   endpoint groups, and each member's ledger `panel` record carries `concurrency` and `limits`.
+  (Wave 29) The members of the `claude` engine are one scheduling group whatever their labels: they run ONE AT A TIME by default, and `"parallel": {"anthropic": 2}` raises it (two `claude -p` runs at once in one directory were observed to work, not guaranteed).
 - *The panel run owns the task.* It holds `.consult.lock` for the whole panel (its record
   names the panel), so a single run, another panel or `codex-findings.ps1 -Status`/`-Rate` on
   the task is refused until the panel ends. It judges every recovery record of the task
@@ -2674,6 +2681,171 @@ scoreboards and the panel summary show `meta :: muse-spark-1.3 [muse]`.
 
 ---
 
+## Engines (wave 29): Claude Code headless (`claude`)
+
+`claude` drives Claude Code headless (`claude -p`) for a **Claude subscription** (or, per roster entry, an
+Anthropic API key). The subscription works only through Anthropic's own CLI signed in by the user; as with `agy`
+for Gemini and `muse` for Muse, the bridge drives the vendor's CLI and never calls the API directly (ROADMAP R10,
+with R22: the reviewer runs with everything but reading switched off). Everything the engines share (ledger,
+handoffs, findings, ratings, the panel, the scoreboards, the preflight, the lock, the recovery record) is as
+described for agy above; what differs:
+
+**Choosing it.** A roster entry `{ "provider": "anthropic", "engine": "claude", "model": "claude-opus-5-5",
+"auth": "subscription", "panel": "weighty", "context_tokens": 1000000, "timeout_sec": 1800 }`, or `-Engine claude
+-Model sonnet` (the label defaults to `anthropic`). `model` is REQUIRED and must be one of the engine's model table:
+the aliases `opus`, `sonnet`, `haiku`, `fable` and the ids `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`,
+`claude-opus-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-5-5`, `claude-sonnet-5`,
+`claude-sonnet-4-6`, `claude-haiku-4-5` - each may end with `[1m]` (the 1M context variant; claude entries only).
+Which model a roster uses is the installing USER's decision (the `setup-providers` skill asks). `auth` (engine claude
+only) is `subscription` (default) or `api-key`; `codex_config` and `auth: none` are refused. The lab of a claude
+entry is `anthropic` for a model or label starting `claude`, `opus`, `sonnet`, `haiku` or `fable`. Other vendors'
+models through this engine are out of scope. Reply files are `handoffs/NN-claudecode-<slug>.*` - the prefix is
+`claudecode`, not `claude`, because `claude` is the coordinator's default brief prefix. Ledger `sandbox` is
+read-only; `-Sandbox workspace-write` is refused.
+
+**The invocation.** From the repository root, the prompt on stdin (plain UTF-8, never argv): `claude -p
+--output-format stream-json --verbose --restricted --strict-mcp-config --disable-slash-commands --tools
+Read,Grep,Glob --permission-mode dontAsk --model <m> [--effort <e>] [--json-schema <schema text>] [--max-turns <n>]
+[--add-dir <dir>...] (--session-id <minted uuid> | --resume <thread> [--fork-session])`. The schema text travels in
+argv (whitespace removed), so the arguments are quoted by the C runtime rules (`\"`); `--add-dir` appears only for a
+rooted `-CollabDir`, a brief or artifacts outside the repository. Schema transport `native` (default,
+`--json-schema`) or `prompt-only`. Effort: vocabulary `claude` (mapping `claude-v1`): `low`, `medium`, `high`,
+`xhigh` as is, sent as `--effort`; `max` only through `-NativeEffort`; the repair turn sends `low`. `-MaxModelSteps
+<n>` sends `--max-turns <n>`. A prompt over 1 MiB (UTF-8 bytes on stdin) is refused before the start (`brief too
+large for this engine: ...`).
+
+**The launcher.** `-EngineExe <path>`, then `CODEX_CONSULT_CLAUDE_EXE`, then `claude.exe`, `claude.cmd`, `claude`
+on PATH, then the native install location `%USERPROFILE%\.local\bin\claude.exe` (`~/.local/bin/claude` elsewhere).
+`reviewer.harness` is `claude-cli <ProductVersion>` from the native `claude.exe` file metadata (e.g. `claude-cli
+2.1.285.0`), else `claude --version` (an npm shim), else `claude-cli (version unknown)`.
+
+**Lineage.** A new thread's session id is MINTED by the bridge (`--session-id <uuid>`), so it is known before the
+first byte. `-Mode resume` (or `-Thread <uuid>`) sends `--resume <thread>` and the same id must come back; `-Mode
+fork` sends `--resume <parent> --fork-session` and the answer must be a new uuid, not the parent. Every secondary turn
+(a denial retry, a format repair, a timeout continuation) resumes the thread. The transcripts live in Claude Code's
+own projects directory, outside the repository; a `CLAUDE_CONFIG_DIR` or a projects directory inside the repository
+under review refuses the run.
+
+**What is proven on every turn.** The init event of EVERY turn must show the tools `Read`, `Grep`, `Glob` and
+`StructuredOutput` only, no MCP server, and `permissionMode` `dontAsk` - else the turn FAILS with class
+`permission`. Billing: with roster `auth` `subscription` the init `apiKeySource` must be `none`; with `api-key` the
+variable `ANTHROPIC_API_KEY` must be set - else class `auth`. What R22 switched off is recorded (ledger
+`engine_run.switched_off`): user, project and local settings, instruction files (the repository's and the home
+directory's `CLAUDE.md` / `AGENTS.md` do not reach a restricted reviewer - observed), MCP servers, skills, slash
+commands, code tools, web tools, write tools, the autoupdater.
+
+**One model per thread (D4).** The roster model goes to `--model` on a new thread; the init event's model is the
+resolved id, and every later turn of the thread - the secondary turns, and later `-Mode resume` or `fork`
+consultations (from the parent entry's `engine_run.model_resolved`) - sends that id. The init model must match the
+pinned one (an alias `opus|sonnet|haiku|fable` matches any `claude-<alias>-...` id; `[1m]` is stripped) and the
+result's `modelUsage` main model (the one with the most output tokens) must be it - else class `capability`; a second
+`modelUsage` key is recorded (`engine_run.other_models`) with a warning. A run on an alias says `the alias floats;
+each thread is pinned to the id it resolves to`.
+
+**The child environment (D2, D3).** An ALLOW list, not a scrub list. The claude child gets: the system variables a
+process needs (`SystemRoot`, `windir`, `SystemDrive`, `ComSpec`, `PATH`, `PATHEXT`, `TEMP`, `TMP`, `TMPDIR`,
+`USERPROFILE`, `HOME`, `HOMEDRIVE`, `HOMEPATH`, `APPDATA`, `LOCALAPPDATA`, `ProgramData`, `ALLUSERSPROFILE`,
+`PUBLIC`, `PSModulePath`, `USERNAME`, `USERDOMAIN`, `COMPUTERNAME`, `USER`, `LOGNAME`, `SHELL`, `TERM`,
+`PROCESSOR_ARCHITECTURE`, `PROCESSOR_IDENTIFIER`, `PROCESSOR_LEVEL`, `PROCESSOR_REVISION`, `NUMBER_OF_PROCESSORS`,
+`OS`, `LANG`, `LANGUAGE`, `TZ`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`,
+`XDG_RUNTIME_DIR`), the proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, `ALL_PROXY`), the trust variables
+(`SSL_CERT_FILE`, `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`, `NODE_EXTRA_CA_CERTS`), the prefixes
+`ProgramFiles`, `CommonProgramFiles`, `ProgramW6432`, `CommonProgramW6432`, `LC_`, plus `CLAUDE_CONFIG_DIR` and - only
+with auth `api-key` - `ANTHROPIC_API_KEY`. Every other `ANTHROPIC_*` and `CLAUDE_*` / `CLAUDE_CODE_*` variable
+(gateway base URL, auth token, Bedrock / Vertex / Foundry selectors, `CLAUDE_CODE_EFFORT_LEVEL`,
+`CLAUDE_CODE_SKIP_PROMPT_HISTORY`, model overrides, `CLAUDE_CODE_GIT_BASH_PATH`, ...), every host marker and every
+test-mode variable is absent; `DISABLE_AUTOUPDATER=1` is set; names are compared case-insensitively. The SAME
+environment serves the preflight (`claude auth status`), the version probe and every turn. Ledger
+`engine_run.child_env_allowed` lists the NAMES (never values); the top-level `child_env_scrubbed` still names the
+host markers that were set. Test hook (test mode only): `CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix>` lets that prefix
+through (the harness's fake reads `FAKE_CLAUDE_*`); never a prefix of `ANTHROPIC`, `CLAUDE` or `CODEX_CONSULT`.
+
+**Sign-in (preflight).** The USER signs in (`claude auth login`, or `/login` in an interactive session); the bridge
+never handles it. `Get-ClaudeSignIn` runs `claude auth status` (local, free, 15 s) in the child environment of the
+entry's auth and reads its JSON BEFORE its exit code: `loggedIn` false -> `out` (`not signed in ... run claude auth
+login`); true -> `available` when the auth is `subscription` and `authMethod` is `claude.ai`, or the auth is
+`api-key` and `ANTHROPIC_API_KEY` is set; another `authMethod`, or an `apiProvider` other than `firstParty` (a
+gateway, Bedrock, Vertex, Foundry - out of scope, D10) -> `unavailable`; no launcher -> `missing`; not started, a
+timeout or no JSON -> `not checked`. The `api-key` test (`ANTHROPIC_API_KEY` set) runs BEFORE the 60-minute ledger
+short-circuit of every engine's sign-in check - a usable reply an hour ago proves nothing about this process's
+environment. The row reads `ok: signed in (claude.ai subscription)`. The check needs no
+network but starts a process, so under `-NoNetwork` (the SessionStart hook) it is `not checked`. Only `authMethod` and
+`apiProvider` (ledger `reviewer.provider_config.auth_method`, `.api_provider`) and the projects directory are kept -
+never the account's e-mail or organisation; `provider_config.credential_mechanism` is the roster `auth`. The endpoint
+health fingerprint of a claude entry is engine + auth + model family (`cc-engine-v1|claude|subscription|opus`): an
+Opus usage limit never marks Sonnet or the API-key route out.
+
+**The reply.** The reply is the ONE `result` event's `structured_output`; else its `result` text goes through the
+prose gate and the format repair (effort `low`, the same thread, the main turn's transport). Usage: `input_tokens` is
+input + cache read + cache creation, `cached_input_tokens` the cache read, `cache_creation_input_tokens`,
+`output_tokens`; `reasoning_output_tokens` is `null`. `total_cost_usd` stays local as `engine_run.cost_usd` (notional
+on a subscription). Garbage after the result, or two results, is a malformed stream (class `transport`); a partial
+last line is tolerated only after a kill or a non-zero exit. Ledger `engine_run` is `{turns, max_model_steps,
+msp_schema_version (null), auth, init_tools, mcp_servers, permission_mode, api_key_source, model_resolved,
+other_models, permission_denials, denied_tools, rate_limit, cost_usd, child_env_allowed, switched_off}`; the handoff
+header reads `Engine turns: N (claude -p, auth subscription; model <id>; init tools Glob, Grep, Read,
+StructuredOutput; permission denials 0)`.
+
+**Denials.** Under `--permission-mode dontAsk` a Read outside the working directories is denied and the turn goes on
+(observed). A usable reply with `permission_denials` stays usable, with a warning that lists the tools and paths; a
+success with NO reply and denials is a denied-empty run and gets ONE denial-retry turn, as agy (`-DenialRetry`).
+
+**A run FAILS** (nothing ingested; the reply kept and named when there is one) on: `Not logged in ... /login` and
+similar (class `auth`); a `rate_limit_event` whose status rejects, or an error result with limit wording (`usage
+limit`, `limit reached`, `hit your limit`, ...) (class `quota`, with the reset time - the event's `resetsAt`, or a
+`|<unix time>` in the text - as `provider_failure.retry_after`); `error_max_turns` (from `-MaxModelSteps`) and
+`error_max_structured_output_retries` (class `capability`); an init proof that fails (class `permission`), a model
+that drifts (class `capability`), a malformed stream (class `transport`). The raw most-severe `rate_limit_event` info
+is kept in `engine_run.rate_limit`; a warning status (`allowed_warning`) becomes a ledger warning.
+
+**Read-only: flags plus evidence, and the STRICT tree check (D1).** `--tools Read,Grep,Glob` leaves no writing tool,
+but managed settings and their hooks still apply under `--restricted`, so the init event proves the tools, not the
+absence of a writing hook. The bridge therefore runs the strict agy tree check: ANY change of the working tree or the
+collab directory during a claude turn FAILS the run (class `permission`), as for agy; the coordinator writes nothing
+under the collab directory or the working tree while a claude member runs (the skill's "Live members" rule). The
+boundary is agy's: enforced by evidence for tracked and untracked files and the collab directory, not for gitignored
+paths, submodules or files outside the repository, and not for reads.
+
+**The panel (D5).** The members of the claude engine run ONE AT A TIME by default - one scheduling group for the
+engine, whatever their labels; the roster's top-level `"parallel": {"anthropic": 2}` raises it. Two `claude -p` runs
+at once in one directory were observed to work (P7) - stated as observed, not guaranteed. A stall or tool flight: a
+`tool_use` without its `tool_result` suspends the stall timer (`claude <tool> <id>`). The salvage (`.partial.md`)
+keeps the text blocks, the thinking blocks (when the CLI returns thinking text) and the tool calls as `<tool>:
+<path|pattern>`; a `system/compact_boundary` event counts as a compaction.
+
+**The coordinator (R13).** A Claude Code coordinator sets `CODEX_CONSULT_COORDINATOR="anthropic :: <its model id>"`
+(a trailing `[1m]` is stripped). For a claude reviewer the ENGINE fixes the vendor: the coordinator's provider is
+compared with `anthropic` (case-insensitive) whatever the roster label, and the models after normalising (`[1m]`
+stripped, an alias equal to any id of its family). After the run the resolved model is compared again and a warning is
+added when the answer changed. Always a warning, never a refusal.
+
+**Telemetry.** The vendor class is `anthropic` for the engine claude (whatever the label and the auth); the model is
+sent only when, lower-cased and with `[1m]` stripped, it EQUALS an entry of the model table above, else `other`.
+Nothing else of a claude run leaves (no result, denial, path or cost). See "Telemetry (on by default)".
+
+**Not done, on purpose.** The Agent tool and subagents, MCP servers, web tools, Bash and every write tool,
+`workspace-write`; `--bare` (API-key only: it ignores the subscription login); routing through a gateway
+(`ANTHROPIC_BASE_URL`), Bedrock, Vertex and Foundry (their variables are removed - such a setup fails closed at the
+preflight); calling the API directly instead of the CLI (R10 is engines through the vendor's own CLI; the
+subscription login exists only there); other vendors' models; stream-json input; `--include-partial-messages`;
+`--max-budget-usd`; `--fallback-model`; `--bg`, `--worktree`, `--agents`; `--no-session-persistence` (every secondary
+turn resumes).
+
+**Observed, and still open.** Observed on 2026-09-30 (Claude Code 2.1.285, Windows): a stdin prompt of 52 KB is read
+whole; a denied Read gives an error `tool_result`, `permission_denials` and a success (P1); `--max-turns` is accepted
+although `--help` does not list it (P2); the home `CLAUDE.md` does not reach a restricted reviewer (P3); `modelUsage`
+has one key (P4); `claude auth status` exits 0 when signed in (P5); a session killed with `taskkill /T /F` mid-turn
+resumes under the same id (P6); two runs at once work (P7). Open, and decided defensively: whether `--effort` does
+anything on a model without adaptive reasoning (Q3), whether `--session-id` pins a fork (Q5), streaming during one long
+thinking block (Q6), the exit codes and the limit stream (Q7, Q10).
+
+**Listings and tests.** `codex-providers.ps1` shows one row per claude label (`KIND` `engine claude`, `EFFORT`
+`claude`, transport `native`); the scoreboards and the panel summary show `anthropic :: claude-opus-5-5 [claude]`. The
+fake is `tests/fake-claude.cmd` + `tests/fake-claude.ps1` (driven by `FAKE_CLAUDE_*`) and the harness is
+`tests/harness-claude.ps1` (a real `claude` is never started: see "Tests").
+
+---
+
 ## Usefulness telemetry: codex-scoreboard.ps1
 
 ```powershell
@@ -2776,7 +2948,7 @@ vendor table below):
 | `app_id`, `app_version`, `details.bridge_version` | `codex-consult` and the plugin's version (`.claude-plugin/plugin.json`) |
 | `instance_id` | SHA-256 of the 32 random bytes in `<codex home>/telemetry-salt` (64 hex digits, created once by the first event) followed by the UTF-8 machine name: the machine name never leaves in clear, and a new salt makes a new, unlinkable instance |
 | `severity`, `title`, `details.outcome` | `info` - `usable` or `usable-after-continuation`; `warning` - `failed:quota`, `failed:auth` (a provider limit or sign-in) or `failed:operator` (`-Kick`); `error` - every other `failed:<class>`: the provider failure's class (`capability`, `transport`, `permission`, `unknown`), else `timeout`, `stalled` or `bridge` |
-| `details.engine`, `provider`, `model`, `purpose` | the engine (`codex`, `agy`, `muse`); (wave 28b, D1) the VENDOR CLASS of the endpoint the reviewer talked to - never the provider label of the roster or the config; (wave 28c, D1) the model name only when the vendor class is known and the name EQUALS an entry of that class's closed list (after lower-casing), else `other`; the purpose (`none` without one) |
+| `details.engine`, `provider`, `model`, `purpose` | the engine (`codex`, `agy`, `muse`); (wave 28b, D1) the VENDOR CLASS of the endpoint the reviewer talked to - never the provider label of the roster or the config; (wave 28c, D1) the model name only when the vendor class is known and the name EQUALS an entry of that class's closed list (after lower-casing), else `other`; the purpose (`none` without one) (Wave 29) The engines are `codex`, `agy`, `muse` and `claude`; the vendor class of the engine `claude` is `anthropic`. |
 | `details.wall_seconds`, `tokens`, `findings` | the entry's wall time (rounded), token counts (`null` when the engine reports none) and finding counts by severity |
 | `details.structured`, `format_retry`, `denial_retry`, `timeout_continue` | booleans: a valid structured reply; a format repair, a denial retry, a timeout continuation turn attempted |
 | `details.panel_size` | the members of the panel this consultation belonged to; `0` for a single run |
@@ -2806,6 +2978,7 @@ domain (`<tenant>.openai.com`, or a hosts-file entry for a vendor's name) reads 
 | `alibaba` | `*.aliyuncs.com` (the Token Plan endpoint) | `qwen3.8-max`, `qwen3.8-flash`, `qwen3.7-max`, `qwen3.7-plus`, `qwen3.6-flash`, `deepseek-v4.1-flash`, `deepseek-v4-pro`, `deepseek-v4-pro-0813`, `deepseek-v4-flash-0731`, `glm-5.3`, `glm-5.2` |
 | `google` | the engine `agy` | `gemini-3.8-flash-high`, `gemini-3.8-flash-medium`, `gemini-3.8-flash-low`, `gemini-3.1-pro-high`, `gemini-3.1-pro-low` |
 | `meta` | the engine `muse` | `muse-spark-1.3`, `muse-spark-1.3-contributor` |
+| `anthropic` | the engine `claude` (whatever the label and the auth; the model list is the engine's table, `[1m]` stripped first) | `opus`, `sonnet`, `haiku`, `fable`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-sonnet-4-6`, `claude-haiku-4-5` |
 | `other` | any other host (a local endpoint, a company's own gateway, a look-alike host), or no endpoint recorded | always `other` |
 
 A roster entry `AcmeCorp-Legal` on `https://llm.acmecorp-internal.example/v1` with the model
@@ -2971,7 +3144,7 @@ nor writes it.
 | `-Task <id>` | *required* | slug; groups one conversation under `<CollabDir>/<id>/` |
 | `-Brief <path>` / `-Prompt <text>` | — | at least one; the brief must exist (resolved against the current directory, then the repo root) |
 | `-Purpose <purpose>` | *(none)* | prompt paragraph, preset effort and word cap: "Review purposes" |
-| `-Mode new\|fork\|resume` | `fork` when a thread of this run's lineage is known, else `new` (agy, muse: `new`; `resume` with `-Thread`) | `fork` branches, `resume` appends; agy and muse have no `fork` |
+| `-Mode new\|fork\|resume` | `fork` when a thread of this run's lineage is known, else `new` (agy, muse: `new`; `resume` with `-Thread`) | `fork` branches, `resume` appends; agy and muse have no `fork` (Wave 29) The claude engine allows `fork` (`--resume <parent> --fork-session`) as well as `resume`; default `new`. |
 | `-Thread <uuid>` | the newest verified thread of this lineage in this task | needs `fork`/`resume`; must belong to this lineage |
 | `-Provider <name>` | first available roster entry; without a roster, the config's `model_provider`, else `openai` | case-sensitive table name; needs `-Model` unless its roster entry names one |
 | `-Model <name>` | the roster entry's model, else the config's top-level `model` | the resolved model is always passed as `-m`; without `-Provider` it restricts the roster walk |
@@ -2987,7 +3160,7 @@ nor writes it.
 | `-Artifact <path>[,<path>…]` | — | one comma-separated string; hashes built artifacts into the ledger; a missing path refuses the run |
 | `-Raw` | off | 0.1-style plain-text reply: no schema, no findings, no format repair |
 | `-FormatRetry 0\|1` | `1` | one recorded repair turn for a substantive prose reply; any other value refuses |
-| `-SchemaTransport output-schema\|prompt-only\|native` | caps-v1's declared transport | one run only; not with `-Raw`; `native` (agy's `--json-schema`, muse's `--output-schema`) only for agy and muse, `output-schema` only for codex |
+| `-SchemaTransport output-schema\|prompt-only\|native` | caps-v1's declared transport | one run only; not with `-Raw`; `native` (agy's `--json-schema`, muse's `--output-schema`) only for agy and muse, `output-schema` only for codex (Wave 29) claude: `native` (`--json-schema`, the default) or `prompt-only`. |
 | `-CodexConfig key=value[,…]` | — (roster `codex_config` when empty) | one comma-separated string; refused keys: "Per-run Codex overrides (-CodexConfig)" |
 | `-OffPeakOnly` | off | refuses at peak and when no schedule is set |
 | `-SkipPreflight` | off | bypasses every preflight refusal; ledger `preflight: "skipped"` |
@@ -3002,9 +3175,9 @@ nor writes it.
 | `-Roles <a>[,<b>…]` | — | (wave 26) `-Panel` only: one role per member by score rank (a roster entry's `roles` = willing); at most one per member |
 | `-CollabDir <path>` | `.collab` | relative to the git repo root |
 | `-CodexExe <path>` | the launcher on PATH | env override `CODEX_CONSULT_EXE` |
-| `-Engine codex\|agy\|muse` | the roster entry's engine (the thread's with `-Thread`), else `codex` | "Engines"; with a roster and no `-Provider`/`-Thread` it restricts the walk (and `-Panel`) to that engine |
-| `-EngineExe <path>` | the engine's launcher on PATH (muse: then `%LOCALAPPDATA%\Programs\muse\muse.cmd`) | the launcher of the SELECTED engine other than codex: `-Engine`'s, else the `-Provider`'s roster entry's, else the only such engine of the roster (several: refused - pass `-Engine`); env overrides `CODEX_CONSULT_AGY_EXE`, `CODEX_CONSULT_MUSE_EXE` |
-| `-MaxModelSteps <n>` | not sent (the CLI's default) | muse only (wave 23): `--max-model-steps <n>`; refused with another engine; passed to a panel's muse members; ledger `engine_run.max_model_steps` |
+| `-Engine codex\|agy\|muse` | the roster entry's engine (the thread's with `-Thread`), else `codex` | "Engines"; with a roster and no `-Provider`/`-Thread` it restricts the walk (and `-Panel`) to that engine (Wave 29) `claude` is the fourth value: `-Engine codex\|agy\|muse\|claude`. |
+| `-EngineExe <path>` | the engine's launcher on PATH (muse: then `%LOCALAPPDATA%\Programs\muse\muse.cmd`) | the launcher of the SELECTED engine other than codex: `-Engine`'s, else the `-Provider`'s roster entry's, else the only such engine of the roster (several: refused - pass `-Engine`); env overrides `CODEX_CONSULT_AGY_EXE`, `CODEX_CONSULT_MUSE_EXE` (Wave 29) claude: `CODEX_CONSULT_CLAUDE_EXE`, then `claude.exe`, `claude.cmd`, `claude` on PATH, then `%USERPROFILE%\.localin\claude.exe` (`~/.local/bin/claude` elsewhere). |
+| `-MaxModelSteps <n>` | not sent (the CLI's default) | muse only (wave 23): `--max-model-steps <n>`; refused with another engine; passed to a panel's muse members; ledger `engine_run.max_model_steps` (Wave 29) Also claude: `--max-turns <n>`; any other engine is refused with `-MaxModelSteps is for an engine with a model-step cap (muse --max-model-steps, claude --max-turns); the <engine> engine has none.` |
 | `-DenialRetry 0\|1` | `1` | agy: one more turn on the same conversation after a run that produced nothing because a tool was auto-denied; ledger `denial_retry` (muse has none) |
 | `-DryRun` | off | prints the plan (argv, prompt, paths, preflight, roster pick, ledger entry); calls nothing, writes nothing |
 | `-Detach` | off | (0.5.0) checks the run here like a real run, then runs it in a background process and returns at once (exit `0`): the detach id, the status file, the come-back commands; a single run or `-Panel`; not with `-DryRun`, `-Status`, `-Wait` ("Non-blocking consultation") |
@@ -3053,9 +3226,10 @@ Environment variables:
 | `CODEX_CONSULT_EXE` | user | codex launcher path |
 | `CODEX_CONSULT_AGY_EXE` | user | agy launcher path (the `agy` engine) |
 | `CODEX_CONSULT_MUSE_EXE` | user | muse launcher path (the `muse` engine) |
+| `CODEX_CONSULT_CLAUDE_EXE` | user | claude launcher path (the `claude` engine, wave 29) |
 | `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the bridge can read; required (wave 23b: without a readable oauth sign-in no muse run is launched, `-SkipPreflight` included); passed to muse unchanged |
 | `META_API_KEY`, `MODEL_API_KEY` | nobody, for the bridge | must NOT be set: a muse run is refused while either is (it would bill per token instead of the subscription) |
-| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV`, (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL`, `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`, `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`, `CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS`, (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28; wave 28b) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of every variable of its environment; (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL=1`: the registration write of the engine process fails (D19); `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST=1`: the first endpoint update of a run fails (D13); `..._TELEMETRY_REQUEST_MS` / `..._FLUSH_MS`: the sender's bounds). (wave 28b, D10) A run that finds `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` on the console and in `warnings[]`; no ENGINE child (a turn, a launcher probe) gets `CODEX_CONSULT_TEST_MODE` or any `CODEX_CONSULT_TEST_*` variable - a panel member and the detached background (the bridge itself) keep them, the telemetry sender gets only the test mode and its own hooks. (wave 28c, D12) Where the line appears: the console of a committed run (after the commit) and its `warnings[]`, a dry run (with the other run warnings, and its preview's `warnings[]`), a -Panel run (the panel's lines, and each member's `warnings[]`), a detached run (its foreground's lines and the background's entry) - NOT on a refused run: a refusal stops before anything starts or is written. (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE=<pid>[,<pid>]`: these pids read as a process whose start time cannot be read (D8); `CODEX_CONSULT_TEST_KILL_DENIED=taskkill`: only `taskkill` is denied (`=1` denies the enumeration too) |
+| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV`, (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL`, `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`, `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`, `CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS`, (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28; wave 28b) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of every variable of its environment; (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL=1`: the registration write of the engine process fails (D19); `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST=1`: the first endpoint update of a run fails (D13); `..._TELEMETRY_REQUEST_MS` / `..._FLUSH_MS`: the sender's bounds). (wave 28b, D10) A run that finds `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` on the console and in `warnings[]`; no ENGINE child (a turn, a launcher probe) gets `CODEX_CONSULT_TEST_MODE` or any `CODEX_CONSULT_TEST_*` variable - a panel member and the detached background (the bridge itself) keep them, the telemetry sender gets only the test mode and its own hooks. (wave 28c, D12) Where the line appears: the console of a committed run (after the commit) and its `warnings[]`, a dry run (with the other run warnings, and its preview's `warnings[]`), a -Panel run (the panel's lines, and each member's `warnings[]`), a detached run (its foreground's lines and the background's entry) - NOT on a refused run: a refusal stops before anything starts or is written. (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE=<pid>[,<pid>]`: these pids read as a process whose start time cannot be read (D8); `CODEX_CONSULT_TEST_KILL_DENIED=taskkill`: only `taskkill` is denied (`=1` denies the enumeration too) (Wave 29) `CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix>` (test mode only): lets the environment variables with that prefix through to a claude engine child (the harness's fake reads `FAKE_CLAUDE_*`); never a prefix of ANTHROPIC, CLAUDE or CODEX_CONSULT. |
 | `CODEX_CONSULT_SCRIPTS_DIR` | tests only | (0.5.0, T4) the scripts directory `tests/run-all.ps1` and every harness test when `-ScriptsDir` is not given (e.g. an installed copy of the plugin); unset: the checkout's `plugins/codex-consult/scripts` |
 
 ---
@@ -3122,6 +3296,7 @@ JSON-RPC surface; a thin wrapper around `codex exec` is the stable surface.
 | Coordinator host: Qwen Code 0.15.6 | install verified 2026-09-29: `qwen extensions install https://github.com/xelth-com/claude-codex-consult:codex-consult --consent` put the whole plugin directory, enabled, into `~/.qwen/extensions/codex-consult`; `qwen extensions list` showed the skills and the three agents; `${CLAUDE_PLUGIN_ROOT}` in the skill text was replaced by the install path; `hooks/hooks.json` was copied, no hook listed. Live coordinator run: none (the free Qwen OAuth quota ended on 2026-04-15 - the session had no model access; `/auth` is the operator's step) |
 | Coordinator host: OpenCode 1.17.18 | nothing verified on the machine: the skill directories and the name rule are those of its documentation (opencode.ai/docs/skills, read 2026-09-29). Live coordinator run: none (the provider configured on the machine refused the authentication) |
 | Coordinator host: Muse Code 1.4.0 | the commands exist (`muse skills install`, `update`, `list`, `import --from claude\|codex`) and the headless mode (`muse exec --prompt-file <file> --workspace <dir>`) answers. Live coordinator run: none (on Windows its shell tool needs the sandbox setup of Muse Code done once with elevated rights - "sandbox users are not ready"); as a reviewer engine see "Engines (wave 23)" |
+| claude engine (wave 29) | fakes only so far (`tests/fake-claude.*`, `tests/harness-claude.ps1`); `claude --version`, `claude --help` and `claude auth status` read on Claude Code 2.1.285 (Windows); the probes P1-P7 of the design review run by the coordinator (see "Engines (wave 29)"). The live verification - one checkpoint, a resume, a panel with two claude members beside a codex member, a denied read - is PENDING (the supervisor's). |
 
 A report from a macOS run is the most useful contribution right now.
 
@@ -3224,6 +3399,8 @@ passes it to every harness (each takes it too) and names it in its summary line
 (`run-all: 18 harness(es), 0 failed; scripts: <dir>`). (Wave 28, wave 27c) Every harness and `run-all.ps1` set
 `CODEX_CONSULT_TELEMETRY=off` (the intake pointed at a closed loopback port - only `harness-telemetry` talks to
 a local `HttpListener`) and `CODEX_CONSULT_TEST_MODE=1` (the bridge honours its test hooks only then).
+
+(Wave 29) `harness-claude` drives the `claude` engine against a FAKE `claude` (`tests/fake-claude.cmd` + `tests/fake-claude.ps1`, steered by `FAKE_CLAUDE_*`); it is registered in `run-all.ps1` as the twentieth harness. Its sections: UNIT ROSTER DRYRUN ENGINEEXE RUN BILLING PREFLIGHT FAIL TREE RESUME FORK REPAIR PANEL LISTING TOOLSET TIMEOUT STALL HYGIENE GUARD. GUARD: the harness never starts the real `claude` - a scratch USERPROFILE / HOME / LOCALAPPDATA, `CODEX_CONSULT_CLAUDE_EXE` pinned to the fake, every PATH directory holding a real launcher stripped, and a child without an argv-log line fails the case.
 
 Assertions per harness (Windows PowerShell 5.1, 2026-09-27, 0.5.0 wave 26): `harness-0.3` 229,
 `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 72,

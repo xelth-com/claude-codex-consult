@@ -398,6 +398,9 @@ if (Want 'UNIT') {
         @((& $rv 'codex' (& $bu 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1') 'alibaba' 'qwen3.8-max'), 'alibaba/qwen3.8-max'),
         @((& $rv 'agy' ([pscustomobject]@{ engine = 'agy' }) 'gemini' 'gemini-3.8-flash-high'), 'google/gemini-3.8-flash-high'),
         @((& $rv 'muse' ([pscustomobject]@{ engine = 'muse' }) 'meta' 'muse-spark-1.3-contributor'), 'meta/muse-spark-1.3-contributor'),
+        @((& $rv 'claude' ([pscustomobject]@{ engine = 'claude'; credential_mechanism = 'subscription' }) 'my-anthropic' 'Claude-Opus-5-5[1m]'), 'anthropic/claude-opus-5-5'),
+        @((& $rv 'claude' ([pscustomobject]@{ engine = 'claude'; credential_mechanism = 'api-key' }) 'anthropic' 'sonnet'), 'anthropic/sonnet'),
+        @((& $rv 'claude' ([pscustomobject]@{ engine = 'claude' }) 'anthropic' 'claude-opus-9'), 'anthropic/other'),
         @((& $rv 'codex' (& $bu 'https://api.z.ai/api/v1') 'ZAI' 'gpt-5.1'), 'zai/other'),
         @((& $rv 'codex' (& $bu 'https://api.z.ai/api/v1') 'ZAI' 'glm-acmecorp-private'), 'zai/other'),
         @((& $rv 'codex' (& $bu 'https://evil-z.ai.example/v1') 'ZAI' 'glm-5.3'), 'other/other'),
@@ -420,7 +423,7 @@ if (Want 'UNIT') {
     $closed = @(
         @('openai', 'gpt-al1ce-code', 'other'), @('zai', 'glm-acm1ecorp-fast', 'other'), @('zai', 'glm-4.5acmecorp', 'other'), @('zai', 'glm-4customerx', 'other'),
         @('alibaba', 'qwen3acmeproject', 'other'), @('zai', 'glm-5.4', 'other'), @('openai', 'gpt-5.1-acme', 'other'), @('moonshot', 'k3-private', 'other'),
-        @('zai', ' GLM-5.3 ', 'glm-5.3'), @('byteplus', 'Dola-Seed-2.0-Pro', 'dola-seed-2.0-pro'), @('google', 'gemini-3.1-pro-low', 'gemini-3.1-pro-low'), @('meta', 'muse-spark-1.3', 'muse-spark-1.3'))
+        @('zai', ' GLM-5.3 ', 'glm-5.3'), @('byteplus', 'Dola-Seed-2.0-Pro', 'dola-seed-2.0-pro'), @('google', 'gemini-3.1-pro-low', 'gemini-3.1-pro-low'), @('meta', 'muse-spark-1.3', 'muse-spark-1.3'), @('anthropic', 'claude-opus-4-9', 'other'), @('anthropic', 'claude-haiku-4-5[1m]', 'claude-haiku-4-5'))
     $cgot = @(foreach ($c in $closed) { Get-TelemetryModelToken -Vendor $vByClass[$c[0]] -Model $c[1] })
     $cwant = @($closed | ForEach-Object { $_[2] })
     $listBad = @(foreach ($v in $script:TelemetryVendors) {
@@ -1040,7 +1043,7 @@ if (Want 'DOCS') {
     $readme = Text (Join-Path $repoRoot 'README.md')
     $sec = ''
     if ($readme -match '(?s)\n## Telemetry \(on by default\)\r?\n(.*?)\n## ') { $sec = $Matches[1] }
-    $missing = @(foreach ($k in (@($eventKeys -split ',') + @($detailKeys -split ',') + @('installing this plugin means accepting these terms', 'CODEX_CONSULT_TELEMETRY=off', '-Telemetry off', 'telemetry-spool', 'telemetry-salt', '-Complain', 'public_ref', 'codex-telemetry.ps1 -Status', 'codex-telemetry.ps1 -Flush', 'instance_id', 'CODEX_CONSULT_TELEMETRY_URL', '7 days', '429', 'codex-telemetry.ps1 -Forget -PublicRef', '-Forget -Local', 'the intake is live', 'vendor class', '`openai`', '`zai`', '`xiaomi`', '`byteplus`', '`moonshot`', '`alibaba`', '`google`', '`meta`', '`other`', 'CODEX_CONSULT_TEST_MODE=1', '60 s', '8 s', 'events[i]', '413', '403', 'not spooled', '5-minute age rule'))) { if ($sec.IndexOf($k, [StringComparison]::OrdinalIgnoreCase) -lt 0) { $k } })
+    $missing = @(foreach ($k in (@($eventKeys -split ',') + @($detailKeys -split ',') + @('installing this plugin means accepting these terms', 'CODEX_CONSULT_TELEMETRY=off', '-Telemetry off', 'telemetry-spool', 'telemetry-salt', '-Complain', 'public_ref', 'codex-telemetry.ps1 -Status', 'codex-telemetry.ps1 -Flush', 'instance_id', 'CODEX_CONSULT_TELEMETRY_URL', '7 days', '429', 'codex-telemetry.ps1 -Forget -PublicRef', '-Forget -Local', 'the intake is live', 'vendor class', '`openai`', '`zai`', '`xiaomi`', '`byteplus`', '`moonshot`', '`alibaba`', '`google`', '`meta`', '`anthropic`', '`other`', 'CODEX_CONSULT_TEST_MODE=1', '60 s', '8 s', 'events[i]', '413', '403', 'not spooled', '5-minute age rule'))) { if ($sec.IndexOf($k, [StringComparison]::OrdinalIgnoreCase) -lt 0) { $k } })
     Check 'DOCS' 'README "## Telemetry (on by default)": the terms line, the exact payload (every event and details key), the switch, the spool, the salt, the sender, -Complain and public_ref, -Status, the URL override, the 7-day drop, the 429 rule; (wave 28b) the live intake and delete-my-data (-Forget -PublicRef, -Forget -Local), the vendor table with every class, the http rule of test mode, the 60 s / 8 s bounds and (wave 28c) the 5-minute age rule gone, the D8 answers (events[i], 413, 403), the not-spooled warning' ($sec -and $missing.Count -eq 0) "missing: $($missing -join ', ')"
     # (wave 28c) D1 the closed model list and D6 the whole allow list, as the code has them; D2-D5, D7 and the limitation
     $modelsMissing = @(foreach ($v in $script:TelemetryVendors) { foreach ($m in @($v.Models)) { if ($sec.IndexOf("``$m``", [StringComparison]::Ordinal) -lt 0) { "$($v.Class):$m" } } })

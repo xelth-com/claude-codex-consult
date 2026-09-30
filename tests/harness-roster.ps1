@@ -365,6 +365,9 @@ if (Want 'FILE') {
         'auth'      = @('{"roster_version":1,"reviewers":[{"provider":"ZAI","auth":"key"}]}', 'entry 1: auth may only be "none"')
         'cfgkey'    = @('{"roster_version":1,"reviewers":[{"provider":"ZAI","codex_config":["model=x"]}]}', "entry 1: codex_config 'model=x' is refused: model is part of the reviewer identity")
         'cfgtype'   = @('{"roster_version":1,"reviewers":[{"provider":"ZAI","codex_config":"a=b"}]}', 'entry 1: codex_config must be an array of key=value strings')
+        # (wave 29) a claude entry: auth subscription | api-key only, a model of the engine's table
+        'claudeauth'  = @('{"roster_version":1,"reviewers":[{"provider":"anthropic","engine":"claude","model":"opus","auth":"key"}]}', 'entry 1: auth of engine claude must be "subscription" \(the claude\.ai login, the default\) or "api-key"')
+        'claudemodel' = @('{"roster_version":1,"reviewers":[{"provider":"anthropic","engine":"claude","model":"claude-opus-9"}]}', "entry 1: the claude model 'claude-opus-9' is not in the claude engine's model table")
     }
     $failed = @()
     foreach ($k in $bad.Keys) {

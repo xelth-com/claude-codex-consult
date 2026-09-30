@@ -2382,7 +2382,7 @@ function Get-ProviderEndpoint {
 # carry information on a resolved identity). Error is set only for an explicit
 # -Provider that cannot be used (the caller refuses the run).
 function Resolve-ReviewerIdentity {
-    param($Config, [string]$Provider = '', [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '')
+    param($Config, [string]$Provider = '', [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '', [string]$Auth = '')
     $notes = New-Object System.Collections.Generic.List[string]
     $id = [pscustomobject]@{
         Provider       = 'unknown'
@@ -2402,9 +2402,10 @@ function Resolve-ReviewerIdentity {
         Display        = 'endpoint unknown'
         ConfigPath     = [string]$Config.Path
         Engine         = 'codex'
+        Auth           = ''
     }
     # Another engine than codex (Resolve-EngineIdentity): no Codex config lookup at all.
-    if ($Engine -and $Engine -ne 'codex') { return (Resolve-EngineIdentity -Identity $id -Engine $Engine -Provider $Provider -Model $Model -Launcher $Launcher) }
+    if ($Engine -and $Engine -ne 'codex') { return (Resolve-EngineIdentity -Identity $id -Engine $Engine -Provider $Provider -Model $Model -Launcher $Launcher -Auth $Auth) }
     $where = if ($Config.Path) { [string]$Config.Path } else { '(no Codex home)' }
     $fileReason = ''
     if ($Config.Exists -and -not $Config.Ok) { $fileReason = $Config.Reason }
@@ -2564,8 +2565,12 @@ function Get-EntryEngine {
 # id with its tier), the endpoint is the engine itself - HostName 'engine:<name>', CompatString
 # 'cc-engine-v1|<name>', Fingerprint its SHA-256 (a thread of the engine never mixes with a codex
 # thread), ProviderConfig { engine; launcher }. Error: an unknown engine or a missing model.
+# (wave 29) An engine that takes a roster `auth` (claude: AuthModes subscription | api-key; '' = the
+# first): Auth is kept on the identity, and (D7 / F03-7) the endpoint - the fingerprint the health
+# records are keyed by - is the engine + the auth mode + the model family
+# ('cc-engine-v1|claude|subscription|opus'): an Opus limit never marks Sonnet or the API key out.
 function Resolve-EngineIdentity {
-    param($Identity, [string]$Engine, [string]$Provider, [string]$Model, [string]$Launcher)
+    param($Identity, [string]$Engine, [string]$Provider, [string]$Model, [string]$Launcher, [string]$Auth = '')
     $id = $Identity
     $id.Engine = $Engine
     $spec = Get-EngineSpec -Name $Engine
@@ -2573,6 +2578,12 @@ function Resolve-EngineIdentity {
         $id.Error = "unknown engine '$Engine' (engines: $($script:EngineNames -join ', '))"
         $id.Lineage = Format-Lineage -Provider $id.Provider -Model $id.Model
         return $id
+    }
+    $authModes = @(Get-PropertyValue $spec 'AuthModes' @())
+    if ($authModes.Count -gt 0) {
+        if ($Auth -and $authModes -notcontains $Auth) { $id.Error = "the $Engine engine takes auth $($authModes -join ' or ') (got '$Auth')" }
+        if ($null -eq $id.PSObject.Properties['Auth']) { $id | Add-Member -NotePropertyName 'Auth' -NotePropertyValue '' }
+        $id.Auth = $(if ($authModes -contains $Auth) { $Auth } else { [string]$authModes[0] })
     }
     if ($Provider) { $id.Provider = $Provider; $id.ProviderSource = '-Provider' }
     else { $id.Provider = [string]$spec.DefaultProvider; $id.ProviderSource = 'engine default' }
@@ -2584,9 +2595,12 @@ function Resolve-EngineIdentity {
     $pc = New-Object PSObject
     $pc | Add-Member -NotePropertyName 'engine' -NotePropertyValue $Engine
     $pc | Add-Member -NotePropertyName 'launcher' -NotePropertyValue $(if ($Launcher) { $Launcher } else { '' })
-    # (wave 23) the engine's own fields - muse: credential_mechanism (D4)
+    # (wave 23) the engine's own fields - muse: credential_mechanism (D4); (wave 29) claude:
+    # credential_mechanism (the roster's auth), auth_method, api_provider
     if ($spec.Adapter -and $spec.Adapter.PSObject.Properties['IdentityConfig'] -and $spec.Adapter.IdentityConfig) {
-        $extra = & $spec.Adapter.IdentityConfig
+        $icArgs = @{}
+        if ($authModes.Count -gt 0) { $icArgs['Auth'] = [string]$id.Auth; $icArgs['Launcher'] = $Launcher }
+        $extra = & $spec.Adapter.IdentityConfig @icArgs
         foreach ($k in @($extra.Keys)) { $pc | Add-Member -NotePropertyName ([string]$k) -NotePropertyValue $extra[$k] }
     }
     $id.ProviderConfig = $pc
@@ -2596,6 +2610,10 @@ function Resolve-EngineIdentity {
     if (-not $id.Error) {
         $id.Resolved = $true
         $id.CompatString = [string]$spec.CompatString
+        if ($authModes.Count -gt 0) {
+            $family = $(if ($Engine -eq 'claude') { Get-ClaudeModelFamily $id.Model } else { '' })
+            $id.CompatString = "$($spec.CompatString)|$($id.Auth)|$(if ($family) { $family } else { (ConvertTo-ClaudeModelBase $id.Model) })"
+        }
         $id.Fingerprint = Get-Sha256Hex ($script:Utf8NoBom.GetBytes($id.CompatString))
     }
     return $id
@@ -2690,6 +2708,12 @@ function ConvertFrom-CodexConfigItems {
 #       subscription models below (exact): all four as is, sent as      xhigh
 #       --reasoning-effort <v>. The reply schema travels natively (--output-schema):
 #       SchemaTransport 'native'.
+#   engine:claude (the claude engine: Claude Code headless, wave 29)
+#       vocabulary claude (mapping claude-v1) for any model of the    low medium high
+#       engine's table: all four as is, sent as --effort <v> (the      xhigh
+#       CLI also takes max - only through -NativeEffort). Whether a model without adaptive
+#       reasoning applies it is not known (effort_confirmed null). The reply schema travels
+#       natively (--json-schema, its text): SchemaTransport 'native'.
 # A vocabulary a caps row names but $script:EffortVocabularies lacks is a plan error (a bridge
 # defect, never a silently empty mapping).
 # Anything else - an undeclared model on a known host, any model on another endpoint -
@@ -2709,6 +2733,8 @@ $script:EffortVocabularies = @{
     'alibaba' = @{ Mapping = 'alibaba-v1'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'xhigh' } }
     # Meta's Muse Code CLI (--reasoning-effort none|minimal|low|medium|high|xhigh|max|ultra)
     'muse'    = @{ Mapping = 'muse-v1'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'xhigh' } }
+    # (wave 29) Claude Code (--effort low|medium|high|xhigh|max - its help; max only via -NativeEffort)
+    'claude'  = @{ Mapping = 'claude-v1'; Map = @{ 'low' = 'low'; 'medium' = 'medium'; 'high' = 'high'; 'xhigh' = 'xhigh' } }
 }
 # The model names Kimi Code accepts on https://api.kimi.ai/coding/v1 (its Codex doc; which of them a
 # membership unlocks depends on the tier: Plus has k3 at 256K context, Pro adds the 1M window and
@@ -2751,6 +2777,8 @@ $script:EffortCaps = @{
     'token-plan.ap-southeast-1.maas.aliyuncs.com' = @{ Vocabulary = 'alibaba'; Models = $script:AlibabaTokenPlanDeclaredModels; SchemaTransport = 'prompt-only' }
     'engine:agy'                    = @{ Vocabulary = 'model-tier'; Models = $null; SchemaTransport = 'native' }
     'engine:muse'                   = @{ Vocabulary = 'muse'; Models = $script:MuseDeclaredModels; SchemaTransport = 'native' }
+    # (wave 29) any model of the engine's table (the roster refuses the rest); --json-schema natively
+    'engine:claude'                 = @{ Vocabulary = 'claude'; Models = $null; SchemaTransport = 'native' }
 }
 
 # { Transport ('output-schema' | 'prompt-only'); Basis } for the identity's endpoint;
@@ -3161,6 +3189,13 @@ function Get-ProviderCredential {
 #               -Fresh right before a launch - wave 24, F15-1)
 #   Salvage     (wave 24) what a killed turn's stream holds: its agent messages and reasoning
 #               text and its tool calls (-Path; Read-TurnSalvage, the .partial.md)
+#   ChildEnv    (optional, wave 29) the child's ALLOW-listed environment (-Auth; claude:
+#               Get-ClaudeChildEnvironment) - Start-EngineProcess hides every other variable in
+#               the transaction of Hide-HostMarkers
+#   LocalCheck  (optional, wave 29) a local part of the sign-in no ledger evidence replaces
+#               (-Auth; '' or why not - claude auth api-key: ANTHROPIC_API_KEY set now)
+# The Outcome also receives -Turn (wave 29): the turn's options object (mode, threads, the
+# minted id, the pinned model, the auth) - agy and muse ignore it.
 # Row fields: Name, Label (handoff header / author), Prefix (handoff file names
 # NN-<prefix>-<slug>.*), Command (first word of the ledger `command`), ExeEnv (launcher
 # override), LauncherNames (PATH lookup, in order), InstallLaunchers (the vendor's install
@@ -3198,7 +3233,25 @@ function Get-ProviderCredential {
 #         No denial retry (its write, shell and web tools are off);
 #         the same tree check as agy (reads - read_file is not confined to the repository -,
 #         gitignored paths, submodules and files outside the repository stay unmonitored).
-$script:EngineNames = @('codex', 'agy', 'muse')
+#
+#   claude  Claude Code headless (wave 29, ROADMAP R10 with R22): `claude -p --output-format
+#         stream-json --verbose --restricted --strict-mcp-config --disable-slash-commands --tools
+#         Read,Grep,Glob --permission-mode dontAsk --model <m> [--effort <e>] [--json-schema
+#         <schema text>] [--max-turns <n>] [--add-dir <dir>...] (--session-id <minted uuid> |
+#         --resume <thread> [--fork-session])` in the repository root, the prompt on stdin as plain
+#         UTF-8. The reply = the ONE `result` event's structured_output (else its result text); the
+#         thread = the session id the bridge minted (new), resumed (resume and every secondary turn)
+#         or the fork's new one. Every turn's init event must PROVE the read-only capability (only
+#         Read, Grep, Glob and StructuredOutput, no MCP server, permission mode dontAsk) and the
+#         credential (apiKeySource none for the subscription, ANTHROPIC_API_KEY for auth api-key) -
+#         else the turn fails; a thread is one resolved model (D4). The child gets an ALLOW-listed
+#         environment (Get-ClaudeChildEnvironment, D2) - the preflight (`claude auth status`) and
+#         the version probe too (D3). Managed settings and their hooks still apply under
+#         --restricted, so the tree check is the strict one (D1): a change fails the run, as for
+#         agy. Parallel limit 1 in a panel (D5: its members run one after another unless the
+#         roster's "parallel" raises their label). Reply prefix claudecode: the coordinator's
+#         default brief prefix is claude.
+$script:EngineNames = @('codex', 'agy', 'muse', 'claude')
 $script:Engines = @{
     'codex' = [pscustomobject]@{
         Name = 'codex'; Label = 'Codex'; Prefix = 'codex'; Command = 'codex'; ExeEnv = 'CODEX_CONSULT_EXE'
@@ -3251,6 +3304,33 @@ $script:Engines = @{
         WriteDisabled = $true
         ToolsLine = 'Tools: you may read files of the repository (read_file); writing files, the shell and the web tools are disabled in this consultation (--disable-write --disable-shell --disable-web-tools) - do not try them; make NO file changes; a check that needs a command belongs under `## Requested checks`.'
         Adapter = [pscustomobject]@{ Argv = 'New-MuseArgv'; Stdin = 'ConvertTo-MuseStdin'; Events = 'Read-MuseEvents'; Outcome = 'Get-MuseTurnOutcome'; Credential = 'Get-MuseSignIn'; Harness = 'Get-MuseHarness'; IdentityConfig = 'Get-MuseIdentityConfig'; LaunchBlock = 'Get-MuseLaunchBlock'; Salvage = 'Read-MuseSalvage' }
+    }
+    # (wave 29) Claude Code headless. Row fields of its own: AuthModes (the roster's `auth` it takes;
+    # the first is the default), MintsThread (a new thread's id is minted by the bridge: --session-id),
+    # MaxPromptBytes (D9), ArgQuote (crt: ConvertTo-CrtArg - the schema TEXT travels in argv),
+    # ParallelScope (engine: its panel members share one scheduling group, D5), AddDirs (the
+    # directories outside the repository the reviewer must read go to --add-dir).
+    'claude' = [pscustomobject]@{
+        Name = 'claude'; Label = 'Claude (claude)'; Prefix = 'claudecode'; Command = 'claude'; ExeEnv = 'CODEX_CONSULT_CLAUDE_EXE'
+        LauncherNames = $(if ($script:OnWindows) { @('claude.exe', 'claude.cmd', 'claude') } else { @('claude') })
+        # the native installer puts claude.exe into %USERPROFILE%\.local\bin (obs) - a bridge started
+        # before the install may not see it on PATH
+        InstallLaunchers = $(if ($script:OnWindows) { @([pscustomobject]@{ Env = 'USERPROFILE'; Rel = '.local\bin\claude.exe' }) } else { @([pscustomobject]@{ Env = 'HOME'; Rel = '.local/bin/claude' }) })
+        Modes = @('new', 'resume', 'fork'); DefaultMode = 'new'; Sandboxes = @('read-only')
+        Transports = @('native', 'prompt-only'); HostName = 'engine:claude'; CompatString = 'cc-engine-v1|claude'; DefaultProvider = 'anthropic'; ModelExample = 'claude-sonnet-5-5'
+        DenialRetry = $true; PromptTransport = 'stdin'; LocalSignIn = $false; StepsFlag = '--max-turns'; HasUsage = $true
+        AuthModes = @('subscription', 'api-key'); MintsThread = $true; MaxPromptBytes = 1048576; ArgQuote = 'crt'; ParallelScope = 'engine'; AddDirs = $true
+        PromptVia = 'prompt on stdin'
+        ReplySource = "the result event's structured_output (else its result text)"
+        SchemaFlag = '--json-schema'; ThreadFlag = '--resume'; ThreadNoun = 'session'
+        ReadOnlyNote = "claude runs with --restricted and the read tools only (Read, Grep, Glob), each turn's init event must prove it, and the bridge's tree check fails a run that changed anything"
+        SandboxRecord = 'read-only (requested; claude --restricted --tools Read,Grep,Glob --permission-mode dontAsk --strict-mcp-config, proven by each turn''s init event; checked by evidence for tracked and untracked files and the collab directory, not for gitignored paths, submodules or files outside the repository; managed settings and their hooks still apply)'
+        TreeNote = 'claude ran with --restricted and read tools only, but managed settings and their hooks still apply'
+        # (D1 / F02-1, F03-1) the init event proves the tools, not the absence of a managed hook: the
+        # tree check FAILS a run that changed the tree, as for agy
+        WriteDisabled = $false
+        ToolsLine = 'Tools: you may read files of the repository (Read, Grep, Glob); no shell, web or write tool exists in this consultation; make NO file changes; a check that needs a command belongs under `## Requested checks`.'
+        Adapter = [pscustomobject]@{ Argv = 'Get-ClaudeArgs'; Stdin = 'ConvertTo-ClaudeStdin'; Events = 'Read-ClaudeEvents'; Outcome = 'Get-ClaudeTurnOutcome'; Credential = 'Get-ClaudeSignIn'; Harness = 'Get-ClaudeHarness'; IdentityConfig = 'Get-ClaudeIdentityConfig'; LaunchBlock = ''; Salvage = 'Read-ClaudeSalvage'; ChildEnv = 'Get-ClaudeChildEnvironment'; LocalCheck = 'Test-ClaudeLocalCredential' }
     }
 }
 
@@ -3405,12 +3485,21 @@ function Get-AgyModelsStatus {
 # unless the engine's check reads local files only (LocalSignIn: muse's auth.json key names).
 # Else the adapter's check (agy: `agy models`, 45 s - TEST HOOK
 # CODEX_CONSULT_TEST_LOGIN_TIMEOUT=<s> shortens it). $LoginCache: one check per launcher per
-# listing.
+# listing. (wave 29) $Auth: the roster's auth of an engine that takes one (claude: subscription |
+# api-key) - passed to its check, and part of the cache key.
 function Get-EngineCredential {
-    param([string]$Engine, [string]$Launcher, [hashtable]$LoginCache = $null, [switch]$NoNetwork, [int]$TimeoutSec = 0, $Health = $null)
+    param([string]$Engine, [string]$Launcher, [hashtable]$LoginCache = $null, [switch]$NoNetwork, [int]$TimeoutSec = 0, $Health = $null, [string]$Auth = '')
     $spec = Get-EngineSpec -Name $Engine
     if (-not $spec -or -not $spec.Adapter) { return (New-CredentialResult 'unknown' "no credential check for engine '$Engine'") }
     if (-not $Launcher) { return (New-CredentialResult 'missing' "$($spec.Command) CLI not found on PATH") }
+    # (wave 29) an engine's LOCAL check that no ledger evidence replaces (claude auth api-key: the key
+    # must be set NOW - a usable reply an hour ago proves nothing about this process's environment)
+    $authModes = @(Get-PropertyValue $spec 'AuthModes' @())
+    $authUsed = $(if ($authModes.Count -gt 0) { $(if ($authModes -contains $Auth) { $Auth } else { [string]$authModes[0] }) } else { '' })
+    if ($spec.Adapter.PSObject.Properties['LocalCheck'] -and $spec.Adapter.LocalCheck) {
+        $localWhy = [string](& $spec.Adapter.LocalCheck -Auth $authUsed)
+        if ($localWhy) { return (New-CredentialResult 'missing' $localWhy) }
+    }
     if ($Health -and $Health.PSObject.Properties['RecentUsable'] -and $Health.RecentUsable) {
         return (New-CredentialResult 'ok' "signed in (usable reply $($Health.RecentUsable.AgeMinutes) min ago)")
     }
@@ -3420,9 +3509,11 @@ function Get-EngineCredential {
         $hook = ((Get-TestHookValue 'CODEX_CONSULT_TEST_LOGIN_TIMEOUT')).Trim()
         if ($hook -match '^[0-9]+$' -and [int]$hook -gt 0) { $TimeoutSec = [int]$hook }
     }
-    $key = "engine:$Engine|$Launcher"
+    $credArgs = @{ Launcher = $Launcher; TimeoutSec = $TimeoutSec }
+    if ($authUsed) { $credArgs['Auth'] = $authUsed }
+    $key = "engine:$Engine|$Launcher$(if ($credArgs.ContainsKey('Auth')) { "|$($credArgs['Auth'])" })"
     if ($LoginCache -and $LoginCache.ContainsKey($key)) { return $LoginCache[$key] }
-    $r = & $spec.Adapter.Credential -Launcher $Launcher -TimeoutSec $TimeoutSec
+    $r = & $spec.Adapter.Credential @credArgs
     if ($LoginCache) { $LoginCache[$key] = $r }
     return $r
 }
@@ -3435,10 +3526,14 @@ function Get-EngineCredential {
 # to continue, '' = a new one); PromptFile (this turn's own prompt file: muse reads it through
 # --prompt-file, agy's prompt travels on stdin); Schema (the schema path, '' = none); Effort (the
 # value to send, $null = nothing); NativeEffort (-NativeEffort, verbatim); MaxSteps (muse
-# --max-model-steps, 0 = not sent) }.
+# --max-model-steps, claude --max-turns; 0 = not sent); (wave 29) NewThread (the id the bridge
+# minted for a new thread of an engine with MintsThread - claude --session-id; '' otherwise); AddDirs
+# (string[]: directories outside the repository the reviewer must read - claude --add-dir); Auth
+# (the roster's auth of an engine that takes one - the claude turn's credential check) }. The same
+# object reaches the adapter's Outcome as -Turn (wave 29): the mode, the threads, the pinned model.
 function New-EngineTurnOptions {
-    param([string]$Model, [string]$Mode = 'new', [string]$Thread = '', [string]$PromptFile = '', [string]$Schema = '', $Effort = $null, [string]$NativeEffort = '', [int]$MaxSteps = 0)
-    return [pscustomobject]@{ Model = $Model; Mode = $Mode; Thread = $Thread; PromptFile = $PromptFile; Schema = $Schema; Effort = $Effort; NativeEffort = $NativeEffort; MaxSteps = $MaxSteps }
+    param([string]$Model, [string]$Mode = 'new', [string]$Thread = '', [string]$PromptFile = '', [string]$Schema = '', $Effort = $null, [string]$NativeEffort = '', [int]$MaxSteps = 0, [string]$NewThread = '', [string[]]$AddDirs = @(), [string]$Auth = '')
+    return [pscustomobject]@{ Model = $Model; Mode = $Mode; Thread = $Thread; PromptFile = $PromptFile; Schema = $Schema; Effort = $Effort; NativeEffort = $NativeEffort; MaxSteps = $MaxSteps; NewThread = $NewThread; AddDirs = [string[]]@($AddDirs | Where-Object { $_ }); Auth = $Auth }
 }
 
 # The launch invariant of an engine (wave 23, D4): '' or the refusal. Checked when a roster
@@ -3642,8 +3737,9 @@ function Read-AgyEvents {
 #                    otherwise failed: empty reply
 #   usable           a denial notice and every `warning:` line of stderr become Warnings
 function Get-AgyTurnOutcome {
-    # (-ExpectModel: the adapter contract; agy's result names no served model - not checked)
-    param($Events, [int]$ExitCode, [string]$StderrText = '', [string]$Pre = '', [string]$ExpectThread = '', [string]$ExpectModel = '')
+    # (-ExpectModel: the adapter contract; agy's result names no served model - not checked; -Turn
+    # (wave 29): the adapter contract - the turn's options, not needed by agy's rules)
+    param($Events, [int]$ExitCode, [string]$StderrText = '', [string]$Pre = '', [string]$ExpectThread = '', [string]$ExpectModel = '', $Turn = $null)
     $o = [pscustomobject]@{ Ok = $false; Outcome = ''; Class = ''; Texts = [string[]]@(); Thread = ''; ThreadCandidate = ''; Reply = ''; Structured = $false; DeniedEmpty = $false; DenialLine = ''; Permission = ''; NotFound = ''; Warnings = [string[]]@() }
     $lines = @(([string]$StderrText) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     $denial = @($lines | Where-Object { $_ -match '(?i)no output produced|auto-denied' }) | Select-Object -First 1
@@ -4108,7 +4204,8 @@ $script:MuseStepCapRe = '(?i)\bmax(?:imum)?[ _-]?(?:model[ _-]?)?steps?\b|\bstep
 # would read as class transport).
 $script:MuseInfoStderrRe = '(?i)^muse:\s*(workspace root:|agent delegation:)'
 function Get-MuseTurnOutcome {
-    param($Events, [int]$ExitCode, [string]$StderrText = '', [string]$Pre = '', [string]$ExpectThread = '', [string]$ExpectModel = '')
+    # (-Turn, wave 29: the adapter contract - the turn's options, not needed by muse's rules)
+    param($Events, [int]$ExitCode, [string]$StderrText = '', [string]$Pre = '', [string]$ExpectThread = '', [string]$ExpectModel = '', $Turn = $null)
     $o = [pscustomobject]@{ Ok = $false; Outcome = ''; Class = ''; Texts = [string[]]@(); Thread = ''; ThreadCandidate = ''; Reply = ''; Structured = $false; DeniedEmpty = $false; DenialLine = ''; Permission = ''; NotFound = ''; Warnings = [string[]]@() }
     $lines = @(([string]$StderrText) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -notmatch $script:MuseInfoStderrRe })
     $warnLines = @($lines | Where-Object { $_ -match '(?i)^(muse:\s*)?warning:' })
@@ -4198,6 +4295,852 @@ function Get-MuseTurnOutcome {
     $o.Outcome = 'usable reply'
     $o.Warnings = [string[]]@($warnLines | ForEach-Object { ConvertTo-OneLine $_ })
     return $o
+}
+
+# ---- claude adapter (wave 29: Claude Code headless, `claude -p`; ROADMAP R10 with R22 - the design
+# of the task claude-engine-2026-09-30 as amended by its decisions D1-D12)
+
+# (D4 / F02-3) THE model table of the claude engine: the aliases the CLI resolves itself (its help:
+# "an alias for the latest model") and the published model ids (2026-09-25). A roster entry of the
+# engine names one of them - optionally with the 1M-context suffix [1m], stripped before every
+# comparison - and the telemetry's closed model list of the vendor class anthropic IS this table.
+# Anything else is refused by the roster validator and reads `other` in telemetry; the ledger keeps
+# the real name. Other vendors' models through this engine are out of scope (D10).
+$script:ClaudeModelAliases = @('opus', 'sonnet', 'haiku', 'fable')
+$script:ClaudeModels = @('opus', 'sonnet', 'haiku', 'fable', 'claude-fable-5-1', 'claude-fable-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-5-5', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5')
+# The roster's `auth` of the engine (item 6): the subscription login (the default) or an API key
+$script:ClaudeAuthModes = @('subscription', 'api-key')
+# (item 4) The tools a claude turn may have: the read tools and the CLI's own StructuredOutput -
+# proven by EVERY init event of the turn, with no MCP server and the permission mode dontAsk
+$script:ClaudeTools = @('Read', 'Grep', 'Glob', 'StructuredOutput')
+$script:ClaudeToolsArg = 'Read,Grep,Glob'
+$script:ClaudePermissionMode = 'dontAsk'
+# (D9) the largest prompt the engine is given on stdin (the row's MaxPromptBytes, 1 MiB): the upper
+# bound of `claude -p` reading stdin is not known - a 52 KB prompt was read whole (obs)
+# (R22) what a reviewer child runs without (ledger engine_run.switched_off): --restricted (user,
+# project and local settings - their hooks and plugins -, the repository's and the home directory's
+# CLAUDE.md / AGENTS.md: P3; the code-running tools and WebFetch), --strict-mcp-config (MCP servers),
+# --disable-slash-commands (skills, slash commands), --tools Read,Grep,Glob (no write tool exists),
+# DISABLE_AUTOUPDATER=1 (a reviewer never replaces the binary the coordinator runs)
+$script:ClaudeSwitchedOff = @('user-settings', 'project-settings', 'local-settings', 'instruction-files', 'mcp-servers', 'skills', 'slash-commands', 'code-tools', 'web-tools', 'write-tools', 'autoupdater')
+
+# A claude model name without its 1M-context suffix [1m], trimmed and lower-cased.
+function ConvertTo-ClaudeModelBase {
+    param([string]$Model)
+    return ((([string]$Model).Trim()) -replace '(?i)\[1m\]$', '').ToLowerInvariant()
+}
+# The family of a claude model (opus | sonnet | haiku | fable), '' when it names none.
+function Get-ClaudeModelFamily {
+    param([string]$Model)
+    $b = ConvertTo-ClaudeModelBase $Model
+    if ($script:ClaudeModelAliases -ccontains $b) { return $b }
+    if ($b -match '^claude-(opus|sonnet|haiku|fable)-') { return $Matches[1] }
+    return ''
+}
+# Whether a claude model name is an alias (it floats: each thread is pinned to the id it resolves to).
+function Test-ClaudeModelAlias {
+    param([string]$Model)
+    return ($script:ClaudeModelAliases -ccontains (ConvertTo-ClaudeModelBase $Model))
+}
+# Whether $Served is the model $Pinned asks for: equal after [1m] is stripped, or $Pinned an alias
+# and $Served an id of its family (claude-<alias>-...), or the other way round.
+function Test-ClaudeModelMatch {
+    param([string]$Pinned, [string]$Served)
+    $p = ConvertTo-ClaudeModelBase $Pinned
+    $s = ConvertTo-ClaudeModelBase $Served
+    if (-not $p -or -not $s) { return $false }
+    if ($p -ceq $s) { return $true }
+    if ($script:ClaudeModelAliases -ccontains $p) { return $s.StartsWith("claude-$p-", [StringComparison]::Ordinal) }
+    if ($script:ClaudeModelAliases -ccontains $s) { return $p.StartsWith("claude-$s-", [StringComparison]::Ordinal) }
+    return $false
+}
+# '' when a roster or -Model value names a model of the table (D4; a trailing [1m] allowed), else why not.
+function Get-ClaudeModelProblem {
+    param($Model)
+    if (-not ($Model -is [string]) -or -not $Model.Trim()) { return 'is empty' }
+    $b = ([string]$Model) -replace '\[1m\]$', ''
+    if ($script:ClaudeModels -cnotcontains $b) { return "is not in the claude engine's model table ($($script:ClaudeModels -join ', '); each may end with [1m])" }
+    return ''
+}
+
+# (D2 / F02-2, F03-2, F03-4, F03-5) THE child environment of the claude engine: an ALLOW list, never a
+# scrub list - the system variables a process needs (as for the telemetry sender), the locale, proxy
+# and trust variables, CLAUDE_CONFIG_DIR (the login lives there) and - only with auth api-key -
+# ANTHROPIC_API_KEY. Every other ANTHROPIC_* and every CLAUDE_* / CLAUDE_CODE_* variable is absent
+# (no inherited gateway, routing, provider selector, effort, persistence or model override reaches a
+# reviewer; a Bedrock, Vertex or Foundry setup fails closed at the preflight - D10), and so is every
+# host marker and test-mode variable. DISABLE_AUTOUPDATER=1 is set. Names compared case-insensitively.
+# TEST HOOK (test mode only): CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix> lets the variables of that
+# prefix through too (the harness's fake CLI reads its FAKE_CLAUDE_* drivers) - never a prefix of
+# ANTHROPIC, CLAUDE or CODEX_CONSULT.
+$script:ClaudeChildEnvNames = @(
+    'SystemRoot', 'windir', 'SystemDrive', 'ComSpec', 'PATH', 'PATHEXT', 'TEMP', 'TMP', 'TMPDIR',
+    'USERPROFILE', 'HOME', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'ProgramData', 'ALLUSERSPROFILE', 'PUBLIC', 'PSModulePath',
+    'USERNAME', 'USERDOMAIN', 'COMPUTERNAME', 'USER', 'LOGNAME', 'SHELL', 'TERM',
+    'PROCESSOR_ARCHITECTURE', 'PROCESSOR_IDENTIFIER', 'PROCESSOR_LEVEL', 'PROCESSOR_REVISION', 'NUMBER_OF_PROCESSORS', 'OS',
+    'LANG', 'LANGUAGE', 'TZ',
+    'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME', 'XDG_STATE_HOME', 'XDG_RUNTIME_DIR',
+    'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'ALL_PROXY',
+    'SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE', 'NODE_EXTRA_CA_CERTS',
+    'CLAUDE_CONFIG_DIR'
+)
+$script:ClaudeChildEnvPrefixes = @('ProgramFiles', 'CommonProgramFiles', 'ProgramW6432', 'CommonProgramW6432', 'LC_')
+$script:ClaudeChildEnvSet = [ordered]@{ 'DISABLE_AUTOUPDATER' = '1' }
+function Test-ClaudeChildEnvName {
+    param([string]$Name, [string]$Auth = 'subscription', [string]$PassPrefix = '')
+    $u = ([string]$Name).ToUpperInvariant()
+    foreach ($n in $script:ClaudeChildEnvNames) { if ($u -ceq $n.ToUpperInvariant()) { return $true } }
+    foreach ($p in $script:ClaudeChildEnvPrefixes) { if ($u.StartsWith($p.ToUpperInvariant(), [StringComparison]::Ordinal)) { return $true } }
+    if ($Auth -eq 'api-key' -and $u -ceq 'ANTHROPIC_API_KEY') { return $true }
+    if ($PassPrefix -and $u.StartsWith($PassPrefix.ToUpperInvariant(), [StringComparison]::Ordinal)) { return $true }
+    return $false
+}
+# The child environment of a claude process for $Auth, from THIS process's environment (read-only
+# here): { Auth; Env (name -> value, sorted; the allowed variables plus the set ones); Names
+# (string[], sorted ordinal - the ledger's engine_run.child_env_allowed; never a value); Removed
+# (string[]: the names of this process's variables the child does not get) }. One builder for the
+# preflight, the version probe and every turn (D3 / F03-3).
+function Get-ClaudeChildEnvironment {
+    param([string]$Auth = 'subscription')
+    if ($script:ClaudeAuthModes -notcontains $Auth) { $Auth = 'subscription' }
+    $pass = ([string](Get-TestHookValue 'CODEX_CONSULT_TEST_CHILD_ENV_PASS')).Trim()
+    if ($pass -and ($pass -notmatch '^[A-Za-z][A-Za-z0-9_]{3,}$' -or $pass.ToUpperInvariant() -match '^(ANTHROPIC|CLAUDE|CODEX_CONSULT)')) { $pass = '' }
+    $cmp = $(if ($script:OnWindows) { [StringComparer]::OrdinalIgnoreCase } else { [StringComparer]::Ordinal })
+    $envOut = New-Object 'System.Collections.Generic.SortedDictionary[string,string]' ($cmp)
+    $removed = New-Object System.Collections.Generic.List[string]
+    $all = [Environment]::GetEnvironmentVariables()
+    foreach ($k in @($all.Keys)) {
+        $n = [string]$k
+        if (-not $n -or $n.Contains('=') -or $envOut.ContainsKey($n)) { continue }
+        if (Test-ClaudeChildEnvName -Name $n -Auth $Auth -PassPrefix $pass) { $envOut[$n] = [string]$all[$k] }
+        elseif (-not $script:ClaudeChildEnvSet.Contains($n) -and -not $removed.Contains($n)) { $removed.Add($n) }
+    }
+    foreach ($k in @($script:ClaudeChildEnvSet.Keys)) { $envOut[[string]$k] = [string]$script:ClaudeChildEnvSet[$k] }
+    $names = [string[]]@($envOut.Keys)
+    [Array]::Sort($names, [StringComparer]::Ordinal)
+    $rm = [string[]]$removed.ToArray()
+    [Array]::Sort($rm, [StringComparer]::Ordinal)
+    return [pscustomobject]@{ Auth = $Auth; Env = $envOut; Names = $names; Removed = $rm }
+}
+
+# A probe of the claude launcher (`claude auth status`, `claude --version`) in the child
+# environment of $Auth (D3): its start info's block is CLEARED and filled from
+# Get-ClaudeChildEnvironment, then started through Start-ProbeProcess (never with a host marker).
+# Nothing on stdin; stdout and stderr as UTF-8. { Started; Why; Exit (-1 when it did not exit);
+# TimedOut; Out; Err }.
+function Invoke-ClaudeProbe {
+    param([string]$Launcher, [string]$Arguments, [int]$TimeoutSec = 15, [string]$Auth = 'subscription')
+    $r = [pscustomobject]@{ Started = $false; Why = ''; Exit = -1; TimedOut = $false; Out = ''; Err = '' }
+    $p = $null
+    try {
+        # (the block reads $Launcher, $Arguments and $Auth of this function: Start-ProbeProcess runs it
+        # in a child scope of its own, which has none of them)
+        $start = Start-ProbeProcess -Make {
+            $cpsi = New-ProbeStartInfo -Launcher $Launcher -Arguments $Arguments
+            $cblock = $cpsi.EnvironmentVariables
+            $cblock.Clear()
+            $cce = Get-ClaudeChildEnvironment -Auth $Auth
+            foreach ($ck in @($cce.Env.Keys)) { $cblock[[string]$ck] = [string]$cce.Env[$ck] }
+            $cpsi
+        }
+        if ($start.Skipped) { $r.Why = [string]$start.Skipped; return $r }
+        $p = $start.Proc
+    } catch { $r.Why = ConvertTo-OneLine $_.Exception.Message; return $r }
+    $r.Started = $true
+    try {
+        try { $p.StandardInput.Close() } catch { }
+        $outTask = $p.StandardOutput.ReadToEndAsync()
+        $errTask = $p.StandardError.ReadToEndAsync()
+        if (-not $p.WaitForExit($TimeoutSec * 1000)) {
+            $null = Stop-ProcessTree -Process $p
+            $r.TimedOut = $true
+            return $r
+        }
+        $p.WaitForExit()
+        $null = $outTask.Wait(5000)
+        $null = $errTask.Wait(5000)
+        $r.Exit = $p.ExitCode
+        $r.Out = [string]$outTask.Result
+        $r.Err = [string]$errTask.Result
+        return $r
+    } finally {
+        $p.Dispose()
+    }
+}
+
+# A short identifier as the CLI reported it (authMethod, apiProvider, apiKeySource, a permission
+# mode), '' when absent, 'unrecognized' for anything that is not one - never an arbitrary text.
+function ConvertTo-ClaudeToken {
+    param($Value)
+    if (-not ($Value -is [string]) -or -not $Value.Trim()) { return '' }
+    if ($Value -cmatch '^[A-Za-z][A-Za-z0-9_.-]{0,39}$') { return $Value }
+    return 'unrecognized'
+}
+
+# (item 6, D3 / F03-3, F03-9) The sign-in check of a claude entry - `claude auth status` (local, free:
+# no request is spent) in the SAME child environment as a turn of $Auth, 15 s. Its JSON is read
+# BEFORE its exit code: loggedIn false -> missing ("not signed in"), whatever the exit code;
+# loggedIn true -> ok when the route is the one the roster names: subscription - authMethod
+# claude.ai; api-key - ANTHROPIC_API_KEY set in this process (checked before anything starts); an
+# apiProvider other than firstParty (a gateway, Bedrock, Vertex, Foundry - D10) or another
+# authMethod -> missing. No launcher -> missing; not started, a timeout, no JSON or no loggedIn ->
+# unknown ("not checked"). No credentials-file fallback. Only authMethod, apiProvider and
+# projectsDirectory are kept (the cache, for the ledger's provider_config and the launch check) -
+# never the account's e-mail or organisation.
+$script:ClaudeSignInCache = @{}
+function Get-ClaudeSignIn {
+    param([string]$Launcher = '', [int]$TimeoutSec = 15, [string]$Auth = 'subscription')
+    if ($script:ClaudeAuthModes -notcontains $Auth) { $Auth = 'subscription' }
+    if (-not $Launcher) { return (New-CredentialResult 'missing' 'claude CLI not found on PATH') }
+    if ($Auth -eq 'api-key') {
+        $key = [Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY')
+        if (-not $key -or -not $key.Trim()) { return (New-CredentialResult 'missing' 'ANTHROPIC_API_KEY is not set (roster auth api-key)') }
+    }
+    $t = $(if ($TimeoutSec -gt 0) { [Math]::Min($TimeoutSec, 15) } else { 15 })
+    $cap = Invoke-ClaudeProbe -Launcher $Launcher -Arguments 'auth status' -TimeoutSec $t -Auth $Auth
+    if (-not $cap.Started) { return (New-CredentialResult 'unknown' "not checked - ``claude auth status`` could not be started$(if ($cap.Why) { " ($($cap.Why))" })") }
+    if ($cap.TimedOut) { return (New-CredentialResult 'unknown' "not checked - ``claude auth status`` did not finish within $t s") }
+    $o = $null
+    $out = [string]$cap.Out
+    $a = $out.IndexOf('{'); $b = $out.LastIndexOf('}')
+    if ($a -ge 0 -and $b -gt $a) { try { $o = ConvertFrom-Json -InputObject $out.Substring($a, $b - $a + 1) } catch { $o = $null } }
+    $out = $null
+    if (-not (Test-IsJsonObject $o)) { return (New-CredentialResult 'unknown' "not checked - ``claude auth status`` printed no JSON object (exit $($cap.Exit))") }
+    $li = Get-PropertyValue $o 'loggedIn' $null
+    $am = ConvertTo-ClaudeToken (Get-PropertyValue $o 'authMethod' $null)
+    $ap = ConvertTo-ClaudeToken (Get-PropertyValue $o 'apiProvider' $null)
+    $pd = Get-PropertyValue $o 'projectsDirectory' $null
+    $o = $null
+    $script:ClaudeSignInCache["$Launcher|$Auth"] = [pscustomobject]@{ AuthMethod = $am; ApiProvider = $ap; ProjectsDirectory = $(if ($pd -is [string]) { $pd } else { '' }) }
+    if ($li -eq $false) { return (New-CredentialResult 'missing' 'not signed in (`claude auth status`: loggedIn false; run `claude auth login`)') }
+    if ($li -ne $true) { return (New-CredentialResult 'unknown' "not checked - ``claude auth status`` names no loggedIn (exit $($cap.Exit))") }
+    if ($ap -and $ap -cne 'firstParty') { return (New-CredentialResult 'missing' "apiProvider $ap - routes other than Anthropic's own API (a gateway, Bedrock, Vertex, Foundry) are out of scope for the claude engine") }
+    if ($Auth -eq 'subscription') {
+        if ($am -cne 'claude.ai') { return (New-CredentialResult 'missing' "signed in with authMethod $(if ($am) { $am } else { '(none)' }), not the claude.ai subscription the roster names (auth subscription; an API key is auth api-key)") }
+        return (New-CredentialResult 'ok' 'signed in (claude.ai subscription)')
+    }
+    return (New-CredentialResult 'ok' "signed in (ANTHROPIC_API_KEY set$(if ($am) { "; authMethod $am" }))")
+}
+
+# (item 6) The local part of a claude entry's sign-in that no ledger evidence replaces (the
+# adapter's LocalCheck, before the 60-minute short-circuit of Get-EngineCredential): auth api-key
+# needs ANTHROPIC_API_KEY set in this process now. '' or the reason (a name, never a value).
+function Test-ClaudeLocalCredential {
+    param([string]$Auth = 'subscription')
+    if ($Auth -ne 'api-key') { return '' }
+    $key = [Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY')
+    if (-not $key -or -not $key.Trim()) { return 'ANTHROPIC_API_KEY is not set (roster auth api-key)' }
+    return ''
+}
+
+# reviewer.provider_config's claude fields (item 6): credential_mechanism = the roster's auth
+# (subscription | api-key); auth_method and api_provider as `claude auth status` reported them in
+# this process (the preflight), $null when it did not run.
+function Get-ClaudeIdentityConfig {
+    param([string]$Auth = 'subscription', [string]$Launcher = '')
+    if ($script:ClaudeAuthModes -notcontains $Auth) { $Auth = 'subscription' }
+    $c = $null
+    if ($script:ClaudeSignInCache.ContainsKey("$Launcher|$Auth")) { $c = $script:ClaudeSignInCache["$Launcher|$Auth"] }
+    $o = [ordered]@{}
+    $o['credential_mechanism'] = $Auth
+    $o['auth_method'] = $(if ($c -and $c.AuthMethod) { $c.AuthMethod } else { $null })
+    $o['api_provider'] = $(if ($c -and $c.ApiProvider) { $c.ApiProvider } else { $null })
+    return $o
+}
+
+# (item 2) Where the engine keeps its transcripts must not lie in the repository under review (the
+# strict tree check would fail every run): CLAUDE_CONFIG_DIR, and the projectsDirectory the sign-in
+# check read. '' or the refusal.
+function Get-ClaudeLaunchProblem {
+    param([string]$RepoRoot, [string]$Launcher = '', [string]$Auth = 'subscription')
+    if (-not $RepoRoot) { return '' }
+    $cfg = [string][Environment]::GetEnvironmentVariable('CLAUDE_CONFIG_DIR')
+    if ($cfg.Trim()) { try { if ($null -ne (Get-RepoRelativePath -Root $RepoRoot -Path $cfg.Trim())) { return "CLAUDE_CONFIG_DIR ($($cfg.Trim())) lies inside the repository under review: the engine's transcripts would change the tree; point it elsewhere" } } catch { } }
+    $key = "$Launcher|$Auth"
+    if ($script:ClaudeSignInCache.ContainsKey($key)) {
+        $pd = [string]$script:ClaudeSignInCache[$key].ProjectsDirectory
+        if ($pd.Trim()) { try { if ($null -ne (Get-RepoRelativePath -Root $RepoRoot -Path $pd.Trim())) { return "the claude projectsDirectory ($($pd.Trim())) lies inside the repository under review: the engine's transcripts would change the tree" } } catch { } }
+    }
+    return ''
+}
+
+# reviewer.harness of a claude run (item 6): "claude-cli <version>" from the launcher's file
+# metadata (the native claude.exe carries it), else `<launcher> --version` in the child environment
+# (an npm shim; local, no request spent; 15 s), else "claude-cli (version unknown)". Cached per
+# launcher.
+$script:ClaudeHarnessCache = @{}
+$script:ClaudeVersionRe = '^v?[0-9]+\.[0-9]+[0-9A-Za-z.+_-]{0,48}$'
+function Get-ClaudeHarness {
+    param([string]$Launcher)
+    if (-not $Launcher) { return 'claude-cli (version unknown)' }
+    if ($script:ClaudeHarnessCache.ContainsKey($Launcher)) { return $script:ClaudeHarnessCache[$Launcher] }
+    $ver = ''
+    try { $ver = ([string](Get-Item -LiteralPath $Launcher -ErrorAction Stop).VersionInfo.ProductVersion).Trim() } catch { $ver = '' }
+    if ($ver -notmatch $script:ClaudeVersionRe) {
+        $ver = ''
+        $cap = Invoke-ClaudeProbe -Launcher $Launcher -Arguments '--version' -TimeoutSec 15
+        if ($cap.Started -and -not $cap.TimedOut -and $cap.Exit -eq 0) {
+            foreach ($tok in @(($cap.Out + "`n" + $cap.Err) -split '\s+')) { if ($tok -match $script:ClaudeVersionRe) { $ver = $tok; break } }
+        }
+    }
+    $h = $(if ($ver) { "claude-cli $($ver -replace '^v', '')" } else { 'claude-cli (version unknown)' })
+    $script:ClaudeHarnessCache[$Launcher] = $h
+    return $h
+}
+
+# (item 1) The reply schema as `claude --json-schema` takes it: its TEXT, whitespace outside strings
+# removed (one line; the strings keep theirs). '' when the file cannot be read.
+function Get-ClaudeSchemaText {
+    param([string]$Path)
+    $text = ''
+    try { $text = [IO.File]::ReadAllText($Path, $script:Utf8NoBom) } catch { return '' }
+    $sb = New-Object System.Text.StringBuilder
+    $inStr = $false
+    $esc = $false
+    foreach ($ch in $text.ToCharArray()) {
+        if ($inStr) {
+            [void]$sb.Append($ch)
+            if ($esc) { $esc = $false } elseif ($ch -eq [char]'\') { $esc = $true } elseif ($ch -eq [char]'"') { $inStr = $false }
+            continue
+        }
+        if ($ch -eq [char]'"') { $inStr = $true; [void]$sb.Append($ch); continue }
+        if ([char]::IsWhiteSpace($ch) -or $ch -eq [char]0xFEFF) { continue }
+        [void]$sb.Append($ch)
+    }
+    return $sb.ToString()
+}
+
+# (item 1) The argv of one claude turn (after the launcher), from the turn options: print mode, the
+# stream-json events, the restricted read-only session (--restricted --strict-mcp-config
+# --disable-slash-commands --tools Read,Grep,Glob --permission-mode dontAsk), the model (the
+# roster's on a new thread, the RESOLVED id on every later turn - D4), --effort when one is sent (the
+# repair sends low), the schema TEXT (--json-schema: structured mode with transport native and every
+# repair / denial-retry / continuation turn of such a run), --max-turns with -MaxModelSteps (D8),
+# --add-dir for a collab directory, brief or artifact outside the repository, then the session:
+# --session-id <the minted uuid> on a new thread (known before the first byte - item 2), --resume
+# <thread> to continue one (every secondary turn), --resume <parent> --fork-session to fork. The
+# prompt travels on stdin, never in argv.
+function Get-ClaudeArgs {
+    param($Turn)
+    $a = @('-p', '--output-format', 'stream-json', '--verbose', '--restricted', '--strict-mcp-config', '--disable-slash-commands', '--tools', $script:ClaudeToolsArg, '--permission-mode', $script:ClaudePermissionMode, '--model', [string]$Turn.Model)
+    if ($null -ne $Turn.Effort -and ([string]$Turn.Effort).Trim()) { $a += @('--effort', [string]$Turn.Effort) }
+    if ($Turn.Schema) { $a += @('--json-schema', (Get-ClaudeSchemaText -Path ([string]$Turn.Schema))) }
+    if ([int]$Turn.MaxSteps -gt 0) { $a += @('--max-turns', [string][int]$Turn.MaxSteps) }
+    foreach ($d in @(Get-PropertyValue $Turn 'AddDirs' @())) { if ($d) { $a += @('--add-dir', [string]$d) } }
+    $thread = [string]$Turn.Thread
+    if ($thread) {
+        $a += @('--resume', $thread)
+        if ([string]$Turn.Mode -eq 'fork') { $a += '--fork-session' }
+    } else {
+        $nt = [string](Get-PropertyValue $Turn 'NewThread' '')
+        if ($nt) { $a += @('--session-id', $nt) }
+    }
+    return , ([string[]]$a)
+}
+
+# The stdin of a claude turn: the prompt itself, plain UTF-8 (written without a BOM by the caller).
+function ConvertTo-ClaudeStdin {
+    param([string]$Prompt)
+    return [string]$Prompt
+}
+
+# (wave 29) One argument of an engine whose CLI parses its command line by the C runtime rules
+# (claude): a bare token when safe, else double-quoted with every quote as \" and the backslashes
+# before a quote (and at the end) doubled - read the same by every Windows argv parser (the one-line
+# schema text of --json-schema is full of quotes), and safe through a cmd.exe shim as long as the
+# value holds no % and no cmd.exe operator outside its quotes.
+function ConvertTo-CrtArg {
+    param([string]$Value)
+    if ($Value -and $Value -match '^[A-Za-z0-9_.\-:\\/=]+$') { return $Value }
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append('"')
+    $bs = 0
+    foreach ($ch in ([string]$Value).ToCharArray()) {
+        if ($ch -eq [char]'\') { $bs++; continue }
+        if ($ch -eq [char]'"') { [void]$sb.Append('\', 2 * $bs + 1); [void]$sb.Append('"'); $bs = 0; continue }
+        if ($bs -gt 0) { [void]$sb.Append('\', $bs); $bs = 0 }
+        [void]$sb.Append($ch)
+    }
+    if ($bs -gt 0) { [void]$sb.Append('\', 2 * $bs) }
+    [void]$sb.Append('"')
+    return $sb.ToString()
+}
+
+# A Unix time (seconds, or milliseconds when it is that large) or an ISO string as a DateTimeOffset
+# (UTC), $null when it is neither.
+function ConvertFrom-ClaudeResetTime {
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    $n = [double]0
+    if (($Value -is [int] -or $Value -is [long] -or $Value -is [double] -or $Value -is [decimal]) -or ($Value -is [string] -and $Value -match '^[0-9]{9,14}(\.[0-9]+)?$' -and [double]::TryParse($Value, [System.Globalization.NumberStyles]::Float, $script:Invariant, [ref]$n))) {
+        if (-not ($Value -is [string])) { $n = [double]$Value }
+        if ($n -gt 1e12) { $n = $n / 1000 }
+        if ($n -lt 1e9 -or $n -gt 1e10) { return $null }
+        try { return [DateTimeOffset]::FromUnixTimeSeconds([long][Math]::Floor($n)) } catch { return $null }
+    }
+    if ($Value -is [string]) {
+        $d = [DateTimeOffset]::MinValue
+        if ($Value -match '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' -and [DateTimeOffset]::TryParse($Value, $script:Invariant, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$d)) { return $d.ToUniversalTime() }
+    }
+    if ($Value -is [datetime]) { return ([DateTimeOffset]([datetime]::SpecifyKind($Value, [DateTimeKind]::Utc))) }
+    return $null
+}
+
+# One claude event stream (stdout of `claude -p --output-format stream-json --verbose`: one JSON
+# object per line - obs), parsed tolerantly into the normalized turn record (item 3):
+#   InitCount        the `system`/`init` events (one per `claude -p` run); every one is evidence
+#   InitThread, InitModel   the FIRST init's session_id and model
+#   InitThreads, InitModels, InitModes, InitKeySources   the distinct values over every init
+#   InitTools        the union of their tools; InitMcp the names of their MCP servers (any entry
+#                    counts); InitCwd the first init's cwd
+#   ResultCount      number of `result` events (exactly one is a well-formed stream)
+#   Malformed        '' or why the stream is malformed: a line that does not parse as a JSON object
+#                    (the LAST non-empty line may be partial only with -AllowPartialLast - a killed
+#                    turn or a non-zero exit, F10-2), more than one result, a result that is not the
+#                    last event, two init events that name different sessions
+#   HasResult; Thread (result.session_id); Subtype; IsError; Response (result.result - its text);
+#   Error (the result text of a failed result, else its errors[]); HasStructured; StructuredJson
+#   (result.structured_output serialized compactly); CostUsd (total_cost_usd - notional on a
+#   subscription, kept local); NumTurns; StopReason
+#   Usage            { input_tokens (input + cache read + cache creation: the whole prompt, as
+#                    codex counts it), cached_input_tokens (cache_read_input_tokens),
+#                    cache_creation_input_tokens, output_tokens, reasoning_output_tokens ($null:
+#                    not reported), total_tokens } or $null
+#   ModelUsage       the keys of result.modelUsage; MainModel the key with the most output tokens
+#   AssistantModels  the distinct message.model of the assistant events (<synthetic> left out)
+#   Denials          result.permission_denials as { Tool; Target (file_path | path | pattern) };
+#                    DenialCount; ToolName / DeniedAction the first denial as "<tool> <target>"
+#   RateLimit        the most severe rate_limit_event's info object as the CLI wrote it (D6: recorded
+#                    raw); RateLimitStatus; RateLimitRejected (a status that rejects); RateLimitType;
+#                    RateLimitReset (DateTimeOffset or $null) - field names read defensively
+#   Compactions      the system/compact_boundary events
+function Read-ClaudeEvents {
+    param([string]$Path, [switch]$AllowPartialLast)
+    $r = [pscustomobject]@{
+        InitCount = 0; InitThread = ''; InitModel = ''; InitThreads = [string[]]@(); InitModels = [string[]]@(); InitModes = [string[]]@(); InitKeySources = [string[]]@(); InitTools = [string[]]@(); InitMcp = [string[]]@(); InitCwd = ''
+        ResultCount = 0; Malformed = ''; HasResult = $false; Thread = ''; Subtype = ''; IsError = $false; Response = ''; Error = ''; HasStructured = $false; StructuredJson = ''
+        CostUsd = $null; NumTurns = $null; StopReason = ''; Usage = $null; ModelUsage = [string[]]@(); MainModel = ''; AssistantModels = [string[]]@()
+        Denials = [object[]]@(); DenialCount = 0; ToolName = ''; DeniedAction = ''
+        RateLimit = $null; RateLimitStatus = ''; RateLimitRejected = $false; RateLimitType = ''; RateLimitReset = $null; Compactions = 0
+    }
+    $text = $(if ($Path) { Read-SharedText -Path $Path } else { '' })
+    if (-not $text) { return $r }
+    $lines = @($text -split "`r?`n")
+    $lastIdx = -1
+    for ($i = $lines.Count - 1; $i -ge 0; $i--) { if ($lines[$i].Trim()) { $lastIdx = $i; break } }
+    $result = $null
+    $resultLine = -1
+    $afterResult = $false
+    $threads = New-Object System.Collections.Generic.List[string]
+    $models = New-Object System.Collections.Generic.List[string]
+    $modes = New-Object System.Collections.Generic.List[string]
+    $keySources = New-Object System.Collections.Generic.List[string]
+    $tools = New-Object System.Collections.Generic.List[string]
+    $mcp = New-Object System.Collections.Generic.List[string]
+    $amodels = New-Object System.Collections.Generic.List[string]
+    $rlRank = -1
+    $addU = { param($list, [string]$v) if (-not $list.Contains($v)) { $list.Add($v) } }
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $t = $lines[$i].Trim()
+        if (-not $t) { continue }
+        $obj = $null
+        try { $obj = ConvertFrom-Json -InputObject $t } catch { $obj = $null }
+        if ($null -eq $obj -or -not ($obj -is [System.Management.Automation.PSCustomObject])) {
+            if (($i -ne $lastIdx -or -not $AllowPartialLast) -and -not $r.Malformed) { $r.Malformed = "line $($i + 1) is not a JSON object" }
+            continue
+        }
+        if ($null -ne $result) { $afterResult = $true }
+        $type = [string](Get-PropertyValue $obj 'type' '')
+        $sub = [string](Get-PropertyValue $obj 'subtype' '')
+        if ($type -eq 'system' -and $sub -eq 'init') {
+            $r.InitCount++
+            $sid = [string](Get-PropertyValue $obj 'session_id' '')
+            $mdl = [string](Get-PropertyValue $obj 'model' '')
+            if ($r.InitCount -eq 1) { $r.InitThread = $sid; $r.InitModel = $mdl; $r.InitCwd = [string](Get-PropertyValue $obj 'cwd' '') }
+            & $addU $threads $sid
+            & $addU $models $mdl
+            & $addU $modes ([string](Get-PropertyValue $obj 'permissionMode' ''))
+            $ks = Get-PropertyValue $obj 'apiKeySource' $null
+            & $addU $keySources $(if ($null -eq $ks) { '' } else { [string]$ks })
+            foreach ($tn in @(Get-PropertyValue $obj 'tools' @())) { if ($null -ne $tn) { & $addU $tools ([string]$tn) } }
+            foreach ($ms in @(Get-PropertyValue $obj 'mcp_servers' @())) {
+                if ($null -eq $ms) { continue }
+                $mn = $(if (Test-IsJsonObject $ms) { [string](Get-PropertyValue $ms 'name' '') } else { [string]$ms })
+                & $addU $mcp $(if ($mn) { $mn } else { '(unnamed)' })
+            }
+        } elseif ($type -eq 'system' -and $sub -eq 'compact_boundary') {
+            $r.Compactions++
+        } elseif ($type -eq 'assistant') {
+            $msg = Get-PropertyValue $obj 'message' $null
+            $am = [string](Get-PropertyValue $msg 'model' '')
+            if ($am -and $am -cne '<synthetic>') { & $addU $amodels $am }
+        } elseif ($type -eq 'rate_limit_event') {
+            $info = Get-PropertyValue $obj 'rate_limit_info' $null
+            if (-not (Test-IsJsonObject $info)) { $info = $obj }
+            $st = [string](Get-PropertyValue $info 'status' '')
+            $rank = $(if ($st -match '(?i)reject') { 2 } elseif ($st -match '(?i)warn') { 1 } else { 0 })
+            if ($rank -ge $rlRank) {
+                $rlRank = $rank
+                $r.RateLimit = $info
+                $r.RateLimitStatus = ConvertTo-ClaudeToken $st
+                $r.RateLimitType = ConvertTo-ClaudeToken (Get-PropertyValue $info 'rateLimitType' (Get-PropertyValue $info 'rate_limit_type' $null))
+                $reset = Get-PropertyValue $info 'resetsAt' $null
+                if ($null -eq $reset) { $reset = Get-PropertyValue $info 'resets_at' $null }
+                if ($null -eq $reset) { $reset = Get-PropertyValue $info 'reset_at' $null }
+                $r.RateLimitReset = ConvertFrom-ClaudeResetTime $reset
+            }
+            if ($rank -eq 2) { $r.RateLimitRejected = $true }
+        } elseif ($type -eq 'result') {
+            $r.ResultCount++
+            $result = $obj
+            $resultLine = $i
+            $afterResult = $false
+        }
+    }
+    $r.InitThreads = [string[]]@($threads | Where-Object { $_ })
+    $r.InitModels = [string[]]@($models | Where-Object { $_ })
+    $r.InitModes = [string[]]$modes.ToArray()
+    $r.InitKeySources = [string[]]$keySources.ToArray()
+    $r.InitTools = [string[]]$tools.ToArray()
+    $r.InitMcp = [string[]]$mcp.ToArray()
+    $r.AssistantModels = [string[]]$amodels.ToArray()
+    if (-not $r.Malformed -and $r.ResultCount -gt 1) { $r.Malformed = "$($r.ResultCount) result events (exactly one expected)" }
+    if (-not $r.Malformed -and $afterResult) { $r.Malformed = "an event follows the result event (line $($resultLine + 1)); the result must be the last" }
+    if (-not $r.Malformed -and @($r.InitThreads).Count -gt 1) { $r.Malformed = "the init events name $(@($r.InitThreads).Count) sessions ($(@($r.InitThreads) -join ', '))" }
+    if ($null -ne $result) {
+        $r.HasResult = $true
+        $r.Thread = [string](Get-PropertyValue $result 'session_id' '')
+        $r.Subtype = [string](Get-PropertyValue $result 'subtype' '')
+        $r.IsError = ((Get-PropertyValue $result 'is_error' $false) -eq $true)
+        $rt = Get-PropertyValue $result 'result' ''
+        $r.Response = $(if ($rt -is [string]) { $rt } else { '' })
+        $r.StopReason = [string](Get-PropertyValue $result 'stop_reason' '')
+        $nt = Get-PropertyValue $result 'num_turns' $null
+        $ntv = [long]0
+        if ($null -ne $nt -and [long]::TryParse([string]$nt, [ref]$ntv)) { $r.NumTurns = $ntv }
+        $cost = Get-PropertyValue $result 'total_cost_usd' $null
+        $cv = [double]0
+        if ($null -ne $cost -and [double]::TryParse([string]$cost, [System.Globalization.NumberStyles]::Float, $script:Invariant, [ref]$cv)) { $r.CostUsd = $cv }
+        if ($r.IsError -or ($r.Subtype -and $r.Subtype -ne 'success')) {
+            $r.Error = $r.Response
+            if (-not $r.Error.Trim()) {
+                $errs = @(@(Get-PropertyValue $result 'errors' @()) | Where-Object { $null -ne $_ } | ForEach-Object { if ($_ -is [string]) { $_ } else { ConvertTo-Json -InputObject $_ -Compress -Depth 6 } })
+                $r.Error = ($errs -join '; ')
+            }
+        }
+        $so = Get-PropertyValue $result 'structured_output' $null
+        if ($null -ne $so -and $so -is [System.Management.Automation.PSCustomObject]) {
+            $r.HasStructured = $true
+            $r.StructuredJson = ConvertTo-Json -InputObject $so -Compress -Depth 30
+        }
+        $u = Get-PropertyValue $result 'usage' $null
+        if (Test-IsJsonObject $u) {
+            $num = { param($name) $v = Get-PropertyValue $u $name $null; $n = [long]0; if ($null -ne $v -and [long]::TryParse([string]$v, [ref]$n)) { $n } else { $null } }
+            $in = & $num 'input_tokens'
+            $cr = & $num 'cache_read_input_tokens'
+            $cc = & $num 'cache_creation_input_tokens'
+            $ou = & $num 'output_tokens'
+            $inAll = $null
+            if ($null -ne $in) { $inAll = [long]$in + $(if ($null -ne $cr) { [long]$cr } else { 0 }) + $(if ($null -ne $cc) { [long]$cc } else { 0 }) }
+            $r.Usage = [pscustomobject]([ordered]@{ input_tokens = $inAll; cached_input_tokens = $cr; cache_creation_input_tokens = $cc; output_tokens = $ou; reasoning_output_tokens = $null; total_tokens = $(if ($null -ne $inAll -and $null -ne $ou) { [long]$inAll + [long]$ou } else { $null }) })
+        }
+        $mu = Get-PropertyValue $result 'modelUsage' $null
+        if (Test-IsJsonObject $mu) {
+            $keys = New-Object System.Collections.Generic.List[string]
+            $best = -1.0
+            foreach ($p in $mu.PSObject.Properties) {
+                $keys.Add([string]$p.Name)
+                $outT = [double]0
+                [void][double]::TryParse([string](Get-PropertyValue $p.Value 'outputTokens' 0), [System.Globalization.NumberStyles]::Float, $script:Invariant, [ref]$outT)
+                if ($outT -gt $best) { $best = $outT; $r.MainModel = [string]$p.Name }
+            }
+            $r.ModelUsage = [string[]]$keys.ToArray()
+        }
+        $den = New-Object System.Collections.Generic.List[object]
+        foreach ($d in @(Get-PropertyValue $result 'permission_denials' @())) {
+            if (-not (Test-IsJsonObject $d)) { continue }
+            $tin = Get-PropertyValue $d 'tool_input' $null
+            $target = ''
+            foreach ($f in @('file_path', 'path', 'pattern', 'notebook_path', 'url', 'command')) { $tv = Get-PropertyValue $tin $f $null; if ($tv -is [string] -and $tv) { $target = ConvertTo-OneLine $tv; break } }
+            if ($target.Length -gt 200) { $target = $target.Substring(0, 200) }
+            $den.Add([pscustomobject]@{ Tool = [string](Get-PropertyValue $d 'tool_name' ''); Target = $target })
+        }
+        $r.Denials = [object[]]$den.ToArray()
+        $r.DenialCount = $den.Count
+        if ($den.Count -gt 0) {
+            $r.DeniedAction = ("$($den[0].Tool) $($den[0].Target)").Trim()
+            $r.ToolName = $r.DeniedAction
+        }
+    }
+    return $r
+}
+
+# (item 4, D1 / F09-3) What the init events of a turn prove - evidence first: every init must list
+# no tool outside Read, Grep, Glob, StructuredOutput, no MCP server and the permission mode dontAsk
+# (else class permission); and (item 6, F09-1) the credential the CLI took must be the roster's:
+# subscription - apiKeySource none; api-key - ANTHROPIC_API_KEY (else class auth: the turn billed
+# another way). { Problem ('' when proven or when there is no init - the caller decides); Class }.
+function Get-ClaudeInitProblem {
+    param($Events, [string]$Auth = 'subscription')
+    $r = [pscustomobject]@{ Problem = ''; Class = '' }
+    if ([int]$Events.InitCount -le 0) { return $r }
+    $extra = @(@($Events.InitTools) | Where-Object { $script:ClaudeTools -cnotcontains [string]$_ })
+    if ($extra.Count -gt 0) { $r.Problem = "the init event lists tools outside $($script:ClaudeTools -join ', '): $($extra -join ', ') - the turn's read-only capability is not proven"; $r.Class = 'permission'; return $r }
+    if (@($Events.InitMcp).Count -gt 0) { $r.Problem = "the init event lists MCP server(s) ($(@($Events.InitMcp) -join ', ')) - a reviewer runs without any"; $r.Class = 'permission'; return $r }
+    $badMode = @(@($Events.InitModes) | Where-Object { [string]$_ -cne $script:ClaudePermissionMode }) | Select-Object -First 1
+    if ($null -ne $badMode) { $r.Problem = "the init event names the permission mode '$(ConvertTo-ClaudeToken ([string]$badMode))', not $($script:ClaudePermissionMode)"; $r.Class = 'permission'; return $r }
+    $want = $(if ($Auth -eq 'api-key') { 'ANTHROPIC_API_KEY' } else { 'none' })
+    $badKey = @(@($Events.InitKeySources) | Where-Object { [string]$_ -cne $want }) | Select-Object -First 1
+    if ($null -ne $badKey) {
+        $shown = $(if ([string]$badKey) { ConvertTo-ClaudeToken ([string]$badKey) } else { '(none named)' })
+        $r.Problem = "the init event names apiKeySource $shown, not $want - the turn did not bill $(if ($Auth -eq 'api-key') { 'the API key' } else { 'the claude.ai subscription' }) the roster names (auth $Auth)"
+        $r.Class = 'auth'
+        return $r
+    }
+    return $r
+}
+
+# (item 3, D6) The wording of a usage limit and of a missing sign-in in claude's result text or
+# stderr ("Not logged in <middle dot> Please run /login" - obs; "... usage limit reached|<unix time>", "You've
+# hit your limit <middle dot> resets ...") - field names and wordings beyond the observed ones are assumed.
+$script:ClaudeQuotaRe = '(?i)usage limit|limit reached|hit your (?:usage |session |weekly )?limit|rate[ _]limit|weekly limit|session limit|quota|too many requests|\b429\b|credit balance is too low|overage'
+$script:ClaudeAuthRe = '(?i)not logged in|please run /login|invalid api key|oauth token (?:has )?(?:expired|revoked)|authentication[ _]error|\b401\b|unauthori[sz]ed'
+
+# The failure rules of one claude turn (the main turn, a denial retry, a format repair, a timeout
+# continuation) - the adapter contract of agy and muse plus -Turn (the turn's options: Mode, Thread,
+# NewThread, Model, Auth) and the fields ModelResolved and OtherModels:
+#   $Pre             a failure the bridge already knows (timeout, could not start) - it wins; a
+#                    rejecting rate_limit_event before it makes the class quota (no continuation)
+#   init proof       (item 4, item 6; evidence first, whatever the exit code) tools, MCP servers,
+#                    permission mode -> class permission; apiKeySource -> class auth
+#   exit != 0        failed: claude exit <n> - <result text | stderr>; quota or auth wording -> that
+#                    class
+#   malformed        class transport; no init event (exit 0) -> class permission (not proven); no
+#                    result -> failed (the init's session id is a candidate)
+#   the session      init and result must agree; a new thread must come back on the minted id, a
+#                    resume (every secondary turn) on its thread, a fork on a NEW uuid (not its
+#                    parent) - else class unknown, the id a candidate only
+#   is_error / subtype other than success -> failed: claude <subtype> - <text>; class quota (a
+#                    rejecting rate_limit_event or the limit wording - D6), auth (its wording),
+#                    capability (error_max_turns - D8 -, error_max_structured_output_retries)
+#   the model        (D4) the init model must be the pinned one (an alias: an id of its family);
+#                    modelUsage's main model must be it too - else class capability; a second key
+#                    is recorded (OtherModels) and warned about
+#   empty reply      with permission denials: failed, class permission, DeniedEmpty (the denial
+#                    retry); otherwise failed: empty reply
+#   usable           denials beside the reply (the tools and paths), a warning rate-limit status and
+#                    other models become Warnings
+function Get-ClaudeTurnOutcome {
+    param($Events, [int]$ExitCode, [string]$StderrText = '', [string]$Pre = '', [string]$ExpectThread = '', [string]$ExpectModel = '', $Turn = $null)
+    $o = [pscustomobject]@{ Ok = $false; Outcome = ''; Class = ''; Texts = [string[]]@(); Thread = ''; ThreadCandidate = ''; Reply = ''; Structured = $false; DeniedEmpty = $false; DenialLine = ''; Permission = ''; NotFound = ''; Warnings = [string[]]@(); ModelResolved = ''; OtherModels = [string[]]@() }
+    $lines = @(([string]$StderrText) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $stderrTail = $(if ($lines.Count -gt 0) { [string]$lines[-1] } else { '' })
+    $mode = [string](Get-PropertyValue $Turn 'Mode' '')
+    $turnThread = [string](Get-PropertyValue $Turn 'Thread' '')
+    $newThread = [string](Get-PropertyValue $Turn 'NewThread' '')
+    $auth = [string](Get-PropertyValue $Turn 'Auth' '')
+    if ($script:ClaudeAuthModes -notcontains $auth) { $auth = 'subscription' }
+    $pinned = $(if ($ExpectModel) { $ExpectModel } else { [string](Get-PropertyValue $Turn 'Model' '') })
+    $forkOf = $(if ($mode -eq 'fork' -and $turnThread) { $turnThread } else { '' })
+    $expect = $ExpectThread
+    if (-not $expect -and $turnThread -and -not $forkOf) { $expect = $turnThread }
+    if (-not $expect -and -not $turnThread -and $newThread) { $expect = $newThread }
+    $resId = [string]$Events.Thread
+    $initId = [string]$Events.InitThread
+    $okId = { param([string]$Id) [bool]($Id -match $script:UuidRe -and (-not $expect -or $Id -eq $expect) -and (-not $forkOf -or $Id -ne $forkOf)) }
+    $candidateOf = { param([string]$Id) if ($Id -match $script:UuidRe -and (-not $forkOf -or $Id -ne $forkOf)) { $Id } else { '' } }
+    $o.Structured = [bool]$Events.HasStructured
+    $o.Reply = $(if ($Events.HasStructured) { [string]$Events.StructuredJson } elseif (-not $Events.IsError) { [string]$Events.Response } else { '' })
+    # (D6) the quota evidence: a rejecting rate_limit_event, else the limit wording of the result's
+    # text or stderr; its reset time (the event's, else a "|<unix time>" in the text) as ISO in the text
+    $errText = [string]$Events.Error
+    $quotaText = ''
+    $resetAt = $Events.RateLimitReset
+    if ($Events.RateLimitRejected) {
+        $quotaText = "usage limit reached (claude rate_limit_event $($Events.RateLimitStatus)$(if ($Events.RateLimitType) { ", $($Events.RateLimitType)" }))"
+    } elseif ($errText -and $errText -match $script:ClaudeQuotaRe) {
+        $quotaText = "usage limit: $(ConvertTo-OneLine $errText)"
+    } else {
+        $ql = @($lines | Where-Object { $_ -match $script:ClaudeQuotaRe }) | Select-Object -First 1
+        if ($ql) { $quotaText = "usage limit: $(ConvertTo-OneLine $ql)" }
+    }
+    if ($quotaText -and $null -eq $resetAt -and $errText -match '\|(?<t>[0-9]{10,13})\b') { $resetAt = ConvertFrom-ClaudeResetTime $Matches['t'] }
+    if ($quotaText -and $null -ne $resetAt) { $quotaText += "; resets at $(([DateTimeOffset]$resetAt).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant))" }
+    $authText = ''
+    if (-not $quotaText) {
+        if ($errText -and $errText -match $script:ClaudeAuthRe) { $authText = ConvertTo-OneLine $errText }
+        else { $al = @($lines | Where-Object { $_ -match $script:ClaudeAuthRe }) | Select-Object -First 1; if ($al) { $authText = ConvertTo-OneLine $al } }
+    }
+    $evidenceClass = $(if ($quotaText) { 'quota' } elseif ($authText) { 'auth' } else { '' })
+    $fail = {
+        param([string]$Why, [string]$Class = '', [string[]]$Texts = @())
+        $o.Ok = $false
+        $o.Outcome = "failed: $Why"
+        $o.Class = $Class
+        $o.Texts = [string[]]@(@($Texts) + @($Why) | Where-Object { $_ })
+    }
+    $detail = $(if ($errText.Trim()) { $errText } else { $stderrTail })
+    if ($Pre) {
+        $o.Outcome = $Pre
+        $o.Class = $(if ($quotaText) { 'quota' } else { '' })
+        $o.Texts = [string[]]@(@($quotaText, $errText, $stderrTail, ($Pre -replace '^failed:\s*', '')) | Where-Object { $_ })
+        $o.ThreadCandidate = & $candidateOf $(if ($resId) { $resId } else { $initId })
+        if ($o.ThreadCandidate -and $expect -and $o.ThreadCandidate -ne $expect) { $o.ThreadCandidate = '' }
+        # (D4) a killed turn's init already resolved the model: the continuation sends that id
+        $servedPre = [string]$Events.InitModel
+        if ($servedPre -and (-not $pinned -or (Test-ClaudeModelMatch -Pinned $pinned -Served $servedPre))) {
+            $o.ModelResolved = $servedPre
+            if ($pinned -match '(?i)\[1m\]$' -and $servedPre -notmatch '(?i)\[1m\]$') { $o.ModelResolved += '[1m]' }
+        }
+        return $o
+    }
+    $proof = Get-ClaudeInitProblem -Events $Events -Auth $auth
+    if ($proof.Problem) {
+        & $fail $proof.Problem $proof.Class
+        $o.ThreadCandidate = & $candidateOf $(if ($resId) { $resId } else { $initId })
+        return $o
+    }
+    if ($ExitCode -ne 0) {
+        & $fail "claude exit $ExitCode$(if ($detail) { " - $(ConvertTo-OneLine $detail)" })" $evidenceClass @($quotaText, $authText, $errText, $stderrTail)
+        if (& $okId $resId) { $o.Thread = $resId } else { $o.ThreadCandidate = & $candidateOf $(if ($resId) { $resId } else { $initId }) }
+        return $o
+    }
+    if ($Events.Malformed) {
+        & $fail "malformed event stream: $($Events.Malformed)" 'transport'
+        $o.ThreadCandidate = & $candidateOf $initId
+        return $o
+    }
+    if ([int]$Events.InitCount -le 0) {
+        & $fail "the claude event stream has no init event - the turn's tools, MCP servers and permission mode are not proven" 'permission'
+        return $o
+    }
+    if (-not $Events.HasResult) {
+        & $fail "no result event in the claude event stream$(if ($stderrTail) { " - $(ConvertTo-OneLine $stderrTail)" })" $evidenceClass @($quotaText, $authText, $stderrTail)
+        $o.ThreadCandidate = & $candidateOf $initId
+        return $o
+    }
+    if ($initId -and $resId -and $initId -ne $resId) {
+        & $fail "session id mismatch: init $initId, result $resId" 'unknown'
+        $o.ThreadCandidate = & $candidateOf $resId
+        return $o
+    }
+    if ($expect -and $resId -ne $expect) {
+        $why = $(if ($turnThread) { "parent session $expect not found, claude answered on $(if ($resId) { $resId } else { 'no session' })" } else { "the new session is $(if ($resId) { $resId } else { '(none)' }), not the minted $expect" })
+        & $fail $why 'unknown'
+        $o.ThreadCandidate = & $candidateOf $resId
+        return $o
+    }
+    if ($forkOf -and $resId -eq $forkOf) {
+        & $fail "the fork came back on its parent session $forkOf (--fork-session started no new session)" 'unknown'
+        return $o
+    }
+    if (-not ($resId -match $script:UuidRe)) {
+        & $fail "the result's session_id '$resId' is not a uuid" 'unknown'
+        return $o
+    }
+    if ($Events.IsError -or $Events.Subtype -ne 'success') {
+        $st = $(if ($Events.Subtype) { $Events.Subtype } else { '(none)' })
+        $cls = $evidenceClass
+        if (-not $cls -and $st -eq 'error_max_turns') { $cls = 'capability' }
+        if (-not $cls -and $st -eq 'error_max_structured_output_retries') { $cls = 'capability' }
+        $what = $(if ($st -eq 'error_max_turns') { 'max turns reached (--max-turns)' } elseif ($st -eq 'error_max_structured_output_retries') { 'no reply satisfied the schema (structured output retries exhausted)' } else { '' })
+        & $fail "claude $st$(if ($what) { " - $what" })$(if ($detail) { " - $(ConvertTo-OneLine $detail)" })" $cls @($quotaText, $authText, $errText, $stderrTail)
+        $o.Thread = $resId
+        return $o
+    }
+    # (D4) one resolved model per thread, proven per turn
+    $served = [string]$Events.InitModel
+    if (-not $served) {
+        & $fail "the init event names no model (asked $pinned)" 'unknown'
+        $o.ThreadCandidate = $resId
+        return $o
+    }
+    if ($pinned) {
+        $drift = @(@($Events.InitModels) | Where-Object { -not (Test-ClaudeModelMatch -Pinned $pinned -Served ([string]$_)) }) | Select-Object -First 1
+        if ($null -ne $drift) {
+            & $fail "model drift: asked $pinned, served $drift" 'capability'
+            $o.ThreadCandidate = $resId
+            return $o
+        }
+    }
+    if (@($Events.ModelUsage).Count -gt 0 -and $Events.MainModel -and -not (Test-ClaudeModelMatch -Pinned $served -Served ([string]$Events.MainModel))) {
+        & $fail "model drift: the init event names $served, the result's modelUsage names $($Events.MainModel) as the main model" 'capability'
+        $o.ThreadCandidate = $resId
+        return $o
+    }
+    $resolved = $served
+    if ($pinned -match '(?i)\[1m\]$' -and $resolved -notmatch '(?i)\[1m\]$') { $resolved += '[1m]' }
+    $o.ModelResolved = $resolved
+    $o.OtherModels = [string[]]@(@(@($Events.ModelUsage) + @($Events.AssistantModels)) | Where-Object { $_ -and -not (Test-ClaudeModelMatch -Pinned $served -Served ([string]$_)) } | Select-Object -Unique)
+    $o.Thread = $resId
+    $denialList = (@($Events.Denials | Select-Object -First 5 | ForEach-Object { ("$($_.Tool) $($_.Target)").Trim() }) -join '; ')
+    if ([int]$Events.DenialCount -gt 0) { $o.DenialLine = "$($Events.DenialCount) tool call(s) denied under --permission-mode dontAsk: $denialList" }
+    if (-not $o.Reply.Trim()) {
+        if ([int]$Events.DenialCount -gt 0) {
+            & $fail "no reply - $($o.DenialLine)" 'permission' @($o.DenialLine)
+            $o.DeniedEmpty = $true
+        } else {
+            & $fail 'empty reply' ''
+        }
+        return $o
+    }
+    $o.Ok = $true
+    $o.Outcome = 'usable reply'
+    $w = New-Object System.Collections.Generic.List[string]
+    if ([int]$Events.DenialCount -gt 0) { $w.Add("permission denials beside the reply: $($o.DenialLine)") }
+    if ($Events.RateLimitStatus -and $Events.RateLimitStatus -match '(?i)warn') { $w.Add("claude rate limit status $($Events.RateLimitStatus)$(if ($Events.RateLimitType) { " ($($Events.RateLimitType))" })$(if ($null -ne $Events.RateLimitReset) { "; resets at $(([DateTimeOffset]$Events.RateLimitReset).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant))" })") }
+    if (@($o.OtherModels).Count -gt 0) { $w.Add("other models in the turn beside $($served): $(@($o.OtherModels) -join ', ') (engine_run.other_models; a helper model of the CLI?)") }
+    foreach ($wl in @($lines | Where-Object { $_ -match '(?i)^warning:' })) { $w.Add((ConvertTo-OneLine $wl)) }
+    $o.Warnings = [string[]]$w.ToArray()
+    return $o
+}
+
+# (item 7) claude stream-json: the assistant events' text blocks (agent messages) and thinking blocks
+# (reasoning; empty when the CLI omits the thinking text) in stream order, the result's text when
+# no text block came; a tool_use -> "<tool>: <file_path | path | pattern>", once per call id.
+function Read-ClaudeSalvage {
+    param([string]$Path)
+    $items = New-Object System.Collections.Generic.List[object]
+    $toolMap = [ordered]@{}
+    $text = $(if ($Path) { Read-SharedText -Path $Path } else { '' })
+    if (-not $text) { return (New-TurnSalvage -Items $items -ToolMap $toolMap) }
+    $response = ''
+    $sawText = $false
+    foreach ($line in ($text -split "`r?`n")) {
+        $t = $line.Trim()
+        if (-not $t.StartsWith('{')) { continue }
+        $obj = $null
+        try { $obj = ConvertFrom-Json -InputObject $t } catch { continue }
+        $type = [string](Get-PropertyValue $obj 'type' '')
+        if ($type -eq 'result') {
+            $rt = Get-PropertyValue $obj 'result' ''
+            if ($rt -is [string]) { $response = $rt }
+            continue
+        }
+        if ($type -ne 'assistant') { continue }
+        $msg = Get-PropertyValue $obj 'message' $null
+        foreach ($b in @(Get-PropertyValue $msg 'content' @())) {
+            if (-not (Test-IsJsonObject $b)) { continue }
+            $bt = [string](Get-PropertyValue $b 'type' '')
+            if ($bt -eq 'text') {
+                $tx = [string](Get-PropertyValue $b 'text' '')
+                if ($tx.Trim()) { $items.Add([pscustomobject]@{ Kind = 'message'; Text = $tx }); $sawText = $true }
+            } elseif ($bt -eq 'thinking') {
+                $tx = [string](Get-PropertyValue $b 'thinking' '')
+                if ($tx.Trim()) { $items.Add([pscustomobject]@{ Kind = 'reasoning'; Text = $tx }) }
+            } elseif ($bt -eq 'tool_use') {
+                $id = [string](Get-PropertyValue $b 'id' '')
+                if (-not $id) { $id = "#$($toolMap.Count)" }
+                $name = [string](Get-PropertyValue $b 'name' '')
+                $in = Get-PropertyValue $b 'input' $null
+                $target = ''
+                foreach ($f in @('file_path', 'path', 'pattern')) { $tv = Get-PropertyValue $in $f $null; if ($tv -is [string] -and $tv) { $target = ConvertTo-OneLine $tv; break } }
+                if (-not $toolMap.Contains($id)) { $toolMap[$id] = $(if ($target) { "$($name): $target" } else { $name }) }
+            }
+        }
+    }
+    if (-not $sawText -and $response.Trim()) { $items.Add([pscustomobject]@{ Kind = 'message'; Text = $response }) }
+    return (New-TurnSalvage -Items $items -ToolMap $toolMap)
 }
 
 # ---- salvage (wave 24, T1): what a turn the bridge killed on its timeout had produced
@@ -5473,7 +6416,8 @@ function Get-MachineRunningCount {
 #                 (ConvertFrom-CodexConfigItems)
 #   auth          optional, only "none": the endpoint needs no credential (a table without
 #                 env_key/bearer token then passes the credential check; a table WITH
-#                 env_key still needs the variable)
+#                 env_key still needs the variable). (wave 29) Engine claude: "subscription"
+#                 (the default - the claude.ai login) or "api-key" (ANTHROPIC_API_KEY)
 #   panel         optional, "always" (the default) or "weighty": with -Panel a weighty
 #                 reviewer joins only on the weighty purposes (framing, decision,
 #                 core-contract, acceptance, stuck) or with -PanelAll. The single-reviewer
@@ -5483,7 +6427,9 @@ function Get-MachineRunningCount {
 #                 provider, e.g. "gemini"), the model is REQUIRED (the full id with its
 #                 tier), codex_config and auth are refused, and one label names one engine
 #                 across the roster. Two entries with the same label and different models
-#                 are fine (e.g. a "panel": "weighty" entry on the pro model).
+#                 are fine (e.g. a "panel": "weighty" entry on the pro model). (wave 29) Engine
+#                 claude: the model is one of the engine's table ($script:ClaudeModels -
+#                 an alias or an id, optionally ending with [1m]) and auth is allowed (above).
 #   parallel      optional TOP-LEVEL object (0.4.x wave 21) { "<provider label>": <n> }: a
 #                 -Panel runs the members of one endpoint one after another (Get-PanelPlan);
 #                 n >= 1 lets that label's members run n at a time. Every key must be a
@@ -5524,7 +6470,8 @@ $script:ConsultPurposes = @('framing', 'decision', 'checkpoint', 'core-contract'
 $script:SlugPattern = '^[a-z0-9][a-z0-9._-]{0,40}$'
 # D1: the lab of a model whose roster entry names none, keyed on the model id's PREFIX (never the
 # provider label - one label may serve several labs, one lab several labels). First match wins.
-$script:LabVendors = @('qwen=alibaba', 'deepseek=deepseek', 'kimi=moonshot', 'k3=moonshot', 'glm=zhipu', 'dola=bytedance', 'seed=bytedance', 'mimo=xiaomi', 'gemini=google', 'muse=meta', 'gpt=openai')
+# (wave 29) claude, opus, sonnet, haiku, fable: anthropic - the prefix covers the aliases and the ids.
+$script:LabVendors = @('qwen=alibaba', 'deepseek=deepseek', 'kimi=moonshot', 'k3=moonshot', 'glm=zhipu', 'dola=bytedance', 'seed=bytedance', 'mimo=xiaomi', 'gemini=google', 'muse=meta', 'gpt=openai', 'claude=anthropic', 'opus=anthropic', 'sonnet=anthropic', 'haiku=anthropic', 'fable=anthropic')
 # D6: the default panel size per purpose ('' = no purpose; 0 = every eligible member).
 $script:PanelSizes = @{ '' = 1; 'chore' = 1; 'checkpoint' = 1; 'diff-review' = 2; 'framing' = 3; 'decision' = 3; 'core-contract' = 4; 'acceptance' = 4; 'stuck' = 0 }
 # D6: the purposes whose panel should hear at least two members (the floor warning).
@@ -5771,21 +6718,48 @@ function Get-HostMarkerNames {
 # starts with part of the markers). TEST HOOK (test mode only, D14): CODEX_CONSULT_TEST_HIDE_FAIL=
 # <name> makes the removal of that marker fail. (wave 28b, D10) -TestVars (an ENGINE child): the
 # test-mode variables (Test-TestVarName) are hidden too, in the same transaction.
+# (wave 29, D2) -ChildEnv: an engine's ALLOW-listed child environment (Get-ClaudeChildEnvironment):
+# every variable of this process outside its Env is removed too, and its own values
+# (DISABLE_AUTOUPDATER=1) are set - in the SAME transaction; the saved value of a variable that was
+# not set is $null (Restore-HostMarkers removes it again).
 function Hide-HostMarkers {
-    param([switch]$TestVars)
+    param([switch]$TestVars, $ChildEnv = $null)
     $saved = [ordered]@{}
     foreach ($n in (Get-HostMarkerNames)) { $saved[$n] = [Environment]::GetEnvironmentVariable($n) }
     if ($TestVars) { foreach ($n in (Get-TestVarNames)) { if (-not $saved.Contains($n)) { $saved[$n] = [Environment]::GetEnvironmentVariable($n) } } }
+    $sets = [ordered]@{}
+    if ($null -ne $ChildEnv) {
+        foreach ($k in @([Environment]::GetEnvironmentVariables().Keys)) {
+            $n = [string]$k
+            if ($n -and -not $n.Contains('=') -and -not $ChildEnv.Env.ContainsKey($n) -and -not $saved.Contains($n)) { $saved[$n] = [Environment]::GetEnvironmentVariable($n) }
+        }
+        foreach ($k in @($ChildEnv.Env.Keys)) {
+            $n = [string]$k
+            $want = [string]$ChildEnv.Env[$k]
+            $cur = [Environment]::GetEnvironmentVariable($n)
+            if ($cur -cne $want) {
+                if (-not $saved.Contains($n)) { $saved[$n] = $cur }
+                $sets[$n] = $want
+            }
+        }
+    }
     $failOn = ([string](Get-TestHookValue 'CODEX_CONSULT_TEST_HIDE_FAIL')).Trim()
     $removed = [ordered]@{}
     $current = ''
     try {
         foreach ($n in @($saved.Keys)) {
             $current = [string]$n
+            if ($sets.Contains($current)) { continue }
             if ($failOn -and $current -ieq $failOn) { throw 'the removal was refused (test hook CODEX_CONSULT_TEST_HIDE_FAIL)' }
             # a real null: PowerShell passes $null to a [string] argument as '' - which PowerShell 7
             # (.NET) keeps as an EMPTY variable instead of removing it
             [Environment]::SetEnvironmentVariable($current, [NullString]::Value)
+            $removed[$current] = $saved[$current]
+        }
+        foreach ($n in @($sets.Keys)) {
+            $current = [string]$n
+            if ($failOn -and $current -ieq $failOn) { throw 'the change was refused (test hook CODEX_CONSULT_TEST_HIDE_FAIL)' }
+            [Environment]::SetEnvironmentVariable($current, [string]$sets[$n])
             $removed[$current] = $saved[$current]
         }
     } catch {
@@ -5799,7 +6773,12 @@ function Hide-HostMarkers {
 function Restore-HostMarkers {
     param($Saved)
     if ($null -eq $Saved) { return }
-    foreach ($n in @($Saved.Keys)) { [Environment]::SetEnvironmentVariable([string]$n, [string]$Saved[$n]) }
+    # (wave 29) a saved $null: the variable was not set before (a child environment's own value) - removed
+    foreach ($n in @($Saved.Keys)) {
+        $v = $Saved[$n]
+        if ($null -eq $v) { [Environment]::SetEnvironmentVariable([string]$n, [NullString]::Value) }
+        else { [Environment]::SetEnvironmentVariable([string]$n, [string]$v) }
+    }
 }
 
 # (wave 27c, D3) THE way a child is started without the host markers: hides them (transactional,
@@ -5976,6 +6955,9 @@ function Resolve-CoordinatorIdentity {
         return $r
     }
     $m = ConvertFrom-ReviewerMatcher -Matcher $v
+    # (wave 29, item 9) a Claude Code coordinator's model id may carry the 1M-context suffix
+    # (claude-opus-5-5[1m]): stripped - the comparison is on the model
+    if ($null -ne $m.Model -and ([string]$m.Model) -match '(?i)^claude-.*\[1m\]$') { $m.Model = ([string]$m.Model) -replace '(?i)\[1m\]$', '' }
     $why = [string]$m.Error
     if (-not $why -and $m.Kind -ne 'position') {
         $pp = Get-IdentityStringProblem ([string]$m.Provider)
@@ -6025,9 +7007,24 @@ function Resolve-CoordinatorIdentity {
 # 'provider' (the coordinator names only its provider - no model could be resolved - and the
 # reviewer is of that provider: the weaker warning), else ''. An explicit identity only (an inferred
 # host names no model); the provider and the model compared ordinal.
+# (wave 29, item 9) A reviewer of the claude engine: the ENGINE fixes the vendor - the coordinator's
+# provider is compared with anthropic (case-insensitive) whatever the roster's label, its engine may
+# be unnamed (codex, the default) or claude, and the models after normalising (Test-ClaudeModelMatch:
+# [1m] stripped, an alias equal to any id of its family). A Claude Code coordinator sets
+# CODEX_CONSULT_COORDINATOR="anthropic :: <its model id>".
 function Get-CoordinatorMatch {
     param($Coordinator, [string]$Provider, [string]$Model, [string]$Engine)
     if (-not $Coordinator -or [string](Get-PropertyValue $Coordinator 'source' '') -ne 'explicit') { return '' }
+    if ($Engine -eq 'claude') {
+        $ccp = [string](Get-PropertyValue $Coordinator 'provider' '')
+        if (-not $ccp -or $ccp -ine 'anthropic') { return '' }
+        $cce = [string](Get-PropertyValue $Coordinator 'engine' '')
+        if ($cce -and $cce -ne 'codex' -and $cce -ne 'claude') { return '' }
+        $ccm = [string](Get-PropertyValue $Coordinator 'model' '')
+        if (-not $ccm) { return 'provider' }
+        if (Test-ClaudeModelMatch -Pinned $ccm -Served $Model) { return 'own' }
+        return ''
+    }
     $cp = [string](Get-PropertyValue $Coordinator 'provider' '')
     if (-not $cp -or $cp -cne $Provider) { return '' }
     if (-not $Engine) { $Engine = 'codex' }
@@ -6099,7 +7096,8 @@ function Get-RosterPath {
 }
 
 # { Exists; Path; Disabled (CODEX_CONSULT_ROSTER=none); Entries ({ Position; Provider; Model
-# ('' = not given); CodexConfig (string[], already expanded and quoted); Auth ('' | 'none');
+# ('' = not given); CodexConfig (string[], already expanded and quoted); Auth ('' | 'none'; claude:
+# 'subscription' | 'api-key');
 # Panel ('always' | 'weighty'); Engine ('codex' | 'agy'); EngineDeclared (the entry names
 # its engine); (wave 26) Lab ('' = not given; canonical lowercase - D1); Roles (string[]: the
 # roles it is willing to take - D8) }); Parallel (hashtable, ordinal keys: provider label -> n
@@ -6173,9 +7171,13 @@ function Read-ReviewerRoster {
             if ($why) { break }
             # (wave 26b, D3 / F22-2, F22-4) the matcher's and the seed's delimiters never inside a
             # provider label, a model or an engine: '::', '[', ']', '|', ',', '#'
+            # (wave 29) a claude model may end with the 1M-context suffix [1m] - the rest obeys the rule
+            $isClaudeItem = ($item.PSObject.Properties['engine'] -and $item.engine -is [string] -and $item.engine -ceq 'claude')
             foreach ($sk in @('provider', 'model', 'engine')) {
                 if (-not $item.PSObject.Properties[$sk] -or -not ($item.$sk -is [string])) { continue }
-                $bad = Get-RosterStringProblem ([string]$item.$sk)
+                $sv = [string]$item.$sk
+                if ($sk -eq 'model' -and $isClaudeItem) { $sv = $sv -replace '\[1m\]$', '' }
+                $bad = Get-RosterStringProblem $sv
                 if ($bad) { $why = "roster entry #${pos}: $sk must not contain $bad"; break }
             }
             if ($why) { break }
@@ -6222,7 +7224,8 @@ function Read-ReviewerRoster {
             $model = ''
             if ($item.PSObject.Properties['model']) {
                 $mv = $item.model
-                if (Get-IdentityStringProblem $mv) { $why = "${at}: model must be a non-empty string without surrounding blanks (omit it to use the Codex config's model)"; break }
+                $mvCheck = $(if ($isClaudeItem -and $mv -is [string]) { $mv -replace '\[1m\]$', '' } else { $mv })
+                if (Get-IdentityStringProblem $mvCheck) { $why = "${at}: model must be a non-empty string without surrounding blanks (omit it to use the Codex config's model)"; break }
                 $model = $mv
             }
             $cfgItems = [string[]]@()
@@ -6237,8 +7240,14 @@ function Read-ReviewerRoster {
             }
             $auth = ''
             if ($item.PSObject.Properties['auth']) {
-                if (-not ($item.auth -is [string]) -or $item.auth -cne 'none') { $why = "${at}: auth may only be ""none"" (an endpoint that needs no credential; omit it otherwise)"; break }
-                $auth = 'none'
+                # (wave 29) claude takes subscription | api-key (checked below, once the engine is known)
+                if ($isClaudeItem) {
+                    if (-not ($item.auth -is [string]) -or $script:ClaudeAuthModes -cnotcontains $item.auth) { $why = "${at}: auth of engine claude must be ""subscription"" (the claude.ai login, the default) or ""api-key"" (ANTHROPIC_API_KEY) (got $(ConvertTo-Json -InputObject $item.auth -Compress))"; break }
+                    $auth = [string]$item.auth
+                } else {
+                    if (-not ($item.auth -is [string]) -or $item.auth -cne 'none') { $why = "${at}: auth may only be ""none"" (an endpoint that needs no credential; omit it otherwise)"; break }
+                    $auth = 'none'
+                }
             }
             $panelWeight = 'always'
             if ($item.PSObject.Properties['panel']) {
@@ -6255,7 +7264,14 @@ function Read-ReviewerRoster {
             if ($engine -ne 'codex') {
                 if (-not $model) { $why = "${at}: engine $engine needs a model (the full model id, e.g. $((Get-EngineSpec $engine).ModelExample))"; break }
                 if ($item.PSObject.Properties['codex_config']) { $why = "${at}: codex_config does not apply to engine $engine (it configures codex exec)"; break }
-                if ($item.PSObject.Properties['auth']) { $why = "${at}: auth does not apply to engine $engine (the $engine CLI keeps its own sign-in)"; break }
+                if ($item.PSObject.Properties['auth'] -and $engine -ne 'claude') { $why = "${at}: auth does not apply to engine $engine (the $engine CLI keeps its own sign-in)"; break }
+            }
+            # (wave 29, item 8, D4) a claude entry: a model of the engine's table; auth defaults to
+            # subscription
+            if ($engine -eq 'claude') {
+                $mp = Get-ClaudeModelProblem $model
+                if ($mp) { $why = "${at}: the claude model '$model' $mp"; break }
+                if (-not $auth) { $auth = 'subscription' }
             }
             $other = @($entries | Where-Object { $_.Provider -ceq $provider -and $_.Engine -ne $engine }) | Select-Object -First 1
             if ($other) { $why = "entries $($other.Position) and $pos use the provider label '$provider' with two engines ($($other.Engine), $engine); a label names one engine"; break }
@@ -6377,7 +7393,7 @@ function Get-PreflightVerdict {
         # An engine keeps its own sign-in: its credential check (agy: `agy models`, or a usable
         # reply on this endpoint within the last 60 minutes - the auth / quota rules below
         # still apply).
-        $cred = Get-EngineCredential -Engine $engine -Launcher $Launcher -LoginCache $LoginCache -NoNetwork:$NoNetwork -Health $Health
+        $cred = Get-EngineCredential -Engine $engine -Launcher $Launcher -LoginCache $LoginCache -NoNetwork:$NoNetwork -Health $Health -Auth ([string](Get-PropertyValue $Identity 'Auth' ''))
     } else {
         $table = $null
         if ($Config -and $Config.Exists -and $Config.Ok) {
@@ -6479,13 +7495,17 @@ function Get-ListingCacheKey {
     param([string[]]$Parts)
     return ((@($Parts) | ForEach-Object { "$(([string]$_).Length):$_" }) -join '|')
 }
+# (wave 29) $Auth: a roster entry's auth - passed on only for an engine that takes one (claude).
 function Get-CachedReviewerIdentity {
-    param([hashtable]$Cache, $Config, [string]$Provider, [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '')
+    param([hashtable]$Cache, $Config, [string]$Provider, [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '', [string]$Auth = '')
     if (-not $Engine) { $Engine = 'codex' }
+    $idArgs = @{ Config = $Config; Provider = $Provider; Model = $Model; OpenAiBaseUrl = $OpenAiBaseUrl; Engine = $Engine; Launcher = $Launcher }
+    $es = Get-EngineSpec -Name $Engine
+    if ($es -and @(Get-PropertyValue $es 'AuthModes' @()).Count -gt 0 -and $Auth) { $idArgs['Auth'] = $Auth } else { $Auth = '' }
     $use = Test-ListingCache $Cache
-    $key = Get-ListingCacheKey @('identity', $Provider, $Model, $Engine, $Launcher, $OpenAiBaseUrl)
+    $key = Get-ListingCacheKey @('identity', $Provider, $Model, $Engine, $Launcher, $OpenAiBaseUrl, $Auth)
     if ($use -and $Cache.ContainsKey($key)) { return $Cache[$key] }
-    $id = Resolve-ReviewerIdentity -Config $Config -Provider $Provider -Model $Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $Engine -Launcher $Launcher
+    $id = Resolve-ReviewerIdentity @idArgs
     if ($use) { $Cache[$key] = $id }
     return $id
 }
@@ -6529,7 +7549,7 @@ function Select-RosterReviewer {
         $entryEngine = if ($e.PSObject.Properties['Engine'] -and $e.Engine) { [string]$e.Engine } else { 'codex' }
         if ($Engine -and $entryEngine -ne $Engine) { continue }
         $entryLauncher = Get-EngineLauncher -Engine $entryEngine -Launchers $EngineLaunchers -CodexLauncher $Launcher
-        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher
+        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher -Auth ([string]$e.Auth)
         if ($Model -and $id.Model -cne $Model) { continue }
         $r.Considered++
         $block = Get-EngineLaunchBlock -Engine $entryEngine
@@ -6603,7 +7623,7 @@ function Select-PanelMembers {
         $entryEngine = if ($e.PSObject.Properties['Engine'] -and $e.Engine) { [string]$e.Engine } else { 'codex' }
         if ($Engine -and $entryEngine -ne $Engine) { continue }
         $entryLauncher = Get-EngineLauncher -Engine $entryEngine -Launchers $EngineLaunchers -CodexLauncher $Launcher
-        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher
+        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher -Auth ([string]$e.Auth)
         if ($Model -and $id.Model -cne $Model) { continue }
         $state = 'run'
         $reason = ''
@@ -7266,8 +8286,12 @@ function Select-RoleAssignment {
 # IndexOfLabel (hashtable label -> group index) }. Used twice (wave 24, D16): over a panel's
 # RUNNERS for the scheduling plan (Get-PanelPlan) and over ALL roster entries for the
 # availability view (Get-RosterAvailability: an outage marks its whole group).
+# (wave 29, D5 / F02-4, F04-1) -Scheduling (the panel plan only): the members of an engine whose
+# row has ParallelScope 'engine' (claude) share one group whatever their fingerprints - they run one
+# after another unless the roster's "parallel" raises their labels; the availability view keeps its
+# groups by endpoint (D7: an Opus outage does not mark Sonnet).
 function Get-EndpointGroups {
-    param([object[]]$Members)
+    param([object[]]$Members, [switch]$Scheduling)
     $labels = New-Object System.Collections.Generic.List[string]
     $fps = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
     foreach ($m in @($Members | Where-Object { $_ })) {
@@ -7276,6 +8300,11 @@ function Get-EndpointGroups {
         $fp = ''
         if ($m.Identity -and $m.Identity.Resolved) { $fp = [string]$m.Identity.Fingerprint }
         if ($fp -and -not $fps[$label].Contains($fp)) { $fps[$label].Add($fp) }
+        if ($Scheduling) {
+            $mEngine = [string](Get-PropertyValue $m.Entry 'Engine' '')
+            $mSpec = $(if ($mEngine) { Get-EngineSpec -Name $mEngine } else { $null })
+            if ($mSpec -and [string](Get-PropertyValue $mSpec 'ParallelScope' '') -eq 'engine' -and -not $fps[$label].Contains("engine:$mEngine")) { $fps[$label].Add("engine:$mEngine") }
+        }
     }
     # one group per label, then labels that share a fingerprint are merged (to a fixed point)
     $groupOfLabel = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
@@ -7328,7 +8357,7 @@ function Get-EndpointGroups {
 #   Limits (ordered: label -> its group's limit, roster order) }
 function Get-PanelPlan {
     param([object[]]$Runners, [hashtable]$Parallel = $null, [int]$Cap = 0)
-    $eg = Get-EndpointGroups -Members $Runners
+    $eg = Get-EndpointGroups -Members $Runners -Scheduling
     $effective = 0
     $limits = [ordered]@{}
     $out = New-Object System.Collections.Generic.List[object]
@@ -8536,6 +9565,8 @@ function Get-CompactionCount {
             if (-not (Test-IsJsonObject $o)) { continue }
             $type = [string](Get-PropertyValue $o 'type' '')
             if ($script:CompactionEventTypes -ccontains $type) { $n++; continue }
+            # (wave 29) claude stream-json: system/compact_boundary
+            if ($type -ceq 'system' -and [string](Get-PropertyValue $o 'subtype' '') -ceq 'compact_boundary') { $n++; continue }
             $msg = Get-PropertyValue $o 'msg' $null
             if ($msg -and $script:CompactionEventTypes -ccontains [string](Get-PropertyValue $msg 'type' '')) { $n++; continue }
             if ($type -ceq 'item.completed') {
@@ -8902,7 +9933,9 @@ function Read-StreamChunk {
 # another state; muse a task proposed with task_kind tool.* until its task.lifecycle end
 # (completed, failed, cancelled, rejected). A line that is not such an event changes nothing.
 # (wave 28b, D12) $Labels (optional, key -> text): what an open key names for the stall cut - "codex
-# command_execution <id>", "agy tool step <n>", "muse <task kind> <task id>".
+# command_execution <id>", "agy tool step <n>", "muse <task kind> <task id>". (wave 29) claude: an
+# assistant event's tool_use block until the user event's tool_result with its tool_use_id ("claude
+# <tool> <id>").
 $script:CodexToolItems = @('command_execution', 'mcp_tool_call', 'web_search')
 function Update-ToolFlight {
     param([string]$Engine, [string]$Line, $Open, $Labels = $null)
@@ -8913,6 +9946,7 @@ function Update-ToolFlight {
     if ($isCodex -and $t.IndexOf('command_execution') -lt 0 -and $t.IndexOf('mcp_tool_call') -lt 0 -and $t.IndexOf('web_search') -lt 0) { return }
     if ($Engine -eq 'agy' -and $t.IndexOf('"tool"') -lt 0) { return }
     if ($Engine -eq 'muse' -and $t.IndexOf('task.lifecycle.') -lt 0) { return }
+    if ($Engine -eq 'claude' -and $t.IndexOf('tool_use') -lt 0 -and $t.IndexOf('tool_result') -lt 0) { return }
     $obj = $null
     try { $obj = ConvertFrom-Json -InputObject $t } catch { return }
     if ($isCodex) {
@@ -8962,6 +9996,25 @@ function Update-ToolFlight {
             return
         }
         if (@('task.lifecycle.completed', 'task.lifecycle.failed', 'task.lifecycle.cancelled', 'task.lifecycle.canceled', 'task.lifecycle.rejected') -contains $pType) { [void]$Open.Remove("muse:$tid") }
+        return
+    }
+    if ($Engine -eq 'claude') {
+        $type = [string](Get-PropertyValue $obj 'type' '')
+        if ($type -ne 'assistant' -and $type -ne 'user') { return }
+        $msg = Get-PropertyValue $obj 'message' $null
+        foreach ($b in @(Get-PropertyValue $msg 'content' @())) {
+            if (-not (Test-IsJsonObject $b)) { continue }
+            $bt = [string](Get-PropertyValue $b 'type' '')
+            if ($type -eq 'assistant' -and $bt -eq 'tool_use') {
+                $id = [string](Get-PropertyValue $b 'id' '')
+                if (-not $id) { continue }
+                [void]$Open.Add("claude:$id")
+                if ($null -ne $Labels) { $Labels["claude:$id"] = "claude $([string](Get-PropertyValue $b 'name' 'tool')) $id" }
+            } elseif ($type -eq 'user' -and $bt -eq 'tool_result') {
+                $tid = [string](Get-PropertyValue $b 'tool_use_id' '')
+                if ($tid) { [void]$Open.Remove("claude:$tid") }
+            }
+        }
     }
 }
 
@@ -9336,6 +10389,8 @@ $script:TelemetryVendors = @(
     [pscustomobject]@{ Class = 'alibaba'; Hosts = @('aliyuncs.com'); Engine = ''; Builtin = ''; Models = @('qwen3.8-max', 'qwen3.8-flash', 'qwen3.7-max', 'qwen3.7-plus', 'qwen3.6-flash', 'deepseek-v4.1-flash', 'deepseek-v4-pro', 'deepseek-v4-pro-0813', 'deepseek-v4-flash-0731', 'glm-5.3', 'glm-5.2') }
     [pscustomobject]@{ Class = 'google'; Hosts = @(); Engine = 'agy'; Builtin = ''; Models = @('gemini-3.8-flash-high', 'gemini-3.8-flash-medium', 'gemini-3.8-flash-low', 'gemini-3.1-pro-high', 'gemini-3.1-pro-low') }
     [pscustomobject]@{ Class = 'meta'; Hosts = @(); Engine = 'muse'; Builtin = ''; Models = @('muse-spark-1.3', 'muse-spark-1.3-contributor') }
+    # (wave 29, item 10, D4) the claude engine: its model table IS the list ([1m] stripped first)
+    [pscustomobject]@{ Class = 'anthropic'; Hosts = @(); Engine = 'claude'; Builtin = ''; Models = $script:ClaudeModels }
 )
 # The closed sets of the event (anything else becomes 'other' / 'unknown')
 $script:TelemetryEventKeys = @('app_id', 'app_version', 'instance_id', 'event_type', 'severity', 'title', 'details', 'tags', 'client_time', 'os', 'runtime')
@@ -9621,6 +10676,8 @@ function Get-TelemetryModelToken {
     $m = ([string]$Model).Trim().ToLowerInvariant()
     if (-not $m) { return 'unknown' }
     if (-not $Vendor) { return 'other' }
+    # (wave 29) anthropic: the 1M-context suffix [1m] is not part of the name
+    if ([string]$Vendor.Class -ceq 'anthropic') { $m = $m -replace '\[1m\]$', '' }
     foreach ($known in @($Vendor.Models)) { if ([string]$known -ceq $m) { return [string]$known } }
     return 'other'
 }

@@ -316,7 +316,7 @@ if (Want 'UNIT') {
 if (Want 'ROSTER') {
     $r = New-Repo 'roster'
     $bad = [ordered]@{
-        'unknown'   = @('{"roster_version":1,"reviewers":[{"provider":"gemini","engine":"gemini-cli","model":"m"}]}', 'entry 1: engine must be one of: codex, agy, muse \(got "gemini-cli"\)')
+        'unknown'   = @('{"roster_version":1,"reviewers":[{"provider":"gemini","engine":"gemini-cli","model":"m"}]}', 'entry 1: engine must be one of: codex, agy, muse, claude \(got "gemini-cli"\)')
         'nomodel'   = @('{"roster_version":1,"reviewers":[{"provider":"gemini","engine":"agy"}]}', 'entry 1: engine agy needs a model')
         'cfg'       = @('{"roster_version":1,"reviewers":[{"provider":"gemini","engine":"agy","model":"m","codex_config":["a=b"]}]}', 'entry 1: codex_config does not apply to engine agy')
         'auth'      = @('{"roster_version":1,"reviewers":[{"provider":"gemini","engine":"agy","model":"m","auth":"none"}]}', 'entry 1: auth does not apply to engine agy')
@@ -377,7 +377,7 @@ if (Want 'DRYRUN') {
         if (-not ($o.Code -eq 1 -and $o.First -match $refusals[$k][1])) { $badR += "$k -> $($o.First)" }
     }
     $nat = Consult $r '' @('-DryRun', '-Prompt', 'x', '-SchemaTransport', 'native')
-    if (-not ($nat.Code -eq 1 -and $nat.First -match '^codex-consult: -SchemaTransport native is for the agy and muse engines')) { $badR += "codex native -> $($nat.First)" }
+    if (-not ($nat.Code -eq 1 -and $nat.First -match '^codex-consult: -SchemaTransport native is for the agy, muse and claude engines')) { $badR += "codex native -> $($nat.First)" }
     Check 'DRYRUN' "refused, one message each: $(@($refusals.Keys) -join ', '), and -SchemaTransport native for codex" ($badR.Count -eq 0) ($badR -join ' | ')
     # resume: --conversation <the parent>
     $t0 = Uuid

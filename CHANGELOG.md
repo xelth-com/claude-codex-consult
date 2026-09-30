@@ -6,6 +6,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - unreleased
+
+The first wave of the 0.6.0 candidate: wave 29, the `claude` engine - ROADMAP R10 with R22. Design:
+`.collab/claude-engine-2026-09-30/handoffs/01-claude-claude-engine-design.md`; decisions D1-D12 of
+`.collab/claude-engine-2026-09-30/handoffs/05-claude-claude-engine-decisions.md`. The plugin and marketplace
+manifests are not bumped yet (the version stays 0.5.0 until the release).
+
+### Added
+
+- **The `claude` engine - Claude Code headless (`claude -p`) as a fourth reviewer engine** beside codex, agy and
+  muse, for the Claude subscription or an API key.
+  - Roster entry `{ "provider": "anthropic", "engine": "claude", "model": "claude-opus-5-5", "auth":
+    "subscription", ... }` or `-Engine claude -Model sonnet` (the label defaults to `anthropic`). `model` is
+    REQUIRED and one of the engine's table: the aliases `opus`, `sonnet`, `haiku`, `fable` and the ids
+    `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`,
+    `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-sonnet-4-6`,
+    `claude-haiku-4-5`, each optionally ending in `[1m]`. Roster `auth` for claude entries only:
+    `subscription` (default) or `api-key`; `codex_config` and `auth: none` are refused. Lab: `claude`, `opus`,
+    `sonnet`, `haiku`, `fable` prefixes -> `anthropic`. Reply files `NN-claudecode-<slug>.*` (the prefix
+    `claude` stays the coordinator's default brief prefix). Modes `new`, `resume` and `fork`; read-only sandbox
+    only; schema transport `native` (`--json-schema` with the schema text) or `prompt-only`; a denial retry on
+    evidence, as agy.
+  - Invocation from the repository root, the prompt on stdin: `claude -p --output-format stream-json --verbose
+    --restricted --strict-mcp-config --disable-slash-commands --tools Read,Grep,Glob --permission-mode dontAsk
+    --model <m> [--effort <e>] [--json-schema <text>] [--max-turns <n>] [--add-dir <dir>...] (--session-id
+    <uuid> | --resume <thread> [--fork-session])`. Launcher: `-EngineExe`, `CODEX_CONSULT_CLAUDE_EXE`,
+    `claude.exe` / `claude.cmd` / `claude` on PATH, then `%USERPROFILE%\.local\bin\claude.exe`. Harness string
+    `claude-cli <ProductVersion>`.
+  - Lineage: a new thread's session id is minted by the bridge (`--session-id`); resume sends `--resume
+    <thread>` (the same id must come back); fork sends `--resume <parent> --fork-session` (a new uuid); every
+    secondary turn (denial retry, format repair, timeout continuation) resumes the thread. A `CLAUDE_CONFIG_DIR`
+    or a projects directory inside the repository under review refuses the run.
+  - Per-turn proof from every init event: tools only Read, Grep, Glob and StructuredOutput, no MCP server,
+    `permissionMode` `dontAsk` (else class `permission`); billing `apiKeySource` `none` for auth
+    `subscription`, `ANTHROPIC_API_KEY` set for `api-key` (else class `auth`). Ledger `engine_run` for claude:
+    `{turns, max_model_steps, msp_schema_version (null), auth, init_tools, mcp_servers, permission_mode,
+    api_key_source, model_resolved, other_models, permission_denials, denied_tools, rate_limit, cost_usd,
+    child_env_allowed, switched_off}`; `reviewer.provider_config` gains `credential_mechanism` (the roster
+    auth), `auth_method` and `api_provider` (never the account's e-mail or organisation).
+  - D4, one resolved model per thread: the roster model goes to `--model` on a new thread, the init event's
+    model is the resolved id, and every later turn (secondary turns and later `-Mode resume` / `fork`
+    consultations, from the parent entry's `engine_run.model_resolved`) sends that id; the init model and the
+    result's `modelUsage` main model must match it (else class `capability`); a second `modelUsage` key is a
+    warning; an alias in a run warns that it floats.
+  - D2/D3, the child environment is an ALLOW list (system variables, proxy and trust variables, a few prefixes,
+    `CLAUDE_CONFIG_DIR`, and `ANTHROPIC_API_KEY` only with auth `api-key`); every other `ANTHROPIC_*` /
+    `CLAUDE_*` variable, host marker and test-mode variable is absent, `DISABLE_AUTOUPDATER=1` is set; the SAME
+    environment serves the preflight, the version probe and every turn. Ledger `engine_run.child_env_allowed`
+    lists names only. Test hook `CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix>` (test mode only; never a prefix of
+    ANTHROPIC, CLAUDE or CODEX_CONSULT).
+  - D1, the STRICT tree check as for agy: any change of the working tree or the collab directory during a claude
+    turn fails the run (class `permission`); R22 switches off user, project and local settings, instruction
+    files, MCP servers, skills, slash commands, code, web and write tools, the autoupdater
+    (`engine_run.switched_off`).
+  - Preflight `Get-ClaudeSignIn`: `claude auth status` (local, 15 s, JSON read before the exit code) -> `ok:
+    signed in (claude.ai subscription)`; an `authMethod` other than `claude.ai` for a subscription, or an
+    `apiProvider` other than `firstParty` (gateway, Bedrock, Vertex, Foundry - D10) is unavailable; `not
+    checked` under `-NoNetwork`.
+  - D5, the members of the claude engine in one panel run one at a time by default; `"parallel": {"anthropic":
+    2}` raises it. D7, the health fingerprint is engine + auth + model family (`cc-engine-v1|claude|<auth>|<family>`).
+    D9, a prompt over 1 MiB is refused before the start.
+  - Failure classes: not logged in -> `auth`; a rejecting `rate_limit_event` or limit wording -> `quota` with the
+    reset time as `retry_after`; `error_max_turns`, `error_max_structured_output_retries`, a model drift -> `capability`;
+    a malformed stream -> `transport`. Usage maps `input_tokens` = input + cache read + cache creation;
+    `total_cost_usd` stays local as `engine_run.cost_usd`.
+  - Coordinator rule (item 9): a Claude Code coordinator sets `CODEX_CONSULT_COORDINATOR="anthropic :: <its model
+    id>"`; for a claude reviewer the engine fixes the vendor, compared with `anthropic` whatever the roster label;
+    the models after normalising (`[1m]` stripped, an alias equal to any id of its family); a warning, never a
+    refusal.
+  - Telemetry: vendor class `anthropic` for engine claude; the model is sent only when it equals an entry of the
+    model table above (`[1m]` stripped, lower-cased), else `other`.
+  - Tests: `tests/fake-claude.cmd` + `tests/fake-claude.ps1` (driven by `FAKE_CLAUDE_*`) and
+    `tests/harness-claude.ps1`, registered in `tests/run-all.ps1` as the twentieth harness; its GUARD section keeps
+    the real `claude` from ever starting.
+
+### Changed
+
+- The `-MaxModelSteps` message: `-MaxModelSteps is for an engine with a model-step cap (muse --max-model-steps,
+  claude --max-turns); the <engine> engine has none.` (claude sends `--max-turns <n>`).
+- The panel's `-MaxModelSteps` refusal: `-MaxModelSteps applies to the members of a panel whose engine has a
+  model-step cap (muse --max-model-steps, claude --max-turns); no member of this panel runs such an engine.`
+- The `-SchemaTransport` messages now name claude beside agy and muse (`native` for the engines that have it).
+- An engine's adapter may name a `LocalCheck` that runs BEFORE the 60-minute ledger short-circuit of the
+  sign-in check (claude auth `api-key`: `ANTHROPIC_API_KEY` must be set now - a usable reply an hour ago proves
+  nothing about this process's environment), and a `ChildEnv`; the `Outcome` of every engine takes `-Turn` (the
+  turn's options: mode, threads, the minted id, the pinned model, the auth - agy and muse ignore it).
+- The harnesses that enumerate the engines know claude: `harness-muse` and `harness-engines` (the engine lists of
+  the messages), `harness-roster` (two claude refusals), `harness-visibility` (the claude salvage reader),
+  `harness-telemetry` (the vendor class `anthropic`, `[1m]`, the README row), `harness-detach` (the claude
+  launcher names are kept off its PATH).
+- `Hide-HostMarkers` takes `-ChildEnv` (the allow-listed child environment of the claude engine) and a new
+  `ConvertTo-CrtArg` quotes an argument by the C runtime rules, because the claude schema text travels in argv.
+- Docs: README (the section "Engines (wave 29)", the roster, ledger, effort, options and environment tables, the
+  telemetry vendor table, "Tested on" - the live verification is pending), the `setup-providers` skill (section 3g),
+  `tests/README.md`.
+
 ## [0.5.0] - candidate (not tagged)
 
 The next candidate. Wave 24 (the "operator visibility" wave, ROADMAP T1-T3 and the

@@ -99,6 +99,7 @@ execute, reviewers advise, you decide. These rules hold on every host; the means
    files, notes and findings stores included - and no git command runs (commit, checkout, stash,
    pull). That binds your workers too: hold a writing worker until `-Status` says the panel is
    done, then write what you queued.
+   (Wave 29) The rule covers a `claude` member as well: the bridge fails a claude run when the working tree or the collab directory changed during it, as for agy.
 8. **Rate every consultation** once its reply is read:
    `powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-findings.ps1" -Task <task> -Rate <n> -Useful yes|partly|no -Note "<why>"`.
    A routed panel draws its seats from these marks.

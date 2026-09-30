@@ -1716,12 +1716,25 @@ function Start-EngineProcess {
     $hiddenMarkers = $null
     # (wave 27c, D3 / F30-2) transactional: a removal that fails put everything back already - the
     # start is refused, nothing starts with part of the markers
-    try { $hiddenMarkers = Hide-HostMarkers -TestVars } catch {
+    # (wave 29, D2) an engine with an ALLOW-listed child environment (claude: the adapter's ChildEnv
+    # for the run's auth): every other variable is hidden in the same transaction
+    $childEnvPlan = $null
+    $startSpec = Get-EngineSpec -Name $engineName
+    if ($engineName -ne 'codex' -and $startSpec -and $startSpec.Adapter -and $startSpec.Adapter.PSObject.Properties['ChildEnv'] -and $startSpec.Adapter.ChildEnv) {
+        try { $childEnvPlan = & $startSpec.Adapter.ChildEnv -Auth $engineAuth } catch {
+            $r.Refusal = "bridge failure: the child environment could not be built ($(ConvertTo-OneLine $_.Exception.Message))"
+            return $r
+        }
+    }
+    # (wave 29) how the argv is quoted: the CRT rules for an engine that takes JSON text in argv
+    # (claude --json-schema: \" never toggles a parser's quote state), else ConvertTo-ProcArg
+    $quoteArg = $(if ($startSpec -and [string](Get-PropertyValue $startSpec 'ArgQuote' '') -eq 'crt') { 'ConvertTo-CrtArg' } else { 'ConvertTo-ProcArg' })
+    try { $hiddenMarkers = Hide-HostMarkers -TestVars -ChildEnv $childEnvPlan } catch {
         $r.Refusal = "bridge failure: $(ConvertTo-OneLine $_.Exception.Message)"
         return $r
     }
     try {
-        $r.Proc = Start-Process -FilePath $Launcher -ArgumentList ((($Argv | ForEach-Object { ConvertTo-ProcArg $_ }) -join ' ')) `
+        $r.Proc = Start-Process -FilePath $Launcher -ArgumentList ((($Argv | ForEach-Object { & $quoteArg $_ }) -join ' ')) `
             -WorkingDirectory $repoRoot -NoNewWindow -PassThru `
             -RedirectStandardOutput $StdoutPath `
             -RedirectStandardError $StderrPath `
@@ -2771,7 +2784,7 @@ if ($panelRun) {
     }
     # -MaxModelSteps goes to the members whose engine has a step cap (muse); none -> refused.
     if ($MaxModelSteps -gt 0 -and @($panelRunners | Where-Object { (Get-EngineSpec ([string]$_.Entry.Engine)).StepsFlag }).Count -eq 0) {
-        Stop-WithError "-MaxModelSteps applies to the muse members of a panel (--max-model-steps); no member of this panel runs the muse engine."
+        Stop-WithError "-MaxModelSteps applies to the members of a panel whose engine has a model-step cap (muse --max-model-steps, claude --max-turns); no member of this panel runs such an engine."
     }
     # A launcher every member of an engine would miss is refused once, up front.
     if (-not $DryRun -or $detachForeground) {
@@ -3432,20 +3445,20 @@ $anonymous = [bool]($rosterEntry -and $rosterEntry.Auth -eq 'none')
 
 # What an engine does not support is refused with one message each (nothing started).
 if (-not $isCodex) {
-    if ($Mode -eq 'fork') { Stop-WithError "the $engineName engine has no fork; use -Mode resume or new." }
+    if ($Mode -eq 'fork' -and @($engineSpec.Modes) -notcontains 'fork') { Stop-WithError "the $engineName engine has no fork; use -Mode resume or new." }
     if ($Sandbox -ne 'read-only') { Stop-WithError "-Sandbox $Sandbox is refused for the $engineName engine: consultations are read-only there ($($engineSpec.ReadOnlyNote))." }
     if (@($CodexConfig | Where-Object { $_ -and $_.Trim() }).Count -gt 0) { Stop-WithError "-CodexConfig does not apply to the $engineName engine (it configures codex exec)." }
     if ($transportOverride -and $engineSpec.Transports -notcontains $transportOverride) { Stop-WithError "-SchemaTransport $transportOverride is refused for the $engineName engine: it takes $($engineSpec.Transports -join ' or ') (native = the schema is passed as $($engineSpec.SchemaFlag))." }
     # agy: default mode new (a conversation is resumed only on request); -Thread resumes it.
     if (-not $Mode) { $Mode = $(if ($Thread) { 'resume' } else { $engineSpec.DefaultMode }) }
 } else {
-    if ($transportOverride -and $engineSpec.Transports -notcontains $transportOverride) { Stop-WithError "-SchemaTransport $transportOverride is for the agy and muse engines; codex takes output-schema or prompt-only." }
+    if ($transportOverride -and $engineSpec.Transports -notcontains $transportOverride) { Stop-WithError "-SchemaTransport $transportOverride is for the agy, muse and claude engines; codex takes output-schema or prompt-only." }
 }
 # -MaxModelSteps: an engine with a model-step cap only (muse, D9); a panel member of another
 # engine ignores the panel's value.
 if ($MaxModelSteps -gt 0 -and -not $engineSpec.StepsFlag) {
     if ($panelMember) { $MaxModelSteps = 0 }
-    else { Stop-WithError "-MaxModelSteps is for the muse engine (--max-model-steps); the $engineName engine has no model-step cap." }
+    else { Stop-WithError "-MaxModelSteps is for an engine with a model-step cap (muse --max-model-steps, claude --max-turns); the $engineName engine has none." }
 }
 # -EngineExe was bound to one engine (D3): a run of another engine other than codex would
 # silently use that engine's default launcher - refused.
@@ -3467,11 +3480,30 @@ if (-not $isCodex) {
     $harness = Get-EngineHarness -Engine $engineName -Launcher $engineLauncher
 }
 
-$identity = Resolve-ReviewerIdentity -Config $codexConfigScan -Provider $identityProvider -Model $identityModel -OpenAiBaseUrl $openAiBaseUrl -Engine $engineName -Launcher $engineLauncher
+# (wave 29) an engine that takes a roster `auth` (claude: subscription | api-key) - the roster
+# entry's, else the engine's default (the first); its child environment, preflight and billing check
+# follow it
+$engineAuth = ''
+$identityArgs = @{ Config = $codexConfigScan; Provider = $identityProvider; Model = $identityModel; OpenAiBaseUrl = $openAiBaseUrl; Engine = $engineName; Launcher = $engineLauncher }
+if (@(Get-PropertyValue $engineSpec 'AuthModes' @()).Count -gt 0) {
+    $engineAuth = $(if ($rosterEntry -and @($engineSpec.AuthModes) -contains [string]$rosterEntry.Auth) { [string]$rosterEntry.Auth } else { [string]@($engineSpec.AuthModes)[0] })
+    $identityArgs['Auth'] = $engineAuth
+}
+$identity = Resolve-ReviewerIdentity @identityArgs
 if ($identity.Error) { Stop-WithError $identity.Error }
+# (wave 29, item 8) a claude model outside the engine's table is refused (a roster entry was checked
+# when the roster was read); an alias floats - each thread is pinned to the id it resolves to
+if ($engineName -eq 'claude') {
+    $claudeModelProblem = Get-ClaudeModelProblem ([string]$identity.Model)
+    if ($claudeModelProblem) { Stop-WithError "the claude model '$($identity.Model)' $claudeModelProblem; nothing was started." }
+    if (Test-ClaudeModelAlias ([string]$identity.Model)) { $runWarnings.Add("claude model $($identity.Model) is an alias: the alias floats; each thread is pinned to the id it resolves to (engine_run.model_resolved)") }
+}
 if ($providerSourceOverride) { $identity.ProviderSource = $providerSourceOverride }
 if ($modelSourceOverride) { $identity.ModelSource = $modelSourceOverride }
 $reviewerRecord = New-ReviewerRecord -Identity $identity -Harness $harness
+# (wave 29, D4) the model the engine's turns send: the identity's; claude pins a thread to the id its
+# first turn resolved (set below for resume / fork, and after the main turn for the later turns)
+$engineModel = [string]$identity.Model
 $lineage = $identity.Lineage
 # The lineage as shown on the console and in the handoff (' [agy]' for another engine).
 $lineageShown = Format-ReviewerLineage -Provider $identity.Provider -Model $identity.Model -Engine $engineName
@@ -3556,6 +3588,18 @@ if (-not $SkipPreflight) {
 # (wave 27c, D4) a launcher probe that could not be started without the host markers was skipped:
 # why, in warnings[] (the preflight said "not checked")
 foreach ($probeWarning in @($script:ProbeWarnings)) { if ($probeWarning -and -not $runWarnings.Contains([string]$probeWarning)) { $runWarnings.Add([string]$probeWarning) } }
+# (wave 29) the engine's provider_config fields known only after the preflight (claude: auth_method
+# and api_provider as `claude auth status` reported them) - the identity was resolved before it ran
+if ($engineAuth -and $engineSpec.Adapter -and $engineSpec.Adapter.PSObject.Properties['IdentityConfig'] -and $engineSpec.Adapter.IdentityConfig) {
+    $icNow = & $engineSpec.Adapter.IdentityConfig -Auth $engineAuth -Launcher $engineLauncher
+    foreach ($k in @($icNow.Keys)) { $reviewerRecord.provider_config | Add-Member -NotePropertyName ([string]$k) -NotePropertyValue $icNow[$k] -Force }
+}
+# (wave 29, item 2) claude: its transcripts must not land in the repository under review
+if ($engineName -eq 'claude') {
+    $claudeLaunchProblem = Get-ClaudeLaunchProblem -RepoRoot $repoRoot -Launcher $engineLauncher -Auth $engineAuth
+    if ($claudeLaunchProblem -and (-not $DryRun -or $detachForeground)) { Stop-WithError "the claude engine is refused: $claudeLaunchProblem; nothing was started." }
+    if ($claudeLaunchProblem) { $runWarnings.Add("a real run is refused: $claudeLaunchProblem") }
+}
 
 # One line on the roster decision (console, dry run, handoff header) and the ledger's
 # `roster` object ($null without a roster file).
@@ -4068,8 +4112,35 @@ try {
         $engineSchemaArg = ''
         if (-not $Raw -and $schemaTransport -eq 'native') { $engineSchemaArg = $schemaPath }
         $engineThreadArg = ''
-        if ($Mode -eq 'resume') { $engineThreadArg = $parentThread }
-        $mainTurn = New-EngineTurnOptions -Model $identity.Model -Mode $Mode -Thread $engineThreadArg -PromptFile $promptPath -Schema $engineSchemaArg -Effort $effortSent -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps
+        if ($Mode -eq 'resume' -or ($Mode -eq 'fork' -and @($engineSpec.Modes) -contains 'fork')) { $engineThreadArg = $parentThread }
+        # (wave 29, D4) the model every turn sends: the roster's on a new thread; on resume and fork the
+        # id the parent thread resolved (its ledger entry's engine_run.model_resolved) - a thread is
+        # one resolved model, never a floating alias
+        if ($engineName -eq 'claude' -and $engineThreadArg) {
+            $pinnedEntry = @($consults | Where-Object { [string](Get-PropertyValue $_ 'thread' '') -eq $parentThread }) | Select-Object -Last 1
+            $pinnedModel = [string](Get-PropertyValue (Get-PropertyValue $pinnedEntry 'engine_run' $null) 'model_resolved' '')
+            if ($pinnedModel) { $engineModel = $pinnedModel }
+        }
+        # (wave 29, item 2) a new thread of an engine that mints its id (claude --session-id): known
+        # before the first byte - a turn killed before its result still has a thread
+        $engineNewThread = ''
+        if (-not $engineThreadArg -and (Get-PropertyValue $engineSpec 'MintsThread' $false)) { $engineNewThread = [guid]::NewGuid().ToString() }
+        # (wave 29, item 1) the directories outside the repository the reviewer must read (claude
+        # --restricted confines its file tools to the working directories): a rooted collab directory,
+        # the brief's, the artifacts'
+        $engineAddDirs = New-Object System.Collections.Generic.List[string]
+        if (Get-PropertyValue $engineSpec 'AddDirs' $false) {
+            $outsideDirs = New-Object System.Collections.Generic.List[string]
+            if ($collabRoot) { $outsideDirs.Add([string]$collabRoot) }
+            if ($briefPath) { $outsideDirs.Add((Split-Path -Parent ([string]$briefPath))) }
+            foreach ($ai in @($artifactItems)) { if ($ai -and [string]$ai.full) { $outsideDirs.Add((Split-Path -Parent ([string]$ai.full))) } }
+            foreach ($od in $outsideDirs) {
+                if (-not $od) { continue }
+                $odFull = [IO.Path]::GetFullPath($od).TrimEnd([char]'\', [char]'/')
+                if ($null -eq (Get-RepoRelativePath -Root $repoRoot -Path $odFull) -and -not $engineAddDirs.Contains($odFull)) { $engineAddDirs.Add($odFull) }
+            }
+        }
+        $mainTurn = New-EngineTurnOptions -Model $engineModel -Mode $Mode -Thread $engineThreadArg -PromptFile $promptPath -Schema $engineSchemaArg -Effort $effortSent -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps -NewThread $engineNewThread -AddDirs ([string[]]$engineAddDirs.ToArray()) -Auth $engineAuth
         $argv = & $engineSpec.Adapter.Argv -Turn $mainTurn
     } else {
         # Exec-level options MUST precede the fork|resume subcommand: `codex exec fork --help`
@@ -4107,6 +4178,15 @@ try {
     # A .cmd launcher expands %VAR% inside quoted arguments (F02-14): a real run is refused.
     $argvHazard = ''
     if (-not $isCodex) { $argvHazard = Get-CmdArgvHazard -Launcher $engineLauncher -Argv $argv }
+    # (wave 29, D9) an engine with a bound on its stdin prompt (claude: 1 MiB): a larger prompt is
+    # refused before anything starts
+    $promptBound = ''
+    $maxPromptBytes = [long](Get-PropertyValue $engineSpec 'MaxPromptBytes' 0)
+    if (-not $isCodex -and $maxPromptBytes -gt 0) {
+        $promptBytes = $script:Utf8NoBom.GetByteCount([string]$stdinText)
+        if ($promptBytes -gt $maxPromptBytes) { $promptBound = "brief too large for this engine: the prompt is $promptBytes bytes, the $engineName engine takes at most $maxPromptBytes bytes on stdin" }
+    }
+    if ($promptBound -and (-not $DryRun -or $detachForeground)) { Stop-WithError "$promptBound; nothing was started." }
 
     # (wave 25, R12) -Detach: every check a real run makes before its lock has passed (D2; the
     # launch hazard above too) - the background runs the consultation; this process writes the
@@ -4219,7 +4299,7 @@ try {
             unchecked_prior_blockers        = [object[]]@()
             usage                           = $(if ($isCodex) { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n>'; output_tokens = '<n>'; reasoning_output_tokens = '<n>' } } elseif (-not $engineSpec.HasUsage) { $null } else { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n (cache_read_tokens)>'; output_tokens = '<n>'; reasoning_output_tokens = '<n (thinking_tokens)>'; total_tokens = '<n>' } })
             compactions                     = $(if ($contextTokens -gt 0) { "<n (the compactions the engine's stream reported), else 'unknown'>" } else { '<null, or n when the engine''s stream reported a compaction>' })
-            engine_run                      = $(if ($isCodex) { $null } else { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $(if ($engineSpec.PromptTransport -eq 'file') { '<the MSP schema_version of the stream: 1>' } else { $null }) } })
+            engine_run                      = $(if ($isCodex) { $null } elseif ($engineName -eq 'claude') { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $null; auth = $engineAuth; init_tools = '<the tools the init events listed: Glob, Grep, Read, StructuredOutput>'; mcp_servers = '<0>'; permission_mode = '<dontAsk>'; api_key_source = $(if ($engineAuth -eq 'api-key') { '<ANTHROPIC_API_KEY>' } else { '<none>' }); model_resolved = '<the model id the init event resolved>'; other_models = '<[] or the other models a turn named>'; permission_denials = '<n>'; denied_tools = '<[] or the tools denied>'; rate_limit = '<null, or the most severe rate_limit_event as the CLI wrote it>'; cost_usd = '<the notional total_cost_usd>'; child_env_allowed = [object[]]@((Get-ClaudeChildEnvironment -Auth $engineAuth).Names); switched_off = [object[]]$script:ClaudeSwitchedOff } } else { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $(if ($engineSpec.PromptTransport -eq 'file') { '<the MSP schema_version of the stream: 1>' } else { $null }) } })
             wall_seconds                    = 0
             finished_at                     = '<written at the commit>'
             commit_wait_ms                  = '<ms the commit waited for the write lock>'
@@ -4248,7 +4328,8 @@ try {
         Write-Host "lineage     : $lineageShown"
         # (wave 27, R13) the coordinator, what its engine children do not get, its brief prefix
         Write-Host "coordinator : $(Format-CoordinatorText $coordinatorRecord)"
-        Write-Host "child env   : $(if (@($childEnvScrubbed).Count -gt 0) { "without the host markers $(@($childEnvScrubbed) -join ', ') (every other variable is kept)" } else { 'no host marker set - the environment is passed as it is' })"
+        if ($engineName -eq 'claude') { Write-Host "child env   : an allow list (auth $engineAuth): $(@((Get-ClaudeChildEnvironment -Auth $engineAuth).Names) -join ', ') - every other variable (the host markers, ANTHROPIC_*, CLAUDE_* but CLAUDE_CONFIG_DIR) is left out" }
+        else { Write-Host "child env   : $(if (@($childEnvScrubbed).Count -gt 0) { "without the host markers $(@($childEnvScrubbed) -join ', ') (every other variable is kept)" } else { 'no host marker set - the environment is passed as it is' })" }
         Write-Host "brief prefix: $BriefPrefix ($briefPrefixSource) - the coordinator's briefs are handoffs/<NN>-$BriefPrefix-<slug>.md, this reply $nn-$enginePrefix-$ReplyName.*"
         # (wave 28, R17)
         if ($telemetrySwitch.On) { Write-Host "telemetry   : on ($($telemetrySwitch.Source)) - after the commit ONE anonymised event of this consultation goes to the spool and a background sender delivers it (README ""Telemetry (on by default)""; CODEX_CONSULT_TELEMETRY=off or -Telemetry off switches it off)" }
@@ -4283,6 +4364,7 @@ try {
             if ($engineSpec.StepsFlag) { Write-Host "max steps   : $(if ($MaxModelSteps -gt 0) { "$MaxModelSteps ($($engineSpec.StepsFlag))" } else { "the $engineName CLI's default (no $($engineSpec.StepsFlag))" })" }
             Write-Host "sandbox     : $sandboxRecord"
             if ($argvHazard) { Write-Host "launch      : a real run is refused before launch - $argvHazard" -ForegroundColor Yellow }
+            if ($promptBound) { Write-Host "launch      : a real run is refused before launch - $promptBound" -ForegroundColor Yellow }
         }
         Write-Host "mode        : $Mode"
         if ($Mode -eq 'new') { Write-Host "thread      : (a new thread will be created)" }
@@ -4671,7 +4753,7 @@ try {
         # after exit 0 trailing garbage makes the stream malformed.
         $allowPartial = [bool]($bridgeOutcome -or $exitCode -ne 0)
         try { $agyEvents = & $engineSpec.Adapter.Events -Path $eventsPath -AllowPartialLast:$allowPartial } catch { $agyEvents = & $engineSpec.Adapter.Events -Path '' }
-        $agyTurn = & $engineSpec.Adapter.Outcome -Events $agyEvents -ExitCode $exitCode -StderrText $stderrText -Pre $bridgeOutcome -ExpectThread $(if ($Mode -eq 'resume') { $parentThread } else { '' }) -ExpectModel ([string]$identity.Model)
+        $agyTurn = & $engineSpec.Adapter.Outcome -Events $agyEvents -ExitCode $exitCode -StderrText $stderrText -Pre $bridgeOutcome -ExpectThread $(if ($Mode -eq 'resume') { $parentThread } else { '' }) -ExpectModel $engineModel -Turn $mainTurn
         if ($agyEvents.PSObject.Properties['SchemaVersion']) { $mspVersion = $agyEvents.SchemaVersion }
         $bridgeOutcome = $agyTurn.Outcome
         $rawReplyFull = [string]$agyTurn.Reply
@@ -4679,6 +4761,10 @@ try {
         $threadId = [string]$agyTurn.Thread
         $threadSource = $(if ($threadId) { 'events' } else { 'unknown' })
         $threadCandidate = [string]$agyTurn.ThreadCandidate
+        # (wave 29, D4) every later turn of the thread (denial retry, continuation, repair) sends the
+        # id the main turn's init event resolved - never the floating alias again
+        $engineModelResolved = [string](Get-PropertyValue $agyTurn 'ModelResolved' '')
+        if ($engineModelResolved) { $engineModel = $engineModelResolved }
         $eventError = [string]$agyEvents.Error
         $usage = $agyEvents.Usage
         $agyFailureClass = [string]$agyTurn.Class
@@ -4745,7 +4831,7 @@ try {
             $retryPrompt = [string]::Join("$nl$nl", $retryParts.ToArray())
             # the main turn's schema transport (wave 23b): the engine's schema flag on a native run only
             $retrySchemaArg = if (-not $Raw -and $schemaTransport -eq 'native') { $schemaPath } else { '' }
-            $retryOpts = New-EngineTurnOptions -Model $identity.Model -Mode 'denial-retry' -Thread $threadId -PromptFile $denialPromptPath -Schema $retrySchemaArg -Effort $effortSent -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps
+            $retryOpts = New-EngineTurnOptions -Model $engineModel -Mode 'denial-retry' -Thread $threadId -PromptFile $denialPromptPath -Schema $retrySchemaArg -Effort $effortSent -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps -AddDirs @($mainTurn.AddDirs) -Auth $engineAuth
             $retryArgv = & $engineSpec.Adapter.Argv -Turn $retryOpts
             $retryEventsName = "$nn-$enginePrefix-$ReplyName.denial-retry.events.jsonl"
             $retryEventsPath = Join-Path $handoffsDir $retryEventsName
@@ -4755,7 +4841,7 @@ try {
             if ($retryTurn.KeepPending) { $keepPending = $true }
             if ($retryTurn.Started) { $engineTurns++ }
             $retryEvents = & $engineSpec.Adapter.Events -Path $retryEventsPath -AllowPartialLast:([bool]($retryTurn.Problem -or $retryTurn.Exit -ne 0))
-            $retryOut = & $engineSpec.Adapter.Outcome -Events $retryEvents -ExitCode $retryTurn.Exit -StderrText $retryTurn.Stderr -Pre $(if ($retryTurn.Problem) { "failed: $($retryTurn.Problem)" } else { '' }) -ExpectThread $threadId -ExpectModel ([string]$identity.Model)
+            $retryOut = & $engineSpec.Adapter.Outcome -Events $retryEvents -ExitCode $retryTurn.Exit -StderrText $retryTurn.Stderr -Pre $(if ($retryTurn.Problem) { "failed: $($retryTurn.Problem)" } else { '' }) -ExpectThread $threadId -ExpectModel $engineModel -Turn $retryOpts
             $retryReason = [string]$agyTurn.DenialLine
             if ($retryReason.Length -gt 200) { $retryReason = $retryReason.Substring(0, 200) }
             $denialRetryRecord = [pscustomobject]@{
@@ -4879,7 +4965,7 @@ try {
                 # the engine's own argv from one turn-options object, in the main turn's schema
                 # transport (native: the schema flag; prompt-only: none)
                 $contSchemaArg = $(if (-not $Raw -and $schemaTransport -eq 'native') { $schemaPath } else { '' })
-                $contOpts = New-EngineTurnOptions -Model $identity.Model -Mode 'timeout-continue' -Thread $continueThread -PromptFile $continuePromptPath -Schema $contSchemaArg -Effort $effortSent -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps
+                $contOpts = New-EngineTurnOptions -Model $engineModel -Mode 'timeout-continue' -Thread $continueThread -PromptFile $continuePromptPath -Schema $contSchemaArg -Effort $effortSent -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps -AddDirs @($mainTurn.AddDirs) -Auth $engineAuth
                 $contArgv = & $engineSpec.Adapter.Argv -Turn $contOpts
                 $contStdin = & $engineSpec.Adapter.Stdin -Prompt $continuePrompt
                 $contStdinPath = $(if ($promptByFile) { $stdinPath } else { $continuePromptPath })
@@ -4935,7 +5021,7 @@ try {
                 }
             } else {
                 $contEv = & $engineSpec.Adapter.Events -Path $continueEventsPath -AllowPartialLast:([bool]($continueTurn.Problem -or $continueTurn.Exit -ne 0))
-                $contOut = & $engineSpec.Adapter.Outcome -Events $contEv -ExitCode $continueTurn.Exit -StderrText $continueTurn.Stderr -Pre $(if ($continueTurn.Problem) { "failed: $($continueTurn.Problem)" } else { '' }) -ExpectThread $continueThread -ExpectModel ([string]$identity.Model)
+                $contOut = & $engineSpec.Adapter.Outcome -Events $contEv -ExitCode $continueTurn.Exit -StderrText $continueTurn.Stderr -Pre $(if ($continueTurn.Problem) { "failed: $($continueTurn.Problem)" } else { '' }) -ExpectThread $continueThread -ExpectModel $engineModel -Turn $contOpts
                 $contUsage = $contEv.Usage
                 if ($contOut.Ok) {
                     # (wave 24b, F08-5) the checks of a first reply before the continuation counts
@@ -5155,7 +5241,7 @@ try {
             if (-not $originalRepoRel) { $originalRepoRel = $originalFull }
             $pendingRecord | Add-Member -NotePropertyName 'original' -NotePropertyValue $originalRepoRel -Force
             $pendingRecord | Add-Member -NotePropertyName 'first_reply' -NotePropertyValue 'usable prose (format repair in progress)' -Force
-            $repairOpts = New-EngineTurnOptions -Model $identity.Model -Mode 'format-repair' -Thread $threadId -PromptFile $repairPromptPath -Schema $(if ($repairTransport -eq 'native') { $schemaPath } else { '' }) -Effort (Get-RepairEffort -Identity $identity -EffortPlan $effortPlan) -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps
+            $repairOpts = New-EngineTurnOptions -Model $engineModel -Mode 'format-repair' -Thread $threadId -PromptFile $repairPromptPath -Schema $(if ($repairTransport -eq 'native') { $schemaPath } else { '' }) -Effort (Get-RepairEffort -Identity $identity -EffortPlan $effortPlan) -NativeEffort $NativeEffort -MaxSteps $MaxModelSteps -AddDirs @($mainTurn.AddDirs) -Auth $engineAuth
             $repairArgv = & $engineSpec.Adapter.Argv -Turn $repairOpts
             $repairEventsName = "$nn-$enginePrefix-$ReplyName.repair.events.jsonl"
             $repairEngineEvents = Join-Path $handoffsDir $repairEventsName
@@ -5166,7 +5252,7 @@ try {
             $repairWall = $repairTurn.Wall
             $repairEv = & $engineSpec.Adapter.Events -Path $repairEngineEvents -AllowPartialLast:([bool]($repairTurn.Problem -or $repairTurn.Exit -ne 0))
             if (Test-Path -LiteralPath $repairEngineEvents -PathType Leaf) { $repairEventsRel = "handoffs/$repairEventsName" }
-            $repairOut = & $engineSpec.Adapter.Outcome -Events $repairEv -ExitCode $repairTurn.Exit -StderrText $repairTurn.Stderr -Pre $(if ($repairTurn.Problem) { "failed: $($repairTurn.Problem)" } else { '' }) -ExpectThread $threadId -ExpectModel ([string]$identity.Model)
+            $repairOut = & $engineSpec.Adapter.Outcome -Events $repairEv -ExitCode $repairTurn.Exit -StderrText $repairTurn.Stderr -Pre $(if ($repairTurn.Problem) { "failed: $($repairTurn.Problem)" } else { '' }) -ExpectThread $threadId -ExpectModel $engineModel -Turn $repairOpts
             $repairThread = [string]$repairEv.Thread
             $repairUsage = $repairEv.Usage
             $repairRawFull = [string]$repairOut.Reply
@@ -5256,6 +5342,53 @@ try {
             turns              = $engineTurns
             max_model_steps    = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null })
             msp_schema_version = $mspVersion
+        }
+        # (wave 29) the claude engine's evidence per run, over the turns that ran: the init events'
+        # tools (the union), MCP servers (the most any turn listed), permission mode and apiKeySource,
+        # the resolved model (D4) and the other models a turn named, the permission denials (count and
+        # tools), the most severe rate_limit_event as the CLI wrote it (D6), the notional cost
+        # (total_cost_usd - a subscription is not billed per request), the auth mode, the names of the
+        # child environment (D2 - never a value) and what R22 switched off
+        if ($engineName -eq 'claude') {
+            $claudeEvs = @(@($agyEvents, $retryEvents, $contEv, $repairEv) | Where-Object { $null -ne $_ -and $_.PSObject.Properties['InitCount'] -and [int]$_.InitCount -gt 0 })
+            $claudeOuts = @(@($agyTurn, $retryOut, $contOut, $repairOut) | Where-Object { $null -ne $_ -and $_.PSObject.Properties['ModelResolved'] })
+            $claudeResolved = [string](@($claudeOuts | ForEach-Object { [string]$_.ModelResolved } | Where-Object { $_ }) | Select-Object -Last 1)
+            $claudeTools = New-Object System.Collections.Generic.List[string]
+            foreach ($ce in $claudeEvs) { foreach ($tn in @($ce.InitTools)) { if ($tn -and -not $claudeTools.Contains([string]$tn)) { $claudeTools.Add([string]$tn) } } }
+            $claudeOther = @(@($claudeOuts | ForEach-Object { @($_.OtherModels) }) | Where-Object { $_ } | Select-Object -Unique)
+            $claudeDenials = @(@(@($agyEvents, $retryEvents, $contEv, $repairEv) | Where-Object { $null -ne $_ -and $_.PSObject.Properties['Denials'] }) | ForEach-Object { @($_.Denials) } | Where-Object { $_ })
+            $claudeRate = $null
+            foreach ($ce in @(@($agyEvents, $retryEvents, $contEv, $repairEv) | Where-Object { $null -ne $_ -and $_.PSObject.Properties['RateLimit'] -and $null -ne $_.RateLimit })) {
+                if ($null -eq $claudeRate -or $ce.RateLimitRejected) { $claudeRate = $ce.RateLimit }
+            }
+            $claudeCost = $null
+            foreach ($ce in @(@($agyEvents, $retryEvents, $contEv, $repairEv) | Where-Object { $null -ne $_ -and $_.PSObject.Properties['CostUsd'] -and $null -ne $_.CostUsd })) { $claudeCost = [double]$(if ($null -eq $claudeCost) { 0 } else { $claudeCost }) + [double]$ce.CostUsd }
+            $claudeFirst = $(if ($claudeEvs.Count -gt 0) { $claudeEvs[0] } else { $null })
+            $claudeEnvNames = [string[]]@()
+            try { $claudeEnvNames = [string[]](Get-ClaudeChildEnvironment -Auth $engineAuth).Names } catch { $claudeEnvNames = [string[]]@() }
+            foreach ($kv in @(
+                    @('auth', $engineAuth),
+                    @('init_tools', [object[]]$claudeTools.ToArray()),
+                    @('mcp_servers', $(if ($claudeEvs.Count -gt 0) { [long](@($claudeEvs | ForEach-Object { @($_.InitMcp).Count }) | Measure-Object -Maximum).Maximum } else { $null })),
+                    @('permission_mode', $(if ($claudeFirst -and @($claudeFirst.InitModes).Count -gt 0) { ConvertTo-ClaudeToken ([string]@($claudeFirst.InitModes)[0]) } else { $null })),
+                    @('api_key_source', $(if ($claudeFirst -and @($claudeFirst.InitKeySources).Count -gt 0) { ConvertTo-ClaudeToken ([string]@($claudeFirst.InitKeySources)[0]) } else { $null })),
+                    @('model_resolved', $(if ($claudeResolved) { $claudeResolved } else { $null })),
+                    @('other_models', [object[]]@($claudeOther)),
+                    @('permission_denials', [long]$claudeDenials.Count),
+                    @('denied_tools', [object[]]@($claudeDenials | ForEach-Object { [string]$_.Tool } | Where-Object { $_ } | Select-Object -Unique)),
+                    @('rate_limit', $claudeRate),
+                    @('cost_usd', $claudeCost),
+                    @('child_env_allowed', [object[]]$claudeEnvNames),
+                    @('switched_off', [object[]]$script:ClaudeSwitchedOff))) {
+                $engineRunRecord | Add-Member -NotePropertyName ([string]$kv[0]) -NotePropertyValue $kv[1]
+            }
+            # (item 9) the coordinator compared again with the model the run resolved: an alias the
+            # warning was given on may have resolved elsewhere (or the other way round)
+            if ($engineRunRecord.model_resolved -and ([string]$engineRunRecord.model_resolved) -cne [string]$identity.Model) {
+                $coordinatorKindAfter = Get-CoordinatorMatch -Coordinator $coordinatorRecord -Provider ([string]$identity.Provider) -Model ([string]$engineRunRecord.model_resolved) -Engine $engineName
+                if ($coordinatorKindAfter -and $coordinatorKindAfter -ne $coordinatorKind) { $engineWarnings.Add((Format-CoordinatorWarning -Kind $coordinatorKindAfter -Lineage "$lineageShown (resolved $($engineRunRecord.model_resolved))")) }
+                elseif (-not $coordinatorKindAfter -and $coordinatorKind) { $engineWarnings.Add("coordinator: $lineageShown resolved to $($engineRunRecord.model_resolved) - not the coordinator's own model ($([string](Get-PropertyValue $coordinatorRecord 'model' ''))) after all; the warning above was given before the run") }
+            }
         }
     }
     # (wave 26b, D10) a turn the operator stopped (-Kick): the run failed by the operator's hand -
@@ -5575,7 +5708,7 @@ try {
     $headerLines.Add("$briefLine $reviewedLine")
     foreach ($d in $driftLines) { $headerLines.Add($d) }
     $headerLines.Add("Bridge outcome: $bridgeOutcome. Wall time: $wallSeconds s. Tokens: $(if (-not $engineSpec.HasUsage) { "not reported by $engineName" } else { Format-Usage $usage }).")
-    if ($engineRunRecord) { $headerLines.Add("Engine turns: $($engineRunRecord.turns)$(if ($engineName -eq 'muse') { ' (each one a Muse Code subscription prompt)' })$(if ($null -ne $engineRunRecord.max_model_steps) { "; --max-model-steps $($engineRunRecord.max_model_steps)" })$(if ($null -ne $engineRunRecord.msp_schema_version) { "; MSP schema_version $($engineRunRecord.msp_schema_version)" }).") }
+    if ($engineRunRecord) { $headerLines.Add("Engine turns: $($engineRunRecord.turns)$(if ($engineName -eq 'muse') { ' (each one a Muse Code subscription prompt)' })$(if ($engineName -eq 'claude') { " (claude -p, auth $engineAuth$(if ($engineRunRecord.model_resolved) { "; model $($engineRunRecord.model_resolved)" }); init tools $(if (@($engineRunRecord.init_tools).Count -gt 0) { @($engineRunRecord.init_tools) -join ', ' } else { '(none seen)' }); permission denials $($engineRunRecord.permission_denials))" })$(if ($null -ne $engineRunRecord.max_model_steps) { "; $(if ($engineSpec.StepsFlag) { $engineSpec.StepsFlag } else { '--max-model-steps' }) $($engineRunRecord.max_model_steps)" })$(if ($null -ne $engineRunRecord.msp_schema_version) { "; MSP schema_version $($engineRunRecord.msp_schema_version)" }).") }
     if ($engineWarnings.Count -gt 0) { $headerLines.Add("Warnings: $(($engineWarnings.ToArray() | ForEach-Object { ConvertTo-OneLine $_ }) -join '; ').") }
     if ($denialRetryRecord) {
         if ($denialRetryRecord.succeeded) { $headerLines.Add("Denial retry: succeeded in $($denialRetryRecord.wall_seconds) s - the first turn produced nothing (a tool was auto-denied); one more turn on conversation ``$threadId`` answered without it. Tokens of that turn: $(Format-Usage $denialRetryRecord.usage).") }

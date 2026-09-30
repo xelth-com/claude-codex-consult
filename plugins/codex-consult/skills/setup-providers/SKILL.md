@@ -1,8 +1,8 @@
 ---
 name: setup-providers
-description: Wire reviewers for the codex-consult bridge on a machine - verify the Codex CLI and its login, add a [model_providers.<name>] table for a third-party plan (z.ai GLM, Xiaomi MiMo or any Responses-API provider) with an env_key the user sets, supply per-run model catalogs, wire Gemini through the agy engine (Google's Antigravity CLI, signed in by the user), wire Meta Muse through the muse engine (Muse Code CLI, the subscription signed in by the user with muse login, never an API key), write the reviewer roster with panel weights, and verify with codex-providers.ps1 and a dry run. Use when a provider is missing or unavailable, on a new machine, or when the user asks to add a reviewer.
+description: Wire reviewers for the codex-consult bridge on a machine - verify the Codex CLI and its login, add a [model_providers.<name>] table for a third-party plan (z.ai GLM, Xiaomi MiMo or any Responses-API provider) with an env_key the user sets, supply per-run model catalogs, wire Gemini through the agy engine (Google's Antigravity CLI, signed in by the user), wire Meta Muse through the muse engine (Muse Code CLI, the subscription signed in by the user with muse login, never an API key), wire Claude through the claude engine (Claude Code headless, signed in by the user with claude auth login; the subscription or an ANTHROPIC_API_KEY the user sets), write the reviewer roster with panel weights, and verify with codex-providers.ps1 and a dry run. Use when a provider is missing or unavailable, on a new machine, or when the user asks to add a reviewer.
 argument-hint: "[provider name, e.g. ZAI or mimo]"
-allowed-tools: Bash(powershell:*), Bash(pwsh:*), Bash(codex:*), Bash(agy models), Bash(muse --version), Read, Write, Edit, Glob, Grep, WebFetch
+allowed-tools: Bash(powershell:*), Bash(pwsh:*), Bash(codex:*), Bash(agy models), Bash(muse --version), Bash(claude --version), Bash(claude auth status), Read, Write, Edit, Glob, Grep, WebFetch
 disable-model-invocation: false
 ---
 
@@ -15,7 +15,7 @@ disable-model-invocation: false
 This procedure wires one or more reviewers so `codex-consult.ps1` can reach them. A
 reviewer goes through `codex exec` (the default engine) or, per roster entry, through
 Google's Antigravity CLI `agy` (the `agy` engine, section 3b) or Meta's Muse Code CLI `muse`
-(the `muse` engine, section 3f); the bridge itself makes no HTTP call to a provider (its one HTTP
+(the `muse` engine, section 3f) or Claude Code `claude` (the `claude` engine, section 3g); the bridge itself makes no HTTP call to a provider (its one HTTP
 client is the telemetry sender, to the maintainer's intake - section 6). Scripts:
 `${CLAUDE_PLUGIN_ROOT}/scripts/`. Commands are shown for Windows PowerShell, which is always present
 on Windows (`pwsh` there may be only the WindowsApps alias, which a host's sandbox can refuse to
@@ -323,6 +323,47 @@ therefore REFUSES a muse run while either variable is set, and there is no opt-o
    not covered). Tell the user not to edit the repository or run another consultation there
    while a muse consultation runs.
 
+## 3g. Claude through the claude engine (Claude Code, the subscription)
+
+The `claude` engine drives Claude Code headless (`claude -p`) - a fourth reviewer engine beside codex, agy and muse.
+The Claude subscription works only through Anthropic's own CLI signed in by the user; the bridge never calls the API
+itself. Full contract: the README, "Engines (wave 29)".
+
+1. **Install** (ask the user): Claude Code - the native installer puts `claude.exe` into
+   `%USERPROFILE%\.local\bin` (`~/.local/bin/claude` elsewhere), or `npm`. The bridge finds it by itself (PATH names
+   `claude.exe`, `claude.cmd`, `claude`, then that native location); otherwise the user passes `-EngineExe <path>` or
+   sets `CODEX_CONSULT_CLAUDE_EXE`. Check without spending anything: `claude --version` -> a version line.
+2. **Sign in - the USER does it:** `claude auth login` in their own terminal, or `/login` in an interactive Claude
+   Code session. You never handle a login, a token or a credential.
+3. **Check the sign-in:** `claude auth status` (local and free) prints JSON. Read only these keys: `loggedIn` must be
+   `true`, `authMethod` `claude.ai` (the subscription), `apiProvider` `firstParty`. Never print, copy or record the
+   account's e-mail or organisation that the JSON may also hold.
+4. **Auth - ask the user:** `subscription` (the default: the signed-in Claude subscription; the bridge proves on
+   every turn that no API key is in use) or `api-key` (per-token billing: the USER sets `ANTHROPIC_API_KEY` as a
+   user variable; you never create, print or paste it). No `ANTHROPIC_BASE_URL` routes: a gateway, Bedrock, Vertex
+   or Foundry setup is out of scope, shows as unavailable, and those variables never reach the reviewer.
+5. **The model - the USER decides:** `model` is REQUIRED and must be one of the engine's table: the aliases `opus`,
+   `sonnet`, `haiku`, `fable` and the ids `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`,
+   `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-5-5`, `claude-sonnet-5`,
+   `claude-sonnet-4-6`, `claude-haiku-4-5` - each may end with `[1m]` (the 1M context variant). Ask which one. An
+   alias floats; the bridge pins each thread to the id it resolves to (the first turn's init event) and every later
+   turn of the thread sends that id. Prefer an id in a roster when the operator wants a fixed reviewer.
+6. **Roster entry** (section 4): `{ "provider": "anthropic", "engine": "claude", "model": "claude-opus-5-5",
+   "auth": "subscription", "panel": "weighty", "context_tokens": 1000000, "timeout_sec": 1800 }` - `provider` is a
+   free label, `model` is required, `auth` is `subscription` or `api-key` (never `none`), `codex_config` is refused.
+   Parallel: the claude members of one panel run one at a time by default; the top-level `"parallel":
+   {"anthropic": 2}` raises it.
+7. **Check:** `codex-providers.ps1` -> the row `available  anthropic  <n>  engine claude  claude (<launcher>)  ok:
+   signed in (claude.ai subscription)  claude ...  -`. Other verdicts: `unavailable` for `not signed in` (step 2
+   missing), another `authMethod` or an `apiProvider` other than `firstParty` (step 4), `ANTHROPIC_API_KEY` not set
+   with auth `api-key`; `unavailable (claude CLI not found ...)` (step 1). Then a dry run: `codex-consult.ps1 -Task
+   setup-check -Prompt ping -DryRun -Engine claude -Model sonnet` (the label defaults to `anthropic`) -> the first
+   line `DRY RUN - nothing was executed and no file was written.`.
+8. **Read-only:** the reviewer has Read, Grep and Glob only (no shell, no web, no MCP, no skills, no write tools; the
+   repository's and the home directory's `CLAUDE.md` / `AGENTS.md` do not reach it), and the bridge FAILS a claude run
+   when the working tree or the collab directory changed during it. Tell the user not to edit the repository or run
+   another consultation there while a claude consultation runs.
+
 ## 4. Write the roster
 
 `<codex home>/codex-consult-roster.json`, first choice first:
@@ -388,6 +429,7 @@ therefore REFUSES a muse run while either variable is set, and there is no opt-o
   is refused); while one is out such a panel is refused with exit 5. `"ext"` (top level and per
   entry) is an object reserved for other implementations that share the file; the bridge
   validates it as an object and ignores it. `roster_version` stays `1`.
+- (wave 29) An entry of the `claude` engine: `provider` is a free label, `model` is required and must be one of the engine's table (section 3g), `auth` is `subscription` (default) or `api-key` (never `none`), `codex_config` is refused; its claude members run one at a time in a panel unless the top-level `parallel` raises it.
 - `codex_config` must not set `model`, `model_provider`, `model_reasoning_effort`,
   `profile` or `model_providers.*` (refused).
 - Another file: the user sets `CODEX_CONSULT_ROSTER=<path>` (it must exist).

@@ -97,9 +97,9 @@ function Write-Roster {
     [IO.File]::WriteAllText($p, $Json, $u8)
     return $p
 }
-# PATH without any real codex, agy or muse launcher, and a `codex` shim of the fake first (the hook
+# PATH without any real codex, agy, muse or (wave 29) claude launcher, and a `codex` shim of the fake first (the hook
 # looks for codex on PATH; nothing can reach a real CLI).
-$launcherNames = @('codex', 'codex.exe', 'codex.cmd', 'codex.ps1', 'agy', 'agy.exe', 'agy.cmd', 'muse', 'muse.exe', 'muse.cmd')
+$launcherNames = @('codex', 'codex.exe', 'codex.cmd', 'codex.ps1', 'agy', 'agy.exe', 'agy.cmd', 'muse', 'muse.exe', 'muse.cmd', 'claude', 'claude.exe', 'claude.cmd')
 $noCliPath = (@(([string]$savedEnv['Path']) -split ';' | Where-Object { $d = $_; $d -and -not (@($launcherNames | Where-Object { Test-Path -LiteralPath (Join-Path $d $_) }).Count -gt 0) })) -join ';'
 $bin = Join-Path $work 'bin'
 [void][IO.Directory]::CreateDirectory($bin)

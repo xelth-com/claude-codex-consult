@@ -16,7 +16,7 @@ troubleshooting - is the repository README:
 |---|---|
 | `consult-codex` | the consultation: when to consult, the brief, the one command, reading and recording the reply and its findings, rating it |
 | `coordinate` | the coordinator's rules: workers and waves, waiting without blocking (`-Detach`, `-Status`, `-Wait`, `-Kick`), compaction, the worker tiers, the means per host |
-| `setup-providers` | wiring reviewers on a machine: the Codex login, provider tables, the roster, the `agy` and `muse` engines, verification |
+| `setup-providers` | wiring reviewers on a machine: the Codex login, provider tables, the roster, the `agy` and `muse` engines, verification (wave 29: and the `claude` engine, Claude Code headless) |
 
 Why `coordinate` keeps a recurring wake while it waits, and when it compacts instead (the prompt
 cache, its prices, the boundary, a worked example): the repository README, section "Waiting: keep
