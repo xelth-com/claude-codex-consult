@@ -13,7 +13,8 @@
 # sections and the documented lists. (wave 27d) The waiting rule, revision 5, in the coordinate skill
 # and the README section "Waiting: keep the prompt cache or compact" - every number recomputed from the
 # formula and the prices; the Qwen Code, OpenCode and Muse Code host sections, rows and host lines
-# (documented, not run live). FAKES ONLY: fake-codex3.cmd; CODEX_HOME
+# (documented, not run live). (wave 28c) D12 the test-mode line of a dry run and of a refused run
+# (TESTLINE); D14 the waiting rule, revision 6 (SKILL, README, HOSTDOCS). FAKES ONLY: fake-codex3.cmd; CODEX_HOME
 # and CODEX_CONSULT_ROSTER point at scratch files, CODEX_CONSULT_HEALTH is 'none'; the host markers of
 # the process that runs the harness are removed first and every case sets its own; the API key
 # variables hold dummy test values. Runs under the host it is started with (powershell 5.1 or pwsh 7,
@@ -533,7 +534,7 @@ if (Want 'SKILL') {
     # (wave 27d) rule 3: waiting without losing the cache (the operator's rule, revision 5) and COMPACT per host
     $r3 = [regex]::Match($b, '(?s)\n3\. \*\*Wait without blocking; keep the cache warm or compact \(the idle watchdog\)\.\*\*(.*?)\r?\n4\. \*\*').Groups[1].Value
     $r3n = $r3 -replace '\s+', ' '
-    $idleNeedles = @('prompt cache', 'cold resume', 'refresh', '*Running work*', 'running work', 'has not reported', 'background `-Wait`', 'long shell job', 'ANOTHER session', 'named end', 'retry_after', 'Idle is only', 'ONE recurring wake every 30 minutes', 'off the round minutes', 'FIRST delegation or wait', 'kept when the work ends', 'small reads only', 'one line without a tool call', 'restarts at zero', 'middle of a wave', 'wave boundary', 'known length', 'idle wake 1', 'idle wake 2', '*No means to compact*', 'SAY it', 'KEEP the wake', '40 wakes on Claude Fable 5.1, 20 on Claude Opus 5.5, 10 on Claude Sonnet 5.5', 'while the cache is warm', 'auto-compact threshold', '*The boundary*', 'https://github.com/xelth-com/claude-codex-consult', '"Waiting: keep the prompt cache or compact"')
+    $idleNeedles = @('prompt cache', 'cold resume', 'refresh', '*Running work*', 'running work', 'has not reported', 'background `-Wait`', 'long shell job', 'ANOTHER session', 'named end', 'retry_after', 'Idle is only', 'ONE recurring wake every 30 minutes', 'off the round minutes', 'FIRST delegation or wait', 'kept when the work ends', 'small reads only', 'one line without a tool call', 'restarts at zero', 'middle of a wave', 'wave boundary', 'known length', 'idle wake 1', 'idle wake 2', '*No means to compact*', 'revision 6', 'TWO states only', 'keep the context warm ALWAYS', 'REMOVE the wake', 'the cheap ways back', 'a fresh session from the state file', 'a cheaper model whose window holds the context -> compact there -> back', '`--autocompact <tokens>`', 'while the cache is warm', 'auto-compact threshold', '*The boundary*', 'https://github.com/xelth-com/claude-codex-consult', '"Waiting: keep the prompt cache or compact"')
     $idleMissing = @($idleNeedles | Where-Object { -not $r3n.Contains($_) })
     $itemAt = @(foreach ($mk in @('*Running work*', '*The wake:*', '*The rule:*', '1. While running work', '2. At a wave boundary', '3. A wait of known length', '4. Idle:', '5. *No means to compact*', '6. Compact only while the cache is warm', '7. The operator''s lever', '*The boundary*')) { $r3n.IndexOf($mk) })
     $mph = $(if ($b.IndexOf('## Means per host') -ge 0) { $b.Substring($b.IndexOf('## Means per host')) } else { '' })
@@ -541,7 +542,11 @@ if (Want 'SKILL') {
     foreach ($hn in @('**Claude Code.**', '**Codex CLI.**', '**Z Code.**', '**Kimi Code.**', '**Qwen Code.**', '**OpenCode.**', '**Muse Code.**')) { $at = $mph.IndexOf($hn); $next = $mph.IndexOf("`n**", [Math]::Max(0, $at) + 1); $hostParas[$hn] = $(if ($at -ge 0) { ($mph.Substring($at, $(if ($next -gt $at) { $next - $at } else { $mph.Length - $at }))) -replace '\s+', ' ' } else { '' }) }
     $hostCompact = @(foreach ($hn in $hostParas.Keys) { [bool]([string]$hostParas[$hn]).Contains('COMPACT:') })
     $ccPara = [string]$hostParas['**Claude Code.**']
-    Check 'SKILL' 'wave 27d rule 3 is the waiting rule (revision 5), in order: the goal (a prompt cache never lost by oversight; a cold resume writes the whole context, a refresh reads it), the six cases of running work, the wake (ONE every 30 minutes, off the round minutes, armed at the FIRST delegation or wait, kept; small reads; one line without a tool call), the rule''s seven items (keep the wake, no compaction mid-wave; the wave boundary; a wait of known length; idle wakes 1 and 2; no means to compact - SAY it, KEEP the wake, 40/20/10 wakes; compact while warm; the auto-compact threshold), the boundary and the pointer to the README section with its URL; "Means per host" gives COMPACT for every host (Claude Code: no means, verified 2026-09-29, a scheduled /compact arrives as ordinary text)' ($r3 -and $idleMissing.Count -eq 0 -and ($itemAt -join ',') -eq ((@($itemAt) | Sort-Object) -join ',') -and $itemAt[0] -ge 0 -and @($hostCompact | Where-Object { $_ }).Count -eq 7 -and $ccPara.Contains('no means') -and $ccPara.Contains('2026-09-29') -and $ccPara.Contains('ordinary text')) ("missing: " + ($idleMissing -join ' | ') + " | items at $($itemAt -join ',') | COMPACT per host $($hostCompact -join ',')")
+    # (wave 28c, D14) revision 6: the no-means branch has two states (warm while work runs or is
+    # awaited; idle: handover at idle wake 2, the wake removed, the cheap ways back) - the "40/20/10
+    # wakes" branch is gone from the skill
+    $r3Gone = @(@('KEEP the wake', '40 wakes on Claude Fable 5.1', 'half the refreshes') | Where-Object { $r3n.Contains($_) })
+    Check 'SKILL' 'wave 27d rule 3 is the waiting rule (wave 28c, D14: revision 6), in order: the goal (a prompt cache never lost by oversight; a cold resume writes the whole context, a refresh reads it), the six cases of running work, the wake (ONE every 30 minutes, off the round minutes, armed at the FIRST delegation or wait, kept; small reads; one line without a tool call), the rule''s seven items (keep the wake, no compaction mid-wave; the wave boundary; a wait of known length; idle wakes 1 and 2; no means to compact - revision 6: TWO states only, the context kept warm ALWAYS while work runs or is awaited, idle: the handover at idle wake 2, the wake REMOVED, the cheap ways back - a fresh session, a cheaper model -> compact -> back, --autocompact <tokens>; NO "keep the wake for 40/20/10 wakes" any more; compact while warm; the auto-compact threshold), the boundary and the pointer to the README section with its URL; "Means per host" gives COMPACT for every host (Claude Code: no means, verified 2026-09-29, a scheduled /compact arrives as ordinary text)' ($r3 -and $idleMissing.Count -eq 0 -and $r3Gone.Count -eq 0 -and ($itemAt -join ',') -eq ((@($itemAt) | Sort-Object) -join ',') -and $itemAt[0] -ge 0 -and @($hostCompact | Where-Object { $_ }).Count -eq 7 -and $ccPara.Contains('no means') -and $ccPara.Contains('2026-09-29') -and $ccPara.Contains('ordinary text')) ("missing: " + ($idleMissing -join ' | ') + " | still there: " + ($r3Gone -join ' | ') + " | items at $($itemAt -join ',') | COMPACT per host $($hostCompact -join ',')")
     # (wave 27d) the skill's boundary table and its line for the other two models, recomputed from the formula
     $skRows = @(foreach ($cn in $waitContexts.Keys) { $x = Get-WaitNumbers $waitModels['Claude Fable 5.1'] $waitContexts[$cn]; "| $cn | $(Format-Dec $x.Hours 1) hours | $(Format-Dec $x.Wake 2) USD | $(Format-Dec $x.Compact 2) USD |" })
     $skLines = @(foreach ($mn in @('Claude Opus 5.5', 'Claude Sonnet 5.5')) { "$($mn): " + ((@(foreach ($cn in $waitContexts.Keys) { Format-Dec (Get-WaitNumbers $waitModels[$mn] $waitContexts[$cn]).Hours 1 })) -join ', ') + ' hours' })
@@ -674,12 +679,16 @@ if (Want 'README') {
         "16 wakes x $(Format-Dec $n850.Wake 4) = $(Format-Dec (16 * $n850.Wake) 2) USD, plus $(Format-Dec $n850.Read 2) USD for the read at the resume: about $(Format-Dec (16 * $n850.Wake + $n850.Read) 1) USD",
         "reading the compact window cold in the morning costs $(Format-Dec $n850.Compact 2) USD",
         "one cold resume: $(Format-Dec $n850.Expire 0) USD",
-        "($(Format-Dec ($fab.R * $fab.P * 50000) 2) instead of $(Format-Dec $n850.Read 2) USD a turn in the example)",
-        "($($halves[0]) wakes on Claude Fable 5.1, $($halves[1]) on Claude Opus 5.5, $($halves[2]) on Claude Sonnet 5.5)")
+        "($(Format-Dec ($fab.R * $fab.P * 50000) 2) instead of $(Format-Dec $n850.Read 2) USD a turn in the example)")
+    # (wave 28c, D14) revision 6 removed the rule's "40/20/10 wakes" branch: its numbers are gone from
+    # the rule (the price table's last column - W/R cache reads - stays and is checked above)
+    $ruleBlock6 = ([regex]::Match($wsec, '(?s)\*\*The rule\*\*(.*?)\*\*When the moment was missed').Groups[1].Value) -replace '\s+', ' '
+    $gone6 = "($($halves[0]) wakes on Claude Fable 5.1, $($halves[1]) on Claude Opus 5.5, $($halves[2]) on Claude Sonnet 5.5)"
+    if (-not $ruleBlock6 -or $ruleBlock6.Contains($gone6) -or -not $ruleBlock6.Contains('revision 6') -or -not $ruleBlock6.Contains('`--autocompact <tokens>`')) { $numMiss.Add("rule 5 still counts $gone6, or names no revision 6 / --autocompact") }
     foreach ($wt in $wantText) { if (-not $wn.Contains($wt)) { $numMiss.Add($wt) } }
     $cross = @(foreach ($mn in $waitModels.Keys) { $m = $waitModels[$mn]; [Math]::Round((Get-WaitNumbers $m ([decimal]1)).Tail / (($m.W - $m.R) * $m.P), 0) })
     if (@($cross | Where-Object { $_ -lt 70000 -or $_ -gt 80000 }).Count -gt 0 -or -not $wn.Contains('Above about 80K tokens')) { $numMiss.Add("the expire/compact crossover $($cross -join ', ')") }
-    Check 'README' 'wave 27d (A3) every number of the waiting section is the formula''s: table 1 (input / output, cache read and write per million tokens, one cold resume = W/R cache reads = W/R/2 hours of refreshes), table 2 (Claude Fable 5.1: keep up to, one wake, compact, let it expire; Claude Opus 5.5 and Claude Sonnet 5.5: keep up to), the worked example (8 hours at 850K on Claude Fable 5.1), a working turn after a compaction, the rule''s 40/20/10 wakes (half of W/R) and "above about 80K tokens" (compacting cheaper than letting the cache expire)' ($numMiss.Count -eq 0) ("missing: " + ($numMiss -join ' || '))
+    Check 'README' 'wave 27d (A3) every number of the waiting section is the formula''s: table 1 (input / output, cache read and write per million tokens, one cold resume = W/R cache reads = W/R/2 hours of refreshes), table 2 (Claude Fable 5.1: keep up to, one wake, compact, let it expire; Claude Opus 5.5 and Claude Sonnet 5.5: keep up to), the worked example (8 hours at 850K on Claude Fable 5.1), a working turn after a compaction, (wave 28c, D14) the rule WITHOUT the 40/20/10 wakes of revision 5 (revision 6, the launch option --autocompact <tokens> named) and "above about 80K tokens" (compacting cheaper than letting the cache expire)' ($numMiss.Count -eq 0) ("missing: " + ($numMiss -join ' || '))
 }
 
 # =============================================================== PATHHINT: the host hint by path, anchored (wave 28b, D11)
@@ -705,6 +714,18 @@ if (Want 'PATHHINT') {
     $rootList = Get-HostPluginRoots -HomeDir $hHome -CodexHome $hCodex
     $roots = @($rootList | ForEach-Object { "$($_.Host)=$($_.Root)" })
     Check 'PATHHINT' 'D11 (F36-4) the host hint by path is ANCHORED: the script root must lie UNDER a host''s plugin directory of the home (<home>\.claude\plugins\cache -> claude-code, <home>\.codex\plugins\cache and <codex home>\plugins\cache -> codex, <home>\.zcode\cli\plugins\cache -> zcode, <home>\.qwen\extensions -> qwen-code; case-insensitive on Windows); a path that merely CONTAINS such a name (a clone, another directory called .codex, the old .zcode\plugins, the plugin directory itself) gives no hint' ($hbad.Count -eq 0 -and $roots.Count -eq 5) (($hbad + $roots) -join ' || ')
+}
+
+# =============================================================== TESTLINE: where the test-mode line appears (wave 28c, D12)
+if (Want 'TESTLINE') {
+    $r = New-Repo 'testline'
+    $dry = Consult $r '' @('-DryRun', '-Prompt', 'x')
+    $refused = Consult $r '' @('-DryRun', '-Prompt', 'x', '-BriefPrefix', 'codex')
+    $nLines = @(($dry.Out -split "`n") | Where-Object { $_.TrimEnd("`r") -ceq "WARNING: $testModeLine" }).Count
+    $pv = $(if (@($dry.Previews).Count -gt 0) { @($dry.Previews)[0] } else { $null })
+    Check 'TESTLINE' 'D12 (F44-5) the DRY RUN in test mode prints "WARNING: test mode is ON: test hooks are honoured" once, and its preview''s warnings[] holds the line once; a REFUSED run (the brief prefix codex, refused before anything starts) prints no such line' ($dry.Code -eq 0 -and $nLines -eq 1 -and $pv -and (Test-TestModeWarning $pv.warnings) -and $refused.Code -eq 1 -and $refused.Out -notmatch 'test mode is ON') "dry exit $($dry.Code), lines $nLines; refused exit $($refused.Code): $($refused.First)"
+    $tmRow = (([regex]::Match($readme, '(?m)^\| `CODEX_CONSULT_NOW`[^\r\n]*')).Value) -replace '\s+', ' '
+    Check 'TESTLINE' 'D12 README (the test hooks row) says WHERE the test-mode line appears - a committed run (after the commit), a dry run, a -Panel run, a detached run''s foreground - and where it does not: a refused run' ($tmRow.Contains('(wave 28c, D12)') -and $tmRow.Contains('a dry run') -and $tmRow.Contains('a -Panel run') -and $tmRow.Contains('a detached run') -and $tmRow.Contains('NOT on a refused run')) ''
 }
 
 # =============================================================== HOSTDOCS: the host blocks and the waiting prices (wave 28b, D17, D18)
@@ -753,9 +774,16 @@ if (Want 'HOSTDOCS') {
     # D18: the waiting section names its two refresh prices and the compaction after the expiry
     $wsec = [regex]::Match($readme, '(?ms)^## Waiting: keep the prompt cache or compact\r?\n(.*?)(?=^---|^## )').Groups[1].Value
     $wn = $wsec -replace '\s+', ' '
-    $d18 = @('a *cache read* alone', 'a *full wake*', 'counts cache reads', 'fewer full wakes', 'compact after expiry = w x P x C + S x Pout + w x P x C2', 'a cold resume PLUS the summary', 'counted as cache reads')
+    # (wave 28c, D14) 'counted as cache reads' went with the rule's removed 40/20/10 branch
+    $d18 = @('a *cache read* alone', 'a *full wake*', 'counts cache reads', 'fewer full wakes', 'compact after expiry = w x P x C + S x Pout + w x P x C2', 'a cold resume PLUS the summary')
     $d18Miss = @($d18 | Where-Object { -not $wn.Contains($_) })
-    Check 'HOSTDOCS' 'D18 (F36-10) the waiting section says which price is a FULL WAKE (the cache read plus the wake''s turn) and which a CACHE READ alone (the last column of the price table and the rule''s 40/20/10 count cache reads), and that a compaction after the cache expired costs a cold resume PLUS the summary (the formula "compact after expiry")' ($d18Miss.Count -eq 0) ("missing: " + ($d18Miss -join ' | '))
+    Check 'HOSTDOCS' 'D18 (F36-10) the waiting section says which price is a FULL WAKE (the cache read plus the wake''s turn) and which a CACHE READ alone (the last column of the price table counts cache reads), and that a compaction after the cache expired costs a cold resume PLUS the summary (the formula "compact after expiry")' ($d18Miss.Count -eq 0) ("missing: " + ($d18Miss -join ' | '))
+    # (wave 28c, D14) the rule, revision 6, in the README: two states until the host lets the agent
+    # compact itself; the 40/20/10 branch removed; the boundary tables stay; the launch option named
+    $d14 = @('revision 6', 'two states only', 'kept warm ALWAYS', 'removes the wake', 'the cheap ways back', 'a fresh session from the state file', 'the boundary tables above stay', '`--autocompact <tokens>`', 'Claude Code 2.1.285')
+    $d14Miss = @($d14 | Where-Object { -not $wn.Contains($_) })
+    $forCoord14 = ([regex]::Match($readme, '(?ms)^## For the coordinator\r?\n(.*?)(?=^## )').Groups[1].Value) -replace '\s+', ' '
+    Check 'HOSTDOCS' 'D14 (wave 28c) the README''s rule 5 is revision 6: two states only (the context kept warm ALWAYS while work runs or is awaited; idle: the handover at idle wake 2, the wake removed, the cheap ways back), revision 5''s 40/20/10 branch named as removed, the boundary tables kept for a manual compaction, the launch option --autocompact <tokens> (Claude Code 2.1.285); "For the coordinator" says the same and no longer "the wake kept"' ($d14Miss.Count -eq 0 -and $forCoord14.Contains('revision 6') -and $forCoord14.Contains('--autocompact <tokens>') -and -not $forCoord14.Contains('the wake kept')) ("missing: " + ($d14Miss -join ' | '))
 }
 
 } finally {

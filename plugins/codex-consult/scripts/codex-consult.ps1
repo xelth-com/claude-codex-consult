@@ -515,13 +515,14 @@
     a panel: every member) ONE anonymised event built from the committed entry through a closed
     allowlist - app_id, app_version, a salted instance id (sha256 of <codex home>/telemetry-salt and
     the machine name), event_type consultation, severity, the outcome class, details {engine,
-    provider (wave 28b, D1: the vendor class of the endpoint, never the roster label), model (a name
-    of that vendor's pattern, else other), purpose, outcome, wall_seconds, tokens {in, cached, out}, findings
+    provider (wave 28b, D1: the vendor class of the endpoint, never the roster label), model (wave
+    28c, D1: an entry of that vendor's closed list, else other), purpose, outcome, wall_seconds, tokens {in, cached, out}, findings
     counts, structured, format_retry, denial_retry, timeout_continue, panel_size, ps_version, os,
     bridge_version}, tags, client_time (UTC), os, runtime; NEVER a task name, brief, prompt, path,
     thread id, finding text, key, provider label, user name or the machine name - goes to <codex
-    home>/telemetry-spool/<yyyy-mm-dd>.ndjson (the local date; at the commit - one not spooled is a
-    warning, wave 28b D6), and ONE detached sender (codex-telemetry.ps1 -Flush,
+    home>/telemetry-spool/<yyyy-mm-dd>.ndjson (the local date; at the commit with at most 1 s,
+    else for up to 5 s after the write lock is released - wave 28c D7; one not spooled then is a
+    warning and is counted), and ONE detached sender (codex-telemetry.ps1 -Flush,
     hidden, without the host markers; a panel starts it once when every member is done) delivers
     it to the intake (CODEX_CONSULT_TELEMETRY_URL, else https://xelth.com/T) - never waited for,
     never failing a run. CODEX_CONSULT_TELEMETRY=off (or -Telemetry off for one run) writes and
@@ -531,7 +532,8 @@
     [-Contact <c>] [-Yes] prints the complaint's exact payload (the text, the task's last entry
     through the same allowlist), asks `send? [y/N]` unless -Yes and prints the public_ref - or
     keeps it in the spool (exit 0 delivered, 1 refused or not confirmed, 3 not delivered). State:
-    codex-telemetry.ps1 -Status; delete my data: codex-telemetry.ps1 -Forget -PublicRef <ref> | -Local.
+    codex-telemetry.ps1 -Status; delete my data: codex-telemetry.ps1 -Forget -PublicRef <ref> | -Local
+    (both: the intake first, the local data only after it confirmed - wave 28c D2).
 
     Invariants:
       * read-only sandbox by default; danger-full-access is refused outright
@@ -1733,14 +1735,22 @@ function Start-EngineProcess {
 }
 
 # (wave 27c, D16) One tree kill of this run: kept for the ledger's kill_confirmed; an UNCONFIRMED one
-# (no known survivor, but the tree could not be seen dead) gets a warning naming the pid.
+# (no known survivor, but the tree could not be seen dead) gets a warning naming the pid - (wave 28c,
+# D8) the pids whose start time could not be read when there are such (the bridge left them alone),
+# else the root.
 function Add-KillCheck {
     param($Check, [string]$Turn)
     if (-not $Check) { return }
     $script:KillChecks.Add($Check)
     if (-not $Check.Confirmed -and @($Check.Survivors).Count -eq 0) {
-        $script:KillWarnings.Add("kill not confirmed ($Turn): $($Check.Why); pid $($Check.RootPid) may still run - check it, and stop it by hand if it does")
+        $script:KillWarnings.Add("kill not confirmed ($Turn): $($Check.Why); pid $(Get-KillMayRunPids $Check) may still run - check it, and stop it by hand if it does")
     }
+}
+function Get-KillMayRunPids {
+    param($Check)
+    $u = @(Get-PropertyValue $Check 'Unverified' @())
+    if ($u.Count -gt 0) { return ($u -join ', ') }
+    return [string]$Check.RootPid
 }
 
 # (wave 27c, D16) How a tree kill is told: "(process tree killed)" only when confirmed; else "(kill
@@ -1748,7 +1758,7 @@ function Add-KillCheck {
 function Format-KillText {
     param($Check)
     if ($Check.Confirmed -or @($Check.Survivors).Count -gt 0) { return '(process tree killed)' }
-    return "(kill not confirmed: $($Check.Why); pid $($Check.RootPid) may still run)"
+    return "(kill not confirmed: $($Check.Why); pid $(Get-KillMayRunPids $Check) may still run)"
 }
 # One more turn (an engine's denial retry and format repair; wave 24: the timeout continuation
 # of every engine, codex included) under the SAME task lock and recovery record as the run: the
@@ -4008,6 +4018,10 @@ try {
         }
         [void]$promptParts.Add("Constraints: write NO files and make no edits - this is a read-only consultation; answer in English; keep reply_markdown under $maxWordsResolved words.")
     }
+    # (wave 28c, D11 / F43-3, F44-6) a member with a context window (context_tokens) may compact it
+    # mid-review, and a summary may lose the brief: its prompt ends by naming the brief again - the
+    # last line before the consultation id (which stays last)
+    if ($contextTokens -gt 0 -and $briefRef) { [void]$promptParts.Add("Before you answer, re-read the brief: ``$briefRef``.") }
     # Always the LAST line: it ties a rollout file to this run (Find-ThreadInRollouts).
     [void]$promptParts.Add("Consultation id: $consultId")
     $promptText = [string]::Join("$nl$nl", $promptParts.ToArray())
@@ -4204,6 +4218,7 @@ try {
             prior_findings                  = [object[]]@($listedIds | ForEach-Object { [pscustomobject]@{ id = $_; status = '<fixed|still-open|not-checked|unknown-id>' } })
             unchecked_prior_blockers        = [object[]]@()
             usage                           = $(if ($isCodex) { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n>'; output_tokens = '<n>'; reasoning_output_tokens = '<n>' } } elseif (-not $engineSpec.HasUsage) { $null } else { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n (cache_read_tokens)>'; output_tokens = '<n>'; reasoning_output_tokens = '<n (thinking_tokens)>'; total_tokens = '<n>' } })
+            compactions                     = $(if ($contextTokens -gt 0) { "<n (the compactions the engine's stream reported), else 'unknown'>" } else { '<null, or n when the engine''s stream reported a compaction>' })
             engine_run                      = $(if ($isCodex) { $null } else { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $(if ($engineSpec.PromptTransport -eq 'file') { '<the MSP schema_version of the stream: 1>' } else { $null }) } })
             wall_seconds                    = 0
             finished_at                     = '<written at the commit>'
@@ -5300,6 +5315,20 @@ try {
     $machineHealthCause = ''
     $machineHealthRecord = New-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot
     if ($machineHealthRecord -and -not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot -Record $machineHealthRecord) -and [string]$script:MachineHealthLastError) { $machineHealthRetry = $true; $machineHealthCause = [string]$script:MachineHealthLastError }
+    # (wave 28c, D10 / F42-6, F44-1) a journal line that could not be applied was moved aside, never
+    # dropped silently: said in warnings[] (the updates of this run so far - its registration, its outcome)
+    foreach ($hn in (Get-MachineHealthJournalNotes)) { if ($hn -and -not $engineWarnings.Contains([string]$hn)) { $engineWarnings.Add([string]$hn) } }
+    # (wave 28c, D11 / F43-3, F44-6) a reviewer that compacted its context is seen: the compactions its
+    # engine reported in the event streams of every turn (Get-CompactionCount) - n > 0 is recorded
+    # (ledger `compactions`) and warned about; none reported by a member with a context window
+    # (context_tokens) is `unknown` - the installed codex's `exec --json` reports no compaction event,
+    # so "none seen" is not "none happened"; otherwise null
+    $compactionCount = Get-CompactionCount -Paths @($eventsPath, $retryEventsPath, $continueEventsPath, $(if ($isCodex) { $repairEventsPath } else { $repairEngineEvents }))
+    $compactionsRecord = $null
+    if ($compactionCount -gt 0) {
+        $compactionsRecord = [long]$compactionCount
+        $engineWarnings.Add("the reviewer compacted its context $compactionCount time(s) - the reply may rest on a summary of the brief")
+    } elseif ($contextTokens -gt 0) { $compactionsRecord = 'unknown' }
 
     # ------------------------------------------------------------------------- salvage
 
@@ -5726,6 +5755,7 @@ try {
         prior_findings                  = [object[]]$priorForLedger
         unchecked_prior_blockers        = [object[]]$uncheckedPrior
         usage                           = $usage
+        compactions                     = $compactionsRecord
         engine_run                      = $engineRunRecord
         wall_seconds                    = $wallSeconds
         finished_at                     = (Get-IsoTimestamp)
@@ -5767,17 +5797,15 @@ try {
         $machineHealthAfterLock = $true
     }
     # (wave 28b, D6 / F35-1, F36-8, F37-6) telemetry on: the event of THIS entry (the allowlist;
-    # warnings[] is not part of it) goes into the spool now, inside the write lock - the append waits
-    # up to 5 s for a busy spool file; an event that is not spooled is said in this entry's
-    # warnings[] and on the console, and counted for codex-telemetry.ps1 -Status
+    # warnings[] is not part of it) goes into the spool now, inside the write lock - (wave 28c, D7 /
+    # F43-4) with a wait of at most 1 s (the telemetry lock and the spool file together), so the hold
+    # on this task's lock grows by 1 s at most; a failure is retried for up to 5 s AFTER the lock is
+    # released (below), and only then warned about and counted
     $telemetryLine = ''
+    $telemetryFirst = $null
     if ($telemetrySwitch.On) {
-        $telemetryWhy = Add-TelemetryEvent -Entry $entry -Switch $telemetrySwitch
-        if ($telemetryWhy) {
-            $engineWarnings.Add("telemetry event not spooled ($telemetryWhy)")
-            $entry.warnings = [object[]]$engineWarnings.ToArray()
-            $telemetryLine = "warning    : telemetry event not spooled ($telemetryWhy)"
-        }
+        $telemetryFirst = Add-TelemetryEvent -Entry $entry -Switch $telemetrySwitch -WaitMs 1000
+        if (-not $telemetryFirst.Why) { $telemetryFirst = $null }
     }
     Add-LedgerEntry -Sessions $ledger -Entry $entry
     $commit.Sessions = $ledger
@@ -5816,6 +5844,21 @@ try {
     # (wave 26b, D13) the machine-wide health: this run leaves running[] (its outcome went in before
     # the ledger - wave 26c, D2). Optional: a file that cannot be written is left as it is.
     $null = Unregister-MachineRunning
+    # (wave 28c, D10) the journal's unreadable lines found by the updates after the commit: the summary
+    $healthJournalLines = @(foreach ($hn in (Get-MachineHealthJournalNotes)) { if ($hn) { "warning    : $hn" } })
+    # (wave 28c, D7 / F43-4) the event that did not go into the spool at the commit: once more, with up
+    # to 5 s, now that the write lock is released - only a failure of this attempt (or an event that
+    # met a running -Forget, which is dropped at once - D3) is warned about (the console, a detached
+    # run's status record) and counted as not spooled (codex-telemetry.ps1 -Status)
+    if ($telemetryFirst) {
+        if ($telemetryFirst.Forgetting) {
+            try { Add-TelemetryNotSpooled -Why $telemetryFirst.Why } catch { }
+            $telemetryLine = "warning    : telemetry event not spooled ($($telemetryFirst.Why)) - dropped"
+        } else {
+            $telemetryRetry = Add-TelemetryEvent -Entry $entry -Switch $telemetrySwitch -WaitMs $script:TelemetrySpoolWaitMs -Count
+            if ($telemetryRetry.Why) { $telemetryLine = "warning    : telemetry event not spooled ($($telemetryRetry.Why)) - at the commit ($($telemetryFirst.Why)) and for $([Math]::Round($script:TelemetrySpoolWaitMs / 1000.0, 1)) s after it" }
+        }
+    }
     # (wave 28, R17) telemetry on: the event went into the spool at the commit (wave 28b, D6); now the
     # detached sender starts (not waited for) - a panel member leaves the sender to its panel run, a
     # run that keeps its recovery record (survivors, a failed registration) starts none (the next
@@ -5856,6 +5899,7 @@ try {
         if ($pendingNote) { Write-Summary "pending    : $pendingNote" Yellow }
         if ($commitWaitLine) { Write-Summary $commitWaitLine }
         if ($machineHealthLine) { Write-Summary $machineHealthLine Yellow }
+        foreach ($hl in $healthJournalLines) { Write-Summary $hl Yellow }
         if ($telemetryLine) { Write-Summary $telemetryLine Yellow }
         foreach ($d in $driftLines) { Write-Summary $d Yellow }
         Write-Summary "reply file : $replyPath"
@@ -5907,6 +5951,7 @@ try {
     if ($pendingNote) { Write-Summary "pending    : $pendingNote" Yellow }
     if ($commitWaitLine) { Write-Summary $commitWaitLine }
     if ($machineHealthLine) { Write-Summary $machineHealthLine Yellow }
+    foreach ($hl in $healthJournalLines) { Write-Summary $hl Yellow }
     if ($telemetryLine) { Write-Summary $telemetryLine Yellow }
     foreach ($d in $driftLines) { Write-Summary $d Yellow }
     Write-Summary "reply file : $replyPath"

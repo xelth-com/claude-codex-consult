@@ -51,12 +51,15 @@ execute, reviewers advise, you decide. These rules hold on every host; the means
         (while the cache is warm), then remove the wake and let something wake you at the end.
      4. Idle: idle wake 1 - one line in the state file ("idle since <time>"); idle wake 2 - write
         the handover, COMPACT, remove the wake.
-     5. *No means to compact* (COMPACT is the host's means - "Means per host"): SAY it - one line
-        to the operator before a long wait begins or at idle wake 2 ("long wait: compact now, the
-        cache is warm; state in <file>") - and KEEP the wake; remove it only after half the
-        refreshes a cold resume is worth (40 wakes on Claude Fable 5.1, 20 on Claude Opus 5.5, 10
-        on Claude Sonnet 5.5 - counted as cache reads; a full wake also pays its turn, so it reaches
-        that money a little sooner).
+     5. *No means to compact* (COMPACT is the host's means - "Means per host"; revision 6, the
+        operator's decision of 2026-09-30): until the host lets the agent compact itself there are
+        TWO states only. While work runs or is awaited (the running work above): keep the context
+        warm ALWAYS, however long the wait. Idle: idle wake 1 - the note; idle wake 2 - write the
+        handover on disk, REMOVE the wake, and tell the operator in one line the cheap ways back: a
+        fresh session from the state file; or, to keep the conversation, a cheaper model whose
+        window holds the context -> compact there -> back; and the launch option that bounds the
+        context at the next start (`--autocompact <tokens>` where the host has it - "Means per
+        host").
      6. Compact only while the cache is warm: after it expired a compaction costs a cold resume
         PLUS the summary (and the compact window's cold write at the resume).
      7. The operator's lever: the host's auto-compact threshold keeps the context small all the
@@ -163,7 +166,8 @@ same-named agent of your own (`~/.claude/agents/`, the project's `.claude/agents
 keep. Run workers in the background; the watchdog of rule 3 is a scheduled wake (a timed
 wake-up or a monitor on the state file). COMPACT: the agent has no means (verified 2026-09-29 -
 a scheduled prompt `/compact` arrives as ordinary text), so rule 3's no-means branch applies;
-`/compact` and the auto-compaction threshold (`/autocompact`) are the operator's. The plugin's
+`/compact` and the auto-compaction threshold (`/autocompact`; at launch `--autocompact <tokens>`,
+`auto` or 100k to 1M - Claude Code 2.1.285 `--help`, checked 2026-09-30) are the operator's. The plugin's
 SessionStart hook prints the availability line and the pointer to these rules.
 
 **Codex CLI.** Workers are agent files the OPERATOR keeps in `~/.codex/agents/<tier>.toml`, each

@@ -9,7 +9,8 @@
     Contents: a few small helpers the readers need (Read-SharedText, Get-PropertyValue,
     ConvertTo-OneLine, Test-IsJsonObject, ConvertTo-JsonText, ConvertTo-WhenOffset,
     Get-GitOutput, Resolve-RepoRoot, Resolve-CollabRoot, Get-ProcessStartIso,
-    Test-SameStartTime, Test-PidAlive; wave 28: Get-TelemetrySwitch, the switch the hook prints)
+    Test-SameStartTime, Test-PidAlive, wave 28c: Get-PidIdentity; wave 28: Get-TelemetrySwitch,
+    the switch the hook prints)
     and the readers of a detached run's status file
     (Get-DetachedPaths, New-DetachedMember, ConvertTo-DetachedTime, ConvertTo-DetachedRecord,
     Read-DetachedStatus, Read-DetachedRuns, Format-DetachedSpan, Get-DetachedJudgement,
@@ -127,10 +128,16 @@ function ConvertTo-WhenOffset {
 
 # Process start time as a UTC round-trip string. $null: no such process. '': the
 # process exists but its start time cannot be read (e.g. another user's process).
+# (wave 28c, D8) TEST HOOK (test mode only): CODEX_CONSULT_TEST_START_UNREADABLE=<pid>[,<pid>] - these
+# pids, while they exist, read as '' (a start time that cannot be read).
 function Get-ProcessStartIso {
     param([int]$ProcessId)
     $p = $null
     try { $p = Get-Process -Id $ProcessId -ErrorAction Stop } catch { return $null }
+    $unreadable = [string][Environment]::GetEnvironmentVariable('CODEX_CONSULT_TEST_START_UNREADABLE')
+    if ($unreadable -and ([string][Environment]::GetEnvironmentVariable('CODEX_CONSULT_TEST_MODE')).Trim() -eq '1') {
+        if (@($unreadable.Split(',') | ForEach-Object { $_.Trim() }) -contains [string]$ProcessId) { return '' }
+    }
     try { return $p.StartTime.ToUniversalTime().ToString('o', $script:Invariant) } catch { return '' }
 }
 
@@ -152,8 +159,26 @@ function Test-SameStartTime {
     return ([math]::Abs($ta.UtcTicks - $tb.UtcTicks) -lt [TimeSpan]::TicksPerSecond)
 }
 
+# (wave 28c, D8 / F42-4) The identity of a pid against the start time read for it before: 'alive' (a
+# process with this pid exists AND has that start time), 'gone' (no such process, or one with another
+# start time - the pid was handed to another process), 'unknown' (a process with this pid exists, but
+# the start time recorded or the one read now is unreadable - its identity cannot be confirmed). A
+# KILL acts on 'alive' only and never counts 'unknown' as gone (Stop-ProcessTreeChecked); a holder of
+# a lock or a record counts as alive on 'unknown' (Test-PidAlive: never taken over on a guess).
+function Get-PidIdentity {
+    param([int]$ProcessId, [string]$StartTime = '')
+    if ($ProcessId -le 0) { return 'gone' }
+    $live = Get-ProcessStartIso -ProcessId $ProcessId
+    if ($null -eq $live) { return 'gone' }
+    if (-not $StartTime -or -not $live) { return 'unknown' }
+    if (Test-SameStartTime -A $live -B $StartTime) { return 'alive' }
+    return 'gone'
+}
+
 # A pid counts as alive when a process with that id exists and - if a start time was
-# recorded for it - still has that start time (otherwise the pid was reused).
+# recorded for it - still has that start time (otherwise the pid was reused). (wave 28c, D8) An
+# identity that cannot be confirmed ('unknown' of Get-PidIdentity) counts as ALIVE here: a holder is
+# never taken over, a survivor never released, on a guess.
 function Test-PidAlive {
     param([int]$ProcessId, [string]$StartTime = '')
     if ($ProcessId -le 0) { return $false }

@@ -10,8 +10,9 @@
       -Flush       THE sender. The bridge starts it detached (hidden, never waited for, with a
                    minimal allow-listed environment - wave 28b, D3) after a ledger commit: under
                    the sender lock <codex home>/telemetry-spool/.flush.lock (a marker file; a
-                   concurrent sender is refused, exit 2; a lock older than 5 minutes, or whose
-                   owner is gone, is taken over) it reads the spool oldest first, drops lines older
+                   concurrent sender is refused, exit 2; (wave 28c, D4) a lock is taken over only
+                   when its owner is gone, and a sender that lost its lock - its token - stops
+                   without rewriting; D5: the 60 s cover every local step too) it reads the spool oldest first, drops lines older
                    than 7 days, POSTs the events in batches of at most 100 to <intake>/v2/events
                    and the complaint lines one by one to <intake>/v2/complaints (a 3 s connect
                    probe; ONE request is bounded as a whole by 8 s and the whole flush by 60 s -
@@ -39,7 +40,13 @@
                    <intake>/v2/instances/<instance id>?public_ref=<ref> (the ref a delivered
                    complaint printed); -Local removes the local spool, the salt and the count of
                    events not spooled (the next event makes a new instance id); both may be
-                   given. Exit 0 done, 1 refused, 3 the intake did not confirm the deletion.
+                   given - (wave 28c, D2) then the intake FIRST, and the local deletion only after
+                   it confirmed the DELETE: any other answer deletes nothing here either (the same
+                   command can be repeated). -Local alone says that the intake still holds what was
+                   sent and asks `remove locally? [y/N]` unless -Yes. (D3) The local deletion holds
+                   the telemetry lock and writes the marker telemetry-forgetting (removed last):
+                   a consultation that commits meanwhile drops its event (counted). Exit 0 done, 1
+                   refused or not confirmed, 3 the intake did not confirm the deletion.
       -Status      the switch and where it comes from, the intake URL, the spool's counts, (wave
                    28b, D6) the events not spooled since the last flush, the last flush's result,
                    the instance id (not secret: a salted hash), the notice's state, and test mode
@@ -74,7 +81,7 @@ param(
     # With -Complain: how the maintainer can reach you (optional; null when not given).
     [string]$Contact = '',
 
-    # With -Complain: send without asking.
+    # With -Complain: send without asking; (wave 28c, D2) with -Forget -Local: remove without asking.
     [switch]$Yes,
 
     # With -Complain: the task whose last ledger entry goes into the context (optional).
@@ -150,9 +157,9 @@ if ($PSBoundParameters.ContainsKey('Complain')) {
 
 # ----------------------------------------------------------------------------- -Forget (wave 28b, D9)
 if ($Forget) {
-    $extra = @($given | Where-Object { @('Forget', 'PublicRef', 'Local') -notcontains $_ })
-    if ($extra.Count -gt 0) { Stop-WithError "-Forget takes only -PublicRef <ref> and -Local; not -$($extra -join ', -')." }
-    exit (Invoke-TelemetryForget -PublicRef $PublicRef -Local:$Local)
+    $extra = @($given | Where-Object { @('Forget', 'PublicRef', 'Local', 'Yes') -notcontains $_ })
+    if ($extra.Count -gt 0) { Stop-WithError "-Forget takes only -PublicRef <ref>, -Local and -Yes; not -$($extra -join ', -')." }
+    exit (Invoke-TelemetryForget -PublicRef $PublicRef -Local:$Local -Yes:$Yes)
 }
 foreach ($only in @('PublicRef', 'Local')) { if ($PSBoundParameters.ContainsKey($only)) { Stop-WithError "-$only goes with -Forget." } }
 
@@ -175,6 +182,8 @@ Write-Host "spool      : $($p.Spool) - $($c.Events) event(s), $($c.Complaints) c
 # (wave 28b, D6) the events that could not be spooled since the last flush
 $ns = Get-TelemetryNotSpooled
 Write-Host "not spooled: $(if ($ns.Count -gt 0) { "$($ns.Count) event(s) since the last flush - the latest $($ns.When): $($ns.Last)" } else { 'none since the last flush' })"
+# (wave 28c, D3) a -Forget -Local that runs, or that died halfway
+if ([IO.File]::Exists($p.Forgetting)) { Write-Host "forgetting : the marker $($p.Forgetting) is there - a -Forget -Local runs now or did not finish; events are dropped until it is gone (codex-telemetry.ps1 -Forget -Local finishes it)" -ForegroundColor Yellow }
 $last = Read-TelemetryLast
 Write-Host "last flush : $(if ($last) { "$([string](ConvertTo-JsonText (Get-PropertyValue $last 'time' ''))) - $([string](Get-PropertyValue $last 'result' ''))" } else { 'never' })"
 $iid = Get-TelemetryInstanceId

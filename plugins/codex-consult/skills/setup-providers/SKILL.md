@@ -468,9 +468,13 @@ consent, run one live `-Purpose chore` consultation to confirm the route end to 
   maintainer's intake (the repository README, section "Telemetry (on by default)"); tell the user on a new machine - they
   switch it off with the user variable `CODEX_CONSULT_TELEMETRY=off`, and `codex-telemetry.ps1
   -Status` shows the switch, the spool and the instance id. The event carries the vendor class of
-  the endpoint (openai, zai, xiaomi, byteplus, moonshot, alibaba, google, meta, else other), never
-  the roster label; `codex-telemetry.ps1 -Forget -PublicRef <ref>` deletes the instance's data at
-  the (live) intake, `-Forget -Local` the local spool and salt.
+  the endpoint (openai, zai, xiaomi, byteplus, moonshot, alibaba, google, meta, else other) and
+  the model only when it equals an entry of that class's closed list (a new model reads `other`
+  until a release adds it), never the roster label; `codex-telemetry.ps1 -Forget -PublicRef <ref>`
+  deletes the instance's data at the (live) intake, `-Forget -Local` the local spool and salt (it
+  asks unless `-Yes`; with `-PublicRef` too, only after the intake confirmed). Behind a proxy or a
+  private CA the sender keeps `HTTP(S)_PROXY`/`NO_PROXY`/`ALL_PROXY` (any case) and
+  `SSL_CERT_FILE`, `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`, `NODE_EXTRA_CA_CERTS`.
 
 ## 7. Record it
 

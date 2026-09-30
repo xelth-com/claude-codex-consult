@@ -49,10 +49,12 @@ purpose, or unknown, start the run with `-Detach` and come back with `-Wait` or 
 `coordinate` skill's "Means per host" lists the limits seen.
 
 **Telemetry (on by default).** After each consultation the bridge sends ONE anonymised event
-(engine, the vendor class of the endpoint and the model from a closed table - never the provider
-label -, purpose, outcome class, counts - never a task, brief, prompt, path or name) to the
-maintainer's intake in the background (the intake is live; delete the data with
-`codex-telemetry.ps1 -Forget -PublicRef <ref>` or `-Forget -Local`); `CODEX_CONSULT_TELEMETRY=off` (the
+(engine, the vendor class of the endpoint and the model only when it equals an entry of a closed
+list of published names, else `other` - never the provider label -, purpose, outcome class,
+counts - never a task, brief, prompt, path or name) to the maintainer's intake in the background
+(the intake is live; delete the data with `codex-telemetry.ps1 -Forget -PublicRef <ref>` - with
+`-Local` too, the local data goes only after the intake confirmed - or `-Forget -Local`, which
+asks unless `-Yes`); `CODEX_CONSULT_TELEMETRY=off` (the
 operator's variable) or `-Telemetry off` for one run switches it off, and a problem with the
 bridge goes to the maintainer with `codex-consult.ps1 -Task <t> -Complain "<text>"` (it prints
 the payload and asks first) - the README (the repository README), section "Telemetry (on by default)".

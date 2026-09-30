@@ -312,10 +312,12 @@ The `coordinate` skill also carries the idle watchdog (its rule 3): one recurrin
 minutes, armed at your first delegation or wait and kept while any running work exists (a worker,
 a detached panel, a shell job, another session's window, the operator's announced step, a
 cooldown); compaction at wave boundaries and before a wait longer than the boundary; when idle, the
-handover and a compaction at the second idle wake - or, where the agent cannot compact itself, one
-line to the operator and the wake kept. The host's auto-compact threshold is the operator's lever:
-it keeps every wake and every cold resume small. Why a wake pays, and when compacting pays more:
-the next section, "Waiting: keep the prompt cache or compact".
+handover and a compaction at the second idle wake - or, where the agent cannot compact itself
+(revision 6 of the rule, 2026-09-30), the context kept warm while work runs or is awaited and, when
+idle, the handover at the second idle wake, the wake removed and one line to the operator with the
+cheap ways back. The host's auto-compact threshold is the operator's lever: it keeps every wake and
+every cold resume small (Claude Code: `--autocompact <tokens>` at launch). Why a wake pays, and when
+compacting pays more: the next section, "Waiting: keep the prompt cache or compact".
 
 If your own CLAUDE.md or AGENTS.md carries a private "supervisor / worker delegation" block (the
 worker tiers, waves, waits, the language rule), shrink it to a pointer - "Coordinator rules:
@@ -428,9 +430,9 @@ rule compacts at wave boundaries, with the state on disk.
 2. At a wave boundary (the report is read, the state is on disk): compact, or start a fresh session from the state file.
 3. A wait of known length: shorter than the boundary - refresh; longer - compact first (while the cache is warm), then remove the wake and let something wake you at the end.
 4. Idle: idle wake 1 - one line in the state file; idle wake 2 - the handover, then compact and remove the wake.
-5. Where the agent cannot compact itself (Claude Code, verified on 2026-09-29: no tool for it, and a scheduled `/compact` arrives as ordinary text): it says so to the operator in one line before a long wait or at idle wake 2, and keeps the wake; it removes it only after half the refreshes a cold resume is worth (40 wakes on Claude Fable 5.1, 20 on Claude Opus 5.5, 10 on Claude Sonnet 5.5), counted as cache reads - full wakes, which also pay their turn, reach that money a little sooner.
+5. Where the agent cannot compact itself (Claude Code, verified on 2026-09-29: no tool for it, and a scheduled `/compact` arrives as ordinary text) - (revision 6, the operator's decision of 2026-09-30) two states only, until the host lets the agent compact itself: while work runs or is awaited, the context is kept warm ALWAYS, however long the wait; when idle, idle wake 1 is the note and idle wake 2 writes the handover on disk, removes the wake and tells the operator in one line the cheap ways back - a fresh session from the state file; or, to keep the conversation, a cheaper model whose window holds the context, a compaction there, and back (the cold cache below); and the launch option that bounds the context at the next start. (Revision 5's branch "keep the wake for half the refreshes a cold resume is worth" is removed; the boundary tables above stay as the operator's guide for a manual compaction before a long absence.)
 6. Compact only while the cache is warm: after it expired, a compaction costs a cold resume PLUS the summary (and the compact window's cold write at the resume) - more than letting it expire.
-7. The operator's lever: the host's auto-compact threshold keeps C small all the time.
+7. The operator's lever: the host's auto-compact threshold keeps C small all the time - on Claude Code the launch option `--autocompact <tokens>` (`auto`, or 100k to 1M tokens; Claude Code 2.1.285 `--help`, checked on 2026-09-30), in a session `/autocompact`.
 
 **When the moment was missed: a cold cache.** A cold context is read ONCE at full price whatever
 comes next; what is left to choose is the price list of that one read. Caches are per model, so with
@@ -871,9 +873,18 @@ enumerated (a restricted host - the Codex CLI sandbox denies process inspection,
 back to `taskkill /PID <root> /T /F` and checks the root again. (Wave 28b, D14) The descendants are
 enumerated with CIM on Windows; elsewhere with `pgrep -P`, else `ps -A -o pid=,ppid=`, else the
 `/proc/<pid>/stat` files - only when none of them works is a kill unconfirmed for that reason.
+(Wave 28c, D9 / F42-5) `pgrep`'s exit 1 (no match) is an empty child set; any other non-zero exit, a
+call that does not end within 5 s, output that is not a pid, or a `pgrep` that cannot run is a failed
+enumeration - never an empty child set - and the next method (`ps`, then `/proc`) is tried.
 Each descendant's start time is read at the enumeration, and the check after the kill counts a
 descendant as alive only while a process with its pid AND that start time exists: a pid the
-system handed to another process meanwhile is no survivor (and is never killed). The outcome says `(process tree
+system handed to another process meanwhile is no survivor (and is never killed). (Wave 28c, D8 /
+F42-4) No pid-only identity: a descendant whose start time cannot be read (at the enumeration or
+at the kill - another user's process, say) is neither killed by its pid nor counted as gone - the
+bridge leaves it alone and the kill is `not confirmed: start time of pid <n> unreadable` (the
+outcome `(kill not confirmed: start time of pid <n> unreadable; pid <n> may still run)`, naming
+that pid). On Windows `taskkill /PID <root> /T /F`, which walks the root's live tree itself, still
+runs. The outcome says `(process tree
 killed)` ONLY when the kill is confirmed; otherwise `(kill not confirmed: <why>; pid <n> may still
 run)`, the ledger's `kill_confirmed` is `false`, `warnings[]` says `kill not confirmed (<turn>): ...`
 - check that pid and stop it by hand - and NO continuation turn follows (`timeout_continue.outcome`
@@ -1311,13 +1322,14 @@ This is the only place field meanings are listed; other sections refer to them b
 | `tree_check` | (wave 26b, D9; after `artifacts_changed_during_review`) `null` for codex (no check); for an engine `{outcome, files}`: `clean`, `warned` (muse - write-disabled by the bridge's flags: a change is not the reviewer's, the reply stays usable, `warnings[]` says so) or `failed` (agy - its sandbox does not block writes); `files` the changed paths (the working tree's, the collab directory's as shown, `brief`, the artifacts) |
 | `bridge_outcome` | `usable reply`, (0.5.0) `usable reply (after a timeout continuation)` or `failed: <why>`: only whether the bridge worked |
 | `provider_failure` | `null` on success, else `{class, kind, code, message, when, retry_after, hint}` (see "Preflight and endpoint health"; wave 26b: class `operator` for a run stopped by `-Kick` - no endpoint's fault, never read as an outage): (wave 24c) `kind` `burst` - a 429 that names no usage window or quota, out for 10 minutes - or `""`; `hint` the operator's next step, decided when the failure is classified (`""`, or `context too long for this plan/model - ...`) |
-| `warnings` | (0.4.0) notices of the run - a `-Provider` label that names several roster entries (any engine), agy's denial notice and its `warning:` stderr lines that came with a usable reply; (wave 26) a panel's floor warning and a routed panel's `routing: no lab known for ...`; (wave 26b) `panel size reduced: asked k, eligible m`, (wave 26c, D5) `panel size raised: asked k, required r` (the required reviewers outnumber the size asked: `panel.routing.size_source` `required`, `size_asked` the request; the dry run's `Routing:` line says `; asked k`), `roles: no assignment gives every role a willing member ...`, and a muse run's tree-check change (`the collab directory changed during the run (<files>) - muse ran write-disabled, the change is not the reviewer's`); (wave 27) `coordinator: <lineage> is the coordinator's own model (CODEX_CONSULT_COORDINATOR) - a second opinion from the coordinator's own model, not an independent one` when the reviewer's resolved identity is the coordinator's; (wave 28b) `test mode is ON: test hooks are honoured` (D10: every run with `CODEX_CONSULT_TEST_MODE=1` - a harness), `telemetry event not spooled (<why>)` (D6) and `machine-wide health not updated at the commit (<cause>); the record is kept in the journal; a retry follows the commit` (D13); `[]` when none |
+| `warnings` | (0.4.0) notices of the run - a `-Provider` label that names several roster entries (any engine), agy's denial notice and its `warning:` stderr lines that came with a usable reply; (wave 26) a panel's floor warning and a routed panel's `routing: no lab known for ...`; (wave 26b) `panel size reduced: asked k, eligible m`, (wave 26c, D5) `panel size raised: asked k, required r` (the required reviewers outnumber the size asked: `panel.routing.size_source` `required`, `size_asked` the request; the dry run's `Routing:` line says `; asked k`), `roles: no assignment gives every role a willing member ...`, and a muse run's tree-check change (`the collab directory changed during the run (<files>) - muse ran write-disabled, the change is not the reviewer's`); (wave 27) `coordinator: <lineage> is the coordinator's own model (CODEX_CONSULT_COORDINATOR) - a second opinion from the coordinator's own model, not an independent one` when the reviewer's resolved identity is the coordinator's; (wave 28b) `test mode is ON: test hooks are honoured` (D10: every run with `CODEX_CONSULT_TEST_MODE=1` - a harness) and `machine-wide health not updated at the commit (<cause>); the record is kept in the journal; a retry follows the commit` (D13); (wave 28c) `health journal: <n> unreadable line(s) kept in <file>` (D10) and `the reviewer compacted its context <n> time(s) - the reply may rest on a summary of the brief` (D11) - (wave 28c, D7) a telemetry event that could not be spooled is no longer here: its final attempt comes after the commit, so it is said on the console and in a detached run's status record only; `[]` when none |
 | `verdict` / `verdict_reason` | `ACCEPT`, `HOLD`, `REJECT`, `ADVISE`, or `""` (unavailable or invalid); one sentence |
 | `findings` / `finding_ids` | severity counts of the new findings; their ids |
 | `prior_findings` | the reviewer's reports on earlier ids: `{id, status}` with `fixed`, `still-open`, `not-checked` or `unknown-id` |
 | `unchecked_prior_blockers` | open prior blockers the reviewer did not check while answering `ACCEPT` |
 | `usage` / `wall_seconds` | token counts from the event stream (agy: `cache_read_tokens` -> `cached_input_tokens`, `thinking_tokens` -> `reasoning_output_tokens`, plus `total_tokens`; muse: `null` - its records carry no usage); wall time |
-| `engine_run` | (wave 23) `null` for codex; for an engine `{turns, max_model_steps, msp_schema_version}`: the engine turns started (the main turn, a denial retry, a format repair - each muse turn spends one Muse Code subscription prompt), `-MaxModelSteps` as sent (`null` when not), the MSP `schema_version` of a muse stream (`null` for agy); right after `usage` |
+| `compactions` | (wave 28c, D11 / F43-3, F44-6; right after `usage`) how often the reviewer compacted its context during the run, as its ENGINE REPORTED it in the event streams of the run's turns (`Get-CompactionCount`: a `context_compacted` / `compacted` / `thread.compacted` event, or an `item.completed` whose item is a `context_compaction` / `contextCompaction` / `compaction` - the names of the Codex CLI's protocol): a number n > 0 - and the warning `the reviewer compacted its context <n> time(s) - the reply may rest on a summary of the brief`; `unknown` for a member with `context_tokens` when none was reported - the installed codex-cli 0.155.1's `exec --json` stream reports no compaction at all (its item types, read from the binary: agent_message, reasoning, command_execution, file_change, mcp_tool_call, collab_tool_call, web_search, todo_list), so "none seen" is not "none happened"; `null` otherwise. The prompt of a member with `context_tokens` (and a `-Brief`) names the brief again as its last line before the consultation id: ``Before you answer, re-read the brief: `<path>`.`` |
+| `engine_run` | (wave 23) `null` for codex; for an engine `{turns, max_model_steps, msp_schema_version}`: the engine turns started (the main turn, a denial retry, a format repair - each muse turn spends one Muse Code subscription prompt), `-MaxModelSteps` as sent (`null` when not), the MSP `schema_version` of a muse stream (`null` for agy); right after `compactions` (wave 28c; before: `usage`) |
 | `finished_at` | (0.4.x wave 21) when the entry was committed (`when` is the reviewer's start). The endpoint health's "newest wins" orders by it (older entries: `when` + `wall_seconds`), ties by `n` - a panel's members finish in any order |
 | `commit_wait_ms` | (0.4.x wave 21) how long the commit waited for the write lock because another commit of the task held it (`0`: it was free); the console says `write lock : waited N ms for another commit of this task` when it waited |
 
@@ -1845,7 +1857,14 @@ retry after the commit (<cause>) - the record waits in <health file>.journal for
 Should the run die between its commit and the retry, the next run of ANY repository applies the
 journal: every health update (a registration in `running[]`, an outcome) applies it under the lock
 first and empties it once the file is written. Applying is idempotent - a record already in
-`endpoints[]` (the same endpoint, class, kind, repository and time) is not added twice. Every
+`endpoints[]` (the same endpoint, class, kind, repository and time) is not added twice. (Wave 28c,
+D10 / F42-6, F44-1) Nothing is lost silently: a journal line that does not parse (the torn append of
+a writer that died) is MOVED to `<health file>.journal.bad` - appended there as the time, a tab and
+the line's exact bytes - and counted in the warning `health journal: <n> unreadable line(s) kept in
+<file>` (the run's `warnings[]` for an update before its commit, its summary for one after it); the
+journal is then shortened by exactly the bytes that were applied or moved, never blindly to zero - a
+line that cannot be moved (the `.bad` cannot be written) stays in the journal with everything after
+it, and the next update tries again. Every
 endpoint-health question - the roster walk, the panel's selection, `-Require`,
 `codex-providers.ps1`, the SessionStart line - reads the file's records beside the repository's
 ledgers as ONE record set: the newest record decides, as within one ledger (a later usable reply
@@ -2757,7 +2776,7 @@ vendor table below):
 | `app_id`, `app_version`, `details.bridge_version` | `codex-consult` and the plugin's version (`.claude-plugin/plugin.json`) |
 | `instance_id` | SHA-256 of the 32 random bytes in `<codex home>/telemetry-salt` (64 hex digits, created once by the first event) followed by the UTF-8 machine name: the machine name never leaves in clear, and a new salt makes a new, unlinkable instance |
 | `severity`, `title`, `details.outcome` | `info` - `usable` or `usable-after-continuation`; `warning` - `failed:quota`, `failed:auth` (a provider limit or sign-in) or `failed:operator` (`-Kick`); `error` - every other `failed:<class>`: the provider failure's class (`capability`, `transport`, `permission`, `unknown`), else `timeout`, `stalled` or `bridge` |
-| `details.engine`, `provider`, `model`, `purpose` | the engine (`codex`, `agy`, `muse`); (wave 28b, D1) the VENDOR CLASS of the endpoint the reviewer talked to - never the provider label of the roster or the config; the model name only when the vendor class is known and the name follows that vendor's pattern (lower case), else `other`; the purpose (`none` without one) |
+| `details.engine`, `provider`, `model`, `purpose` | the engine (`codex`, `agy`, `muse`); (wave 28b, D1) the VENDOR CLASS of the endpoint the reviewer talked to - never the provider label of the roster or the config; (wave 28c, D1) the model name only when the vendor class is known and the name EQUALS an entry of that class's closed list (after lower-casing), else `other`; the purpose (`none` without one) |
 | `details.wall_seconds`, `tokens`, `findings` | the entry's wall time (rounded), token counts (`null` when the engine reports none) and finding counts by severity |
 | `details.structured`, `format_retry`, `denial_retry`, `timeout_continue` | booleans: a valid structured reply; a format repair, a denial retry, a timeout continuation turn attempted |
 | `details.panel_size` | the members of the panel this consultation belonged to; `0` for a single run |
@@ -2768,23 +2787,25 @@ vendor table below):
 data structure). The roster label and the model are text the operator typed, so neither leaves
 the machine as typed: the event's `provider` is the vendor class of the endpoint's HOST (the host
 equals one listed or ends with `.` + one; the ledger's `reviewer.provider_config.base_url`), or of
-the engine; the model is sent only in its vendor's published naming - a family prefix, then up to a
-few segments that are a version token (at most three letters, a digit, then letters, digits, dots)
-or a word of a closed list (`pro`, `max`, `mini`, `flash`, `lite`, `plus`, `turbo`, `air`,
-`code(r)`, `coding`, `for`, `high`, `highspeed`, `ultraspeed`, `preview`, `latest`, `chat`,
-`reasoner`, `instruct`, `thinking`, `spark`, `contributor`, `oss`, `astra` and a few more), at most
-40 characters. The ledger and every local file keep the real label and model.
+the engine. (Wave 28c, D1 / F42-1, F43-2) The model is sent only when it EQUALS, after
+lower-casing, an entry of its vendor class's CLOSED list below - the published model names this
+README documents (the effort table, the roster examples) and the rosters have run - and then as the
+list's own text; no pattern, no version wildcard: a model name outside the list, however
+version-like, reads `other`, and a new model reads `other` until a release adds it to the list. The
+ledger and every local file keep the real label and model. Known limitation (F43-6, F44-3): the
+class is derived from the host NAME only - a private gateway, relay or proxy under a vendor's
+domain (`<tenant>.openai.com`, or a hosts-file entry for a vendor's name) reads as that vendor.
 
-| Vendor class | Endpoint | Model pattern (examples) |
+| Vendor class | Endpoint | Models sent (the closed list; anything else is `other`) |
 |---|---|---|
-| `openai` | the built-in provider (the ChatGPT login or an API key, no `OPENAI_BASE_URL`), `*.openai.com`, `chatgpt.com` | `gpt-...`, `o<n>...`, `codex-...` (`gpt-5.1`, `gpt-6-astra`, `o4-mini`) |
-| `zai` | `*.z.ai` (`api.z.ai`), `*.bigmodel.cn` (`open.bigmodel.cn`, the effort table's other Z.ai host) | `glm-...` (`glm-5.3`, `glm-4.5-air`) |
-| `xiaomi` | `*.xiaomimimo.com` (`token-plan-cn`, `token-plan-ams`, `api`) | `mimo-...` (`mimo-v2.6-pro`) |
-| `byteplus` | `*.bytepluses.com` (`ark.ap-southeast.bytepluses.com`) | `dola-seed-`, `seed-`, `glm-`, `deepseek-`, `kimi-`, `gpt-oss-...` (`deepseek-v4.1-flash`) |
-| `moonshot` | `*.kimi.ai`, `*.moonshot.ai` | `kimi-...`, `k<n>...`, `moonshot-...` (`k3`, `kimi-k2.5`) |
-| `alibaba` | `*.aliyuncs.com` (the Token Plan endpoint) | `qwen<n>...`, `qwen-`, `deepseek-`, `glm-`, `kimi-...` (`qwen3.8-max`) |
-| `google` | the engine `agy` | `gemini-...` (`gemini-3.8-flash-high`) |
-| `meta` | the engine `muse` | `muse-...` (`muse-spark-1.3`) |
+| `openai` | the built-in provider (the ChatGPT login or an API key, no `OPENAI_BASE_URL`), `*.openai.com`, `chatgpt.com` | `gpt-5.1`, `gpt-6-astra`, `o4-mini` |
+| `zai` | `*.z.ai` (`api.z.ai`), `*.bigmodel.cn` (`open.bigmodel.cn`, the effort table's other Z.ai host) | `glm-5.3`, `glm-5.3-flash`, `glm-5.3-flashx`, `glm-5.2`, `glm-5.1`, `glm-5`, `glm-5-turbo`, `glm-4.7`, `glm-4.6`, `glm-4.5`, `glm-4.5-air` |
+| `xiaomi` | `*.xiaomimimo.com` (`token-plan-cn`, `token-plan-ams`, `api`) | `mimo-v2.6-pro`, `mimo-v2.6-flash`, `mimo-v2.6-pro-ultraspeed`, `mimo-v2.5-pro`, `mimo-v2.5` |
+| `byteplus` | `*.bytepluses.com` (`ark.ap-southeast.bytepluses.com`) | `dola-seed-2.0-pro`, `dola-seed-2.0-lite`, `dola-seed-2.0-code`, `bytedance-seed-code`, `glm-5.3-flash`, `glm-5.2`, `glm-5.1`, `kimi-k2.5`, `gpt-oss-120b`, `deepseek-v4.1-flash`, `deepseek-v4-flash`, `deepseek-v4-pro` |
+| `moonshot` | `*.kimi.ai`, `*.moonshot.ai` | `k3`, `k3-256k`, `kimi-for-coding`, `kimi-for-coding-highspeed`, `kimi-k2.5`, `kimi-k3` |
+| `alibaba` | `*.aliyuncs.com` (the Token Plan endpoint) | `qwen3.8-max`, `qwen3.8-flash`, `qwen3.7-max`, `qwen3.7-plus`, `qwen3.6-flash`, `deepseek-v4.1-flash`, `deepseek-v4-pro`, `deepseek-v4-pro-0813`, `deepseek-v4-flash-0731`, `glm-5.3`, `glm-5.2` |
+| `google` | the engine `agy` | `gemini-3.8-flash-high`, `gemini-3.8-flash-medium`, `gemini-3.8-flash-low`, `gemini-3.1-pro-high`, `gemini-3.1-pro-low` |
+| `meta` | the engine `muse` | `muse-spark-1.3`, `muse-spark-1.3-contributor` |
 | `other` | any other host (a local endpoint, a company's own gateway, a look-alike host), or no endpoint recorded | always `other` |
 
 A roster entry `AcmeCorp-Legal` on `https://llm.acmecorp-internal.example/v1` with the model
@@ -2801,26 +2822,63 @@ hostile entry (`tests/harness-telemetry.ps1` UNIT, SPOOL).
 entry is added, the event is appended as ONE NDJSON line to the spool,
 `<codex home>/telemetry-spool/<yyyy-mm-dd>.ndjson` (the LOCAL date, as the engines name their
 session directories - D16; a line is `{"v":1, "kind":"event", "queued_unix":<s>, "body":"<the
-JSON above as a string>"}`); the append waits up to 5 s for a spool file another process holds. An
-event that is not spooled is never lost silently: the entry's `warnings[]` and the console say
-`telemetry event not spooled (<why>)`, and `codex-telemetry.ps1 -Status` counts the events not
+JSON above as a string>"}`). (Wave 28c, D7 / F43-4) Inside the write lock the append waits at most
+1 s (the telemetry lock and a spool file another process holds, together), so a busy spool adds at
+most 1 s to the hold on the task's lock; when that fails, the run tries again for up to 5 s after
+the write lock is released, and only then warns - on the console and in a detached run's status
+record: `warning    : telemetry event not spooled (<why>) - at the commit (<why>) and for 5 s after
+it` (the entry is already committed, so its `warnings[]` no longer carries this line). An event
+that is not spooled is never lost silently: `codex-telemetry.ps1 -Status` counts the events not
 spooled since the last flush (`<codex home>/telemetry-not-spooled.ndjson`). After the commit ONE
 detached sender starts - `codex-telemetry.ps1 -Flush`, the same PowerShell, hidden, not waited for
-(a panel starts one when every member is done). (D3) The sender starts with a MINIMAL environment
-built from an allow list - the system variables a PowerShell process needs (`SystemRoot`, `windir`,
-`ComSpec`, `PATH`, `PATHEXT`, `TEMP`, `TMP`, `USERPROFILE`, `HOME`, `APPDATA`, `LOCALAPPDATA`,
-`ProgramData`, `ProgramFiles*`, `PSModulePath` and a few more), the locale (`LANG`, `LC_*`, `TZ`)
-and proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`), `CODEX_HOME`,
-`CODEX_CONSULT_TELEMETRY`, `CODEX_CONSULT_TELEMETRY_URL`, and in test mode
-`CODEX_CONSULT_TEST_MODE` with the sender's own hooks - no provider key, no host marker, no other
-`CODEX_CONSULT_*` variable; on Windows it is created without inheriting any handle of the bridge.
-The bridge's own environment is never changed for it.
+(a panel starts one when every member is done).
+
+(Wave 28c, D3 / F42-3) **The telemetry lock.** `<codex home>/telemetry.lock` is held - as an open
+handle, which the OS releases when its holder dies, so it is never stale; the empty file stays - by
+every spool append of a producer (a consultation's event, a complaint kept), by the salt's creation
+and by `-Forget -Local`. While `-Forget -Local` deletes, it also writes the marker
+`<codex home>/telemetry-forgetting` (removed last). A producer that meets the marker - or a lock
+that stays busy past its short wait (1 s at the commit, 5 s after it) - DROPS its event and counts
+it instead of recreating the salt or the spool: `telemetry event not spooled (codex-telemetry.ps1
+-Forget -Local is deleting the local telemetry data, or did not finish ...) - dropped`. A marker
+left by a `-Forget` that died halfway keeps dropping events until `-Forget -Local` runs again;
+`-Status` shows it (`forgetting : the marker ...`).
+
+(D3 of wave 28b; wave 28c, D6 / F41-1, F42-9) The sender starts with a MINIMAL environment built
+from an allow list - the whole list: `SystemRoot`, `windir`, `SystemDrive`, `ComSpec`, `PATH`,
+`PATHEXT`, `TEMP`, `TMP`, `TMPDIR`, `USERPROFILE`, `HOME`, `HOMEDRIVE`, `HOMEPATH`, `APPDATA`,
+`LOCALAPPDATA`, `ProgramData`, `ALLUSERSPROFILE`, `PSModulePath`, `PROCESSOR_ARCHITECTURE`,
+`NUMBER_OF_PROCESSORS`, `OS`, `LANG`, `LANGUAGE`, `TZ`, every variable starting `ProgramFiles`,
+`CommonProgramFiles`, `ProgramW6432`, `CommonProgramW6432` or `LC_`; the proxy variables
+`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, `ALL_PROXY` in both cases (`http_proxy` ... - names are
+compared ignoring case, and outside Windows, where `http_proxy` and `HTTP_PROXY` are two variables,
+both are kept); the trust inputs of a private CA `SSL_CERT_FILE`, `SSL_CERT_DIR`,
+`REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`, `NODE_EXTRA_CA_CERTS`; PowerShell's own
+`POWERSHELL_TELEMETRY_OPTOUT` and `POWERSHELL_UPDATECHECK`; `CODEX_HOME`,
+`CODEX_CONSULT_TELEMETRY`, `CODEX_CONSULT_TELEMETRY_URL`; and in test mode
+`CODEX_CONSULT_TEST_MODE` with the sender's own hooks `CODEX_CONSULT_TEST_TELEMETRY_*` - no
+provider key, no host marker, no other `CODEX_CONSULT_*` variable; on Windows it is created
+without inheriting any handle of the bridge. The bridge's own environment is never changed for it.
 
 (D2) The sender has a deadline: ONE flush ends after 60 s in all, ONE request (connect, send, read
-the answer) is bounded as a whole by 8 s - what is not sent stays in the spool. Its lock
-`<spool>/.flush.lock` is a marker file `{pid, start_time, token, since}`: a concurrent sender is
-refused; a lock older than 5 minutes, or one whose owner process is gone, is taken over; the owner
-releases it in `finally`. The sender reads the spool oldest first, drops lines older than 7 days,
+the answer) is bounded as a whole by 8 s - what is not sent stays in the spool. (Wave 28c, D5 /
+F42-8) The 60 s cover the whole flush - the lock, the spool's enumeration, every file's read (a
+busy file's wait included), every request and every rewrite: the clock is checked before each step
+and a step that no longer fits stops the flush cleanly; a request starts only while 1.5 s are left
+(1 s kept back for the rewrite after it), and the rewrite that removes lines already delivered is
+always attempted, with a wait of at most what is left. Its lock `<spool>/.flush.lock` is a marker
+file `{pid, start_time, token, since}`: a concurrent sender is refused; (wave 28c, D4 / F42-7,
+F43-5, F44-2) a lock is taken over ONLY when its owner process (pid and start time) is gone - a
+lock whose owner lives is left alone however old it is and reported (`another flush is running:
+sender busy since <t> (pid <n> holds its lock, <s> s old - its owner lives: left alone)`), an owner
+whose identity cannot be confirmed counts as living, and a lock that names no owner and is not held
+open (its writer died between creating and writing it - every sender writes its identity inside the
+handle that creates the lock) has no owner left and is taken over. The 5-minute age rule of wave
+28b is gone. Every sender writes its token into the lock
+and checks it again right before each send and each spool rewrite: a sender that lost its lock
+stops without rewriting (`this sender lost its lock ... - it stopped without rewriting the spool`;
+the lines it delivered are sent again later - at least once). The owner releases its lock in
+`finally`. The sender reads the spool oldest first, drops lines older than 7 days,
 posts the events in batches of at most 100 and the complaint lines one by one, removes what was
 delivered and keeps the rest. Delivered means a 2xx answer that is a JSON object with `"ok": true`.
 (D8) Against the intake as it is built: a batch refused with `400` `events[i]: <reason>` - event i
@@ -2862,22 +2920,31 @@ confirmed, `3` not delivered (kept). `-Complain` takes only `-Task`, `-CollabDir
 `-Yes`.
 
 **State:** `codex-telemetry.ps1 -Status` - the switch and where it comes from, the intake URL,
-the spool's counts, the events not spooled since the last flush, the last flush's result, the
-instance id (not secret), whether the notice was shown for this version, and `test mode  : ON`
-when `CODEX_CONSULT_TEST_MODE=1`. Reads only.
+the spool's counts, the events not spooled since the last flush, (wave 28c, D3) the forgetting
+marker when it is there, the last flush's result, the instance id (not secret), whether the notice
+was shown for this version, and `test mode  : ON` when `CODEX_CONSULT_TEST_MODE=1`. Reads only.
 
-**Your data - delete it** (wave 28b, D9). At the intake: `codex-telemetry.ps1 -Forget -PublicRef
-<ref>` sends `DELETE <intake>/v2/instances/<your instance id>?public_ref=<ref>` - the intake removes
-every event and complaint of this instance; `<ref>` is the `public_ref` a delivered complaint of
-this instance printed (send one first if you have none: `-Complain "Please delete my data." -Yes`).
-Locally: `codex-telemetry.ps1 -Forget -Local` removes the spool (every file of it), the salt (and
-any `telemetry-salt.bad-*` kept aside) and the not-spooled count - the next event starts a new
-instance id, which cannot be linked to the old one; give both switches to do both (the remote
-deletion runs first: it needs the salt). Exit `0` done, `1` refused (no salt, no `-PublicRef` or
-`-Local`, a sender holding the lock), `3` the intake did not confirm the deletion. The salt is
-created atomically (D5): a new salt is written to a temporary file and moved into place without
-overwriting, a racing creator reads the winner's salt, and a salt that parses is never deleted or
-replaced.
+**Your data - delete it** (wave 28b, D9; wave 28c, D2). At the intake:
+`codex-telemetry.ps1 -Forget -PublicRef <ref>` sends `DELETE <intake>/v2/instances/<your instance
+id>?public_ref=<ref>` - the intake removes every event and complaint of this instance; `<ref>` is the `public_ref` a
+delivered complaint of this instance printed (send one first if you have none: `-Complain "Please
+delete my data." -Yes`). Locally: `codex-telemetry.ps1 -Forget -Local` removes the spool (every file
+of it), the salt (and any `telemetry-salt.bad-*` kept aside) and the not-spooled count - the next
+event starts a new instance id, which cannot be linked to the old one. To do both, give both
+switches: `-Forget -PublicRef <ref> -Local` asks the intake FIRST and deletes locally only after the
+intake confirmed the DELETE (a 2xx answer with `"ok": true`); any other answer - a wrong reference,
+an intake that cannot be reached - deletes NOTHING, not there and not here: the salt, the spool and
+the counters stay, the reason is printed, the exit is `3`, and the same command can be repeated
+with the right reference (while the DELETE runs the telemetry lock and the forgetting marker are
+held, so no event is spooled or sent in between). `-Forget -Local` ALONE first says in one line that
+the intake still holds what this machine sent and how to remove it - `-Forget -PublicRef <ref>`
+BEFORE `-Local`, because the instance id dies with the salt - then asks `remove locally? [y/N]`
+unless `-Yes`. The local deletion holds the telemetry lock and writes the forgetting marker (removed
+last), and is refused while a sender holds its lock. Exit `0` done, `1` refused or not confirmed
+(no salt, no `-PublicRef` or `-Local`, a sender holding the lock, no `y`), `3` the intake did not
+confirm the deletion (nothing deleted). The salt is created atomically (D5): a new salt is written
+to a temporary file and moved into place without overwriting - (wave 28c) under the telemetry lock -,
+a racing creator reads the winner's salt, and a salt that parses is never deleted or replaced.
 
 ---
 
@@ -2988,7 +3055,7 @@ Environment variables:
 | `CODEX_CONSULT_MUSE_EXE` | user | muse launcher path (the `muse` engine) |
 | `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the bridge can read; required (wave 23b: without a readable oauth sign-in no muse run is launched, `-SkipPreflight` included); passed to muse unchanged |
 | `META_API_KEY`, `MODEL_API_KEY` | nobody, for the bridge | must NOT be set: a muse run is refused while either is (it would bill per token instead of the subscription) |
-| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV`, (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL`, `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`, `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`, `CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28; wave 28b) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of every variable of its environment; (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL=1`: the registration write of the engine process fails (D19); `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST=1`: the first endpoint update of a run fails (D13); `..._TELEMETRY_REQUEST_MS` / `..._FLUSH_MS`: the sender's bounds). (wave 28b, D10) A run that finds `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` on the console and in `warnings[]`; no ENGINE child (a turn, a launcher probe) gets `CODEX_CONSULT_TEST_MODE` or any `CODEX_CONSULT_TEST_*` variable - a panel member and the detached background (the bridge itself) keep them, the telemetry sender gets only the test mode and its own hooks |
+| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV`, (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL`, `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`, `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`, `CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS`, (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28; wave 28b) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of every variable of its environment; (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL=1`: the registration write of the engine process fails (D19); `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST=1`: the first endpoint update of a run fails (D13); `..._TELEMETRY_REQUEST_MS` / `..._FLUSH_MS`: the sender's bounds). (wave 28b, D10) A run that finds `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` on the console and in `warnings[]`; no ENGINE child (a turn, a launcher probe) gets `CODEX_CONSULT_TEST_MODE` or any `CODEX_CONSULT_TEST_*` variable - a panel member and the detached background (the bridge itself) keep them, the telemetry sender gets only the test mode and its own hooks. (wave 28c, D12) Where the line appears: the console of a committed run (after the commit) and its `warnings[]`, a dry run (with the other run warnings, and its preview's `warnings[]`), a -Panel run (the panel's lines, and each member's `warnings[]`), a detached run (its foreground's lines and the background's entry) - NOT on a refused run: a refusal stops before anything starts or is written. (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE=<pid>[,<pid>]`: these pids read as a process whose start time cannot be read (D8); `CODEX_CONSULT_TEST_KILL_DENIED=taskkill`: only `taskkill` is denied (`=1` denies the enumeration too) |
 | `CODEX_CONSULT_SCRIPTS_DIR` | tests only | (0.5.0, T4) the scripts directory `tests/run-all.ps1` and every harness test when `-ScriptsDir` is not given (e.g. an installed copy of the plugin); unset: the checkout's `plugins/codex-consult/scripts` |
 
 ---
@@ -3043,8 +3110,8 @@ JSON-RPC surface; a thin wrapper around `codex exec` is the stable surface.
 
 | Platform | What ran |
 |---|---|
-| Windows 11, Windows PowerShell 5.1, Codex CLI 0.155.1 | all eighteen harnesses (see "Tests"; last full run 2026-09-30, 0.5.0 wave 28b: `18 harness(es), 1 failed` - `harness-detach` SINGLE, a check the test-mode line of D10 outgrew; fixed and run alone, 51 passed -; waves 27c and 28 on 2026-09-29: `17 harness(es), 0 failed`; before, waves 26c-27b: green but `harness-fixes`' two environmental F04-10 cases). Live: the 0.2.0 release review (`.collab/bridge-0.2-2026-09-23/`: framing `new`, acceptance `fork`, re-acceptance `resume`; three HOLDs with 11, 3 and 1 findings, then ACCEPT on 2026-09-24 after four fix waves; 12 findings verified, 2 superseded, 1 accepted limitation) and the 0.3.0 rounds below. The first live call hit the account's usage limit, which exercised the whole failure path (thread id still parsed from `thread.started`, the message lifted from the event stream, reply file and ledger entry written, non-zero exit) |
-| PowerShell 7.6 on Windows 11 | all eighteen harnesses (last full run 2026-09-30 under 7.6.6, wave 28b: the same counts as on 5.1, `18 harness(es), 0 failed`). One pwsh-only defect fixed in 0.2.0: `ConvertFrom-Json` turns ISO-8601 strings into `[datetime]`, which broke the start-time comparison that recognises a live lock holder or codex child; those reads now normalise through a JSON-text helper |
+| Windows 11, Windows PowerShell 5.1, Codex CLI 0.155.1 | all nineteen harnesses (see "Tests"; last full run 2026-09-30, 0.5.0 wave 28c, the final code: `19 harness(es), 0 failed`; wave 28b on 2026-09-30: `18 harness(es), 1 failed` - `harness-detach` SINGLE, a check the test-mode line of D10 outgrew; fixed and run alone, 51 passed, the full suite not run again -; waves 27c and 28 on 2026-09-29: `17 harness(es), 0 failed`; before, waves 26c-27b: green but `harness-fixes`' two environmental F04-10 cases). Live: the 0.2.0 release review (`.collab/bridge-0.2-2026-09-23/`: framing `new`, acceptance `fork`, re-acceptance `resume`; three HOLDs with 11, 3 and 1 findings, then ACCEPT on 2026-09-24 after four fix waves; 12 findings verified, 2 superseded, 1 accepted limitation) and the 0.3.0 rounds below. The first live call hit the account's usage limit, which exercised the whole failure path (thread id still parsed from `thread.started`, the message lifted from the event stream, reply file and ledger entry written, non-zero exit) |
+| PowerShell 7.6 on Windows 11 | all nineteen harnesses (last full run 2026-09-30 under 7.6.6, wave 28c, the final code: `19 harness(es), 0 failed`, the same counts as on 5.1; wave 28b: `18 harness(es), 0 failed`). One pwsh-only defect fixed in 0.2.0: `ConvertFrom-Json` turns ISO-8601 strings into `[datetime]`, which broke the start-time comparison that recognises a live lock holder or codex child; those reads now normalise through a JSON-text helper |
 | Linux (WSL Ubuntu 24.04, PowerShell 7.6, ext4), 2026-09-24 | with a bash fake `codex`: dry run, full structured run, lock contention through the advisory `flock` (second consultation and `-Status` refused, `-List` works, lock inode unchanged), timeout with the tree killed and no survivors, recovery of `launching` and `survivors` records through the `ps` scan, `chmod +x` changing the fingerprint, `$HOME/.codex` resolution, atomic `findings.json` replacement. Three Linux-only defects fixed: start times read by .NET can differ by under a second between readers (one-second tolerance off Windows); the holder's lock file could not be read back through a shared `FileStream` (read via `cat` off Windows); the timeout kill stopped children before the root (root first now). Known and left: an atomic replace resets the store's Unix permission bits; dates in messages render in an invariant format |
 | macOS | **not exercised**; the Linux run covers the same pwsh code paths |
 | 0.3.0 live (`.collab/bridge-0.3-2026-09-24/`) | design review and two acceptance rounds on the `openai` lineage (a `new` thread, then the first `resume` under the provenance rules); GLM-5.3 through `-Provider ZAI` (plain-Markdown reply kept with no verdict); MiMo through `-Provider mimo` with a per-run catalog (first attempt refused by the endpoint, `--output-schema` unsupported, lifted into the ledger; then, `prompt-only`, a bare-JSON HOLD ingested as F09-1..4 while reporting five earlier ids fixed); the first live panel (`-PanelAll`, real roster) found F15-1..4 through GLM-5.3 and MiMo after the weighty member was skipped on a known reset time; with the output contract buried after the schema the z.ai route answered in prose twice, and after the contract-first prompt it returned bare JSON (two cheap reviewers had independently diagnosed that cause). `codex-providers.ps1` on the real config: `openai` (`Logged in using ChatGPT`), `ZAI` and `mimo` (env keys) available. An earlier 0.2.0 smoke test of GLM-5.3 is in `.collab/multi-model-2026-09-23/` |
@@ -3133,7 +3200,7 @@ anything not listed, rerun with `-DryRun` and compare the argv.
 
 ## Tests
 
-`tests/run-all.ps1` runs the eighteen harnesses one at a time against a FAKE `codex` shim (and
+`tests/run-all.ps1` runs the nineteen harnesses one at a time against a FAKE `codex` shim (and
 a FAKE `agy` for `harness-engines` and `harness-panel`, a FAKE `muse` for `harness-muse`): no
 real `codex`, `agy` or `muse`, no quota spent, no real credential read (`harness-muse` gives
 every child a scratch home with a fake `auth.json`, a scratch `LOCALAPPDATA` and a PATH
@@ -3192,15 +3259,22 @@ and PowerShell 7.6.6, the same counts on both, `17 harness(es), 0 failed`) `harn
 refused), `harness-telemetry` 55 (new, wave 28), `harness-fixes27c` 36 (new, wave 27c). (2026-09-29, wave 27d -
 documentation only; `harness-host` alone on Windows PowerShell 5.1 and PowerShell 7.6.6) `harness-host` 58 (+6: the waiting
 rule's revision 5 in the skill and the README section "Waiting: keep the prompt cache or compact", every number recomputed
-from the formula; the Qwen Code, OpenCode and Muse Code sections and rows). (2026-09-30, wave 28b - the `tests/run-all.ps1`
-runs on Windows PowerShell 5.1 and PowerShell 7.6.6, the same counts on both; 5.1: `18 harness(es), 1 failed` -
+from the formula; the Qwen Code, OpenCode and Muse Code sections and rows). (2026-09-30, wave 28b - the runs as they
+were, corrected in wave 28c (F43-7): `tests/run-all.ps1` on Windows PowerShell 5.1 ended `18 harness(es), 1 failed` -
 `harness-detach` SINGLE counted three foreground lines, the test-mode line is a fourth: the check was updated and
-`harness-detach` run alone on both hosts, 51 passed -, 7.6.6: `18 harness(es), 0 failed`) `harness-0.3` 229,
+`harness-detach` run ALONE on both hosts, 51 passed; the full suite was not run again on 5.1 -, on 7.6.6
+`18 harness(es), 0 failed`; the counts are those of the 7.6.6 suite) `harness-0.3` 229,
 `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending`
 26, `harness-fixes` 45, `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51,
 `harness-companions` 42, `harness-fixes26b` 51, `harness-host` 62 (+4: PATHHINT, HOSTDOCS), `harness-telemetry` 79 (+24:
 the vendor table, the deadline and the lock, the sender's environment, the salt, the busy spool, the exact complaint, the
-intake's answers, -Forget), `harness-fixes27c` 36, `harness-fixes28b` 20 (new, wave 28b). Many cases wait on real timeouts and time a fake
+intake's answers, -Forget), `harness-fixes27c` 36, `harness-fixes28b` 20 (new, wave 28b). (2026-09-30, wave 28c - every
+new and changed harness first alone on both hosts, then `tests/run-all.ps1` on Windows PowerShell 5.1 and on PowerShell
+7.6.6 for the final code, each `19 harness(es), 0 failed`, the same counts on both) as wave 28b, and `harness-host` 65
+(+3: TESTLINE, the rule's revision 6), `harness-telemetry` 92 (+13: the closed model list, -Forget's order and question,
+the telemetry lock and the forgetting marker, the owner-only takeover and the token, the deadline over the local steps,
+the proxy and trust variables, the 1 s append and the retry after the write lock), `harness-fixes28c` 15 (new, wave 28c).
+Many cases wait on real timeouts and time a fake
 reviewer: on a loaded machine (another heavy application or build, a disk that runs full) the
 timing cases of `harness-panel` (RUN, GUARD), `harness-detach` (PANEL) and `harness-visibility`
 (CONT) can fail spuriously - re-run that section alone. A full run takes about one and a half to

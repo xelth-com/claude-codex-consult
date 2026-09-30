@@ -24,8 +24,9 @@ invariance and the coordinator's manual - ROADMAP R13, R19, decisions D1-D9 of
 acceptance, decisions D1-D24 of `.collab/companions-2026-09-26/handoffs/33-claude-wave27c-decisions.md`),
 wave 28 (telemetry and complaints to the maintainer's intake, on by default - ROADMAP R17), wave 27d
 (documentation only: waiting without losing the prompt cache, and three more coordinator hosts
-documented but not run live) and wave 28b (the fix round of their acceptance, decisions D1-D19 of
-`.collab/companions-2026-09-26/handoffs/39-claude-wave28b-decisions.md`).
+documented but not run live), wave 28b (the fix round of their acceptance, decisions D1-D19 of
+`.collab/companions-2026-09-26/handoffs/39-claude-wave28b-decisions.md`) and wave 28c (the second
+fix round, decisions D1-D14 of `.collab/companions-2026-09-26/handoffs/45-claude-wave28c-decisions.md`).
 
 ### Added
 
@@ -789,6 +790,19 @@ documented but not run live) and wave 28b (the fix round of their acceptance, de
   journal and its outcome is in the summary (D13); the ledger gains `context_window` and codex the two
   `-c` window options (D15); the README host blocks use `CODEX_CONSULT_ROOT` (D17).
 
+- **Wave 28c - what behaves differently** (details under "Fixed", "Wave 28c"): the telemetry
+  event's `model` is an entry of a CLOSED list per vendor class, else `other` - no pattern (D1);
+  `-Forget -PublicRef <ref> -Local` deletes locally only after the intake confirmed, `-Forget -Local`
+  alone asks unless `-Yes` (D2); producers, the salt and `-Forget` share the telemetry lock and the
+  forgetting marker (D3); the flush lock is taken over only from a dead owner and carries a token
+  checked before each send and rewrite (D4); the flush deadline covers the local steps (D5); the
+  sender keeps the proxy and CA-trust variables (D6); the commit's spool append waits at most 1 s
+  and is retried after the write lock - its failure is no longer in `warnings[]` (D7); a descendant
+  whose start time cannot be read is never killed by pid (D8); a failing `pgrep` falls back to `ps`
+  and `/proc` (D9); unreadable health-journal lines go to `<journal>.bad` (D10); the ledger gains
+  `compactions` after `usage`, and the prompt of a member with `context_tokens` names the brief again
+  (D11); the waiting rule's no-means branch is revision 6 (D14).
+
 ### Fixed
 
 - **Wave 24b - the wave 24 acceptance panel's findings** (`.collab/companions-2026-09-26/`
@@ -1250,15 +1264,125 @@ documented but not run live) and wave 28b (the fix round of their acceptance, de
     drive to exist); `harness-fixes26b` STALLTOOL's silent tool call is 5 s (under D12's 2 x 3 s bound;
     `harness-fixes28b` STALL covers the cut); `harness-detach` SINGLE expects the test-mode line after
     the three detach lines.
-  - Counts (2026-09-30; every new and changed harness first alone on both hosts, then
-    `tests/run-all.ps1` on Windows PowerShell 5.1 - `18 harness(es), 1 failed`: `harness-detach`
-    SINGLE, fixed and run alone on both hosts, 51 passed - and on PowerShell 7.6.6 - `18 harness(es),
-    0 failed`; the same counts on both): `harness-0.3` 229, `harness-roster` 119, `harness-format` 37,
+  - Counts (2026-09-30; every new and changed harness first alone on both hosts). The runs as they
+    were (corrected in wave 28c, F43-7): `tests/run-all.ps1` on Windows PowerShell 5.1 ended
+    `18 harness(es), 1 failed` - `harness-detach` SINGLE, whose check was then fixed and
+    `harness-detach` run ALONE on both hosts (51 passed); the full suite was NOT run again on 5.1, so
+    e5c6992 has no clean full-suite run on Windows PowerShell 5.1 (wave 28c's suites cover its
+    successor). On PowerShell 7.6.6, after the fix: `18 harness(es), 0 failed`. The counts of that
+    PowerShell 7 suite: `harness-0.3` 229, `harness-roster` 119, `harness-format` 37,
     `harness-engines` 97, `harness-muse` 74, `harness-panel` 54, `harness-pending` 26, `harness-fixes`
     45, `harness-lock2` 11, `harness-3b` 12, `harness-visibility` 121, `harness-detach` 51,
     `harness-companions` 42, `harness-fixes26b` 51, `harness-host` 62 (+4), `harness-telemetry` 79
     (+24), `harness-fixes27c` 36, `harness-fixes28b` 20 (new).
+- **Wave 28c - the second fix round** (the wave 28b re-acceptance, panel 8937563b on e5c6992: glm,
+  muse ACCEPT; mimo HOLD on F42-1..6, qwen HOLD on F43-1; decisions D1-D14 of
+  `.collab/companions-2026-09-26/handoffs/45-claude-wave28c-decisions.md`):
+  - D1 (F42-1, F43-2) The telemetry model is a CLOSED list: each vendor class of
+    `$script:TelemetryVendors` carries `Models`, the published names the README documents (its
+    effort table, its roster examples) and the rosters have run; `details.model` and the tag carry a
+    name only when it EQUALS a list entry after lower-casing (and then the list's own text), anything
+    else - `gpt-al1ce-code`, `glm-4.5acmecorp`, a future `glm-5.4` - is `other`. The word list and
+    the version pattern are gone. The README lists every name and says that an unlisted model reads
+    `other` until a release adds it.
+  - D2 (F42-2, F43-1, F44-4) `-Forget -PublicRef <ref> -Local` asks the intake FIRST and deletes
+    locally only after a 2xx `"ok": true`; any other answer (a wrong reference, an unreachable
+    intake) deletes nothing here either - the salt, the spool and the counters stay, the reason is
+    printed, exit 3, and the command can be repeated. `-Forget -Local` alone says in one line that
+    the intake still holds what was sent and how to remove it (`-Forget -PublicRef <ref>` BEFORE
+    `-Local`: the instance id dies with the salt), then asks `remove locally? [y/N]` unless `-Yes`
+    (`codex-telemetry.ps1 -Forget` takes `-Yes`).
+  - D3 (F42-3) THE telemetry lock `<codex home>/telemetry.lock` (an open handle, released by the OS
+    when its holder dies) is taken by every producer's spool append, the salt's creation and
+    `-Forget -Local`; `-Forget -Local` writes `<codex home>/telemetry-forgetting` while it deletes and
+    removes it last; a producer that meets the marker (or the lock busy past its short wait) drops its
+    event and counts it - it never recreates the salt or the spool. A complaint kept in the spool
+    checks that its instance id is still the salt's. `-Status` shows a marker left by a `-Forget` that
+    died; `-Forget -Local` finishes it. With `-PublicRef` the lock and the marker are held across the
+    DELETE, so nothing is spooled or sent in between.
+  - D4 (F42-7, F43-5, F44-2) The flush lock is taken over ONLY when its owner process (pid and start
+    time) is gone; a living owner's lock is left alone however old and reported `another flush is
+    running: sender busy since <t> (...)`; the 5-minute age rule is gone; a lock that names no owner
+    and is not held open is taken over (every sender writes its identity inside the handle that
+    creates the lock, so no living sender is behind it).
+    Every sender checks its token in the lock before each send and each spool rewrite
+    (`Test-TelemetryFlushLockMine`) and stops without rewriting when it lost the lock.
+  - D5 (F42-8) The 60 s cover the whole flush: the watch starts before the lock, the enumeration,
+    each file's read (its busy wait bounded by what is left), each request (only while 1.5 s are left,
+    1 s kept for the rewrite) and each rewrite count; the rewrite of delivered lines is always tried
+    with a wait of at most what is left; the final counts are skipped when time is out (`kept ?`).
+  - D6 (F41-1, F42-9) The sender's allow list: the proxy variables in both cases (they were already
+    matched ignoring case; outside Windows both spellings are now kept - the environment is built
+    with an ordinal comparer there) and the trust inputs `SSL_CERT_FILE`, `SSL_CERT_DIR`,
+    `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`, `NODE_EXTRA_CA_CERTS`; the README lists the whole list.
+  - D7 (F43-4) At the commit the append waits at most 1 s (the telemetry lock and the spool file
+    together); a failure is retried for up to 5 s after the write lock is released, and only then
+    warned about (console, the detached status record: `... - at the commit (<why>) and for 5 s after
+    it`) and counted; an event met by the forgetting marker is dropped at once (`... - dropped`).
+  - D8 (F42-4) `Get-PidIdentity` (alive / gone / unknown); `Stop-ProcessTreeChecked` kills a
+    descendant by pid only when its identity is confirmed and never counts an unknown one as gone:
+    `Unverified`, `Confirmed` false, `Why` `start time of pid <n> unreadable`; the outcome and the
+    warning name that pid (`Get-KillMayRunPids`). `Test-PidAlive` keeps counting unknown as alive (a
+    lock holder is never taken over on a guess). TEST HOOKS: `CODEX_CONSULT_TEST_START_UNREADABLE`,
+    `CODEX_CONSULT_TEST_KILL_DENIED=taskkill`.
+  - D9 (F42-5) `Get-UnixDescendantTree` (injectable runner and /proc root): pgrep exit 1 is an empty
+    child set; any other exit, a 5 s timeout (`Invoke-CapturedCommand`), output that is not a pid or a
+    pgrep that cannot run is a failed enumeration and goes to `ps`, then `/proc`; denied only when all
+    fail.
+  - D10 (F42-6, F44-1) `Update-MachineHealth` reads the journal as bytes: an unparsable line is moved
+    to `<journal>.bad` (the time, a tab, its exact bytes) and counted in `health journal: <n>
+    unreadable line(s) kept in <file>` (the run's `warnings[]` before its commit, its summary after
+    it); the journal loses exactly the applied or moved prefix - a line that cannot be moved stays,
+    with what follows it.
+  - D11 (F43-3, F44-6) Looked up first: the installed codex-cli 0.155.1's `exec --json` item types
+    (read from the binary's strings: agent_message, reasoning, command_execution, file_change,
+    mcp_tool_call, collab_tool_call, web_search, todo_list) include no compaction, although its
+    protocol knows `context_compacted` and a `context_compaction` item. `Get-CompactionCount` counts
+    those names in every turn's event stream; the ledger's `compactions` is n (with the warning `the
+    reviewer compacted its context <n> time(s) - the reply may rest on a summary of the brief`),
+    `unknown` for a member with `context_tokens` when none was reported - with the installed codex
+    that is every such member -, else `null`. The prompt of a member with `context_tokens` and a
+    brief ends with ``Before you answer, re-read the brief: `<path>`.`` - the last line before the
+    consultation id, which stays last (it ties the rollout to the run).
+  - D12 (F44-5) The dry run already printed the test-mode line with its run warnings (and the
+    preview's `warnings[]` held it); now checked (`harness-host` TESTLINE) and documented: the line
+    appears on a committed run, a dry run, a panel run and a detached run, NOT on a refused run.
+  - D13 (F43-7) The wave 28b counts above state the runs as they were; wave 28c ends with one clean
+    full suite on EACH host for its final code (below).
+  - D14 The waiting rule, revision 6 (the operator's decision of 2026-09-30): until a host lets the
+    agent compact itself there are two states - while work runs or is awaited the context is kept
+    warm always; when idle the handover at idle wake 2, the wake removed, one line to the operator
+    with the cheap ways back. The "keep the wake for half the refreshes a cold resume is worth
+    (40 / 20 / 10)" branch is removed from the coordinate skill and the README (and from
+    `harness-host`'s recomputation; the boundary tables and their recomputation stay); the README
+    and the skill name the launch option `--autocompact <tokens>` (Claude Code 2.1.285 `--help`,
+    checked 2026-09-30).
+  - Accepted limitations, documented: F43-6 and F44-3 - the vendor class is derived from the host
+    name only; a private gateway or relay under a vendor's domain reads as that vendor.
+  - Deviations: D11 - the re-read line is the last line BEFORE the `Consultation id` line (that line
+    stays last); the continuation prompt, which asks the reviewer to read no more files, does not
+    repeat it. D7 - an event that finally fails is no longer in the entry's `warnings[]` (the entry is
+    committed before the retry): console and status record only.
+  - Also changed during the runs: a flush lock that names no owner and is not held open is taken
+    over at once (a first draft waited 5 minutes for it; `harness-telemetry` LOCK showed that a
+    released empty lock then blocked the next sender); the coordinate skill names `--autocompact`
+    without a host name outside "Means per host" (`harness-host` GREP).
+  - Counts (2026-09-30; every new and changed harness first alone on both hosts - `harness-fixes28c`,
+    `harness-telemetry`, `harness-host`, and `harness-0.3`, `harness-engines`, `harness-muse` for the
+    ledger key order -, then `tests/run-all.ps1` for the final code on Windows PowerShell 5.1 and on
+    PowerShell 7.6.6, each `19 harness(es), 0 failed`, the same counts on both): `harness-0.3` 229,
+    `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74,
+    `harness-panel` 54, `harness-pending` 26, `harness-fixes` 45, `harness-lock2` 11, `harness-3b` 12,
+    `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 51,
+    `harness-host` 65 (+3), `harness-telemetry` 92 (+13), `harness-fixes27c` 36, `harness-fixes28b`
+    20, `harness-fixes28c` 15 (new).
 ### Known limitations
+
+- (wave 28c) The telemetry vendor class is derived from the endpoint's host NAME only (F43-6,
+  F44-3): a private gateway, relay or proxy under a vendor's domain reads as that vendor. A reviewer's
+  compaction is seen only when its engine reports it in the event stream: the installed codex-cli
+  0.155.1's `exec --json` reports none, so a member with `context_tokens` records `compactions`
+  `unknown` (F43-3, F44-6).
 
 - (wave 26b; wave 26c) The stall cut reads the growth of the event stream and the tool calls it
   names, not their meaning: an engine that wrote keep-alive bytes would never stall, a tool call
