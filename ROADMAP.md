@@ -355,6 +355,14 @@ optional participant whose "done" is never trusted and who never closes a findin
   a host-independent way for the agent to compact its own context (on the host checked, the agent
   has none).
 
+- **R24 — The public page computes reviewer usefulness from live telemetry (candidate, operator
+  2026-09-30).** The page `/C3/` of the maintainer's site shows a hand-collected usefulness table (about 55
+  consultations of 22-26 September) beside a live telemetry section. The bridge sends one more allowlisted
+  event when the judge rates a consultation (`rating`: the vendor class, the model from the closed list, the
+  purpose, `useful: yes | partly | no`, no text), as C3 already does; the site aggregates consultations and
+  ratings per vendor class and model (n, usable rate, findings per consultation, blockers, mean wall seconds,
+  ratings) over a window and renders the table from that, dated, with the hand-collected snapshot kept as the
+  baseline. The site's half lives in the site's repository.
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
 - **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a
