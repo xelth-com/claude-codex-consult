@@ -1737,13 +1737,16 @@ function Start-EngineProcess {
 # (wave 27c, D16) One tree kill of this run: kept for the ledger's kill_confirmed; an UNCONFIRMED one
 # (no known survivor, but the tree could not be seen dead) gets a warning naming the pid - (wave 28c,
 # D8) the pids whose start time could not be read when there are such (the bridge left them alone),
-# else the root.
+# else the root. (wave 28d, D5 / F49-1) A kill with survivors AND such unverified descendants warns
+# too, naming BOTH groups.
 function Add-KillCheck {
     param($Check, [string]$Turn)
     if (-not $Check) { return }
     $script:KillChecks.Add($Check)
     if (-not $Check.Confirmed -and @($Check.Survivors).Count -eq 0) {
         $script:KillWarnings.Add("kill not confirmed ($Turn): $($Check.Why); pid $(Get-KillMayRunPids $Check) may still run - check it, and stop it by hand if it does")
+    } elseif (-not $Check.Confirmed -and @(Get-PropertyValue $Check 'Unverified' @()).Count -gt 0) {
+        $script:KillWarnings.Add("kill not confirmed ($Turn): $(@($Check.Survivors).Count) processes survived: pid $(@($Check.Survivors) -join ', ')$(Get-KillUnverifiedText $Check) - check them, and stop them by hand if they do")
     }
 }
 function Get-KillMayRunPids {
@@ -1752,12 +1755,22 @@ function Get-KillMayRunPids {
     if ($u.Count -gt 0) { return ($u -join ', ') }
     return [string]$Check.RootPid
 }
+# (wave 28d, D5) The unverified group next to the survivors: "; <why>; pid <n> may still run", '' when
+# the kill left no descendant whose identity could not be read.
+function Get-KillUnverifiedText {
+    param($Check)
+    $u = @(Get-PropertyValue $Check 'Unverified' @())
+    if ($u.Count -eq 0) { return '' }
+    return "; $($Check.Why); pid $($u -join ', ') may still run"
+}
 
 # (wave 27c, D16) How a tree kill is told: "(process tree killed)" only when confirmed; else "(kill
-# not confirmed: <why>; pid <n> may still run)". (Survivors keep their own wording.)
+# not confirmed: <why>; pid <n> may still run)". (wave 28d, D5) With survivors: "(process tree killed;
+# <n> processes survived: pid <n>[; <why>; pid <n> may still run])" - the unverified group named too.
 function Format-KillText {
     param($Check)
-    if ($Check.Confirmed -or @($Check.Survivors).Count -gt 0) { return '(process tree killed)' }
+    if (@($Check.Survivors).Count -gt 0) { return "(process tree killed; $(@($Check.Survivors).Count) processes survived: pid $(@($Check.Survivors) -join ', ')$(Get-KillUnverifiedText $Check))" }
+    if ($Check.Confirmed) { return '(process tree killed)' }
     return "(kill not confirmed: $($Check.Why); pid $(Get-KillMayRunPids $Check) may still run)"
 }
 # One more turn (an engine's denial retry and format repair; wave 24: the timeout continuation
@@ -1846,7 +1859,7 @@ function Invoke-EngineTurn {
                 }
                 $t.Problem = "$stopWhat $(Format-KillText $turnKill)"
                 if ($surv.Count -gt 0) {
-                    $t.Problem = "$stopWhat (process tree killed; $($surv.Count) processes survived: pid $($surv -join ', '))"
+                    $t.Problem = "$stopWhat (process tree killed; $($surv.Count) processes survived: pid $($surv -join ', ')$(Get-KillUnverifiedText $turnKill))"
                     $t.KeepPending = $true
                     try {
                         $pendingRecord.state = 'survivors'
@@ -4020,8 +4033,17 @@ try {
     }
     # (wave 28c, D11 / F43-3, F44-6) a member with a context window (context_tokens) may compact it
     # mid-review, and a summary may lose the brief: its prompt ends by naming the brief again - the
-    # last line before the consultation id (which stays last)
-    if ($contextTokens -gt 0 -and $briefRef) { [void]$promptParts.Add("Before you answer, re-read the brief: ``$briefRef``.") }
+    # last line before the consultation id (which stays last). (wave 28d, D7 / F50-2) Without a brief
+    # file the one-line ask itself is repeated there (whitespace folded to one line; an ask longer
+    # than 500 characters is cut and points to the top of the prompt).
+    $rereadLine = ''
+    if ($contextTokens -gt 0 -and $briefRef) { $rereadLine = "Before you answer, re-read the brief: ``$briefRef``." }
+    elseif ($contextTokens -gt 0 -and $Prompt -and $Prompt.Trim()) {
+        $askLine = ConvertTo-OneLine $Prompt
+        if ($askLine.Length -gt 500) { $askLine = $askLine.Substring(0, 500) + '... (cut here: the whole ask is at the top of this prompt)' }
+        $rereadLine = "Before you answer, re-read the ask: $askLine"
+    }
+    if ($rereadLine) { [void]$promptParts.Add($rereadLine) }
     # Always the LAST line: it ties a rollout file to this run (Find-ThreadInRollouts).
     [void]$promptParts.Add("Consultation id: $consultId")
     $promptText = [string]::Join("$nl$nl", $promptParts.ToArray())
@@ -4044,7 +4066,10 @@ try {
         }
         $briefChars = 0
         if ($briefPath -and (Test-Path -LiteralPath $briefPath -PathType Leaf)) { $briefChars = [int](Get-Item -LiteralPath $briefPath).Length }
-        $newEstimate = [int][Math]::Ceiling(($promptText.Length + $briefChars) / 4.0)
+        # (wave 28d, D8 / F48-4) the re-read line is bridge text: it takes no part in the decision to
+        # continue the thread (the same prompt decides the same way with or without it)
+        $rereadChars = $(if ($rereadLine) { $rereadLine.Length + 2 * $nl.Length } else { 0 })
+        $newEstimate = [int][Math]::Ceiling(($promptText.Length - $rereadChars + $briefChars) / 4.0)
         if (($priorTokens + $newEstimate) -gt $script:ContextShare * $contextTokens) {
             $modeFallbackRecord = [pscustomobject]@{ from = $Mode; to = 'new'; reason = "the $Mode thread $parentThread last carried $priorTokens tokens; with this prompt (est. $newEstimate) that exceeds 80% of the reviewer's context window ($contextTokens tokens)" }
             Write-Host "codex-consult: mode $Mode -> new: $($modeFallbackRecord.reason)" -ForegroundColor Yellow
@@ -4519,7 +4544,7 @@ try {
                 }
                 $mainSurvivors = $survivors.Count
                 if ($survivors.Count -gt 0) {
-                    $bridgeOutcome = "failed: $stopText (process tree killed; $($survivors.Count) processes survived: pid $($survivors -join ', '); the next run for this task is refused until they exit)"
+                    $bridgeOutcome = "failed: $stopText (process tree killed; $($survivors.Count) processes survived: pid $($survivors -join ', ')$(Get-KillUnverifiedText $mainKill); the next run for this task is refused until they exit)"
                     # (5) survivors - kept after this run.
                     $keepPending = $true
                     try {
@@ -5122,7 +5147,7 @@ try {
                         if ($repairWait.Reason -eq 'kick') { $script:RunKicked = $true; $script:KickedTurn = 'repair'; $repairStop = 'stopped by the operator (-Kick)'; $null = Remove-PendingFile -Path $script:KickPath }
                         $repairProblem = "$repairStop $(Format-KillText $repairKill)"
                         if ($repairSurvivors.Count -gt 0) {
-                            $repairProblem = "$repairStop (process tree killed; $($repairSurvivors.Count) processes survived: pid $($repairSurvivors -join ', '))"
+                            $repairProblem = "$repairStop (process tree killed; $($repairSurvivors.Count) processes survived: pid $($repairSurvivors -join ', ')$(Get-KillUnverifiedText $repairKill))"
                             $keepPending = $true
                             try {
                                 $pendingRecord.state = 'survivors'

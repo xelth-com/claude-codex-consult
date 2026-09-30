@@ -12,7 +12,10 @@
                    the sender lock <codex home>/telemetry-spool/.flush.lock (a marker file; a
                    concurrent sender is refused, exit 2; (wave 28c, D4) a lock is taken over only
                    when its owner is gone, and a sender that lost its lock - its token - stops
-                   without rewriting; D5: the 60 s cover every local step too) it reads the spool oldest first, drops lines older
+                   without rewriting; D5: the 60 s cover every local step too; (wave 28d, D3) the
+                   lock is born with its owner record, one without an owner counts as held for 30
+                   s, one whose owner lives for 30 minutes is reported "sender stuck"; D1: every
+                   spool rewrite replaces the file atomically) it reads the spool oldest first, drops lines older
                    than 7 days, POSTs the events in batches of at most 100 to <intake>/v2/events
                    and the complaint lines one by one to <intake>/v2/complaints (a 3 s connect
                    probe; ONE request is bounded as a whole by 8 s and the whole flush by 60 s -
@@ -44,13 +47,16 @@
                    it confirmed the DELETE: any other answer deletes nothing here either (the same
                    command can be repeated). -Local alone says that the intake still holds what was
                    sent and asks `remove locally? [y/N]` unless -Yes. (D3) The local deletion holds
-                   the telemetry lock and writes the marker telemetry-forgetting (removed last):
-                   a consultation that commits meanwhile drops its event (counted). Exit 0 done, 1
-                   refused or not confirmed, 3 the intake did not confirm the deletion.
+                   the telemetry lock and writes the marker telemetry-forgetting (removed last,
+                   (wave 28d, D2) in `finally`; one a killed -Forget left is removed by the next
+                   producer or sender): a consultation that commits meanwhile drops its event
+                   (counted). Exit 0 done, 1 refused or not confirmed, 3 the intake did not confirm
+                   the deletion.
       -Status      the switch and where it comes from, the intake URL, the spool's counts, (wave
-                   28b, D6) the events not spooled since the last flush, the last flush's result,
-                   the instance id (not secret: a salted hash), the notice's state, and test mode
-                   when it is on. Reads only; exit 0.
+                   28b, D6) the events not spooled since the last flush, (wave 28d) the forgetting
+                   marker and its owner, the sender's lock (busy, stuck for 30 minutes, stale), the
+                   last flush's result and the notes of .last, the instance id (not secret: a
+                   salted hash), the notice's state, and test mode when it is on. Reads only; exit 0.
 
     The intake: CODEX_CONSULT_TELEMETRY_URL (an operator setting), else https://xelth.com/T; https
     only - plain http only for a loopback intake AND with CODEX_CONSULT_TEST_MODE=1 (a harness; wave
@@ -182,10 +188,28 @@ Write-Host "spool      : $($p.Spool) - $($c.Events) event(s), $($c.Complaints) c
 # (wave 28b, D6) the events that could not be spooled since the last flush
 $ns = Get-TelemetryNotSpooled
 Write-Host "not spooled: $(if ($ns.Count -gt 0) { "$($ns.Count) event(s) since the last flush - the latest $($ns.When): $($ns.Last)" } else { 'none since the last flush' })"
-# (wave 28c, D3) a -Forget -Local that runs, or that died halfway
-if ([IO.File]::Exists($p.Forgetting)) { Write-Host "forgetting : the marker $($p.Forgetting) is there - a -Forget -Local runs now or did not finish; events are dropped until it is gone (codex-telemetry.ps1 -Forget -Local finishes it)" -ForegroundColor Yellow }
+# (wave 28c, D3) a -Forget -Local that runs, or that died halfway; (wave 28d, D2) its owner named
+$fm = Get-TelemetryForgettingOwner -Path $p.Forgetting
+if ($fm.There) {
+    if ($fm.Alive) { Write-Host "forgetting : the marker $($p.Forgetting) is there - its owner pid $($fm.Pid) lives (a -Forget -Local runs now$(if ($fm.Since) { ", since $($fm.Since)" })): events are dropped until it finishes" -ForegroundColor Yellow }
+    else { Write-Host "forgetting : the marker $($p.Forgetting) is there - its owner $(if ($fm.Pid -gt 0) { "pid $($fm.Pid) is gone" } else { 'is not named' }) (a -Forget -Local that did not finish): the next event or sender removes it; run codex-telemetry.ps1 -Forget -Local again to finish the deletion" -ForegroundColor Yellow }
+}
+# (wave 28d, D3) the sender's lock as it is (read only): busy, stuck (30 minutes), or stale
+if ([IO.File]::Exists($p.Lock)) {
+    $lo = Get-TelemetryFlushLockOwner -Text (Read-SharedText -Path $p.Lock)
+    $lAge = 0
+    try { $lAge = [int]([DateTime]::UtcNow - [IO.File]::GetLastWriteTimeUtc($p.Lock)).TotalSeconds } catch { }
+    $lSince = $(if ($lo.Since) { $lo.Since } else { try { [IO.File]::GetLastWriteTimeUtc($p.Lock).ToLocalTime().ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant) } catch { '?' } })
+    if ($lo.Owner -eq 'alive' -and $lAge -ge $script:TelemetryStuckLockSec) { Write-Host "sender     : sender stuck since $lSince (pid $($lo.Pid)) - its lock $($p.Lock) is $([int]($lAge / 60)) min old and its owner lives: it is never taken over; stop pid $($lo.Pid) if it hangs, or delete the lock when no such process runs" -ForegroundColor Yellow }
+    elseif ($lo.Owner -eq 'alive') { Write-Host "sender     : busy since $lSince (pid $($lo.Pid) holds its lock, $lAge s old)" }
+    elseif ($lo.Owner -eq 'gone') { Write-Host "sender     : a lock whose owner pid $($lo.Pid) is gone - the next sender removes it" }
+    else { Write-Host "sender     : a lock that names no owner ($lAge s old) - held while younger than $($script:TelemetryOwnerlessLockSec) s, then removed by the next sender" }
+}
 $last = Read-TelemetryLast
-Write-Host "last flush : $(if ($last) { "$([string](ConvertTo-JsonText (Get-PropertyValue $last 'time' ''))) - $([string](Get-PropertyValue $last 'result' ''))" } else { 'never' })"
+$lastResult = [string](Get-PropertyValue $last 'result' '')
+Write-Host "last flush : $(if ($lastResult) { "$([string](ConvertTo-JsonText (Get-PropertyValue $last 'time' ''))) - $lastResult" } else { 'never' })"
+# (wave 28d, D2, D3) what the telemetry client did or saw on its own (.last notes)
+foreach ($nt in @(Get-PropertyValue $last 'notes' @())) { if ($nt) { Write-Host "note       : $nt" } }
 $iid = Get-TelemetryInstanceId
 Write-Host "instance id: $(if ($iid) { "$iid (SHA-256 of the salt $($p.Salt) and the machine name; a new salt makes a new instance)" } else { '(none yet - the first event creates the salt)' })"
 Write-Host "notice     : $(if ([IO.File]::Exists($p.Notice)) { "shown for $(Get-BridgeVersion) ($($p.Notice))" } else { "not shown yet for $(Get-BridgeVersion) - the next consultation with telemetry on prints it" })"

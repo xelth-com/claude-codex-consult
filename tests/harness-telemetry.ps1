@@ -20,7 +20,7 @@
 # (wave 28c, D1-D7) the model as a CLOSED list; -Forget -PublicRef -Local deleting locally only after
 # the intake confirmed, -Local alone asking; the telemetry lock and the forgetting marker (a producer
 # drops, never recreates the salt or the spool; a -Forget that died halfway); the flush lock taken
-# over only from a dead owner, the fencing token; the deadline over the local steps; the proxy and
+# over only from a dead owner (wave 28d: an ownerless one after 30 s), the fencing token; the deadline over the local steps; the proxy and
 # trust variables of the sender; the 1 s append at the commit and the retry after the write lock.
 # FAKES ONLY: fake-codex3.cmd; the intake is a LOCAL System.Net.HttpListener on 127.0.0.1 (a free
 # port) or a closed loopback port - CODEX_CONSULT_TELEMETRY_URL always names one of them, never the
@@ -479,7 +479,8 @@ if (Want 'UNIT') {
     $h7 = New-Home 'forgetting'
     $env:CODEX_HOME = $h7
     $mark7 = Join-Path $h7 'telemetry-forgetting'
-    [IO.File]::WriteAllText($mark7, '{"pid":1}' + "`n", $u8)
+    # (wave 28d, D2) a marker whose owner LIVES (this process) - one whose owner is gone heals (harness-fixes28d)
+    [IO.File]::WriteAllText($mark7, (ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ pid = $PID; start_time = [string](Get-ProcessStartIso -ProcessId $PID); since = (Get-IsoTimestamp) })) + "`n", $u8)
     $sw7 = [pscustomobject]@{ On = $true; Text = 'on'; Source = 'test' }
     $e7 = [pscustomobject]@{ bridge_outcome = 'usable reply'; reviewer = [pscustomobject]@{ engine = 'codex'; model = 'gpt-5.1'; provider_config = [pscustomobject]@{ builtin = 'openai' } } }
     $a7 = Add-TelemetryEvent -Entry $e7 -Switch $sw7 -WaitMs 500
@@ -656,7 +657,7 @@ if (Want 'SEND') {
         $body = $null; try { $body = ConvertFrom-Json $reqs[0].Body } catch { }
         $ev = $(if ($body) { @($body.events)[0] } else { $null })
         Check 'SEND' 'after a usable run the DETACHED sender (the run did not wait for it) POSTs to <intake>/v2/events: ONE request, application/json, {"events":[<the event>]} with this home''s instance id, allowlist clean' ($run.Code -eq 0 -and $reqs.Count -eq 1 -and $reqs[0].Method -eq 'POST' -and $reqs[0].Path -eq '/T/v2/events' -and $reqs[0].Type -like 'application/json*' -and @($body.events).Count -eq 1 -and $ev -and (Test-EventAllowlist $ev).Count -eq 0 -and $ev.details.outcome -eq 'usable') "run $([Math]::Round($runSec, 1)) s; $($reqs.Count) request(s) $(if ($reqs.Count) { "$($reqs[0].Method) $($reqs[0].Path)" })"
-        Check 'SEND' 'delivered ({"ok":true}) = deleted: the spool holds no line afterwards; .last {time, result "delivered 1, kept 0, dropped 0 ...", delivered 1, kept 0, dropped 0, (wave 28b) rejected [], http 200}' ($delivered -and (Spool-Lines $h).Count -eq 0 -and (Last $h).delivered -eq 1 -and (Last $h).kept -eq 0 -and (Last $h).http -eq 200 -and ([string](Last $h).result) -like 'delivered 1, kept 0, dropped 0*' -and (Names (Last $h)) -eq 'time,result,delivered,kept,dropped,rejected,http') "$((Last $h).result)"
+        Check 'SEND' 'delivered ({"ok":true}) = deleted: the spool holds no line afterwards; .last {time, result "delivered 1, kept 0, dropped 0 ...", delivered 1, kept 0, dropped 0, (wave 28b) rejected [], http 200, (wave 28d) not_spooled_seen, notes}' ($delivered -and (Spool-Lines $h).Count -eq 0 -and (Last $h).delivered -eq 1 -and (Last $h).kept -eq 0 -and (Last $h).http -eq 200 -and ([string](Last $h).result) -like 'delivered 1, kept 0, dropped 0*' -and (Names (Last $h)) -eq 'time,result,delivered,kept,dropped,rejected,http,not_spooled_seen,notes') "$((Last $h).result)"
         $dumpText = Text $dump
         $dumpNames = @($dumpText -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
         # (PSExecutionPolicyPreference: PowerShell sets it in its own process for -ExecutionPolicy Bypass)
@@ -716,10 +717,13 @@ if (Want 'FLUSH') {
             $x = Wait-Script $s
         } finally { $lockFs.Dispose() }
         Check 'LOCK' 'a concurrent sender is refused by the lock (<spool>/.flush.lock held): exit 2 "another flush is running", no request, the spool byte-identical' ($x.Code -eq 2 -and $x.Out -match 'another flush is running' -and $reqs.Count -eq 0 -and (Spool-Bytes $h) -eq $before) "exit $($x.Code) | $($x.Out)"
+        # released as its owner releases it: deleted (wave 28d, D3: an empty lock left behind would count as
+        # held for 30 s - a healthy sender never leaves one)
+        Remove-Item -LiteralPath (Join-Path (Join-Path $h 'telemetry-spool') '.flush.lock') -Force
         $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
         $reqs = Serve-Intake $in -Count 1 -TimeoutSec 30 -Proc $s.Proc
         $x = Wait-Script $s
-        Check 'LOCK' 'the lock released: the next flush delivers (exit 0, one request, spool emptied)' ($x.Code -eq 0 -and $reqs.Count -eq 1 -and (Spool-Lines $h).Count -eq 0) "exit $($x.Code), $($reqs.Count)"
+        Check 'LOCK' 'the lock released (deleted by its holder): the next flush delivers (exit 0, one request, spool emptied)' ($x.Code -eq 0 -and $reqs.Count -eq 1 -and (Spool-Lines $h).Count -eq 0) "exit $($x.Code), $($reqs.Count)"
         # batches of at most 100
         $h = New-Home 'batch'
         $d = Join-Path $h 'telemetry-spool'
@@ -795,13 +799,18 @@ if (Want 'FLUSH') {
         $reqs = Serve-Intake $in -Count 1 -TimeoutSec 15 -Proc $s.Proc
         $x = Wait-Script $s
         Check 'D4' '(wave 28c, D4 / F42-7, F43-5, F44-2) the same lock 6 minutes old but its owner ALIVE: NOT taken over - exit 2 "sender busy since <t> (pid <n> holds its lock, ... s old - its owner lives: left alone)", no request, the lock file untouched (token harness)' ($x.Code -eq 2 -and $x.Out -match 'sender busy since \S+ \(pid \d+ holds its lock, \d+ s old - its owner lives: left alone\)' -and $reqs.Count -eq 0 -and (Text $lockP) -match '"token":"harness"') "exit $($x.Code) | $($x.Out)"
-        # a lock that names no owner and that nobody holds open (its writer died between creating and
-        # writing it): no living sender is behind it - taken over at once
+        # a lock that names no owner and that nobody holds open: (wave 28d, D3 / F48-3) HELD while it is
+        # younger than 30 s (a sender creates its lock WITH its owner record - an ownerless one is no
+        # healthy sender's), removed after that
         [IO.File]::WriteAllText($lockP, 'garbage', $u8)
+        $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
+        $reqs0 = Serve-Intake $in -Count 1 -TimeoutSec 15 -Proc $s.Proc
+        $x0 = Wait-Script $s
+        [IO.File]::SetLastWriteTimeUtc($lockP, [DateTime]::UtcNow.AddSeconds(-40))
         $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
         $reqs = Serve-Intake $in -Count 1 -TimeoutSec 30 -Proc $s.Proc
         $x = Wait-Script $s
-        Check 'D4' 'a lock that names no owner and is not held open (every sender writes its identity inside the handle that creates the lock): TAKEN OVER - delivered (exit 0), .last "a stale sender lock was taken over: it names no owner", the lock released afterwards (no file)' ($x.Code -eq 0 -and $reqs.Count -eq 1 -and ([string](Last $h).result) -match 'taken over: it names no owner' -and -not (Test-Path -LiteralPath $lockP)) "exit $($x.Code) | $((Last $h).result)"
+        Check 'D4' '(wave 28d, D3) a lock that names no owner and is not held open: HELD while younger than 30 s (exit 2 "its lock names no owner yet", no request, the lock untouched); 40 s old it is REMOVED and the sender starts over - delivered (exit 0), .last "a stale sender lock was taken over: it named no owner for <n> s", the lock released afterwards (no file)' ($x0.Code -eq 2 -and $x0.Out -match 'its lock names no owner yet' -and $reqs0.Count -eq 0 -and $x.Code -eq 0 -and $reqs.Count -eq 1 -and ([string](Last $h).result) -match 'taken over: it named no owner for \d+ s' -and -not (Test-Path -LiteralPath $lockP)) "young: exit $($x0.Code) | old: exit $($x.Code) | $((Last $h).result)"
         # (D4) the fencing token: a sender that lost its lock while it posted stops WITHOUT rewriting
         $h = New-Home 'lost'
         for ($i = 1; $i -le 2; $i++) { Seed-Line $h 'complaint' ('{"text":"lost' + $i + '"}') }
@@ -993,18 +1002,19 @@ if (Want 'FORGET') {
         $x = Wait-Script $s
         $left = @(Get-ChildItem -LiteralPath $h -Force | Where-Object { $_.Name -like 'telemetry-s*' -or $_.Name -like 'telemetry-not*' } | ForEach-Object { $_.Name })
         Check 'FORGET' 'D9 -Forget -Local -Yes: the local spool (every file), the salt and the not-spooled count are removed without asking - exit 0 "removed locally", nothing sent; the next event makes a new instance id' ($x.Code -eq 0 -and $x.Out -match 'removed locally - ' -and $x.Out -notmatch 'remove locally\? \[y/N\]' -and $left.Count -eq 0) "exit $($x.Code), left [$($left -join ',')] | $($x.Out)"
-        # (wave 28c, D3) a -Forget that died halfway: its marker stays - a run drops its event (counted,
-        # said), -Status names the marker, -Forget -Local finishes it and removes the marker last
+        # (wave 28c, D3) a marker whose owner LIVES (wave 28d, D2: this process stands in for a -Forget that
+        # runs; a marker whose owner is gone heals - harness-fixes28d): a run drops its event (counted,
+        # said), -Status names the marker and its owner, -Forget -Local finishes it and removes the marker
         $h = New-Home 'forget-died'
         $rD = New-Repo 'forget-died'
-        [IO.File]::WriteAllText((Join-Path $h 'telemetry-forgetting'), '{"pid":999999,"since":"2026-09-30T00:00:00Z"}' + "`n", $u8)
+        [IO.File]::WriteAllText((Join-Path $h 'telemetry-forgetting'), (ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ pid = $PID; start_time = [string](Get-ProcessStartIso -ProcessId $PID); since = '2026-09-30T00:00:00Z' })) + "`n", $u8)
         $runD = Consult $rD $h (Get-DeadUrl) $taskName @('-Prompt', 'x', '-ReplyName', 'fd') -Env @{ FAKE_CODEX_REPLY = $reply }
         $noSaltD = -not (Test-Path -LiteralPath (Join-Path $h 'telemetry-salt')) -and (Spool-Lines $h).Count -eq 0
         $s = Start-Script $telemetryPs @('-Status') $work $h (Get-DeadUrl) ''
         $stD = Wait-Script $s
         $s = Start-Script $telemetryPs @('-Forget', '-Local', '-Yes') $work $h (Get-DeadUrl) ''
         $fD = Wait-Script $s
-        Check 'FORGET' 'D3 (wave 28c, F42-3) a -Forget -Local that died halfway left its marker telemetry-forgetting: a run (exit 0) DROPS its event - no salt, no spool - and says "telemetry event not spooled (codex-telemetry.ps1 -Forget -Local is deleting ... or did not finish ...) - dropped"; -Status shows "forgetting :" and counts it; -Forget -Local -Yes finishes and removes the marker' ($runD.Code -eq 0 -and $noSaltD -and $runD.Out -match '(?m)^warning    : telemetry event not spooled \(codex-telemetry\.ps1 -Forget -Local is deleting .*\) - dropped' -and $stD.Out -match '(?m)^forgetting : the marker' -and $stD.Out -match '(?m)^not spooled: 1 event\(s\)' -and $fD.Code -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $h 'telemetry-forgetting'))) "run exit $($runD.Code) nosalt $noSaltD | $((($runD.Out -split "`n") | Where-Object { $_ -match 'not spooled' }) -join '') | forget exit $($fD.Code)"
+        Check 'FORGET' 'D3 (wave 28c, F42-3; wave 28d, D2) the marker telemetry-forgetting of a LIVING owner: a run (exit 0) DROPS its event - no salt, no spool - and says "telemetry event not spooled (codex-telemetry.ps1 -Forget -Local is deleting ... (pid <n> ...)) - dropped"; -Status shows "forgetting : ... its owner pid <n> lives" and counts it; -Forget -Local -Yes finishes and removes the marker' ($runD.Code -eq 0 -and $noSaltD -and $runD.Out -match '(?m)^warning    : telemetry event not spooled \(codex-telemetry\.ps1 -Forget -Local is deleting .*\) - dropped' -and $stD.Out -match '(?m)^forgetting : the marker .* its owner pid \d+ lives' -and $stD.Out -match '(?m)^not spooled: 1 event\(s\)' -and $fD.Code -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $h 'telemetry-forgetting'))) "run exit $($runD.Code) nosalt $noSaltD | $((($runD.Out -split "`n") | Where-Object { $_ -match 'not spooled' }) -join '') | forget exit $($fD.Code)"
         $s1 = Start-Script $telemetryPs @('-Forget') $work $h (Get-DeadUrl) ''
         $x1 = Wait-Script $s1
         $s2 = Start-Script $telemetryPs @('-Forget', '-PublicRef', 'CC-7Q') $work $h $in.Url ''

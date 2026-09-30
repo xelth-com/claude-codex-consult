@@ -25,8 +25,10 @@ acceptance, decisions D1-D24 of `.collab/companions-2026-09-26/handoffs/33-claud
 wave 28 (telemetry and complaints to the maintainer's intake, on by default - ROADMAP R17), wave 27d
 (documentation only: waiting without losing the prompt cache, and three more coordinator hosts
 documented but not run live), wave 28b (the fix round of their acceptance, decisions D1-D19 of
-`.collab/companions-2026-09-26/handoffs/39-claude-wave28b-decisions.md`) and wave 28c (the second
-fix round, decisions D1-D14 of `.collab/companions-2026-09-26/handoffs/45-claude-wave28c-decisions.md`).
+`.collab/companions-2026-09-26/handoffs/39-claude-wave28b-decisions.md`), wave 28c (the second
+fix round, decisions D1-D14 of `.collab/companions-2026-09-26/handoffs/45-claude-wave28c-decisions.md`)
+and wave 28d (the third fix round, decisions D1-D8 of
+`.collab/companions-2026-09-26/handoffs/51-claude-wave28d-decisions.md`).
 
 ### Added
 
@@ -803,6 +805,17 @@ fix round, decisions D1-D14 of `.collab/companions-2026-09-26/handoffs/45-claude
   `compactions` after `usage`, and the prompt of a member with `context_tokens` names the brief again
   (D11); the waiting rule's no-means branch is revision 6 (D14).
 
+- **Wave 28d - what behaves differently** (details under "Fixed", "Wave 28d"): a spool rewrite writes
+  `<spool file>.tmp` and replaces the file in one step (D1); the forgetting marker is removed in
+  `finally` and a marker whose owner is gone is removed by the next producer or sender, with a line
+  in `.last` `notes` (D2); the flush lock is born with its owner record, an ownerless lock is held
+  for 30 s, a living owner's lock older than 30 minutes is reported `sender stuck` (D3); the
+  not-spooled count is append-only and written without the telemetry lock, `.last` gains
+  `not_spooled_seen` and `notes` (D4); a kill with survivors and unverified descendants names both
+  (D5); the telemetry model comparison lower-cases both sides (D6); a `context_tokens` member
+  without a brief gets its ask repeated at the end of the prompt (D7), and that line stays out of
+  the context estimate (D8).
+
 ### Fixed
 
 - **Wave 24b - the wave 24 acceptance panel's findings** (`.collab/companions-2026-09-26/`
@@ -1376,6 +1389,86 @@ fix round, decisions D1-D14 of `.collab/companions-2026-09-26/handoffs/45-claude
     `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b` 51,
     `harness-host` 65 (+3), `harness-telemetry` 92 (+13), `harness-fixes27c` 36, `harness-fixes28b`
     20, `harness-fixes28c` 15 (new).
+- **Wave 28d - the third fix round** (the wave 28c re-acceptance, panel 7e4efeb8 on fc6978a: glm,
+  qwen, muse ACCEPT; mimo HOLD on F48-1..3; decisions D1-D8 of
+  `.collab/companions-2026-09-26/handoffs/51-claude-wave28d-decisions.md`):
+  - D1 (F48-1, F49-3) The spool is rewritten ATOMICALLY (`Remove-TelemetrySpoolLines`): under the
+    telemetry lock (no producer appends meanwhile) the file is read, the kept lines go to
+    `<spool file>.tmp` in the same directory, are flushed to disk (`Flush($true)`), and the temporary
+    file replaces the spool file in one step - `[IO.File]::Move` with overwrite, on Windows
+    PowerShell 5.1 `MoveFileEx(REPLACE_EXISTING | WRITE_THROUGH)` as `Write-TextAtomic` does.
+    Nothing truncates the spool in place any more (no `SetLength(0)`): a crash leaves the old file
+    or the new one; a `.tmp` a crash left behind is replaced by the next rewrite; a replace that
+    keeps failing leaves the spool as it was (its delivered lines are sent again - at least once).
+    The deadline bounds the waits for the lock and the file BEFORE the rewrite starts, never the
+    rewrite itself. TEST HOOK (test mode only): `CODEX_CONSULT_TEST_TELEMETRY_REWRITE_CRASH=1` - the
+    process exits (86) between the temporary file and the replace.
+  - D2 (F48-2) The forgetting marker heals itself: it names its owner `{pid, start_time, since}`;
+    `-Forget` removes it in `finally` - a local deletion that fails halfway says `run
+    codex-telemetry.ps1 -Forget -Local again to finish it` and blocks nothing; a producer or a sender
+    that meets a marker whose owner is gone - or that names none (`-Forget` writes it under the
+    telemetry lock, so nobody is writing it while the lock is held) - removes it under the telemetry
+    lock (`Resolve-TelemetryForgetting`), writes one line into `.last` `notes` and goes on. A marker
+    whose owner lives (`Test-PidAlive`: an identity that cannot be confirmed counts as living) blocks
+    as before; the sender then stops before sending anything. `-Status` names the owner (`forgetting
+    : the marker ... - its owner pid <n> lives` / `... is gone`) and prints the notes.
+  - D3 (F48-3, F49-4) The flush lock is BORN WITH ITS OWNER (`Enter-TelemetryFlushLock`): the record
+    `{pid, start_time, token, since}` is written to `<lock>.<guid>.tmp` and moved into place WITHOUT
+    overwriting, so a healthy sender never leaves an ownerless lock and two senders never both
+    create one. A lock that names no owner or cannot be read counts as HELD while it is younger than
+    30 s; after that - and a dead owner's lock at once - it is removed under an exclusive handle and
+    the sender starts over (no more rewriting a lock in place). A lock with a living owner is never
+    taken over; older than 30 minutes it is `sender stuck since <t> (pid <n>)`: the refused sender
+    writes that into `.last` `notes` (once, however often it is refused; the next sender that holds
+    the lock drops it) and `-Status` prints `sender     : sender stuck since <t> (pid <n>) - ... stop
+    pid <n> if it hangs, or delete the lock when no such process runs`.
+  - D4 (F49-2) The not-spooled count cannot be lost: `<codex home>/telemetry-not-spooled.ndjson` is
+    append-only and written WITHOUT the telemetry lock (retried up to 5 s against another append);
+    no flush deletes it - each flush records the lines it saw in `.last` `not_spooled_seen` and
+    `-Status` counts the complete lines after them (`-Forget -Local` still removes the file).
+  - D5 (F49-1) A kill that leaves survivors AND descendants whose identity could not be read names
+    both groups: the warning `kill not confirmed (<turn>): <n> processes survived: pid <a>, <b>; start
+    time of pid <u> unreadable; pid <u> may still run - check them, and stop them by hand if they do`
+    and the outcome text `(process tree killed; <n> processes survived: pid <a>, <b>; start time of pid
+    <u> unreadable; pid <u> may still run)` (a turn, the main turn and the format repair;
+    `Get-KillUnverifiedText`). The recovery record is unchanged.
+  - D6 (F50-1) `Get-TelemetryModelToken` lower-cases both sides: a table entry with an upper-case
+    letter matches (and the event carries the table's own text).
+  - D7 (F50-2) A member with `context_tokens` that runs without a brief file gets the one-line ask
+    repeated as the last line before the consultation id: `Before you answer, re-read the ask: <the
+    ask, whitespace folded>` (cut at 500 characters, pointing to the top of the prompt).
+  - D8 (F48-4) What the audit found: no hash of the prompt text exists anywhere. Thread reuse is
+    decided by the reviewer's identity (provider, model, engine - compared field by field), the
+    endpoint fingerprint (a SHA-256 of the provider's configuration) and a thread verified by the
+    event stream or by a rollout that contains the consultation id (the prompt's last line, still
+    last); lineage is the same identity; finding ids and consultation numbers are counters from the
+    ledger, the findings store and the handoff names; the panel seed hashes the task, the purpose,
+    the brief FILE's SHA-256, the lineages and a nonce; the other hashes are of the reviewed tree and
+    the telemetry salt. The one place where the appended line took part in a reuse decision was the
+    context estimate of a fork or resume on a `context_tokens` member (`(prompt + brief) / 4`
+    against 80% of the window, `mode_fallback`): the re-read line (D7's too) is now subtracted there,
+    so the same prompt decides the same way with or without it. `prompt_chars` in the ledger still
+    counts the prompt as sent.
+  - Harnesses: `harness-fixes28d` (new): REWRITE, MARKER, LOCK (four processes racing for the lock),
+    NOTSPOOLED, KILL, MODEL, REREAD (D8: a window chosen so that the estimate without the line just
+    fits and with it would not - the fork is kept; three tokens smaller the fallback happens), DOCS.
+    `harness-telemetry`: the forgetting-marker cases use a marker of a LIVING owner (a dead owner's
+    marker now heals), an ownerless flush lock is held while young and removed at 40 s, LOCK releases
+    the held lock by deleting it (as its owner does - an empty lock left behind now counts as held for
+    30 s), and SEND expects `.last`'s two new keys.
+  - Also changed during the runs: the README keeps `5-minute age rule` on one line (the
+    `harness-telemetry` DOCS check reads the section unfolded); `harness-fixes28d` pins every restore to a SCRATCH codex
+    home and ends with GUARD - its first draft restored the operator's own `CODEX_HOME` after a child
+    run, and two of its in-process flushes then wrote that home's `telemetry-spool/.last` once
+    (`nothing to send`: its spool was empty, the intake a closed loopback port - nothing was sent).
+  - Counts (2026-09-30; `harness-fixes28d`, `harness-telemetry` and `harness-fixes28c` first alone on
+    both hosts, then `tests/run-all.ps1` for the final code): Windows PowerShell 5.1 `20 harness(es), 0
+    failed`; PowerShell 7.6.6 `20 harness(es), 1 failed` - `harness-fixes26b` GUARD only, environmental: the operator's Codex desktop app rewrote `~/.codex/config.toml` at 20:33 while that harness ran (the guard compares the file's hash before and after); by the operator's decision the suite was not run again. The counts, the same on both hosts: `harness-0.3`
+    229, `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 74,
+    `harness-panel` 54, `harness-pending` 26, `harness-fixes` 45, `harness-lock2` 11, `harness-3b`
+    12, `harness-visibility` 121, `harness-detach` 51, `harness-companions` 42, `harness-fixes26b`
+    51 (on PowerShell 7: 50 passed, the GUARD row failed), `harness-host` 65, `harness-telemetry` 92 (cases changed, none added), `harness-fixes27c` 36,
+    `harness-fixes28b` 20, `harness-fixes28c` 15, `harness-fixes28d` 40 (new).
 ### Known limitations
 
 - (wave 28c) The telemetry vendor class is derived from the endpoint's host NAME only (F43-6,
