@@ -1,7 +1,7 @@
 # Roadmap
 
 Features the bridge should grow. Each entry names the problem it solves; the order is the
-order we would build them. Agreed on 2026-09-23 between the Claude Code coordinator and the
+order we would build them. Released so far: 0.2.0, 0.3.0, 0.4.0 (2026-09-26) and 0.5.0 (2026-09-30: R12, R14-R20, R23; hosts Claude Code, Codex CLI, Z Code, Kimi Code). The 0.6.0 candidate starts with R10's claude engine (wave 29, written, on the branch wip/wave29-claude-engine) and R8/R9. Agreed on 2026-09-23 between the Claude Code coordinator and the
 Codex reviewer after a seven-wave implementation task with three consultations (framing,
 acceptance, re-acceptance), and merged with the earlier help-wanted list.
 
