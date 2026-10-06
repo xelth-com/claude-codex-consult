@@ -366,7 +366,7 @@ optional participant whose "done" is never trusted and who never closes a findin
   (2026-10-06):** `codex-findings.ps1 -Rate` spools one `rating` event (details `engine`,
   `provider`, `model`, `purpose`, `mark`, `age_days`, `bridge_version`, `os`, `ps_version`; the
   switch honoured; `-Telemetry on|off` for one rating) - README "Telemetry (on by default)",
-  `harness-telemetry` RATE; the site's half is being built in the site's repository.
+  `harness-telemetry` RATE; `codex-telemetry.ps1 -BackfillRatings` sent the earlier marks once (0.5.1). **The site's half is live (2026-10-06):** `/C3/` renders the table from `GET /T/v2/public/usefulness?app_id=codex-consult&days=90`, the hand-collected snapshot folded below as the baseline. R24 done.
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
 - **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a

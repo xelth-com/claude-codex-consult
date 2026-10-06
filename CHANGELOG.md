@@ -4,7 +4,12 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.1] - 2026-10-06
+
+A patch release: the bridge's half of ROADMAP R24. A rating now reaches the telemetry intake, the
+marks given before this release can be sent once with `-BackfillRatings`, and the maintainer's page
+`/C3/` computes its reviewer-usefulness table from those events (the site's half lives in the site's
+repository and is live since 2026-10-06).
 
 ### Added
 
