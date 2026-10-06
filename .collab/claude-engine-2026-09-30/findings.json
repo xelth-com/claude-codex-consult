@@ -3,7 +3,7 @@
     "findings":  [
                      {
                          "id":  "F02-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -49,6 +49,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:32+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D1 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -57,7 +66,7 @@
                      },
                      {
                          "id":  "F02-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -103,6 +112,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:35+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D2 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -111,7 +129,7 @@
                      },
                      {
                          "id":  "F02-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -152,6 +170,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:37+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D4 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -160,7 +187,7 @@
                      },
                      {
                          "id":  "F02-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -201,6 +228,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:40+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D5 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -209,7 +245,7 @@
                      },
                      {
                          "id":  "F02-5",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -250,6 +286,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:42+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D6 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -258,7 +303,7 @@
                      },
                      {
                          "id":  "F03-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -313,6 +358,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:44+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D1 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -321,7 +375,7 @@
                      },
                      {
                          "id":  "F03-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -371,6 +425,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:47+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D2 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -379,7 +442,7 @@
                      },
                      {
                          "id":  "F03-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -438,6 +501,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:50+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D3 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -446,7 +518,7 @@
                      },
                      {
                          "id":  "F03-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -500,6 +572,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:52+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D2 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -508,7 +589,7 @@
                      },
                      {
                          "id":  "F03-5",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -562,6 +643,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:55+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D2 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -570,7 +660,7 @@
                      },
                      {
                          "id":  "F03-6",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -625,6 +715,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:57+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D4 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -633,7 +732,7 @@
                      },
                      {
                          "id":  "F03-7",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -679,6 +778,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:51:59+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D7 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -687,7 +795,7 @@
                      },
                      {
                          "id":  "F03-8",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -733,6 +841,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:52:02+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D8 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -741,7 +858,7 @@
                      },
                      {
                          "id":  "F03-9",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -787,6 +904,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:52:04+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D3 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -795,7 +921,7 @@
                      },
                      {
                          "id":  "F04-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
 
@@ -833,6 +959,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:52:06+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D5 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -841,7 +976,7 @@
                      },
                      {
                          "id":  "F04-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
 
@@ -879,6 +1014,15 @@
                                              "evidence":  "",
                                              "base_commit":  "09b944d57b6496fb80b68b38e92335035f518df9",
                                              "tree_sha256":  "9beda7096b9d53af782ff46b0a8dae527970e067173c66fc9776f1cb5c694e41"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T19:52:09+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Decided as D6 in handoffs/05-claude-claude-engine-decisions.md (2026-09-30); coded in b10366e on wip/wave29-claude-engine (harness-claude.ps1 written, not yet run) - verification pending the first harness run",
+                                             "evidence":  "",
+                                             "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
+                                             "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
                                          }
                                      ],
                          "reviewer_checks":  [
