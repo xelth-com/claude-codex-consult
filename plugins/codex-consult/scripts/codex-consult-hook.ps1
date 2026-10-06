@@ -67,7 +67,7 @@ try {
     $psExe = (Get-Process -Id $PID).Path
     $codex = Get-Command codex -ErrorAction SilentlyContinue
     if (-not $codex) {
-        $line = 'codex-consult: codex CLI not found on PATH - follow the setup-providers skill before consulting a reviewer'
+        $line = 'codex-consult: codex CLI not found on PATH - follow the setup-providers skill from its step 0 (it asks which subscriptions you have) before consulting a reviewer'
     } else {
         $previous = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'

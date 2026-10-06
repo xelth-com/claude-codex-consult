@@ -1,4 +1,4 @@
-# Runs every harness of this directory (wave 29: twenty, harness-claude the last) ONE AT A TIME (they must never run concurrently:
+# Runs every harness of this directory (wave 29: twenty-one, harness-claude the last) ONE AT A TIME (they must never run concurrently:
 # the recovery checks look for codex-like processes and would see each other's fake
 # codex), each in a child process of the PowerShell that runs this script. Prints one
 # summary line per harness and the FAIL lines of a failed one; the full output of each
@@ -17,7 +17,7 @@ $psExe = (Get-Process -Id $PID).Path
 if (-not $ScriptsDir) { $ScriptsDir = [string]$env:CODEX_CONSULT_SCRIPTS_DIR }
 $scripts = if ($ScriptsDir) { (Resolve-Path -LiteralPath $ScriptsDir).Path } else { Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')).Path 'plugins\codex-consult\scripts' }
 if (-not (Test-Path -LiteralPath (Join-Path $scripts 'codex-consult.ps1') -PathType Leaf)) { Write-Host "run-all: no codex-consult.ps1 in '$scripts' (-ScriptsDir / CODEX_CONSULT_SCRIPTS_DIR)" -ForegroundColor Red; exit 1 }
-$harnesses = @('harness-0.3', 'harness-roster', 'harness-format', 'harness-engines', 'harness-muse', 'harness-panel', 'harness-pending', 'harness-fixes', 'harness-lock2', 'harness-3b', 'harness-visibility', 'harness-detach', 'harness-companions', 'harness-fixes26b', 'harness-host', 'harness-telemetry', 'harness-fixes27c', 'harness-fixes28b', 'harness-fixes28c', 'harness-claude')
+$harnesses = @('harness-0.3', 'harness-roster', 'harness-format', 'harness-engines', 'harness-muse', 'harness-panel', 'harness-pending', 'harness-fixes', 'harness-lock2', 'harness-3b', 'harness-visibility', 'harness-detach', 'harness-companions', 'harness-fixes26b', 'harness-host', 'harness-telemetry', 'harness-fixes27c', 'harness-fixes28b', 'harness-fixes28c', 'harness-fixes28d', 'harness-claude')
 # (wave 27) the coordinator's own settings never reach a harness: a CODEX_CONSULT_COORDINATOR of the
 # operator would add warnings, a CODEX_CONSULT_BRIEF_PREFIX could refuse every run
 foreach ($k in @('CODEX_CONSULT_COORDINATOR', 'CODEX_CONSULT_BRIEF_PREFIX')) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }

@@ -1,7 +1,7 @@
 # Roadmap
 
 Features the bridge should grow. Each entry names the problem it solves; the order is the
-order we would build them. Agreed on 2026-09-23 between the Claude Code coordinator and the
+order we would build them. Released so far: 0.2.0, 0.3.0, 0.4.0 (2026-09-26) and 0.5.0 (2026-09-30: R12, R14-R20, R23; hosts Claude Code, Codex CLI, Z Code, Kimi Code). The 0.6.0 candidate starts with R10's claude engine (wave 29, written, on the branch wip/wave29-claude-engine) and R8/R9. Agreed on 2026-09-23 between the Claude Code coordinator and the
 Codex reviewer after a seven-wave implementation task with three consultations (framing,
 acceptance, re-acceptance), and merged with the earlier help-wanted list.
 
@@ -355,6 +355,18 @@ optional participant whose "done" is never trusted and who never closes a findin
   a host-independent way for the agent to compact its own context (on the host checked, the agent
   has none).
 
+- **R24 — The public page computes reviewer usefulness from live telemetry (candidate, operator
+  2026-09-30).** The page `/C3/` of the maintainer's site shows a hand-collected usefulness table (about 55
+  consultations of 22-26 September) beside a live telemetry section. The bridge sends one more allowlisted
+  event when the judge rates a consultation (`rating`: the vendor class, the model from the closed list, the
+  purpose, `useful: yes | partly | no`, no text), as C3 already does; the site aggregates consultations and
+  ratings per vendor class and model (n, usable rate, findings per consultation, blockers, mean wall seconds,
+  ratings) over a window and renders the table from that, dated, with the hand-collected snapshot kept as the
+  baseline. The site's half lives in the site's repository. **The bridge's half is implemented
+  (2026-10-06):** `codex-findings.ps1 -Rate` spools one `rating` event (details `engine`,
+  `provider`, `model`, `purpose`, `mark`, `age_days`, `bridge_version`, `os`, `ps_version`; the
+  switch honoured; `-Telemetry on|off` for one rating) - README "Telemetry (on by default)",
+  `harness-telemetry` RATE; `codex-telemetry.ps1 -BackfillRatings` sent the earlier marks once (0.5.1). **The site's half is live (2026-10-06):** `/C3/` renders the table from `GET /T/v2/public/usefulness?app_id=codex-consult&days=90`, the hand-collected snapshot folded below as the baseline. R24 done.
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
 - **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a

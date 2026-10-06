@@ -1503,7 +1503,8 @@
                         "consult_when":  "2026-09-27T23:18:42+02:00",
                         "useful":  "yes",
                         "note":  "R13+R19 design review: kimi: the root fallback hole, bake-at-install and -Explain options, tier aliases",
-                        "when":  "2026-09-27T23:53:41+02:00"
+                        "when":  "2026-09-27T23:53:41+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  2,
@@ -1519,7 +1520,8 @@
                         "consult_when":  "2026-09-27T23:18:43+02:00",
                         "useful":  "yes",
                         "note":  "R13+R19 design review: mimo: four separable concerns, identity tuple, invariants vs mechanisms",
-                        "when":  "2026-09-27T23:53:43+02:00"
+                        "when":  "2026-09-27T23:53:43+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  3,
@@ -1535,7 +1537,8 @@
                         "consult_when":  "2026-09-27T23:18:42+02:00",
                         "useful":  "yes",
                         "note":  "R13+R19 design review: qwen: Codex installs Claude-layout plugins (verified), env marker contamination, hooks on Codex, sandbox vs $HOME",
-                        "when":  "2026-09-27T23:53:44+02:00"
+                        "when":  "2026-09-27T23:53:44+02:00",
+                        "telemetry_sent":  1791297267
                     }
                 ]
 }

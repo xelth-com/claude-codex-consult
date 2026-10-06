@@ -20,8 +20,14 @@
 # (wave 28c, D1-D7) the model as a CLOSED list; -Forget -PublicRef -Local deleting locally only after
 # the intake confirmed, -Local alone asking; the telemetry lock and the forgetting marker (a producer
 # drops, never recreates the salt or the spool; a -Forget that died halfway); the flush lock taken
-# over only from a dead owner, the fencing token; the deadline over the local steps; the proxy and
+# over only from a dead owner (wave 28d: an ownerless one after 30 s), the fencing token; the deadline over the local steps; the proxy and
 # trust variables of the sender; the 1 s append at the commit and the retry after the write lock.
+# (R24) RATE: codex-findings.ps1 -Rate spools ONE `rating` event (its own details allowlist; the
+# vendor class and the closed-list model as a consultation event has them, never the roster label,
+# the note, the topics, the task or the consultation's id), starts the sender, which delivers it;
+# CODEX_CONSULT_TELEMETRY=off and -Telemetry off write nothing; an unknown reviewer -> other/unknown;
+# the mark's telemetry_sent. BACKFILL: codex-telemetry.ps1 -BackfillRatings [-DryRun] sends the marks
+# given before, once (an unfindable ledger entry skipped, client_time = the mark's when), refused off.
 # FAKES ONLY: fake-codex3.cmd; the intake is a LOCAL System.Net.HttpListener on 127.0.0.1 (a free
 # port) or a closed loopback port - CODEX_CONSULT_TELEMETRY_URL always names one of them, never the
 # real intake; CODEX_HOME is a scratch directory per case, CODEX_CONSULT_ROSTER a scratch file or
@@ -46,6 +52,7 @@ $scripts = if ($ScriptsDir) { (Resolve-Path -LiteralPath $ScriptsDir).Path } els
 $pluginDir = Split-Path -Parent $scripts
 $consultPs = Join-Path $scripts 'codex-consult.ps1'
 $telemetryPs = Join-Path $scripts 'codex-telemetry.ps1'
+$findingsPs = Join-Path $scripts 'codex-findings.ps1'
 $hookPs = Join-Path $scripts 'codex-consult-hook.ps1'
 $fake = Join-Path $sp 'fake-codex3.cmd'
 $psExe = (Get-Process -Id $PID).Path
@@ -136,6 +143,20 @@ function Consult {
     Pop-Location
     Restore-Env
     $text = (($out | ForEach-Object { "$_" }) -join "`n")
+    return [pscustomobject]@{ Code = $code; Out = $text; First = (($text -split "`n") | Select-Object -First 1) }
+}
+# (R24) One codex-findings.ps1 run (synchronous) in $Repo with a case's environment: { Code; Out; First }
+function Rate {
+    param([string]$Repo, [string]$CodexHome, [string]$Url, [string]$Task, [string[]]$ArgList, [string]$Switch = '')
+    Set-CaseEnv $CodexHome $Url $Switch
+    Push-Location $Repo
+    $p = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $out = & $psExe -NoProfile -ExecutionPolicy Bypass -File $findingsPs -Task $Task @ArgList 2>&1
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $p
+    Pop-Location
+    Restore-Env
+    $text = (($out | ForEach-Object { "$_" }) -join "`n").TrimEnd()
     return [pscustomobject]@{ Code = $code; Out = $text; First = (($text -split "`n") | Select-Object -First 1) }
 }
 # A script started in the background (the intake answers while it runs), stdin from a file ($Stdin,
@@ -261,21 +282,49 @@ function Names { param($Obj) if ($null -eq $Obj) { return '' }; return (@($Obj.P
 # must be the contract's, in its order; returns the violations (empty: clean).
 $eventKeys = 'app_id,app_version,instance_id,event_type,severity,title,details,tags,client_time,os,runtime'
 $detailKeys = 'engine,provider,model,purpose,outcome,wall_seconds,tokens,findings,structured,format_retry,denial_retry,timeout_continue,panel_size,ps_version,os,bridge_version'
+# (R24) the details of a rating event (codex-findings.ps1 -Rate) - exactly these, in this order
+$ratingDetailKeys = 'engine,provider,model,purpose,mark,age_days,bridge_version,os,ps_version'
 function Test-EventAllowlist {
     param($Ev)
     $v = New-Object System.Collections.Generic.List[string]
     if ((Names $Ev) -ne $eventKeys) { $v.Add("top: $(Names $Ev)") }
-    if ((Names $Ev.details) -ne $detailKeys) { $v.Add("details: $(Names $Ev.details)") }
-    if ((Names $Ev.details.tokens) -ne 'in,cached,out') { $v.Add("tokens: $(Names $Ev.details.tokens)") }
-    if ((Names $Ev.details.findings) -ne 'blocker,major,minor,note') { $v.Add("findings: $(Names $Ev.details.findings)") }
+    if ([string]$Ev.app_id -cne 'codex-consult') { $v.Add("fixed value $($Ev.app_id)") }
+    if ([string]$Ev.event_type -ceq 'rating') {
+        # (R24) the rating event: its own details; severity info, the mark as the title, a whole age
+        if ((Names $Ev.details) -ne $ratingDetailKeys) { $v.Add("rating details: $(Names $Ev.details)") }
+        if (@('yes', 'partly', 'no') -cnotcontains [string]$Ev.details.mark) { $v.Add("mark $($Ev.details.mark)") }
+        if ([string]$Ev.severity -cne 'info') { $v.Add("rating severity $($Ev.severity)") }
+        if ([string]$Ev.title -cne [string]$Ev.details.mark) { $v.Add("rating title $($Ev.title)") }
+        $age = $Ev.details.age_days
+        if (-not ($age -is [int] -or $age -is [long]) -or $age -lt 0) { $v.Add("age_days not a whole number >= 0: $age") }
+        if ((@($Ev.tags) -join ',') -cne ([string]$Ev.details.provider + ',' + [string]$Ev.details.model)) { $v.Add("rating tags $(@($Ev.tags) -join ',')") }
+    } else {
+        if ([string]$Ev.event_type -cne 'consultation') { $v.Add("fixed value $($Ev.event_type)") }
+        if ((Names $Ev.details) -ne $detailKeys) { $v.Add("details: $(Names $Ev.details)") }
+        if ((Names $Ev.details.tokens) -ne 'in,cached,out') { $v.Add("tokens: $(Names $Ev.details.tokens)") }
+        if ((Names $Ev.details.findings) -ne 'blocker,major,minor,note') { $v.Add("findings: $(Names $Ev.details.findings)") }
+        if (@('info', 'warning', 'error') -notcontains [string]$Ev.severity) { $v.Add("severity $($Ev.severity)") }
+        foreach ($k in @('in', 'cached', 'out')) { $x = $Ev.details.tokens.$k; if ($null -ne $x -and -not ($x -is [int] -or $x -is [long])) { $v.Add("tokens.$k not a number") } }
+        foreach ($k in @('blocker', 'major', 'minor', 'note')) { $x = $Ev.details.findings.$k; if (-not ($x -is [int] -or $x -is [long])) { $v.Add("findings.$k not a number") } }
+        foreach ($k in @('structured', 'format_retry', 'denial_retry', 'timeout_continue')) { if (-not ($Ev.details.$k -is [bool])) { $v.Add("$k not a boolean") } }
+    }
     if (@($Ev.tags).Count -ne 2) { $v.Add("tags: $(@($Ev.tags).Count)") }
-    foreach ($leaf in @($Ev.app_id, $Ev.event_type) ) { if (@('codex-consult', 'consultation') -notcontains [string]$leaf) { $v.Add("fixed value $leaf") } }
-    if (@('info', 'warning', 'error') -notcontains [string]$Ev.severity) { $v.Add("severity $($Ev.severity)") }
     if ([string]$Ev.instance_id -cnotmatch '^[0-9a-f]{64}$') { $v.Add("instance_id $($Ev.instance_id)") }
-    foreach ($k in @('in', 'cached', 'out')) { $x = $Ev.details.tokens.$k; if ($null -ne $x -and -not ($x -is [int] -or $x -is [long])) { $v.Add("tokens.$k not a number") } }
-    foreach ($k in @('blocker', 'major', 'minor', 'note')) { $x = $Ev.details.findings.$k; if (-not ($x -is [int] -or $x -is [long])) { $v.Add("findings.$k not a number") } }
-    foreach ($k in @('structured', 'format_retry', 'denial_retry', 'timeout_continue')) { if (-not ($Ev.details.$k -is [bool])) { $v.Add("$k not a boolean") } }
     return , ([string[]]$v.ToArray())
+}
+# (R24) Every property NAME of an object, at every level (recursively)
+function Get-KeyNames {
+    param($Obj)
+    $list = New-Object System.Collections.Generic.List[string]
+    $walk = $null
+    $walk = {
+        param($o)
+        if ($null -eq $o -or $o -is [string]) { return }
+        if ($o -is [System.Management.Automation.PSCustomObject]) { foreach ($p in $o.PSObject.Properties) { $list.Add($p.Name); & $walk $p.Value }; return }
+        if ($o -is [System.Collections.IEnumerable]) { foreach ($i in $o) { & $walk $i } }
+    }
+    & $walk $Obj
+    return , ([string[]]$list.ToArray())
 }
 # Every string leaf of an object (recursively), but the instance id and the client time
 function Get-Leaves {
@@ -482,7 +531,8 @@ if (Want 'UNIT') {
     $h7 = New-Home 'forgetting'
     $env:CODEX_HOME = $h7
     $mark7 = Join-Path $h7 'telemetry-forgetting'
-    [IO.File]::WriteAllText($mark7, '{"pid":1}' + "`n", $u8)
+    # (wave 28d, D2) a marker whose owner LIVES (this process) - one whose owner is gone heals (harness-fixes28d)
+    [IO.File]::WriteAllText($mark7, (ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ pid = $PID; start_time = [string](Get-ProcessStartIso -ProcessId $PID); since = (Get-IsoTimestamp) })) + "`n", $u8)
     $sw7 = [pscustomobject]@{ On = $true; Text = 'on'; Source = 'test' }
     $e7 = [pscustomobject]@{ bridge_outcome = 'usable reply'; reviewer = [pscustomobject]@{ engine = 'codex'; model = 'gpt-5.1'; provider_config = [pscustomobject]@{ builtin = 'openai' } } }
     $a7 = Add-TelemetryEvent -Entry $e7 -Switch $sw7 -WaitMs 500
@@ -616,6 +666,227 @@ if (Want 'SPOOL') {
     $null = Wait-Last $h8 (Get-Date).AddSeconds(-30) 20
 }
 
+# =============================================================== RATE: (R24) codex-findings -Rate spools ONE rating event
+if (Want 'RATE') {
+    # the builder on a hostile entry: the rating allowlist, the closed values, the age in whole days
+    $hostileR = [pscustomobject]@{
+        n = 7; when = '2026-09-29T10:00:00+02:00'; purpose = "secret-purpose-$taskName"; topics = @('topic-secret'); consult_id = '11111111-2222-3333-4444-555555555555'
+        reviewer = [pscustomobject]@{ provider = "C:\Users\$([Environment]::UserName)\p"; model = 'C:/x/m'; engine = 'codex'; provider_config = [pscustomobject]@{ base_url = 'https://llm.acmecorp-internal.example/v1' } }
+        lineage = 'lineage-secret'; note = 'note-secret'; useful = 'yes'; thread = 'thread-secret'
+    }
+    $hre = New-TelemetryRatingEvent -Entry $hostileR -Mark ' No ' -InstanceId ('ef' * 32)
+    $hrj = ConvertTo-Json -Compress -Depth 6 -InputObject $hre
+    $hrp = ConvertFrom-Json $hrj
+    $hrv = Test-EventAllowlist $hrp
+    $hrl = Find-Leaks (Get-Leaves $hrp) @($taskName, 'secret', '11111111-2222', 'acmecorp')
+    $ageWant = [long][Math]::Floor(([DateTimeOffset]::UtcNow - [DateTimeOffset]::Parse('2026-09-29T10:00:00+02:00', [Globalization.CultureInfo]::InvariantCulture)).TotalDays)
+    $ages = @((Get-TelemetryAgeDays -Entry ([pscustomobject]@{ when = [DateTimeOffset]::Now.AddDays(2).ToString('o') })), (Get-TelemetryAgeDays -Entry ([pscustomobject]@{ when = 'not a time' })), (Get-TelemetryAgeDays -Entry ([pscustomobject]@{ n = 1 })), (Get-TelemetryAgeDays -Entry ([pscustomobject]@{ when = [DateTimeOffset]::Now.AddHours(-47).ToString('o') })))
+    Check 'RATE' 'the builder (New-TelemetryRatingEvent) on a hostile entry: the allowlist walk as a rating event is clean (top level a consultation event''s, details exactly engine,provider,model,purpose,mark,age_days,bridge_version,os,ps_version); mark " No " -> no (title no, severity info); a path-shaped provider and model on an unknown host -> other/other, an unknown purpose -> other; age_days = the whole days since the entry''s when; no leaf carries the note, the topics, the lineage, the thread, the consultation id, the task, a path, the user or the machine name; mark maybe -> other; age_days 0 for a future when, an unparseable when and none, 1 after 47 h' ($hrv.Count -eq 0 -and $hrl.Count -eq 0 -and $hrp.details.mark -ceq 'no' -and $hrp.title -ceq 'no' -and $hrp.details.provider -ceq 'other' -and $hrp.details.model -ceq 'other' -and $hrp.details.purpose -ceq 'other' -and $hrp.details.age_days -eq $ageWant -and (ConvertTo-TelemetryRatingDetails -Entry $hostileR -Mark 'maybe').mark -ceq 'other' -and ($ages -join ',') -eq '0,0,0,1') "$(($hrv + $hrl) -join ' || ') | ages $($ages -join ',') | $hrj"
+
+    $dead = Get-DeadUrl
+    $hr = New-Home 'rate'
+    # a roster label that is NOT the vendor class: RateLabel-GLM on api.z.ai (the vendor class zai)
+    [IO.File]::AppendAllText((Join-Path $hr 'config.toml'), "`n[model_providers.RateLabel-GLM]`nbase_url = `"https://api.z.ai/api/v1`"`nenv_key = `"RT_ZAI_KEY`"`nwire_api = `"responses`"`n", $u8)
+    $rosterR = Write-Roster 'rate' '{"roster_version":1,"reviewers":[{"provider":"RateLabel-GLM","model":"glm-5.3"}]}'
+    $rr = New-Repo 'rate'
+    $topicSecret = 'topic-secret-5r'
+    $noteSecret = 'note-secret-8n missed the retry path'
+    # the consultation itself with -Telemetry off: the spool holds only what -Rate writes
+    $c1 = Consult $rr $hr $dead $taskName @('-Purpose', 'acceptance', '-Topic', $topicSecret, '-Prompt', $promptSecret, '-ReplyName', 'r1', '-Telemetry', 'off') -Roster $rosterR -Env @{ FAKE_CODEX_REPLY = $reply }
+    $e1 = @(Ledger $rr $taskName)[-1]
+    $before = (Spool-Lines $hr).Count
+    $t0 = Get-Date
+    $u0 = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $ra = Rate $rr $hr $dead $taskName @('-Rate', '1', '-Useful', 'partly', '-Note', $noteSecret)
+    $lines = Spool-Lines $hr
+    $sl = $null; $ev = $null
+    try { $sl = ConvertFrom-Json $lines[-1]; $ev = ConvertFrom-Json ([string]$sl.body) } catch { }
+    $ranSender = Wait-Last $hr $t0
+    $viol = @(); if ($ev) { $viol = Test-EventAllowlist $ev }
+    $mk = @((ConvertFrom-Json (Text (Join-Path $rr ".collab\$taskName\findings.json"))).ratings)
+    $sentMark = Get-PropertyValue $mk[0] 'telemetry_sent' $null
+    Check 'RATE' '(a) -Rate 1 -Useful partly -Note <text> with telemetry on (unset): exit 0, the usual single output line, the mark recorded (the roster label RateLabel-GLM kept locally) WITH telemetry_sent (unix seconds of the spooling - -BackfillRatings never sends it again); the consultation (-Telemetry off) spooled nothing, the rating exactly ONE line {v 1, kind event, queued_unix, body}; the body passes the allowlist walk as a rating event (event_type rating, severity info, title partly, details.mark partly)' ($c1.Code -eq 0 -and $before -eq 0 -and $ra.Code -eq 0 -and $ra.Out -ceq 'codex-findings: consult n=1 (RateLabel-GLM :: glm-5.3, acceptance) rated partly.' -and $mk.Count -eq 1 -and $mk[0].useful -eq 'partly' -and $mk[0].provider -ceq 'RateLabel-GLM' -and ($sentMark -is [int] -or $sentMark -is [long]) -and $sentMark -ge ($u0 - 2) -and $sentMark -le ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -and $lines.Count -eq 1 -and (Names $sl) -eq 'v,kind,queued_unix,body' -and $sl.v -eq 1 -and $sl.kind -ceq 'event' -and $ev -and $viol.Count -eq 0 -and $ev.event_type -ceq 'rating' -and $ev.severity -ceq 'info' -and $ev.title -ceq 'partly' -and $ev.details.mark -ceq 'partly') "consult $($c1.Code), rate $($ra.Code), spool before $before after $($lines.Count) | $($ra.Out) | $($viol -join ' || ')"
+    $d = $(if ($ev) { $ev.details } else { $null })
+    $cd = ConvertTo-TelemetryDetails $e1
+    $iid = ''; $env:CODEX_HOME = $hr; $iid = Get-TelemetryInstanceId; $env:CODEX_HOME = $savedCodexHome
+    Check 'RATE' '(a) the values: provider zai - the VENDOR CLASS of api.z.ai, never the roster label RateLabel-GLM - model glm-5.3 (the closed list), engine codex, purpose acceptance, age_days 0 (a whole number: rated the same day), tags [zai, glm-5.3]; engine/provider/model EQUAL the consultation event''s for the same ledger entry (one code path); instance_id this home''s, client_time UTC, app_version, bridge_version, os, ps_version and runtime of this host' ($d -and $d.engine -ceq 'codex' -and $d.provider -ceq 'zai' -and $d.model -ceq 'glm-5.3' -and $d.purpose -ceq 'acceptance' -and ($d.age_days -is [int] -or $d.age_days -is [long]) -and $d.age_days -eq 0 -and (@($ev.tags) -join ',') -ceq 'zai,glm-5.3' -and $d.engine -ceq $cd.engine -and $d.provider -ceq $cd.provider -and $d.model -ceq $cd.model -and $iid -and $ev.instance_id -eq $iid -and [string]$sl.body -match '"client_time":"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ"' -and $ev.app_version -eq $version -and $d.bridge_version -eq $version -and $d.os -eq (Get-TelemetryOs) -and $ev.os -eq (Get-TelemetryOs) -and $ev.runtime -eq (Get-TelemetryRuntime) -and $d.ps_version -eq [string]$PSVersionTable.PSVersion) $(if ($sl) { [string]$sl.body } else { '' })
+    $keyNames = $(if ($ev) { Get-KeyNames $ev } else { @() })
+    $badKeys = @($keyNames | Where-Object { @('note', 'task', 'task_id', 'topics', 'consult_id', 'lineage', 'n', 'useful', 'consult_when', 'when', 'reviewer', 'thread') -ccontains $_ })
+    $leaks = @(); if ($ev) { $leaks = Find-Leaks (Get-Leaves $ev) @($taskName, 'note-secret', 'missed the retry', $topicSecret, 'prompt-secret', [string]$e1.consult_id, [string]$e1.thread, 'RateLabel', 'secret', $rr) }
+    $rawHits = @(foreach ($s in @($taskName, 'note-secret', $topicSecret, 'RateLabel', [string]$e1.consult_id)) { if ($s -and $lines.Count -gt 0 -and $lines[-1].Contains($s)) { $s } })
+    Check 'RATE' '(a) never in the rating event: no key note, task, topics, consult_id, lineage, n, useful, consult_when, when, reviewer or thread at any level; no value carrying the -Note text, the topic, the task name, the prompt, the consultation id or thread, the roster label, a path, the machine or the user name - in the parsed event and in the raw spool line' ($ev -and $keyNames.Count -gt 0 -and $badKeys.Count -eq 0 -and $leaks.Count -eq 0 -and $rawHits.Count -eq 0) (($badKeys + $leaks + $rawHits) -join ' || ')
+    Check 'RATE' '(a) the rating started the detached sender (an unreachable intake: .last "not delivered: ...") and the spool kept its line' ($ranSender -and ([string](Last $hr).result) -like 'not delivered:*' -and (Spool-Lines $hr).Count -eq 1) "$((Last $hr).result)"
+    $in = Start-Intake
+    try {
+        $sf = Start-Script $telemetryPs @('-Flush') $work $hr $in.Url 'on'
+        $reqs = Serve-Intake $in -Count 1 -TimeoutSec 60 -Proc $sf.Proc
+        $xf = Wait-Script $sf
+        $pb = $null; try { $pb = ConvertFrom-Json $reqs[0].Body } catch { }
+        $pev = $(if ($pb) { @($pb.events)[0] } else { $null })
+        Check 'RATE' '(a) the sender delivers it: codex-telemetry.ps1 -Flush POSTs <intake>/v2/events {"events":[<the rating event - the spooled bytes>]}, allowlist clean; delivered = deleted (the spool empty)' ($reqs.Count -eq 1 -and $reqs[0].Method -eq 'POST' -and $reqs[0].Path -eq '/T/v2/events' -and @($pb.events).Count -eq 1 -and $pev -and $pev.event_type -ceq 'rating' -and (Test-EventAllowlist $pev).Count -eq 0 -and $sl -and $reqs[0].Body.Contains([string]$sl.body) -and (Spool-Lines $hr).Count -eq 0) $(if ($reqs.Count) { $reqs[0].Body } else { "no request; $($xf.Out)" })
+    } finally { Stop-Intake $in }
+
+    # (b) the switch off: nothing spooled, the rating still recorded, the same output
+    $ob = Rate $rr $hr $dead $taskName @('-Rate', '1', '-Useful', 'yes') -Switch 'off'
+    $ob2 = Rate $rr $hr $dead $taskName @('-Rate', '1', '-Useful', 'no', '-Note', 'n', '-Telemetry', 'off')
+    $mk2 = @((ConvertFrom-Json (Text (Join-Path $rr ".collab\$taskName\findings.json"))).ratings)
+    Check 'RATE' '(b) CODEX_CONSULT_TELEMETRY=off, and -Telemetry off with the variable unset: exit 0, the usual output ("re-rated yes (was partly)", "re-rated no (was yes)"), the mark recorded (one record, no; the new mark without telemetry_sent) - and NO spool line' ($ob.Code -eq 0 -and $ob.Out -ceq 'codex-findings: consult n=1 (RateLabel-GLM :: glm-5.3, acceptance) re-rated yes (was partly).' -and $ob2.Code -eq 0 -and $ob2.Out -ceq 'codex-findings: consult n=1 (RateLabel-GLM :: glm-5.3, acceptance) re-rated no (was yes).' -and $mk2.Count -eq 1 -and $mk2[0].useful -eq 'no' -and $null -eq $mk2[0].PSObject.Properties['telemetry_sent'] -and (Spool-Lines $hr).Count -eq 0) "$($ob.Out) | $($ob2.Out) | spool $((Spool-Lines $hr).Count)"
+    $hOff = New-Home 'rate-off'
+    $ob3 = Rate $rr $hOff $dead $taskName @('-Rate', '1', '-Useful', 'yes') -Switch 'off'
+    $writtenOff = @(Get-ChildItem -LiteralPath $hOff -Force | Where-Object { $_.Name -like 'telemetry*' } | ForEach-Object { $_.Name })
+    Check 'RATE' '(b) CODEX_CONSULT_TELEMETRY=off in a fresh codex home: the rating (exit 0) writes NOTHING of telemetry - no spool, no salt, no notice marker' ($ob3.Code -eq 0 -and $writtenOff.Count -eq 0) "$($ob3.Code) [$($writtenOff -join ',')]"
+    $t2 = Get-Date
+    $ob4 = Rate $rr $hr $dead $taskName @('-Rate', '1', '-Useful', 'partly', '-Telemetry', 'on') -Switch 'off'
+    $l4 = Spool-Lines $hr
+    $ev4 = $null; try { $ev4 = ConvertFrom-Json ([string](ConvertFrom-Json $l4[-1]).body) } catch { }
+    $null = Wait-Last $hr $t2
+    $bad1 = Rate $rr $hr $dead $taskName @('-Rate', '1', '-Useful', 'yes', '-Telemetry', 'maybe')
+    $bad2 = Rate $rr $hr $dead $taskName @('-List', '-Telemetry', 'off')
+    Check 'RATE' '(b) CODEX_CONSULT_TELEMETRY=off with -Telemetry on: the rating''s switch wins - one line (mark partly); -Telemetry maybe is refused (exit 1, "-Telemetry must be on or off"), -Telemetry without -Rate too ("-Telemetry only goes with -Rate.")' ($ob4.Code -eq 0 -and $l4.Count -eq 1 -and $ev4 -and $ev4.details.mark -ceq 'partly' -and $bad1.Code -eq 1 -and $bad1.First -match '-Telemetry must be on or off' -and $bad2.Code -eq 1 -and $bad2.First -ceq 'codex-findings: -Telemetry only goes with -Rate.') "$($ob4.Code) $($l4.Count) | $($bad1.First) | $($bad2.First)"
+
+    # (c) reviewers the vendor table does not know, from a seeded ledger
+    $rs = New-Repo 'rate-seeded'
+    $hs = New-Home 'rate-seeded'
+    $nowO = [DateTimeOffset]::Now
+    $isoW = { param($Dto) ([DateTimeOffset]$Dto).ToString('yyyy-MM-ddTHH:mm:sszzz', [Globalization.CultureInfo]::InvariantCulture) }
+    $seed = @(
+        [pscustomobject]@{ n = 1; when = (& $isoW $nowO.AddDays(-3).AddHours(-2)); purpose = ''; topics = [object[]]@(); consult_id = '00000000-0000-4000-8000-000000000241'; reviewer = [pscustomobject]@{ provider = 'mystery-gw'; model = ''; engine = 'codex'; provider_config = [pscustomobject]@{ base_url = 'https://gw.mystery-corp.example/v1'; wire_api = 'responses' } }; model = '' }
+        [pscustomobject]@{ n = 2; when = (& $isoW $nowO.AddMinutes(-5)); purpose = 'checkpoint'; topics = [object[]]@('tests'); consult_id = '00000000-0000-4000-8000-000000000242'; reviewer = [pscustomobject]@{ provider = 'AcmeCorp-Legal'; model = 'acmecorp-contracts-7b'; engine = 'codex'; provider_config = [pscustomobject]@{ base_url = 'https://llm.acmecorp-internal.example/v1'; wire_api = 'responses' } }; model = 'acmecorp-contracts-7b' }
+        [pscustomobject]@{ n = 3; when = (& $isoW $nowO.AddDays(-1).AddMinutes(-1)); purpose = 'framing'; consult_id = ''; model = '' }
+    )
+    $sdir = Join-Path $rs '.collab\t'
+    [void][IO.Directory]::CreateDirectory((Join-Path $sdir 'handoffs'))
+    Write-JsonFile -Path (Join-Path $sdir 'sessions.json') -Object ([pscustomobject]@{ task_id = 't'; cwd = $rs; codex = [pscustomobject]@{ tool = 'x'; consults = [object[]]$seed } })
+    $got = @()
+    $counts = @()
+    foreach ($k in 1..3) {
+        $tk = Get-Date
+        $x = Rate $rs $hs $dead 't' @('-Rate', "$k", '-Useful', 'yes')
+        $ls = Spool-Lines $hs
+        $counts += "$($x.Code)/$($ls.Count)"
+        $e = $null; try { $e = ConvertFrom-Json ([string](ConvertFrom-Json $ls[-1]).body) } catch { }
+        $cdk = ConvertTo-TelemetryDetails $seed[$k - 1]
+        $got += "$($k):$(if ($e) { "$($e.details.engine)/$($e.details.provider)/$($e.details.model)/$($e.details.purpose)/$($e.details.age_days)/$((Test-EventAllowlist $e).Count)" })=$($cdk.engine)/$($cdk.provider)/$($cdk.model)/$($cdk.purpose)"
+        $null = Wait-Last $hs $tk
+    }
+    $want = @('1:codex/other/unknown/none/3/0=codex/other/unknown/none', '2:codex/other/other/checkpoint/0/0=codex/other/other/checkpoint', '3:codex/other/unknown/framing/1/0=codex/other/unknown/framing')
+    $seedSpool = (Spool-Lines $hs) -join "`n"
+    Check 'RATE' '(c) reviewers the vendor table does not know (a seeded ledger): an unknown endpoint without a model -> provider other, model unknown; AcmeCorp-Legal on llm.acmecorp-internal.example with acmecorp-contracts-7b -> other/other; an entry without a reviewer (unknown provenance) -> other/unknown - each EXACTLY as the consultation event (ConvertTo-TelemetryDetails) has it for the same entry; purpose none without one; age_days 3, 0, 1 (whole days from the entry''s when); one line per rating (exit 0), allowlist clean, neither acmecorp nor mystery in the spool' (($counts -join ' ') -eq '0/1 0/2 0/3' -and ($got -join ' ') -eq ($want -join ' ') -and $seedSpool -inotmatch 'acmecorp|mystery') "$($counts -join ' ') | $($got -join ' ')"
+}
+
+# =============================================================== BACKFILL: (R24) codex-telemetry.ps1 -BackfillRatings sends the earlier marks once
+if (Want 'BACKFILL') {
+    $dead = Get-DeadUrl
+    $bfNow = [DateTimeOffset]::Now
+    $bfIso = { param($Dto) ([DateTimeOffset]$Dto).ToString('yyyy-MM-ddTHH:mm:sszzz', [Globalization.CultureInfo]::InvariantCulture) }
+    $bfUtc = { param([string]$Iso) ([DateTimeOffset]::Parse($Iso, [Globalization.CultureInfo]::InvariantCulture)).UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture) }
+    $bfGlm = [pscustomobject]@{ provider = 'MyGLM-Plan'; model = 'glm-5.3'; engine = 'codex'; provider_config = [pscustomobject]@{ base_url = 'https://api.z.ai/api/v1'; wire_api = 'responses' } }
+    $bfE1When = & $bfIso $bfNow.AddDays(-5)
+    $bfAWhen = & $bfIso $bfNow.AddDays(-2)
+    $bfCWhen = & $bfIso $bfNow.AddDays(-1)
+    # two tasks, three marks given BEFORE the rating event existed (no telemetry_sent): A (task one,
+    # consult_id of entry 1), B (task one, a consult_id no ledger entry has - never guessed), C (task
+    # two, a pre-wave-26 mark: no consult_id, no consult_when - found by n)
+    $seedBackfill = {
+        param([string]$Repo)
+        $one = Join-Path $Repo '.collab\bf-task-one'
+        $two = Join-Path $Repo '.collab\bf-task-two'
+        foreach ($d in @($one, $two)) { [void][IO.Directory]::CreateDirectory((Join-Path $d 'handoffs')) }
+        $e1 = [pscustomobject]@{ n = 1; when = $bfE1When; purpose = 'acceptance'; topics = [object[]]@('topic-secret-bf'); consult_id = '00000000-0000-4000-8000-0000000b0001'; reviewer = $bfGlm; model = 'glm-5.3' }
+        $e2 = [pscustomobject]@{ n = 2; when = (& $bfIso $bfNow.AddHours(-1)); purpose = 'checkpoint'; topics = [object[]]@(); consult_id = '00000000-0000-4000-8000-0000000b0002'; reviewer = $bfGlm; model = 'glm-5.3' }
+        Write-JsonFile -Path (Join-Path $one 'sessions.json') -Object ([pscustomobject]@{ task_id = 'bf-task-one'; cwd = $Repo; codex = [pscustomobject]@{ tool = 'x'; consults = [object[]]@($e1, $e2) } })
+        $mA = [pscustomobject]@{ n = 1; consult_id = $e1.consult_id; lineage = 'MyGLM-Plan :: glm-5.3'; provider = 'MyGLM-Plan'; model = 'glm-5.3'; engine = 'codex'; purpose = 'acceptance'; topics = [object[]]@('topic-secret-bf'); consult_when = $bfE1When; useful = 'partly'; note = 'note-secret-bf missed the cache path'; when = $bfAWhen }
+        $mB = [pscustomobject]@{ n = 9; consult_id = '00000000-0000-4000-8000-0000000b0009'; lineage = 'MyGLM-Plan :: glm-5.3'; provider = 'MyGLM-Plan'; model = 'glm-5.3'; engine = 'codex'; purpose = 'decision'; topics = [object[]]@(); consult_when = (& $bfIso $bfNow.AddDays(-3)); useful = 'yes'; note = ''; when = $bfCWhen }
+        Write-JsonFile -Path (Join-Path $one 'findings.json') -Object ([pscustomobject]@{ task_id = 'bf-task-one'; findings = [object[]]@(); ratings = [object[]]@($mA, $mB) })
+        $g1 = [pscustomobject]@{ n = 1; when = (& $bfIso $bfNow.AddDays(-10)); purpose = 'framing'; reviewer = [pscustomobject]@{ provider = 'gemini'; model = 'gemini-3.8-flash-high'; engine = 'agy'; provider_config = [pscustomobject]@{ engine = 'agy' } }; model = 'gemini-3.8-flash-high' }
+        Write-JsonFile -Path (Join-Path $two 'sessions.json') -Object ([pscustomobject]@{ task_id = 'bf-task-two'; cwd = $Repo; codex = [pscustomobject]@{ tool = 'x'; consults = [object[]]@($g1) } })
+        $mC = [pscustomobject]@{ n = 1; lineage = 'gemini :: gemini-3.8-flash-high [agy]'; provider = 'gemini'; model = 'gemini-3.8-flash-high'; purpose = 'framing'; useful = 'yes'; note = ''; when = $bfCWhen }
+        Write-JsonFile -Path (Join-Path $two 'findings.json') -Object ([pscustomobject]@{ task_id = 'bf-task-two'; findings = [object[]]@(); ratings = [object[]]@($mC) })
+    }
+    $bfHashes = { param([string]$Repo) (@('bf-task-one', 'bf-task-two') | ForEach-Object { Get-FileSha256 -Path (Join-Path $Repo ".collab\$_\findings.json") }) -join ',' }
+    $bfMarks = { param([string]$Repo, [string]$T) @((ConvertFrom-Json (Text (Join-Path $Repo ".collab\$T\findings.json"))).ratings) }
+    $bfLine = { param([string]$Out, [string]$Prefix) @(($Out -split "`n") | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_.StartsWith($Prefix, [StringComparison]::Ordinal) }) -join ' / ' }
+
+    # the first run: exactly the two findable marks, the unfindable one skipped and counted
+    $rb = New-Repo 'backfill'
+    $hb = New-Home 'backfill'
+    & $seedBackfill $rb
+    $tb1 = Get-Date
+    $b1 = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings') $rb $hb $dead '')
+    $bl = Spool-Lines $hb
+    $null = Wait-Last $hb $tb1
+    $bevs = @(foreach ($l in $bl) { try { ConvertFrom-Json ([string](ConvertFrom-Json $l).body) } catch { } })
+    $evA = @($bevs | Where-Object { $_.details.provider -ceq 'zai' }) | Select-Object -First 1
+    $evC = @($bevs | Where-Object { $_.details.provider -ceq 'google' }) | Select-Object -First 1
+    # client_time compared in the body's TEXT (PowerShell 7's ConvertFrom-Json turns it into a date)
+    $bodies = @($bl | ForEach-Object { [string](ConvertFrom-Json $_).body })
+    $bodyA = [string](@($bodies | Where-Object { $_.Contains('"provider":"zai"') }) | Select-Object -First 1)
+    $bodyC = [string](@($bodies | Where-Object { $_.Contains('"provider":"google"') }) | Select-Object -First 1)
+    $bviol = New-Object System.Collections.Generic.List[string]
+    foreach ($e in $bevs) { foreach ($vl in (Test-EventAllowlist $e)) { $bviol.Add($vl) } }
+    Check 'BACKFILL' 'the first -BackfillRatings (telemetry on): exit 0, "bf-task-one: sent 1, already 0, skipped 1", "bf-task-two: sent 1, already 0, skipped 0", "total: sent 2, already 0, skipped 1 in 2 task(s) ..."; the spool holds exactly 2 lines (kind event), both allowlist-clean rating events' ($b1.Code -eq 0 -and $b1.Out -match '(?m)^codex-telemetry: bf-task-one: sent 1, already 0, skipped 1\r?$' -and $b1.Out -match '(?m)^codex-telemetry: bf-task-two: sent 1, already 0, skipped 0\r?$' -and $b1.Out -match '(?m)^codex-telemetry: total: sent 2, already 0, skipped 1 in 2 task\(s\)' -and $bl.Count -eq 2 -and @($bl | Where-Object { (ConvertFrom-Json $_).kind -ceq 'event' }).Count -eq 2 -and $bevs.Count -eq 2 -and $bviol.Count -eq 0 -and @($bevs | Where-Object { $_.event_type -ceq 'rating' }).Count -eq 2) "exit $($b1.Code) | $(& $bfLine $b1.Out 'codex-telemetry:') | spool $($bl.Count) | $($bviol -join ' || ')"
+    Check 'BACKFILL' 'the events are the marks'': A - zai / glm-5.3 (the vendor class of api.z.ai, never the label MyGLM-Plan), purpose acceptance, mark partly, age_days 3 (consult_when 5 days ago, the mark 2 days ago), client_time = the mark''s when (UTC); C - google / gemini-3.8-flash-high (engine agy), purpose framing, mark yes, age_days 9 (found by n; the ledger entry''s when 10 days ago, the mark 1 day ago), client_time = its when; nothing of the note, the topics, the label or the task names in the spool' ($evA -and $evA.details.model -ceq 'glm-5.3' -and $evA.details.engine -ceq 'codex' -and $evA.details.purpose -ceq 'acceptance' -and $evA.details.mark -ceq 'partly' -and $evA.title -ceq 'partly' -and $evA.details.age_days -eq 3 -and $bodyA.Contains('"client_time":"' + (& $bfUtc $bfAWhen) + '"') -and $evC -and $evC.details.model -ceq 'gemini-3.8-flash-high' -and $evC.details.engine -ceq 'agy' -and $evC.details.purpose -ceq 'framing' -and $evC.details.mark -ceq 'yes' -and $evC.details.age_days -eq 9 -and $bodyC.Contains('"client_time":"' + (& $bfUtc $bfCWhen) + '"') -and ($bl -join "`n") -notmatch 'note-secret|topic-secret|MyGLM|bf-task') "$(if ($evA) { "A $($evA.details.provider)/$($evA.details.model) $($evA.details.mark) age $($evA.details.age_days) $(if ($bodyA -match '"client_time":"[^"]*"') { $Matches[0] }) want $(& $bfUtc $bfAWhen)" }) | $(if ($evC) { "C $($evC.details.provider)/$($evC.details.model) $($evC.details.mark) age $($evC.details.age_days) $(if ($bodyC -match '"client_time":"[^"]*"') { $Matches[0] }) want $(& $bfUtc $bfCWhen)" })"
+    $m1 = & $bfMarks $rb 'bf-task-one'
+    $m2 = & $bfMarks $rb 'bf-task-two'
+    $isUnix = { param($v) ($v -is [int] -or $v -is [long]) -and $v -gt 1700000000 }
+    Check 'BACKFILL' 'the marker: the two sent marks carry telemetry_sent (unix seconds), the unfindable one does not; every other field of the marks is kept' ((& $isUnix (Get-PropertyValue $m1[0] 'telemetry_sent' $null)) -and $null -eq $m1[1].PSObject.Properties['telemetry_sent'] -and (& $isUnix (Get-PropertyValue $m2[0] 'telemetry_sent' $null)) -and $m1[0].note -ceq 'note-secret-bf missed the cache path' -and (Names $m1[0]) -ceq 'n,consult_id,lineage,provider,model,engine,purpose,topics,consult_when,useful,note,when,telemetry_sent' -and (Names $m2[0]) -ceq 'n,lineage,provider,model,purpose,useful,note,when,telemetry_sent') "$(Names $m1[0]) | $(Names $m1[1]) | $(Names $m2[0])"
+
+    # the second run: nothing more - idempotent
+    $hash1 = & $bfHashes $rb
+    $b2 = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings') $rb $hb $dead '')
+    Check 'BACKFILL' 'a second -BackfillRatings sends NOTHING: exit 0, "total: sent 0, already 2, skipped 1", no new spool line, both findings.json files byte-identical (no rewrite)' ($b2.Code -eq 0 -and $b2.Out -match '(?m)^codex-telemetry: bf-task-one: sent 0, already 1, skipped 1\r?$' -and $b2.Out -match '(?m)^codex-telemetry: total: sent 0, already 2, skipped 1 in 2 task\(s\)' -and (Spool-Lines $hb).Count -eq 2 -and (& $bfHashes $rb) -eq $hash1 -and $b2.Out -notmatch 'the sender started') "exit $($b2.Code) | $(& $bfLine $b2.Out 'codex-telemetry:') | spool $((Spool-Lines $hb).Count)"
+
+    # -Rate sets the marker itself: a mark rated now is never backfilled
+    $tr = Get-Date
+    $rt2 = Rate $rb $hb $dead 'bf-task-one' @('-Rate', '2', '-Useful', 'yes')
+    $null = Wait-Last $hb $tr
+    $b3 = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings') $rb $hb $dead '')
+    $m3 = @(& $bfMarks $rb 'bf-task-one' | Where-Object { $_.n -eq 2 })
+    Check 'BACKFILL' '-Rate 2 (telemetry on) spools its event and writes telemetry_sent into its mark: the next -BackfillRatings counts it as already sent ("bf-task-one: sent 0, already 2, skipped 1") and the spool grew by the rating''s one line only' ($rt2.Code -eq 0 -and $m3.Count -eq 1 -and (& $isUnix (Get-PropertyValue $m3[0] 'telemetry_sent' $null)) -and $b3.Code -eq 0 -and $b3.Out -match '(?m)^codex-telemetry: bf-task-one: sent 0, already 2, skipped 1\r?$' -and $b3.Out -match '(?m)^codex-telemetry: total: sent 0, already 3, skipped 1' -and (Spool-Lines $hb).Count -eq 3) "rate $($rt2.Code) | $(& $bfLine $b3.Out 'codex-telemetry:') | spool $((Spool-Lines $hb).Count)"
+
+    # -Rate whose spool file is busy at the commit: the mark is committed WITHOUT the marker, the
+    # retry after the locks spools the event and a second store commit writes telemetry_sent
+    $spoolBefore = (Spool-Lines $hb).Count
+    $fOne = Join-Path $rb '.collab\bf-task-one\findings.json'
+    $bdir = Join-Path $hb 'telemetry-spool'
+    [void][IO.Directory]::CreateDirectory($bdir)
+    $holdB = New-Object System.IO.FileStream((Join-Path $bdir (Get-TelemetrySpoolName)), [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    $seenUnmarked = $false
+    $sr = $null
+    try {
+        $sr = Start-Script $findingsPs @('-Task', 'bf-task-one', '-Rate', '1', '-Useful', 'no', '-Note', 'n') $rb $hb $dead ''
+        $wr = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($wr.Elapsed.TotalSeconds -lt 60 -and -not $sr.Proc.HasExited) {
+            $mm = @()
+            try { $mm = @(@((ConvertFrom-Json (Read-SharedText -Path $fOne)).ratings) | Where-Object { $_.n -eq 1 }) } catch { }
+            if ($mm.Count -eq 1 -and $mm[0].useful -eq 'no') { $seenUnmarked = ($null -eq $mm[0].PSObject.Properties['telemetry_sent']); break }
+            Start-Sleep -Milliseconds 100
+        }
+        Start-Sleep -Milliseconds 1000
+    } finally { $holdB.Dispose() }
+    $xr = Wait-Script $sr
+    $null = Wait-Last $hb (Get-Date).AddSeconds(-30) 20
+    $mr = @(& $bfMarks $rb 'bf-task-one' | Where-Object { $_.n -eq 1 })
+    Check 'BACKFILL' '-Rate with the day''s spool file held at the commit: the mark is committed WITHOUT telemetry_sent (the 1 s at the commit failed); freed during the 5 s retry after the locks, the event IS spooled and a second store commit writes telemetry_sent into that mark - exit 0, no warning, one more spool line' ($seenUnmarked -and $xr.Code -eq 0 -and $xr.Out -notmatch 'warning' -and $mr.Count -eq 1 -and $mr[0].useful -eq 'no' -and (& $isUnix (Get-PropertyValue $mr[0] 'telemetry_sent' $null)) -and (Spool-Lines $hb).Count -eq ($spoolBefore + 1)) "seen unmarked $seenUnmarked; exit $($xr.Code) | $($xr.Out) | spool $spoolBefore -> $((Spool-Lines $hb).Count)"
+
+    # -DryRun on fresh marks: prints, writes nothing
+    $rd = New-Repo 'backfill-dry'
+    $hd = New-Home 'backfill-dry'
+    & $seedBackfill $rd
+    $hashD = & $bfHashes $rd
+    $bd = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings', '-DryRun') $rd $hd $dead '')
+    $dWritten = @(Get-ChildItem -LiteralPath $hd -Force | Where-Object { $_.Name -like 'telemetry*' } | ForEach-Object { $_.Name })
+    $dLocks = @(Get-ChildItem -LiteralPath (Join-Path $rd '.collab') -Recurse -Force -File | Where-Object { $_.Name -like '.consult*' } | ForEach-Object { $_.Name })
+    Check 'BACKFILL' '-BackfillRatings -DryRun on fresh marks: exit 0, one "would send: <vendor> / <model> (<engine>), purpose .., mark .., age_days .., client_time .." line per event (zai / glm-5.3 partly 3, google / gemini-3.8-flash-high yes 9), "total: would send 2, already 0, skipped 1", "dry run - nothing was spooled or written"; no text of a mark in the output; nothing written - no spool, no salt, no lock file, both findings.json byte-identical' ($bd.Code -eq 0 -and $bd.Out -match '(?m)^codex-telemetry: would send: zai / glm-5\.3 \(codex\), purpose acceptance, mark partly, age_days 3, client_time ' -and $bd.Out -match '(?m)^codex-telemetry: would send: google / gemini-3\.8-flash-high \(agy\), purpose framing, mark yes, age_days 9, client_time ' -and $bd.Out -match '(?m)^codex-telemetry: total: would send 2, already 0, skipped 1 in 2 task\(s\)' -and $bd.Out -match '(?m)^codex-telemetry: dry run - nothing was spooled or written\.' -and $bd.Out -notmatch 'note-secret|topic-secret|MyGLM' -and $dWritten.Count -eq 0 -and $dLocks.Count -eq 0 -and (& $bfHashes $rd) -eq $hashD) "exit $($bd.Code) | $(& $bfLine $bd.Out 'codex-telemetry:') | written [$($dWritten -join ',')] locks [$($dLocks -join ',')]"
+
+    # telemetry off: refused, nothing written
+    $bo = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings') $rd $hd $dead 'off')
+    $bo2 = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings', '-Telemetry', 'off') $rd $hd $dead '')
+    $bo3 = Wait-Script (Start-Script $telemetryPs @('-Status', '-DryRun') $rd $hd $dead '')
+    $oWritten = @(Get-ChildItem -LiteralPath $hd -Force | Where-Object { $_.Name -like 'telemetry*' } | ForEach-Object { $_.Name })
+    Check 'BACKFILL' 'telemetry off (CODEX_CONSULT_TELEMETRY=off, and -Telemetry off): -BackfillRatings is REFUSED - exit 1, "telemetry is off (...): -BackfillRatings sends nothing and writes nothing"; no spool line, no salt, both findings.json untouched; -DryRun without -BackfillRatings is refused too' ($bo.Code -eq 1 -and $bo.Out -match '^codex-telemetry: telemetry is off \(CODEX_CONSULT_TELEMETRY\): -BackfillRatings sends nothing and writes nothing' -and $bo2.Code -eq 1 -and $bo2.Out -match '^codex-telemetry: telemetry is off \(-Telemetry\)' -and $oWritten.Count -eq 0 -and (& $bfHashes $rd) -eq $hashD -and $bo3.Code -eq 1) "$($bo.Code): $(($bo.Out -split "`n")[0]) | $($bo2.Code) | $($bo3.Code): $(($bo3.Out -split "`n")[0]) | written [$($oWritten -join ',')]"
+}
+
 # =============================================================== NOTICE / DRYRUN: the notice once per version; the dry run's line
 if (Want 'NOTICE') {
     $dead = Get-DeadUrl
@@ -659,7 +930,7 @@ if (Want 'SEND') {
         $body = $null; try { $body = ConvertFrom-Json $reqs[0].Body } catch { }
         $ev = $(if ($body) { @($body.events)[0] } else { $null })
         Check 'SEND' 'after a usable run the DETACHED sender (the run did not wait for it) POSTs to <intake>/v2/events: ONE request, application/json, {"events":[<the event>]} with this home''s instance id, allowlist clean' ($run.Code -eq 0 -and $reqs.Count -eq 1 -and $reqs[0].Method -eq 'POST' -and $reqs[0].Path -eq '/T/v2/events' -and $reqs[0].Type -like 'application/json*' -and @($body.events).Count -eq 1 -and $ev -and (Test-EventAllowlist $ev).Count -eq 0 -and $ev.details.outcome -eq 'usable') "run $([Math]::Round($runSec, 1)) s; $($reqs.Count) request(s) $(if ($reqs.Count) { "$($reqs[0].Method) $($reqs[0].Path)" })"
-        Check 'SEND' 'delivered ({"ok":true}) = deleted: the spool holds no line afterwards; .last {time, result "delivered 1, kept 0, dropped 0 ...", delivered 1, kept 0, dropped 0, (wave 28b) rejected [], http 200}' ($delivered -and (Spool-Lines $h).Count -eq 0 -and (Last $h).delivered -eq 1 -and (Last $h).kept -eq 0 -and (Last $h).http -eq 200 -and ([string](Last $h).result) -like 'delivered 1, kept 0, dropped 0*' -and (Names (Last $h)) -eq 'time,result,delivered,kept,dropped,rejected,http') "$((Last $h).result)"
+        Check 'SEND' 'delivered ({"ok":true}) = deleted: the spool holds no line afterwards; .last {time, result "delivered 1, kept 0, dropped 0 ...", delivered 1, kept 0, dropped 0, (wave 28b) rejected [], http 200, (wave 28d) not_spooled_seen, notes}' ($delivered -and (Spool-Lines $h).Count -eq 0 -and (Last $h).delivered -eq 1 -and (Last $h).kept -eq 0 -and (Last $h).http -eq 200 -and ([string](Last $h).result) -like 'delivered 1, kept 0, dropped 0*' -and (Names (Last $h)) -eq 'time,result,delivered,kept,dropped,rejected,http,not_spooled_seen,notes') "$((Last $h).result)"
         $dumpText = Text $dump
         $dumpNames = @($dumpText -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
         # (PSExecutionPolicyPreference: PowerShell sets it in its own process for -ExecutionPolicy Bypass)
@@ -719,10 +990,13 @@ if (Want 'FLUSH') {
             $x = Wait-Script $s
         } finally { $lockFs.Dispose() }
         Check 'LOCK' 'a concurrent sender is refused by the lock (<spool>/.flush.lock held): exit 2 "another flush is running", no request, the spool byte-identical' ($x.Code -eq 2 -and $x.Out -match 'another flush is running' -and $reqs.Count -eq 0 -and (Spool-Bytes $h) -eq $before) "exit $($x.Code) | $($x.Out)"
+        # released as its owner releases it: deleted (wave 28d, D3: an empty lock left behind would count as
+        # held for 30 s - a healthy sender never leaves one)
+        Remove-Item -LiteralPath (Join-Path (Join-Path $h 'telemetry-spool') '.flush.lock') -Force
         $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
         $reqs = Serve-Intake $in -Count 1 -TimeoutSec 30 -Proc $s.Proc
         $x = Wait-Script $s
-        Check 'LOCK' 'the lock released: the next flush delivers (exit 0, one request, spool emptied)' ($x.Code -eq 0 -and $reqs.Count -eq 1 -and (Spool-Lines $h).Count -eq 0) "exit $($x.Code), $($reqs.Count)"
+        Check 'LOCK' 'the lock released (deleted by its holder): the next flush delivers (exit 0, one request, spool emptied)' ($x.Code -eq 0 -and $reqs.Count -eq 1 -and (Spool-Lines $h).Count -eq 0) "exit $($x.Code), $($reqs.Count)"
         # batches of at most 100
         $h = New-Home 'batch'
         $d = Join-Path $h 'telemetry-spool'
@@ -798,13 +1072,18 @@ if (Want 'FLUSH') {
         $reqs = Serve-Intake $in -Count 1 -TimeoutSec 15 -Proc $s.Proc
         $x = Wait-Script $s
         Check 'D4' '(wave 28c, D4 / F42-7, F43-5, F44-2) the same lock 6 minutes old but its owner ALIVE: NOT taken over - exit 2 "sender busy since <t> (pid <n> holds its lock, ... s old - its owner lives: left alone)", no request, the lock file untouched (token harness)' ($x.Code -eq 2 -and $x.Out -match 'sender busy since \S+ \(pid \d+ holds its lock, \d+ s old - its owner lives: left alone\)' -and $reqs.Count -eq 0 -and (Text $lockP) -match '"token":"harness"') "exit $($x.Code) | $($x.Out)"
-        # a lock that names no owner and that nobody holds open (its writer died between creating and
-        # writing it): no living sender is behind it - taken over at once
+        # a lock that names no owner and that nobody holds open: (wave 28d, D3 / F48-3) HELD while it is
+        # younger than 30 s (a sender creates its lock WITH its owner record - an ownerless one is no
+        # healthy sender's), removed after that
         [IO.File]::WriteAllText($lockP, 'garbage', $u8)
+        $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
+        $reqs0 = Serve-Intake $in -Count 1 -TimeoutSec 15 -Proc $s.Proc
+        $x0 = Wait-Script $s
+        [IO.File]::SetLastWriteTimeUtc($lockP, [DateTime]::UtcNow.AddSeconds(-40))
         $s = Start-Script $telemetryPs @('-Flush') $work $h $in.Url 'on'
         $reqs = Serve-Intake $in -Count 1 -TimeoutSec 30 -Proc $s.Proc
         $x = Wait-Script $s
-        Check 'D4' 'a lock that names no owner and is not held open (every sender writes its identity inside the handle that creates the lock): TAKEN OVER - delivered (exit 0), .last "a stale sender lock was taken over: it names no owner", the lock released afterwards (no file)' ($x.Code -eq 0 -and $reqs.Count -eq 1 -and ([string](Last $h).result) -match 'taken over: it names no owner' -and -not (Test-Path -LiteralPath $lockP)) "exit $($x.Code) | $((Last $h).result)"
+        Check 'D4' '(wave 28d, D3) a lock that names no owner and is not held open: HELD while younger than 30 s (exit 2 "its lock names no owner yet", no request, the lock untouched); 40 s old it is REMOVED and the sender starts over - delivered (exit 0), .last "a stale sender lock was taken over: it named no owner for <n> s", the lock released afterwards (no file)' ($x0.Code -eq 2 -and $x0.Out -match 'its lock names no owner yet' -and $reqs0.Count -eq 0 -and $x.Code -eq 0 -and $reqs.Count -eq 1 -and ([string](Last $h).result) -match 'taken over: it named no owner for \d+ s' -and -not (Test-Path -LiteralPath $lockP)) "young: exit $($x0.Code) | old: exit $($x.Code) | $((Last $h).result)"
         # (D4) the fencing token: a sender that lost its lock while it posted stops WITHOUT rewriting
         $h = New-Home 'lost'
         for ($i = 1; $i -le 2; $i++) { Seed-Line $h 'complaint' ('{"text":"lost' + $i + '"}') }
@@ -996,18 +1275,19 @@ if (Want 'FORGET') {
         $x = Wait-Script $s
         $left = @(Get-ChildItem -LiteralPath $h -Force | Where-Object { $_.Name -like 'telemetry-s*' -or $_.Name -like 'telemetry-not*' } | ForEach-Object { $_.Name })
         Check 'FORGET' 'D9 -Forget -Local -Yes: the local spool (every file), the salt and the not-spooled count are removed without asking - exit 0 "removed locally", nothing sent; the next event makes a new instance id' ($x.Code -eq 0 -and $x.Out -match 'removed locally - ' -and $x.Out -notmatch 'remove locally\? \[y/N\]' -and $left.Count -eq 0) "exit $($x.Code), left [$($left -join ',')] | $($x.Out)"
-        # (wave 28c, D3) a -Forget that died halfway: its marker stays - a run drops its event (counted,
-        # said), -Status names the marker, -Forget -Local finishes it and removes the marker last
+        # (wave 28c, D3) a marker whose owner LIVES (wave 28d, D2: this process stands in for a -Forget that
+        # runs; a marker whose owner is gone heals - harness-fixes28d): a run drops its event (counted,
+        # said), -Status names the marker and its owner, -Forget -Local finishes it and removes the marker
         $h = New-Home 'forget-died'
         $rD = New-Repo 'forget-died'
-        [IO.File]::WriteAllText((Join-Path $h 'telemetry-forgetting'), '{"pid":999999,"since":"2026-09-30T00:00:00Z"}' + "`n", $u8)
+        [IO.File]::WriteAllText((Join-Path $h 'telemetry-forgetting'), (ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ pid = $PID; start_time = [string](Get-ProcessStartIso -ProcessId $PID); since = '2026-09-30T00:00:00Z' })) + "`n", $u8)
         $runD = Consult $rD $h (Get-DeadUrl) $taskName @('-Prompt', 'x', '-ReplyName', 'fd') -Env @{ FAKE_CODEX_REPLY = $reply }
         $noSaltD = -not (Test-Path -LiteralPath (Join-Path $h 'telemetry-salt')) -and (Spool-Lines $h).Count -eq 0
         $s = Start-Script $telemetryPs @('-Status') $work $h (Get-DeadUrl) ''
         $stD = Wait-Script $s
         $s = Start-Script $telemetryPs @('-Forget', '-Local', '-Yes') $work $h (Get-DeadUrl) ''
         $fD = Wait-Script $s
-        Check 'FORGET' 'D3 (wave 28c, F42-3) a -Forget -Local that died halfway left its marker telemetry-forgetting: a run (exit 0) DROPS its event - no salt, no spool - and says "telemetry event not spooled (codex-telemetry.ps1 -Forget -Local is deleting ... or did not finish ...) - dropped"; -Status shows "forgetting :" and counts it; -Forget -Local -Yes finishes and removes the marker' ($runD.Code -eq 0 -and $noSaltD -and $runD.Out -match '(?m)^warning    : telemetry event not spooled \(codex-telemetry\.ps1 -Forget -Local is deleting .*\) - dropped' -and $stD.Out -match '(?m)^forgetting : the marker' -and $stD.Out -match '(?m)^not spooled: 1 event\(s\)' -and $fD.Code -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $h 'telemetry-forgetting'))) "run exit $($runD.Code) nosalt $noSaltD | $((($runD.Out -split "`n") | Where-Object { $_ -match 'not spooled' }) -join '') | forget exit $($fD.Code)"
+        Check 'FORGET' 'D3 (wave 28c, F42-3; wave 28d, D2) the marker telemetry-forgetting of a LIVING owner: a run (exit 0) DROPS its event - no salt, no spool - and says "telemetry event not spooled (codex-telemetry.ps1 -Forget -Local is deleting ... (pid <n> ...)) - dropped"; -Status shows "forgetting : ... its owner pid <n> lives" and counts it; -Forget -Local -Yes finishes and removes the marker' ($runD.Code -eq 0 -and $noSaltD -and $runD.Out -match '(?m)^warning    : telemetry event not spooled \(codex-telemetry\.ps1 -Forget -Local is deleting .*\) - dropped' -and $stD.Out -match '(?m)^forgetting : the marker .* its owner pid \d+ lives' -and $stD.Out -match '(?m)^not spooled: 1 event\(s\)' -and $fD.Code -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $h 'telemetry-forgetting'))) "run exit $($runD.Code) nosalt $noSaltD | $((($runD.Out -split "`n") | Where-Object { $_ -match 'not spooled' }) -join '') | forget exit $($fD.Code)"
         $s1 = Start-Script $telemetryPs @('-Forget') $work $h (Get-DeadUrl) ''
         $x1 = Wait-Script $s1
         $s2 = Start-Script $telemetryPs @('-Forget', '-PublicRef', 'CC-7Q') $work $h $in.Url ''
@@ -1052,6 +1332,13 @@ if (Want 'DOCS') {
     $secN = $sec -replace '\s+', ' '
     $d28cMissing = @($d28c | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
     Check 'DOCS' '(wave 28c) README "Telemetry": D1 every model of the closed list (per vendor class) and "an unlisted model reads other until a release adds it"; D6 the WHOLE sender allow list (every name and prefix of the code); D2 the order of -Forget -PublicRef -Local and -Local''s question; D3 the telemetry lock and the forgetting marker; D4 the owner-only takeover and the token; D5 the whole flush; D7 the 1 s append and the retry after the write lock; the vendor-class limitation (F43-6, F44-3)' ($modelsMissing.Count -eq 0 -and $envMissing.Count -eq 0 -and $d28cMissing.Count -eq 0) "models: $($modelsMissing -join ', ') | env: $($envMissing -join ', ') | text: $($d28cMissing -join ' | ')"
+    # (R24) the rating event: when it is sent, its switch, every details key, what is never in it
+    $ratingDocs = @('**The rating event**', 'codex-findings.ps1 -Task <task> -Rate <n> -Useful yes|partly|no', '`event_type` `rating`', '`-Telemetry on|off`', 'Never in it: the `-Note` text, the topics', 'a re-rating too', 'Get-TelemetryReviewerClass') + @($ratingDetailKeys -split ',' | ForEach-Object { "``$_``" })
+    $ratingMissing = @($ratingDocs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
+    Check 'DOCS' '(R24) README "Telemetry": the rating event - sent by codex-findings.ps1 -Rate (a re-rating too), its switch (-Telemetry on|off), every details key, the shared reviewer code path, what is never in it (the note, the topics)' ($ratingMissing.Count -eq 0) "missing: $($ratingMissing -join ' | ')"
+    $bfDocs = @('**Backfilling earlier marks**', 'codex-telemetry.ps1" -BackfillRatings -DryRun', '`telemetry_sent`', 'a second run sends nothing', 'SKIPPED and counted', '`client_time` = the mark''s own `when`', 'codex-telemetry: <task>: sent N, already M, skipped K', 'refused with exit `1`')
+    $bfMissing = @($bfDocs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
+    Check 'DOCS' '(R24) README "Telemetry": the backfill - the commands (-DryRun first), the marker telemetry_sent and the idempotency, an unfindable entry skipped, client_time = the mark''s when, the per-task line, refused when off' ($bfMissing.Count -eq 0) "missing: $($bfMissing -join ' | ')"
     Check 'DOCS' 'README tables: the options (-Telemetry, -Complain), the environment (CODEX_CONSULT_TELEMETRY, CODEX_CONSULT_TELEMETRY_URL) and "Tests" names harness-telemetry' ($readme -match '\| `-Telemetry on\\\|off`' -and $readme -match '\| `-Complain ' -and $readme -match '\| `CODEX_CONSULT_TELEMETRY` \|' -and $readme -match '\| `CODEX_CONSULT_TELEMETRY_URL` \|' -and $readme -match 'harness-telemetry') ''
     $cs = Text (Join-Path $pluginDir 'skills\consult-codex\SKILL.md')
     $ss = Text (Join-Path $pluginDir 'skills\setup-providers\SKILL.md')

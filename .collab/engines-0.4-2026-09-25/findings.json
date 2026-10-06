@@ -2139,7 +2139,8 @@
                         "purpose":  "framing",
                         "useful":  "yes",
                         "note":  "7 findings, 6 adopted (resume/repair id rules, hook no-network, parser rules, Google error codes, hardcoded codex sites); its RC1 exposed F12 (agy --sandbox does not block writes)",
-                        "when":  "2026-09-25T11:13:03+02:00"
+                        "when":  "2026-09-25T11:13:03+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  2,
@@ -2150,7 +2151,8 @@
                         "purpose":  "framing",
                         "useful":  "yes",
                         "note":  "F05-1 (read-only not enforced) and F05-2 (name the raw artifact in the recovery record) adopted; F05-4 confirmed default new; F05-3/F05-5 wontfix; the blocker verdict overstated",
-                        "when":  "2026-09-25T11:13:04+02:00"
+                        "when":  "2026-09-25T11:13:04+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  3,
@@ -2161,7 +2163,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "partly",
                         "note":  "operational check, not a review: first live run of the agy engine (structured first turn)",
-                        "when":  "2026-09-25T14:28:05+02:00"
+                        "when":  "2026-09-25T14:28:05+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  4,
@@ -2172,7 +2175,8 @@
                         "purpose":  "diff-review",
                         "useful":  "yes",
                         "note":  "verified all 10 priors from the code and ran the parser on the real streams; F09-1 (tree-check blind spots) and F09-2 (retry events not in the ledger) adopted, F09-3 wording adopted",
-                        "when":  "2026-09-25T14:28:06+02:00"
+                        "when":  "2026-09-25T14:28:06+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  5,
@@ -2183,7 +2187,8 @@
                         "purpose":  "diff-review",
                         "useful":  "yes",
                         "note":  "F10-2 (trailing garbage on exit 0) and F10-3 (non-unique label warning) adopted; F10-1 duplicates F09-1; HOLD reasonable for the over-broad read-only claim",
-                        "when":  "2026-09-25T14:28:07+02:00"
+                        "when":  "2026-09-25T14:28:07+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  6,
@@ -2194,7 +2199,8 @@
                         "purpose":  "diff-review",
                         "useful":  "partly",
                         "note":  "first review carried by the engine itself: confirmed the 10 priors, found nothing the codex reviewers found; 605 s and 1.6M input + 5.9M cached tokens for a flash diff review",
-                        "when":  "2026-09-25T14:28:08+02:00"
+                        "when":  "2026-09-25T14:28:08+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  7,
@@ -2205,7 +2211,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "partly",
                         "note":  "operational check: real resume of the n=3 conversation, the model quoted the previous consultation id",
-                        "when":  "2026-09-25T14:28:09+02:00"
+                        "when":  "2026-09-25T14:28:09+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  8,
@@ -2216,7 +2223,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "partly",
                         "note":  "operational check: asked to run a command; the tools line held, the command became RC1, F11 did not fire live",
-                        "when":  "2026-09-25T14:28:10+02:00"
+                        "when":  "2026-09-25T14:28:10+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  10,
@@ -2227,7 +2235,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "partly",
                         "note":  "operational check: first live run of the BytePlus plan route (kimi-k2.5), structured first turn",
-                        "when":  "2026-09-25T19:10:37+02:00"
+                        "when":  "2026-09-25T19:10:37+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  12,
@@ -2238,7 +2247,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "partly",
                         "note":  "operational check: deepseek-v4.1-flash on the BytePlus plan, structured first turn, effort high accepted",
-                        "when":  "2026-09-25T19:10:38+02:00"
+                        "when":  "2026-09-25T19:10:38+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  13,
@@ -2249,7 +2259,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "partly",
                         "note":  "operational check: dola-seed-2.0-pro on the BytePlus plan, structured first turn",
-                        "when":  "2026-09-25T19:10:39+02:00"
+                        "when":  "2026-09-25T19:10:39+02:00",
+                        "telemetry_sent":  1791297267
                     }
                 ]
 }

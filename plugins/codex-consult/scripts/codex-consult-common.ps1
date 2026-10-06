@@ -93,9 +93,14 @@
       * telemetry        (wave 28, R17) Get-BridgeVersion, Get-TelemetryPaths, Get-TelemetryUrl,
                          Get-TelemetryInstanceId (the salted instance id), Get-TelemetryOutcome,
                          ConvertTo-TelemetryDetails (THE allowlist; wave 28b: the vendor table
-                         $script:TelemetryVendors, Get-TelemetryVendor, Get-TelemetryModelToken),
-                         New-TelemetryEvent, Add-TelemetrySpoolLine, Add-TelemetryEvent (the
-                         bridge's call AT a commit), Start-TelemetrySender (the allow-listed
+                         $script:TelemetryVendors, Get-TelemetryVendor, Get-TelemetryModelToken;
+                         R24: Get-TelemetryReviewerClass, Get-TelemetryPurpose - shared with the
+                         rating event), New-TelemetryEvent, (R24) ConvertTo-TelemetryRatingDetails /
+                         New-TelemetryRatingEvent (codex-findings.ps1 -Rate), Add-TelemetrySpoolLine,
+                         Add-TelemetryEvent (the bridge's call AT a commit; -RatingMark: the rating
+                         event), (R24) the rating backfill - Find-RatingLedgerEntry,
+                         Set-RatingTelemetrySent, Invoke-TelemetryBackfillRatings (codex-telemetry.ps1
+                         -BackfillRatings; a mark's telemetry_sent), Start-TelemetrySender (the allow-listed
                          environment: Get-TelemetrySenderEnvironment, Start-NoInheritProcess),
                          Show-TelemetryNotice, Invoke-TelemetryRequest / Invoke-TelemetrySend (the
                          8 s bound, the 429 rule), Enter-/Exit-TelemetryFlushLock,
@@ -10395,6 +10400,9 @@ $script:TelemetryVendors = @(
 # The closed sets of the event (anything else becomes 'other' / 'unknown')
 $script:TelemetryEventKeys = @('app_id', 'app_version', 'instance_id', 'event_type', 'severity', 'title', 'details', 'tags', 'client_time', 'os', 'runtime')
 $script:TelemetryDetailKeys = @('engine', 'provider', 'model', 'purpose', 'outcome', 'wall_seconds', 'tokens', 'findings', 'structured', 'format_retry', 'denial_retry', 'timeout_continue', 'panel_size', 'ps_version', 'os', 'bridge_version')
+# (R24) the details of a `rating` event (codex-findings.ps1 -Rate) and its marks
+$script:TelemetryRatingDetailKeys = @('engine', 'provider', 'model', 'purpose', 'mark', 'age_days', 'bridge_version', 'os', 'ps_version')
+$script:TelemetryRatingMarks = @('yes', 'partly', 'no')
 $script:TelemetryFailureClasses = @('auth', 'quota', 'capability', 'transport', 'permission', 'operator', 'unknown', 'timeout', 'stalled', 'bridge')
 $script:BridgeVersion = $null
 
@@ -10439,12 +10447,16 @@ function Get-TelemetryPaths {
 # (wave 28c, D3 / F42-3) THE telemetry lock <codex home>/telemetry.lock - taken by every spool append
 # of a producer (Add-TelemetryEvent, a complaint kept), by the salt's creation and by -Forget -Local:
 # an OPEN HANDLE (FileShare.None), so the OS releases it when its holder dies (it is never stale; the
-# empty file stays). While -Forget holds it, the marker <codex home>/telemetry-forgetting says so and
-# is removed LAST; a producer that meets the marker (or a lock that stays busy past its short wait)
-# drops its event - counted - instead of recreating the salt or the spool. A marker left by a -Forget
-# that died keeps dropping events until -Forget -Local runs again (codex-telemetry.ps1 -Status says
-# so). Re-entrant within a process. -IgnoreMarker: -Forget's own entry (it finishes a marker left
-# behind), and the not-spooled count. { Ok; Why; Forgetting }.
+# empty file stays). While -Forget holds it, the marker <codex home>/telemetry-forgetting says so; a
+# producer that meets the marker (or a lock that stays busy past its short wait) drops its event -
+# counted - instead of recreating the salt or the spool. (wave 28d, D2 / F48-2) The marker HEALS
+# itself: it names its owner {pid, start_time, since}; -Forget removes it in `finally`; a marker whose
+# owner lives (Test-PidAlive - an identity that cannot be confirmed counts as living) refuses as
+# before, and one whose owner is gone - or that names none: -Forget writes it under this lock, so no
+# -Forget is writing it while it is held - is REMOVED under the lock (one line in <spool>/.last
+# `notes`, Resolve-TelemetryForgetting) and the holder goes on. Re-entrant within a process.
+# -IgnoreMarker: -Forget's own entry (it replaces a marker left behind), the spool's rewrite and the
+# notes of .last. { Ok; Why; Forgetting }.
 $script:TelemetryLockStream = $null
 $script:TelemetryLockDepth = 0
 function Enter-TelemetryLock {
@@ -10452,9 +10464,8 @@ function Enter-TelemetryLock {
     $r = [pscustomobject]@{ Ok = $false; Why = ''; Forgetting = $false }
     $p = Get-TelemetryPaths
     if (-not $p) { $r.Why = 'no codex home (CODEX_HOME, else ~/.codex)'; return $r }
-    $forgettingWhy = "codex-telemetry.ps1 -Forget -Local is deleting the local telemetry data, or did not finish (the marker $($p.Forgetting); run -Forget -Local again to finish it)"
     if ($script:TelemetryLockStream) {
-        if (-not $IgnoreMarker -and [IO.File]::Exists($p.Forgetting)) { $r.Forgetting = $true; $r.Why = $forgettingWhy; return $r }
+        if (-not $IgnoreMarker) { $why = Resolve-TelemetryForgetting -Paths $p; if ($why) { $r.Forgetting = $true; $r.Why = $why; return $r } }
         $script:TelemetryLockDepth++
         $r.Ok = $true
         return $r
@@ -10463,16 +10474,24 @@ function Enter-TelemetryLock {
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     $fs = $null
     while ($null -eq $fs) {
-        if (-not $IgnoreMarker -and [IO.File]::Exists($p.Forgetting)) { $r.Forgetting = $true; $r.Why = $forgettingWhy; return $r }
+        # a marker whose owner lives refuses at once (that -Forget holds this lock while it deletes)
+        if (-not $IgnoreMarker -and [IO.File]::Exists($p.Forgetting)) {
+            $m = Get-TelemetryForgettingOwner -Path $p.Forgetting
+            if ($m.Alive) { $r.Forgetting = $true; $r.Why = $m.Why; return $r }
+        }
         try { $fs = New-Object System.IO.FileStream($p.TelLock, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None) } catch {
             if ($watch.ElapsedMilliseconds -ge $WaitMs) { $r.Why = "the telemetry lock $($p.TelLock) stayed busy for $([Math]::Round($WaitMs / 1000.0, 1)) s"; return $r }
             Start-Sleep -Milliseconds 25
         }
     }
-    # the marker again, under the lock: a -Forget that finished removed it, one that died left it
-    if (-not $IgnoreMarker -and [IO.File]::Exists($p.Forgetting)) { $fs.Dispose(); $r.Forgetting = $true; $r.Why = $forgettingWhy; return $r }
     $script:TelemetryLockStream = $fs
     $script:TelemetryLockDepth = 1
+    # the marker again, under the lock: a -Forget that finished removed it; (wave 28d, D2) one whose
+    # owner is gone is removed now, one whose owner lives refuses
+    if (-not $IgnoreMarker) {
+        $why = Resolve-TelemetryForgetting -Paths $p
+        if ($why) { Exit-TelemetryLock; $r.Forgetting = $true; $r.Why = $why; return $r }
+    }
     $r.Ok = $true
     return $r
 }
@@ -10485,6 +10504,37 @@ function Exit-TelemetryLock {
     try { $script:TelemetryLockStream.Dispose() } catch { }
     $script:TelemetryLockStream = $null
     $script:TelemetryLockDepth = 0
+}
+
+# (wave 28d, D2 / F48-2) The forgetting marker as it is - read only: { There; Pid; Since; Alive (its
+# owner - pid and start time - lives, or its identity cannot be confirmed: Test-PidAlive, never
+# removed on a guess; a marker that names no owner is not alive); Why (the refusal while it lives) }.
+function Get-TelemetryForgettingOwner {
+    param([string]$Path)
+    $m = [pscustomobject]@{ There = $false; Pid = 0; Since = ''; Alive = $false; Why = '' }
+    if (-not [IO.File]::Exists($Path)) { return $m }
+    $m.There = $true
+    $o = $null
+    try { $t = [string](Read-SharedText -Path $Path); if ($t.Trim().StartsWith('{')) { $o = ConvertFrom-JsonKeepOffset -Text $t } } catch { $o = $null }
+    $n = Get-TelemetryCount (Get-PropertyValue $o 'pid' $null)
+    if ($null -ne $n -and $n -le [int]::MaxValue) { $m.Pid = [int]$n }
+    $m.Since = [string](ConvertTo-JsonText (Get-PropertyValue $o 'since' ''))
+    if ($m.Pid -gt 0) { $m.Alive = [bool](Test-PidAlive -ProcessId $m.Pid -StartTime ([string](ConvertTo-StartIso (Get-PropertyValue $o 'start_time' '')))) }
+    $m.Why = "codex-telemetry.ps1 -Forget -Local is deleting the local telemetry data (pid $($m.Pid)$(if ($m.Since) { ", since $($m.Since)" }); the marker $Path)"
+    return $m
+}
+
+# (wave 28d, D2) UNDER the telemetry lock: a forgetting marker whose owner is gone (or that names none)
+# is removed - one line in <spool>/.last `notes` - and '' is returned (the holder goes on); a marker
+# whose owner lives returns the refusal. '' without a marker.
+function Resolve-TelemetryForgetting {
+    param($Paths)
+    $m = Get-TelemetryForgettingOwner -Path $Paths.Forgetting
+    if (-not $m.There) { return '' }
+    if ($m.Alive) { return $m.Why }
+    try { [IO.File]::Delete($Paths.Forgetting) } catch { return "the forgetting marker $($Paths.Forgetting) of a -Forget -Local that is gone could not be removed ($(ConvertTo-OneLine $_.Exception.Message))" }
+    Add-TelemetryLastNote -Text "removed the forgetting marker of $(if ($m.Pid -gt 0) { "pid $($m.Pid) (gone)" } else { 'no named owner' })$(if ($m.Since) { " since $($m.Since)" }) - a -Forget -Local that did not finish; run it again to finish the local deletion"
+    return ''
 }
 
 # The intake's base URL: CODEX_CONSULT_TELEMETRY_URL (an operator setting), else
@@ -10670,7 +10720,8 @@ function Get-TelemetryVendor {
 
 # (wave 28b, D1; wave 28c, D1 / F42-1, F43-2) The model the event may carry: the list entry of $Vendor
 # that the name EQUALS after lower-casing (the table's own text - never the operator's), else 'other';
-# '' -> 'unknown'.
+# '' -> 'unknown'. (wave 28d, D6 / F50-1) BOTH sides are lower-cased: a table entry with an upper-case
+# letter matches too.
 function Get-TelemetryModelToken {
     param($Vendor, [string]$Model)
     $m = ([string]$Model).Trim().ToLowerInvariant()
@@ -10678,15 +10729,15 @@ function Get-TelemetryModelToken {
     if (-not $Vendor) { return 'other' }
     # (wave 29) anthropic: the 1M-context suffix [1m] is not part of the name
     if ([string]$Vendor.Class -ceq 'anthropic') { $m = $m -replace '\[1m\]$', '' }
-    foreach ($known in @($Vendor.Models)) { if ([string]$known -ceq $m) { return [string]$known } }
+    foreach ($known in @($Vendor.Models)) { if (([string]$known).ToLowerInvariant() -ceq $m) { return [string]$known } }
     return 'other'
 }
 
-# The event's `details` from a ledger entry - THE allowlist: every value is built here from a closed
-# set, a number, a boolean or (wave 28b, D1) the vendor table (Get-TelemetryVendor,
-# Get-TelemetryModelToken: the provider is a vendor class, the model (wave 28c) an entry of that
-# vendor's closed list; the roster label is never read). Nothing else of the entry is read.
-function ConvertTo-TelemetryDetails {
+# (R24) The reviewer of a ledger entry as an event may carry it - ONE code path for the consultation
+# and the rating event: { engine (codex | agy | muse | other); provider (the vendor class of
+# Get-TelemetryVendor, else other); model (Get-TelemetryModelToken: an entry of that vendor's closed
+# list, other, or unknown without a model) }. The roster label is never read.
+function Get-TelemetryReviewerClass {
     param($Entry)
     $rev = Get-PropertyValue $Entry 'reviewer' $null
     $engine = [string](Get-PropertyValue $rev 'engine' 'codex')
@@ -10696,9 +10747,31 @@ function ConvertTo-TelemetryDetails {
     $provider = $(if ($vendor) { [string]$vendor.Class } else { 'other' })
     $modelRaw = [string](Get-PropertyValue $rev 'model' '')
     if (-not $modelRaw) { $modelRaw = [string](Get-PropertyValue $Entry 'model' '') }
-    $model = Get-TelemetryModelToken -Vendor $vendor -Model $modelRaw
+    return [pscustomobject]@{ engine = $engine; provider = $provider; model = (Get-TelemetryModelToken -Vendor $vendor -Model $modelRaw) }
+}
+
+# (R24) The purpose of a ledger entry as an event carries it: one of $script:ConsultPurposes, `none`
+# without one, else `other`.
+function Get-TelemetryPurpose {
+    param($Entry)
     $purpose = [string](Get-PropertyValue $Entry 'purpose' '')
-    if (-not $purpose) { $purpose = 'none' } elseif ($script:ConsultPurposes -cnotcontains $purpose) { $purpose = 'other' }
+    if (-not $purpose) { return 'none' }
+    if ($script:ConsultPurposes -cnotcontains $purpose) { return 'other' }
+    return $purpose
+}
+
+# The event's `details` from a ledger entry - THE allowlist: every value is built here from a closed
+# set, a number, a boolean or (wave 28b, D1) the vendor table (Get-TelemetryVendor,
+# Get-TelemetryModelToken: the provider is a vendor class, the model (wave 28c) an entry of that
+# vendor's closed list; the roster label is never read - R24: Get-TelemetryReviewerClass). Nothing
+# else of the entry is read.
+function ConvertTo-TelemetryDetails {
+    param($Entry)
+    $rc = Get-TelemetryReviewerClass $Entry
+    $engine = $rc.engine
+    $provider = $rc.provider
+    $model = $rc.model
+    $purpose = Get-TelemetryPurpose $Entry
     $usage = Get-PropertyValue $Entry 'usage' $null
     $fc = Get-PropertyValue $Entry 'findings' $null
     $fcount = { param($k) $n = Get-TelemetryCount (Get-PropertyValue $fc $k $null); if ($null -eq $n) { [long]0 } else { $n } }
@@ -10751,6 +10824,70 @@ function New-TelemetryEvent {
         details     = $d
         tags        = [object[]]@($d.provider, $d.model)
         client_time = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant)
+        os          = (Get-TelemetryOs)
+        runtime     = (Get-TelemetryRuntime)
+    }
+}
+
+# (R24) The whole days between the consultation's time - $ConsultWhen when it parses (a mark's
+# consult_when, -BackfillRatings), else the ledger entry's `when` - and $RatedAt (now, or a mark's
+# `when`): the elapsed time floored, never below 0 - 0 the same day, and 0 when no time parses.
+function Get-TelemetryAgeDays {
+    param($Entry, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow, $ConsultWhen = $null)
+    $wo = $null
+    if ($null -ne $ConsultWhen -and [string]$ConsultWhen) { $wo = ConvertTo-WhenOffset $ConsultWhen }
+    if ($null -eq $wo) { $wo = ConvertTo-WhenOffset (Get-PropertyValue $Entry 'when' $null) }
+    if ($null -eq $wo) { return [long]0 }
+    $days = [Math]::Floor(($RatedAt.UtcDateTime - $wo.UtcDateTime).TotalDays)
+    if ($days -lt 0) { return [long]0 }
+    return [long]$days
+}
+
+# (R24) The `details` of a RATING event (codex-findings.ps1 -Rate) - its own allowlist,
+# $script:TelemetryRatingDetailKeys in that order: the reviewer and the purpose through the
+# consultation event's code path (Get-TelemetryReviewerClass, Get-TelemetryPurpose - the vendor
+# class and the closed-list model, never the roster label), the mark (yes | partly | no; anything
+# else other), the consultation's age in whole days (Get-TelemetryAgeDays), the plugin version, the
+# OS and the PowerShell version. Nothing else of the entry or the mark is read: never the note, the
+# topics, the task, the consultation's id, n or lineage.
+function ConvertTo-TelemetryRatingDetails {
+    param($Entry, [string]$Mark, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow, $ConsultWhen = $null)
+    $rc = Get-TelemetryReviewerClass $Entry
+    $m = ([string]$Mark).Trim().ToLowerInvariant()
+    if ($script:TelemetryRatingMarks -cnotcontains $m) { $m = 'other' }
+    return [pscustomobject]@{
+        engine         = $rc.engine
+        provider       = $rc.provider
+        model          = $rc.model
+        purpose        = (Get-TelemetryPurpose $Entry)
+        mark           = $m
+        age_days       = (Get-TelemetryAgeDays -Entry $Entry -RatedAt $RatedAt -ConsultWhen $ConsultWhen)
+        bridge_version = (Get-BridgeVersion)
+        os             = (Get-TelemetryOs)
+        ps_version     = (Get-TelemetryToken -Value ([string]$PSVersionTable.PSVersion) -Pattern '^[0-9][0-9A-Za-z.+-]{0,31}$')
+    }
+}
+
+# (R24) The event of one rating (the judge's mark of a consultation, codex-findings.ps1 -Rate): the
+# top level exactly as a consultation event's ($script:TelemetryEventKeys order), event_type rating,
+# severity info, the mark as its title, tags [provider, model]. -RatedAt (a DateTimeOffset; null:
+# now) is when the mark was given - client_time and the age are taken from it; -ConsultWhen the
+# consultation's time as the mark recorded it (Get-TelemetryAgeDays) - both for
+# codex-telemetry.ps1 -BackfillRatings, which sends marks given earlier.
+function New-TelemetryRatingEvent {
+    param($Entry, [string]$Mark, [string]$InstanceId, $RatedAt = $null, $ConsultWhen = $null)
+    $at = $(if ($null -ne $RatedAt) { [DateTimeOffset]$RatedAt } else { [DateTimeOffset]::UtcNow })
+    $d = ConvertTo-TelemetryRatingDetails -Entry $Entry -Mark $Mark -RatedAt $at -ConsultWhen $ConsultWhen
+    return [pscustomobject]@{
+        app_id      = $script:TelemetryAppId
+        app_version = (Get-BridgeVersion)
+        instance_id = $InstanceId
+        event_type  = 'rating'
+        severity    = 'info'
+        title       = $d.mark
+        details     = $d
+        tags        = [object[]]@($d.provider, $d.model)
+        client_time = $at.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant)
         os          = (Get-TelemetryOs)
         runtime     = (Get-TelemetryRuntime)
     }
@@ -10984,32 +11121,40 @@ function Start-TelemetrySender {
 }
 
 # (wave 28b, D6) An event that could not be spooled: one line {time, why} in <codex home>/
-# telemetry-not-spooled.ndjson (retried up to 1 s; best effort) - codex-telemetry.ps1 -Status counts
-# them, every flush starts the count again. (wave 28c, D3) Under the telemetry lock (at most 1 s; the
-# marker does not refuse it): a count written while -Forget deletes lands after it, never in between.
+# telemetry-not-spooled.ndjson - codex-telemetry.ps1 -Status counts them. (wave 28d, D4 / F49-2) The
+# file is APPEND-ONLY and written WITHOUT the telemetry lock (a busy lock or a -Forget in flight never
+# loses a count; concurrent appends are serialized by the file's own sharing, retried up to 5 s; best
+# effort); no flush empties it - each flush records in .last `not_spooled_seen` how many lines it saw.
 function Add-TelemetryNotSpooled {
     param([string]$Why)
     $p = Get-TelemetryPaths
     if (-not $p) { return }
     $line = (ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ time = (Get-IsoTimestamp); why = (ConvertTo-OneLine $Why) })) + "`n"
-    $lk = Enter-TelemetryLock -WaitMs 1000 -IgnoreMarker
-    if (-not $lk.Ok) { return }
-    try {
-        for ($i = 0; $i -lt 20; $i++) {
-            try { [void][IO.Directory]::CreateDirectory($p.Home); [IO.File]::AppendAllText($p.NotSpooled, $line, $script:Utf8NoBom); return } catch { Start-Sleep -Milliseconds 50 }
-        }
-    } finally { Exit-TelemetryLock }
+    for ($i = 0; $i -lt 100; $i++) {
+        try { [void][IO.Directory]::CreateDirectory($p.Home); [IO.File]::AppendAllText($p.NotSpooled, $line, $script:Utf8NoBom); return } catch { Start-Sleep -Milliseconds 50 }
+    }
 }
 
-# The events not spooled since the last flush: { Count; Last (the latest why, '' when none); When }.
+# The events not spooled since the last flush - (wave 28d, D4) the lines of the append-only file after
+# the first `not_spooled_seen` of <spool>/.last (the count that flush saw when it took its lock; every
+# line when no flush recorded one). Complete lines only (an append in progress has no line end yet).
+# { Count; Last (the latest why, '' when none); When; Total (every line of the file) }. -All: every line
+# counts (the flush's own count).
 function Get-TelemetryNotSpooled {
-    $r = [pscustomobject]@{ Count = 0; Last = ''; When = '' }
+    param([switch]$All)
+    $r = [pscustomobject]@{ Count = 0; Last = ''; When = ''; Total = 0 }
     $p = Get-TelemetryPaths
     if (-not $p -or -not [IO.File]::Exists($p.NotSpooled)) { return $r }
+    $seen = [long]0
+    if (-not $All) { $sv = Get-TelemetryCount (Get-PropertyValue (Read-TelemetryLast) 'not_spooled_seen' $null); if ($null -ne $sv) { $seen = [long]$sv } }
     try {
-        foreach ($l in @((Read-SharedText -Path $p.NotSpooled) -split "`n" | Where-Object { $_.Trim() })) {
+        $text = [string](Read-SharedText -Path $p.NotSpooled)
+        $end = $text.LastIndexOf("`n")
+        $lines = @(if ($end -ge 0) { $text.Substring(0, $end) -split "`n" | Where-Object { $_.Trim() } })
+        $r.Total = $lines.Count
+        for ($i = [int][Math]::Min($seen, [long]$lines.Count); $i -lt $lines.Count; $i++) {
             $r.Count++
-            try { $o = ConvertFrom-Json -InputObject $l; $r.Last = [string](Get-PropertyValue $o 'why' ''); $r.When = [string](ConvertTo-JsonText (Get-PropertyValue $o 'time' '')) } catch { }
+            try { $o = ConvertFrom-Json -InputObject $lines[$i]; $r.Last = [string](Get-PropertyValue $o 'why' ''); $r.When = [string](ConvertTo-JsonText (Get-PropertyValue $o 'time' '')) } catch { }
         }
     } catch { }
     return $r
@@ -11023,9 +11168,12 @@ function Get-TelemetryNotSpooled {
 # 5 s and -Count - only then is the event counted as not spooled (Add-TelemetryNotSpooled) and the
 # run warns (the console, a detached run's status record). An event met by the forgetting marker is
 # dropped at once (no retry; the caller counts it after the write lock). { Why ('' when spooled or
-# telemetry off); Forgetting }. Never throws.
+# telemetry off); Forgetting }. Never throws. (R24) -RatingMark yes|partly|no: the event is the
+# RATING event of $Entry (New-TelemetryRatingEvent - codex-findings.ps1 -Rate at the mark's commit,
+# codex-telemetry.ps1 -BackfillRatings with the mark's -RatedAt and -ConsultWhen), else the
+# consultation event.
 function Add-TelemetryEvent {
-    param($Entry, $Switch, [int]$WaitMs = 1000, [switch]$Count)
+    param($Entry, $Switch, [int]$WaitMs = 1000, [switch]$Count, [string]$RatingMark = '', $RatedAt = $null, $ConsultWhen = $null)
     $r = [pscustomobject]@{ Why = ''; Forgetting = $false }
     if (-not $Switch -or -not $Switch.On) { return $r }
     $held = $false
@@ -11038,7 +11186,7 @@ function Add-TelemetryEvent {
             $id = Get-TelemetryInstanceId -Create
             if (-not $id) { $r.Why = 'no instance id (the salt could not be created)' }
             else {
-                $ev = New-TelemetryEvent -Entry $Entry -InstanceId $id
+                $ev = $(if ($RatingMark) { New-TelemetryRatingEvent -Entry $Entry -Mark $RatingMark -InstanceId $id -RatedAt $RatedAt -ConsultWhen $ConsultWhen } else { New-TelemetryEvent -Entry $Entry -InstanceId $id })
                 $r.Why = Add-TelemetrySpoolLine -Kind 'event' -BodyJson (ConvertTo-Json -Compress -Depth 6 -InputObject $ev) -WaitMs ([int][Math]::Max(50, $WaitMs - $watch.ElapsedMilliseconds))
             }
         }
@@ -11217,33 +11365,67 @@ function Invoke-TelemetrySend {
     return $r
 }
 
-# Removes $Lines (a multiset of exact lines) from a spool file under its exclusive handle - lines
-# appended meanwhile stay; an emptied file is deleted. The open waits at most $WaitMs (wave 28c, D5:
-# what is left of the flush's deadline). '' when done, else why not.
+# Removes $Lines (a multiset of exact lines) from a spool file - lines appended before stay; an
+# emptied file is deleted. (wave 28d, D1 / F48-1, F49-3) The rewrite is ATOMIC: under the telemetry
+# lock (Enter-TelemetryLock -IgnoreMarker - no producer appends meanwhile) the file is read under its
+# exclusive handle, the kept lines go to <spool file>.tmp in the same directory (a .tmp a crash left
+# behind is replaced), are flushed to disk, and the temporary file REPLACES the spool file in one step
+# ([IO.File]::Move with overwrite; MoveFileEx(REPLACE_EXISTING | WRITE_THROUGH) on Windows PowerShell
+# 5.1, as Write-TextAtomic) - nothing truncates the spool in place: a crash leaves the old file or the
+# new one, never a truncated one. A replace that keeps failing leaves the spool as it was (its
+# delivered lines are sent again later - at least once). $WaitMs (wave 28c, D5: what is left of the
+# flush's deadline) bounds the waits for the lock and the file BEFORE the rewrite starts; nothing
+# inside the rewrite is cut by the deadline. TEST HOOK (test mode only):
+# CODEX_CONSULT_TEST_TELEMETRY_REWRITE_CRASH=1 - the process exits (code 86) between the temporary
+# file and the replace, as a crash would. '' when done, else why not.
 function Remove-TelemetrySpoolLines {
     param([string]$Path, [string[]]$Lines, [int]$WaitMs = 2000)
     if (@($Lines).Count -eq 0) { return '' }
-    $fs = Open-TelemetrySpoolFile -Path $Path -WaitMs $WaitMs
-    if (-not $fs) { return "the spool file '$Path' stayed busy" }
-    $empty = $false
+    $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    $lk = Enter-TelemetryLock -WaitMs $WaitMs -IgnoreMarker
+    if (-not $lk.Ok) { return "the spool file '$Path' was not rewritten ($($lk.Why))" }
     try {
-        $remove = New-Object 'System.Collections.Generic.Dictionary[string,int]'
-        foreach ($l in $Lines) { if ($remove.ContainsKey($l)) { $remove[$l]++ } else { $remove[$l] = 1 } }
+        $fs = Open-TelemetrySpoolFile -Path $Path -WaitMs ([int][Math]::Max(50, $WaitMs - $watch.ElapsedMilliseconds))
+        if (-not $fs) { return "the spool file '$Path' stayed busy" }
         $keep = New-Object System.Collections.Generic.List[string]
-        foreach ($l in (Read-TelemetryStreamLines $fs)) {
-            if ($remove.ContainsKey($l) -and $remove[$l] -gt 0) { $remove[$l]--; continue }
-            $keep.Add($l)
+        try {
+            $remove = New-Object 'System.Collections.Generic.Dictionary[string,int]'
+            foreach ($l in $Lines) { if ($remove.ContainsKey($l)) { $remove[$l]++ } else { $remove[$l] = 1 } }
+            foreach ($l in (Read-TelemetryStreamLines $fs)) {
+                if ($remove.ContainsKey($l) -and $remove[$l] -gt 0) { $remove[$l]--; continue }
+                $keep.Add($l)
+            }
+        } finally { $fs.Dispose() }
+        $tmp = "$Path.tmp"
+        if ($keep.Count -eq 0) {
+            [IO.File]::Delete($Path)
+            try { if ([IO.File]::Exists($tmp)) { [IO.File]::Delete($tmp) } } catch { }
+            return ''
         }
-        $fs.SetLength(0)
-        $fs.Position = 0
-        if ($keep.Count -gt 0) {
-            $bytes = $script:Utf8NoBom.GetBytes(($keep.ToArray() -join "`n") + "`n")
-            $fs.Write($bytes, 0, $bytes.Length)
-        } else { $empty = $true }
-        $fs.Flush()
-    } finally { $fs.Dispose() }
-    if ($empty) { try { [IO.File]::Delete($Path) } catch { } }
-    return ''
+        $bytes = $script:Utf8NoBom.GetBytes(($keep.ToArray() -join "`n") + "`n")
+        $ts = New-Object System.IO.FileStream($tmp, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+        try { $ts.Write($bytes, 0, $bytes.Length); $ts.Flush($true) } finally { $ts.Dispose() }
+        if ((Get-TestHookValue 'CODEX_CONSULT_TEST_TELEMETRY_REWRITE_CRASH').Trim() -eq '1') { [Environment]::Exit(86) }
+        $lastError = $null
+        for ($attempt = 1; $attempt -le 8; $attempt++) {
+            try {
+                if (-not $script:LegacyPS) {
+                    [IO.File]::Move($tmp, $Path, $true)
+                } elseif (Test-NativeMove) {
+                    if (-not [CodexConsultNative]::MoveFileEx($tmp, $Path, 0x9)) { throw (New-Object System.ComponentModel.Win32Exception([Runtime.InteropServices.Marshal]::GetLastWin32Error())) }
+                } else {
+                    [IO.File]::Replace($tmp, $Path, [System.Management.Automation.Language.NullString]::Value)
+                }
+                return ''
+            } catch {
+                # a reader holding the spool file open without FileShare.Delete: gone a moment later
+                $lastError = $_.Exception
+                Start-Sleep -Milliseconds 250
+            }
+        }
+        try { [IO.File]::Delete($tmp) } catch { }
+        return "the spool file '$Path' could not be replaced ($(ConvertTo-OneLine $lastError.Message)); it is kept as it was"
+    } catch { return (ConvertTo-OneLine $_.Exception.Message) } finally { Exit-TelemetryLock }
 }
 
 # The spool as it is: { Files; Events; Complaints; Invalid; Oldest (unix s or $null) } - read-only.
@@ -11264,61 +11446,96 @@ function Get-TelemetrySpoolCounts {
 }
 
 # (wave 28b, D2 / F36-2) The sender's lock <spool>/.flush.lock: a MARKER file {pid, start_time,
-# token, since}. Taken when it can be created (CreateNew). An existing one is refused while somebody
-# holds it open; otherwise it is TAKEN OVER - rewritten under an exclusive handle, so two senders
-# never both take it - (wave 28c, D4 / F42-7, F43-5, F44-2) ONLY when its owner process (pid and start
-# time) is gone: a lock with a living owner is left alone however old it is and reported ("sender busy
-# since <t>"); an owner whose identity cannot be confirmed counts as living (Test-PidAlive). A lock
-# that names no owner and is not held open (its writer died between creating and writing it) has no
-# owner left: it is taken over. Released (deleted) in `finally` by its owner only (the token); every sender checks its
-# token again right before each spool rewrite and each send (Test-TelemetryFlushLockMine).
-# { Ok; Token; TookOver ('' or why the old lock was taken over); Why (why refused) }.
+# token, since}. (wave 28d, D3 / F48-3, F49-4) BORN WITH ITS OWNER: the record is written to a
+# temporary file <lock>.<guid>.tmp (flushed to disk) that is MOVED into place without overwriting - a
+# healthy sender never leaves a lock without its owner record, and two senders never both create one.
+# An existing lock is refused while somebody holds it open. (wave 28c, D4 / F42-7, F43-5, F44-2) A
+# lock whose owner process (pid and start time) lives is NEVER taken over, however old - an owner
+# whose identity cannot be confirmed counts as living (Test-PidAlive); it is reported ("sender busy
+# since <t>"), and (D3) once it is older than 30 minutes as "sender stuck since <t> (pid <n>)" (Stuck,
+# which the flush writes into <spool>/.last `notes`; -Status says it too) with what the operator can
+# do. A lock that names no owner or cannot be read counts as HELD while it is younger than 30 s; after
+# that - and a lock whose owner is gone at once - it is REMOVED under an exclusive handle (nobody
+# rewrites it meanwhile) and the sender starts over (TookOver says why). Released (deleted) in
+# `finally` by its owner only (the token); every sender checks its token again right before each spool
+# rewrite and each send (Test-TelemetryFlushLockMine).
+# { Ok; Token; TookOver ('' or why the old lock was removed); Why (why refused); Stuck ('' or
+# "sender stuck since <t> (pid <n>)") }.
+$script:TelemetryOwnerlessLockSec = 30
+$script:TelemetryStuckLockSec = 1800
 function Enter-TelemetryFlushLock {
     param([string]$Path)
-    $r = [pscustomobject]@{ Ok = $false; Token = ([guid]::NewGuid().ToString('N')); TookOver = ''; Why = '' }
+    $r = [pscustomobject]@{ Ok = $false; Token = ([guid]::NewGuid().ToString('N')); TookOver = ''; Why = ''; Stuck = '' }
     $content = ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ pid = $PID; start_time = [string](Get-ProcessStartIso -ProcessId $PID); token = $r.Token; since = (Get-IsoTimestamp) })
     $bytes = $script:Utf8NoBom.GetBytes($content + "`n")
-    try {
-        $fs = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
-        try { $fs.Write($bytes, 0, $bytes.Length); $fs.Flush() } finally { $fs.Dispose() }
-        $r.Ok = $true
-        return $r
-    } catch { }
-    $fs = $null
-    try { $fs = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None) } catch {
-        $r.Why = 'another flush is running (its lock is held)'
-        return $r
-    }
-    try {
-        $age = ([DateTime]::UtcNow - [IO.File]::GetLastWriteTimeUtc($Path)).TotalSeconds
-        $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $false, 4096, $true)
-        try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
-        $owner = $null
-        try { if ($text.Trim().StartsWith('{')) { $owner = ConvertFrom-Json -InputObject $text } } catch { $owner = $null }
-        $opid = [int](Get-TelemetryCount (Get-PropertyValue $owner 'pid' $null))
-        $ostart = [string](ConvertTo-StartIso (Get-PropertyValue $owner 'start_time' ''))
-        $since = [string](ConvertTo-JsonText (Get-PropertyValue $owner 'since' ''))
-        if (-not $since) { $since = [IO.File]::GetLastWriteTimeUtc($Path).ToLocalTime().ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant) }
-        $stale = ''
-        # a lock that names no owner and that nobody holds open has no living sender behind it: every
-        # sender writes its identity inside the handle that creates the lock (a sender whose write
-        # failed takes the lock again through this path itself)
-        if ($opid -le 0) { $stale = 'it names no owner' }
-        elseif (-not (Test-PidAlive -ProcessId $opid -StartTime $ostart)) { $stale = "its owner pid $opid is gone" }
-        if (-not $stale) {
-            $r.Why = "another flush is running: sender busy since $since (pid $opid holds its lock, $([int]$age) s old$(if ($age -ge $script:TelemetryLockStaleSec) { ' - its owner lives: left alone' }))"
+    for ($round = 0; $round -lt 3; $round++) {
+        # (wave 28d, D3) the record first, in a temporary file; then moved into place only when no lock is there
+        $tmp = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
+        try {
+            $ts = New-Object System.IO.FileStream($tmp, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+            try { $ts.Write($bytes, 0, $bytes.Length); $ts.Flush($true) } finally { $ts.Dispose() }
+            $moved = $false
+            try { [IO.File]::Move($tmp, $Path); $moved = $true } catch { }
+            if ($moved) { $r.Ok = $true; return $r }
+        } catch {
+            $r.Why = "the lock could not be written ($(ConvertTo-OneLine $_.Exception.Message))"
+            return $r
+        } finally { try { if ([IO.File]::Exists($tmp)) { [IO.File]::Delete($tmp) } } catch { } }
+        # a lock is there: read under an exclusive handle that still lets it be deleted
+        $fs = $null
+        try { $fs = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Delete) } catch {
+            if (-not [IO.File]::Exists($Path)) { continue }
+            $r.Why = 'another flush is running (its lock is held)'
             return $r
         }
-        $fs.SetLength(0)
-        $fs.Position = 0
-        $fs.Write($bytes, 0, $bytes.Length)
-        $fs.Flush()
-        $r.Ok = $true
-        $r.TookOver = $stale
-    } catch {
-        $r.Why = "the lock could not be taken ($(ConvertTo-OneLine $_.Exception.Message))"
-    } finally { $fs.Dispose() }
+        $removed = ''
+        try {
+            $age = ([DateTime]::UtcNow - [IO.File]::GetLastWriteTimeUtc($Path)).TotalSeconds
+            $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $false, 4096, $true)
+            try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
+            $own = Get-TelemetryFlushLockOwner -Text $text
+            $since = $own.Since
+            if (-not $since) { $since = [IO.File]::GetLastWriteTimeUtc($Path).ToLocalTime().ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant) }
+            if ($own.Owner -eq 'alive') {
+                if ($age -ge $script:TelemetryStuckLockSec) {
+                    $r.Stuck = "sender stuck since $since (pid $($own.Pid))"
+                    $r.Why = "another flush is running: $($r.Stuck) - its lock is $([int]($age / 60)) min old and its owner lives: it is never taken over; stop pid $($own.Pid) if it hangs, or delete $Path when no such process runs"
+                } else {
+                    $r.Why = "another flush is running: sender busy since $since (pid $($own.Pid) holds its lock, $([int]$age) s old$(if ($age -ge $script:TelemetryLockStaleSec) { ' - its owner lives: left alone' }))"
+                }
+                return $r
+            }
+            if ($own.Owner -eq 'none' -and $age -lt $script:TelemetryOwnerlessLockSec) {
+                $r.Why = "another flush is running (its lock names no owner yet - held while younger than $($script:TelemetryOwnerlessLockSec) s: $([int]$age) s old)"
+                return $r
+            }
+            $removed = $(if ($own.Owner -eq 'gone') { "its owner pid $($own.Pid) is gone" } else { "it named no owner for $([int]$age) s" })
+            # removed under this handle (FileShare.Delete only: nobody writes it meanwhile); then the
+            # sender starts over
+            [IO.File]::Delete($Path)
+        } catch {
+            $r.Why = "the lock could not be taken ($(ConvertTo-OneLine $_.Exception.Message))"
+            return $r
+        } finally { $fs.Dispose() }
+        $r.TookOver = $removed
+    }
+    $r.Why = 'another flush is running (its lock came back each time it was removed)'
     return $r
+}
+
+# (wave 28d, D3) A flush lock's owner as its text says: { Pid; Since; Owner - 'alive' (its pid and
+# start time live, or its identity cannot be confirmed: Test-PidAlive), 'gone', 'none' (the lock names
+# no owner or cannot be read) }. Read only.
+function Get-TelemetryFlushLockOwner {
+    param([string]$Text)
+    $o = [pscustomobject]@{ Pid = 0; Since = ''; Owner = 'none' }
+    $rec = $null
+    try { if (([string]$Text).Trim().StartsWith('{')) { $rec = ConvertFrom-JsonKeepOffset -Text $Text } } catch { $rec = $null }
+    $n = Get-TelemetryCount (Get-PropertyValue $rec 'pid' $null)
+    if ($null -ne $n -and $n -le [int]::MaxValue) { $o.Pid = [int]$n }
+    $o.Since = [string](ConvertTo-JsonText (Get-PropertyValue $rec 'since' ''))
+    if ($o.Pid -gt 0) { $o.Owner = $(if (Test-PidAlive -ProcessId $o.Pid -StartTime ([string](ConvertTo-StartIso (Get-PropertyValue $rec 'start_time' '')))) { 'alive' } else { 'gone' }) }
+    return $o
 }
 
 # (wave 28c, D4) Whether the sender's lock still carries $Token: read without taking it (shared); a
@@ -11386,8 +11603,11 @@ function Get-TelemetryHookMs {
 # 1.5 s are left (1 s kept back for the rewrite that follows it); the rewrite of lines already
 # delivered is always attempted, with a wait of at most what is left (at least 0.1 s) - skipping it
 # would send them again. (D4) The sender checks its token in the lock before each send and each
-# rewrite: a sender that lost its lock stops without rewriting.
-# Writes <spool>/.last {time, result, delivered, kept, dropped, rejected, http}. { Exit (0 done or
+# rewrite: a sender that lost its lock stops without rewriting. (wave 28d, D1) Every rewrite is atomic
+# (Remove-TelemetrySpoolLines); (D2) a forgetting marker whose owner lives stops the flush, one whose
+# owner is gone is removed.
+# Writes <spool>/.last {time, result, delivered, kept, dropped, rejected, http, (wave 28d) not_spooled_seen,
+# notes}. { Exit (0 done or
 # nothing to send, 1 something not delivered or the URL refused, 2 another sender holds the lock);
 # Result; Delivered; Kept; Dropped; Rejected (string[]); Http; TookOver }.
 $script:TelemetryRewriteReserveMs = 1000
@@ -11401,18 +11621,30 @@ function Invoke-TelemetryFlush {
     if (-not $p) { $res.Exit = 1; $res.Result = 'no codex home (CODEX_HOME, else ~/.codex)'; return $res }
     if (-not [IO.Directory]::Exists($p.Spool)) { $res.Result = 'nothing to send (no spool)'; return $res }
     $lock = Enter-TelemetryFlushLock -Path $p.Lock
-    if (-not $lock.Ok) { $res.Exit = 2; $res.Result = $lock.Why; return $res }
+    if (-not $lock.Ok) {
+        # (wave 28d, D3) a sender stuck for 30 minutes: one line in .last for the operator
+        if ($lock.Stuck) { Add-TelemetryLastNote -Text $lock.Stuck }
+        $res.Exit = 2; $res.Result = $lock.Why; return $res
+    }
     $res.TookOver = $lock.TookOver
     $deadlineText = "the flush's deadline ($([Math]::Round($FlushMs / 1000.0, 1)) s) was reached"
     $lostText = 'this sender lost its lock (another sender holds it now) - it stopped without rewriting the spool'
     $leftMs = { [long]$FlushMs - $watch.ElapsedMilliseconds }
     $lost = $false
     try {
-        # (D6) the count of events not spooled starts again with every flush
-        try { if ([IO.File]::Exists($p.NotSpooled)) { [IO.File]::Delete($p.NotSpooled) } } catch { }
+        # (D6; wave 28d, D4) the count of events not spooled starts again with every flush: the lines
+        # the append-only file holds now are recorded (.last not_spooled_seen) - nothing is deleted
+        $nsSeen = [int](Get-TelemetryNotSpooled -All).Total
         $url = Get-TelemetryUrl
         $stop = ''
         if ($url.Error) { $stop = $url.Error }
+        # (wave 28d, D2 / F48-2) the forgetting marker: one whose owner is gone is removed (under the
+        # telemetry lock; a line in .last); one whose owner lives stops this flush - nothing is sent
+        # while -Forget deletes
+        if (-not $stop -and [IO.File]::Exists($p.Forgetting)) {
+            $fg = Enter-TelemetryLock -WaitMs ([int][Math]::Max(100, [Math]::Min(1000, (& $leftMs))))
+            if ($fg.Ok) { Exit-TelemetryLock } elseif ($fg.Forgetting) { $stop = $fg.Why }
+        }
         $cutoff = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - ($script:TelemetrySpoolDays * 86400)
         $rounds = 0
         $queuedText = { param($s) try { [DateTimeOffset]::FromUnixTimeSeconds([long]$s.Queued).ToLocalTime().ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant) } catch { [string]$s.Queued } }
@@ -11520,7 +11752,14 @@ function Invoke-TelemetryFlush {
             $res.Result = "delivered $($res.Delivered), kept $keptText, dropped $($res.Dropped)$(if ($res.Dropped -gt $res.Rejected.Count) { " (older than $($script:TelemetrySpoolDays) days or unreadable$(if ($res.Rejected.Count -gt 0) { ', or refused' }))" } elseif ($res.Rejected.Count -gt 0) { ' (refused by the intake)' })"
         }
         if ($res.TookOver) { $res.Result += " (a stale sender lock was taken over: $($res.TookOver))" }
-        try { Write-JsonFile -Path $p.Last -Object ([pscustomobject]@{ time = (Get-IsoTimestamp); result = $res.Result; delivered = $res.Delivered; kept = $res.Kept; dropped = $res.Dropped; rejected = [object[]]$res.Rejected.ToArray(); http = $res.Http }) } catch { }
+        # (wave 28d, D2, D3, D4) .last keeps its notes (a stuck sender's line goes: this sender holds
+        # the lock now) and records the not-spooled lines seen; written under the telemetry lock, so a
+        # note added meanwhile is not lost
+        $lkLast = Enter-TelemetryLock -WaitMs 1000 -IgnoreMarker
+        try {
+            $notes = @(@(Get-PropertyValue (Read-TelemetryLast) 'notes' @()) | Where-Object { $_ -and ([string]$_) -notmatch '^\S+ sender stuck since ' } | ForEach-Object { [string]$_ } | Select-Object -Last $script:TelemetryLastNotesMax)
+            Write-JsonFile -Path $p.Last -Object ([pscustomobject]@{ time = (Get-IsoTimestamp); result = $res.Result; delivered = $res.Delivered; kept = $res.Kept; dropped = $res.Dropped; rejected = [object[]]$res.Rejected.ToArray(); http = $res.Http; not_spooled_seen = $nsSeen; notes = [object[]]$notes })
+        } catch { } finally { if ($lkLast.Ok) { Exit-TelemetryLock } }
     } finally { Exit-TelemetryFlushLock -Path $p.Lock -Token $lock.Token }
     return $res
 }
@@ -11531,6 +11770,33 @@ function Read-TelemetryLast {
     $p = Get-TelemetryPaths
     if (-not $p -or -not [IO.File]::Exists($p.Last)) { return $null }
     try { return (ConvertFrom-JsonKeepOffset -Text (Read-SharedText -Path $p.Last)) } catch { return $null }
+}
+
+# (wave 28d, D2, D3) One line "<time> <text>" in <spool>/.last `notes`: what the telemetry client did or
+# saw on its own - a forgetting marker whose owner was gone removed, a sender stuck. A text already
+# there is not added again; the last 10 lines are kept; the flush's own fields stay (a flush carries
+# the notes on). Under the telemetry lock (-IgnoreMarker, at most 1 s; re-entrant); best effort,
+# never throws.
+$script:TelemetryLastNotesMax = 10
+function Add-TelemetryLastNote {
+    param([string]$Text)
+    try {
+        $p = Get-TelemetryPaths
+        if (-not $p -or -not $Text) { return }
+        $lk = Enter-TelemetryLock -WaitMs 1000 -IgnoreMarker
+        if (-not $lk.Ok) { return }
+        try {
+            [void][IO.Directory]::CreateDirectory($p.Spool)
+            $last = Read-TelemetryLast
+            $o = [ordered]@{}
+            if ($last) { foreach ($pr in $last.PSObject.Properties) { $o[$pr.Name] = $pr.Value } }
+            $notes = New-Object System.Collections.Generic.List[string]
+            foreach ($n in @(Get-PropertyValue $last 'notes' @())) { if ($n) { $notes.Add([string]$n) } }
+            if (@($notes | Where-Object { $_.EndsWith(' ' + $Text, [StringComparison]::Ordinal) }).Count -eq 0) { $notes.Add("$(Get-IsoTimestamp) $Text") }
+            $o['notes'] = [object[]]@($notes | Select-Object -Last $script:TelemetryLastNotesMax)
+            Write-JsonFile -Path $p.Last -Object ([pscustomobject]$o)
+        } finally { Exit-TelemetryLock }
+    } catch { }
 }
 
 # -Complain (codex-consult.ps1 -Task <t> -Complain, codex-telemetry.ps1 -Complain): the payload
@@ -11619,9 +11885,11 @@ function Invoke-TelemetryComplaint {
 #     -Forget -PublicRef <ref> BEFORE -Local - the instance id dies with the salt), then asks
 #     `remove locally? [y/N]` unless -Yes.
 #   * The local deletion is atomic against producers (D3): under the telemetry lock, with the marker
-#     <codex home>/telemetry-forgetting written first and removed LAST, and under the sender's lock
-#     (refused while a sender holds it). A deletion that fails halfway keeps the marker: producers
-#     drop their events until -Forget -Local runs again.
+#     <codex home>/telemetry-forgetting {pid, start_time, since} written first and removed LAST, and
+#     under the sender's lock (refused while a sender holds it). (wave 28d, D2 / F48-2) The marker is
+#     removed in `finally` - a deletion that fails halfway says so (run -Forget -Local again to finish
+#     it) and blocks nothing; a -Forget that is killed leaves a marker whose owner is gone, which the
+#     next producer or sender removes (Resolve-TelemetryForgetting).
 # Exit 0 done, 1 refused or not confirmed, 3 the intake did not confirm the deletion (nothing deleted).
 function Invoke-TelemetryForget {
     param([string]$PublicRef = '', [switch]$Local, [switch]$Yes, [int]$TotalMs = 10000)
@@ -11662,20 +11930,17 @@ function Invoke-TelemetryForget {
     if (-not $lk.Ok) { Write-Host "codex-telemetry: nothing was $(if ($ref) { 'sent or ' })removed - $($lk.Why); try again." -ForegroundColor Red; return 1 }
     $flush = $null
     $removed = New-Object System.Collections.Generic.List[string]
+    # (wave 28d, D2) set once the marker is (being) written: `finally` removes it again
+    $markerOwned = $false
     try {
-        $markerWasThere = [IO.File]::Exists($p.Forgetting)
         try {
+            $markerOwned = $true
             Write-Utf8NoBom -Path $p.Forgetting -Text ((ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ pid = $PID; start_time = [string](Get-ProcessStartIso -ProcessId $PID); since = (Get-IsoTimestamp) })) + "`n")
 
         } catch { Write-Host "codex-telemetry: nothing was $(if ($ref) { 'sent or ' })removed - the marker $($p.Forgetting) could not be written ($(ConvertTo-OneLine $_.Exception.Message))." -ForegroundColor Red; return 1 }
-        $undo = {
-            # nothing deleted: the marker goes again (unless a -Forget that died had left it)
-            if (-not $markerWasThere) { try { [IO.File]::Delete($p.Forgetting) } catch { } }
-        }
         if ([IO.Directory]::Exists($p.Spool)) {
             $flush = Enter-TelemetryFlushLock -Path $p.Lock
             if (-not $flush.Ok) {
-                & $undo
                 Write-Host "codex-telemetry: nothing was $(if ($ref) { 'sent or ' })removed - $($flush.Why); try again when it is done." -ForegroundColor Red
                 $flush = $null
                 return 1
@@ -11686,7 +11951,6 @@ function Invoke-TelemetryForget {
             Write-Host "codex-telemetry: DELETE $target"
             $r = Invoke-TelemetryRequest -Url $target -Method 'DELETE' -TotalMs $TotalMs
             if (-not $r.Delivered) {
-                & $undo
                 Write-Host "codex-telemetry: the intake did not confirm the deletion ($($r.Why)); NOTHING was deleted - not there and not here: the salt (instance $id), the spool and the counters are kept, so the same command can be repeated (with the right -PublicRef)." -ForegroundColor Yellow
                 return 3
             }
@@ -11704,10 +11968,169 @@ function Invoke-TelemetryForget {
         Write-Host "codex-telemetry: removed locally - $(if ($removed.Count -gt 0) { $removed -join ', ' } else { 'nothing (there was no spool and no salt)' }); the next event makes a new instance id."
         return 0
     } catch {
-        Write-Host "codex-telemetry: the local deletion did not finish ($(ConvertTo-OneLine $_.Exception.Message))$(if ($removed.Count -gt 0) { "; removed so far: $($removed -join ', ')" }); the marker $($p.Forgetting) stays - events are dropped until codex-telemetry.ps1 -Forget -Local runs again." -ForegroundColor Red
+        Write-Host "codex-telemetry: the local deletion did not finish ($(ConvertTo-OneLine $_.Exception.Message))$(if ($removed.Count -gt 0) { "; removed so far: $($removed -join ', ')" }); run codex-telemetry.ps1 -Forget -Local again to finish it." -ForegroundColor Red
         return 1
     } finally {
+        # (wave 28d, D2) the marker never outlives this -Forget
+        if ($markerOwned) { try { if ([IO.File]::Exists($p.Forgetting)) { [IO.File]::Delete($p.Forgetting) } } catch { } }
         if ($flush) { Exit-TelemetryFlushLock -Path $p.Lock -Token $flush.Token }
         Exit-TelemetryLock
     }
+}
+
+# ----------------------------------------------------------------------------- the rating backfill (R24)
+#
+# A mark of findings.json `ratings` whose event went into the spool carries `telemetry_sent` (unix
+# seconds, UTC): codex-findings.ps1 -Rate sets it when it spools the mark's event,
+# codex-telemetry.ps1 -BackfillRatings when it spools a mark given before. A mark that has it is
+# never sent again; a re-rating replaces the mark (and sends its own event).
+
+# The ledger entry a mark rates - as -Rate recorded it: the entry whose consult_id equals the mark's
+# (case-insensitive), or - a mark without one (recorded before wave 26) - the entry whose n equals
+# the mark's n. $null when none (never a guess).
+function Find-RatingLedgerEntry {
+    param($Consults, $Mark)
+    $cid = [string](Get-PropertyValue $Mark 'consult_id' '')
+    $mn = 0
+    $hasN = [int]::TryParse([string](Get-PropertyValue $Mark 'n' ''), [ref]$mn)
+    $found = $null
+    foreach ($c in @($Consults | Where-Object { $null -ne $_ })) {
+        if ($cid) {
+            if ([string](Get-PropertyValue $c 'consult_id' '') -ieq $cid) { $found = $c }
+        } elseif ($hasN) {
+            $v = 0
+            if ([int]::TryParse([string](Get-PropertyValue $c 'n' ''), [ref]$v) -and $v -eq $mn) { $found = $c }
+        }
+    }
+    return $found
+}
+
+# Do two marks name the same rating: the same consultation (consult_id when both have one, else n)
+# and the same `when` (the instant)?
+function Test-RatingMarkSame {
+    param($A, $B)
+    $ia = [string](Get-PropertyValue $A 'consult_id' '')
+    $ib = [string](Get-PropertyValue $B 'consult_id' '')
+    $same = $(if ($ia -and $ib) { $ia -ieq $ib } else { [string](Get-PropertyValue $A 'n' '') -eq [string](Get-PropertyValue $B 'n' '') })
+    if (-not $same) { return $false }
+    $wa = ConvertTo-WhenOffset (Get-PropertyValue $A 'when' $null)
+    $wb = ConvertTo-WhenOffset (Get-PropertyValue $B 'when' $null)
+    if ($null -eq $wa -or $null -eq $wb) { return ([string](Get-PropertyValue $A 'when' '') -ceq [string](Get-PropertyValue $B 'when' '')) }
+    return ($wa.UtcTicks -eq $wb.UtcTicks)
+}
+
+# Writes `telemetry_sent` = $Sent into the mark of <task>/findings.json that is $Mark (the same
+# consultation and `when`, Test-RatingMarkSame) and has none yet - through the task's store commit
+# (the write lock, findings.json re-read under it). '' when written, else why not. For -Rate's
+# event spooled only by the retry after the locks.
+function Set-RatingTelemetrySent {
+    param([string]$TaskDir, [string]$Task, $Mark, [long]$Sent)
+    $commit = $null
+    try {
+        $commit = Enter-StoreCommit -TaskDir $TaskDir -Task $Task -TimeoutSec (Get-WriteLockTimeout) -NoSessions
+        if (-not $commit.Acquired) { return $commit.Message }
+        foreach ($m in @(Get-PropertyValue $commit.Findings 'ratings' @())) {
+            if ($null -eq $m -or $null -ne (Get-PropertyValue $m 'telemetry_sent' $null)) { continue }
+            if (Test-RatingMarkSame $m $Mark) {
+                $m | Add-Member -NotePropertyName 'telemetry_sent' -NotePropertyValue $Sent -Force
+                $null = Complete-StoreCommit -Commit $commit -Findings
+                return ''
+            }
+        }
+        return 'the mark is no longer in findings.json (rated again meanwhile)'
+    } catch { return (ConvertTo-OneLine $_.Exception.Message) } finally { $null = Exit-StoreCommit -Commit $commit }
+}
+
+# codex-telemetry.ps1 -BackfillRatings [-DryRun]: every mark of every task of $CollabRoot
+# (<task>/findings.json `ratings`) without `telemetry_sent` gets its rating event spooled ONCE -
+# the ledger entry looked up as -Rate recorded it (Find-RatingLedgerEntry; none: the mark is
+# SKIPPED and counted, never a guessed reviewer; a mark that is not yes | partly | no or whose
+# `when` does not parse is skipped too), the event built by New-TelemetryRatingEvent with the mark's
+# `when` as -RatedAt (client_time) and its consult_when (age_days), spooled with up to 5 s, and
+# `telemetry_sent` written into the mark - per task under the task's store commit (the write lock,
+# findings.json re-read under it, written once at the end). A spool failure stops that task's
+# remaining marks (they stay unsent: the next run sends them). -DryRun reads without a lock, prints
+# per event the vendor class, the model, the mark and the age (never a text) and writes nothing.
+# Telemetry off: refused, nothing read or written. One line per task that has marks, then the total;
+# unless -DryRun the detached sender starts when something was spooled. Exit 0 done, 1 refused or
+# something not spooled.
+function Invoke-TelemetryBackfillRatings {
+    param([string]$CollabRoot, $Switch, [switch]$DryRun)
+    if (-not $Switch -or -not $Switch.On) {
+        Write-Host "codex-telemetry: telemetry is off ($($Switch.Source)): -BackfillRatings sends nothing and writes nothing - switch it on (CODEX_CONSULT_TELEMETRY unset or on, or -Telemetry on) to backfill." -ForegroundColor Red
+        return 1
+    }
+    if (-not $DryRun -and -not (Get-TelemetryPaths)) {
+        Write-Host 'codex-telemetry: no codex home (CODEX_HOME, else ~/.codex): nothing can be spooled.' -ForegroundColor Red
+        return 1
+    }
+    $verb = $(if ($DryRun) { 'would send' } else { 'sent' })
+    $tot = [pscustomobject]@{ Sent = 0; Already = 0; Skipped = 0; Failed = 0; Tasks = 0 }
+    $taskDirs = @()
+    if ([IO.Directory]::Exists($CollabRoot)) {
+        $taskDirs = @(Get-ChildItem -LiteralPath $CollabRoot -Directory -Force | Where-Object { $_.Name -match '^[A-Za-z0-9][A-Za-z0-9._-]*$' -and [IO.File]::Exists((Join-Path $_.FullName 'findings.json')) } | Sort-Object Name)
+    }
+    foreach ($td in $taskDirs) {
+        $task = $td.Name
+        # a first look without a lock: a task without marks is not listed, one whose marks are all
+        # sent takes no lock
+        $peek = Read-JsonStore -Path (Join-Path $td.FullName 'findings.json')
+        $marks = @(@(Get-PropertyValue $peek 'ratings' @()) | Where-Object { $null -ne $_ })
+        if ($marks.Count -eq 0) { continue }
+        $tot.Tasks++
+        $sent = 0; $already = 0; $skipped = 0; $failed = 0; $why = ''
+        $commit = $null
+        $store = $peek
+        $sessions = $null
+        if ($DryRun -or @($marks | Where-Object { $null -eq (Get-PropertyValue $_ 'telemetry_sent' $null) }).Count -eq 0) {
+            $sessions = Read-JsonStore -Path (Join-Path $td.FullName 'sessions.json')
+        } else {
+            $commit = Enter-StoreCommit -TaskDir $td.FullName -Task $task -TimeoutSec (Get-WriteLockTimeout)
+            if (-not $commit.Acquired) {
+                Write-Host "codex-telemetry: ${task}: not processed - $($commit.Message)" -ForegroundColor Yellow
+                $tot.Failed++
+                continue
+            }
+            $store = $commit.Findings
+            $sessions = $commit.Sessions
+        }
+        try {
+            $consults = @(Get-PropertyValue (Get-PropertyValue $sessions 'codex' $null) 'consults' @())
+            $changed = $false
+            foreach ($m in @(Get-PropertyValue $store 'ratings' @())) {
+                if ($null -eq $m) { continue }
+                if ($null -ne (Get-PropertyValue $m 'telemetry_sent' $null)) { $already++; continue }
+                $useful = ([string](Get-PropertyValue $m 'useful' '')).Trim().ToLowerInvariant()
+                $ratedAt = ConvertTo-WhenOffset (Get-PropertyValue $m 'when' $null)
+                $entry = Find-RatingLedgerEntry -Consults $consults -Mark $m
+                if ($null -eq $entry -or $script:TelemetryRatingMarks -cnotcontains $useful -or $null -eq $ratedAt) { $skipped++; continue }
+                $cw = Get-PropertyValue $m 'consult_when' $null
+                if ($DryRun) {
+                    $d = ConvertTo-TelemetryRatingDetails -Entry $entry -Mark $useful -RatedAt $ratedAt -ConsultWhen $cw
+                    Write-Host "codex-telemetry: would send: $($d.provider) / $($d.model) ($($d.engine)), purpose $($d.purpose), mark $($d.mark), age_days $($d.age_days), client_time $($ratedAt.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant))"
+                    $sent++
+                    continue
+                }
+                if ($why) { $failed++; continue }
+                $r = Add-TelemetryEvent -Entry $entry -Switch $Switch -WaitMs $script:TelemetrySpoolWaitMs -RatingMark $useful -RatedAt $ratedAt -ConsultWhen $cw
+                if ($r.Why) { $why = $r.Why; $failed++; continue }
+                $m | Add-Member -NotePropertyName 'telemetry_sent' -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -Force
+                $changed = $true
+                $sent++
+            }
+            if ($changed) { $null = Complete-StoreCommit -Commit $commit -Findings }
+        } finally { $null = Exit-StoreCommit -Commit $commit }
+        $tot.Sent += $sent; $tot.Already += $already; $tot.Skipped += $skipped; $tot.Failed += $failed
+        $line = "codex-telemetry: ${task}: $verb $sent, already $already, skipped $skipped$(if ($failed -gt 0) { "; not spooled $failed ($why) - they stay unsent" })"
+        if ($failed -gt 0) { Write-Host $line -ForegroundColor Yellow } else { Write-Host $line }
+    }
+    Write-Host "codex-telemetry: total: $verb $($tot.Sent), already $($tot.Already), skipped $($tot.Skipped)$(if ($tot.Failed -gt 0) { ", not spooled or not processed $($tot.Failed)" }) in $($tot.Tasks) task(s) with marks under $CollabRoot$(if ($tot.Skipped -gt 0) { ' (skipped: no ledger entry for the mark, or a mark that is not yes|partly|no or has no time)' })"
+    if ($DryRun) {
+        Write-Host 'codex-telemetry: dry run - nothing was spooled or written.'
+    } elseif ($tot.Sent -gt 0) {
+        $sw = Start-TelemetrySender
+        if ($sw) { Write-Host "codex-telemetry: the sender did not start ($sw) - the next consultation's sender, or codex-telemetry.ps1 -Flush, delivers the spool." -ForegroundColor Yellow }
+        else { Write-Host 'codex-telemetry: the sender started (detached) - codex-telemetry.ps1 -Status shows the result.' }
+    }
+    return $(if ($tot.Failed -gt 0) { 1 } else { 0 })
 }
