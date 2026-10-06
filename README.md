@@ -1518,7 +1518,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.p
 - **`-Rate <n>`** records the judge's usefulness mark for consultation `n` (a ledger entry
   number, not a finding id) in the top-level `ratings` array of `findings.json`:
   `{n, consult_id, lineage, provider, model, engine, purpose, topics, consult_when, useful,
-  note, when}`, copied from that ledger entry so the row survives pruning. (0.5.0, wave 26) The
+  note, when}` (R24: and `telemetry_sent`, unix seconds, once its telemetry event was spooled),
+  copied from that ledger entry so the row survives pruning. (0.5.0, wave 26) The
   mark is keyed by the consultation's `consult_id` (`n` is only unique within a task - kept for
   display): rating the same consultation again replaces its record, and everything a routed
   panel needs is on the record itself - the reviewer, the purpose, the `topics` and the
@@ -1529,7 +1530,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.p
   on, every `-Rate` (a re-rating too) also spools ONE anonymised `rating` event once the mark is
   committed - the vendor class, the closed-list model, the purpose, the mark and the
   consultation's age in days, never the note or the topics ("Telemetry (on by default)");
-  `-Telemetry on|off` decides for one rating, and `-Telemetry` without `-Rate` is refused.
+  `-Telemetry on|off` decides for one rating, and `-Telemetry` without `-Rate` is refused. Marks
+  given before that: `codex-telemetry.ps1 -BackfillRatings` sends each once.
 - **Locking:** a status change and `-Rate` take the task lock and are refused while a
   consultation of the task runs, and - both judging every recovery record of the task - while
   an interrupted one's bridge or codex process may still run (a panel member whose panel run
@@ -2821,12 +2823,16 @@ A roster entry `AcmeCorp-Legal` on `https://llm.acmecorp-internal.example/v1` wi
 SPOOL check exactly that, on a synthetic entry and a real run).
 
 - **The rating event** (R24, 2026-10-06). When the judge rates a consultation -
-  `codex-findings.ps1 -Task <task> -Rate <n> -Useful yes|partly|no` - and the mark is committed,
-  the bridge spools ONE more event of `event_type` `rating` for that ledger entry (every rating, a
-  re-rating too; the switch as above, `-Telemetry on|off` on `codex-findings.ps1` for one rating),
-  after both task locks are released, with up to 5 s for the spool (a failure prints
-  `codex-findings: warning: telemetry rating event not spooled (<why>)`, is counted for `-Status` and
-  never changes the rating's exit code), then starts the same detached sender. The top level is a
+  `codex-findings.ps1 -Task <task> -Rate <n> -Useful yes|partly|no` - the bridge spools ONE more
+  event of `event_type` `rating` for that ledger entry (every rating, a re-rating too; the switch as
+  above, `-Telemetry on|off` on `codex-findings.ps1` for one rating) at the mark's commit, inside the
+  write lock with at most 1 s, as a consultation's event; spooled, the mark in `findings.json`
+  carries `telemetry_sent` (unix seconds). A spool that stays busy is retried for up to 5 s after
+  both task locks are released (spooled then, a second store commit writes `telemetry_sent`); a
+  failure then prints `codex-findings: warning: telemetry rating event not spooled (<why>) - at the
+  commit (<why>) and for 5 s after it; codex-telemetry.ps1 -BackfillRatings sends it later`, is
+  counted for `-Status` and never changes the rating's exit code. Then the same detached sender
+  starts. The top level is a
   consultation event's (`app_id` ... `runtime`, `tags` `[provider, model]`) with `severity` `info`
   and `title` the mark; `details` are exactly `engine`, `provider`, `model`, `purpose`, `mark`
   (`yes`, `partly`, `no`), `age_days` (the whole days from the consultation's `when` to the rating,
@@ -2836,11 +2842,35 @@ SPOOL check exactly that, on a synthetic entry and a real run).
   consultation's `n`, `consult_id` or lineage, the roster label. Example `details`:
   `{"engine":"codex","provider":"zai","model":"glm-5.3","purpose":"acceptance","mark":"partly","age_days":0,"bridge_version":"0.5.0","os":"windows 10.0.26200","ps_version":"7.6.6"}`.
   The intake aggregates consultations and ratings per vendor class and model.
+- **Backfilling earlier marks** (R24, 2026-10-06). Marks given before the rating event existed have
+  no `telemetry_sent`; one command in the repository sends each of them ONCE:
+
+  ```powershell
+  powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-telemetry.ps1" -BackfillRatings -DryRun   # what would be sent
+  powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-telemetry.ps1" -BackfillRatings          # send
+  ```
+
+  `-BackfillRatings` walks every `<collab>/<task>/findings.json` of the current repository
+  (`-CollabDir`, default `.collab`), and for every mark without `telemetry_sent` looks the
+  consultation up in that task's `sessions.json` as `-Rate` recorded it (`consult_id`, else `n`
+  for a mark older than wave 26). A mark whose entry is not there is SKIPPED and counted - a
+  reviewer is never guessed - and so is a mark that is not `yes`/`partly`/`no` or has no `when`.
+  Every other mark goes out as the same `rating` event `-Rate` sends, with `client_time` = the
+  mark's own `when` (when the rating happened; the intake keeps its own receipt time) and
+  `age_days` from the mark's `consult_when`, and `telemetry_sent` (unix seconds) is written into
+  the mark under the task's store commit - so a second run sends nothing (`already`), and nor do
+  marks `-Rate` spooled itself. It prints `codex-telemetry: <task>: sent N, already M, skipped K`
+  per task with marks, then `codex-telemetry: total: ...`, and starts the detached sender when it
+  spooled something. `-DryRun` prints one `would send: <vendor class> / <model> (<engine>),
+  purpose .., mark .., age_days .., client_time ..` line per event - never a note or a topic -
+  and writes nothing (no spool, no salt, no marker). Telemetry off (`CODEX_CONSULT_TELEMETRY=off`
+  or `-Telemetry off`): refused with exit `1`, nothing written. Exit `1` also when a spool append
+  failed (those marks stay unsent; run it again).
 
 **Never sent:** task names, briefs, prompts, replies, paths, thread ids, consultation ids,
 finding texts or ids, messages, warnings, keys, provider labels as typed, user names, the machine
 name in clear, a rating's note or topics. A unit test walks every key AND value of real events and
-of an event built from a hostile entry (`tests/harness-telemetry.ps1` UNIT, SPOOL, RATE).
+of an event built from a hostile entry (`tests/harness-telemetry.ps1` UNIT, SPOOL, RATE, BACKFILL).
 
 **How it travels.** Never in a consultation's critical path. (Wave 28b, D6) At the ledger commit
 (a failed run's too; each panel member its own), inside the task's write lock and right before the
@@ -3335,7 +3365,10 @@ as wave 28c, and `harness-telemetry` 92 (cases changed, none added: a forgetting
 flush lock held while young, the held lock released by deleting it, `.last`'s two new keys), `harness-fixes28d` 40 (new,
 wave 28d). (2026-10-06, R24 - the bridge's half: `harness-telemetry` 103 (+11: RATE, the `rating` event of
 `codex-findings.ps1 -Rate`, and its README check) alone on Windows PowerShell 5.1, its UNIT, RATE and DOCS sections
-also on PowerShell 7.6.6; `harness-roster` and `harness-companions`, which rate with telemetry off, unchanged.)
+also on PowerShell 7.6.6; `harness-roster` and `harness-companions`, which rate with telemetry off, unchanged. Then
+the backfill: `harness-telemetry` 112 (+9: BACKFILL - `codex-telemetry.ps1 -BackfillRatings`, the mark's
+`telemetry_sent` - and its README check) on Windows PowerShell 5.1, UNIT, RATE, BACKFILL and DOCS also on PowerShell
+7.6.6; `harness-roster` 119, `harness-companions` 42, `harness-panel` 54 unchanged.)
 Many cases wait on real timeouts and time a fake
 reviewer: on a loaded machine (another heavy application or build, a disk that runs full) the
 timing cases of `harness-panel` (RUN, GUARD), `harness-detach` (PANEL) and `harness-visibility`

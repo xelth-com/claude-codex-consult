@@ -37,10 +37,12 @@
     is the time of the mark). Rating the same consultation again replaces its record (the
     latest mark wins). It takes the task lock like a status change.
     (R24) Telemetry on (CODEX_CONSULT_TELEMETRY, or -Telemetry on|off for this rating; README
-    "Telemetry (on by default)"): once the mark is committed and both task locks are released, ONE
-    anonymised `rating` event goes to <codex home>/telemetry-spool (Add-TelemetryEvent -RatingMark,
-    up to 5 s) and the detached sender starts (Start-TelemetrySender) - every rating, a re-rating
-    too. Its details are engine, provider (the VENDOR CLASS), model (the closed list), purpose,
+    "Telemetry (on by default)"): ONE anonymised `rating` event goes to <codex home>/telemetry-spool
+    (Add-TelemetryEvent -RatingMark) at the mark's commit, inside the write lock with at most 1 s -
+    spooled, the mark carries `telemetry_sent` (unix seconds; codex-telemetry.ps1 -BackfillRatings
+    never sends it again); a failure is retried for up to 5 s after both locks are released (then
+    the field is written by a second store commit) - and the detached sender starts
+    (Start-TelemetrySender) - every rating, a re-rating too. Its details are engine, provider (the VENDOR CLASS), model (the closed list), purpose,
     mark, age_days, bridge_version, os, ps_version - through the consultation event's code path
     (Get-TelemetryReviewerClass); never the note, the topics, the task, the consultation's id, n or
     lineage, nor the roster label. Telemetry never fails the rating: an event that is not spooled
@@ -405,6 +407,7 @@ if ($rating) {
     if (-not $lock.Acquired) { Stop-WithError $lock.Message }
     $commit = $null
     $ratedEntry = $null
+    $telemetryFirst = $null
     try {
         # Like -Status (D5, F11-4): refused while any recovery record of the task is active -
         # an interrupted consultation's bridge or codex process, or a panel member (whose panel
@@ -461,6 +464,14 @@ if ($rating) {
             note         = $Note.Trim()
             when         = (Get-IsoTimestamp)
         }
+        # (R24) telemetry on: the rating event goes into the spool NOW, inside the write lock, waiting
+        # at most 1 s (as a consultation's event at its commit); spooled, the mark carries
+        # telemetry_sent (unix seconds) - codex-telemetry.ps1 -BackfillRatings never sends it again.
+        # A failure is retried for up to 5 s after both locks are released (below).
+        if ($telemetrySwitch.On) {
+            try { $telemetryFirst = Add-TelemetryEvent -Entry $entry -Switch $telemetrySwitch -WaitMs 1000 -RatingMark $Useful } catch { $telemetryFirst = [pscustomobject]@{ Why = (ConvertTo-OneLine $_.Exception.Message); Forgetting = $false } }
+            if (-not $telemetryFirst.Why) { $mark | Add-Member -NotePropertyName 'telemetry_sent' -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) }
+        }
         # (created on the first mark; a findings.json that exists but does not parse is refused)
         $store = $commit.Findings
         $kept = New-Object System.Collections.Generic.List[object]
@@ -490,18 +501,31 @@ if ($rating) {
         Exit-StoreCommit -Commit $commit
         Exit-TaskLock -Lock $lock
     }
-    # (R24) telemetry on: the mark is committed and both task locks are released - ONE anonymised
+    # (R24) telemetry on: the mark is committed and both task locks are released. ONE anonymised
     # rating event of the rated ledger entry (New-TelemetryRatingEvent: the consultation event's
-    # vendor class and closed-list model, the purpose, the mark, the age in days) goes into the spool
-    # with up to 5 s, then the detached sender starts (not waited for). An event not spooled is warned
-    # about and counted (codex-telemetry.ps1 -Status); a sender that does not start is left to the
-    # next run's. Never fails the rating: the exit code stays 0.
-    if ($ratedEntry -and $telemetrySwitch.On) {
+    # vendor class and closed-list model, the purpose, the mark, the age in days) went into the spool
+    # at the commit; one that did not is retried now with up to 5 s - spooled, telemetry_sent is
+    # written into the mark (Set-RatingTelemetrySent, the store commit again); not spooled, it is
+    # warned about and counted (codex-telemetry.ps1 -Status) and -BackfillRatings sends it later; met
+    # by a running -Forget, it is dropped and counted. Then the detached sender starts (not waited
+    # for). Never fails the rating: the exit code stays 0.
+    if ($ratedEntry -and $telemetrySwitch.On -and $telemetryFirst) {
         try {
-            $telemetryRating = Add-TelemetryEvent -Entry $ratedEntry -Switch $telemetrySwitch -WaitMs $script:TelemetrySpoolWaitMs -Count -RatingMark $Useful
-            if ($telemetryRating.Why) {
-                Write-Host "codex-findings: warning: telemetry rating event not spooled ($($telemetryRating.Why))$(if ($telemetryRating.Forgetting) { ' - dropped' })" -ForegroundColor Yellow
-            } else {
+            $spooled = -not $telemetryFirst.Why
+            if (-not $spooled -and $telemetryFirst.Forgetting) {
+                try { Add-TelemetryNotSpooled -Why $telemetryFirst.Why } catch { }
+                Write-Host "codex-findings: warning: telemetry rating event not spooled ($($telemetryFirst.Why)) - dropped" -ForegroundColor Yellow
+            } elseif (-not $spooled) {
+                $telemetryRetry = Add-TelemetryEvent -Entry $ratedEntry -Switch $telemetrySwitch -WaitMs $script:TelemetrySpoolWaitMs -Count -RatingMark $Useful
+                if ($telemetryRetry.Why) {
+                    Write-Host "codex-findings: warning: telemetry rating event not spooled ($($telemetryRetry.Why)) - at the commit ($($telemetryFirst.Why)) and for $([Math]::Round($script:TelemetrySpoolWaitMs / 1000.0, 1)) s after it; codex-telemetry.ps1 -BackfillRatings sends it later" -ForegroundColor Yellow
+                } else {
+                    $spooled = $true
+                    $markWhy = Set-RatingTelemetrySent -TaskDir $taskDir -Task $Task -Mark $mark -Sent ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
+                    if ($markWhy) { Write-Host "codex-findings: warning: the rating event was spooled, but telemetry_sent could not be written into the mark ($markWhy) - codex-telemetry.ps1 -BackfillRatings would send it once more" -ForegroundColor Yellow }
+                }
+            }
+            if ($spooled) {
                 $senderWhy = Start-TelemetrySender
                 if ($senderWhy) { Write-Verbose "telemetry: the sender did not start ($senderWhy)" }
             }

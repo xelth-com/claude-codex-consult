@@ -98,7 +98,9 @@
                          rating event), New-TelemetryEvent, (R24) ConvertTo-TelemetryRatingDetails /
                          New-TelemetryRatingEvent (codex-findings.ps1 -Rate), Add-TelemetrySpoolLine,
                          Add-TelemetryEvent (the bridge's call AT a commit; -RatingMark: the rating
-                         event), Start-TelemetrySender (the allow-listed
+                         event), (R24) the rating backfill - Find-RatingLedgerEntry,
+                         Set-RatingTelemetrySent, Invoke-TelemetryBackfillRatings (codex-telemetry.ps1
+                         -BackfillRatings; a mark's telemetry_sent), Start-TelemetrySender (the allow-listed
                          environment: Get-TelemetrySenderEnvironment, Start-NoInheritProcess),
                          Show-TelemetryNotice, Invoke-TelemetryRequest / Invoke-TelemetrySend (the
                          8 s bound, the 429 rule), Enter-/Exit-TelemetryFlushLock,
@@ -9770,12 +9772,14 @@ function New-TelemetryEvent {
     }
 }
 
-# (R24) The whole days between a ledger entry's `when` (the consultation's time) and $RatedAt (now):
-# the elapsed time floored, never below 0 - 0 the same day, and 0 when the entry has no time that
-# parses.
+# (R24) The whole days between the consultation's time - $ConsultWhen when it parses (a mark's
+# consult_when, -BackfillRatings), else the ledger entry's `when` - and $RatedAt (now, or a mark's
+# `when`): the elapsed time floored, never below 0 - 0 the same day, and 0 when no time parses.
 function Get-TelemetryAgeDays {
-    param($Entry, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow)
-    $wo = ConvertTo-WhenOffset (Get-PropertyValue $Entry 'when' $null)
+    param($Entry, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow, $ConsultWhen = $null)
+    $wo = $null
+    if ($null -ne $ConsultWhen -and [string]$ConsultWhen) { $wo = ConvertTo-WhenOffset $ConsultWhen }
+    if ($null -eq $wo) { $wo = ConvertTo-WhenOffset (Get-PropertyValue $Entry 'when' $null) }
     if ($null -eq $wo) { return [long]0 }
     $days = [Math]::Floor(($RatedAt.UtcDateTime - $wo.UtcDateTime).TotalDays)
     if ($days -lt 0) { return [long]0 }
@@ -9790,7 +9794,7 @@ function Get-TelemetryAgeDays {
 # OS and the PowerShell version. Nothing else of the entry or the mark is read: never the note, the
 # topics, the task, the consultation's id, n or lineage.
 function ConvertTo-TelemetryRatingDetails {
-    param($Entry, [string]$Mark, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow)
+    param($Entry, [string]$Mark, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow, $ConsultWhen = $null)
     $rc = Get-TelemetryReviewerClass $Entry
     $m = ([string]$Mark).Trim().ToLowerInvariant()
     if ($script:TelemetryRatingMarks -cnotcontains $m) { $m = 'other' }
@@ -9800,7 +9804,7 @@ function ConvertTo-TelemetryRatingDetails {
         model          = $rc.model
         purpose        = (Get-TelemetryPurpose $Entry)
         mark           = $m
-        age_days       = (Get-TelemetryAgeDays -Entry $Entry -RatedAt $RatedAt)
+        age_days       = (Get-TelemetryAgeDays -Entry $Entry -RatedAt $RatedAt -ConsultWhen $ConsultWhen)
         bridge_version = (Get-BridgeVersion)
         os             = (Get-TelemetryOs)
         ps_version     = (Get-TelemetryToken -Value ([string]$PSVersionTable.PSVersion) -Pattern '^[0-9][0-9A-Za-z.+-]{0,31}$')
@@ -9809,10 +9813,14 @@ function ConvertTo-TelemetryRatingDetails {
 
 # (R24) The event of one rating (the judge's mark of a consultation, codex-findings.ps1 -Rate): the
 # top level exactly as a consultation event's ($script:TelemetryEventKeys order), event_type rating,
-# severity info, the mark as its title, tags [provider, model].
+# severity info, the mark as its title, tags [provider, model]. -RatedAt (a DateTimeOffset; null:
+# now) is when the mark was given - client_time and the age are taken from it; -ConsultWhen the
+# consultation's time as the mark recorded it (Get-TelemetryAgeDays) - both for
+# codex-telemetry.ps1 -BackfillRatings, which sends marks given earlier.
 function New-TelemetryRatingEvent {
-    param($Entry, [string]$Mark, [string]$InstanceId)
-    $d = ConvertTo-TelemetryRatingDetails -Entry $Entry -Mark $Mark
+    param($Entry, [string]$Mark, [string]$InstanceId, $RatedAt = $null, $ConsultWhen = $null)
+    $at = $(if ($null -ne $RatedAt) { [DateTimeOffset]$RatedAt } else { [DateTimeOffset]::UtcNow })
+    $d = ConvertTo-TelemetryRatingDetails -Entry $Entry -Mark $Mark -RatedAt $at -ConsultWhen $ConsultWhen
     return [pscustomobject]@{
         app_id      = $script:TelemetryAppId
         app_version = (Get-BridgeVersion)
@@ -9822,7 +9830,7 @@ function New-TelemetryRatingEvent {
         title       = $d.mark
         details     = $d
         tags        = [object[]]@($d.provider, $d.model)
-        client_time = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant)
+        client_time = $at.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant)
         os          = (Get-TelemetryOs)
         runtime     = (Get-TelemetryRuntime)
     }
@@ -10104,10 +10112,11 @@ function Get-TelemetryNotSpooled {
 # run warns (the console, a detached run's status record). An event met by the forgetting marker is
 # dropped at once (no retry; the caller counts it after the write lock). { Why ('' when spooled or
 # telemetry off); Forgetting }. Never throws. (R24) -RatingMark yes|partly|no: the event is the
-# RATING event of $Entry (New-TelemetryRatingEvent - codex-findings.ps1 -Rate, after the mark's
-# commit and both task locks), else the consultation event.
+# RATING event of $Entry (New-TelemetryRatingEvent - codex-findings.ps1 -Rate at the mark's commit,
+# codex-telemetry.ps1 -BackfillRatings with the mark's -RatedAt and -ConsultWhen), else the
+# consultation event.
 function Add-TelemetryEvent {
-    param($Entry, $Switch, [int]$WaitMs = 1000, [switch]$Count, [string]$RatingMark = '')
+    param($Entry, $Switch, [int]$WaitMs = 1000, [switch]$Count, [string]$RatingMark = '', $RatedAt = $null, $ConsultWhen = $null)
     $r = [pscustomobject]@{ Why = ''; Forgetting = $false }
     if (-not $Switch -or -not $Switch.On) { return $r }
     $held = $false
@@ -10120,7 +10129,7 @@ function Add-TelemetryEvent {
             $id = Get-TelemetryInstanceId -Create
             if (-not $id) { $r.Why = 'no instance id (the salt could not be created)' }
             else {
-                $ev = $(if ($RatingMark) { New-TelemetryRatingEvent -Entry $Entry -Mark $RatingMark -InstanceId $id } else { New-TelemetryEvent -Entry $Entry -InstanceId $id })
+                $ev = $(if ($RatingMark) { New-TelemetryRatingEvent -Entry $Entry -Mark $RatingMark -InstanceId $id -RatedAt $RatedAt -ConsultWhen $ConsultWhen } else { New-TelemetryEvent -Entry $Entry -InstanceId $id })
                 $r.Why = Add-TelemetrySpoolLine -Kind 'event' -BodyJson (ConvertTo-Json -Compress -Depth 6 -InputObject $ev) -WaitMs ([int][Math]::Max(50, $WaitMs - $watch.ElapsedMilliseconds))
             }
         }
@@ -10910,4 +10919,161 @@ function Invoke-TelemetryForget {
         if ($flush) { Exit-TelemetryFlushLock -Path $p.Lock -Token $flush.Token }
         Exit-TelemetryLock
     }
+}
+
+# ----------------------------------------------------------------------------- the rating backfill (R24)
+#
+# A mark of findings.json `ratings` whose event went into the spool carries `telemetry_sent` (unix
+# seconds, UTC): codex-findings.ps1 -Rate sets it when it spools the mark's event,
+# codex-telemetry.ps1 -BackfillRatings when it spools a mark given before. A mark that has it is
+# never sent again; a re-rating replaces the mark (and sends its own event).
+
+# The ledger entry a mark rates - as -Rate recorded it: the entry whose consult_id equals the mark's
+# (case-insensitive), or - a mark without one (recorded before wave 26) - the entry whose n equals
+# the mark's n. $null when none (never a guess).
+function Find-RatingLedgerEntry {
+    param($Consults, $Mark)
+    $cid = [string](Get-PropertyValue $Mark 'consult_id' '')
+    $mn = 0
+    $hasN = [int]::TryParse([string](Get-PropertyValue $Mark 'n' ''), [ref]$mn)
+    $found = $null
+    foreach ($c in @($Consults | Where-Object { $null -ne $_ })) {
+        if ($cid) {
+            if ([string](Get-PropertyValue $c 'consult_id' '') -ieq $cid) { $found = $c }
+        } elseif ($hasN) {
+            $v = 0
+            if ([int]::TryParse([string](Get-PropertyValue $c 'n' ''), [ref]$v) -and $v -eq $mn) { $found = $c }
+        }
+    }
+    return $found
+}
+
+# Do two marks name the same rating: the same consultation (consult_id when both have one, else n)
+# and the same `when` (the instant)?
+function Test-RatingMarkSame {
+    param($A, $B)
+    $ia = [string](Get-PropertyValue $A 'consult_id' '')
+    $ib = [string](Get-PropertyValue $B 'consult_id' '')
+    $same = $(if ($ia -and $ib) { $ia -ieq $ib } else { [string](Get-PropertyValue $A 'n' '') -eq [string](Get-PropertyValue $B 'n' '') })
+    if (-not $same) { return $false }
+    $wa = ConvertTo-WhenOffset (Get-PropertyValue $A 'when' $null)
+    $wb = ConvertTo-WhenOffset (Get-PropertyValue $B 'when' $null)
+    if ($null -eq $wa -or $null -eq $wb) { return ([string](Get-PropertyValue $A 'when' '') -ceq [string](Get-PropertyValue $B 'when' '')) }
+    return ($wa.UtcTicks -eq $wb.UtcTicks)
+}
+
+# Writes `telemetry_sent` = $Sent into the mark of <task>/findings.json that is $Mark (the same
+# consultation and `when`, Test-RatingMarkSame) and has none yet - through the task's store commit
+# (the write lock, findings.json re-read under it). '' when written, else why not. For -Rate's
+# event spooled only by the retry after the locks.
+function Set-RatingTelemetrySent {
+    param([string]$TaskDir, [string]$Task, $Mark, [long]$Sent)
+    $commit = $null
+    try {
+        $commit = Enter-StoreCommit -TaskDir $TaskDir -Task $Task -TimeoutSec (Get-WriteLockTimeout) -NoSessions
+        if (-not $commit.Acquired) { return $commit.Message }
+        foreach ($m in @(Get-PropertyValue $commit.Findings 'ratings' @())) {
+            if ($null -eq $m -or $null -ne (Get-PropertyValue $m 'telemetry_sent' $null)) { continue }
+            if (Test-RatingMarkSame $m $Mark) {
+                $m | Add-Member -NotePropertyName 'telemetry_sent' -NotePropertyValue $Sent -Force
+                $null = Complete-StoreCommit -Commit $commit -Findings
+                return ''
+            }
+        }
+        return 'the mark is no longer in findings.json (rated again meanwhile)'
+    } catch { return (ConvertTo-OneLine $_.Exception.Message) } finally { $null = Exit-StoreCommit -Commit $commit }
+}
+
+# codex-telemetry.ps1 -BackfillRatings [-DryRun]: every mark of every task of $CollabRoot
+# (<task>/findings.json `ratings`) without `telemetry_sent` gets its rating event spooled ONCE -
+# the ledger entry looked up as -Rate recorded it (Find-RatingLedgerEntry; none: the mark is
+# SKIPPED and counted, never a guessed reviewer; a mark that is not yes | partly | no or whose
+# `when` does not parse is skipped too), the event built by New-TelemetryRatingEvent with the mark's
+# `when` as -RatedAt (client_time) and its consult_when (age_days), spooled with up to 5 s, and
+# `telemetry_sent` written into the mark - per task under the task's store commit (the write lock,
+# findings.json re-read under it, written once at the end). A spool failure stops that task's
+# remaining marks (they stay unsent: the next run sends them). -DryRun reads without a lock, prints
+# per event the vendor class, the model, the mark and the age (never a text) and writes nothing.
+# Telemetry off: refused, nothing read or written. One line per task that has marks, then the total;
+# unless -DryRun the detached sender starts when something was spooled. Exit 0 done, 1 refused or
+# something not spooled.
+function Invoke-TelemetryBackfillRatings {
+    param([string]$CollabRoot, $Switch, [switch]$DryRun)
+    if (-not $Switch -or -not $Switch.On) {
+        Write-Host "codex-telemetry: telemetry is off ($($Switch.Source)): -BackfillRatings sends nothing and writes nothing - switch it on (CODEX_CONSULT_TELEMETRY unset or on, or -Telemetry on) to backfill." -ForegroundColor Red
+        return 1
+    }
+    if (-not $DryRun -and -not (Get-TelemetryPaths)) {
+        Write-Host 'codex-telemetry: no codex home (CODEX_HOME, else ~/.codex): nothing can be spooled.' -ForegroundColor Red
+        return 1
+    }
+    $verb = $(if ($DryRun) { 'would send' } else { 'sent' })
+    $tot = [pscustomobject]@{ Sent = 0; Already = 0; Skipped = 0; Failed = 0; Tasks = 0 }
+    $taskDirs = @()
+    if ([IO.Directory]::Exists($CollabRoot)) {
+        $taskDirs = @(Get-ChildItem -LiteralPath $CollabRoot -Directory -Force | Where-Object { $_.Name -match '^[A-Za-z0-9][A-Za-z0-9._-]*$' -and [IO.File]::Exists((Join-Path $_.FullName 'findings.json')) } | Sort-Object Name)
+    }
+    foreach ($td in $taskDirs) {
+        $task = $td.Name
+        # a first look without a lock: a task without marks is not listed, one whose marks are all
+        # sent takes no lock
+        $peek = Read-JsonStore -Path (Join-Path $td.FullName 'findings.json')
+        $marks = @(@(Get-PropertyValue $peek 'ratings' @()) | Where-Object { $null -ne $_ })
+        if ($marks.Count -eq 0) { continue }
+        $tot.Tasks++
+        $sent = 0; $already = 0; $skipped = 0; $failed = 0; $why = ''
+        $commit = $null
+        $store = $peek
+        $sessions = $null
+        if ($DryRun -or @($marks | Where-Object { $null -eq (Get-PropertyValue $_ 'telemetry_sent' $null) }).Count -eq 0) {
+            $sessions = Read-JsonStore -Path (Join-Path $td.FullName 'sessions.json')
+        } else {
+            $commit = Enter-StoreCommit -TaskDir $td.FullName -Task $task -TimeoutSec (Get-WriteLockTimeout)
+            if (-not $commit.Acquired) {
+                Write-Host "codex-telemetry: ${task}: not processed - $($commit.Message)" -ForegroundColor Yellow
+                $tot.Failed++
+                continue
+            }
+            $store = $commit.Findings
+            $sessions = $commit.Sessions
+        }
+        try {
+            $consults = @(Get-PropertyValue (Get-PropertyValue $sessions 'codex' $null) 'consults' @())
+            $changed = $false
+            foreach ($m in @(Get-PropertyValue $store 'ratings' @())) {
+                if ($null -eq $m) { continue }
+                if ($null -ne (Get-PropertyValue $m 'telemetry_sent' $null)) { $already++; continue }
+                $useful = ([string](Get-PropertyValue $m 'useful' '')).Trim().ToLowerInvariant()
+                $ratedAt = ConvertTo-WhenOffset (Get-PropertyValue $m 'when' $null)
+                $entry = Find-RatingLedgerEntry -Consults $consults -Mark $m
+                if ($null -eq $entry -or $script:TelemetryRatingMarks -cnotcontains $useful -or $null -eq $ratedAt) { $skipped++; continue }
+                $cw = Get-PropertyValue $m 'consult_when' $null
+                if ($DryRun) {
+                    $d = ConvertTo-TelemetryRatingDetails -Entry $entry -Mark $useful -RatedAt $ratedAt -ConsultWhen $cw
+                    Write-Host "codex-telemetry: would send: $($d.provider) / $($d.model) ($($d.engine)), purpose $($d.purpose), mark $($d.mark), age_days $($d.age_days), client_time $($ratedAt.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant))"
+                    $sent++
+                    continue
+                }
+                if ($why) { $failed++; continue }
+                $r = Add-TelemetryEvent -Entry $entry -Switch $Switch -WaitMs $script:TelemetrySpoolWaitMs -RatingMark $useful -RatedAt $ratedAt -ConsultWhen $cw
+                if ($r.Why) { $why = $r.Why; $failed++; continue }
+                $m | Add-Member -NotePropertyName 'telemetry_sent' -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -Force
+                $changed = $true
+                $sent++
+            }
+            if ($changed) { $null = Complete-StoreCommit -Commit $commit -Findings }
+        } finally { $null = Exit-StoreCommit -Commit $commit }
+        $tot.Sent += $sent; $tot.Already += $already; $tot.Skipped += $skipped; $tot.Failed += $failed
+        $line = "codex-telemetry: ${task}: $verb $sent, already $already, skipped $skipped$(if ($failed -gt 0) { "; not spooled $failed ($why) - they stay unsent" })"
+        if ($failed -gt 0) { Write-Host $line -ForegroundColor Yellow } else { Write-Host $line }
+    }
+    Write-Host "codex-telemetry: total: $verb $($tot.Sent), already $($tot.Already), skipped $($tot.Skipped)$(if ($tot.Failed -gt 0) { ", not spooled or not processed $($tot.Failed)" }) in $($tot.Tasks) task(s) with marks under $CollabRoot$(if ($tot.Skipped -gt 0) { ' (skipped: no ledger entry for the mark, or a mark that is not yes|partly|no or has no time)' })"
+    if ($DryRun) {
+        Write-Host 'codex-telemetry: dry run - nothing was spooled or written.'
+    } elseif ($tot.Sent -gt 0) {
+        $sw = Start-TelemetrySender
+        if ($sw) { Write-Host "codex-telemetry: the sender did not start ($sw) - the next consultation's sender, or codex-telemetry.ps1 -Flush, delivers the spool." -ForegroundColor Yellow }
+        else { Write-Host 'codex-telemetry: the sender started (detached) - codex-telemetry.ps1 -Status shows the result.' }
+    }
+    return $(if ($tot.Failed -gt 0) { 1 } else { 0 })
 }

@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sender. It honours `CODEX_CONSULT_TELEMETRY` and the new `codex-findings.ps1 -Telemetry on|off`
   (with `-Rate` only); a telemetry failure warns and is counted, never failing the rating.
   `harness-telemetry` RATE covers it.
+- **R24 - the earlier marks, once.** `codex-telemetry.ps1 -BackfillRatings [-DryRun]` sends every
+  mark of the current repository's tasks that has no `telemetry_sent` as a `rating` event
+  (`client_time` = the mark's `when`; a mark whose ledger entry is missing is skipped and counted)
+  and writes `telemetry_sent` (unix seconds) into it, so a second run sends nothing; `-Rate` now
+  spools its event at the mark's commit and sets the same field. `harness-telemetry` BACKFILL.
 
 ## [0.5.0] - 2026-09-30
 

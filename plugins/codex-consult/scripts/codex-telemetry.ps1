@@ -5,7 +5,7 @@
     by default, CODEX_CONSULT_TELEMETRY=off to switch it off.
 
 .DESCRIPTION
-    Four forms, one per call:
+    Five forms, one per call:
 
       -Flush       THE sender. The bridge starts it detached (hidden, never waited for, with a
                    minimal allow-listed environment - wave 28b, D3) after a ledger commit: under
@@ -57,6 +57,20 @@
                    marker and its owner, the sender's lock (busy, stuck for 30 minutes, stale), the
                    last flush's result and the notes of .last, the instance id (not secret: a
                    salted hash), the notice's state, and test mode when it is on. Reads only; exit 0.
+      -BackfillRatings [-DryRun] [-CollabDir <dir>] (R24) sends the judge's marks given BEFORE
+                   the rating event existed, once: every mark of every task of the current
+                   repository (<collab>/<task>/findings.json `ratings`) without `telemetry_sent` is
+                   looked up in that task's sessions.json as -Rate recorded it (consult_id, else n;
+                   no entry: skipped and counted - never a guessed reviewer), its `rating` event is
+                   built through the same allowlist as -Rate's (client_time = the mark's `when`,
+                   age_days from its consult_when) and spooled, and `telemetry_sent` (unix seconds)
+                   is written into the mark under the task's store commit - so a second run sends
+                   nothing (codex-findings.ps1 -Rate sets the field itself). One line per task
+                   `<task>: sent N, already M, skipped K`, then the total; the detached sender starts
+                   when something was spooled. -DryRun prints per event the vendor class, the model,
+                   the mark and the age - never a text - and writes nothing. Telemetry off (-Telemetry
+                   off, else CODEX_CONSULT_TELEMETRY): refused, nothing written. Exit 0 done, 1
+                   refused or something not spooled (run it again).
 
     The intake: CODEX_CONSULT_TELEMETRY_URL (an operator setting), else https://xelth.com/T; https
     only - plain http only for a loopback intake AND with CODEX_CONSULT_TEST_MODE=1 (a harness; wave
@@ -69,6 +83,9 @@
 
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File codex-telemetry.ps1 -Status
+
+.EXAMPLE
+    powershell -NoProfile -ExecutionPolicy Bypass -File codex-telemetry.ps1 -BackfillRatings -DryRun
 
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File codex-telemetry.ps1 -Complain "The panel summary hides which member timed out." -Task cache-rewrite
@@ -93,11 +110,20 @@ param(
     # With -Complain: the task whose last ledger entry goes into the context (optional).
     [string]$Task = '',
 
-    # With -Complain -Task: where consultations are stored (relative: to the git repo root).
+    # With -Complain -Task and -BackfillRatings: where consultations are stored (relative: to the
+    # git repo root).
     [string]$CollabDir = '.collab',
 
-    # With -Flush: on | off - the bridge passes its run's switch; empty: CODEX_CONSULT_TELEMETRY.
+    # With -Flush and -BackfillRatings: on | off - the bridge passes its run's switch; empty:
+    # CODEX_CONSULT_TELEMETRY.
     [string]$Telemetry = '',
+
+    # (R24) Send the marks of this repository's tasks that were never sent (findings.json `ratings`
+    # without telemetry_sent) as rating events, once.
+    [switch]$BackfillRatings,
+
+    # With -BackfillRatings: print what would be sent (vendor class, model, mark, age), write nothing.
+    [switch]$DryRun,
 
     # (wave 28b, D9) Delete my data: with -PublicRef <ref> at the intake, with -Local here.
     [switch]$Forget,
@@ -113,9 +139,9 @@ $ErrorActionPreference = 'Stop'
 $script:ToolName = 'codex-telemetry'
 . (Join-Path $PSScriptRoot 'codex-consult-common.ps1')
 
-$forms = @(@('Flush', 'Status', 'Complain', 'Forget') | Where-Object { $PSBoundParameters.ContainsKey($_) })
+$forms = @(@('Flush', 'Status', 'Complain', 'Forget', 'BackfillRatings') | Where-Object { $PSBoundParameters.ContainsKey($_) })
 if ($forms.Count -ne 1) {
-    Stop-WithError "give exactly one of -Flush, -Status, -Complain ""<text>"", -Forget (got $(if ($forms.Count -eq 0) { 'none' } else { '-' + ($forms -join ', -') }))."
+    Stop-WithError "give exactly one of -Flush, -Status, -Complain ""<text>"", -Forget, -BackfillRatings (got $(if ($forms.Count -eq 0) { 'none' } else { '-' + ($forms -join ', -') }))."
 }
 $Telemetry = ([string]$Telemetry).Trim().ToLowerInvariant()
 if ($Telemetry -and @('on', 'off') -notcontains $Telemetry) { Stop-WithError "-Telemetry must be on or off (got '$Telemetry')." }
@@ -143,6 +169,15 @@ if ($Flush) {
     Write-Host "codex-telemetry: $($r.Result)"
     exit $r.Exit
 }
+
+# ----------------------------------------------------------------------------- -BackfillRatings (R24)
+if ($BackfillRatings) {
+    $extra = @($given | Where-Object { @('BackfillRatings', 'DryRun', 'CollabDir', 'Telemetry') -notcontains $_ })
+    if ($extra.Count -gt 0) { Stop-WithError "-BackfillRatings takes only -DryRun, -CollabDir and -Telemetry; not -$($extra -join ', -')." }
+    $collabRoot = Resolve-CollabRoot -RepoRoot (Resolve-RepoRoot -Cwd (Get-Location).Path) -CollabDir $CollabDir
+    exit (Invoke-TelemetryBackfillRatings -CollabRoot $collabRoot -Switch (Get-TelemetrySwitch -Override $Telemetry) -DryRun:$DryRun)
+}
+if ($DryRun) { Stop-WithError "-DryRun goes with -BackfillRatings." }
 
 # ----------------------------------------------------------------------------- -Complain
 if ($PSBoundParameters.ContainsKey('Complain')) {
