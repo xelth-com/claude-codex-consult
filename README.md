@@ -23,7 +23,50 @@ needs no ChatGPT plan.
 - **Verify:** `codex-providers.ps1` → at least one row `available`; then a `-DryRun` consultation → first line `DRY RUN - nothing was executed and no file was written.` and a line `preflight   : available (…)`. Exact commands: "Setup on a new machine", steps 0 and 9.
 - **First consultation:** the `consult-codex` skill (`codex-consult:consult-codex <task-id> <question>`), or the command under "Usage".
 - **Coordinating:** the `coordinate` skill (workers, waves, waits) - "For the coordinator".
-- **More reviewers** (z.ai GLM, Xiaomi MiMo, any Responses-API provider; Gemini through the `agy` engine; Meta Muse through the `muse` engine): follow the `setup-providers` skill.
+- **More reviewers** (z.ai GLM, Xiaomi MiMo, BytePlus, Kimi, Alibaba, any Responses-API provider; Gemini through the `agy` engine; Meta Muse through the `muse` engine): follow the `setup-providers` skill. Its step 0 asks the operator which subscriptions they have and maps each to its section - on a fresh machine start there, or hand the operator the prompt under "First run".
+
+---
+
+## First run: the prompt for the operator
+
+The plugin ships no subscription. Every reviewer is a CLI or a plan the operator already pays
+for (a ChatGPT plan behind the Codex CLI, a coding plan behind a `[model_providers]` table, Google's
+Antigravity CLI, Meta's Muse Code CLI); the bridge only launches them and reads the roster. So the
+first thing a fresh installation needs is a conversation: what the machine has, what the operator
+subscribes to, and which of it to wire. The `setup-providers` skill runs that conversation from its
+step 0. The operator starts it by pasting this prompt into their agent host, right after the install
+commands of their host under "Install" - Claude Code, Codex CLI, Z Code, Kimi Code, Qwen Code,
+OpenCode, Muse Code or a plain shell alike:
+
+```text
+The codex-consult plugin is installed. Wire my reviewers by following its setup-providers skill
+from step 0 (codex-consult:setup-providers; a host without skills prints it with the plugin's own
+script: powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/scripts/codex-consult.ps1"
+-Explain providers - pwsh -NoProfile -File on macOS and Linux; the plugin directory is in this
+session's start line or under "Install" in the repository README).
+
+1. Check first, ask second: the shell, git, the Codex CLI and its login, then the preflight
+   codex-providers.ps1 -Short. One line per result.
+2. Ask me which of these I have (several are possible), skipping what the preflight already shows
+   as available: a ChatGPT plan (Plus, Pro, Team, Enterprise); z.ai GLM Coding Plan; Xiaomi MiMo
+   Token Plan; Google AI Pro or Ultra (the Antigravity CLI); BytePlus ModelArk Coding Plan; Kimi
+   Code membership; Alibaba Model Studio Token Plan (Qwen); Meta Muse Code subscription; another
+   Responses-API provider or a pay-as-you-go key; none of them.
+3. For each one I name, follow its section of the skill. Ask before installing anything or editing
+   config.toml. A CLI install, a login or an API key is mine to do in my own terminal: give me the
+   exact command or the exact variable NAME, wait for me, then verify. Never create, print, read
+   back or paste a key.
+4. Write the roster (ask me which reviewer comes first and which count as "weighty"), verify with
+   codex-providers.ps1 and a -DryRun consultation, and tell me that telemetry is on by default and
+   how to switch it off (CODEX_CONSULT_TELEMETRY=off).
+5. Record what you wired in the project's state.md (variable names, never values) and tell me what
+   is still unavailable and why.
+```
+
+What the agent does with it is the skill: the checks of "Setup on a new machine" steps 1-4, the
+interview of step 0, one section per plan (2, 3, 3b-3f), the roster (4), the verification (5) and
+the record (7). A machine with nothing to wire ends with a clear answer - "no reviewer: the Codex
+CLI is not signed in and no plan was named" - not with a half-written roster.
 
 ---
 

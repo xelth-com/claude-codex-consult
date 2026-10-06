@@ -16,7 +16,11 @@ troubleshooting - is the repository README:
 |---|---|
 | `consult-codex` | the consultation: when to consult, the brief, the one command, reading and recording the reply and its findings, rating it |
 | `coordinate` | the coordinator's rules: workers and waves, waiting without blocking (`-Detach`, `-Status`, `-Wait`, `-Kick`), compaction, the worker tiers, the means per host |
-| `setup-providers` | wiring reviewers on a machine: the Codex login, provider tables, the roster, the `agy` and `muse` engines, verification |
+| `setup-providers` | wiring reviewers on a machine: step 0 checks the machine and asks the operator which subscriptions they hold, then the Codex login, provider tables, the roster, the `agy` and `muse` engines, verification |
+
+The plugin ships no subscription: on a fresh machine the operator pastes the first-run prompt from
+the repository README (section "First run: the prompt for the operator") into their host, and the
+agent runs `setup-providers` from step 0.
 
 Why `coordinate` keeps a recurring wake while it waits, and when it compacts instead (the prompt
 cache, its prices, the boundary, a worked example): the repository README, section "Waiting: keep

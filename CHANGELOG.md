@@ -4,6 +4,24 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **First run: the operator's prompt and the interview** (2026-10-06). The plugin ships no
+  subscription, so a fresh installation needs a conversation before a roster. README gains the
+  section "First run: the prompt for the operator": one host-agnostic prompt the operator pastes
+  into Claude Code, Codex CLI, Z Code, Kimi Code, Qwen Code, OpenCode, Muse Code or a plain shell
+  after the install commands (check first, ask which subscriptions the operator holds, wire each
+  per its section, the roster, the verification, the record; keys and logins stay the operator's
+  own actions). The `setup-providers` skill gains **step 0**: run the checks and the preflight
+  first, then ask the operator which of the known plans they hold - ChatGPT plan, z.ai GLM, Xiaomi
+  MiMo, Google Antigravity, BytePlus, Kimi Code, Alibaba, Meta Muse Code, another Responses-API
+  provider, none - with a table mapping each to its section, and go on to the roster, the
+  verification and the record; its description and argument hint say so, and a provider-name
+  argument still skips straight to that provider's section. The hook's line for a machine without
+  the Codex CLI points at step 0; the plugin's short README names the first-run route.
+
 ## [0.5.1] - 2026-10-06
 
 A patch release: the bridge's half of ROADMAP R24. A rating now reaches the telemetry intake, the

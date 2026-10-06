@@ -1,7 +1,7 @@
 ---
 name: setup-providers
-description: Wire reviewers for the codex-consult bridge on a machine - verify the Codex CLI and its login, add a [model_providers.<name>] table for a third-party plan (z.ai GLM, Xiaomi MiMo or any Responses-API provider) with an env_key the user sets, supply per-run model catalogs, wire Gemini through the agy engine (Google's Antigravity CLI, signed in by the user), wire Meta Muse through the muse engine (Muse Code CLI, the subscription signed in by the user with muse login, never an API key), write the reviewer roster with panel weights, and verify with codex-providers.ps1 and a dry run. Use when a provider is missing or unavailable, on a new machine, or when the user asks to add a reviewer.
-argument-hint: "[provider name, e.g. ZAI or mimo]"
+description: Wire reviewers for the codex-consult bridge on a machine - step 0 checks what the machine has and asks the operator which subscriptions they hold (ChatGPT plan, z.ai GLM, Xiaomi MiMo, Google Antigravity, BytePlus, Kimi Code, Alibaba, Meta Muse Code, another Responses-API provider), then per plan: verify the Codex CLI and its login, add a [model_providers.<name>] table with an env_key the user sets, supply per-run model catalogs, wire Gemini through the agy engine (Google's Antigravity CLI, signed in by the user), wire Meta Muse through the muse engine (Muse Code CLI, the subscription signed in by the user with muse login, never an API key), write the reviewer roster with panel weights, and verify with codex-providers.ps1 and a dry run. Use on a fresh machine (the operator's first-run prompt in the README), when a provider is missing or unavailable, or when the user asks to add a reviewer.
+argument-hint: "[provider name, e.g. ZAI or mimo; none = ask the operator what they have]"
 allowed-tools: Bash(powershell:*), Bash(pwsh:*), Bash(codex:*), Bash(agy models), Bash(muse --version), Read, Write, Edit, Glob, Grep, WebFetch
 disable-model-invocation: false
 ---
@@ -39,6 +39,45 @@ execute); on macOS, Linux and a real PowerShell 7 install use `pwsh -NoProfile -
    the provider's official page or from the user.
 6. **Ask before** installing software, editing `config.toml`, downloading a catalog, or
    running a first live consultation (it spends quota).
+
+## 0. Check what is here, then ask what the operator has
+
+The plugin ships no subscription: every reviewer is a CLI or a plan the operator already holds.
+Invoked without a provider name (a fresh machine, the operator's first-run prompt from the README),
+start here. With a provider name, skip to that provider's section.
+
+**Check first.** Before asking anything, run the checks of sections 1 and 2 (the shell, git,
+`codex --version`, `codex login status`) and the preflight:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-providers.ps1" -Short
+```
+
+Report one line per result. What the preflight already shows as `available` is wired; do not ask
+about it again. A roster that exists is kept and extended, never rewritten from scratch.
+
+**Then ask** the operator which of these they have - several are possible, and the answer may be
+"none":
+
+| The operator has | Wire it as | Section |
+|---|---|---|
+| a ChatGPT plan (Plus, Pro, Team, Enterprise) | the built-in `openai` provider: `codex login` by the operator; roster entry `{ "provider": "openai", "model": "<the plan's model>" }` | 1 |
+| z.ai GLM Coding Plan | a `[model_providers.ZAI]` table, key in an env variable the operator sets | 2 |
+| Xiaomi MiMo Token Plan | a `[model_providers.mimo]` table plus a per-run model catalog | 2, 3 |
+| Google AI Pro or Ultra (Antigravity) | the `agy` engine: the operator installs Google's Antigravity CLI and signs in | 3b |
+| BytePlus ModelArk Coding Plan | a `[model_providers.byteplus]` table | 3c |
+| Kimi Code membership (Moonshot) | a `[model_providers.kimi]` table | 3d |
+| Alibaba Model Studio Token Plan (Qwen) | a `[model_providers.alibaba]` table | 3e |
+| Meta Muse Code subscription | the `muse` engine: the operator installs Muse Code and runs `muse login` | 3f |
+| another Responses-API provider, or a pay-as-you-go key | a `[model_providers.<name>]` table with the provider's own base URL and model ids | 2 |
+| none of them | nothing to wire: say so plainly and stop - the bridge cannot consult without a reviewer | - |
+
+For each plan the operator names, follow its section in order. Everything that needs a login, a
+CLI install or an API key is the operator's own action in their own terminal: give the exact
+command or the exact variable NAME, wait, then verify (invariants 1 and 6). Then section 4 (the
+roster: ask which reviewer comes first and which are weighty), section 5 (verify), and section 7
+(record). Tell the operator before the first live consultation that telemetry is on by default
+and how to switch it off (`CODEX_CONSULT_TELEMETRY=off`, README "Telemetry (on by default)").
 
 ## 1. Verify the Codex CLI and the login
 
