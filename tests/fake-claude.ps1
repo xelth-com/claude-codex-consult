@@ -62,6 +62,15 @@
 #                                 no newline), FAKE_CLAUDE_NOINIT=1 (no init event)
 #   FAKE_CLAUDE_STDERR=<text>     written to stderr
 #   FAKE_CLAUDE_PIDFILE=<path>    its pid;  FAKE_CLAUDE_DELAY_MS=<ms>  sleeps before the answer
+#   (wave 29b) the ENDPOINT mode - ANTHROPIC_BASE_URL reached the child (auth endpoint): the init's
+#   model is the --model argument itself (no alias resolution; [1m] stripped), apiKeySource none
+#   (as P8/P10 showed); FAKE_CLAUDE_TOKEN_EXPECT=<token>: when ANTHROPIC_AUTH_TOKEN differs, the
+#   turn is P11's wrong token - init, then a result {subtype success, is_error true, "Failed to
+#   authenticate. API Error: 401 ..."} without modelUsage, exit 1. The argv log line gains
+#   base_url (the value of ANTHROPIC_BASE_URL), api_timeout_ms, has_token (ANTHROPIC_AUTH_TOKEN
+#   set) and token_match (null without FAKE_CLAUDE_TOKEN_EXPECT) - never the token itself.
+#   FAKE_CLAUDE_STDERR_NOTICE=1   writes `[claude-code:unrecognized_model] {"model":"<m>"}` to
+#                                 stderr (P8: a notice, not a failure)
 $ErrorActionPreference = 'Stop'
 $u8 = New-Object System.Text.UTF8Encoding($false)
 $raw = [string]$env:FAKE_CLAUDE_ARGS
@@ -124,7 +133,9 @@ if ($env:FAKE_CLAUDE_ARGV_LOG) {
     $names = @([Environment]::GetEnvironmentVariables().Keys | ForEach-Object { [string]$_ } | Where-Object { $_ -ne 'FAKE_CLAUDE_ARGS' })
     $names = [string[]]$names
     [Array]::Sort($names, [StringComparer]::OrdinalIgnoreCase)
-    $rec = [pscustomobject]@{ kind = $kind; argv = [object[]]$argv; stdin = $stdinText; stdin_len = $stdinText.Length; cwd = (Get-Location).Path; env = [object[]]$names; autoupdater = [string]$env:DISABLE_AUTOUPDATER; schema_ok = $schemaOk; pid = $PID }
+    $tokenMatch = $null
+    if ($env:FAKE_CLAUDE_TOKEN_EXPECT) { $tokenMatch = [bool]([string]$env:ANTHROPIC_AUTH_TOKEN -ceq [string]$env:FAKE_CLAUDE_TOKEN_EXPECT) }
+    $rec = [pscustomobject]@{ kind = $kind; argv = [object[]]$argv; stdin = $stdinText; stdin_len = $stdinText.Length; cwd = (Get-Location).Path; env = [object[]]$names; autoupdater = [string]$env:DISABLE_AUTOUPDATER; schema_ok = $schemaOk; pid = $PID; base_url = [string]$env:ANTHROPIC_BASE_URL; api_timeout_ms = [string]$env:API_TIMEOUT_MS; has_token = [bool]([string]$env:ANTHROPIC_AUTH_TOKEN); token_match = $tokenMatch }
     $line = (J $rec) + "`n"
     Invoke-FakeWrite { [IO.File]::AppendAllText($env:FAKE_CLAUDE_ARGV_LOG, $line, $u8) }
 }
@@ -162,7 +173,10 @@ $resultId = $id
 if ($smode -eq 'mismatch') { $resultId = [guid]::NewGuid().ToString() }
 $base = ($modelArg -replace '\[1m\]$', '')
 $aliases = @{ opus = 'claude-opus-5-5'; sonnet = 'claude-sonnet-5-5'; haiku = 'claude-haiku-4-5'; fable = 'claude-fable-5-1' }
-$initModel = if ($env:FAKE_CLAUDE_INIT_MODEL) { [string]$env:FAKE_CLAUDE_INIT_MODEL } elseif ($aliases.ContainsKey($base)) { $aliases[$base] } else { $base }
+# (wave 29b) the endpoint mode: a base URL reached the child - the id goes straight
+$endpointMode = [bool]([string]$env:ANTHROPIC_BASE_URL)
+$initModel = if ($env:FAKE_CLAUDE_INIT_MODEL) { [string]$env:FAKE_CLAUDE_INIT_MODEL } elseif ($endpointMode) { $base } elseif ($aliases.ContainsKey($base)) { $aliases[$base] } else { $base }
+$wrongToken = ($endpointMode -and [bool]$env:FAKE_CLAUDE_TOKEN_EXPECT -and ([string]$env:ANTHROPIC_AUTH_TOKEN -cne [string]$env:FAKE_CLAUDE_TOKEN_EXPECT))
 $tools = if ($env:FAKE_CLAUDE_INIT_TOOLS) { @($env:FAKE_CLAUDE_INIT_TOOLS.Split(',')) } else { @('Glob', 'Grep', 'Read', 'StructuredOutput') }
 $mcp = if ($env:FAKE_CLAUDE_INIT_MCP) { @([pscustomobject]@{ name = $env:FAKE_CLAUDE_INIT_MCP; status = 'connected' }) } else { @() }
 $pmode = if ($env:FAKE_CLAUDE_INIT_MODE) { [string]$env:FAKE_CLAUDE_INIT_MODE } else { Get-Flag '--permission-mode' }
@@ -190,6 +204,12 @@ if ($env:FAKE_CLAUDE_WRITE) {
     }
 }
 if ($env:FAKE_CLAUDE_STDERR) { Err-Bytes $env:FAKE_CLAUDE_STDERR }
+if ($env:FAKE_CLAUDE_STDERR_NOTICE -eq '1') { Err-Bytes ('[claude-code:unrecognized_model] {"model":"' + $base + '"}') }
+# (wave 29b, P11) a wrong token against the endpoint: no fallback to the local login
+if ($wrongToken) {
+    Out-Bytes ((J ([pscustomobject]@{ type = 'result'; subtype = 'success'; is_error = $true; duration_ms = 187000; duration_api_ms = 0; num_turns = 1; result = 'Failed to authenticate. API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"token expired or incorrect"}}'; session_id = $id; total_cost_usd = 0; usage = [pscustomobject]@{ input_tokens = 0; cache_creation_input_tokens = 0; cache_read_input_tokens = 0; output_tokens = 0 }; permission_denials = [object[]]@(); uuid = [guid]::NewGuid().ToString() })) + "`n")
+    exit 1
+}
 if ($env:FAKE_CLAUDE_BADLINE -eq '1') { Out-Bytes "this is not json`n" }
 $rl = [string]$env:FAKE_CLAUDE_RATE_LIMIT
 if ($rl) {

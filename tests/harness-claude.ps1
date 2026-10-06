@@ -7,7 +7,10 @@
 # turn (D3), the sign-in check through `claude auth status`, the failure classes (auth, quota with its
 # reset time, capability, transport, permission - D6, D8), the strict tree check (D1), the prompt
 # bound (D9), the panel's scheduling group (D5), the health key (D7), the coordinator rule, the
-# telemetry class, the roster validation and the providers listing.
+# telemetry class, the roster validation and the providers listing. (Wave 29b) ENDPOINT: auth endpoint -
+# a third-party Anthropic-compatible endpoint (decisions E1-E7 of handoff 12 of that task): the roster
+# shapes, the child environment, the local preflight, the route and plan identities, telemetry and the
+# lab by host, the plan's scheduling group, the 401 and the model proof (the fake's endpoint mode).
 # FAKES ONLY: fake-claude.cmd (CODEX_CONSULT_CLAUDE_EXE) and fake-codex3.cmd. GUARD: the real claude is
 # never resolvable - every child gets a scratch USERPROFILE/HOME (no ~/.local/bin/claude.exe) and a
 # scratch LOCALAPPDATA, a PATH without any directory that holds a claude (or muse / agy) launcher, and
@@ -101,7 +104,7 @@ function Write-Roster {
     return $p
 }
 $fakeVarPrefix = 'FAKE_CLAUDE_'
-$testVars = @('CODEX_CONSULT_EXE', 'CODEX_CONSULT_CLAUDE_EXE', 'CODEX_CONSULT_AGY_EXE', 'CODEX_CONSULT_MUSE_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_LOGIN_TIMEOUT', 'CODEX_CONSULT_TEST_CHILD_ENV_PASS', 'CODEX_CONSULT_TEST_TOOL_CAP_SEC', 'CODEX_CONSULT_COORDINATOR', 'ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_MODEL', 'CLAUDE_CONFIG_DIR', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_EFFORT_LEVEL', 'CLAUDE_CODE_SKIP_PROMPT_HISTORY', 'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CODEX_SESSION_ID', 'W29_OPERATOR_VAR', 'FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG')
+$testVars = @('CODEX_CONSULT_EXE', 'CODEX_CONSULT_CLAUDE_EXE', 'CODEX_CONSULT_AGY_EXE', 'CODEX_CONSULT_MUSE_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_LOGIN_TIMEOUT', 'CODEX_CONSULT_TEST_CHILD_ENV_PASS', 'CODEX_CONSULT_TEST_TOOL_CAP_SEC', 'CODEX_CONSULT_COORDINATOR', 'ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_MODEL', 'CLAUDE_CONFIG_DIR', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_EFFORT_LEVEL', 'CLAUDE_CODE_SKIP_PROMPT_HISTORY', 'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CODEX_SESSION_ID', 'W29_OPERATOR_VAR', 'FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'W29B_FAKE_ZAI_TOKEN', 'W29B_FAKE_MIMO_TOKEN', 'API_TIMEOUT_MS', 'ANTHROPIC_DEFAULT_SONNET_MODEL', 'ANTHROPIC_SMALL_FAST_MODEL')
 function Clear-TestEnv {
     foreach ($k in $testVars) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     # (the host markers of the environment the harness was started from - a coordinator's session -
@@ -249,7 +252,7 @@ try {
 if (Want 'UNIT') {
     $spec = Get-EngineSpec 'claude'
     $fnMissing = @(foreach ($k in @('Argv', 'Stdin', 'Events', 'Outcome', 'Credential', 'Harness', 'IdentityConfig', 'Salvage', 'ChildEnv')) { $fn = [string]$spec.Adapter.$k; if (-not $fn -or -not (Get-Command $fn -ErrorAction SilentlyContinue)) { $k } })
-    Check 'UNIT' 'engine row claude: label "Claude (claude)", reply prefix claudecode (the brief prefix claude stays the coordinator''s), command claude, CODEX_CONSULT_CLAUDE_EXE, launchers claude.exe claude.cmd claude + %USERPROFILE%\.local\bin\claude.exe, modes new/resume/fork (default new), native|prompt-only, engine:claude, provider anthropic, denial retry, prompt on stdin, --max-turns, WriteDisabled false (D1), auth modes subscription|api-key, parallel scope engine (D5), 1 MiB (D9); every adapter function exists; EngineNames ends with claude' ($spec.Label -eq 'Claude (claude)' -and $spec.Prefix -eq 'claudecode' -and $spec.Command -eq 'claude' -and $spec.ExeEnv -eq 'CODEX_CONSULT_CLAUDE_EXE' -and (@($spec.LauncherNames) -join ',') -eq 'claude.exe,claude.cmd,claude' -and $spec.InstallLaunchers[0].Rel -eq '.local\bin\claude.exe' -and (@($spec.Modes) -join ',') -eq 'new,resume,fork' -and $spec.DefaultMode -eq 'new' -and (@($spec.Transports) -join ',') -eq 'native,prompt-only' -and $spec.HostName -eq 'engine:claude' -and $spec.DefaultProvider -eq 'anthropic' -and $spec.DenialRetry -and $spec.PromptTransport -eq 'stdin' -and $spec.StepsFlag -eq '--max-turns' -and $spec.WriteDisabled -eq $false -and (@($spec.AuthModes) -join ',') -eq 'subscription,api-key' -and $spec.ParallelScope -eq 'engine' -and $spec.MaxPromptBytes -eq 1048576 -and $fnMissing.Count -eq 0 -and ($script:EngineNames -join ',') -eq 'codex,agy,muse,claude') "missing: $($fnMissing -join ',')"
+    Check 'UNIT' 'engine row claude: label "Claude (claude)", reply prefix claudecode (the brief prefix claude stays the coordinator''s), command claude, CODEX_CONSULT_CLAUDE_EXE, launchers claude.exe claude.cmd claude + %USERPROFILE%\.local\bin\claude.exe, modes new/resume/fork (default new), native|prompt-only, engine:claude, provider anthropic, denial retry, prompt on stdin, --max-turns, WriteDisabled false (D1), auth modes subscription|api-key (wave 29b: |endpoint, checked locally - LocalAuthModes), parallel scope engine (D5), 1 MiB (D9); every adapter function exists; EngineNames ends with claude' ($spec.Label -eq 'Claude (claude)' -and $spec.Prefix -eq 'claudecode' -and $spec.Command -eq 'claude' -and $spec.ExeEnv -eq 'CODEX_CONSULT_CLAUDE_EXE' -and (@($spec.LauncherNames) -join ',') -eq 'claude.exe,claude.cmd,claude' -and $spec.InstallLaunchers[0].Rel -eq '.local\bin\claude.exe' -and (@($spec.Modes) -join ',') -eq 'new,resume,fork' -and $spec.DefaultMode -eq 'new' -and (@($spec.Transports) -join ',') -eq 'native,prompt-only' -and $spec.HostName -eq 'engine:claude' -and $spec.DefaultProvider -eq 'anthropic' -and $spec.DenialRetry -and $spec.PromptTransport -eq 'stdin' -and $spec.StepsFlag -eq '--max-turns' -and $spec.WriteDisabled -eq $false -and (@($spec.AuthModes) -join ',') -eq 'subscription,api-key,endpoint' -and (@($spec.LocalAuthModes) -join ',') -eq 'endpoint' -and $spec.ParallelScope -eq 'engine' -and $spec.MaxPromptBytes -eq 1048576 -and $fnMissing.Count -eq 0 -and ($script:EngineNames -join ',') -eq 'codex,agy,muse,claude') "missing: $($fnMissing -join ',')"
     $u = Uuid
     $new = Get-ClaudeArgs -Turn (New-EngineTurnOptions -Model 'sonnet' -Schema $schemaPath -Effort 'high' -NewThread $u -AddDirs @('D:\outside dir') -MaxSteps 12)
     $res = Get-ClaudeArgs -Turn (New-EngineTurnOptions -Model 'claude-sonnet-5-5' -Mode 'format-repair' -Thread $u -Effort 'low')
@@ -651,6 +654,253 @@ if (Want 'LISTING') {
     $out = Providers $r $rosterClaudeCodex @('-Json') @{ FAKE_CLAUDE_AUTH_STATUS = 'out' }
     $m3 = @($out.Json | Where-Object { $_.name -eq 'anthropic' })[0]
     Check 'LISTING' 'signed out: the claude row "unavailable (not signed in ...)"; the roster walk selects openai' ($out.Code -eq 0 -and ([string]$m3.verdict) -match '^unavailable \(not signed in' -and $m3.roster_selected -eq $false) $m3.verdict
+}
+
+# =============================================================== ENDPOINT: auth endpoint (wave 29b, E1-E7 of handoff 12)
+# A claude entry against a third-party Anthropic-compatible endpoint: the roster shapes (E1), the
+# open model id and its proof by equality (E2), the local preflight without `claude auth status`
+# (E3), the child environment (E4), the route and plan identities (E5), telemetry and the lab by host
+# (E6), the plan's scheduling group (E7). The base URLs are real-shaped but nothing is ever sent:
+# the fake CLI answers; the token is a made-up value in a made-up variable.
+if (Want 'ENDPOINT') {
+    $epVar = 'W29B_FAKE_ZAI_TOKEN'
+    $epToken = 'fake-token-w29b-0001'
+    $epUrl = 'https://api.z.ai/api/anthropic'
+    $epCanon = "cc-engine-v1|claude|endpoint|$epUrl|$epVar"
+    $epFp = Get-Sha256Hex ($u8.GetBytes($epCanon))
+    $epEntry = '{"provider":"ZAI-claude","engine":"claude","model":"glm-5.3","auth":"endpoint","endpoint":{"base_url":"' + $epUrl + '","env_key":"' + $epVar + '","timeout_ms":3000000},"plan":"zai"}'
+    $epEntryNoPlan = '{"provider":"ZAI-claude","engine":"claude","model":"glm-5.3","auth":"endpoint","endpoint":{"base_url":"' + $epUrl + '","env_key":"' + $epVar + '"}}'
+    $zaiEntry = '{"provider":"ZAI","model":"glm-5.3","plan":"zai"}'
+    $zaiEntryNoPlan = '{"provider":"ZAI","model":"glm-5.3"}'
+    $oaiEntry = '{"provider":"openai","model":"gpt-5.1"}'
+    $rosterOf = { param([string[]]$Items, [string]$Tail = '') '{"roster_version":1,"reviewers":[' + ($Items -join ',') + ']' + $Tail + '}' }
+    # a Codex home of its own: the ZAI table - the codex route to the same plan, the same token variable
+    $epHome = Join-Path $work 'codexhome-endpoint'
+    [void][IO.Directory]::CreateDirectory($epHome)
+    [IO.File]::WriteAllText((Join-Path $epHome 'config.toml'), "model = `"gpt-5.1`"`n[model_providers.ZAI]`nname = `"Z.ai GLM Coding Plan`"`nbase_url = `"https://api.z.ai/api/coding/paas/v4`"`nenv_key = `"$epVar`"`nwire_api = `"responses`"`n", $u8)
+    $savedCodexHome = $codexHome
+    $codexHome = $epHome
+    try {
+        $cfgEp = Read-CodexConfigSubset -Path (Join-Path $epHome 'config.toml')
+        $zaiFp = (Resolve-ReviewerIdentity -Config $cfgEp -Provider 'ZAI' -Model 'glm-5.3').Fingerprint
+        $mkEp = { param([string]$Url, [string]$Key, [string]$Plan = 'zai') (ConvertFrom-ClaudeEndpointValue -Value ([pscustomobject]@{ base_url = $Url; env_key = $Key }) -Plan $Plan).Endpoint }
+        $row = { param($J, [string]$Name) @(@($J) | Where-Object { $_.name -ceq $Name })[0] }
+        $isoOf = { param($D) ([DateTimeOffset]$D).ToString('yyyy-MM-ddTHH:mm:sszzz', [Globalization.CultureInfo]::InvariantCulture) }
+        $nowE = [DateTimeOffset]::UtcNow
+        # a ledger entry of a recorded outcome on an endpoint (fingerprint): a failure of $Class, or a usable reply
+        $seedE = { param([int]$N, [string]$Prov, [string]$Eng, [string]$Fp, [string]$Class, [string]$Msg, $Retry, [int]$AgoMin = 5)
+            $w = & $isoOf $nowE.AddMinutes(-$AgoMin)
+            $o = [pscustomobject]@{ n = $N; when = $w; finished_at = $w; purpose = ''; reviewer = [pscustomobject]@{ provider = $Prov; model = 'glm-5.3'; engine = $Eng; provider_fingerprint = $Fp }; lineage = "$Prov :: glm-5.3"; thread = ''; mode = 'new'; reply = ''; bridge_outcome = 'usable reply'; provider_failure = $null }
+            if ($Class) {
+                $o.bridge_outcome = "failed: $Msg"
+                $o.provider_failure = [pscustomobject]@{ class = $Class; kind = ''; code = $(if ($Class -eq 'quota') { '429' } else { '401' }); message = $Msg; when = $w; retry_after = $(if ($Retry) { & $isoOf $Retry } else { $null }); hint = '' }
+            }
+            $o
+        }
+        function EvE { param([string]$Name, [string[]]$Lines) $p = Join-Path $work $Name; [IO.File]::WriteAllText($p, (($Lines -join "`n") + "`n"), $u8); return $p }
+
+        # ---- E1: the roster shapes
+        $rpE = Join-Path $work 'roster-endpoint-unit.json'
+        $rdE = { param([string]$Json) [IO.File]::WriteAllText($rpE, $Json, $u8); Read-ReviewerRoster -Location ([pscustomobject]@{ Path = $rpE; FromEnv = $true; Disabled = $false }) }
+        # (Windows PowerShell 5.1 reads JSON keys case-insensitively: a "parallel" key "zai" beside "ZAI" does not parse there)
+        $okE = & $rdE (& $rosterOf @($epEntry, $zaiEntry, '{"provider":"MIMO-claude","engine":"claude","model":"mimo-v2.6-pro[1m]","auth":"endpoint","endpoint":{"base_url":"https://token-plan-ams.xiaomimimo.com/anthropic","env_key":"W29B_FAKE_MIMO_TOKEN"}}', '{"provider":"anthropic","engine":"claude","model":"sonnet","plan":"claude-max"}') ',"parallel":{"zai":2,"anthropic":1}')
+        $e0 = $okE.Entries[0]; $e2 = $okE.Entries[2]
+        Check 'ENDPOINT' 'E1: a roster with auth endpoint is read - endpoint {base_url (as written; canonical form beside it), env_key (the NAME), timeout_ms 3000000}, plan zai; timeout_ms omitted -> 3000000; a provider id with [1m] outside the claude table (mimo-v2.6-pro[1m]); plan on a codex entry and on a subscription entry; "parallel" keys naming a plan (zai) and a label (anthropic)' (-not $okE.Error -and $e0.Auth -eq 'endpoint' -and $e0.Endpoint.BaseUrl -eq $epUrl -and $e0.Endpoint.Canonical -eq $epUrl -and $e0.Endpoint.EnvKey -eq $epVar -and $e0.Endpoint.TimeoutMs -eq 3000000 -and $e0.Plan -eq 'zai' -and $okE.Entries[1].Plan -eq 'zai' -and $okE.Entries[1].Engine -eq 'codex' -and $null -eq $okE.Entries[1].Endpoint -and $e2.Model -eq 'mimo-v2.6-pro[1m]' -and $e2.Endpoint.TimeoutMs -eq 3000000 -and $e2.Plan -eq '' -and $okE.Entries[3].Auth -eq 'subscription' -and $okE.Entries[3].Plan -eq 'claude-max' -and $null -eq $okE.Entries[3].Endpoint -and $okE.Parallel['zai'] -eq 2 -and $okE.Parallel['anthropic'] -eq 1) $okE.Error
+        $one = { param([string]$Item) & $rosterOf @($Item) }
+        $epWith = { param([string]$Ep, [string]$Model = 'glm-5.3') '{"provider":"x","engine":"claude","model":"' + $Model + '","auth":"endpoint","endpoint":' + $Ep + '}' }
+        $urlWhy = 'entry 1: endpoint.base_url must be an absolute https URL without credentials, query or fragment (e.g. "https://api.z.ai/api/anthropic"; the value is not shown)'
+        $keyWhy = 'entry 1: endpoint.env_key must be the NAME of the environment variable that holds the token (capital letters, digits and _, at least 3 characters, starting with a letter - e.g. "ZAI_API_KEY"), never the token itself (the value is not shown)'
+        $refuseE = [ordered]@{
+            'no endpoint'             = @((& $one '{"provider":"x","engine":"claude","model":"glm-5.3","auth":"endpoint"}'), 'entry 1: auth "endpoint" needs an "endpoint" object {"base_url": "https://...", "env_key": "<VARIABLE NAME>"} - the Anthropic-compatible endpoint and the variable that holds its token')
+            'endpoint, subscription'  = @((& $one '{"provider":"x","engine":"claude","model":"sonnet","endpoint":{"base_url":"https://a.example/v","env_key":"ABC"}}'), 'entry 1: endpoint applies only to engine claude with auth "endpoint" (this entry: engine claude, auth subscription)')
+            'endpoint, api-key'       = @((& $one '{"provider":"x","engine":"claude","model":"sonnet","auth":"api-key","endpoint":{"base_url":"https://a.example/v","env_key":"ABC"}}'), 'entry 1: endpoint applies only to engine claude with auth "endpoint" (this entry: engine claude, auth api-key)')
+            'endpoint on codex'       = @((& $one '{"provider":"x","model":"gpt-5.1","endpoint":{"base_url":"https://a.example/v","env_key":"ABC"}}'), 'entry 1: endpoint applies only to engine claude with auth "endpoint" (this entry: engine codex)')
+            'endpoint not an object'  = @((& $one (& $epWith '"https://api.z.ai/api/anthropic"')), 'entry 1: endpoint must be an object {"base_url": "https://...", "env_key": "<VARIABLE NAME>", "timeout_ms": <milliseconds, optional>}')
+            'an unknown endpoint key' = @((& $one (& $epWith '{"base_url":"https://a.example/v","env_key":"ABC","model":"x"}')), "entry 1: endpoint has an unknown key 'model' (allowed: base_url, env_key, timeout_ms)")
+            'http'                    = @((& $one (& $epWith '{"base_url":"http://api.z.ai/api/anthropic","env_key":"ABC"}')), $urlWhy)
+            'credentials in the URL'  = @((& $one (& $epWith '{"base_url":"https://user:W29BSECRETPW@api.z.ai/api/anthropic","env_key":"ABC"}')), $urlWhy)
+            'a query'                 = @((& $one (& $epWith '{"base_url":"https://api.z.ai/api/anthropic?key=W29BSECRETPW","env_key":"ABC"}')), $urlWhy)
+            'a relative URL'          = @((& $one (& $epWith '{"base_url":"/api/anthropic","env_key":"ABC"}')), $urlWhy)
+            'a token as env_key'      = @((& $one (& $epWith '{"base_url":"https://a.example/v","env_key":"sk-W29BSECRETPW"}')), $keyWhy)
+            'no env_key'              = @((& $one (& $epWith '{"base_url":"https://a.example/v"}')), $keyWhy)
+            'timeout_ms 5'            = @((& $one (& $epWith '{"base_url":"https://a.example/v","env_key":"ABC","timeout_ms":5}')), 'entry 1: endpoint.timeout_ms must be an integer from 60000 to 7200000 (milliseconds - API_TIMEOUT_MS; default 3000000; got 5)')
+            'timeout_ms 7200001'      = @((& $one (& $epWith '{"base_url":"https://a.example/v","env_key":"ABC","timeout_ms":7200001}')), 'got 7200001)')
+            'a model with a blank'    = @((& $one (& $epWith '{"base_url":"https://a.example/v","env_key":"ABC"}' 'glm 5.3')), "entry 1: the claude model 'glm 5.3' is not a model id the endpoint route takes (the id as the provider publishes it: letters, digits, ""."", ""_"", ""-"", at most 64 characters, optionally ending with [1m])")
+            'plan in upper case'      = @((& $one '{"provider":"x","model":"gpt-5.1","plan":"Zai"}'), 'entry 1: plan must be a slug of 2 to 32 characters - lowercase letters, digits and "-", starting with a letter (e.g. "zai"; got "Zai")')
+            'plan not a string'       = @((& $one '{"provider":"x","model":"gpt-5.1","plan":3}'), 'entry 1: plan must be a slug of 2 to 32 characters')
+            'parallel names nothing'  = @((& $rosterOf @($epEntry) ',"parallel":{"nope":2}'), "parallel names the provider label 'nope', which no entry of the roster uses (as its provider label or its plan)")
+            'one label, two engines'  = @((& $rosterOf @($zaiEntry, ($epEntry -replace '"ZAI-claude"', '"ZAI"'))), "entries 1 and 2 use the provider label 'ZAI' with two engines (codex, claude); a label names one engine")
+            'subscription keeps the table' = @((& $one '{"provider":"x","engine":"claude","model":"glm-5.3"}'), "entry 1: the claude model 'glm-5.3' is not in the claude engine's model table")
+            'an unknown auth'         = @((& $one '{"provider":"x","engine":"claude","model":"glm-5.3","auth":"gateway"}'), 'entry 1: auth of engine claude must be "subscription" (the claude.ai login, the default) or "api-key" (ANTHROPIC_API_KEY) or "endpoint" (a third-party Anthropic-compatible endpoint named by the entry''s "endpoint")')
+        }
+        $badE = @()
+        foreach ($n in $refuseE.Keys) { $rr = & $rdE $refuseE[$n][0]; if (-not ($rr.Error -and $rr.Error.Contains($refuseE[$n][1]) -and -not $rr.Error.Contains('W29BSECRETPW'))) { $badE += "$n -> $($rr.Error)" } }
+        Check 'ENDPOINT' "E1: refused - the whole roster, fail-closed - with their texts: $(@($refuseE.Keys) -join ', '); a URL or env_key value is never echoed" ($badE.Count -eq 0) ($badE -join ' | ')
+
+        # ---- E5: the route identity and its health key
+        $iEp = Resolve-ReviewerIdentity -Config $cfgEp -Provider 'ZAI-claude' -Model 'glm-5.3' -Engine 'claude' -Launcher 'C:\fake\claude.exe' -Auth 'endpoint' -Endpoint (& $mkEp $epUrl $epVar)
+        $iEpCase = Resolve-ReviewerIdentity -Config $cfgEp -Provider 'other-label' -Model 'glm-5.3[1m]' -Engine 'claude' -Auth 'endpoint' -Endpoint (& $mkEp 'https://API.Z.AI/api/anthropic/' $epVar 'another-plan')
+        $iEpKey = Resolve-ReviewerIdentity -Config $cfgEp -Provider 'ZAI-claude' -Model 'glm-5.3' -Engine 'claude' -Auth 'endpoint' -Endpoint (& $mkEp $epUrl 'W29B_OTHER_TOKEN')
+        $iEpPath = Resolve-ReviewerIdentity -Config $cfgEp -Provider 'ZAI-claude' -Model 'glm-5.3' -Engine 'claude' -Auth 'endpoint' -Endpoint (& $mkEp 'https://api.z.ai/api/Anthropic' $epVar)
+        $iNoEp = Resolve-ReviewerIdentity -Config $cfgEp -Provider 'x' -Model 'glm-5.3' -Engine 'claude' -Auth 'endpoint'
+        $pcKeys = @($iEp.ProviderConfig.PSObject.Properties | ForEach-Object { $_.Name }) -join ','
+        Check 'ENDPOINT' 'E5: the ROUTE identity - CompatString cc-engine-v1|claude|endpoint|<canonical base_url>|<env_key>, the fingerprint its SHA-256; lower-case scheme and host and a trailing slash are the same route, the label, the model, [1m] and the plan are no part of it; another env_key or another path is another route; provider_config keys exactly engine, launcher, credential_mechanism endpoint, base_url (as written), env_key (the NAME), plan zai - no auth_method; the Display names the base URL; auth endpoint without an endpoint is an identity error' ($iEp.CompatString -eq $epCanon -and $iEp.Fingerprint -eq $epFp -and $iEpCase.Fingerprint -eq $epFp -and $iEpKey.Fingerprint -ne $epFp -and $iEpPath.Fingerprint -ne $epFp -and $pcKeys -eq 'engine,launcher,credential_mechanism,base_url,env_key,plan' -and $iEp.ProviderConfig.credential_mechanism -eq 'endpoint' -and $iEp.ProviderConfig.base_url -eq $epUrl -and $iEp.ProviderConfig.env_key -eq $epVar -and $iEp.ProviderConfig.plan -eq 'zai' -and $iEp.Display -match 'endpoint https://api\.z\.ai/api/anthropic \(token from env W29B_FAKE_ZAI_TOKEN\)' -and $iNoEp.Error -match "auth endpoint is not usable: auth endpoint names no endpoint") "$($iEp.CompatString) | $pcKeys | $($iNoEp.Error)"
+        $hRoute = Get-EndpointHealth -Consults @((& $seedE 1 'ZAI-claude' 'claude' $epFp 'quota' 'usage limit reached' $nowE.AddHours(3))) -Fingerprint $epFp -NoMachine
+        $hOther = Get-EndpointHealth -Consults @((& $seedE 1 'ZAI-claude' 'claude' $epFp 'quota' 'usage limit reached' $nowE.AddHours(3))) -Fingerprint $iEpKey.Fingerprint -NoMachine
+        Check 'ENDPOINT' 'E5: the health of an endpoint entry is keyed by its route (the fingerprint) - a usage limit recorded on the route marks it, another route of the same host (another env_key) stays clear' ([bool]$hRoute.Quota -and $hRoute.QuotaKnown -and -not $hOther.Quota) ''
+
+        # ---- E4: the child environment, in-process
+        Set-CaseEnv '' @{ $epVar = $epToken; ANTHROPIC_API_KEY = 'fake-key-0815'; ANTHROPIC_BASE_URL = 'http://127.0.0.1:9/'; ANTHROPIC_AUTH_TOKEN = 'fake-parent-token'; ANTHROPIC_MODEL = 'opus'; ANTHROPIC_DEFAULT_SONNET_MODEL = 'glm-5.3[1m]'; ANTHROPIC_SMALL_FAST_MODEL = 'x'; API_TIMEOUT_MS = '1'; CLAUDE_CODE_EFFORT_LEVEL = 'max' } ''
+        $ceE = Get-ClaudeChildEnvironment -Auth 'endpoint' -Endpoint $e0.Endpoint
+        Remove-Item "env:$epVar" -ErrorAction SilentlyContinue
+        $ceN = Get-ClaudeChildEnvironment -Auth 'endpoint' -Endpoint $e0.Endpoint
+        $ceX = Get-ClaudeChildEnvironment -Auth 'endpoint'
+        Restore-Env
+        $prefixed = @($ceE.Names | Where-Object { $_ -like 'ANTHROPIC_*' -or $_ -like 'API_*' -or $_ -like 'CLAUDE*' }) -join ','
+        Check 'ENDPOINT' 'E4: the child environment of auth endpoint - of the ANTHROPIC_/API_/CLAUDE prefixes exactly ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, API_TIMEOUT_MS, CLAUDE_CONFIG_DIR: the base URL from the roster (not the parent''s), the token from the variable env_key names (not the parent''s ANTHROPIC_AUTH_TOKEN), API_TIMEOUT_MS 3000000 (not the parent''s 1); ANTHROPIC_API_KEY, ANTHROPIC_MODEL, ANTHROPIC_DEFAULT_SONNET_MODEL, ANTHROPIC_SMALL_FAST_MODEL, CLAUDE_CODE_EFFORT_LEVEL and the token variable itself absent; without the token variable or without an endpoint: Problem set and no ANTHROPIC_AUTH_TOKEN (the launch is refused)' ($prefixed -eq 'ANTHROPIC_AUTH_TOKEN,ANTHROPIC_BASE_URL,API_TIMEOUT_MS,CLAUDE_CONFIG_DIR' -and $ceE.Env['ANTHROPIC_BASE_URL'] -eq $epUrl -and $ceE.Env['ANTHROPIC_AUTH_TOKEN'] -eq $epToken -and $ceE.Env['API_TIMEOUT_MS'] -eq '3000000' -and -not (@($ceE.Names) -contains $epVar) -and -not $ceE.Problem -and $ceN.Problem -eq "env $epVar not set (the token of auth endpoint)" -and -not (@($ceN.Names) -contains 'ANTHROPIC_AUTH_TOKEN') -and $ceX.Problem -match 'names no endpoint' -and -not $ceX.Env.ContainsKey('ANTHROPIC_BASE_URL')) $prefixed
+
+        # ---- E2, E3, E4: the turn rules of the route, in-process
+        $uE = Uuid
+        $initE = '{"type":"system","subtype":"init","cwd":"C:\\r","session_id":"' + $uE + '","tools":["Glob","Grep","Read","StructuredOutput"],"mcp_servers":[],"model":"glm-5.3","permissionMode":"dontAsk","apiKeySource":"none"}'
+        $resE = '{"type":"result","subtype":"success","is_error":false,"num_turns":2,"result":"done","session_id":"' + $uE + '","usage":{"input_tokens":10,"output_tokens":5},"modelUsage":{"glm-5.3":{"outputTokens":5}},"permission_denials":[],"structured_output":{"schema_version":"1"}}'
+        $errRes = { param([string]$Text) '{"type":"result","subtype":"success","is_error":true,"num_turns":1,"result":' + (ConvertTo-Json -InputObject $Text -Compress) + ',"session_id":"' + $uE + '","permission_denials":[]}' }
+        $tEp = New-EngineTurnOptions -Model 'glm-5.3[1m]' -NewThread $uE -Auth 'endpoint'
+        $oOk = Get-ClaudeTurnOutcome -Events (Read-ClaudeEvents -Path (EvE 'ep-ok.jsonl' @($initE, $resE))) -ExitCode 0 -StderrText '[claude-code:unrecognized_model] {"model":"glm-5.3"}' -Turn $tEp
+        $oKey = Get-ClaudeTurnOutcome -Events (Read-ClaudeEvents -Path (EvE 'ep-key.jsonl' @(($initE -replace '"apiKeySource":"none"', '"apiKeySource":"ANTHROPIC_API_KEY"'), $resE))) -ExitCode 0 -Turn $tEp
+        $oDrift = Get-ClaudeTurnOutcome -Events (Read-ClaudeEvents -Path (EvE 'ep-drift.jsonl' @(($initE -replace '"model":"glm-5.3"', '"model":"claude-sonnet-5-5"'), ($resE -replace 'glm-5\.3', 'claude-sonnet-5-5')))) -ExitCode 0 -Turn $tEp
+        $sonInit = ($initE -replace '"model":"glm-5.3"', '"model":"claude-sonnet-5-5"')
+        $sonRes = ($resE -replace 'glm-5\.3', 'claude-sonnet-5-5')
+        $oAliasEp = Get-ClaudeTurnOutcome -Events (Read-ClaudeEvents -Path (EvE 'ep-alias.jsonl' @($sonInit, $sonRes))) -ExitCode 0 -Turn (New-EngineTurnOptions -Model 'sonnet' -NewThread $uE -Auth 'endpoint')
+        $oAliasSub = Get-ClaudeTurnOutcome -Events (Read-ClaudeEvents -Path (EvE 'ep-alias2.jsonl' @($sonInit, $sonRes))) -ExitCode 0 -Turn (New-EngineTurnOptions -Model 'sonnet' -NewThread $uE -Auth 'subscription')
+        $o401 = Get-ClaudeTurnOutcome -Events (Read-ClaudeEvents -Path (EvE 'ep-401.jsonl' @($initE, (& $errRes 'Failed to authenticate. API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"token expired or incorrect"}}')))) -ExitCode 1 -Turn $tEp
+        $o403 = Get-ClaudeTurnOutcome -Events (Read-ClaudeEvents -Path (EvE 'ep-403.jsonl' @($initE, (& $errRes 'API Error: 403 {"error":"forbidden"}')))) -ExitCode 1 -Turn $tEp
+        $o429 = Get-ClaudeTurnOutcome -Events (Read-ClaudeEvents -Path (EvE 'ep-429.jsonl' @($initE, (& $errRes 'API Error: 429 {"error":{"message":"busy, try again"}}')))) -ExitCode 1 -Turn $tEp
+        Check 'ENDPOINT' 'E2-E4, the turn rules of an endpoint turn: init model glm-5.3 for the pinned glm-5.3[1m] with apiKeySource none -> usable, ModelResolved glm-5.3[1m], the stderr notice [claude-code:unrecognized_model] no failure; apiKeySource ANTHROPIC_API_KEY -> class auth; an init naming claude-sonnet-5-5 -> model drift, class capability; the alias sonnet served as claude-sonnet-5-5 passes on the subscription but NOT on the endpoint route (equality, no alias family); "Failed to authenticate. API Error: 401" and "API Error: 403" -> class auth; "API Error: 429" with no quota wording -> class quota' ($oOk.Ok -and $oOk.ModelResolved -eq 'glm-5.3[1m]' -and -not $oKey.Ok -and $oKey.Class -eq 'auth' -and $oKey.Outcome -match 'apiKeySource ANTHROPIC_API_KEY on an endpoint route' -and -not $oDrift.Ok -and $oDrift.Class -eq 'capability' -and $oDrift.Outcome -match 'model drift: asked glm-5\.3\[1m\], served claude-sonnet-5-5' -and -not $oAliasEp.Ok -and $oAliasEp.Class -eq 'capability' -and $oAliasSub.Ok -and -not $o401.Ok -and $o401.Class -eq 'auth' -and $o401.Outcome -match '^failed: claude exit 1 - Failed to authenticate\. API Error: 401' -and $o403.Class -eq 'auth' -and $o429.Class -eq 'quota') "$($oOk.Outcome) | $($oKey.Outcome) | $($oDrift.Outcome) | $($oAliasEp.Outcome) | $($o401.Class) $($o403.Class) $($o429.Class)"
+
+        # ---- E3, E4: the dry run (no `claude auth status`), its lines, the refusals without the token
+        $rE = New-Repo 'endpoint'
+        $rosterEp = Write-Roster 'endpoint' (& $rosterOf @($epEntry))
+        $dE = Consult $rE $rosterEp @('-DryRun', '-Prompt', 'x') @{ $epVar = $epToken }
+        $pvE = $dE.Preview
+        Check 'ENDPOINT' 'E3: the dry run of an endpoint entry - preflight "ok: env W29B_FAKE_ZAI_TOKEN set" with NO `claude auth status` (no auth line in the fake''s log, the version probe only); reviewer ZAI-claude :: glm-5.3, provider_fingerprint = the route''s, provider_config {credential_mechanism endpoint, base_url, env_key, plan zai} without auth_method; --model glm-5.3 sent straight, no alias warning; engine_run.auth endpoint, child_env_allowed with ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, API_TIMEOUT_MS and without ANTHROPIC_API_KEY; the token value never printed' ($dE.Code -eq 0 -and $pvE.preflight -eq "ok: env $epVar set" -and @($dE.Log | Where-Object { $_.kind -eq 'auth' }).Count -eq 0 -and @($dE.Log | Where-Object { $_.kind -eq 'version' }).Count -eq 1 -and $pvE.reviewer.provider -eq 'ZAI-claude' -and $pvE.reviewer.model -eq 'glm-5.3' -and $pvE.reviewer.provider_fingerprint -eq $epFp -and $pvE.reviewer.provider_config.credential_mechanism -eq 'endpoint' -and $pvE.reviewer.provider_config.base_url -eq $epUrl -and $pvE.reviewer.provider_config.env_key -eq $epVar -and $pvE.reviewer.provider_config.plan -eq 'zai' -and $null -eq $pvE.reviewer.provider_config.PSObject.Properties['auth_method'] -and $pvE.command -match ' --model glm-5\.3 ' -and @(Get-RealWarnings $pvE.warnings | Where-Object { $_ -match 'alias' }).Count -eq 0 -and $pvE.engine_run.auth -eq 'endpoint' -and @($pvE.engine_run.child_env_allowed) -contains 'ANTHROPIC_AUTH_TOKEN' -and @($pvE.engine_run.child_env_allowed) -contains 'ANTHROPIC_BASE_URL' -and @($pvE.engine_run.child_env_allowed) -contains 'API_TIMEOUT_MS' -and -not (@($pvE.engine_run.child_env_allowed) -contains 'ANTHROPIC_API_KEY') -and -not $dE.Out.Contains($epToken)) "$($dE.First) | $($pvE.preflight) | $($pvE.reviewer.provider_fingerprint)"
+        $epLine = [string](Line $dE.Out 'endpoint    :')
+        $ceLine = [string](Line $dE.Out 'child env   :')
+        Check 'ENDPOINT' 'E4: the dry run''s lines - "endpoint    : https://api.z.ai/api/anthropic (ANTHROPIC_BASE_URL); token from env W29B_FAKE_ZAI_TOKEN (ANTHROPIC_AUTH_TOKEN - the value is never shown); API_TIMEOUT_MS 3000000; plan zai; no claude auth status - the model the init event names is the proof", "child env   : an allow list (auth endpoint): ..." naming the three variables and not ANTHROPIC_API_KEY, and the reviewer line names the endpoint' ($epLine -eq "endpoint    : $epUrl (ANTHROPIC_BASE_URL); token from env $epVar (ANTHROPIC_AUTH_TOKEN - the value is never shown); API_TIMEOUT_MS 3000000; plan zai; no claude auth status - the model the init event names is the proof" -and $ceLine -match '^child env   : an allow list \(auth endpoint\): .*ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, API_TIMEOUT_MS' -and $ceLine -notmatch 'ANTHROPIC_API_KEY' -and [string](Line $dE.Out 'reviewer    :') -match "endpoint https://api\.z\.ai/api/anthropic \(token from env $epVar\)") "$epLine || $ceLine"
+        $dN = Consult $rE $rosterEp @('-DryRun', '-Prompt', 'x', '-Provider', 'ZAI-claude') @{}
+        $rN = Consult $rE $rosterEp @('-Prompt', 'x') @{}
+        $sN = Consult $rE $rosterEp @('-Prompt', 'x', '-SkipPreflight') @{}
+        Check 'ENDPOINT' 'E3: the token variable unset - the dry run''s preflight "unavailable (env W29B_FAKE_ZAI_TOKEN not set) - a real run is refused" and its child env line says so; a real run finds no available reviewer ("missing: env W29B_FAKE_ZAI_TOKEN not set") and starts nothing; with -SkipPreflight the LAUNCH is refused ("the claude run is refused before launch: the claude engine''s child environment is not usable: env W29B_FAKE_ZAI_TOKEN not set (the token of auth endpoint); nothing was started") - no turn, no ledger entry' ($dN.Code -eq 0 -and [string](Line $dN.Out 'preflight   :') -match "^preflight   : unavailable \(env $epVar not set\) - a real run is refused" -and [string](Line $dN.Out 'child env   :') -match "a real run is refused: env $epVar not set" -and $rN.Code -eq 1 -and $rN.Out -match "missing: env $epVar not set" -and $sN.Code -eq 1 -and $sN.Out -match "the claude run is refused before launch: the claude engine's child environment is not usable: env $epVar not set \(the token of auth endpoint\); nothing was started" -and @(Turns $rN).Count -eq 0 -and @(Turns $sN).Count -eq 0 -and @(Ledger $rE).Count -eq 0) "$(Line $dN.Out 'preflight   :') | $($rN.First) | $($sN.First)"
+
+        # ---- E2-E4 end to end: a run on the route, the model proof, a wrong token
+        $envRun = @{ $epVar = $epToken; FAKE_CLAUDE_REPLY = $advise; FAKE_CLAUDE_TOKEN_EXPECT = $epToken; FAKE_CLAUDE_STDERR_NOTICE = '1'; ANTHROPIC_API_KEY = 'fake-key-0815'; ANTHROPIC_MODEL = 'opus'; ANTHROPIC_DEFAULT_SONNET_MODEL = 'glm-5.3[1m]'; ANTHROPIC_BASE_URL = 'http://127.0.0.1:9/'; API_TIMEOUT_MS = '1' }
+        $xE = Consult $rE $rosterEp @('-Prompt', 'Check the words', '-ReplyName', 'ep') $envRun
+        $eE = Last-Entry $rE
+        $tE0 = @(Turns $xE) | Select-Object -First 1
+        $sessE = Text (Td $rE 'sessions.json')
+        $hoE = (@(Get-ChildItem -LiteralPath (Td $rE 'handoffs') -File | ForEach-Object { Text $_.FullName }) -join "`n")
+        Check 'ENDPOINT' 'E2-E4 end to end: a structured run on the endpoint route is usable - its child got ANTHROPIC_BASE_URL = the roster''s (not the parent''s), API_TIMEOUT_MS 3000000, ANTHROPIC_AUTH_TOKEN = the token (the fake''s token_match) and neither ANTHROPIC_API_KEY, ANTHROPIC_MODEL, ANTHROPIC_DEFAULT_SONNET_MODEL nor the token variable itself; --model glm-5.3; no `claude auth status`; engine_run {auth endpoint, api_key_source none, model_resolved glm-5.3, child_env_allowed with ANTHROPIC_AUTH_TOKEN, without ANTHROPIC_API_KEY}; the route''s fingerprint; the stderr notice no failure; the token in no ledger, handoff or console text' ($xE.Code -eq 0 -and $eE.bridge_outcome -eq 'usable reply' -and $tE0 -and $tE0.base_url -eq $epUrl -and $tE0.api_timeout_ms -eq '3000000' -and $tE0.has_token -eq $true -and $tE0.token_match -eq $true -and -not (Has-Name $tE0 'ANTHROPIC_API_KEY') -and -not (Has-Name $tE0 'ANTHROPIC_MODEL') -and -not (Has-Name $tE0 'ANTHROPIC_DEFAULT_SONNET_MODEL') -and -not (Has-Name $tE0 $epVar) -and (ArgOf $tE0 '--model') -eq 'glm-5.3' -and @($xE.Log | Where-Object { $_.kind -eq 'auth' }).Count -eq 0 -and $eE.engine_run.auth -eq 'endpoint' -and $eE.engine_run.api_key_source -eq 'none' -and $eE.engine_run.model_resolved -eq 'glm-5.3' -and @($eE.engine_run.child_env_allowed) -contains 'ANTHROPIC_AUTH_TOKEN' -and -not (@($eE.engine_run.child_env_allowed) -contains 'ANTHROPIC_API_KEY') -and $eE.reviewer.provider_fingerprint -eq $epFp -and -not $sessE.Contains($epToken) -and -not $hoE.Contains($epToken) -and -not $xE.Out.Contains($epToken) -and $xE.GuardOk) "$($xE.First) | $($eE.bridge_outcome) | base_url $($tE0.base_url) token_match $($tE0.token_match)"
+        $xD = Consult $rE $rosterEp @('-Prompt', 'x', '-ReplyName', 'drift') @{ $epVar = $epToken; FAKE_CLAUDE_REPLY = $advise; FAKE_CLAUDE_INIT_MODEL = 'claude-sonnet-5-5' }
+        $eD = Last-Entry $rE
+        Check 'ENDPOINT' 'E2: the model proof against the init event, end to end - an endpoint turn whose init names claude-sonnet-5-5 (what a subscription turn would serve) for the pinned glm-5.3 fails "model drift: asked glm-5.3, served claude-sonnet-5-5", class capability' ($xD.Code -ne 0 -and [string]$eD.bridge_outcome -match 'model drift: asked glm-5\.3, served claude-sonnet-5-5' -and $eD.provider_failure.class -eq 'capability') "$($eD.bridge_outcome)"
+        $r4 = New-Repo 'endpoint-401'
+        $rosterEpZ = Write-Roster 'endpoint-zai' (& $rosterOf @($epEntry, $zaiEntry))
+        $x4 = Consult $r4 $rosterEpZ @('-Prompt', 'x', '-Provider', 'ZAI-claude', '-ReplyName', 'u401') @{ $epVar = $epToken; FAKE_CLAUDE_REPLY = $advise; FAKE_CLAUDE_TOKEN_EXPECT = 'another-fake-token' }
+        $e4 = Last-Entry $r4
+        $p4 = Providers $r4 $rosterEpZ @('-Json') @{ $epVar = $epToken }
+        $c4 = & $row $p4.Json 'ZAI-claude'; $z4 = & $row $p4.Json 'ZAI'
+        Check 'ENDPOINT' 'E4: a wrong token (P11: "Failed to authenticate. API Error: 401", no fallback to the local login) fails the run with class auth on the route''s fingerprint; the auth failure stays with its ROUTE - the listing shows ZAI-claude "unavailable (auth failed ...)" and the same-plan codex ZAI available (E5: only a quota failure propagates over a plan)' ($x4.Code -ne 0 -and [string]$e4.bridge_outcome -match 'Failed to authenticate\. API Error: 401' -and $e4.provider_failure.class -eq 'auth' -and $e4.reviewer.provider_fingerprint -eq $epFp -and [string]$c4.verdict -match '^unavailable \(auth failed' -and $z4.verdict -eq 'available') "$($e4.bridge_outcome) | $($c4.verdict) | $($z4.verdict)"
+
+        # ---- E3: the listing (codex-providers.ps1)
+        $r5 = New-Repo 'endpoint-listing'
+        $l5 = Providers $r5 $rosterEpZ @('-Json') @{ $epVar = $epToken }
+        $l5n = Providers $r5 $rosterEpZ @('-Json', '-NoNetwork') @{ $epVar = $epToken }
+        $l5m = Providers $r5 $rosterEpZ @('-Json') @{}
+        $c5 = & $row $l5.Json 'ZAI-claude'; $c5m = & $row $l5m.Json 'ZAI-claude'
+        Check 'ENDPOINT' 'E3: codex-providers.ps1 - the endpoint row: engine claude, endpoint "claude endpoint https://api.z.ai/api/anthropic (<launcher>)", credentials "ok: env W29B_FAKE_ZAI_TOKEN set" (local: no `claude auth status` logged; -NoNetwork the same), verdict available; the variable unset -> "missing: env W29B_FAKE_ZAI_TOKEN not set" and "unavailable (env W29B_FAKE_ZAI_TOKEN not set)"' ($l5.Code -eq 0 -and $c5.engine -eq 'claude' -and [string]$c5.endpoint -match '^claude endpoint https://api\.z\.ai/api/anthropic \(' -and $c5.credentials -eq "ok: env $epVar set" -and $c5.verdict -eq 'available' -and @($l5.Log | Where-Object { $_.kind -eq 'auth' }).Count -eq 0 -and (& $row $l5n.Json 'ZAI-claude').credentials -eq "ok: env $epVar set" -and $c5m.credentials -eq "missing: env $epVar not set" -and $c5m.verdict -eq "unavailable (env $epVar not set)") "$($c5.endpoint) | $($c5.credentials) | $($c5m.verdict)"
+
+        # ---- E5: the PLAN identity - a quota failure propagates over the plan, nothing else does
+        $rosterPlan = Write-Roster 'endpoint-plan' (& $rosterOf @($zaiEntry, $epEntry, $oaiEntry))
+        $r6 = New-Repo 'endpoint-plan'
+        Seed-Task $r6 @((& $seedE 1 'ZAI' 'codex' $zaiFp 'quota' 'usage limit reached for the 5 hour window' $nowE.AddHours(3)))
+        $l6 = Providers $r6 $rosterPlan @('-Json') @{ $epVar = $epToken }
+        $l6s = Providers $r6 $rosterPlan @('-Short') @{ $epVar = $epToken }
+        $l6t = Providers $r6 $rosterPlan @() @{ $epVar = $epToken }
+        $c6 = & $row $l6.Json 'ZAI-claude'; $z6 = & $row $l6.Json 'ZAI'
+        Check 'ENDPOINT' 'E5: a QUOTA failure recorded on the codex entry ZAI (plan zai) marks the claude entry ZAI-claude of the same plan out until the same reset - the listing row "unavailable (plan zai (usage limit on ZAI until <iso>))" (ZAI itself: its own "usage limit until"), the -Short line "ZAI-claude :: glm-5.3 (plan zai (usage limit on ZAI until ..."; the roster walk skips both ("... [claude] (plan zai (usage limit on ZAI until ...") and would select openai' ([string]$c6.verdict -match '^unavailable \(plan zai \(usage limit on ZAI until \d{4}-\d\d-\d\dT' -and [string]$z6.verdict -match '^unavailable \(usage limit until ' -and $l6s.Out -match 'ZAI-claude :: glm-5\.3 \(plan zai \(usage limit on ZAI until ' -and $l6t.Out -match 'would select openai :: gpt-5\.1 \(skipped: ZAI :: glm-5\.3 \(usage limit until [^)]*\), ZAI-claude :: glm-5\.3 \[claude\] \(plan zai \(usage limit on ZAI until ') "$($c6.verdict) | $($z6.verdict) | $($l6s.Out)"
+        $x6 = Consult $r6 $rosterPlan @('-Prompt', 'x', '-Provider', 'ZAI-claude') @{ $epVar = $epToken; FAKE_CLAUDE_REPLY = $advise }
+        Check 'ENDPOINT' 'E5: a direct run of the plan''s other route is refused before anything starts: "provider ZAI-claude is not usable: its plan zai hit a usage limit on ZAI at ... that lasts until ...; nothing was started (pass -SkipPreflight to launch anyway)"' ($x6.Code -eq 1 -and $x6.Out -match 'provider ZAI-claude is not usable: its plan zai hit a usage limit on ZAI at .* that lasts until .*; nothing was started \(pass -SkipPreflight to launch anyway\)' -and @(Turns $x6).Count -eq 0) $x6.First
+        $r7 = New-Repo 'endpoint-plan-back'
+        Seed-Task $r7 @((& $seedE 1 'ZAI-claude' 'claude' $epFp 'quota' 'usage limit reached' $nowE.AddHours(2)))
+        $l7 = Providers $r7 $rosterPlan @('-Json') @{ $epVar = $epToken }
+        $r8 = New-Repo 'endpoint-plan-auth'
+        Seed-Task $r8 @((& $seedE 1 'ZAI' 'codex' $zaiFp 'auth' 'invalid api key (401)' $null))
+        $l8 = Providers $r8 $rosterPlan @('-Json') @{ $epVar = $epToken }
+        $r9 = New-Repo 'endpoint-noplan'
+        Seed-Task $r9 @((& $seedE 1 'ZAI' 'codex' $zaiFp 'quota' 'usage limit reached for the 5 hour window' $nowE.AddHours(3)))
+        $l9 = Providers $r9 (Write-Roster 'endpoint-noplan' (& $rosterOf @($zaiEntryNoPlan, $epEntryNoPlan, $oaiEntry))) @('-Json') @{ $epVar = $epToken }
+        $r10 = New-Repo 'endpoint-plan-cleared'
+        Seed-Task $r10 @((& $seedE 1 'ZAI' 'codex' $zaiFp 'quota' 'usage limit reached for the 5 hour window' $nowE.AddHours(3) 10), (& $seedE 2 'ZAI-claude' 'claude' $epFp '' '' $null 2))
+        $l10 = Providers $r10 $rosterPlan @('-Json') @{ $epVar = $epToken }
+        Check 'ENDPOINT' 'E5: the plan works both ways and only for quota - a usage limit on the claude route marks the codex ZAI out ("plan zai (usage limit on ZAI-claude until ..."); an AUTH failure on ZAI leaves ZAI-claude available; without a plan the codex usage limit leaves ZAI-claude available; a usable reply on ZAI-claude after the codex limit clears the plan for ZAI-claude (the plan''s routes are one record set) while ZAI keeps its own limit' ([string](& $row $l7.Json 'ZAI').verdict -match '^unavailable \(plan zai \(usage limit on ZAI-claude until ' -and [string](& $row $l8.Json 'ZAI').verdict -match '^unavailable \(auth failed' -and (& $row $l8.Json 'ZAI-claude').verdict -eq 'available' -and (& $row $l9.Json 'ZAI-claude').verdict -eq 'available' -and [string](& $row $l9.Json 'ZAI').verdict -match '^unavailable \(usage limit until ' -and (& $row $l10.Json 'ZAI-claude').verdict -eq 'available' -and [string](& $row $l10.Json 'ZAI').verdict -match '^unavailable \(usage limit until ') "$((& $row $l7.Json 'ZAI').verdict) | $((& $row $l8.Json 'ZAI-claude').verdict) | $((& $row $l9.Json 'ZAI-claude').verdict) | $((& $row $l10.Json 'ZAI-claude').verdict)"
+
+        # ---- E6: telemetry by host, the lab by host, the coordinator rule
+        $tv = { param([string]$Url, [string]$Model, [string]$Auth = 'endpoint', [string]$Engine = 'claude') $pc = [pscustomobject]@{ engine = $Engine; launcher = 'x'; credential_mechanism = $Auth }; if ($Url) { $pc | Add-Member -NotePropertyName 'base_url' -NotePropertyValue $Url }; $c = Get-TelemetryReviewerClass ([pscustomobject]@{ reviewer = [pscustomobject]@{ provider = 'LABEL-x'; model = $Model; engine = $Engine; provider_config = $pc } }); "$($c.provider)/$($c.model)" }
+        $tcases = @(
+            @((& $tv $epUrl 'glm-5.3'), 'zai/glm-5.3'),
+            @((& $tv $epUrl 'glm-5.3[1m]'), 'zai/glm-5.3'),
+            @((& $tv 'https://token-plan-ams.xiaomimimo.com/anthropic' 'mimo-v2.6-pro'), 'xiaomi/mimo-v2.6-pro'),
+            @((& $tv 'https://api.kimi.ai/coding/' 'k3'), 'moonshot/k3'),
+            @((& $tv 'https://api.minimax.io/anthropic' 'MiniMax-M3'), 'minimax/minimax-m3'),
+            @((& $tv 'https://api.minimax.cn/anthropic' 'minimax-m3'), 'minimax/minimax-m3'),
+            @((& $tv 'https://llm.example.invalid/anthropic' 'glm-5.3'), 'other/other'),
+            @((& $tv $epUrl 'claude-sonnet-5-5'), 'zai/other'),
+            @((& $tv '' 'sonnet' 'subscription'), 'anthropic/sonnet'),
+            @((& $tv '' 'claude-opus-5-5[1m]' 'api-key'), 'anthropic/claude-opus-5-5'),
+            @((& $tv 'https://api.z.ai/api/coding/paas/v4' 'glm-5.3[1m]' '' 'codex'), 'zai/glm-5.3')
+        )
+        $tgot = @($tcases | ForEach-Object { $_[0] })
+        $twant = @($tcases | ForEach-Object { $_[1] })
+        $evE = New-TelemetryEvent -Entry $eE -InstanceId ('ab' * 32)
+        $evJ = ConvertTo-Json -InputObject $evE -Compress -Depth 8
+        Check 'ENDPOINT' 'E6: telemetry by the base URL''s HOST first - api.z.ai -> zai/glm-5.3 ([1m] stripped for every vendor, a codex zai entry too), *.xiaomimimo.com -> xiaomi, api.kimi.ai -> moonshot/k3, api.minimax.io and .cn -> minimax/minimax-m3, an unknown host -> other/other, a model outside the vendor''s list -> other; no base URL (subscription, api-key) -> the engine row anthropic; the real run''s event: engine claude, provider zai, model glm-5.3, and neither the URL, the label nor the variable name in it' (($tgot -join ' ') -eq ($twant -join ' ') -and $evE.details.engine -eq 'claude' -and $evE.details.provider -eq 'zai' -and $evE.details.model -eq 'glm-5.3' -and $evJ -notmatch 'api\.z\.ai' -and -not $evJ.Contains('ZAI-claude') -and -not $evJ.Contains($epVar)) "got: $($tgot -join ' ') | event $($evE.details.provider)/$($evE.details.model)"
+        $mkEntry = { param([string]$Url, [string]$Lab = '') [pscustomobject]@{ Provider = 'P-claude'; Model = 'm'; Engine = 'claude'; Auth = 'endpoint'; Lab = $Lab; Endpoint = (& $mkEp $Url 'ABC_KEY') } }
+        $labOf = { param($Entry, [string]$M) $l = Get-EntryLab -Entry $Entry -Model $M; "$($l.Lab)/$($l.Source)" }
+        $labs = @(
+            (& $labOf (& $mkEntry $epUrl) 'glm-5.3'),
+            (& $labOf (& $mkEntry 'https://token-plan-ams.xiaomimimo.com/anthropic') 'mimo-v2.6-pro'),
+            (& $labOf (& $mkEntry 'https://api.kimi.ai/coding/') 'k3'),
+            (& $labOf (& $mkEntry 'https://api.minimax.io/anthropic') 'MiniMax-M3'),
+            (& $labOf (& $mkEntry 'https://llm.example.invalid/anthropic') 'glm-5.3'),
+            (& $labOf (& $mkEntry $epUrl 'mylab') 'glm-5.3'),
+            (& $labOf ([pscustomobject]@{ Provider = 'anthropic'; Model = 'sonnet'; Engine = 'claude'; Auth = 'subscription'; Lab = '' }) 'sonnet'))
+        $co = { param([string]$P, [string]$M) [pscustomobject]@{ provider = $P; model = $M; engine = ''; source = 'explicit' } }
+        $cm1 = Get-CoordinatorMatch -Coordinator (& $co 'ZAI-claude' 'glm-5.3') -Provider 'ZAI-claude' -Model 'glm-5.3' -Engine 'claude' -Auth 'endpoint'
+        $cm2 = Get-CoordinatorMatch -Coordinator (& $co 'anthropic' 'glm-5.3') -Provider 'ZAI-claude' -Model 'glm-5.3' -Engine 'claude' -Auth 'endpoint'
+        $cm3 = Get-CoordinatorMatch -Coordinator (& $co 'ZAI' 'glm-5.3') -Provider 'ZAI-claude' -Model 'glm-5.3' -Engine 'claude' -Auth 'endpoint'
+        $cm4 = Get-CoordinatorMatch -Coordinator (& $co 'anthropic' 'claude-sonnet-5-5') -Provider 'my-label' -Model 'sonnet' -Engine 'claude' -Auth 'subscription'
+        Check 'ENDPOINT' 'E5: the lab of an endpoint entry by its base URL''s HOST (api.z.ai -> zhipu, *.xiaomimimo.com -> xiaomi, api.kimi.ai -> moonshot, api.minimax.io -> minimax; an unknown host -> the model''s vendor table; a declared lab wins; a subscription entry anthropic); the coordinator rule compares an endpoint entry as a codex entry (label and model: "ZAI-claude :: glm-5.3" own, "anthropic :: glm-5.3" and "ZAI :: glm-5.3" not) and keeps the anthropic rule for the subscription' (($labs -join ' ') -eq 'zhipu/vendor xiaomi/vendor moonshot/vendor minimax/vendor zhipu/vendor mylab/roster anthropic/vendor' -and $cm1 -eq 'own' -and $cm2 -eq '' -and $cm3 -eq '' -and $cm4 -eq 'own') "$($labs -join ' ') | $cm1,$cm2,$cm3,$cm4"
+
+        # ---- E7: the plan's scheduling group
+        $pmE = { param([int]$Pos, [string]$Prov, [string]$Mod, [string]$Eng, [string]$Plan, [string]$Auth = '', $Ep = $null) $idArgs = @{ Config = $cfgEp; Provider = $Prov; Model = $Mod; Engine = $Eng }; if ($Auth) { $idArgs['Auth'] = $Auth; $idArgs['Endpoint'] = $Ep }; [pscustomobject]@{ Entry = [pscustomobject]@{ Position = $Pos; Provider = $Prov; Model = $Mod; Engine = $Eng; Plan = $Plan; Auth = $Auth; Endpoint = $Ep }; Identity = (Resolve-ReviewerIdentity @idArgs) } }
+        $runP = @((& $pmE 1 'ZAI' 'glm-5.3' 'codex' 'zai'), (& $pmE 2 'ZAI-claude' 'glm-5.3' 'claude' 'zai' 'endpoint' (& $mkEp $epUrl $epVar)), (& $pmE 3 'openai' 'gpt-5.1' 'codex' ''))
+        $runN = @((& $pmE 1 'ZAI' 'glm-5.3' 'codex' ''), (& $pmE 2 'ZAI-claude' 'glm-5.3' 'claude' '' 'endpoint' (& $mkEp $epUrl $epVar)), (& $pmE 3 'openai' 'gpt-5.1' 'codex' ''))
+        $newPar = { $h = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal); $h }
+        $parPlan = & $newPar; $parPlan['zai'] = 2
+        $parLabels = & $newPar; $parLabels['ZAI'] = 2; $parLabels['ZAI-claude'] = 2
+        $pl1 = Get-PanelPlan -Runners $runP -Parallel (& $newPar) -Cap 0
+        $pl2 = Get-PanelPlan -Runners $runP -Parallel $parPlan -Cap 0
+        $pl3 = Get-PanelPlan -Runners $runN -Parallel (& $newPar) -Cap 0
+        $pl4 = Get-PanelPlan -Runners $runP -Parallel $parLabels -Cap 0
+        $avP = Get-EndpointGroups -Members $runP
+        Check 'ENDPOINT' 'E7: every plan is a scheduling group across engines - a codex ZAI member and a claude ZAI-claude member of plan zai share one group ("at most 2 at a time" beside an openai member); "parallel": {"zai": 2} -> "at once"; raising both labels but not the plan keeps them one after another; without the plan they run at once; the availability view does not group by plan' ($pl1.GroupOf[1] -eq $pl1.GroupOf[2] -and $pl1.GroupOf[3] -ne $pl1.GroupOf[1] -and $pl1.Text -eq 'at most 2 at a time' -and $pl2.Text -eq 'at once' -and $pl4.Text -eq 'at most 2 at a time' -and $pl3.Text -eq 'at once' -and $avP.GroupOf[1] -ne $avP.GroupOf[2]) "$($pl1.Text) / $($pl2.Text) / $($pl3.Text) / $($pl4.Text)"
+        $rosterPanel = Write-Roster 'endpoint-panel' (& $rosterOf @($zaiEntry, $epEntry, $oaiEntry))
+        $rosterPanelP = Write-Roster 'endpoint-panelp' (& $rosterOf @($zaiEntry, $epEntry, $oaiEntry) ',"parallel":{"zai":2}')
+        $pdE = Consult $r5 $rosterPanel @('-Panel', '-PanelSize', '3', '-DryRun', '-Prompt', 'x') @{ $epVar = $epToken }
+        $ppE = Consult $r5 $rosterPanelP @('-Panel', '-PanelSize', '3', '-DryRun', '-Prompt', 'x') @{ $epVar = $epToken }
+        Check 'ENDPOINT' 'E7 through the bridge: a dry-run panel of ZAI (codex), ZAI-claude (endpoint) and openai plans "at most 2 at a time" (the plan zai serializes its two routes); with "parallel": {"zai": 2} "at once"' ($pdE.Code -eq 0 -and $pdE.Out -match 'at most 2 at a time' -and $ppE.Code -eq 0 -and $ppE.Out -match 'at once') "$($pdE.First) | $($ppE.First)"
+    } finally {
+        $codexHome = $savedCodexHome
+    }
 }
 
 } finally {

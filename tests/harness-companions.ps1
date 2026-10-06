@@ -244,7 +244,7 @@ if (Want 'ROSTER') {
         'req-position' = @('{"roster_version":1,"require":{"acceptance":["#4"]},"reviewers":[{"provider":"ZAI","model":"glm-5.3"}]}', "require.acceptance: '#4' names no roster position")
         'req-empty'    = @('{"roster_version":1,"require":{"acceptance":[]},"reviewers":[{"provider":"ZAI","model":"glm-5.3"}]}', 'require.acceptance must be a non-empty array')
         'req-object'   = @('{"roster_version":1,"require":["#1"],"reviewers":[{"provider":"ZAI","model":"glm-5.3"}]}', 'require must be an object')
-        'unknown-key'  = @('{"roster_version":1,"reviewers":[{"provider":"ZAI","model":"glm-5.3","labs":"x"}]}', "entry 1 has an unknown key 'labs' (allowed: provider, model, codex_config, auth, panel, engine, lab, roles, timeout_sec, stall_sec, context_tokens, ext)")
+        'unknown-key'  = @('{"roster_version":1,"reviewers":[{"provider":"ZAI","model":"glm-5.3","labs":"x"}]}', "entry 1 has an unknown key 'labs' (allowed: provider, model, codex_config, auth, endpoint, plan, panel, engine, lab, roles, timeout_sec, stall_sec, context_tokens, ext)")
     }
     $failsR = @()
     foreach ($k in $bad.Keys) {
