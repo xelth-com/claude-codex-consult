@@ -13,6 +13,22 @@ manifests are not bumped yet (the version stays 0.5.1 until the release).
 
 ### Added
 
+- **The `claude` engine's endpoint mode (wave 29b)** (2026-10-06). A third credential mechanism, `auth: "endpoint"`:
+  a roster entry runs Claude Code against a third-party Anthropic-compatible endpoint (a coding plan: z.ai GLM, Xiaomi
+  MiMo, Kimi Code). Decisions E1-E7 of
+  `.collab/claude-engine-2026-09-30/handoffs/12-claude-claude-engine-endpoint-decisions.md` (D10 reversed for this
+  explicit route only; an inherited `ANTHROPIC_BASE_URL`, Bedrock, Vertex and Foundry stay out): E1 the entry key
+  `endpoint` `{base_url, env_key, timeout_ms}` and the optional `plan` slug (a roster entry key of every engine); E2 the
+  model sent straight as the provider publishes it, proved by the init event; E3 a local preflight (`ok: env <NAME>
+  set`, no `claude auth status`, no live request); E4 the child environment (`ANTHROPIC_BASE_URL`,
+  `ANTHROPIC_AUTH_TOKEN`, `API_TIMEOUT_MS`, never `ANTHROPIC_API_KEY`; a 401/403 is class auth, a 429 class quota);
+  E5 two identities, the route (fingerprint, health) and the plan (a quota failure marks every entry of the plan out);
+  E6 telemetry by the base URL's host first for every engine, the `[1m]` strip for every vendor, the vendor class
+  `minimax`; E7 the plan as a scheduling group across engines, and `parallel` keys that may name a plan. README
+  "Engines (wave 29)" "Endpoint mode", the roster table, the first-run prompt and `setup-providers` step 0 / 3g
+  document it (z.ai, MiMo and Kimi Code as examples; Alibaba's plans are not documented for this route - their terms
+  say "for interactive AI coding tools (Claude Code, Codex) only - not for backend services"; whether the route stays
+  is decided by the wave 29c A/B). harness-claude 75 (its new ENDPOINT category 20 checks, against the fake CLI's endpoint mode).
 - **First run: the operator's prompt and the interview** (2026-10-06). The plugin ships no
   subscription, so a fresh installation needs a conversation before a roster. README gains the
   section "First run: the prompt for the operator": one host-agnostic prompt the operator pastes

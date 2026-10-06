@@ -18,13 +18,13 @@ needs no ChatGPT plan.
   - [ ] a reviewer: `codex login status` → `Logged in using ChatGPT`, **or** a `[model_providers.<name>]` table whose `env_key` variable the USER has set. Never create, print or paste an API key.
   - [ ] optional, Gemini through the `agy` engine: `agy models` → lines `<model id><TAB><name>` (the USER installed Google's Antigravity CLI and signed in by running `agy` once; you never handle the login). See "Engines".
   - [ ] optional, Meta Muse through the `muse` engine: the USER installed Muse Code and signed in with `muse login` with the user variable `TBH_CREDENTIAL_BACKEND=file` set first (required on every OS: the bridge launches muse only on an oauth sign-in it can read from `~/.config/muse/auth.json`); `codex-providers.ps1` then shows the roster's muse row with `ok: signed in (~/.config/muse/auth.json: providers.meta, mechanism oauth)`. `META_API_KEY` and `MODEL_API_KEY` must NOT be set (a muse run is refused then: it would bill per token). You never read `auth.json` or handle the login. See "Engines (wave 23)".
-  - [ ] optional, Claude through the `claude` engine: the USER installed Claude Code (`claude --version` -> `2.1...` or newer) and signed in (`claude auth login`, or `/login` in an interactive session); `codex-providers.ps1` then shows the roster's claude row with `ok: signed in (claude.ai subscription)`. The USER must not route Claude Code through `ANTHROPIC_BASE_URL`, Bedrock, Vertex or Foundry (such a setup is unavailable, and those variables never reach the reviewer). You never handle the login or an API key. See "Engines (wave 29)".
+  - [ ] optional, Claude through the `claude` engine: the USER installed Claude Code (`claude --version` -> `2.1...` or newer) and signed in (`claude auth login`, or `/login` in an interactive session); `codex-providers.ps1` then shows the roster's claude row with `ok: signed in (claude.ai subscription)`. The USER must not route Claude Code through an inherited `ANTHROPIC_BASE_URL`, Bedrock, Vertex or Foundry (such a setup is unavailable, and those variables never reach the reviewer); a coding plan with an Anthropic-compatible endpoint (z.ai, MiMo, Kimi Code) can also run through Claude Code as an explicit roster entry with `auth: "endpoint"` (setup-providers section 3g). You never handle the login or an API key. See "Engines (wave 29)".
 - **Telemetry, on by default (0.5.0):** after every consultation ONE anonymised event (engine, provider label, model, purpose, outcome class, counts, versions, a salted instance id - never a task, brief, prompt, path or name) goes to the maintainer's intake; installing the plugin means accepting these terms. Tell the operator before the first consultation; `CODEX_CONSULT_TELEMETRY=off` (a user variable the OPERATOR sets) switches it off. The exact payload: "Telemetry (on by default)".
 - **Install:** the section "Install" - one host each: the plugin system of your agent host (the operator runs the install commands), or a clone for any shell.
 - **Verify:** `codex-providers.ps1` → at least one row `available`; then a `-DryRun` consultation → first line `DRY RUN - nothing was executed and no file was written.` and a line `preflight   : available (…)`. Exact commands: "Setup on a new machine", steps 0 and 9.
 - **First consultation:** the `consult-codex` skill (`codex-consult:consult-codex <task-id> <question>`), or the command under "Usage".
 - **Coordinating:** the `coordinate` skill (workers, waves, waits) - "For the coordinator".
-- **More reviewers** (z.ai GLM, Xiaomi MiMo, BytePlus, Kimi, Alibaba, any Responses-API provider; Gemini through the `agy` engine; Meta Muse through the `muse` engine; Claude through the `claude` engine): follow the `setup-providers` skill. Its step 0 asks the operator which subscriptions they have and maps each to its section - on a fresh machine start there, or hand the operator the prompt under "First run".
+- **More reviewers** (z.ai GLM, Xiaomi MiMo, BytePlus, Kimi, Alibaba, any Responses-API provider; Gemini through the `agy` engine; Meta Muse through the `muse` engine; Claude through the `claude` engine; a coding plan with an Anthropic-compatible endpoint - z.ai, MiMo, Kimi Code - can also run through Claude Code, section 3g): follow the `setup-providers` skill. Its step 0 asks the operator which subscriptions they have and maps each to its section - on a fresh machine start there, or hand the operator the prompt under "First run".
 
 ---
 
@@ -52,7 +52,8 @@ session's start line or under "Install" in the repository README).
    as available: a ChatGPT plan (Plus, Pro, Team, Enterprise); z.ai GLM Coding Plan; Xiaomi MiMo
    Token Plan; Google AI Pro or Ultra (the Antigravity CLI); BytePlus ModelArk Coding Plan; Kimi
    Code membership; Alibaba Model Studio Token Plan (Qwen); Meta Muse Code subscription; a Claude
-   subscription or an Anthropic API key (Claude Code); another
+   subscription or an Anthropic API key (Claude Code; a coding plan with an Anthropic-compatible endpoint - z.ai,
+   MiMo, Kimi Code - can also run through Claude Code, setup-providers section 3g); another
    Responses-API provider or a pay-as-you-go key; none of them.
 3. For each one I name, follow its section of the skill. Ask before installing anything or editing
    config.toml. A CLI install, a login or an API key is mine to do in my own terminal: give me the
@@ -2175,18 +2176,23 @@ a fabricated one is `examples/codex-consult-roster.json`.
 | `reviewers[].provider` | required: `openai` or a `[model_providers.<name>]` table |
 | `reviewers[].model` | optional: omit it to use the config's top-level `model` |
 | `reviewers[].codex_config` | optional array of `key=value` strings, `-CodexConfig` rules |
-| `reviewers[].auth` | optional `"none"`: the endpoint needs no credential, so a table with no `env_key` and no bearer token passes the check. No effect on a table that names an `env_key`, nor on `openai`/`requires_openai_auth` providers (always `codex login status`) (Wave 29) For the `claude` engine only: `"subscription"` (default; the Claude subscription signed in through Claude Code) or `"api-key"` (`ANTHROPIC_API_KEY`); `"none"` is refused for it. |
+| `reviewers[].auth` | optional `"none"`: the endpoint needs no credential, so a table with no `env_key` and no bearer token passes the check. No effect on a table that names an `env_key`, nor on `openai`/`requires_openai_auth` providers (always `codex login status`) (Wave 29) For the `claude` engine only: `"subscription"` (default; the Claude subscription signed in through Claude Code), `"api-key"` (`ANTHROPIC_API_KEY`) or (wave 29b) `"endpoint"` (a third-party Anthropic-compatible endpoint named by the entry's `endpoint`); `"none"` is refused for it. |
 | `reviewers[].panel` | `"always"` (default) or `"weighty"`: joins a `-Panel` run only on `framing`, `decision`, `core-contract`, `acceptance` and `stuck`, or under `-PanelAll` |
-| `reviewers[].engine` | (0.4.0) `"codex"` (default), `"agy"` or (wave 23) `"muse"`: the CLI that carries it (see "Engines"). For `agy` and `muse`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster (Wave 29) `"claude"`: Claude Code headless (`claude -p`): `provider` is a free label (default `anthropic`), `model` is REQUIRED and must be one of the engine's table (aliases `opus`, `sonnet`, `haiku`, `fable` and the ids listed in "Engines (wave 29)", each optionally ending in `[1m]`), `auth` is `subscription` or `api-key`, `codex_config` is refused. |
-| `reviewers[].lab` | (0.5.0, wave 26) optional: the lab behind the model (`"moonshot"`, `"deepseek"`, ...; canonical lowercase) for a panel's lab diversity. Omitted: the vendor of the model id's prefix (qwen alibaba, deepseek, kimi/k3 moonshot, glm zhipu, dola/seed bytedance, mimo xiaomi, gemini google, muse meta, gpt openai) - never the provider label - else a lab of its own (a routed panel warns) |
+| `reviewers[].engine` | (0.4.0) `"codex"` (default), `"agy"` or (wave 23) `"muse"`: the CLI that carries it (see "Engines"). For `agy` and `muse`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster (Wave 29) `"claude"`: Claude Code headless (`claude -p`): `provider` is a free label (default `anthropic`), `model` is REQUIRED and must be one of the engine's table (aliases `opus`, `sonnet`, `haiku`, `fable` and the ids listed in "Engines (wave 29)", each optionally ending in `[1m]`), `auth` is `subscription`, `api-key` or (wave 29b) `endpoint` (then the closed model table does not apply: the id as the provider publishes it), `codex_config` is refused. |
+| `reviewers[].endpoint` | (wave 29b) object `{"base_url": "https://...", "env_key": "<VARIABLE NAME>", "timeout_ms": <optional>}`: REQUIRED with engine `claude` and `auth: "endpoint"`, REFUSED with `subscription` / `api-key` and on every other engine. `base_url` is an absolute https URL without credentials, query or fragment (sent as written as `ANTHROPIC_BASE_URL`); `env_key` is the NAME of the variable that holds the token (`^[A-Z][A-Z0-9_]{2,}$`; the operator sets it, the value is read at launch and never logged); `timeout_ms` is optional, 60000-7200000, default 3000000 (`API_TIMEOUT_MS`); an unknown key is refused. See "Endpoint mode" under "Engines (wave 29)" |
+| `reviewers[].plan` | (wave 29b) optional slug (`^[a-z][a-z0-9-]{1,31}$`), allowed on every entry of every engine: the entries that share one plan share one quota. A quota-class failure (usage limit, 429) on any of them marks every entry of the plan out until the same reset time, and the plan is one scheduling group across engines; auth, transport and capability failures stay with their own route. Without `plan` nothing propagates |
+| `reviewers[].lab` | (0.5.0, wave 26) optional: the lab behind the model (`"moonshot"`, `"deepseek"`, ...; canonical lowercase) for a panel's lab diversity. Omitted: the vendor of the model id's prefix (qwen alibaba, deepseek, kimi/k3 moonshot, glm zhipu, dola/seed bytedance, mimo xiaomi, gemini google, muse meta, gpt openai) - never the provider label - else a lab of its own (a routed panel warns); (wave 29b) a claude entry of auth `endpoint`: the lab of its base URL's host first (`api.z.ai` zhipu, `*.xiaomimimo.com` xiaomi, `api.kimi.ai` moonshot, `api.minimax.io` minimax) |
 | `reviewers[].roles` | (wave 26) optional array of role names the entry is willing to take under `-Roles` ("Companions") |
 | `reviewers[].timeout_sec` | (wave 26b, D11) optional integer 60-86400: this reviewer's main-turn timeout in place of the purpose's default (a panel member or a single run of the entry; an explicit `-TimeoutSec` still wins for all); ledger `timeout_source` `roster`; the panel's `Timeout:` line lists it (`3600 s per member; #7 alibaba :: qwen3.8-max 1200 s (roster)`) |
 | `reviewers[].stall_sec` | (wave 26b, D12) optional integer 0-86400: this reviewer's stall cut in place of the default 900 s (`0` = off; an explicit `-StallSec` wins) |
 | `reviewers[].context_tokens` | (wave 26b, D16) optional integer 32000-100000000: the reviewer's context window in tokens (e.g. `256000` for a plan that caps the model there). The prompt says `Your context window is M tokens: read only what the brief points to; prefer targeted reads.`; a fork/resume whose thread last carried more than 80% of it with this prompt becomes a new thread (ledger `mode_fallback`); a brief whose estimate alone exceeds 80% skips the entry before its start. (wave 28b, D15) The window reaches the ENGINE too: a codex reviewer gets `-c model_context_window=<n>` and `-c model_auto_compact_token_limit=<0.8 n>` on every turn (the Codex config keys; both present in codex-cli 0.155.1), recorded in the ledger's `context_window`; for agy and muse the key guards only the start (the prompt, the fork check, the skip) |
 | `reviewers[].ext` | (wave 26) optional object, reserved for other implementations that share the file: validated as an object, otherwise ignored by the bridge (never read, never written) |
-| `parallel` | (0.4.x wave 21) optional top-level object `{"<provider label>": <n>}`: a `-Panel` runs the members of one endpoint one after another; n >= 1 lets n members of that label run at once (see "The panel"). Every key must be a label the roster uses, every value an integer >= 1 |
+| `parallel` | (0.4.x wave 21) optional top-level object `{"<provider label>": <n>}`: a `-Panel` runs the members of one endpoint one after another; n >= 1 lets n members of that label run at once (see "The panel"). Every key must be a label the roster uses, every value an integer >= 1; (wave 29b) a key may also name a `plan` slug (the plan's members, across engines, run n at once; a label without its own value takes its plan's) |
 | `require` | (wave 26) optional top-level object `{"<purpose>": ["<reviewer>", ...]}`: the reviewers a `-Panel` of that purpose must include - a roster position `#5`, a provider label, or `<provider> :: <model>` with an optional ` [<engine>]`; every matcher must name an entry (else the roster is unusable). `-Require` replaces it for one run, `-Require none` drops it ("Companions") |
 | `ext` | (wave 26) optional top-level object, reserved for other implementations; validated as an object, ignored otherwise. `roster_version` stays `1` |
+
+The allowed keys of an entry are `provider`, `model`, `codex_config`, `auth`, `endpoint`, `plan`, `panel`, `engine`, `lab`, `roles`,
+`timeout_sec`, `stall_sec`, `context_tokens` and `ext`.
 
 An unusable roster (an unknown key, `roster_version` other than 1, an empty or non-array
 `reviewers`, the same `(provider, model)` twice, anything that does not parse) **refuses
@@ -2738,7 +2744,7 @@ scoreboards and the panel summary show `meta :: muse-spark-1.3 [muse]`.
 ## Engines (wave 29): Claude Code headless (`claude`)
 
 `claude` drives Claude Code headless (`claude -p`) for a **Claude subscription** (or, per roster entry, an
-Anthropic API key). The subscription works only through Anthropic's own CLI signed in by the user; as with `agy`
+Anthropic API key, or - wave 29b - a coding plan's Anthropic-compatible endpoint: "Endpoint mode" below). The subscription works only through Anthropic's own CLI signed in by the user; as with `agy`
 for Gemini and `muse` for Muse, the bridge drives the vendor's CLI and never calls the API directly (ROADMAP R10,
 with R22: the reviewer runs with everything but reading switched off). Everything the engines share (ledger,
 handoffs, findings, ratings, the panel, the scoreboards, the preflight, the lock, the recovery record) is as
@@ -2751,9 +2757,10 @@ the aliases `opus`, `sonnet`, `haiku`, `fable` and the ids `claude-fable-5-1`, `
 `claude-opus-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-5-5`, `claude-sonnet-5`,
 `claude-sonnet-4-6`, `claude-haiku-4-5` - each may end with `[1m]` (the 1M context variant; claude entries only).
 Which model a roster uses is the installing USER's decision (the `setup-providers` skill asks). `auth` (engine claude
-only) is `subscription` (default) or `api-key`; `codex_config` and `auth: none` are refused. The lab of a claude
-entry is `anthropic` for a model or label starting `claude`, `opus`, `sonnet`, `haiku` or `fable`. Other vendors'
-models through this engine are out of scope. Reply files are `handoffs/NN-claudecode-<slug>.*` - the prefix is
+only) is `subscription` (default), `api-key` or `endpoint`; `codex_config` and `auth: none` are refused. The lab of a
+claude entry is `anthropic` for a model or label starting `claude`, `opus`, `sonnet`, `haiku` or `fable`. Other
+vendors' models go through this engine only in endpoint mode (below), where the model table does not apply and the lab
+comes from the endpoint's host. Reply files are `handoffs/NN-claudecode-<slug>.*` - the prefix is
 `claudecode`, not `claude`, because `claude` is the coordinator's default brief prefix. Ledger `sandbox` is
 read-only; `-Sandbox workspace-write` is refused.
 
@@ -2783,7 +2790,7 @@ under review refuses the run.
 **What is proven on every turn.** The init event of EVERY turn must show the tools `Read`, `Grep`, `Glob` and
 `StructuredOutput` only, no MCP server, and `permissionMode` `dontAsk` - else the turn FAILS with class
 `permission`. Billing: with roster `auth` `subscription` the init `apiKeySource` must be `none`; with `api-key` the
-variable `ANTHROPIC_API_KEY` must be set - else class `auth`. What R22 switched off is recorded (ledger
+variable `ANTHROPIC_API_KEY` must be set - else class `auth`; with `endpoint` see "Endpoint mode". What R22 switched off is recorded (ledger
 `engine_run.switched_off`): user, project and local settings, instruction files (the repository's and the home
 directory's `CLAUDE.md` / `AGENTS.md` do not reach a restricted reviewer - observed), MCP servers, skills, slash
 commands, code tools, web tools, write tools, the autoupdater.
@@ -2805,8 +2812,8 @@ process needs (`SystemRoot`, `windir`, `SystemDrive`, `ComSpec`, `PATH`, `PATHEX
 `XDG_RUNTIME_DIR`), the proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, `ALL_PROXY`), the trust variables
 (`SSL_CERT_FILE`, `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`, `NODE_EXTRA_CA_CERTS`), the prefixes
 `ProgramFiles`, `CommonProgramFiles`, `ProgramW6432`, `CommonProgramW6432`, `LC_`, plus `CLAUDE_CONFIG_DIR` and - only
-with auth `api-key` - `ANTHROPIC_API_KEY`. Every other `ANTHROPIC_*` and `CLAUDE_*` / `CLAUDE_CODE_*` variable
-(gateway base URL, auth token, Bedrock / Vertex / Foundry selectors, `CLAUDE_CODE_EFFORT_LEVEL`,
+with auth `api-key` - `ANTHROPIC_API_KEY` (with auth `endpoint`, see "Endpoint mode": `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN` and `API_TIMEOUT_MS` instead). Every other `ANTHROPIC_*` and `CLAUDE_*` / `CLAUDE_CODE_*` variable
+(an inherited gateway base URL, auth token, Bedrock / Vertex / Foundry selectors, `CLAUDE_CODE_EFFORT_LEVEL`,
 `CLAUDE_CODE_SKIP_PROMPT_HISTORY`, model overrides, `CLAUDE_CODE_GIT_BASH_PATH`, ...), every host marker and every
 test-mode variable is absent; `DISABLE_AUTOUPDATER=1` is set; names are compared case-insensitively. The SAME
 environment serves the preflight (`claude auth status`), the version probe and every turn. Ledger
@@ -2819,7 +2826,7 @@ never handles it. `Get-ClaudeSignIn` runs `claude auth status` (local, free, 15 
 entry's auth and reads its JSON BEFORE its exit code: `loggedIn` false -> `out` (`not signed in ... run claude auth
 login`); true -> `available` when the auth is `subscription` and `authMethod` is `claude.ai`, or the auth is
 `api-key` and `ANTHROPIC_API_KEY` is set; another `authMethod`, or an `apiProvider` other than `firstParty` (a
-gateway, Bedrock, Vertex, Foundry - out of scope, D10) -> `unavailable`; no launcher -> `missing`; not started, a
+gateway, Bedrock, Vertex, Foundry - out of scope, D10; an endpoint entry has its own local preflight) -> `unavailable`; no launcher -> `missing`; not started, a
 timeout or no JSON -> `not checked`. The `api-key` test (`ANTHROPIC_API_KEY` set) runs BEFORE the 60-minute ledger
 short-circuit of every engine's sign-in check - a usable reply an hour ago proves nothing about this process's
 environment. The row reads `ok: signed in (claude.ai subscription)`. The check needs no
@@ -2873,15 +2880,103 @@ compared with `anthropic` (case-insensitive) whatever the roster label, and the 
 stripped, an alias equal to any id of its family). After the run the resolved model is compared again and a warning is
 added when the answer changed. Always a warning, never a refusal.
 
-**Telemetry.** The vendor class is `anthropic` for the engine claude (whatever the label and the auth); the model is
-sent only when, lower-cased and with `[1m]` stripped, it EQUALS an entry of the model table above, else `other`.
+**Telemetry.** The vendor class is `anthropic` for the engine claude WITHOUT a base URL (auth `subscription`, `api-key`);
+an endpoint entry is classed by the HOST of its base URL like any other entry (wave 29b, E6). The model is
+sent only when, lower-cased and with `[1m]` stripped, it EQUALS an entry of the vendor class's closed list, else `other`.
 Nothing else of a claude run leaves (no result, denial, path or cost). See "Telemetry (on by default)".
 
+**Endpoint mode (wave 29b, E1-E10): a coding plan through Claude Code.** A third credential mechanism, `auth:
+"endpoint"`, runs Claude Code against a third-party Anthropic-compatible endpoint (a coding plan). Decision record:
+`.collab/claude-engine-2026-09-30/handoffs/12-claude-claude-engine-endpoint-decisions.md`. The entry spells the
+endpoint out; it is never derived from a Codex `[model_providers]` table:
+
+```json
+{"provider": "ZAI-claude", "engine": "claude", "model": "glm-5.3", "auth": "endpoint",
+ "endpoint": {"base_url": "https://api.z.ai/api/anthropic", "env_key": "ZAI_API_KEY", "timeout_ms": 3000000},
+ "plan": "zai"}
+```
+
+- **The entry (E1).** `endpoint` is REQUIRED with `auth: "endpoint"` and REFUSED with `subscription` / `api-key` and on
+  every other engine. `base_url`: an absolute https URL without credentials, query or fragment, sent as written to the
+  child as `ANTHROPIC_BASE_URL`. `env_key`: the NAME of the variable that holds the token (`^[A-Z][A-Z0-9_]{2,}$`);
+  the operator sets that variable, its value is read at launch and never logged. `timeout_ms`: optional, default
+  3000000, 60000-7200000 (`API_TIMEOUT_MS`). Unknown keys are refused. The provider label is the operator's and
+  distinct per route: `ZAI` stays the codex entry, `ZAI-claude` the endpoint entry (the rules "one label names one
+  engine" and "one (provider, model) once" are unchanged). Each refusal comes inside the usual "the reviewer roster
+  '<path>' is not usable: ... Fix it or move it aside" message, prefixed `entry <n>: `, e.g. `auth "endpoint" needs an
+  "endpoint" object {"base_url": "https://...", "env_key": "<VARIABLE NAME>"} - the Anthropic-compatible endpoint and
+  the variable that holds its token`, `endpoint applies only to engine claude with auth "endpoint" (this entry: engine
+  claude, auth subscription)`, `endpoint has an unknown key 'x' (allowed: base_url, env_key, timeout_ms)`,
+  `endpoint.base_url must be an absolute https URL without credentials, query or fragment (e.g.
+  "https://api.z.ai/api/anthropic"; the value is not shown)`, `endpoint.env_key must be the NAME of the environment
+  variable that holds the token (...), never the token itself (the value is not shown)`, `endpoint.timeout_ms must be an
+  integer from 60000 to 7200000 (milliseconds - API_TIMEOUT_MS; default 3000000; got 5)`, `plan must be a slug of 2 to
+  32 characters - lowercase letters, digits and "-", starting with a letter (e.g. "zai"; got "Zai")`, and `parallel names
+  the provider label 'x', which no entry of the roster uses (as its provider label or its plan)`.
+- **The model (E2).** Sent straight as `--model <id>`, the id as the provider publishes it (letters, digits, `.`, `_`,
+  `-`, at most 64 characters, optionally ending with `[1m]`); the closed claude model table does NOT apply. No alias
+  mapping variable (`ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_*_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`) ever reaches the
+  child. Proof per turn: the init event's `model` and the main `modelUsage` key must EQUAL the pinned id after the
+  `[1m]` strip (no alias-family matching on this route), else class `capability`.
+- **The preflight and the proof (E3).** Local only: the launcher is found, `base_url` parses, and the `env_key` variable
+  is set and non-empty. There is NO `claude auth status` (it reads the local login and ignores the base URL) and no live
+  request (it would spend the plan's credits). The credentials text reads like a codex table's: `ok: env ZAI_API_KEY
+  set` or `missing: env ZAI_API_KEY not set`. `apiKeySource` is `none` on this route too and is recorded raw; the value
+  `ANTHROPIC_API_KEY` fails the turn with class `auth`. The billing proof is `init.model` equal to the pinned id (a
+  subscription turn cannot serve it) plus the ledger's `engine_run.child_env_allowed` (`ANTHROPIC_AUTH_TOKEN` present,
+  `ANTHROPIC_API_KEY` absent). The stderr notice `[claude-code:unrecognized_model]` is not a failure.
+- **The child environment (E4).** The allow list above plus, for this mode only, `ANTHROPIC_BASE_URL`,
+  `ANTHROPIC_AUTH_TOKEN` (the value of the `env_key` variable) and `API_TIMEOUT_MS`; `ANTHROPIC_API_KEY` is absent. If
+  the token variable is unset at launch, nothing starts (the CLI would otherwise fall back to the local login). A
+  401/403 (`Failed to authenticate. API Error: 401 ...`) is class `auth` with no fallback to the subscription; a 429 is
+  class `quota` by its status.
+- **Two identities (E5).** The ROUTE identity (lineage, parenting, the health of auth, transport and capability
+  failures) is the fingerprint SHA-256 of `cc-engine-v1|claude|endpoint|<canonical base_url>|<env_key name>` (canonical:
+  lower-case scheme and host, the explicit port if any, the path without a trailing slash); the ledger's
+  `reviewer.provider_config` is `{engine, launcher, credential_mechanism: "endpoint", base_url, env_key, plan}` - the
+  token never appears. The PLAN identity is the optional entry key `plan` (`^[a-z][a-z0-9-]{1,31}$`), allowed on every
+  entry of every engine: a QUOTA-class failure (usage limit, 429) recorded on any entry marks every entry with the same
+  plan out until the same reset time - the roster walk and the `codex-providers.ps1` row show `unavailable (plan zai
+  (usage limit on ZAI until <iso>))`, the `-Short` / hook line `ZAI-claude :: glm-5.3 (plan zai (usage limit on ZAI
+  until 15:00, in 3h))`. Auth, transport and capability failures stay route-local; without `plan` nothing propagates. A
+  later usable reply on any route of the plan clears it (the plan's routes are read as one record set). The lab of an
+  endpoint entry comes from the base URL's host (`api.z.ai` zhipu, `*.xiaomimimo.com` xiaomi, `api.kimi.ai` moonshot,
+  `api.minimax.io` minimax), never `anthropic` because of the engine. The coordinator rule compares an endpoint entry as
+  a codex entry (label and model); the `anthropic` provider rule applies to `subscription` and `api-key` only.
+- **Concurrency (E7).** The claude members keep ONE engine-wide scheduling group by default (D5); in addition every
+  `plan` is a scheduling group across engines: a ZAI-via-codex member and a ZAI-claude member run one after another,
+  raised by the roster's `"parallel": {"zai": 2}` (a `parallel` key may name a plan slug as well as a provider label; a
+  label without its own value takes its plan's).
+- **Dry run.** Two lines for this mode: `child env   : an allow list (auth endpoint): <names> - every other variable
+  (the host markers, ANTHROPIC_* but ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN, CLAUDE_* but CLAUDE_CONFIG_DIR) is
+  left out` and `endpoint    : https://api.z.ai/api/anthropic (ANTHROPIC_BASE_URL); token from env ZAI_API_KEY
+  (ANTHROPIC_AUTH_TOKEN - the value is never shown); API_TIMEOUT_MS 3000000; plan zai; no claude auth status - the
+  model the init event names is the proof`; the reviewer line reads `engine claude (<launcher>), endpoint
+  https://api.z.ai/api/anthropic (token from env ZAI_API_KEY)`. The `codex-providers.ps1` engine row's endpoint column
+  reads `claude endpoint https://api.z.ai/api/anthropic (<launcher>)`.
+- **Documented examples (E9).** z.ai GLM Coding Plan: `https://api.z.ai/api/anthropic`, model `glm-5.3`, env e.g.
+  `ZAI_API_KEY`, plan `zai`. Xiaomi MiMo Token Plan: `https://token-plan-ams.xiaomimimo.com/anthropic`, model
+  `mimo-v2.6-pro`, env e.g. `MIMO_API_KEY`, plan `mimo`. Kimi Code: `https://api.kimi.ai/coding/` (overseas;
+  `api.kimi.com/coding/` domestic), models `k3`, `k3-256k`, `kimi-for-coding`, env e.g. `KIMI_API_KEY`, plan `kimi`
+  (NOT `api.moonshot.ai`: that is the pay-as-you-go platform, a different product). MiniMax
+  (`https://api.minimax.io/anthropic`, `MiniMax-M3`): shape known, not run. Alibaba's Coding Plan and Token Plan are NOT
+  documented for this route: their terms say "for interactive AI coding tools (Claude Code, Codex) only - not for
+  backend services" (the same wording applies to the codex route to Alibaba: TECH_DEBT).
+- **Terms and cost.** Both z.ai and MiMo name Claude Code; the operator decides whether a read-only reviewer is within
+  their plan's terms and records that decision in their task's `state.md`. z.ai meters token-weighted credits (a 5-hour
+  and a weekly pool), not prompts.
+- **Whether the route stays (E8, wave 29c).** Decided by evidence, not by this implementation: paired, order-randomised
+  runs of the same briefs through both routes, at least 12 pairs per provider; keep the route when the median credits are
+  at most 0.8x the codex route AND the first-turn structured rate is not lower AND the median wall time is at most 1.25x
+  AND the blind `-Rate` marks are not worse. One pair so far (P13: credits 0.30x, wall 0.51x, both structured) is an
+  anecdote.
+
 **Not done, on purpose.** The Agent tool and subagents, MCP servers, web tools, Bash and every write tool,
-`workspace-write`; `--bare` (API-key only: it ignores the subscription login); routing through a gateway
-(`ANTHROPIC_BASE_URL`), Bedrock, Vertex and Foundry (their variables are removed - such a setup fails closed at the
-preflight); calling the API directly instead of the CLI (R10 is engines through the vendor's own CLI; the
-subscription login exists only there); other vendors' models; stream-json input; `--include-partial-messages`;
+`workspace-write`; `--bare` (API-key only: it ignores the subscription login); routing through an INHERITED gateway
+(`ANTHROPIC_BASE_URL` from the environment: removed from every child), Bedrock, Vertex and Foundry (their variables
+are removed - such a setup fails closed at the preflight; decision D10 stands for them, and is reversed only for the
+explicit endpoint entry above); calling the API directly instead of the CLI (R10 is engines through the vendor's own
+CLI; the subscription login exists only there); other vendors' models outside the endpoint mode; stream-json input; `--include-partial-messages`;
 `--max-budget-usd`; `--fallback-model`; `--bg`, `--worktree`, `--agents`; `--no-session-persistence` (every secondary
 turn resumes).
 
@@ -3013,7 +3108,8 @@ vendor table below):
 data structure). The roster label and the model are text the operator typed, so neither leaves
 the machine as typed: the event's `provider` is the vendor class of the endpoint's HOST (the host
 equals one listed or ends with `.` + one; the ledger's `reviewer.provider_config.base_url`), or of
-the engine. (Wave 28c, D1 / F42-1, F43-2) The model is sent only when it EQUALS, after
+the engine - (wave 29b, E6) the host is read FIRST for every engine whenever the entry has a base URL, the engine row is
+only the fallback, and an unknown host reads `other`; the `[1m]` strip applies to every vendor's model token. (Wave 28c, D1 / F42-1, F43-2) The model is sent only when it EQUALS, after
 lower-casing, an entry of its vendor class's CLOSED list below - the published model names this
 README documents (the effort table, the roster examples) and the rosters have run - and then as the
 list's own text; no pattern, no version wildcard: a model name outside the list, however
@@ -3032,7 +3128,8 @@ domain (`<tenant>.openai.com`, or a hosts-file entry for a vendor's name) reads 
 | `alibaba` | `*.aliyuncs.com` (the Token Plan endpoint) | `qwen3.8-max`, `qwen3.8-flash`, `qwen3.7-max`, `qwen3.7-plus`, `qwen3.6-flash`, `deepseek-v4.1-flash`, `deepseek-v4-pro`, `deepseek-v4-pro-0813`, `deepseek-v4-flash-0731`, `glm-5.3`, `glm-5.2` |
 | `google` | the engine `agy` | `gemini-3.8-flash-high`, `gemini-3.8-flash-medium`, `gemini-3.8-flash-low`, `gemini-3.1-pro-high`, `gemini-3.1-pro-low` |
 | `meta` | the engine `muse` | `muse-spark-1.3`, `muse-spark-1.3-contributor` |
-| `anthropic` | the engine `claude` (whatever the label and the auth; the model list is the engine's table, `[1m]` stripped first) | `opus`, `sonnet`, `haiku`, `fable`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-sonnet-4-6`, `claude-haiku-4-5` |
+| `minimax` | `api.minimax.io`, `api.minimax.cn` | `minimax-m3` (the published id `MiniMax-M3`, listed lower case like every list) |
+| `anthropic` | the engine `claude` WITHOUT a base URL (auth `subscription`, `api-key`; the model list is the engine's table, `[1m]` stripped first) | `opus`, `sonnet`, `haiku`, `fable`, `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-sonnet-4-6`, `claude-haiku-4-5` |
 | `other` | any other host (a local endpoint, a company's own gateway, a look-alike host), or no endpoint recorded | always `other` |
 
 A roster entry `AcmeCorp-Legal` on `https://llm.acmecorp-internal.example/v1` with the model

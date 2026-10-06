@@ -70,6 +70,7 @@ about it again. A roster that exists is kept and extended, never rewritten from 
 | Alibaba Model Studio Token Plan (Qwen) | a `[model_providers.alibaba]` table | 3e |
 | Meta Muse Code subscription | the `muse` engine: the operator installs Muse Code and runs `muse login` | 3f |
 | a Claude subscription (Claude Code), or an Anthropic API key | the `claude` engine: the operator installs Claude Code and runs `claude auth login` (auth `subscription`), or sets `ANTHROPIC_API_KEY` (auth `api-key`) | 3g |
+| a coding plan with an Anthropic-compatible endpoint (z.ai, MiMo, Kimi Code) through Claude Code | the `claude` engine with auth `endpoint`: a roster entry names the endpoint and the variable that holds the plan's key, which the operator sets | 3g |
 | another Responses-API provider, or a pay-as-you-go key | a `[model_providers.<name>]` table with the provider's own base URL and model ids | 2 |
 | none of them | nothing to wire: say so plainly and stop - the bridge cannot consult without a reviewer | - |
 
@@ -380,8 +381,9 @@ itself. Full contract: the README, "Engines (wave 29)".
    account's e-mail or organisation that the JSON may also hold.
 4. **Auth - ask the user:** `subscription` (the default: the signed-in Claude subscription; the bridge proves on
    every turn that no API key is in use) or `api-key` (per-token billing: the USER sets `ANTHROPIC_API_KEY` as a
-   user variable; you never create, print or paste it). No `ANTHROPIC_BASE_URL` routes: a gateway, Bedrock, Vertex
-   or Foundry setup is out of scope, shows as unavailable, and those variables never reach the reviewer.
+   user variable; you never create, print or paste it) or `endpoint` (a coding plan, step 9). An INHERITED
+   `ANTHROPIC_BASE_URL`, Bedrock, Vertex or Foundry setup is out of scope, shows as unavailable, and those variables
+   never reach the reviewer.
 5. **The model - the USER decides:** `model` is REQUIRED and must be one of the engine's table: the aliases `opus`,
    `sonnet`, `haiku`, `fable` and the ids `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`,
    `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-5-5`, `claude-sonnet-5`,
@@ -390,7 +392,7 @@ itself. Full contract: the README, "Engines (wave 29)".
    turn of the thread sends that id. Prefer an id in a roster when the operator wants a fixed reviewer.
 6. **Roster entry** (section 4): `{ "provider": "anthropic", "engine": "claude", "model": "claude-opus-5-5",
    "auth": "subscription", "panel": "weighty", "context_tokens": 1000000, "timeout_sec": 1800 }` - `provider` is a
-   free label, `model` is required, `auth` is `subscription` or `api-key` (never `none`), `codex_config` is refused.
+   free label, `model` is required, `auth` is `subscription`, `api-key` or `endpoint` (never `none`), `codex_config` is refused.
    Parallel: the claude members of one panel run one at a time by default; the top-level `"parallel":
    {"anthropic": 2}` raises it.
 7. **Check:** `codex-providers.ps1` -> the row `available  anthropic  <n>  engine claude  claude (<launcher>)  ok:
@@ -403,6 +405,33 @@ itself. Full contract: the README, "Engines (wave 29)".
    repository's and the home directory's `CLAUDE.md` / `AGENTS.md` do not reach it), and the bridge FAILS a claude run
    when the working tree or the collab directory changed during it. Tell the user not to edit the repository or run
    another consultation there while a claude consultation runs.
+9. **A coding plan with an Anthropic-compatible endpoint (wave 29b, auth `endpoint`).** Instead of Codex, the plan
+   runs through Claude Code against the endpoint the plan publishes. The roster entry spells it out (section 4):
+   `{ "provider": "ZAI-claude", "engine": "claude", "model": "glm-5.3", "auth": "endpoint", "endpoint": { "base_url":
+   "https://api.z.ai/api/anthropic", "env_key": "ZAI_API_KEY" }, "plan": "zai" }`. `endpoint` is required with this
+   auth and refused with the others; `base_url` is an absolute https URL; `env_key` is the NAME of the variable that
+   holds the plan's key - the USER sets it in their own terminal, you never create, print or paste its value;
+   `timeout_ms` is optional (default 3000000). The `model` is the id as the provider publishes it (not the claude
+   model table). The label is distinct from the plan's codex entry (`ZAI` stays the codex entry, `ZAI-claude` the
+   endpoint entry). Examples: z.ai GLM Coding Plan `https://api.z.ai/api/anthropic`, `glm-5.3`, `ZAI_API_KEY`, plan
+   `zai`; Xiaomi MiMo Token Plan `https://token-plan-ams.xiaomimimo.com/anthropic`, `mimo-v2.6-pro`, `MIMO_API_KEY`,
+   plan `mimo`; Kimi Code `https://api.kimi.ai/coding/` (overseas; `api.kimi.com/coding/` domestic), `k3`, `k3-256k`
+   or `kimi-for-coding`, `KIMI_API_KEY`, plan `kimi` - not `api.moonshot.ai`, the pay-as-you-go platform. MiniMax
+   (`https://api.minimax.io/anthropic`, `MiniMax-M3`) is shape known, not run.
+   **The `plan` key** (optional slug, every entry of every engine): entries that share one plan share one quota - a
+   usage limit on one marks all of them out until the same reset time, and the plan is one scheduling group across
+   engines, so the plan's codex and claude members run one after another; the top-level `"parallel": {"zai": 2}`
+   raises it. Without `plan` nothing propagates.
+   **Verify:** `codex-providers.ps1` shows `ok: env ZAI_API_KEY set` (or `missing: env ZAI_API_KEY not set` - the user
+   has not set it yet; no `claude auth status` runs for this mode and no live request is made); a dry run
+   (`codex-consult.ps1 -Task setup-check -Prompt ping -DryRun -Provider ZAI-claude`) shows the line `endpoint    :
+   https://api.z.ai/api/anthropic (ANTHROPIC_BASE_URL); token from env ZAI_API_KEY ...`. The per-turn proof is the
+   model the init event names.
+   **Alibaba is not documented for this route:** its Coding Plan and Token Plan say "for interactive AI coding tools
+   (Claude Code, Codex) only - not for backend services".
+   **Terms:** z.ai and MiMo both name Claude Code; the operator decides whether a read-only reviewer is within their
+   plan's terms and records that decision in the task's `state.md`. z.ai meters token-weighted credits (5-hour and
+   weekly pools), not prompts. Whether the route stays in a roster is decided by the wave 29c comparison, not here.
 
 ## 4. Write the roster
 

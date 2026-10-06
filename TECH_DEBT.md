@@ -96,3 +96,10 @@ seven-wave task with three consultations. Ordered by the damage they did.
   or consult in parallel while an agy run is in flight). Fix (not designed): an OS-level
   sandbox for the agy process (a restricted token or a read-only mount) - the only way to
   block rather than detect, and to cover ignored and external paths.
+- **Alibaba's plans: "interactive tools only" - the codex route too.** Alibaba's Coding Plan and Token Plan say "for
+  interactive AI coding tools (Claude Code, Codex) only - not for backend services" (verified on the plan's base-url
+  page, 2026-10-06). That wording applies to the existing codex route to Alibaba (`[model_providers.alibaba]`) as it
+  would to a Claude Code endpoint route, which the README therefore does not document for Alibaba. Whether a bridge
+  reviewer (a read-only, non-interactive `codex exec` run) is within those terms is the operator's call; the bridge
+  neither checks nor enforces it. Fix (not designed): none in code - the operator records the decision in the task's
+  `state.md`.
