@@ -24,6 +24,10 @@
     minutes (then it is available); a recorded auth failure or usage limit still shows it
     out. The muse engine's sign-in check reads ~/.config/muse/auth.json locally and runs here
     too, as does its billing guard (`meta :: <model> (refused: META_API_KEY is set)`).
+    (wave 29b) A claude entry of auth endpoint (a third-party Anthropic-compatible endpoint) is
+    checked locally here too - `ZAI-claude :: glm-5.3 (env ZAI_API_KEY not set)` when its token
+    variable is missing - and an entry whose roster `plan` hit a usage limit on another route is
+    out with it: `ZAI-claude :: glm-5.3 (plan zai (usage limit on ZAI until 15:00, in 3h))`.
     Without a roster: the providers of the Codex config ("... (no reviewer roster)").
 
     When the Codex CLI is not on PATH: `codex-consult: codex CLI not found on PATH - follow

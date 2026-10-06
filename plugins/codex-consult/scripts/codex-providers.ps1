@@ -44,7 +44,12 @@
                    a muse row (wave 23): ~/.config/muse/auth.json with TBH_CREDENTIAL_BACKEND=file
                    (local, also with -NoNetwork; key names and providers.meta.mechanism only) -
                    "ok: signed in (...mechanism oauth)", "missing: not signed in: ...",
-                   "unknown: sign-in not checkable: ..." (the keychain backend). A muse row
+                   "unknown: sign-in not checkable: ..." (the keychain backend); (wave 29b) a
+                   claude row of auth endpoint (a third-party Anthropic-compatible endpoint):
+                   NO `claude auth status` - local, also with -NoNetwork - "ok: env <NAME>
+                   set" or "missing: env <NAME> not set" for the variable its endpoint.env_key
+                   names (never the value), the endpoint column "claude endpoint <base_url>
+                   (<launcher>)". A muse row
                    whose launch the billing guard refuses (META_API_KEY or MODEL_API_KEY set,
                    a mechanism other than oauth, or - wave 23b - no oauth sign-in established:
                    the keychain backend, no auth.json, no mechanism) is "unavailable (refused:
@@ -76,7 +81,10 @@
                    the listing in the repository whose consultations you mean.
       roster       with a reviewer roster (CODEX_CONSULT_ROSTER - it must exist, "none"
                    = no roster - else <codex home>/codex-consult-roster.json when it
-                   exists): the ROSTER column (the
+                   exists): (wave 29b, E5) a row whose roster entry names a `plan` is
+                   "unavailable (plan <slug> (usage limit on <label> until <iso>))" while a
+                   usage limit recorded on ANOTHER route of that plan still blocks (auth,
+                   transport and capability failures stay with their route); the ROSTER column (the
                    provider's entry positions, or -; JSON roster_position = the first,
                    or null, and (wave 24b) roster_positions = every position of the label,
                    [] when none; roster_selected = the entry a consultation without -Provider
@@ -312,6 +320,10 @@ foreach ($name in $names) {
         # auth failure, a usage limit with a reset ahead or without one for 60 minutes
         $anonymous = [bool](@($roster.Entries | Where-Object { $_.Provider -ceq $name -and $_.Auth -eq 'none' }).Count -gt 0)
         $rowVerdict = Get-PreflightVerdict -Identity $probe -Config $config -Launcher ([string]$launcher) -Health $health -LoginCache $loginCache -Anonymous:$anonymous -RosterWalk -NoNetwork:$NoNetwork
+        # (wave 29b, E5) the plan of the label's first codex entry that names one: a usage limit on
+        # another route of that plan
+        $planEntry = @($roster.Entries | Where-Object { $_.Provider -ceq $name -and $_.Engine -eq 'codex' -and [string](Get-PropertyValue $_ 'Plan' '') } | Select-Object -First 1)
+        if ($planEntry.Count -gt 0) { $rowVerdict = Get-PlanQuotaVerdict -Verdict $rowVerdict -Entry $planEntry[0] -Identity $probe -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -EngineLaunchers $engineLaunchers -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Cache $listingCache -RosterWalk }
         $credText = $(if ($rowVerdict.Credential) { [string]$rowVerdict.Credential.Detail } else { 'not checked (identity unresolved)' })
         $verdict = Format-RowVerdict $rowVerdict 'codex'
     }
@@ -352,13 +364,17 @@ foreach ($el in $engineLabels) {
     $engineLauncher = Get-EngineLauncher -Engine $el.Engine -Launchers $engineLaunchers
     $firstOfLabel = @($roster.Entries | Where-Object { $_.Provider -ceq $el.Name } | Select-Object -First 1)
     $model = [string]$firstOfLabel.Model
-    # (wave 29) the label's first entry's auth (claude: subscription | api-key) - its sign-in check
-    $probe = Get-CachedReviewerIdentity -Cache $listingCache -Config $config -Provider $el.Name -Model $model -Engine $el.Engine -Launcher $engineLauncher -Auth ([string]$firstOfLabel.Auth)
+    # (wave 29) the label's first entry's auth (claude: subscription | api-key; wave 29b: endpoint,
+    # with its endpoint) - its sign-in check
+    $firstEndpoint = $(if ($firstOfLabel.Count -gt 0) { Get-PropertyValue $firstOfLabel[0] 'Endpoint' $null } else { $null })
+    $probe = Get-CachedReviewerIdentity -Cache $listingCache -Config $config -Provider $el.Name -Model $model -Engine $el.Engine -Launcher $engineLauncher -Auth ([string]$firstOfLabel.Auth) -Endpoint $firstEndpoint
     $health = $null
     if ($probe.Resolved) { $health = Get-CachedEndpointHealth -Cache $listingCache -Consults $consults -Fingerprint $probe.Fingerprint -UtcNow $utcNow }
     # (a usable reply on this endpoint within the last 60 minutes evidences the sign-in: no
     # `agy models` call; the auth / quota rules still apply)
     $rowVerdict = Get-PreflightVerdict -Identity $probe -Config $config -Launcher $engineLauncher -Health $health -LoginCache $loginCache -RosterWalk -NoNetwork:$NoNetwork
+    # (wave 29b, E5) a usage limit on another route of the plan of the label's first entry
+    if ($firstOfLabel.Count -gt 0 -and [string](Get-PropertyValue $firstOfLabel[0] 'Plan' '')) { $rowVerdict = Get-PlanQuotaVerdict -Verdict $rowVerdict -Entry $firstOfLabel[0] -Identity $probe -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -EngineLaunchers $engineLaunchers -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Cache $listingCache -RosterWalk }
     $credText = $(if ($rowVerdict.Credential) { [string]$rowVerdict.Credential.Detail } else { 'not checked (identity unresolved)' })
     $verdict = Format-RowVerdict $rowVerdict $el.Engine
     # (wave 23, D4) the engine's launch invariant (muse: billing) outranks everything above
@@ -384,7 +400,7 @@ foreach ($el in $engineLabels) {
             name              = $el.Name
             engine            = $el.Engine
             kind              = "engine $($el.Engine)"
-            endpoint          = "$($el.Engine) ($(if ($engineLauncher) { $engineLauncher } else { 'launcher not found' }))"
+            endpoint          = "$($el.Engine)$(if ([string]$firstOfLabel.Auth -eq 'endpoint' -and $firstEndpoint) { " endpoint $($firstEndpoint.BaseUrl)" }) ($(if ($engineLauncher) { $engineLauncher } else { 'launcher not found' }))"
             wire_api          = ''
             table             = 'n/a'
             credentials       = $credText

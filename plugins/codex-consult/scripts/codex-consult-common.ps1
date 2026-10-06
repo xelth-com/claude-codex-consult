@@ -2387,7 +2387,7 @@ function Get-ProviderEndpoint {
 # carry information on a resolved identity). Error is set only for an explicit
 # -Provider that cannot be used (the caller refuses the run).
 function Resolve-ReviewerIdentity {
-    param($Config, [string]$Provider = '', [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '', [string]$Auth = '')
+    param($Config, [string]$Provider = '', [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '', [string]$Auth = '', $Endpoint = $null)
     $notes = New-Object System.Collections.Generic.List[string]
     $id = [pscustomobject]@{
         Provider       = 'unknown'
@@ -2408,9 +2408,10 @@ function Resolve-ReviewerIdentity {
         ConfigPath     = [string]$Config.Path
         Engine         = 'codex'
         Auth           = ''
+        Endpoint       = $null
     }
     # Another engine than codex (Resolve-EngineIdentity): no Codex config lookup at all.
-    if ($Engine -and $Engine -ne 'codex') { return (Resolve-EngineIdentity -Identity $id -Engine $Engine -Provider $Provider -Model $Model -Launcher $Launcher -Auth $Auth) }
+    if ($Engine -and $Engine -ne 'codex') { return (Resolve-EngineIdentity -Identity $id -Engine $Engine -Provider $Provider -Model $Model -Launcher $Launcher -Auth $Auth -Endpoint $Endpoint) }
     $where = if ($Config.Path) { [string]$Config.Path } else { '(no Codex home)' }
     $fileReason = ''
     if ($Config.Exists -and -not $Config.Ok) { $fileReason = $Config.Reason }
@@ -2574,8 +2575,13 @@ function Get-EntryEngine {
 # first): Auth is kept on the identity, and (D7 / F03-7) the endpoint - the fingerprint the health
 # records are keyed by - is the engine + the auth mode + the model family
 # ('cc-engine-v1|claude|subscription|opus'): an Opus limit never marks Sonnet or the API key out.
+# (wave 29b, E5) auth endpoint (the roster entry's $Endpoint): the ROUTE identity -
+# 'cc-engine-v1|claude|endpoint|<canonical base_url>|<env_key name>' (lineage, parenting, the
+# health of auth, transport and capability failures); provider_config {engine, launcher,
+# credential_mechanism endpoint, base_url, env_key, plan}; Display names the base URL. The plan
+# (quota) is not part of it (Get-PlanQuotaVerdict). An endpoint auth without an endpoint is an error.
 function Resolve-EngineIdentity {
-    param($Identity, [string]$Engine, [string]$Provider, [string]$Model, [string]$Launcher, [string]$Auth = '')
+    param($Identity, [string]$Engine, [string]$Provider, [string]$Model, [string]$Launcher, [string]$Auth = '', $Endpoint = $null)
     $id = $Identity
     $id.Engine = $Engine
     $spec = Get-EngineSpec -Name $Engine
@@ -2589,6 +2595,12 @@ function Resolve-EngineIdentity {
         if ($Auth -and $authModes -notcontains $Auth) { $id.Error = "the $Engine engine takes auth $($authModes -join ' or ') (got '$Auth')" }
         if ($null -eq $id.PSObject.Properties['Auth']) { $id | Add-Member -NotePropertyName 'Auth' -NotePropertyValue '' }
         $id.Auth = $(if ($authModes -contains $Auth) { $Auth } else { [string]$authModes[0] })
+        if ($null -eq $id.PSObject.Properties['Endpoint']) { $id | Add-Member -NotePropertyName 'Endpoint' -NotePropertyValue $null }
+        if ($id.Auth -eq 'endpoint') {
+            $id.Endpoint = $Endpoint
+            $epWhy = Get-ClaudeEndpointProblem $Endpoint
+            if ($epWhy -and -not $id.Error) { $id.Error = "the $Engine engine's auth endpoint is not usable: $epWhy" }
+        }
     }
     if ($Provider) { $id.Provider = $Provider; $id.ProviderSource = '-Provider' }
     else { $id.Provider = [string]$spec.DefaultProvider; $id.ProviderSource = 'engine default' }
@@ -2605,17 +2617,21 @@ function Resolve-EngineIdentity {
     if ($spec.Adapter -and $spec.Adapter.PSObject.Properties['IdentityConfig'] -and $spec.Adapter.IdentityConfig) {
         $icArgs = @{}
         if ($authModes.Count -gt 0) { $icArgs['Auth'] = [string]$id.Auth; $icArgs['Launcher'] = $Launcher }
+        if ($id.Auth -eq 'endpoint') { $icArgs['Endpoint'] = $id.Endpoint }
         $extra = & $spec.Adapter.IdentityConfig @icArgs
         foreach ($k in @($extra.Keys)) { $pc | Add-Member -NotePropertyName ([string]$k) -NotePropertyValue $extra[$k] }
     }
     $id.ProviderConfig = $pc
     $id.Display = "engine $Engine ($(if ($Launcher) { $Launcher } else { "$($spec.Command) CLI not found" }))"
+    if ($id.Auth -eq 'endpoint' -and $id.Endpoint) { $id.Display += ", endpoint $($id.Endpoint.BaseUrl) (token from env $($id.Endpoint.EnvKey))" }
     $id.ConfigPath = ''
     $id.Lineage = Format-Lineage -Provider $id.Provider -Model $id.Model
     if (-not $id.Error) {
         $id.Resolved = $true
         $id.CompatString = [string]$spec.CompatString
-        if ($authModes.Count -gt 0) {
+        if ($authModes.Count -gt 0 -and $id.Auth -eq 'endpoint') {
+            $id.CompatString = "$($spec.CompatString)|endpoint|$($id.Endpoint.Canonical)|$($id.Endpoint.EnvKey)"
+        } elseif ($authModes.Count -gt 0) {
             $family = $(if ($Engine -eq 'claude') { Get-ClaudeModelFamily $id.Model } else { '' })
             $id.CompatString = "$($spec.CompatString)|$($id.Auth)|$(if ($family) { $family } else { (ConvertTo-ClaudeModelBase $id.Model) })"
         }
@@ -3194,11 +3210,13 @@ function Get-ProviderCredential {
 #               -Fresh right before a launch - wave 24, F15-1)
 #   Salvage     (wave 24) what a killed turn's stream holds: its agent messages and reasoning
 #               text and its tool calls (-Path; Read-TurnSalvage, the .partial.md)
-#   ChildEnv    (optional, wave 29) the child's ALLOW-listed environment (-Auth; claude:
-#               Get-ClaudeChildEnvironment) - Start-EngineProcess hides every other variable in
-#               the transaction of Hide-HostMarkers
+#   ChildEnv    (optional, wave 29) the child's ALLOW-listed environment (-Auth -Endpoint;
+#               claude: Get-ClaudeChildEnvironment) - Start-EngineProcess hides every other
+#               variable in the transaction of Hide-HostMarkers, and (wave 29b) refuses the start
+#               when its Problem is set
 #   LocalCheck  (optional, wave 29) a local part of the sign-in no ledger evidence replaces
-#               (-Auth; '' or why not - claude auth api-key: ANTHROPIC_API_KEY set now)
+#               (-Auth [-Endpoint]; '' or why not - claude auth api-key: ANTHROPIC_API_KEY set
+#               now; wave 29b, auth endpoint: the variable endpoint.env_key names set now)
 # The Outcome also receives -Turn (wave 29): the turn's options object (mode, threads, the
 # minted id, the pinned model, the auth) - agy and muse ignore it.
 # Row fields: Name, Label (handoff header / author), Prefix (handoff file names
@@ -3256,6 +3274,14 @@ function Get-ProviderCredential {
 #         agy. Parallel limit 1 in a panel (D5: its members run one after another unless the
 #         roster's "parallel" raises their label). Reply prefix claudecode: the coordinator's
 #         default brief prefix is claude.
+#         (wave 29b, E1-E7) auth endpoint: the same CLI against a third-party Anthropic-compatible
+#         endpoint named by the roster entry (`endpoint` {base_url, env_key, timeout_ms}) - the child
+#         gets ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN (from the variable env_key names) and
+#         API_TIMEOUT_MS, never ANTHROPIC_API_KEY or a model alias variable; the model is the
+#         provider's id sent straight (no table) and proven by equality with the init event's;
+#         the preflight is local (no `claude auth status`); the identity is the ROUTE
+#         ('cc-engine-v1|claude|endpoint|<canonical base_url>|<env_key>'), the quota the entry's
+#         `plan` (Get-PlanQuotaVerdict, the panel's plan group); telemetry and the lab by host.
 $script:EngineNames = @('codex', 'agy', 'muse', 'claude')
 $script:Engines = @{
     'codex' = [pscustomobject]@{
@@ -3311,7 +3337,9 @@ $script:Engines = @{
         Adapter = [pscustomobject]@{ Argv = 'New-MuseArgv'; Stdin = 'ConvertTo-MuseStdin'; Events = 'Read-MuseEvents'; Outcome = 'Get-MuseTurnOutcome'; Credential = 'Get-MuseSignIn'; Harness = 'Get-MuseHarness'; IdentityConfig = 'Get-MuseIdentityConfig'; LaunchBlock = 'Get-MuseLaunchBlock'; Salvage = 'Read-MuseSalvage' }
     }
     # (wave 29) Claude Code headless. Row fields of its own: AuthModes (the roster's `auth` it takes;
-    # the first is the default), MintsThread (a new thread's id is minted by the bridge: --session-id),
+    # the first is the default; wave 29b: endpoint - a third-party Anthropic-compatible endpoint),
+    # LocalAuthModes (wave 29b: the auth modes whose credential check is local - no ledger
+    # short-circuit, -NoNetwork too), MintsThread (a new thread's id is minted by the bridge: --session-id),
     # MaxPromptBytes (D9), ArgQuote (crt: ConvertTo-CrtArg - the schema TEXT travels in argv),
     # ParallelScope (engine: its panel members share one scheduling group, D5), AddDirs (the
     # directories outside the repository the reviewer must read go to --add-dir).
@@ -3324,7 +3352,7 @@ $script:Engines = @{
         Modes = @('new', 'resume', 'fork'); DefaultMode = 'new'; Sandboxes = @('read-only')
         Transports = @('native', 'prompt-only'); HostName = 'engine:claude'; CompatString = 'cc-engine-v1|claude'; DefaultProvider = 'anthropic'; ModelExample = 'claude-sonnet-5-5'
         DenialRetry = $true; PromptTransport = 'stdin'; LocalSignIn = $false; StepsFlag = '--max-turns'; HasUsage = $true
-        AuthModes = @('subscription', 'api-key'); MintsThread = $true; MaxPromptBytes = 1048576; ArgQuote = 'crt'; ParallelScope = 'engine'; AddDirs = $true
+        AuthModes = @('subscription', 'api-key', 'endpoint'); LocalAuthModes = @('endpoint'); MintsThread = $true; MaxPromptBytes = 1048576; ArgQuote = 'crt'; ParallelScope = 'engine'; AddDirs = $true
         PromptVia = 'prompt on stdin'
         ReplySource = "the result event's structured_output (else its result text)"
         SchemaFlag = '--json-schema'; ThreadFlag = '--resume'; ThreadNoun = 'session'
@@ -3491,9 +3519,12 @@ function Get-AgyModelsStatus {
 # Else the adapter's check (agy: `agy models`, 45 s - TEST HOOK
 # CODEX_CONSULT_TEST_LOGIN_TIMEOUT=<s> shortens it). $LoginCache: one check per launcher per
 # listing. (wave 29) $Auth: the roster's auth of an engine that takes one (claude: subscription |
-# api-key) - passed to its check, and part of the cache key.
+# api-key) - passed to its check, and part of the cache key. (wave 29b, E3) $Endpoint: the roster
+# entry's endpoint (claude auth endpoint); an auth mode of the row's LocalAuthModes (claude:
+# endpoint) is checked locally by the adapter EVERY time - no ledger short-circuit, under -NoNetwork
+# too ("ok: env <NAME> set").
 function Get-EngineCredential {
-    param([string]$Engine, [string]$Launcher, [hashtable]$LoginCache = $null, [switch]$NoNetwork, [int]$TimeoutSec = 0, $Health = $null, [string]$Auth = '')
+    param([string]$Engine, [string]$Launcher, [hashtable]$LoginCache = $null, [switch]$NoNetwork, [int]$TimeoutSec = 0, $Health = $null, [string]$Auth = '', $Endpoint = $null)
     $spec = Get-EngineSpec -Name $Engine
     if (-not $spec -or -not $spec.Adapter) { return (New-CredentialResult 'unknown' "no credential check for engine '$Engine'") }
     if (-not $Launcher) { return (New-CredentialResult 'missing' "$($spec.Command) CLI not found on PATH") }
@@ -3502,8 +3533,13 @@ function Get-EngineCredential {
     $authModes = @(Get-PropertyValue $spec 'AuthModes' @())
     $authUsed = $(if ($authModes.Count -gt 0) { $(if ($authModes -contains $Auth) { $Auth } else { [string]$authModes[0] }) } else { '' })
     if ($spec.Adapter.PSObject.Properties['LocalCheck'] -and $spec.Adapter.LocalCheck) {
-        $localWhy = [string](& $spec.Adapter.LocalCheck -Auth $authUsed)
+        $localArgs = @{ Auth = $authUsed }
+        if ($authUsed -eq 'endpoint') { $localArgs['Endpoint'] = $Endpoint }
+        $localWhy = [string](& $spec.Adapter.LocalCheck @localArgs)
         if ($localWhy) { return (New-CredentialResult 'missing' $localWhy) }
+    }
+    if ($authUsed -and @(Get-PropertyValue $spec 'LocalAuthModes' @()) -contains $authUsed) {
+        return (& $spec.Adapter.Credential -Launcher $Launcher -Auth $authUsed -Endpoint $Endpoint)
     }
     if ($Health -and $Health.PSObject.Properties['RecentUsable'] -and $Health.RecentUsable) {
         return (New-CredentialResult 'ok' "signed in (usable reply $($Health.RecentUsable.AgeMinutes) min ago)")
@@ -4310,11 +4346,25 @@ function Get-MuseTurnOutcome {
 # engine names one of them - optionally with the 1M-context suffix [1m], stripped before every
 # comparison - and the telemetry's closed model list of the vendor class anthropic IS this table.
 # Anything else is refused by the roster validator and reads `other` in telemetry; the ledger keeps
-# the real name. Other vendors' models through this engine are out of scope (D10).
+# the real name. (wave 29b, E2) The table does NOT apply to auth endpoint (a third-party
+# Anthropic-compatible endpoint): its model is the id as the provider publishes it, matching
+# $script:ClaudeEndpointModelRe (an optional [1m] suffix), sent straight as --model <id>.
 $script:ClaudeModelAliases = @('opus', 'sonnet', 'haiku', 'fable')
 $script:ClaudeModels = @('opus', 'sonnet', 'haiku', 'fable', 'claude-fable-5-1', 'claude-fable-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-5-5', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5')
-# The roster's `auth` of the engine (item 6): the subscription login (the default) or an API key
-$script:ClaudeAuthModes = @('subscription', 'api-key')
+# The roster's `auth` of the engine (item 6): the subscription login (the default), an API key or
+# (wave 29b, E1) a third-party Anthropic-compatible endpoint spelled out in the roster entry's
+# `endpoint` object ({base_url, env_key, timeout_ms}) - ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN
+# in the child environment only
+$script:ClaudeAuthModes = @('subscription', 'api-key', 'endpoint')
+# (wave 29b, E2) the model id of an endpoint entry; (E1) the endpoint's keys, its token variable's
+# NAME, its API_TIMEOUT_MS bounds and default; (E5) a plan slug (any entry of any engine)
+$script:ClaudeEndpointModelRe = '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(\[1m\])?$'
+$script:ClaudeEndpointKeys = @('base_url', 'env_key', 'timeout_ms')
+$script:ClaudeEndpointEnvKeyRe = '^[A-Z][A-Z0-9_]{2,}$'
+$script:ClaudeEndpointTimeoutDefault = 3000000
+$script:ClaudeEndpointTimeoutMin = 60000
+$script:ClaudeEndpointTimeoutMax = 7200000
+$script:PlanSlugRe = '^[a-z][a-z0-9-]{1,31}$'
 # (item 4) The tools a claude turn may have: the read tools and the CLI's own StructuredOutput -
 # proven by EVERY init event of the turn, with no MCP server and the permission mode dontAsk
 $script:ClaudeTools = @('Read', 'Grep', 'Glob', 'StructuredOutput')
@@ -4348,24 +4398,88 @@ function Test-ClaudeModelAlias {
     return ($script:ClaudeModelAliases -ccontains (ConvertTo-ClaudeModelBase $Model))
 }
 # Whether $Served is the model $Pinned asks for: equal after [1m] is stripped, or $Pinned an alias
-# and $Served an id of its family (claude-<alias>-...), or the other way round.
+# and $Served an id of its family (claude-<alias>-...), or the other way round. (wave 29b, E2)
+# -Exact (auth endpoint): equal after the [1m] strip only - no alias family, so a turn served by
+# the subscription can never pass for the endpoint's model.
 function Test-ClaudeModelMatch {
-    param([string]$Pinned, [string]$Served)
+    param([string]$Pinned, [string]$Served, [switch]$Exact)
     $p = ConvertTo-ClaudeModelBase $Pinned
     $s = ConvertTo-ClaudeModelBase $Served
     if (-not $p -or -not $s) { return $false }
     if ($p -ceq $s) { return $true }
+    if ($Exact) { return $false }
     if ($script:ClaudeModelAliases -ccontains $p) { return $s.StartsWith("claude-$p-", [StringComparison]::Ordinal) }
     if ($script:ClaudeModelAliases -ccontains $s) { return $p.StartsWith("claude-$s-", [StringComparison]::Ordinal) }
     return $false
 }
 # '' when a roster or -Model value names a model of the table (D4; a trailing [1m] allowed), else why not.
+# (wave 29b, E2) -Auth endpoint: the open id pattern instead of the table.
 function Get-ClaudeModelProblem {
-    param($Model)
+    param($Model, [string]$Auth = '')
     if (-not ($Model -is [string]) -or -not $Model.Trim()) { return 'is empty' }
+    if ($Auth -eq 'endpoint') {
+        if ([string]$Model -cnotmatch $script:ClaudeEndpointModelRe) { return 'is not a model id the endpoint route takes (the id as the provider publishes it: letters, digits, ".", "_", "-", at most 64 characters, optionally ending with [1m])' }
+        return ''
+    }
     $b = ([string]$Model) -replace '\[1m\]$', ''
     if ($script:ClaudeModels -cnotcontains $b) { return "is not in the claude engine's model table ($($script:ClaudeModels -join ', '); each may end with [1m])" }
     return ''
+}
+
+# (wave 29b, E1) The endpoint object of a roster entry with auth endpoint, from the roster's JSON
+# value: { Endpoint ($null on a refusal; else { BaseUrl (as written - what ANTHROPIC_BASE_URL
+# gets); Canonical (lower-case scheme and host, the explicit port if any, the path without a
+# trailing slash - the route fingerprint's part); HostName; EnvKey (the NAME of the variable that
+# holds the token - never its value); TimeoutMs (API_TIMEOUT_MS; default 3000000); Plan (the
+# entry's plan slug, '' without one - provider_config only) }); Error ('' or the refusal in the
+# roster's wording, without the entry prefix) }. Neither a URL nor an env_key value is echoed in a
+# refusal: either could hold a credential pasted by mistake.
+function ConvertFrom-ClaudeEndpointValue {
+    param($Value, [string]$Plan = '')
+    $r = [pscustomobject]@{ Endpoint = $null; Error = '' }
+    if (-not (Test-IsJsonObject $Value)) { $r.Error = 'endpoint must be an object {"base_url": "https://...", "env_key": "<VARIABLE NAME>", "timeout_ms": <milliseconds, optional>}'; return $r }
+    foreach ($prop in $Value.PSObject.Properties) {
+        if ($script:ClaudeEndpointKeys -cnotcontains $prop.Name) { $r.Error = "endpoint has an unknown key '$($prop.Name)' (allowed: $($script:ClaudeEndpointKeys -join ', '))"; return $r }
+    }
+    $urlWhy = 'endpoint.base_url must be an absolute https URL without credentials, query or fragment (e.g. "https://api.z.ai/api/anthropic"; the value is not shown)'
+    $bu = Get-PropertyValue $Value 'base_url' $null
+    if (-not ($bu -is [string]) -or -not $bu.Trim() -or $bu -match '\s') { $r.Error = $urlWhy; return $r }
+    $uri = $null
+    if ($bu -notmatch '^(?i)https://[^/?#@]+' -or -not [Uri]::TryCreate($bu, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -cne 'https' -or -not $uri.Host -or $uri.UserInfo -or $uri.Query -or $uri.Fragment -or $bu.Contains('#') -or $bu.Contains('?')) { $r.Error = $urlWhy; return $r }
+    $ek = Get-PropertyValue $Value 'env_key' $null
+    if (-not ($ek -is [string]) -or $ek -cnotmatch $script:ClaudeEndpointEnvKeyRe) { $r.Error = 'endpoint.env_key must be the NAME of the environment variable that holds the token (capital letters, digits and _, at least 3 characters, starting with a letter - e.g. "ZAI_API_KEY"), never the token itself (the value is not shown)'; return $r }
+    $tm = [long]$script:ClaudeEndpointTimeoutDefault
+    if ($Value.PSObject.Properties['timeout_ms']) {
+        $tv = $Value.timeout_ms
+        if (-not (Test-IsJsonInteger $tv) -or [double]$tv -lt $script:ClaudeEndpointTimeoutMin -or [double]$tv -gt $script:ClaudeEndpointTimeoutMax) { $r.Error = "endpoint.timeout_ms must be an integer from $($script:ClaudeEndpointTimeoutMin) to $($script:ClaudeEndpointTimeoutMax) (milliseconds - API_TIMEOUT_MS; default $($script:ClaudeEndpointTimeoutDefault); got $(ConvertTo-Json -InputObject $tv -Compress))"; return $r }
+        $tm = [long]$tv
+    }
+    $cu = ConvertTo-CanonicalBaseUrl $bu
+    $r.Endpoint = [pscustomobject]@{ BaseUrl = [string]$bu; Canonical = [string]$cu.Url; HostName = [string]$cu.HostName; EnvKey = [string]$ek; TimeoutMs = [long]$tm; Plan = [string]$Plan }
+    return $r
+}
+
+# (wave 29b, E3) '' when an endpoint object is usable for a launch (a base URL that parses, a token
+# variable NAME), else why not - the defensive re-check of the preflight and the child environment.
+function Get-ClaudeEndpointProblem {
+    param($Endpoint)
+    if ($null -eq $Endpoint) { return 'auth endpoint names no endpoint (the roster entry''s "endpoint" object)' }
+    $bu = [string](Get-PropertyValue $Endpoint 'BaseUrl' '')
+    $uri = $null
+    if (-not $bu -or -not [Uri]::TryCreate($bu, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -cne 'https' -or -not $uri.Host) { return 'endpoint.base_url does not parse as an absolute https URL' }
+    if ([string](Get-PropertyValue $Endpoint 'EnvKey' '') -cnotmatch $script:ClaudeEndpointEnvKeyRe) { return 'endpoint.env_key is not a variable name' }
+    return ''
+}
+
+# (wave 29b, E3) The token of an endpoint, read from the variable its env_key NAMES - at the moment
+# a child environment is built (the launch), never stored, logged or printed. '' when unset or blank.
+function Get-ClaudeEndpointToken {
+    param($Endpoint)
+    $n = [string](Get-PropertyValue $Endpoint 'EnvKey' '')
+    if (-not $n) { return '' }
+    $v = [Environment]::GetEnvironmentVariable($n)
+    if (-not $v -or -not $v.Trim()) { return '' }
+    return [string]$v
 }
 
 # (D2 / F02-2, F03-2, F03-4, F03-5) THE child environment of the claude engine: an ALLOW list, never a
@@ -4375,6 +4489,11 @@ function Get-ClaudeModelProblem {
 # (no inherited gateway, routing, provider selector, effort, persistence or model override reaches a
 # reviewer; a Bedrock, Vertex or Foundry setup fails closed at the preflight - D10), and so is every
 # host marker and test-mode variable. DISABLE_AUTOUPDATER=1 is set. Names compared case-insensitively.
+# (wave 29b, E4) auth endpoint adds - for that mode only - ANTHROPIC_BASE_URL (endpoint.base_url),
+# ANTHROPIC_AUTH_TOKEN (the value of the variable endpoint.env_key names, read when the environment
+# is built - at the launch -, never logged) and API_TIMEOUT_MS (endpoint.timeout_ms); ANTHROPIC_API_KEY
+# stays absent (it would take precedence), and so does every model alias variable (ANTHROPIC_MODEL,
+# ANTHROPIC_DEFAULT_*_MODEL, ANTHROPIC_SMALL_FAST_MODEL - E2).
 # TEST HOOK (test mode only): CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix> lets the variables of that
 # prefix through too (the harness's fake CLI reads its FAKE_CLAUDE_* drivers) - never a prefix of
 # ANTHROPIC, CLAUDE or CODEX_CONSULT.
@@ -4391,6 +4510,8 @@ $script:ClaudeChildEnvNames = @(
 )
 $script:ClaudeChildEnvPrefixes = @('ProgramFiles', 'CommonProgramFiles', 'ProgramW6432', 'CommonProgramW6432', 'LC_')
 $script:ClaudeChildEnvSet = [ordered]@{ 'DISABLE_AUTOUPDATER' = '1' }
+# (wave 29b, E4) the variables auth endpoint sets in the child (never inherited from this process)
+$script:ClaudeEndpointEnvNames = @('ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'API_TIMEOUT_MS')
 function Test-ClaudeChildEnvName {
     param([string]$Name, [string]$Auth = 'subscription', [string]$PassPrefix = '')
     $u = ([string]$Name).ToUpperInvariant()
@@ -4403,10 +4524,13 @@ function Test-ClaudeChildEnvName {
 # The child environment of a claude process for $Auth, from THIS process's environment (read-only
 # here): { Auth; Env (name -> value, sorted; the allowed variables plus the set ones); Names
 # (string[], sorted ordinal - the ledger's engine_run.child_env_allowed; never a value); Removed
-# (string[]: the names of this process's variables the child does not get) }. One builder for the
-# preflight, the version probe and every turn (D3 / F03-3).
+# (string[]: the names of this process's variables the child does not get); Problem (wave 29b: ''
+# or why no child may start with it - auth endpoint without a usable endpoint or without its token
+# set: the CLI would fall back to the local login and could send its OAuth token to the third-party
+# base URL; Start-EngineProcess refuses the start) }. One builder for the preflight, the version
+# probe and every turn (D3 / F03-3). $Endpoint: the roster entry's endpoint (auth endpoint only).
 function Get-ClaudeChildEnvironment {
-    param([string]$Auth = 'subscription')
+    param([string]$Auth = 'subscription', $Endpoint = $null)
     if ($script:ClaudeAuthModes -notcontains $Auth) { $Auth = 'subscription' }
     $pass = ([string](Get-TestHookValue 'CODEX_CONSULT_TEST_CHILD_ENV_PASS')).Trim()
     if ($pass -and ($pass -notmatch '^[A-Za-z][A-Za-z0-9_]{3,}$' -or $pass.ToUpperInvariant() -match '^(ANTHROPIC|CLAUDE|CODEX_CONSULT)')) { $pass = '' }
@@ -4418,14 +4542,27 @@ function Get-ClaudeChildEnvironment {
         $n = [string]$k
         if (-not $n -or $n.Contains('=') -or $envOut.ContainsKey($n)) { continue }
         if (Test-ClaudeChildEnvName -Name $n -Auth $Auth -PassPrefix $pass) { $envOut[$n] = [string]$all[$k] }
-        elseif (-not $script:ClaudeChildEnvSet.Contains($n) -and -not $removed.Contains($n)) { $removed.Add($n) }
+        elseif (-not $script:ClaudeChildEnvSet.Contains($n) -and -not ($Auth -eq 'endpoint' -and $script:ClaudeEndpointEnvNames -contains $n.ToUpperInvariant()) -and -not $removed.Contains($n)) { $removed.Add($n) }
     }
     foreach ($k in @($script:ClaudeChildEnvSet.Keys)) { $envOut[[string]$k] = [string]$script:ClaudeChildEnvSet[$k] }
+    $problem = ''
+    if ($Auth -eq 'endpoint') {
+        # (E4) the route's own three variables; the token only when its variable is set now
+        $problem = Get-ClaudeEndpointProblem $Endpoint
+        if (-not $problem) {
+            $envOut['ANTHROPIC_BASE_URL'] = [string]$Endpoint.BaseUrl
+            $envOut['API_TIMEOUT_MS'] = [string][long]$Endpoint.TimeoutMs
+            $token = Get-ClaudeEndpointToken $Endpoint
+            if ($token) { $envOut['ANTHROPIC_AUTH_TOKEN'] = $token }
+            else { $problem = "env $($Endpoint.EnvKey) not set (the token of auth endpoint)" }
+            $token = $null
+        }
+    }
     $names = [string[]]@($envOut.Keys)
     [Array]::Sort($names, [StringComparer]::Ordinal)
     $rm = [string[]]$removed.ToArray()
     [Array]::Sort($rm, [StringComparer]::Ordinal)
-    return [pscustomobject]@{ Auth = $Auth; Env = $envOut; Names = $names; Removed = $rm }
+    return [pscustomobject]@{ Auth = $Auth; Env = $envOut; Names = $names; Removed = $rm; Problem = $problem }
 }
 
 # A probe of the claude launcher (`claude auth status`, `claude --version`) in the child
@@ -4492,11 +4629,21 @@ function ConvertTo-ClaudeToken {
 # unknown ("not checked"). No credentials-file fallback. Only authMethod, apiProvider and
 # projectsDirectory are kept (the cache, for the ledger's provider_config and the launch check) -
 # never the account's e-mail or organisation.
+# (wave 29b, E3) auth endpoint: NO `claude auth status` (it reads the local login and ignores the
+# base URL - P12) and no live request (it would spend the plan's credits): the launcher is found,
+# endpoint.base_url parses and the variable endpoint.env_key names is set and non-empty - "ok: env
+# <NAME> set" or "missing: env <NAME> not set", as for a codex table (never the value).
 $script:ClaudeSignInCache = @{}
 function Get-ClaudeSignIn {
-    param([string]$Launcher = '', [int]$TimeoutSec = 15, [string]$Auth = 'subscription')
+    param([string]$Launcher = '', [int]$TimeoutSec = 15, [string]$Auth = 'subscription', $Endpoint = $null)
     if ($script:ClaudeAuthModes -notcontains $Auth) { $Auth = 'subscription' }
     if (-not $Launcher) { return (New-CredentialResult 'missing' 'claude CLI not found on PATH') }
+    if ($Auth -eq 'endpoint') {
+        $ep = Get-ClaudeEndpointProblem $Endpoint
+        if ($ep) { return (New-CredentialResult 'missing' $ep) }
+        if (-not (Get-ClaudeEndpointToken $Endpoint)) { return (New-CredentialResult 'missing' "env $($Endpoint.EnvKey) not set") }
+        return (New-CredentialResult 'ok' "env $($Endpoint.EnvKey) set")
+    }
     if ($Auth -eq 'api-key') {
         $key = [Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY')
         if (-not $key -or -not $key.Trim()) { return (New-CredentialResult 'missing' 'ANTHROPIC_API_KEY is not set (roster auth api-key)') }
@@ -4530,8 +4677,15 @@ function Get-ClaudeSignIn {
 # (item 6) The local part of a claude entry's sign-in that no ledger evidence replaces (the
 # adapter's LocalCheck, before the 60-minute short-circuit of Get-EngineCredential): auth api-key
 # needs ANTHROPIC_API_KEY set in this process now. '' or the reason (a name, never a value).
+# (wave 29b, E3) auth endpoint: a usable endpoint and the variable its env_key names set now.
 function Test-ClaudeLocalCredential {
-    param([string]$Auth = 'subscription')
+    param([string]$Auth = 'subscription', $Endpoint = $null)
+    if ($Auth -eq 'endpoint') {
+        $ep = Get-ClaudeEndpointProblem $Endpoint
+        if ($ep) { return $ep }
+        if (-not (Get-ClaudeEndpointToken $Endpoint)) { return "env $($Endpoint.EnvKey) not set" }
+        return ''
+    }
     if ($Auth -ne 'api-key') { return '' }
     $key = [Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY')
     if (-not $key -or -not $key.Trim()) { return 'ANTHROPIC_API_KEY is not set (roster auth api-key)' }
@@ -4540,10 +4694,20 @@ function Test-ClaudeLocalCredential {
 
 # reviewer.provider_config's claude fields (item 6): credential_mechanism = the roster's auth
 # (subscription | api-key); auth_method and api_provider as `claude auth status` reported them in
-# this process (the preflight), $null when it did not run.
+# this process (the preflight), $null when it did not run. (wave 29b, E5) auth endpoint:
+# credential_mechanism endpoint, base_url (as the roster names it - not a secret), env_key (the
+# variable's NAME - the token never appears) and plan (the entry's plan slug, $null without one).
 function Get-ClaudeIdentityConfig {
-    param([string]$Auth = 'subscription', [string]$Launcher = '')
+    param([string]$Auth = 'subscription', [string]$Launcher = '', $Endpoint = $null)
     if ($script:ClaudeAuthModes -notcontains $Auth) { $Auth = 'subscription' }
+    if ($Auth -eq 'endpoint') {
+        $e = [ordered]@{}
+        $e['credential_mechanism'] = 'endpoint'
+        $e['base_url'] = $(if ($Endpoint) { [string]$Endpoint.BaseUrl } else { $null })
+        $e['env_key'] = $(if ($Endpoint) { [string]$Endpoint.EnvKey } else { $null })
+        $e['plan'] = $(if ($Endpoint -and [string](Get-PropertyValue $Endpoint 'Plan' '')) { [string]$Endpoint.Plan } else { $null })
+        return $e
+    }
     $c = $null
     if ($script:ClaudeSignInCache.ContainsKey("$Launcher|$Auth")) { $c = $script:ClaudeSignInCache["$Launcher|$Auth"] }
     $o = [ordered]@{}
@@ -4884,7 +5048,11 @@ function Read-ClaudeEvents {
 # no tool outside Read, Grep, Glob, StructuredOutput, no MCP server and the permission mode dontAsk
 # (else class permission); and (item 6, F09-1) the credential the CLI took must be the roster's:
 # subscription - apiKeySource none; api-key - ANTHROPIC_API_KEY (else class auth: the turn billed
-# another way). { Problem ('' when proven or when there is no init - the caller decides); Class }.
+# another way); (wave 29b, E3) endpoint - apiKeySource is none on this route too (P8, P10), so it
+# proves nothing: it is recorded raw, and only ANTHROPIC_API_KEY fails the turn (class auth: a
+# competing credential reached the child) - the proof of the route is the init model (D4, -Exact)
+# and child_env_allowed. { Problem ('' when proven or when there is no init - the caller decides);
+# Class }.
 function Get-ClaudeInitProblem {
     param($Events, [string]$Auth = 'subscription')
     $r = [pscustomobject]@{ Problem = ''; Class = '' }
@@ -4894,6 +5062,13 @@ function Get-ClaudeInitProblem {
     if (@($Events.InitMcp).Count -gt 0) { $r.Problem = "the init event lists MCP server(s) ($(@($Events.InitMcp) -join ', ')) - a reviewer runs without any"; $r.Class = 'permission'; return $r }
     $badMode = @(@($Events.InitModes) | Where-Object { [string]$_ -cne $script:ClaudePermissionMode }) | Select-Object -First 1
     if ($null -ne $badMode) { $r.Problem = "the init event names the permission mode '$(ConvertTo-ClaudeToken ([string]$badMode))', not $($script:ClaudePermissionMode)"; $r.Class = 'permission'; return $r }
+    if ($Auth -eq 'endpoint') {
+        if (@(@($Events.InitKeySources) | Where-Object { [string]$_ -ceq 'ANTHROPIC_API_KEY' }).Count -gt 0) {
+            $r.Problem = 'the init event names apiKeySource ANTHROPIC_API_KEY on an endpoint route - a competing credential reached the child (auth endpoint sends ANTHROPIC_AUTH_TOKEN only)'
+            $r.Class = 'auth'
+        }
+        return $r
+    }
     $want = $(if ($Auth -eq 'api-key') { 'ANTHROPIC_API_KEY' } else { 'none' })
     $badKey = @(@($Events.InitKeySources) | Where-Object { [string]$_ -cne $want }) | Select-Object -First 1
     if ($null -ne $badKey) {
@@ -4908,8 +5083,11 @@ function Get-ClaudeInitProblem {
 # (item 3, D6) The wording of a usage limit and of a missing sign-in in claude's result text or
 # stderr ("Not logged in <middle dot> Please run /login" - obs; "... usage limit reached|<unix time>", "You've
 # hit your limit <middle dot> resets ...") - field names and wordings beyond the observed ones are assumed.
+# (wave 29b, E4) an endpoint route's 401/403 (P11: "Failed to authenticate. API Error: 401 ...") is
+# class auth; a 429 is class quota by its status (\b429\b) whatever its wording - extend the lists
+# after the first sightings of each provider's texts.
 $script:ClaudeQuotaRe = '(?i)usage limit|limit reached|hit your (?:usage |session |weekly )?limit|rate[ _]limit|weekly limit|session limit|quota|too many requests|\b429\b|credit balance is too low|overage'
-$script:ClaudeAuthRe = '(?i)not logged in|please run /login|invalid api key|oauth token (?:has )?(?:expired|revoked)|authentication[ _]error|\b401\b|unauthori[sz]ed'
+$script:ClaudeAuthRe = '(?i)not logged in|please run /login|invalid api key|oauth token (?:has )?(?:expired|revoked)|authentication[ _]error|failed to authenticate|api error: 40[13]\b|\b401\b|unauthori[sz]ed'
 
 # The failure rules of one claude turn (the main turn, a denial retry, a format repair, a timeout
 # continuation) - the adapter contract of agy and muse plus -Turn (the turn's options: Mode, Thread,
@@ -4945,6 +5123,8 @@ function Get-ClaudeTurnOutcome {
     $newThread = [string](Get-PropertyValue $Turn 'NewThread' '')
     $auth = [string](Get-PropertyValue $Turn 'Auth' '')
     if ($script:ClaudeAuthModes -notcontains $auth) { $auth = 'subscription' }
+    # (wave 29b, E2) an endpoint route's model is proven by equality (no alias family)
+    $exact = ($auth -eq 'endpoint')
     $pinned = $(if ($ExpectModel) { $ExpectModel } else { [string](Get-PropertyValue $Turn 'Model' '') })
     $forkOf = $(if ($mode -eq 'fork' -and $turnThread) { $turnThread } else { '' })
     $expect = $ExpectThread
@@ -4993,7 +5173,7 @@ function Get-ClaudeTurnOutcome {
         if ($o.ThreadCandidate -and $expect -and $o.ThreadCandidate -ne $expect) { $o.ThreadCandidate = '' }
         # (D4) a killed turn's init already resolved the model: the continuation sends that id
         $servedPre = [string]$Events.InitModel
-        if ($servedPre -and (-not $pinned -or (Test-ClaudeModelMatch -Pinned $pinned -Served $servedPre))) {
+        if ($servedPre -and (-not $pinned -or (Test-ClaudeModelMatch -Pinned $pinned -Served $servedPre -Exact:$exact))) {
             $o.ModelResolved = $servedPre
             if ($pinned -match '(?i)\[1m\]$' -and $servedPre -notmatch '(?i)\[1m\]$') { $o.ModelResolved += '[1m]' }
         }
@@ -5061,14 +5241,14 @@ function Get-ClaudeTurnOutcome {
         return $o
     }
     if ($pinned) {
-        $drift = @(@($Events.InitModels) | Where-Object { -not (Test-ClaudeModelMatch -Pinned $pinned -Served ([string]$_)) }) | Select-Object -First 1
+        $drift = @(@($Events.InitModels) | Where-Object { -not (Test-ClaudeModelMatch -Pinned $pinned -Served ([string]$_) -Exact:$exact) }) | Select-Object -First 1
         if ($null -ne $drift) {
             & $fail "model drift: asked $pinned, served $drift" 'capability'
             $o.ThreadCandidate = $resId
             return $o
         }
     }
-    if (@($Events.ModelUsage).Count -gt 0 -and $Events.MainModel -and -not (Test-ClaudeModelMatch -Pinned $served -Served ([string]$Events.MainModel))) {
+    if (@($Events.ModelUsage).Count -gt 0 -and $Events.MainModel -and -not (Test-ClaudeModelMatch -Pinned $served -Served ([string]$Events.MainModel) -Exact:$exact)) {
         & $fail "model drift: the init event names $served, the result's modelUsage names $($Events.MainModel) as the main model" 'capability'
         $o.ThreadCandidate = $resId
         return $o
@@ -5076,7 +5256,7 @@ function Get-ClaudeTurnOutcome {
     $resolved = $served
     if ($pinned -match '(?i)\[1m\]$' -and $resolved -notmatch '(?i)\[1m\]$') { $resolved += '[1m]' }
     $o.ModelResolved = $resolved
-    $o.OtherModels = [string[]]@(@(@($Events.ModelUsage) + @($Events.AssistantModels)) | Where-Object { $_ -and -not (Test-ClaudeModelMatch -Pinned $served -Served ([string]$_)) } | Select-Object -Unique)
+    $o.OtherModels = [string[]]@(@(@($Events.ModelUsage) + @($Events.AssistantModels)) | Where-Object { $_ -and -not (Test-ClaudeModelMatch -Pinned $served -Served ([string]$_) -Exact:$exact) } | Select-Object -Unique)
     $o.Thread = $resId
     $denialList = (@($Events.Denials | Select-Object -First 5 | ForEach-Object { ("$($_.Tool) $($_.Target)").Trim() }) -join '; ')
     if ([int]$Events.DenialCount -gt 0) { $o.DenialLine = "$($Events.DenialCount) tool call(s) denied under --permission-mode dontAsk: $denialList" }
@@ -5895,21 +6075,26 @@ function Test-UsableOutcome {
 # this repository's ledgers - one record set, the newest decides as within one ledger; a record
 # at the same completion time as another counts with the later `until` (a quota record's until is
 # its retry_after). -NoMachine: the ledgers alone.
+# (wave 29b, E5) -Fingerprints: several endpoints read as ONE record set (a plan's routes - only its
+# Quota is used: Get-PlanQuotaVerdict); every record carries its Fingerprint.
 function Get-EndpointHealth {
-    param([object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow, [switch]$NoMachine)
+    param([object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow, [switch]$NoMachine, [string[]]$Fingerprints = @())
     $h = [pscustomobject]@{ Auth = $null; Quota = $null; QuotaKnown = $false; LastLimit = $null; LastFailure = $null; RecentUsable = $null }
-    if (-not $Fingerprint) { return $h }
+    $fpSet = @(@($Fingerprints) + @($Fingerprint) | Where-Object { $_ } | Select-Object -Unique)
+    if ($fpSet.Count -eq 0) { return $h }
     $nowOffset = New-Object DateTimeOffset ([datetime]::SpecifyKind($UtcNow, [DateTimeKind]::Utc))
     $records = New-Object System.Collections.Generic.List[object]
     $allConsults = @($Consults | Where-Object { $null -ne $_ })
     if (-not $NoMachine) {
-        $machineEntries = ConvertTo-MachineHealthEntries -Fingerprint $Fingerprint
-        $allConsults = @($allConsults) + @($machineEntries)
+        foreach ($oneFp in $fpSet) {
+            $machineEntries = ConvertTo-MachineHealthEntries -Fingerprint $oneFp
+            $allConsults = @($allConsults) + @($machineEntries)
+        }
     }
     foreach ($c in $allConsults) {
         $rev = Get-PropertyValue $c 'reviewer' $null
         $fp = if ($null -eq $rev) { $script:BuiltinOpenAiFingerprint } else { [string](Get-PropertyValue $rev 'provider_fingerprint' '') }
-        if (-not $fp -or $fp -ne $Fingerprint) { continue }
+        if (-not $fp -or $fpSet -notcontains $fp) { continue }
         $outcome = [string](Get-PropertyValue $c 'bridge_outcome' '')
         if (-not $outcome) { continue }
         $at = ConvertTo-WhenOffset (Get-PropertyValue $c 'when' '')
@@ -5929,7 +6114,7 @@ function Get-EndpointHealth {
         }
         $entryN = 0
         [void][int]::TryParse([string](Get-PropertyValue $c 'n' ''), [ref]$entryN)
-        $rec = [pscustomobject]@{ At = $at; Order = $order; N = $entryN; Ok = (Test-UsableOutcome $outcome); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); Age = $age; RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Hit = $at; HitIso = ''; Until = $at.AddMinutes(60); FailureKind = ''; OutMinutes = $script:QuotaOutMinutes }
+        $rec = [pscustomobject]@{ At = $at; Order = $order; N = $entryN; Ok = (Test-UsableOutcome $outcome); Class = ''; Code = ''; Message = ''; When = $at.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant); AgeMinutes = [int][Math]::Max(0, [Math]::Floor($age)); Age = $age; RetryAfter = $null; RetryAfterIso = ''; RetryAfterBasis = ''; Hit = $at; HitIso = ''; Until = $at.AddMinutes(60); FailureKind = ''; OutMinutes = $script:QuotaOutMinutes; Fingerprint = $fp }
         if (-not $rec.Ok) {
             $reference = $at
             $pf = Get-PropertyValue $c 'provider_failure' $null
@@ -6524,11 +6709,19 @@ function Get-ModelLab {
 
 # The lab of a roster entry (D1): its `lab` (canonical lowercase), else the vendor table on the
 # model it resolves to, else a lab of its own - its lineage, lowercased (Source 'singleton'; a
-# routed panel warns). { Lab; Source ('roster' | 'vendor' | 'singleton') }.
+# routed panel warns). { Lab; Source ('roster' | 'vendor' | 'singleton') }. (wave 29b, E5) An
+# endpoint entry of the claude engine (a third-party model through the claude CLI): the telemetry
+# vendor table by its base URL's HOST first (api.z.ai -> zhipu, *.xiaomimimo.com -> xiaomi,
+# api.kimi.ai -> moonshot) - never anthropic because of the engine -, then the model as above.
 function Get-EntryLab {
     param($Entry, [string]$Model = '', [string]$Lineage = '')
     $declared = [string](Get-PropertyValue $Entry 'Lab' '')
     if ($declared) { return [pscustomobject]@{ Lab = $declared; Source = 'roster' } }
+    $ep = Get-PropertyValue $Entry 'Endpoint' $null
+    if ($ep -and [string](Get-PropertyValue $Entry 'Auth' '') -eq 'endpoint') {
+        $hv = Get-TelemetryVendorByHost ([string](Get-PropertyValue $ep 'BaseUrl' ''))
+        if ($hv -and [string](Get-PropertyValue $hv 'Lab' '')) { return [pscustomobject]@{ Lab = [string]$hv.Lab; Source = 'vendor' } }
+    }
     $m = $Model
     if (-not $m) { $m = [string](Get-PropertyValue $Entry 'Model' '') }
     $v = Get-ModelLab $m
@@ -7016,11 +7209,13 @@ function Resolve-CoordinatorIdentity {
 # provider is compared with anthropic (case-insensitive) whatever the roster's label, its engine may
 # be unnamed (codex, the default) or claude, and the models after normalising (Test-ClaudeModelMatch:
 # [1m] stripped, an alias equal to any id of its family). A Claude Code coordinator sets
-# CODEX_CONSULT_COORDINATOR="anthropic :: <its model id>".
+# CODEX_CONSULT_COORDINATOR="anthropic :: <its model id>". (wave 29b, E5) That anthropic branch is
+# for auth subscription and api-key only: an endpoint entry ($Auth endpoint - a third-party model
+# through the claude CLI) is compared as a codex entry is (its label and its model, ordinal).
 function Get-CoordinatorMatch {
-    param($Coordinator, [string]$Provider, [string]$Model, [string]$Engine)
+    param($Coordinator, [string]$Provider, [string]$Model, [string]$Engine, [string]$Auth = '')
     if (-not $Coordinator -or [string](Get-PropertyValue $Coordinator 'source' '') -ne 'explicit') { return '' }
-    if ($Engine -eq 'claude') {
+    if ($Engine -eq 'claude' -and $Auth -ne 'endpoint') {
         $ccp = [string](Get-PropertyValue $Coordinator 'provider' '')
         if (-not $ccp -or $ccp -ine 'anthropic') { return '' }
         $cce = [string](Get-PropertyValue $Coordinator 'engine' '')
@@ -7043,8 +7238,8 @@ function Get-CoordinatorMatch {
 
 # (D3) Whether a seated reviewer is the coordinator's own model (Get-CoordinatorMatch 'own').
 function Test-CoordinatorReviewer {
-    param($Coordinator, [string]$Provider, [string]$Model, [string]$Engine)
-    return ((Get-CoordinatorMatch -Coordinator $Coordinator -Provider $Provider -Model $Model -Engine $Engine) -eq 'own')
+    param($Coordinator, [string]$Provider, [string]$Model, [string]$Engine, [string]$Auth = '')
+    return ((Get-CoordinatorMatch -Coordinator $Coordinator -Provider $Provider -Model $Model -Engine $Engine -Auth $Auth) -eq 'own')
 }
 
 # The coordinator as shown (the dry run, the warning): `<provider> :: <model>` (` [<engine>]` when
@@ -7102,7 +7297,9 @@ function Get-RosterPath {
 
 # { Exists; Path; Disabled (CODEX_CONSULT_ROSTER=none); Entries ({ Position; Provider; Model
 # ('' = not given); CodexConfig (string[], already expanded and quoted); Auth ('' | 'none'; claude:
-# 'subscription' | 'api-key');
+# 'subscription' | 'api-key' | (wave 29b) 'endpoint'); (wave 29b, E1) Endpoint ($null, or with auth
+# endpoint ConvertFrom-ClaudeEndpointValue's object: BaseUrl, Canonical, HostName, EnvKey,
+# TimeoutMs, Plan); (E5) Plan ('' or the entry's plan slug - any engine);
 # Panel ('always' | 'weighty'); Engine ('codex' | 'agy'); EngineDeclared (the entry names
 # its engine); (wave 26) Lab ('' = not given; canonical lowercase - D1); Roles (string[]: the
 # roles it is willing to take - D8) }); Parallel (hashtable, ordinal keys: provider label -> n
@@ -7171,7 +7368,7 @@ function Read-ReviewerRoster {
             $at = "entry $pos"
             if (-not (Test-IsJsonObject $item)) { $why = "$at is not an object"; break }
             foreach ($prop in $item.PSObject.Properties) {
-                if (@('provider', 'model', 'codex_config', 'auth', 'panel', 'engine', 'lab', 'roles', 'timeout_sec', 'stall_sec', 'context_tokens', 'ext') -cnotcontains $prop.Name) { $why = "$at has an unknown key '$($prop.Name)' (allowed: provider, model, codex_config, auth, panel, engine, lab, roles, timeout_sec, stall_sec, context_tokens, ext)"; break }
+                if (@('provider', 'model', 'codex_config', 'auth', 'endpoint', 'plan', 'panel', 'engine', 'lab', 'roles', 'timeout_sec', 'stall_sec', 'context_tokens', 'ext') -cnotcontains $prop.Name) { $why = "$at has an unknown key '$($prop.Name)' (allowed: provider, model, codex_config, auth, endpoint, plan, panel, engine, lab, roles, timeout_sec, stall_sec, context_tokens, ext)"; break }
             }
             if ($why) { break }
             # (wave 26b, D3 / F22-2, F22-4) the matcher's and the seed's delimiters never inside a
@@ -7205,6 +7402,13 @@ function Read-ReviewerRoster {
                 $entryStall = [int]$item.stall_sec
             }
             if ($item.PSObject.Properties['ext'] -and -not (Test-IsJsonObject $item.ext)) { $why = "${at}: ext must be an object (the extension point of other implementations; got $(ConvertTo-Json -InputObject $item.ext -Compress))"; break }
+            # (wave 29b, E5) the plan (the quota a route shares with the other routes to the same
+            # coding plan): a slug, on any entry of any engine
+            $entryPlan = ''
+            if ($item.PSObject.Properties['plan']) {
+                if (-not ($item.plan -is [string]) -or $item.plan -cnotmatch $script:PlanSlugRe) { $why = "${at}: plan must be a slug of 2 to 32 characters - lowercase letters, digits and ""-"", starting with a letter (e.g. ""zai""; got $(ConvertTo-Json -InputObject $item.plan -Compress))"; break }
+                $entryPlan = [string]$item.plan
+            }
             # (wave 26, D1) the lab: a non-empty string, canonical lowercase
             $lab = ''
             if ($item.PSObject.Properties['lab']) {
@@ -7245,9 +7449,10 @@ function Read-ReviewerRoster {
             }
             $auth = ''
             if ($item.PSObject.Properties['auth']) {
-                # (wave 29) claude takes subscription | api-key (checked below, once the engine is known)
+                # (wave 29) claude takes subscription | api-key (wave 29b: | endpoint) - checked below,
+                # once the engine is known
                 if ($isClaudeItem) {
-                    if (-not ($item.auth -is [string]) -or $script:ClaudeAuthModes -cnotcontains $item.auth) { $why = "${at}: auth of engine claude must be ""subscription"" (the claude.ai login, the default) or ""api-key"" (ANTHROPIC_API_KEY) (got $(ConvertTo-Json -InputObject $item.auth -Compress))"; break }
+                    if (-not ($item.auth -is [string]) -or $script:ClaudeAuthModes -cnotcontains $item.auth) { $why = "${at}: auth of engine claude must be ""subscription"" (the claude.ai login, the default) or ""api-key"" (ANTHROPIC_API_KEY) or ""endpoint"" (a third-party Anthropic-compatible endpoint named by the entry's ""endpoint"") (got $(ConvertTo-Json -InputObject $item.auth -Compress))"; break }
                     $auth = [string]$item.auth
                 } else {
                     if (-not ($item.auth -is [string]) -or $item.auth -cne 'none') { $why = "${at}: auth may only be ""none"" (an endpoint that needs no credential; omit it otherwise)"; break }
@@ -7272,11 +7477,20 @@ function Read-ReviewerRoster {
                 if ($item.PSObject.Properties['auth'] -and $engine -ne 'claude') { $why = "${at}: auth does not apply to engine $engine (the $engine CLI keeps its own sign-in)"; break }
             }
             # (wave 29, item 8, D4) a claude entry: a model of the engine's table; auth defaults to
-            # subscription
+            # subscription. (wave 29b, E1, E2) auth endpoint: the `endpoint` object is REQUIRED (and
+            # refused with every other auth and engine), the model is the open id pattern
+            $entryEndpoint = $null
             if ($engine -eq 'claude') {
-                $mp = Get-ClaudeModelProblem $model
-                if ($mp) { $why = "${at}: the claude model '$model' $mp"; break }
                 if (-not $auth) { $auth = 'subscription' }
+                $mp = Get-ClaudeModelProblem $model -Auth $auth
+                if ($mp) { $why = "${at}: the claude model '$model' $mp"; break }
+            }
+            if ($item.PSObject.Properties['endpoint'] -and -not ($engine -eq 'claude' -and $auth -eq 'endpoint')) { $why = "${at}: endpoint applies only to engine claude with auth ""endpoint"" (this entry: engine $engine$(if ($engine -eq 'claude') { ", auth $auth" }))"; break }
+            if ($engine -eq 'claude' -and $auth -eq 'endpoint') {
+                if (-not $item.PSObject.Properties['endpoint']) { $why = "${at}: auth ""endpoint"" needs an ""endpoint"" object {""base_url"": ""https://..."", ""env_key"": ""<VARIABLE NAME>""} - the Anthropic-compatible endpoint and the variable that holds its token"; break }
+                $epv = ConvertFrom-ClaudeEndpointValue -Value $item.endpoint -Plan $entryPlan
+                if ($epv.Error) { $why = "${at}: $($epv.Error)"; break }
+                $entryEndpoint = $epv.Endpoint
             }
             $other = @($entries | Where-Object { $_.Provider -ceq $provider -and $_.Engine -ne $engine }) | Select-Object -First 1
             if ($other) { $why = "entries $($other.Position) and $pos use the provider label '$provider' with two engines ($($other.Engine), $engine); a label names one engine"; break }
@@ -7285,7 +7499,7 @@ function Read-ReviewerRoster {
                 $label = if ($model) { Format-Lineage -Provider $provider -Model $model } else { "$provider (no model)" }
                 $why = "entries $($dup.Position) and $pos are the same reviewer $label"; break
             }
-            $entries.Add([pscustomobject]@{ Position = $pos; Provider = $provider; Model = $model; CodexConfig = $cfgItems; Auth = $auth; Panel = $panelWeight; Engine = $engine; EngineDeclared = $engineDeclared; Lab = $lab; Roles = $entryRoles; TimeoutSec = $entryTimeout; StallSec = $entryStall; ContextTokens = $entryContext })
+            $entries.Add([pscustomobject]@{ Position = $pos; Provider = $provider; Model = $model; CodexConfig = $cfgItems; Auth = $auth; Panel = $panelWeight; Engine = $engine; EngineDeclared = $engineDeclared; Lab = $lab; Roles = $entryRoles; TimeoutSec = $entryTimeout; StallSec = $entryStall; ContextTokens = $entryContext; Endpoint = $entryEndpoint; Plan = $entryPlan })
         }
     }
     if (-not $why -and $data.PSObject.Properties['parallel']) {
@@ -7293,8 +7507,9 @@ function Read-ReviewerRoster {
         if (-not (Test-IsJsonObject $pv)) {
             $why = "parallel must be an object {""<provider label>"": <n>} (got $(ConvertTo-Json -InputObject $pv -Compress))"
         } else {
+            # (wave 29b, E7) a key names a provider label or a plan (the plan's scheduling group)
             foreach ($prop in $pv.PSObject.Properties) {
-                if (@($entries | Where-Object { $_.Provider -ceq $prop.Name }).Count -eq 0) { $why = "parallel names the provider label '$($prop.Name)', which no entry of the roster uses"; break }
+                if (@($entries | Where-Object { $_.Provider -ceq $prop.Name -or ($_.Plan -and $_.Plan -ceq $prop.Name) }).Count -eq 0) { $why = "parallel names the provider label '$($prop.Name)', which no entry of the roster uses (as its provider label or its plan)"; break }
                 if (-not (Test-IsJsonInteger $prop.Value) -or [double]$prop.Value -lt 1) { $why = "parallel.$($prop.Name) must be an integer >= 1 (got $(ConvertTo-Json -InputObject $prop.Value -Compress))"; break }
                 $r.Parallel[$prop.Name] = [int]$prop.Value
             }
@@ -7398,7 +7613,7 @@ function Get-PreflightVerdict {
         # An engine keeps its own sign-in: its credential check (agy: `agy models`, or a usable
         # reply on this endpoint within the last 60 minutes - the auth / quota rules below
         # still apply).
-        $cred = Get-EngineCredential -Engine $engine -Launcher $Launcher -LoginCache $LoginCache -NoNetwork:$NoNetwork -Health $Health -Auth ([string](Get-PropertyValue $Identity 'Auth' ''))
+        $cred = Get-EngineCredential -Engine $engine -Launcher $Launcher -LoginCache $LoginCache -NoNetwork:$NoNetwork -Health $Health -Auth ([string](Get-PropertyValue $Identity 'Auth' '')) -Endpoint (Get-PropertyValue $Identity 'Endpoint' $null)
     } else {
         $table = $null
         if ($Config -and $Config.Exists -and $Config.Ok) {
@@ -7457,6 +7672,83 @@ function Get-PreflightVerdict {
     return $v
 }
 
+# (wave 29b, E5) THE PLAN identity (quota). A roster entry's optional `plan` names the coding plan
+# whose quota its route spends - the same plan can be reached on several routes (z.ai through codex
+# as ZAI and through the claude engine as ZAI-claude). The health records of EVERY route of the plan (the
+# fingerprints of the roster's entries with that plan) are read as one record set
+# (Get-EndpointHealth -Fingerprints): when its newest {usable reply, quota failure} is a quota
+# failure that still blocks (a usage limit with a reset ahead, or without one for 60 minutes, a
+# burst for 10), the plan is out until that time. Auth, transport and capability failures stay
+# route-local; without a `plan` nothing propagates. { Plan; Quota (the blocking record, with its
+# Fingerprint; $null); QuotaKnown; Label (the provider label of the route it was recorded on - the
+# first roster entry of the plan on that fingerprint) }. Cached in a listing cache per plan and clock.
+function Get-PlanQuota {
+    param($Roster, [string]$Plan, $Config, [object[]]$Consults, [string]$Launcher = '', [hashtable]$EngineLaunchers = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [hashtable]$Cache = $null)
+    $use = Test-ListingCache $Cache
+    $key = Get-ListingCacheKey @('plan', $Plan, [string]$UtcNow.Ticks)
+    if ($use -and $Cache.ContainsKey($key)) { return $Cache[$key] }
+    $r = [pscustomobject]@{ Plan = $Plan; Quota = $null; QuotaKnown = $false; Label = '' }
+    $labelOf = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+    $fps = New-Object System.Collections.Generic.List[string]
+    foreach ($e in @(@($Roster.Entries) | Where-Object { $_ -and [string](Get-PropertyValue $_ 'Plan' '') -ceq $Plan })) {
+        $eng = $(if ([string](Get-PropertyValue $e 'Engine' '')) { [string]$e.Engine } else { 'codex' })
+        $lau = Get-EngineLauncher -Engine $eng -Launchers $EngineLaunchers -CodexLauncher $Launcher
+        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider ([string]$e.Provider) -Model ([string]$e.Model) -OpenAiBaseUrl $OpenAiBaseUrl -Engine $eng -Launcher $lau -Auth ([string]$e.Auth) -Endpoint (Get-PropertyValue $e 'Endpoint' $null)
+        if (-not $id.Resolved -or -not $id.Fingerprint) { continue }
+        if (-not $labelOf.ContainsKey([string]$id.Fingerprint)) { $labelOf[[string]$id.Fingerprint] = [string]$e.Provider; $fps.Add([string]$id.Fingerprint) }
+    }
+    if ($fps.Count -gt 0) {
+        $h = Get-EndpointHealth -Consults $Consults -Fingerprints ([string[]]$fps.ToArray()) -UtcNow $UtcNow
+        if ($h.Quota) {
+            $r.Quota = $h.Quota
+            $r.QuotaKnown = $h.QuotaKnown
+            $r.Label = [string]$labelOf[[string]$h.Quota.Fingerprint]
+        }
+    }
+    if ($use) { $Cache[$key] = $r }
+    return $r
+}
+
+# (wave 29b, E5) A preflight verdict ($Verdict: Get-PreflightVerdict's for $Identity) with the plan
+# quota of its roster entry applied: an entry whose own verdict is available or not checked is OUT
+# when its plan is (Get-PlanQuota) on ANOTHER route - "plan <slug> (usage limit on <label> until
+# <iso>)", or without a reset time "plan <slug> (usage limit on <label> hit <iso>, reset unknown;
+# retry after <iso>)"; Kind quota | quota-unknown-reset, Hit and Until of that record, PlanQuota {
+# Plan; Label } for the availability views. Any other verdict, an entry without a plan, a plan with
+# no blocking record (or one recorded on this entry's own route - its own verdict says it): $Verdict
+# unchanged.
+function Get-PlanQuotaVerdict {
+    param($Verdict, $Entry, $Identity, $Roster, $Config, [object[]]$Consults, [string]$Launcher = '', [hashtable]$EngineLaunchers = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [hashtable]$Cache = $null, [switch]$RosterWalk)
+    $plan = [string](Get-PropertyValue $Entry 'Plan' '')
+    if (-not $plan -or -not $Verdict -or -not $Roster) { return $Verdict }
+    if (-not ($Verdict.State -eq 'available' -or ($Verdict.State -eq 'unknown' -and $Verdict.Kind -eq 'unknown'))) { return $Verdict }
+    $pq = Get-PlanQuota -Roster $Roster -Plan $plan -Config $Config -Consults $Consults -Launcher $Launcher -EngineLaunchers $EngineLaunchers -UtcNow $UtcNow -OpenAiBaseUrl $OpenAiBaseUrl -Cache $Cache
+    if (-not $pq.Quota) { return $Verdict }
+    $ownFp = $(if ($Identity -and $Identity.Resolved) { [string]$Identity.Fingerprint } else { '' })
+    if ($ownFp -and [string]$pq.Quota.Fingerprint -eq $ownFp) { return $Verdict }
+    $q = $pq.Quota
+    $on = $(if ($pq.Label) { $pq.Label } else { 'another route' })
+    $p = [string]$Identity.Provider
+    $v = [pscustomobject]@{ State = 'unavailable'; Preflight = ''; Reason = ''; Refusal = ''; Label = ''; Kind = ''; Hit = $q.Hit; Until = $null; Credential = $Verdict.Credential; Burst = $false; PlanQuota = [pscustomobject]@{ Plan = $plan; Label = $on } }
+    if ($pq.QuotaKnown) {
+        $v.Kind = 'quota'
+        $v.Until = $q.RetryAfter
+        $v.Reason = "plan $plan (usage limit on $on until $($q.RetryAfterIso))"
+        $v.Refusal = "provider $p is not usable: its plan $plan hit a usage limit on $on at $($q.When) ($($q.Message)) that lasts until $($q.RetryAfterIso); nothing was started$(if (-not $RosterWalk) { ' (pass -SkipPreflight to launch anyway)' })"
+    } else {
+        $v.Kind = 'quota-unknown-reset'
+        $v.Burst = ([string](Get-PropertyValue $q 'FailureKind' '') -eq 'burst')
+        $v.Until = $q.Until
+        $untilIso = Format-OffsetIso $q.Until
+        $what = $(if ($v.Burst) { 'burst limit (429)' } else { 'usage limit' })
+        $v.Reason = "plan $plan ($what on $on hit $($q.HitIso), reset unknown; retry after $untilIso)"
+        $v.Refusal = "provider $p is not usable: its plan $plan hit a $(if ($v.Burst) { 'burst' } else { 'usage' }) limit on $on at $($q.HitIso) ($($q.Message)) and named no reset time - out until $untilIso; nothing was started$(if (-not $RosterWalk) { ' (pass -SkipPreflight to launch anyway)' })"
+    }
+    $v.Preflight = "unavailable: $($v.Reason)"
+    $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
+    return $v
+}
+
 # The warning of a usage limit that does not refuse the run - with -SkipPreflight only (wave 24b,
 # F08-7: without it every usage limit that still blocks refuses the run, Get-PreflightVerdict):
 # one whose reset time lies ahead, or one without a reset time hit less than 60 minutes ago. ''
@@ -7501,14 +7793,21 @@ function Get-ListingCacheKey {
     return ((@($Parts) | ForEach-Object { "$(([string]$_).Length):$_" }) -join '|')
 }
 # (wave 29) $Auth: a roster entry's auth - passed on only for an engine that takes one (claude).
+# (wave 29b) $Endpoint: the roster entry's endpoint (claude auth endpoint) - its base URL, env_key
+# name and plan are part of the cache key.
 function Get-CachedReviewerIdentity {
-    param([hashtable]$Cache, $Config, [string]$Provider, [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '', [string]$Auth = '')
+    param([hashtable]$Cache, $Config, [string]$Provider, [string]$Model = '', [string]$OpenAiBaseUrl = '', [string]$Engine = 'codex', [string]$Launcher = '', [string]$Auth = '', $Endpoint = $null)
     if (-not $Engine) { $Engine = 'codex' }
     $idArgs = @{ Config = $Config; Provider = $Provider; Model = $Model; OpenAiBaseUrl = $OpenAiBaseUrl; Engine = $Engine; Launcher = $Launcher }
     $es = Get-EngineSpec -Name $Engine
     if ($es -and @(Get-PropertyValue $es 'AuthModes' @()).Count -gt 0 -and $Auth) { $idArgs['Auth'] = $Auth } else { $Auth = '' }
+    $epKey = ''
+    if ($Auth -eq 'endpoint') {
+        $idArgs['Endpoint'] = $Endpoint
+        if ($Endpoint) { $epKey = "$([string]$Endpoint.BaseUrl) $([string]$Endpoint.EnvKey) $([string](Get-PropertyValue $Endpoint 'TimeoutMs' '')) $([string](Get-PropertyValue $Endpoint 'Plan' ''))" }
+    }
     $use = Test-ListingCache $Cache
-    $key = Get-ListingCacheKey @('identity', $Provider, $Model, $Engine, $Launcher, $OpenAiBaseUrl, $Auth)
+    $key = Get-ListingCacheKey @('identity', $Provider, $Model, $Engine, $Launcher, $OpenAiBaseUrl, $Auth, $epKey)
     if ($use -and $Cache.ContainsKey($key)) { return $Cache[$key] }
     $id = Resolve-ReviewerIdentity @idArgs
     if ($use) { $Cache[$key] = $id }
@@ -7554,7 +7853,7 @@ function Select-RosterReviewer {
         $entryEngine = if ($e.PSObject.Properties['Engine'] -and $e.Engine) { [string]$e.Engine } else { 'codex' }
         if ($Engine -and $entryEngine -ne $Engine) { continue }
         $entryLauncher = Get-EngineLauncher -Engine $entryEngine -Launchers $EngineLaunchers -CodexLauncher $Launcher
-        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher -Auth ([string]$e.Auth)
+        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher -Auth ([string]$e.Auth) -Endpoint (Get-PropertyValue $e 'Endpoint' $null)
         if ($Model -and $id.Model -cne $Model) { continue }
         $r.Considered++
         $block = Get-EngineLaunchBlock -Engine $entryEngine
@@ -7579,6 +7878,8 @@ function Select-RosterReviewer {
         $health = $null
         if ($id.Resolved) { $health = Get-CachedEndpointHealth -Cache $Cache -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
         $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $entryLauncher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk -NoNetwork:$NoNetwork
+        # (wave 29b, E5) a usage limit on another route of the entry's plan
+        $verdict = Get-PlanQuotaVerdict -Verdict $verdict -Entry $e -Identity $id -Roster $Roster -Config $Config -Consults $Consults -Launcher $Launcher -EngineLaunchers $EngineLaunchers -UtcNow $UtcNow -OpenAiBaseUrl $OpenAiBaseUrl -Cache $Cache -RosterWalk
         if ($verdict.State -eq 'available') {
             $r.Entry = $e; $r.Identity = $id; $r.Verdict = $verdict
             $r.Skipped = [object[]]$skipped.ToArray()
@@ -7628,7 +7929,7 @@ function Select-PanelMembers {
         $entryEngine = if ($e.PSObject.Properties['Engine'] -and $e.Engine) { [string]$e.Engine } else { 'codex' }
         if ($Engine -and $entryEngine -ne $Engine) { continue }
         $entryLauncher = Get-EngineLauncher -Engine $entryEngine -Launchers $EngineLaunchers -CodexLauncher $Launcher
-        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher -Auth ([string]$e.Auth)
+        $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher -Auth ([string]$e.Auth) -Endpoint (Get-PropertyValue $e 'Endpoint' $null)
         if ($Model -and $id.Model -cne $Model) { continue }
         $state = 'run'
         $reason = ''
@@ -7640,6 +7941,8 @@ function Select-PanelMembers {
         if ($block) { $state = 'skipped'; $reason = "refused: $block"; $skipKind = 'refused' }
         elseif (-not $SkipPreflight) {
             $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $entryLauncher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk -NoNetwork:$NoNetwork
+            # (wave 29b, E5) a usage limit on another route of the entry's plan
+            $verdict = Get-PlanQuotaVerdict -Verdict $verdict -Entry $e -Identity $id -Roster $Roster -Config $Config -Consults $Consults -Launcher $Launcher -EngineLaunchers $EngineLaunchers -UtcNow $UtcNow -OpenAiBaseUrl $OpenAiBaseUrl -Cache $Cache -RosterWalk
             if ($verdict.State -ne 'available') { $state = 'skipped'; $reason = $verdict.Reason; $skipKind = 'unavailable' }
         }
         if ($state -eq 'run' -and $e.Panel -eq 'weighty' -and -not $All -and $script:WeightyPurposes -notcontains $Purpose) {
@@ -8294,7 +8597,10 @@ function Select-RoleAssignment {
 # (wave 29, D5 / F02-4, F04-1) -Scheduling (the panel plan only): the members of an engine whose
 # row has ParallelScope 'engine' (claude) share one group whatever their fingerprints - they run one
 # after another unless the roster's "parallel" raises their labels; the availability view keeps its
-# groups by endpoint (D7: an Opus outage does not mark Sonnet).
+# groups by endpoint (D7: an Opus outage does not mark Sonnet). (wave 29b, E7) -Scheduling too: a
+# member with a roster `plan` adds the key 'plan:<slug>' - the members of one plan share a group
+# across engines and routes (a codex ZAI member and a claude ZAI-claude member serialize); the
+# availability view does not group by plan (E5: only a quota failure propagates over a plan).
 function Get-EndpointGroups {
     param([object[]]$Members, [switch]$Scheduling)
     $labels = New-Object System.Collections.Generic.List[string]
@@ -8309,6 +8615,8 @@ function Get-EndpointGroups {
             $mEngine = [string](Get-PropertyValue $m.Entry 'Engine' '')
             $mSpec = $(if ($mEngine) { Get-EngineSpec -Name $mEngine } else { $null })
             if ($mSpec -and [string](Get-PropertyValue $mSpec 'ParallelScope' '') -eq 'engine' -and -not $fps[$label].Contains("engine:$mEngine")) { $fps[$label].Add("engine:$mEngine") }
+            $mPlan = [string](Get-PropertyValue $m.Entry 'Plan' '')
+            if ($mPlan -and -not $fps[$label].Contains("plan:$mPlan")) { $fps[$label].Add("plan:$mPlan") }
         }
     }
     # one group per label, then labels that share a fingerprint are merged (to a fixed point)
@@ -8356,6 +8664,10 @@ function Get-EndpointGroups {
 # labels); -Cap (-PanelConcurrency) caps the total (0 = no cap, 1 = strictly one after another
 # in roster order). $Runners: the members Select-PanelMembers runs (State 'run'), in roster
 # order.
+# (wave 29b, E7) A group that holds members of a `plan` is limited by the plan too: the plan's own
+# "parallel" value (default 1) caps it, and a label without a "parallel" value of its own takes its
+# plan's - so {"parallel": {"zai": 2}} lets a codex ZAI member and a claude ZAI-claude member run
+# at once, and without it they run one after another.
 # { Groups (object[] of { Labels (string[]); Limit; Positions (int[] roster positions) });
 #   GroupOf (hashtable roster position -> group index); Cap; Effective (the most members
 #   that can run at once); Text ('at once' | 'one after another' | 'at most <k> at a time');
@@ -8366,12 +8678,24 @@ function Get-PanelPlan {
     $effective = 0
     $limits = [ordered]@{}
     $out = New-Object System.Collections.Generic.List[object]
+    # (E7) the plans of each label among the runners
+    $plansOf = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+    foreach ($m in @($Runners | Where-Object { $_ })) {
+        $pl = [string](Get-PropertyValue $m.Entry 'Plan' '')
+        $lb = [string]$m.Entry.Provider
+        if (-not $plansOf.ContainsKey($lb)) { $plansOf[$lb] = New-Object System.Collections.Generic.List[string] }
+        if ($pl -and -not $plansOf[$lb].Contains($pl)) { $plansOf[$lb].Add($pl) }
+    }
+    $planLimit = { param([string]$P) if ($null -ne $Parallel -and $Parallel.ContainsKey($P)) { [int]$Parallel[$P] } else { 1 } }
     foreach ($g in $eg.Groups) {
         $limit = 0
         foreach ($l in $g.Labels) {
             $v = 1
+            $lPlans = $(if ($plansOf.ContainsKey($l)) { @($plansOf[$l]) } else { @() })
             if ($null -ne $Parallel -and $Parallel.ContainsKey($l)) { $v = [int]$Parallel[$l] }
+            elseif ($lPlans.Count -gt 0) { $v = [int](@($lPlans | ForEach-Object { & $planLimit $_ }) | Measure-Object -Minimum).Minimum }
             if ($limit -eq 0 -or $v -lt $limit) { $limit = $v }
+            foreach ($pl in $lPlans) { $pv = & $planLimit $pl; if ($pv -lt $limit) { $limit = $pv } }
         }
         $effective += [Math]::Min($limit, $g.Positions.Count)
         $out.Add([pscustomobject]@{ Labels = [string[]]$g.Labels.ToArray(); Limit = $limit; Positions = [int[]]$g.Positions.ToArray() })
@@ -8506,7 +8830,12 @@ function ConvertTo-AvailabilityRecord {
     $rec.Hit = $v.Hit
     $rec.Until = $v.Until
     $now = New-Object DateTimeOffset ([datetime]::SpecifyKind($UtcNow, [DateTimeKind]::Utc))
-    if ($rec.Kind -eq 'quota' -and $null -ne $rec.Until) { $rec.Short = "until $(Format-LocalWhen -When $rec.Until -NowUtc $UtcNow), $(Format-RelativeHint ($rec.Until - $now))" }
+    # (wave 29b, E5) out because its plan is out on another route: "plan zai (usage limit on ZAI
+    # until 15:00, in 3h)"
+    $pqv = Get-PropertyValue $v 'PlanQuota' $null
+    if ($pqv -and $rec.Kind -eq 'quota' -and $null -ne $rec.Until) { $rec.Short = "plan $($pqv.Plan) (usage limit on $($pqv.Label) until $(Format-LocalWhen -When $rec.Until -NowUtc $UtcNow), $(Format-RelativeHint ($rec.Until - $now)))" }
+    elseif ($pqv -and $rec.Kind -eq 'quota-unknown-reset' -and $null -ne $rec.Until) { $rec.Short = "plan $($pqv.Plan) ($(if ([bool](Get-PropertyValue $v 'Burst' $false)) { 'burst limit' } else { 'limit' }) hit on $($pqv.Label) $(Format-LocalWhen -When $rec.Hit -NowUtc $UtcNow), reset unknown; retry after $(Format-LocalWhen -When $rec.Until -NowUtc $UtcNow), $(Format-RelativeHint ($rec.Until - $now)))" }
+    elseif ($rec.Kind -eq 'quota' -and $null -ne $rec.Until) { $rec.Short = "until $(Format-LocalWhen -When $rec.Until -NowUtc $UtcNow), $(Format-RelativeHint ($rec.Until - $now))" }
     elseif ($rec.Kind -eq 'quota-unknown-reset' -and $null -ne $rec.Until) { $rec.Short = "$(if ([bool](Get-PropertyValue $v 'Burst' $false)) { 'burst limit hit' } else { 'limit hit' }) $(Format-LocalWhen -When $rec.Hit -NowUtc $UtcNow), reset unknown; retry after $(Format-LocalWhen -When $rec.Until -NowUtc $UtcNow), $(Format-RelativeHint ($rec.Until - $now))" }
     elseif ($rec.Kind -eq 'auth') { $rec.Short = "auth failed $(if ($null -ne $rec.Hit) { Format-LocalWhen -When $rec.Hit -NowUtc $UtcNow } else { 'recently' })" }
     elseif ($rec.Kind -eq 'unresolved') { $rec.Short = 'identity unresolved' }
@@ -10385,17 +10714,23 @@ $script:TelemetryRejectRounds = 3
 # roster label and a model name outside the table never leave the machine; the ledger and every local
 # file keep the real ones. Known limitation (F43-6, F44-3): the class is derived from the host NAME
 # only - a private gateway or relay under a vendor's domain reads as that vendor.
+# (wave 29b, E5, E6) Lab: the lab (Get-EntryLab) an endpoint entry of the claude engine gets from its
+# base URL's HOST - '' for a host that resells other labs' models (byteplus, alibaba: the model id
+# decides there). MiniMax (api.minimax.io, api.minimax.cn; the published id MiniMax-M3, listed lower
+# case as every list is) is known by shape and not run.
 $script:TelemetryVendors = @(
-    [pscustomobject]@{ Class = 'openai'; Hosts = @('openai.com', 'chatgpt.com'); Engine = ''; Builtin = 'openai'; Models = @('gpt-5.1', 'gpt-6-astra', 'o4-mini') }
-    [pscustomobject]@{ Class = 'zai'; Hosts = @('z.ai', 'bigmodel.cn'); Engine = ''; Builtin = ''; Models = @('glm-5.3', 'glm-5.3-flash', 'glm-5.3-flashx', 'glm-5.2', 'glm-5.1', 'glm-5', 'glm-5-turbo', 'glm-4.7', 'glm-4.6', 'glm-4.5', 'glm-4.5-air') }
-    [pscustomobject]@{ Class = 'xiaomi'; Hosts = @('xiaomimimo.com'); Engine = ''; Builtin = ''; Models = @('mimo-v2.6-pro', 'mimo-v2.6-flash', 'mimo-v2.6-pro-ultraspeed', 'mimo-v2.5-pro', 'mimo-v2.5') }
-    [pscustomobject]@{ Class = 'byteplus'; Hosts = @('bytepluses.com'); Engine = ''; Builtin = ''; Models = @('dola-seed-2.0-pro', 'dola-seed-2.0-lite', 'dola-seed-2.0-code', 'bytedance-seed-code', 'glm-5.3-flash', 'glm-5.2', 'glm-5.1', 'kimi-k2.5', 'gpt-oss-120b', 'deepseek-v4.1-flash', 'deepseek-v4-flash', 'deepseek-v4-pro') }
-    [pscustomobject]@{ Class = 'moonshot'; Hosts = @('kimi.ai', 'moonshot.ai'); Engine = ''; Builtin = ''; Models = @('k3', 'k3-256k', 'kimi-for-coding', 'kimi-for-coding-highspeed', 'kimi-k2.5', 'kimi-k3') }
-    [pscustomobject]@{ Class = 'alibaba'; Hosts = @('aliyuncs.com'); Engine = ''; Builtin = ''; Models = @('qwen3.8-max', 'qwen3.8-flash', 'qwen3.7-max', 'qwen3.7-plus', 'qwen3.6-flash', 'deepseek-v4.1-flash', 'deepseek-v4-pro', 'deepseek-v4-pro-0813', 'deepseek-v4-flash-0731', 'glm-5.3', 'glm-5.2') }
-    [pscustomobject]@{ Class = 'google'; Hosts = @(); Engine = 'agy'; Builtin = ''; Models = @('gemini-3.8-flash-high', 'gemini-3.8-flash-medium', 'gemini-3.8-flash-low', 'gemini-3.1-pro-high', 'gemini-3.1-pro-low') }
-    [pscustomobject]@{ Class = 'meta'; Hosts = @(); Engine = 'muse'; Builtin = ''; Models = @('muse-spark-1.3', 'muse-spark-1.3-contributor') }
-    # (wave 29, item 10, D4) the claude engine: its model table IS the list ([1m] stripped first)
-    [pscustomobject]@{ Class = 'anthropic'; Hosts = @(); Engine = 'claude'; Builtin = ''; Models = $script:ClaudeModels }
+    [pscustomobject]@{ Class = 'openai'; Hosts = @('openai.com', 'chatgpt.com'); Engine = ''; Builtin = 'openai'; Lab = 'openai'; Models = @('gpt-5.1', 'gpt-6-astra', 'o4-mini') }
+    [pscustomobject]@{ Class = 'zai'; Hosts = @('z.ai', 'bigmodel.cn'); Engine = ''; Builtin = ''; Lab = 'zhipu'; Models = @('glm-5.3', 'glm-5.3-flash', 'glm-5.3-flashx', 'glm-5.2', 'glm-5.1', 'glm-5', 'glm-5-turbo', 'glm-4.7', 'glm-4.6', 'glm-4.5', 'glm-4.5-air') }
+    [pscustomobject]@{ Class = 'xiaomi'; Hosts = @('xiaomimimo.com'); Engine = ''; Builtin = ''; Lab = 'xiaomi'; Models = @('mimo-v2.6-pro', 'mimo-v2.6-flash', 'mimo-v2.6-pro-ultraspeed', 'mimo-v2.5-pro', 'mimo-v2.5') }
+    [pscustomobject]@{ Class = 'byteplus'; Hosts = @('bytepluses.com'); Engine = ''; Builtin = ''; Lab = ''; Models = @('dola-seed-2.0-pro', 'dola-seed-2.0-lite', 'dola-seed-2.0-code', 'bytedance-seed-code', 'glm-5.3-flash', 'glm-5.2', 'glm-5.1', 'kimi-k2.5', 'gpt-oss-120b', 'deepseek-v4.1-flash', 'deepseek-v4-flash', 'deepseek-v4-pro') }
+    [pscustomobject]@{ Class = 'moonshot'; Hosts = @('kimi.ai', 'moonshot.ai'); Engine = ''; Builtin = ''; Lab = 'moonshot'; Models = @('k3', 'k3-256k', 'kimi-for-coding', 'kimi-for-coding-highspeed', 'kimi-k2.5', 'kimi-k3') }
+    [pscustomobject]@{ Class = 'alibaba'; Hosts = @('aliyuncs.com'); Engine = ''; Builtin = ''; Lab = ''; Models = @('qwen3.8-max', 'qwen3.8-flash', 'qwen3.7-max', 'qwen3.7-plus', 'qwen3.6-flash', 'deepseek-v4.1-flash', 'deepseek-v4-pro', 'deepseek-v4-pro-0813', 'deepseek-v4-flash-0731', 'glm-5.3', 'glm-5.2') }
+    [pscustomobject]@{ Class = 'minimax'; Hosts = @('api.minimax.io', 'api.minimax.cn'); Engine = ''; Builtin = ''; Lab = 'minimax'; Models = @('minimax-m3') }
+    [pscustomobject]@{ Class = 'google'; Hosts = @(); Engine = 'agy'; Builtin = ''; Lab = 'google'; Models = @('gemini-3.8-flash-high', 'gemini-3.8-flash-medium', 'gemini-3.8-flash-low', 'gemini-3.1-pro-high', 'gemini-3.1-pro-low') }
+    [pscustomobject]@{ Class = 'meta'; Hosts = @(); Engine = 'muse'; Builtin = ''; Lab = 'meta'; Models = @('muse-spark-1.3', 'muse-spark-1.3-contributor') }
+    # (wave 29, item 10, D4) the claude engine: its model table IS the list ([1m] stripped first) -
+    # (wave 29b, E6) the fallback for an entry without a base URL (auth subscription, api-key)
+    [pscustomobject]@{ Class = 'anthropic'; Hosts = @(); Engine = 'claude'; Builtin = ''; Lab = 'anthropic'; Models = $script:ClaudeModels }
 )
 # The closed sets of the event (anything else becomes 'other' / 'unknown')
 $script:TelemetryEventKeys = @('app_id', 'app_version', 'instance_id', 'event_type', 'severity', 'title', 'details', 'tags', 'client_time', 'os', 'runtime')
@@ -10694,23 +11029,30 @@ function Get-TelemetryOutcome {
     return [pscustomobject]@{ Outcome = "failed:$cls"; Severity = $sev; Class = $cls }
 }
 
-# (wave 28b, D1) The vendor class of a ledger entry's reviewer ($script:TelemetryVendors): the
-# engine's class (agy, muse), else the class of the endpoint's HOST - the base_url the ledger
-# recorded (reviewer.provider_config.base_url), or the built-in openai provider without one - else
-# 'other'. Returns the table row, or $null ('other').
+# (wave 28b, D1) The vendor class of a ledger entry's reviewer ($script:TelemetryVendors): the class
+# of the endpoint's HOST - the base_url the ledger recorded (reviewer.provider_config.base_url) -,
+# else the engine's class (agy, muse, claude), else (codex) the built-in openai provider - else
+# 'other'. (wave 29b, E6) HOST FIRST for every engine whenever provider_config names a base_url (a
+# claude endpoint entry: api.z.ai -> zai), the engine row only as the fallback; a base_url of an
+# unknown host is 'other'. Returns the table row, or $null ('other').
 function Get-TelemetryVendor {
     param($Reviewer)
     $engine = [string](Get-PropertyValue $Reviewer 'engine' '')
     if (-not $engine) { $engine = 'codex' }
-    if ($engine -ne 'codex') { return (@($script:TelemetryVendors | Where-Object { $_.Engine -and $_.Engine -ceq $engine }) | Select-Object -First 1) }
     $pc = Get-PropertyValue $Reviewer 'provider_config' $null
     $bu = [string](Get-PropertyValue $pc 'base_url' '')
-    if (-not $bu) {
-        $bi = [string](Get-PropertyValue $pc 'builtin' '')
-        if (-not $bi) { return $null }
-        return (@($script:TelemetryVendors | Where-Object { $_.Builtin -and $_.Builtin -ceq $bi }) | Select-Object -First 1)
-    }
-    $hostName = ([string](ConvertTo-CanonicalBaseUrl $bu).HostName).TrimEnd('.')
+    if ($bu) { return (Get-TelemetryVendorByHost $bu) }
+    if ($engine -ne 'codex') { return (@($script:TelemetryVendors | Where-Object { $_.Engine -and $_.Engine -ceq $engine }) | Select-Object -First 1) }
+    $bi = [string](Get-PropertyValue $pc 'builtin' '')
+    if (-not $bi) { return $null }
+    return (@($script:TelemetryVendors | Where-Object { $_.Builtin -and $_.Builtin -ceq $bi }) | Select-Object -First 1)
+}
+
+# (wave 29b) The vendor row of a base URL's HOST (the host equals one of a row's Hosts or ends with
+# '.' + one of them), $null for any other host, an IP literal or no host.
+function Get-TelemetryVendorByHost {
+    param([string]$BaseUrl)
+    $hostName = ([string](ConvertTo-CanonicalBaseUrl $BaseUrl).HostName).TrimEnd('.')
     if (-not $hostName -or $hostName.StartsWith('[')) { return $null }
     foreach ($v in $script:TelemetryVendors) {
         foreach ($h in @($v.Hosts)) { if ($hostName -ceq $h -or $hostName.EndsWith('.' + $h, [StringComparison]::Ordinal)) { return $v } }
@@ -10727,8 +11069,9 @@ function Get-TelemetryModelToken {
     $m = ([string]$Model).Trim().ToLowerInvariant()
     if (-not $m) { return 'unknown' }
     if (-not $Vendor) { return 'other' }
-    # (wave 29) anthropic: the 1M-context suffix [1m] is not part of the name
-    if ([string]$Vendor.Class -ceq 'anthropic') { $m = $m -replace '\[1m\]$', '' }
+    # (wave 29) the 1M-context suffix [1m] is not part of the name - (wave 29b, E6) for every vendor
+    # (a claude endpoint entry may pin glm-5.3[1m])
+    $m = $m -replace '\[1m\]$', ''
     foreach ($known in @($Vendor.Models)) { if (([string]$known).ToLowerInvariant() -ceq $m) { return [string]$known } }
     return 'other'
 }

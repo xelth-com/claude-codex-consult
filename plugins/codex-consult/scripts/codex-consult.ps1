@@ -1721,8 +1721,14 @@ function Start-EngineProcess {
     $childEnvPlan = $null
     $startSpec = Get-EngineSpec -Name $engineName
     if ($engineName -ne 'codex' -and $startSpec -and $startSpec.Adapter -and $startSpec.Adapter.PSObject.Properties['ChildEnv'] -and $startSpec.Adapter.ChildEnv) {
-        try { $childEnvPlan = & $startSpec.Adapter.ChildEnv -Auth $engineAuth } catch {
+        try { $childEnvPlan = & $startSpec.Adapter.ChildEnv -Auth $engineAuth -Endpoint $engineEndpoint } catch {
             $r.Refusal = "bridge failure: the child environment could not be built ($(ConvertTo-OneLine $_.Exception.Message))"
+            return $r
+        }
+        # (wave 29b, E4) a child environment that must not start (claude auth endpoint without its
+        # endpoint or its token: the CLI would fall back to the local login) - nothing starts
+        if ($childEnvPlan -and $childEnvPlan.PSObject.Properties['Problem'] -and $childEnvPlan.Problem) {
+            $r.Refusal = "the $engineName engine's child environment is not usable: $($childEnvPlan.Problem)"
             return $r
         }
     }
@@ -2779,7 +2785,7 @@ if ($panelRun) {
     # ledger entry)
     $panelCoordinatorWarnings = [string[]]@(foreach ($cpm in $panelRunners) {
             # (wave 27c, D9) 'own' (the resolved triple) or 'provider' (no model named: the weaker one)
-            $cKind = Get-CoordinatorMatch -Coordinator $coordinatorRecord -Provider ([string]$cpm.Identity.Provider) -Model ([string]$cpm.Identity.Model) -Engine ([string]$cpm.Identity.Engine)
+            $cKind = Get-CoordinatorMatch -Coordinator $coordinatorRecord -Provider ([string]$cpm.Identity.Provider) -Model ([string]$cpm.Identity.Model) -Engine ([string]$cpm.Identity.Engine) -Auth ([string](Get-PropertyValue $cpm.Identity 'Auth' ''))
             if ($cKind) {
                 Format-CoordinatorWarning -Kind $cKind -Lineage (Format-ReviewerLineage -Provider $cpm.Identity.Provider -Model $cpm.Identity.Model -Engine ([string]$cpm.Identity.Engine))
             }
@@ -3495,21 +3501,28 @@ if (-not $isCodex) {
 
 # (wave 29) an engine that takes a roster `auth` (claude: subscription | api-key) - the roster
 # entry's, else the engine's default (the first); its child environment, preflight and billing check
-# follow it
+# follow it. (wave 29b, E1) auth endpoint exists only in a roster entry: its `endpoint` object
+# ($engineEndpoint) travels with the auth - the identity, the preflight, the child environment
 $engineAuth = ''
+$engineEndpoint = $null
 $identityArgs = @{ Config = $codexConfigScan; Provider = $identityProvider; Model = $identityModel; OpenAiBaseUrl = $openAiBaseUrl; Engine = $engineName; Launcher = $engineLauncher }
 if (@(Get-PropertyValue $engineSpec 'AuthModes' @()).Count -gt 0) {
     $engineAuth = $(if ($rosterEntry -and @($engineSpec.AuthModes) -contains [string]$rosterEntry.Auth) { [string]$rosterEntry.Auth } else { [string]@($engineSpec.AuthModes)[0] })
     $identityArgs['Auth'] = $engineAuth
+    if ($engineAuth -eq 'endpoint') {
+        $engineEndpoint = Get-PropertyValue $rosterEntry 'Endpoint' $null
+        $identityArgs['Endpoint'] = $engineEndpoint
+    }
 }
 $identity = Resolve-ReviewerIdentity @identityArgs
 if ($identity.Error) { Stop-WithError $identity.Error }
 # (wave 29, item 8) a claude model outside the engine's table is refused (a roster entry was checked
-# when the roster was read); an alias floats - each thread is pinned to the id it resolves to
+# when the roster was read); an alias floats - each thread is pinned to the id it resolves to.
+# (wave 29b, E2) auth endpoint: the open id pattern; the id is sent straight (no alias warning)
 if ($engineName -eq 'claude') {
-    $claudeModelProblem = Get-ClaudeModelProblem ([string]$identity.Model)
+    $claudeModelProblem = Get-ClaudeModelProblem ([string]$identity.Model) -Auth $engineAuth
     if ($claudeModelProblem) { Stop-WithError "the claude model '$($identity.Model)' $claudeModelProblem; nothing was started." }
-    if (Test-ClaudeModelAlias ([string]$identity.Model)) { $runWarnings.Add("claude model $($identity.Model) is an alias: the alias floats; each thread is pinned to the id it resolves to (engine_run.model_resolved)") }
+    if ($engineAuth -ne 'endpoint' -and (Test-ClaudeModelAlias ([string]$identity.Model))) { $runWarnings.Add("claude model $($identity.Model) is an alias: the alias floats; each thread is pinned to the id it resolves to (engine_run.model_resolved)") }
 }
 if ($providerSourceOverride) { $identity.ProviderSource = $providerSourceOverride }
 if ($modelSourceOverride) { $identity.ModelSource = $modelSourceOverride }
@@ -3524,7 +3537,7 @@ $lineageShown = Format-ReviewerLineage -Provider $identity.Provider -Model $iden
 # warning (the console, the dry run, the ledger's warnings[]), never a refusal
 # (wave 27c, D9) "own model" only when provider, model and engine are equal; a coordinator named by
 # its provider alone (no model could be resolved) gives the weaker warning
-$coordinatorKind = Get-CoordinatorMatch -Coordinator $coordinatorRecord -Provider ([string]$identity.Provider) -Model ([string]$identity.Model) -Engine $engineName
+$coordinatorKind = Get-CoordinatorMatch -Coordinator $coordinatorRecord -Provider ([string]$identity.Provider) -Model ([string]$identity.Model) -Engine $engineName -Auth $engineAuth
 if ($coordinatorKind) {
     $runWarnings.Add((Format-CoordinatorWarning -Kind $coordinatorKind -Lineage $lineageShown))
 }
@@ -3586,6 +3599,10 @@ if ($identity.Resolved) {
 }
 if (-not $SkipPreflight) {
     $preflightVerdict = Get-PreflightVerdict -Identity $identity -Config $codexConfigScan -Launcher $engineLauncher -Health $health -LoginCache $loginCache -Anonymous:$anonymous
+    # (wave 29b, E5) a usage limit on another route of the roster entry's plan refuses the run too
+    if ($rosterEntry -and $roster.Exists) {
+        $preflightVerdict = Get-PlanQuotaVerdict -Verdict $preflightVerdict -Entry $rosterEntry -Identity $identity -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -EngineLaunchers $engineLaunchers -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl
+    }
     $preflight = $preflightVerdict.Preflight
     $preflightLabel = $preflightVerdict.Label
     $preflightRefusal = $preflightVerdict.Refusal
@@ -3604,7 +3621,7 @@ foreach ($probeWarning in @($script:ProbeWarnings)) { if ($probeWarning -and -no
 # (wave 29) the engine's provider_config fields known only after the preflight (claude: auth_method
 # and api_provider as `claude auth status` reported them) - the identity was resolved before it ran
 if ($engineAuth -and $engineSpec.Adapter -and $engineSpec.Adapter.PSObject.Properties['IdentityConfig'] -and $engineSpec.Adapter.IdentityConfig) {
-    $icNow = & $engineSpec.Adapter.IdentityConfig -Auth $engineAuth -Launcher $engineLauncher
+    $icNow = & $engineSpec.Adapter.IdentityConfig -Auth $engineAuth -Launcher $engineLauncher -Endpoint $engineEndpoint
     foreach ($k in @($icNow.Keys)) { $reviewerRecord.provider_config | Add-Member -NotePropertyName ([string]$k) -NotePropertyValue $icNow[$k] -Force }
 }
 # (wave 29, item 2) claude: its transcripts must not land in the repository under review
@@ -4324,7 +4341,7 @@ try {
             unchecked_prior_blockers        = [object[]]@()
             usage                           = $(if ($isCodex) { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n>'; output_tokens = '<n>'; reasoning_output_tokens = '<n>' } } elseif (-not $engineSpec.HasUsage) { $null } else { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n (cache_read_tokens)>'; output_tokens = '<n>'; reasoning_output_tokens = '<n (thinking_tokens)>'; total_tokens = '<n>' } })
             compactions                     = $(if ($contextTokens -gt 0) { "<n (the compactions the engine's stream reported), else 'unknown'>" } else { '<null, or n when the engine''s stream reported a compaction>' })
-            engine_run                      = $(if ($isCodex) { $null } elseif ($engineName -eq 'claude') { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $null; auth = $engineAuth; init_tools = '<the tools the init events listed: Glob, Grep, Read, StructuredOutput>'; mcp_servers = '<0>'; permission_mode = '<dontAsk>'; api_key_source = $(if ($engineAuth -eq 'api-key') { '<ANTHROPIC_API_KEY>' } else { '<none>' }); model_resolved = '<the model id the init event resolved>'; other_models = '<[] or the other models a turn named>'; permission_denials = '<n>'; denied_tools = '<[] or the tools denied>'; rate_limit = '<null, or the most severe rate_limit_event as the CLI wrote it>'; cost_usd = '<the notional total_cost_usd>'; child_env_allowed = [object[]]@((Get-ClaudeChildEnvironment -Auth $engineAuth).Names); switched_off = [object[]]$script:ClaudeSwitchedOff } } else { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $(if ($engineSpec.PromptTransport -eq 'file') { '<the MSP schema_version of the stream: 1>' } else { $null }) } })
+            engine_run                      = $(if ($isCodex) { $null } elseif ($engineName -eq 'claude') { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $null; auth = $engineAuth; init_tools = '<the tools the init events listed: Glob, Grep, Read, StructuredOutput>'; mcp_servers = '<0>'; permission_mode = '<dontAsk>'; api_key_source = $(if ($engineAuth -eq 'api-key') { '<ANTHROPIC_API_KEY>' } elseif ($engineAuth -eq 'endpoint') { '<none (recorded raw; ANTHROPIC_API_KEY fails the turn)>' } else { '<none>' }); model_resolved = $(if ($engineAuth -eq 'endpoint') { '<the model id the init event names - it must equal the pinned id>' } else { '<the model id the init event resolved>' }); other_models = '<[] or the other models a turn named>'; permission_denials = '<n>'; denied_tools = '<[] or the tools denied>'; rate_limit = '<null, or the most severe rate_limit_event as the CLI wrote it>'; cost_usd = '<the notional total_cost_usd>'; child_env_allowed = [object[]]@((Get-ClaudeChildEnvironment -Auth $engineAuth -Endpoint $engineEndpoint).Names); switched_off = [object[]]$script:ClaudeSwitchedOff } } else { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $(if ($engineSpec.PromptTransport -eq 'file') { '<the MSP schema_version of the stream: 1>' } else { $null }) } })
             wall_seconds                    = 0
             finished_at                     = '<written at the commit>'
             commit_wait_ms                  = '<ms the commit waited for the write lock>'
@@ -4353,7 +4370,13 @@ try {
         Write-Host "lineage     : $lineageShown"
         # (wave 27, R13) the coordinator, what its engine children do not get, its brief prefix
         Write-Host "coordinator : $(Format-CoordinatorText $coordinatorRecord)"
-        if ($engineName -eq 'claude') { Write-Host "child env   : an allow list (auth $engineAuth): $(@((Get-ClaudeChildEnvironment -Auth $engineAuth).Names) -join ', ') - every other variable (the host markers, ANTHROPIC_*, CLAUDE_* but CLAUDE_CONFIG_DIR) is left out" }
+        if ($engineName -eq 'claude' -and $engineAuth -eq 'endpoint') {
+            # (wave 29b, E4) the route's base URL, the token variable's NAME (never its value), the plan
+            $dryCe = Get-ClaudeChildEnvironment -Auth $engineAuth -Endpoint $engineEndpoint
+            Write-Host "child env   : an allow list (auth endpoint): $(@($dryCe.Names) -join ', ') - every other variable (the host markers, ANTHROPIC_* but ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN, CLAUDE_* but CLAUDE_CONFIG_DIR) is left out$(if ($dryCe.Problem) { "; a real run is refused: $($dryCe.Problem)" })"
+            if ($engineEndpoint) { Write-Host "endpoint    : $($engineEndpoint.BaseUrl) (ANTHROPIC_BASE_URL); token from env $($engineEndpoint.EnvKey) (ANTHROPIC_AUTH_TOKEN - the value is never shown); API_TIMEOUT_MS $($engineEndpoint.TimeoutMs); plan $(if ([string]$engineEndpoint.Plan) { $engineEndpoint.Plan } else { '(none)' }); no claude auth status - the model the init event names is the proof" }
+        }
+        elseif ($engineName -eq 'claude') { Write-Host "child env   : an allow list (auth $engineAuth): $(@((Get-ClaudeChildEnvironment -Auth $engineAuth).Names) -join ', ') - every other variable (the host markers, ANTHROPIC_*, CLAUDE_* but CLAUDE_CONFIG_DIR) is left out" }
         else { Write-Host "child env   : $(if (@($childEnvScrubbed).Count -gt 0) { "without the host markers $(@($childEnvScrubbed) -join ', ') (every other variable is kept)" } else { 'no host marker set - the environment is passed as it is' })" }
         Write-Host "brief prefix: $BriefPrefix ($briefPrefixSource) - the coordinator's briefs are handoffs/<NN>-$BriefPrefix-<slug>.md, this reply $nn-$enginePrefix-$ReplyName.*"
         # (wave 28, R17)
@@ -5390,7 +5413,7 @@ try {
             foreach ($ce in @(@($agyEvents, $retryEvents, $contEv, $repairEv) | Where-Object { $null -ne $_ -and $_.PSObject.Properties['CostUsd'] -and $null -ne $_.CostUsd })) { $claudeCost = [double]$(if ($null -eq $claudeCost) { 0 } else { $claudeCost }) + [double]$ce.CostUsd }
             $claudeFirst = $(if ($claudeEvs.Count -gt 0) { $claudeEvs[0] } else { $null })
             $claudeEnvNames = [string[]]@()
-            try { $claudeEnvNames = [string[]](Get-ClaudeChildEnvironment -Auth $engineAuth).Names } catch { $claudeEnvNames = [string[]]@() }
+            try { $claudeEnvNames = [string[]](Get-ClaudeChildEnvironment -Auth $engineAuth -Endpoint $engineEndpoint).Names } catch { $claudeEnvNames = [string[]]@() }
             foreach ($kv in @(
                     @('auth', $engineAuth),
                     @('init_tools', [object[]]$claudeTools.ToArray()),
@@ -5410,7 +5433,7 @@ try {
             # (item 9) the coordinator compared again with the model the run resolved: an alias the
             # warning was given on may have resolved elsewhere (or the other way round)
             if ($engineRunRecord.model_resolved -and ([string]$engineRunRecord.model_resolved) -cne [string]$identity.Model) {
-                $coordinatorKindAfter = Get-CoordinatorMatch -Coordinator $coordinatorRecord -Provider ([string]$identity.Provider) -Model ([string]$engineRunRecord.model_resolved) -Engine $engineName
+                $coordinatorKindAfter = Get-CoordinatorMatch -Coordinator $coordinatorRecord -Provider ([string]$identity.Provider) -Model ([string]$engineRunRecord.model_resolved) -Engine $engineName -Auth $engineAuth
                 if ($coordinatorKindAfter -and $coordinatorKindAfter -ne $coordinatorKind) { $engineWarnings.Add((Format-CoordinatorWarning -Kind $coordinatorKindAfter -Lineage "$lineageShown (resolved $($engineRunRecord.model_resolved))")) }
                 elseif (-not $coordinatorKindAfter -and $coordinatorKind) { $engineWarnings.Add("coordinator: $lineageShown resolved to $($engineRunRecord.model_resolved) - not the coordinator's own model ($([string](Get-PropertyValue $coordinatorRecord 'model' ''))) after all; the warning above was given before the run") }
             }
