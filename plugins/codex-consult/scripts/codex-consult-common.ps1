@@ -93,9 +93,12 @@
       * telemetry        (wave 28, R17) Get-BridgeVersion, Get-TelemetryPaths, Get-TelemetryUrl,
                          Get-TelemetryInstanceId (the salted instance id), Get-TelemetryOutcome,
                          ConvertTo-TelemetryDetails (THE allowlist; wave 28b: the vendor table
-                         $script:TelemetryVendors, Get-TelemetryVendor, Get-TelemetryModelToken),
-                         New-TelemetryEvent, Add-TelemetrySpoolLine, Add-TelemetryEvent (the
-                         bridge's call AT a commit), Start-TelemetrySender (the allow-listed
+                         $script:TelemetryVendors, Get-TelemetryVendor, Get-TelemetryModelToken;
+                         R24: Get-TelemetryReviewerClass, Get-TelemetryPurpose - shared with the
+                         rating event), New-TelemetryEvent, (R24) ConvertTo-TelemetryRatingDetails /
+                         New-TelemetryRatingEvent (codex-findings.ps1 -Rate), Add-TelemetrySpoolLine,
+                         Add-TelemetryEvent (the bridge's call AT a commit; -RatingMark: the rating
+                         event), Start-TelemetrySender (the allow-listed
                          environment: Get-TelemetrySenderEnvironment, Start-NoInheritProcess),
                          Show-TelemetryNotice, Invoke-TelemetryRequest / Invoke-TelemetrySend (the
                          8 s bound, the 429 rule), Enter-/Exit-TelemetryFlushLock,
@@ -9340,6 +9343,9 @@ $script:TelemetryVendors = @(
 # The closed sets of the event (anything else becomes 'other' / 'unknown')
 $script:TelemetryEventKeys = @('app_id', 'app_version', 'instance_id', 'event_type', 'severity', 'title', 'details', 'tags', 'client_time', 'os', 'runtime')
 $script:TelemetryDetailKeys = @('engine', 'provider', 'model', 'purpose', 'outcome', 'wall_seconds', 'tokens', 'findings', 'structured', 'format_retry', 'denial_retry', 'timeout_continue', 'panel_size', 'ps_version', 'os', 'bridge_version')
+# (R24) the details of a `rating` event (codex-findings.ps1 -Rate) and its marks
+$script:TelemetryRatingDetailKeys = @('engine', 'provider', 'model', 'purpose', 'mark', 'age_days', 'bridge_version', 'os', 'ps_version')
+$script:TelemetryRatingMarks = @('yes', 'partly', 'no')
 $script:TelemetryFailureClasses = @('auth', 'quota', 'capability', 'transport', 'permission', 'operator', 'unknown', 'timeout', 'stalled', 'bridge')
 $script:BridgeVersion = $null
 
@@ -9668,11 +9674,11 @@ function Get-TelemetryModelToken {
     return 'other'
 }
 
-# The event's `details` from a ledger entry - THE allowlist: every value is built here from a closed
-# set, a number, a boolean or (wave 28b, D1) the vendor table (Get-TelemetryVendor,
-# Get-TelemetryModelToken: the provider is a vendor class, the model (wave 28c) an entry of that
-# vendor's closed list; the roster label is never read). Nothing else of the entry is read.
-function ConvertTo-TelemetryDetails {
+# (R24) The reviewer of a ledger entry as an event may carry it - ONE code path for the consultation
+# and the rating event: { engine (codex | agy | muse | other); provider (the vendor class of
+# Get-TelemetryVendor, else other); model (Get-TelemetryModelToken: an entry of that vendor's closed
+# list, other, or unknown without a model) }. The roster label is never read.
+function Get-TelemetryReviewerClass {
     param($Entry)
     $rev = Get-PropertyValue $Entry 'reviewer' $null
     $engine = [string](Get-PropertyValue $rev 'engine' 'codex')
@@ -9682,9 +9688,31 @@ function ConvertTo-TelemetryDetails {
     $provider = $(if ($vendor) { [string]$vendor.Class } else { 'other' })
     $modelRaw = [string](Get-PropertyValue $rev 'model' '')
     if (-not $modelRaw) { $modelRaw = [string](Get-PropertyValue $Entry 'model' '') }
-    $model = Get-TelemetryModelToken -Vendor $vendor -Model $modelRaw
+    return [pscustomobject]@{ engine = $engine; provider = $provider; model = (Get-TelemetryModelToken -Vendor $vendor -Model $modelRaw) }
+}
+
+# (R24) The purpose of a ledger entry as an event carries it: one of $script:ConsultPurposes, `none`
+# without one, else `other`.
+function Get-TelemetryPurpose {
+    param($Entry)
     $purpose = [string](Get-PropertyValue $Entry 'purpose' '')
-    if (-not $purpose) { $purpose = 'none' } elseif ($script:ConsultPurposes -cnotcontains $purpose) { $purpose = 'other' }
+    if (-not $purpose) { return 'none' }
+    if ($script:ConsultPurposes -cnotcontains $purpose) { return 'other' }
+    return $purpose
+}
+
+# The event's `details` from a ledger entry - THE allowlist: every value is built here from a closed
+# set, a number, a boolean or (wave 28b, D1) the vendor table (Get-TelemetryVendor,
+# Get-TelemetryModelToken: the provider is a vendor class, the model (wave 28c) an entry of that
+# vendor's closed list; the roster label is never read - R24: Get-TelemetryReviewerClass). Nothing
+# else of the entry is read.
+function ConvertTo-TelemetryDetails {
+    param($Entry)
+    $rc = Get-TelemetryReviewerClass $Entry
+    $engine = $rc.engine
+    $provider = $rc.provider
+    $model = $rc.model
+    $purpose = Get-TelemetryPurpose $Entry
     $usage = Get-PropertyValue $Entry 'usage' $null
     $fc = Get-PropertyValue $Entry 'findings' $null
     $fcount = { param($k) $n = Get-TelemetryCount (Get-PropertyValue $fc $k $null); if ($null -eq $n) { [long]0 } else { $n } }
@@ -9734,6 +9762,64 @@ function New-TelemetryEvent {
         event_type  = 'consultation'
         severity    = $o.Severity
         title       = $o.Outcome
+        details     = $d
+        tags        = [object[]]@($d.provider, $d.model)
+        client_time = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant)
+        os          = (Get-TelemetryOs)
+        runtime     = (Get-TelemetryRuntime)
+    }
+}
+
+# (R24) The whole days between a ledger entry's `when` (the consultation's time) and $RatedAt (now):
+# the elapsed time floored, never below 0 - 0 the same day, and 0 when the entry has no time that
+# parses.
+function Get-TelemetryAgeDays {
+    param($Entry, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow)
+    $wo = ConvertTo-WhenOffset (Get-PropertyValue $Entry 'when' $null)
+    if ($null -eq $wo) { return [long]0 }
+    $days = [Math]::Floor(($RatedAt.UtcDateTime - $wo.UtcDateTime).TotalDays)
+    if ($days -lt 0) { return [long]0 }
+    return [long]$days
+}
+
+# (R24) The `details` of a RATING event (codex-findings.ps1 -Rate) - its own allowlist,
+# $script:TelemetryRatingDetailKeys in that order: the reviewer and the purpose through the
+# consultation event's code path (Get-TelemetryReviewerClass, Get-TelemetryPurpose - the vendor
+# class and the closed-list model, never the roster label), the mark (yes | partly | no; anything
+# else other), the consultation's age in whole days (Get-TelemetryAgeDays), the plugin version, the
+# OS and the PowerShell version. Nothing else of the entry or the mark is read: never the note, the
+# topics, the task, the consultation's id, n or lineage.
+function ConvertTo-TelemetryRatingDetails {
+    param($Entry, [string]$Mark, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow)
+    $rc = Get-TelemetryReviewerClass $Entry
+    $m = ([string]$Mark).Trim().ToLowerInvariant()
+    if ($script:TelemetryRatingMarks -cnotcontains $m) { $m = 'other' }
+    return [pscustomobject]@{
+        engine         = $rc.engine
+        provider       = $rc.provider
+        model          = $rc.model
+        purpose        = (Get-TelemetryPurpose $Entry)
+        mark           = $m
+        age_days       = (Get-TelemetryAgeDays -Entry $Entry -RatedAt $RatedAt)
+        bridge_version = (Get-BridgeVersion)
+        os             = (Get-TelemetryOs)
+        ps_version     = (Get-TelemetryToken -Value ([string]$PSVersionTable.PSVersion) -Pattern '^[0-9][0-9A-Za-z.+-]{0,31}$')
+    }
+}
+
+# (R24) The event of one rating (the judge's mark of a consultation, codex-findings.ps1 -Rate): the
+# top level exactly as a consultation event's ($script:TelemetryEventKeys order), event_type rating,
+# severity info, the mark as its title, tags [provider, model].
+function New-TelemetryRatingEvent {
+    param($Entry, [string]$Mark, [string]$InstanceId)
+    $d = ConvertTo-TelemetryRatingDetails -Entry $Entry -Mark $Mark
+    return [pscustomobject]@{
+        app_id      = $script:TelemetryAppId
+        app_version = (Get-BridgeVersion)
+        instance_id = $InstanceId
+        event_type  = 'rating'
+        severity    = 'info'
+        title       = $d.mark
         details     = $d
         tags        = [object[]]@($d.provider, $d.model)
         client_time = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant)
@@ -10017,9 +10103,11 @@ function Get-TelemetryNotSpooled {
 # 5 s and -Count - only then is the event counted as not spooled (Add-TelemetryNotSpooled) and the
 # run warns (the console, a detached run's status record). An event met by the forgetting marker is
 # dropped at once (no retry; the caller counts it after the write lock). { Why ('' when spooled or
-# telemetry off); Forgetting }. Never throws.
+# telemetry off); Forgetting }. Never throws. (R24) -RatingMark yes|partly|no: the event is the
+# RATING event of $Entry (New-TelemetryRatingEvent - codex-findings.ps1 -Rate, after the mark's
+# commit and both task locks), else the consultation event.
 function Add-TelemetryEvent {
-    param($Entry, $Switch, [int]$WaitMs = 1000, [switch]$Count)
+    param($Entry, $Switch, [int]$WaitMs = 1000, [switch]$Count, [string]$RatingMark = '')
     $r = [pscustomobject]@{ Why = ''; Forgetting = $false }
     if (-not $Switch -or -not $Switch.On) { return $r }
     $held = $false
@@ -10032,7 +10120,7 @@ function Add-TelemetryEvent {
             $id = Get-TelemetryInstanceId -Create
             if (-not $id) { $r.Why = 'no instance id (the salt could not be created)' }
             else {
-                $ev = New-TelemetryEvent -Entry $Entry -InstanceId $id
+                $ev = $(if ($RatingMark) { New-TelemetryRatingEvent -Entry $Entry -Mark $RatingMark -InstanceId $id } else { New-TelemetryEvent -Entry $Entry -InstanceId $id })
                 $r.Why = Add-TelemetrySpoolLine -Kind 'event' -BodyJson (ConvertTo-Json -Compress -Depth 6 -InputObject $ev) -WaitMs ([int][Math]::Max(50, $WaitMs - $watch.ElapsedMilliseconds))
             }
         }

@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **R24 (the bridge's half) - a rating reaches the intake.** `codex-findings.ps1 -Rate <n>
+  -Useful yes|partly|no`, once the mark is committed and both task locks are released, spools ONE
+  anonymised telemetry event of `event_type` `rating` (`severity` `info`, `title` the mark,
+  `tags` `[provider, model]`, the consultation event's top level) whose `details` are exactly
+  `engine`, `provider`, `model`, `purpose`, `mark`, `age_days`, `bridge_version`, `os`,
+  `ps_version` - the vendor class and the closed-list model through the consultation event's own
+  code path (`Get-TelemetryReviewerClass`, factored out of `ConvertTo-TelemetryDetails`), never the
+  note, the topics, the task, the consultation's id or the roster label - and starts the detached
+  sender. It honours `CODEX_CONSULT_TELEMETRY` and the new `codex-findings.ps1 -Telemetry on|off`
+  (with `-Rate` only); a telemetry failure warns and is counted, never failing the rating.
+  `harness-telemetry` RATE covers it.
+
 ## [0.5.0] - 2026-09-30
 
 The next candidate. Wave 24 (the "operator visibility" wave, ROADMAP T1-T3 and the

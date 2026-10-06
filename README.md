@@ -1503,7 +1503,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.p
   requires neither. A later reply reporting a finding `fixed` is evidence to cite, never a
   status change: the coordinator moves the status. All flags: `-CollabDir` (default
   `.collab`), `-List`, `-All`, `-Stats`, `-Id`, `-Status`, `-Note`, `-Evidence`, `-Rate`,
-  `-Useful`.
+  `-Useful`, `-Telemetry on|off` (with `-Rate` only).
 - **`-List`** shows open findings (`proposed`/`implemented`), `-All` every finding. It flags
   `[ORPHAN]` on a finding whose `source.consult` has no ledger entry or whose entry's
   `reply` does not match, and on a finding whose `reviewer_checks[]` names a consult with
@@ -1525,7 +1525,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.p
   consultation's own time `consult_when` (`when` is the time of the mark). A mark recorded
   before wave 26 is completed from the ledger entry with its `consult_id`, never by `n`. Rate
   **every** consultation, plain-prose ones included, or the telemetry only counts
-  structured reviewers - and a routed panel only routes by what was rated.
+  structured reviewers - and a routed panel only routes by what was rated. (R24) With telemetry
+  on, every `-Rate` (a re-rating too) also spools ONE anonymised `rating` event once the mark is
+  committed - the vendor class, the closed-list model, the purpose, the mark and the
+  consultation's age in days, never the note or the topics ("Telemetry (on by default)");
+  `-Telemetry on|off` decides for one rating, and `-Telemetry` without `-Rate` is refused.
 - **Locking:** a status change and `-Rate` take the task lock and are refused while a
   consultation of the task runs, and - both judging every recovery record of the task - while
   an interrupted one's bridge or codex process may still run (a panel member whose panel run
@@ -2816,10 +2820,27 @@ A roster entry `AcmeCorp-Legal` on `https://llm.acmecorp-internal.example/v1` wi
 `acmecorp-contracts-7b` is sent as `provider: other`, `model: other` (`harness-telemetry` UNIT and
 SPOOL check exactly that, on a synthetic entry and a real run).
 
+- **The rating event** (R24, 2026-10-06). When the judge rates a consultation -
+  `codex-findings.ps1 -Task <task> -Rate <n> -Useful yes|partly|no` - and the mark is committed,
+  the bridge spools ONE more event of `event_type` `rating` for that ledger entry (every rating, a
+  re-rating too; the switch as above, `-Telemetry on|off` on `codex-findings.ps1` for one rating),
+  after both task locks are released, with up to 5 s for the spool (a failure prints
+  `codex-findings: warning: telemetry rating event not spooled (<why>)`, is counted for `-Status` and
+  never changes the rating's exit code), then starts the same detached sender. The top level is a
+  consultation event's (`app_id` ... `runtime`, `tags` `[provider, model]`) with `severity` `info`
+  and `title` the mark; `details` are exactly `engine`, `provider`, `model`, `purpose`, `mark`
+  (`yes`, `partly`, `no`), `age_days` (the whole days from the consultation's `when` to the rating,
+  `0` the same day), `bridge_version`, `os`, `ps_version` - the reviewer through the consultation
+  event's own code path (`Get-TelemetryReviewerClass`: the vendor class and the closed-list model,
+  `other` / `unknown` exactly as there). Never in it: the `-Note` text, the topics, the task, the
+  consultation's `n`, `consult_id` or lineage, the roster label. Example `details`:
+  `{"engine":"codex","provider":"zai","model":"glm-5.3","purpose":"acceptance","mark":"partly","age_days":0,"bridge_version":"0.5.0","os":"windows 10.0.26200","ps_version":"7.6.6"}`.
+  The intake aggregates consultations and ratings per vendor class and model.
+
 **Never sent:** task names, briefs, prompts, replies, paths, thread ids, consultation ids,
 finding texts or ids, messages, warnings, keys, provider labels as typed, user names, the machine
-name in clear. A unit test walks every key AND value of real events and of an event built from a
-hostile entry (`tests/harness-telemetry.ps1` UNIT, SPOOL).
+name in clear, a rating's note or topics. A unit test walks every key AND value of real events and
+of an event built from a hostile entry (`tests/harness-telemetry.ps1` UNIT, SPOOL, RATE).
 
 **How it travels.** Never in a consultation's critical path. (Wave 28b, D6) At the ledger commit
 (a failed run's too; each panel member its own), inside the task's write lock and right before the
@@ -3312,7 +3333,9 @@ the proxy and trust variables, the 1 s append and the retry after the write lock
 environmental: the operator's Codex desktop app rewrote `~/.codex/config.toml` at 20:33 while that harness ran)
 as wave 28c, and `harness-telemetry` 92 (cases changed, none added: a forgetting marker of a LIVING owner, an ownerless
 flush lock held while young, the held lock released by deleting it, `.last`'s two new keys), `harness-fixes28d` 40 (new,
-wave 28d).
+wave 28d). (2026-10-06, R24 - the bridge's half: `harness-telemetry` 103 (+11: RATE, the `rating` event of
+`codex-findings.ps1 -Rate`, and its README check) alone on Windows PowerShell 5.1, its UNIT, RATE and DOCS sections
+also on PowerShell 7.6.6; `harness-roster` and `harness-companions`, which rate with telemetry off, unchanged.)
 Many cases wait on real timeouts and time a fake
 reviewer: on a loaded machine (another heavy application or build, a disk that runs full) the
 timing cases of `harness-panel` (RUN, GUARD), `harness-detach` (PANEL) and `harness-visibility`

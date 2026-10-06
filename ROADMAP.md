@@ -362,7 +362,11 @@ optional participant whose "done" is never trusted and who never closes a findin
   purpose, `useful: yes | partly | no`, no text), as C3 already does; the site aggregates consultations and
   ratings per vendor class and model (n, usable rate, findings per consultation, blockers, mean wall seconds,
   ratings) over a window and renders the table from that, dated, with the hand-collected snapshot kept as the
-  baseline. The site's half lives in the site's repository.
+  baseline. The site's half lives in the site's repository. **The bridge's half is implemented
+  (2026-10-06):** `codex-findings.ps1 -Rate` spools one `rating` event (details `engine`,
+  `provider`, `model`, `purpose`, `mark`, `age_days`, `bridge_version`, `os`, `ps_version`; the
+  switch honoured; `-Telemetry on|off` for one rating) - README "Telemetry (on by default)",
+  `harness-telemetry` RATE; the site's half is being built in the site's repository.
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
 - **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a

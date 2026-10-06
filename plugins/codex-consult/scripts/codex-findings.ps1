@@ -36,6 +36,15 @@
     engine), the purpose, the topics and the consultation's own time (consult_when; `when`
     is the time of the mark). Rating the same consultation again replaces its record (the
     latest mark wins). It takes the task lock like a status change.
+    (R24) Telemetry on (CODEX_CONSULT_TELEMETRY, or -Telemetry on|off for this rating; README
+    "Telemetry (on by default)"): once the mark is committed and both task locks are released, ONE
+    anonymised `rating` event goes to <codex home>/telemetry-spool (Add-TelemetryEvent -RatingMark,
+    up to 5 s) and the detached sender starts (Start-TelemetrySender) - every rating, a re-rating
+    too. Its details are engine, provider (the VENDOR CLASS), model (the closed list), purpose,
+    mark, age_days, bridge_version, os, ps_version - through the consultation event's code path
+    (Get-TelemetryReviewerClass); never the note, the topics, the task, the consultation's id, n or
+    lineage, nor the roster label. Telemetry never fails the rating: an event that is not spooled
+    prints one warning line and is counted (codex-telemetry.ps1 -Status); off writes nothing.
     codex-scoreboard.ps1 sums the marks per reviewer and purpose (or topic) across tasks,
     and a routed -Panel scores its members on them (codex-consult.ps1 -PanelOrder).
 
@@ -95,7 +104,11 @@ param(
 
     # yes | partly | no - the judge's mark for the consultation -Rate names (-Note is
     # required for no).
-    [string]$Useful = ''
+    [string]$Useful = '',
+
+    # (R24) on | off for this -Rate: ONE anonymised `rating` event to the maintainer's intake
+    # (README "Telemetry (on by default)"). Empty (the default): CODEX_CONSULT_TELEMETRY, else on.
+    [string]$Telemetry = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -117,6 +130,10 @@ if ($actions -ne 1) {
 if ($All -and -not $List) { Stop-WithError "-All only goes with -List." }
 if ($Evidence -and -not $Id) { Stop-WithError "-Evidence only goes with -Id/-Status." }
 if ($Note -and -not $Id -and -not $rating) { Stop-WithError "-Note only goes with -Id/-Status or -Rate." }
+# (R24) the telemetry switch of a rating: -Telemetry on|off, else CODEX_CONSULT_TELEMETRY (unset: on)
+$Telemetry = ([string]$Telemetry).Trim().ToLowerInvariant()
+if ($Telemetry -and -not $rating) { Stop-WithError "-Telemetry only goes with -Rate." }
+if ($Telemetry -and @('on', 'off') -notcontains $Telemetry) { Stop-WithError "-Telemetry must be on or off (got '$Telemetry'); leave it out for CODEX_CONSULT_TELEMETRY (unset: on)." }
 if ($rating) {
     if (-not $PSBoundParameters.ContainsKey('Rate')) { Stop-WithError "-Useful needs -Rate <consult n>." }
     if ($Rate -le 0) { Stop-WithError "-Rate takes a consult number n greater than 0 (got $Rate)." }
@@ -383,9 +400,11 @@ if ($rating) {
     if (-not (Test-Path -LiteralPath $sessionsPath -PathType Leaf)) {
         Stop-WithError "no consultations recorded for task '$Task' ($sessionsPath does not exist); -Rate takes the n of a ledger entry."
     }
+    $telemetrySwitch = Get-TelemetrySwitch -Override $Telemetry
     $lock = Enter-TaskLock -TaskDir $taskDir -Task $Task
     if (-not $lock.Acquired) { Stop-WithError $lock.Message }
     $commit = $null
+    $ratedEntry = $null
     try {
         # Like -Status (D5, F11-4): refused while any recovery record of the task is active -
         # an interrupted consultation's bridge or codex process, or a panel member (whose panel
@@ -463,14 +482,32 @@ if ($rating) {
         else { $store | Add-Member -NotePropertyName 'ratings' -NotePropertyValue ([object[]]$kept.ToArray()) }
         Complete-StoreCommit -Commit $commit -Findings
         Exit-StoreCommit -Commit $commit
+        $ratedEntry = $entry
         $purposeText = if ($mark.purpose) { $mark.purpose } else { 'no purpose' }
         if ($replaced) { Write-Host "codex-findings: consult n=$Rate ($lineage, $purposeText) re-rated $Useful (was $previous)." }
         else { Write-Host "codex-findings: consult n=$Rate ($lineage, $purposeText) rated $Useful." }
-        exit 0
     } finally {
         Exit-StoreCommit -Commit $commit
         Exit-TaskLock -Lock $lock
     }
+    # (R24) telemetry on: the mark is committed and both task locks are released - ONE anonymised
+    # rating event of the rated ledger entry (New-TelemetryRatingEvent: the consultation event's
+    # vendor class and closed-list model, the purpose, the mark, the age in days) goes into the spool
+    # with up to 5 s, then the detached sender starts (not waited for). An event not spooled is warned
+    # about and counted (codex-telemetry.ps1 -Status); a sender that does not start is left to the
+    # next run's. Never fails the rating: the exit code stays 0.
+    if ($ratedEntry -and $telemetrySwitch.On) {
+        try {
+            $telemetryRating = Add-TelemetryEvent -Entry $ratedEntry -Switch $telemetrySwitch -WaitMs $script:TelemetrySpoolWaitMs -Count -RatingMark $Useful
+            if ($telemetryRating.Why) {
+                Write-Host "codex-findings: warning: telemetry rating event not spooled ($($telemetryRating.Why))$(if ($telemetryRating.Forgetting) { ' - dropped' })" -ForegroundColor Yellow
+            } else {
+                $senderWhy = Start-TelemetrySender
+                if ($senderWhy) { Write-Verbose "telemetry: the sender did not start ($senderWhy)" }
+            }
+        } catch { Write-Verbose "telemetry: $(ConvertTo-OneLine $_.Exception.Message)" }
+    }
+    exit 0
 }
 
 # ----------------------------------------------------------------------------- -Id -Status
