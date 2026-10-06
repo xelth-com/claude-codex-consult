@@ -4113,7 +4113,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "acceptance: HOLD with F09-1 (billing not fail-closed on unknown mechanism) and F09-2 (repair transport) - both real; ruled 33 priors",
-                        "when":  "2026-09-26T10:24:08+02:00"
+                        "when":  "2026-09-26T10:24:08+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  8,
@@ -4124,7 +4125,8 @@
                         "purpose":  "acceptance",
                         "useful":  "partly",
                         "note":  "acceptance: ACCEPT, ruled the priors (7 as still-open that were accepted limitations), no new findings; 9 min",
-                        "when":  "2026-09-26T10:24:09+02:00"
+                        "when":  "2026-09-26T10:24:09+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  9,
@@ -4135,7 +4137,8 @@
                         "purpose":  "acceptance",
                         "useful":  "partly",
                         "note":  "acceptance: ACCEPT, ruled all 34 priors fixed, no new findings; 26 min",
-                        "when":  "2026-09-26T10:24:11+02:00"
+                        "when":  "2026-09-26T10:24:11+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  12,
@@ -4146,7 +4149,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "resumed acceptance after a timeout kill: 30 prior rulings, a real minor (stale credential cache at the launch guard) in 148 s - the continuation experiment",
-                        "when":  "2026-09-26T13:14:39+02:00"
+                        "when":  "2026-09-26T13:14:39+02:00",
+                        "telemetry_sent":  1791297267
                     }
                 ]
 }

@@ -180,7 +180,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "yes",
                         "note":  "checkpoint: caught the auto router declared with a verbatim effort (F01-1) and the stale header comment (F01-2)",
-                        "when":  "2026-09-26T10:08:56+02:00"
+                        "when":  "2026-09-26T10:08:56+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  2,
@@ -191,7 +192,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "partly",
                         "note":  "checkpoint: confirmed the table, restated F01-1; slow through this plan",
-                        "when":  "2026-09-26T10:08:58+02:00"
+                        "when":  "2026-09-26T10:08:58+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  3,
@@ -202,7 +204,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "partly",
                         "note":  "checkpoint: confirmed the table, restated the open drifts; fastest of the three",
-                        "when":  "2026-09-26T10:09:00+02:00"
+                        "when":  "2026-09-26T10:09:00+02:00",
+                        "telemetry_sent":  1791297268
                     }
                 ]
 }

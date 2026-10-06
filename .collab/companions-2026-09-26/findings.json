@@ -24359,7 +24359,8 @@
                         "purpose":  "framing",
                         "useful":  "yes",
                         "note":  "design review: 15 findings incl. the cross-task rating join, the unreproducible seed, the -Require contract and the availability surfaces; 31 min",
-                        "when":  "2026-09-26T13:45:09+02:00"
+                        "when":  "2026-09-26T13:45:09+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  2,
@@ -24370,7 +24371,8 @@
                         "purpose":  "framing",
                         "useful":  "yes",
                         "note":  "design review: score formula with a prior, diversity quality gap, role slug traversal, hook parser; 7.5 min",
-                        "when":  "2026-09-26T13:45:11+02:00"
+                        "when":  "2026-09-26T13:45:11+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  3,
@@ -24381,7 +24383,8 @@
                         "purpose":  "framing",
                         "useful":  "yes",
                         "note":  "design review: the contradictory selection rules (blocker), lab defaulting, the portable draw spec, panel size states, tests to update; 24 min",
-                        "when":  "2026-09-26T13:45:12+02:00"
+                        "when":  "2026-09-26T13:45:12+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  4,
@@ -24392,7 +24395,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "acceptance of wave 24: ACCEPT with F07-1..3 (continuation prompt lacks the contract on prompt-only, salvage double insert, hook cost); ruled the 7 wave-24 priors",
-                        "when":  "2026-09-26T17:36:35+02:00"
+                        "when":  "2026-09-26T17:36:35+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  5,
@@ -24403,7 +24407,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "acceptance of wave 24: HOLD - F08-1 blocker (main-turn launch skips the fresh billing guard) and F08-2..8; the most valuable review of the wave",
-                        "when":  "2026-09-26T17:36:37+02:00"
+                        "when":  "2026-09-26T17:36:37+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  7,
@@ -24414,7 +24419,8 @@
                         "purpose":  "acceptance",
                         "useful":  "partly",
                         "note":  "acceptance of wave 24: ACCEPT, ruled the priors, no new findings",
-                        "when":  "2026-09-26T17:36:38+02:00"
+                        "when":  "2026-09-26T17:36:38+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  8,
@@ -24425,7 +24431,8 @@
                         "purpose":  "acceptance",
                         "useful":  "partly",
                         "note":  "acceptance of wave 24: ACCEPT, ruled the priors, no new findings; fast",
-                        "when":  "2026-09-26T17:36:39+02:00"
+                        "when":  "2026-09-26T17:36:39+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  10,
@@ -24436,7 +24443,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "acceptance of wave 24 by muse: ACCEPT with F13-1 (roster_positions in JSON) and F13-2 (exact outcome match); first substantive muse review",
-                        "when":  "2026-09-26T17:36:40+02:00"
+                        "when":  "2026-09-26T17:36:40+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  11,
@@ -24447,7 +24455,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "re-acceptance of 24b: 11 of 13 ruled fixed, two still open with reasons, F15-1..6 (two real majors: quota wording forced to capability, case-insensitive identity cache); 34 min",
-                        "when":  "2026-09-26T21:03:25+02:00"
+                        "when":  "2026-09-26T21:03:25+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  14,
@@ -24463,7 +24472,8 @@
                         "consult_when":  "2026-09-27T22:01:28+02:00",
                         "useful":  "yes",
                         "note":  "wave 26 acceptance: verified the implemented findings; F19-1 minor and a perf note",
-                        "when":  "2026-09-27T23:13:32+02:00"
+                        "when":  "2026-09-27T23:13:32+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  16,
@@ -24479,7 +24489,8 @@
                         "consult_when":  "2026-09-27T22:01:28+02:00",
                         "useful":  "yes",
                         "note":  "wave 26 acceptance: verified the implemented findings; clean ACCEPT with 41 prior findings checked",
-                        "when":  "2026-09-27T23:13:34+02:00"
+                        "when":  "2026-09-27T23:13:34+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  17,
@@ -24495,7 +24506,8 @@
                         "consult_when":  "2026-09-27T22:01:28+02:00",
                         "useful":  "yes",
                         "note":  "wave 26 acceptance: verified the implemented findings; F22-1 major (role file symlink) and six minors",
-                        "when":  "2026-09-27T23:13:36+02:00"
+                        "when":  "2026-09-27T23:13:36+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  18,
@@ -24511,7 +24523,8 @@
                         "consult_when":  "2026-09-28T05:55:50+02:00",
                         "useful":  "yes",
                         "note":  "wave 26b re-acceptance: ACCEPT, F22-1 containment verified in code, 27 prior checked; F25-1/2",
-                        "when":  "2026-09-28T06:42:11+02:00"
+                        "when":  "2026-09-28T06:42:11+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  19,
@@ -24527,7 +24540,8 @@
                         "consult_when":  "2026-09-28T05:55:50+02:00",
                         "useful":  "yes",
                         "note":  "wave 26b re-acceptance: HOLD with three majors on the new member-control and health code (kick ack race, health merge loss, false stall)",
-                        "when":  "2026-09-28T06:42:14+02:00"
+                        "when":  "2026-09-28T06:42:14+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  20,
@@ -24546,7 +24560,8 @@
                         "consult_when":  "2026-09-29T15:53:30+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-29T16:40:15+02:00"
+                        "when":  "2026-09-29T16:40:15+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  21,
@@ -24565,7 +24580,8 @@
                         "consult_when":  "2026-09-29T15:53:29+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-29T16:40:17+02:00"
+                        "when":  "2026-09-29T16:40:17+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  23,
@@ -24584,7 +24600,8 @@
                         "consult_when":  "2026-09-29T15:53:31+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-29T16:40:20+02:00"
+                        "when":  "2026-09-29T16:40:20+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  22,
@@ -24603,7 +24620,8 @@
                         "consult_when":  "2026-09-29T15:53:31+02:00",
                         "useful":  "partly",
                         "note":  "confirmed the seven fixes; no finding of its own on waves where three others found twenty-two",
-                        "when":  "2026-09-29T16:40:23+02:00"
+                        "when":  "2026-09-29T16:40:23+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  24,
@@ -24622,7 +24640,8 @@
                         "consult_when":  "2026-09-30T00:35:16+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T01:48:57+02:00"
+                        "when":  "2026-09-30T01:48:57+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  25,
@@ -24641,7 +24660,8 @@
                         "consult_when":  "2026-09-30T00:35:17+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T01:48:59+02:00"
+                        "when":  "2026-09-30T01:48:59+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  26,
@@ -24660,7 +24680,8 @@
                         "consult_when":  "2026-09-30T00:35:16+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T01:49:00+02:00"
+                        "when":  "2026-09-30T01:49:00+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  28,
@@ -24679,7 +24700,8 @@
                         "consult_when":  "2026-09-30T09:35:21+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T10:46:34+02:00"
+                        "when":  "2026-09-30T10:46:34+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  29,
@@ -24698,7 +24720,8 @@
                         "consult_when":  "2026-09-30T09:35:21+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T10:46:36+02:00"
+                        "when":  "2026-09-30T10:46:36+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  30,
@@ -24717,7 +24740,8 @@
                         "consult_when":  "2026-09-30T09:35:21+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T10:46:38+02:00"
+                        "when":  "2026-09-30T10:46:38+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  31,
@@ -24736,7 +24760,8 @@
                         "consult_when":  "2026-09-30T09:35:52+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T10:46:40+02:00"
+                        "when":  "2026-09-30T10:46:40+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  32,
@@ -24755,7 +24780,8 @@
                         "consult_when":  "2026-09-30T15:47:04+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T16:28:46+02:00"
+                        "when":  "2026-09-30T16:28:46+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  33,
@@ -24774,7 +24800,8 @@
                         "consult_when":  "2026-09-30T15:47:05+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T16:28:48+02:00"
+                        "when":  "2026-09-30T16:28:48+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  34,
@@ -24793,7 +24820,8 @@
                         "consult_when":  "2026-09-30T15:47:05+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T16:28:50+02:00"
+                        "when":  "2026-09-30T16:28:50+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  35,
@@ -24812,7 +24840,8 @@
                         "consult_when":  "2026-09-30T15:47:41+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T16:28:51+02:00"
+                        "when":  "2026-09-30T16:28:51+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  36,
@@ -24830,7 +24859,8 @@
                         "consult_when":  "2026-09-30T21:40:31+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T22:02:00+02:00"
+                        "when":  "2026-09-30T22:02:00+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  37,
@@ -24848,7 +24878,8 @@
                         "consult_when":  "2026-09-30T21:40:31+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T22:02:04+02:00"
+                        "when":  "2026-09-30T22:02:04+02:00",
+                        "telemetry_sent":  1791297267
                     },
                     {
                         "n":  38,
@@ -24866,7 +24897,8 @@
                         "consult_when":  "2026-09-30T21:41:17+02:00",
                         "useful":  "partly",
                         "note":  "confirmed the fixes; no finding of its own",
-                        "when":  "2026-09-30T22:02:09+02:00"
+                        "when":  "2026-09-30T22:02:09+02:00",
+                        "telemetry_sent":  1791297267
                     }
                 ]
 }

@@ -2719,7 +2719,8 @@
                         "purpose":  "framing",
                         "useful":  "yes",
                         "note":  "design review: found the commit-window hole after parent death (F02-1) and the multiple-leftovers gap; format repair needed once",
-                        "when":  "2026-09-26T10:08:45+02:00"
+                        "when":  "2026-09-26T10:08:45+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  2,
@@ -2730,7 +2731,8 @@
                         "purpose":  "framing",
                         "useful":  "yes",
                         "note":  "design review: the blocker F03-1 (writer never tested for liveness), endpoint-aware concurrency, finished_at ordering - most decisions trace to it",
-                        "when":  "2026-09-26T10:08:46+02:00"
+                        "when":  "2026-09-26T10:08:46+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  3,
@@ -2741,7 +2743,8 @@
                         "purpose":  "framing",
                         "useful":  "yes",
                         "note":  "design review: atomic-write temp files in the agy ignore list (F04-1) and the self-contradictory give-up path (F04-2)",
-                        "when":  "2026-09-26T10:08:47+02:00"
+                        "when":  "2026-09-26T10:08:47+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  4,
@@ -2752,7 +2755,8 @@
                         "purpose":  "acceptance",
                         "useful":  "partly",
                         "note":  "acceptance: ruled all 24 prior findings with locations; one note (F07-1, real, later fixed); 20 minutes",
-                        "when":  "2026-09-26T10:08:49+02:00"
+                        "when":  "2026-09-26T10:08:49+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  8,
@@ -2763,7 +2767,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "acceptance: F11-1..6 - the TOCTOU window, missing member-kill test, unproven contention, -Rate asymmetry; all fixed in the follow-up",
-                        "when":  "2026-09-26T10:08:51+02:00"
+                        "when":  "2026-09-26T10:08:51+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  9,
@@ -2774,7 +2779,8 @@
                         "purpose":  "acceptance",
                         "useful":  "partly",
                         "note":  "acceptance: ruled the prior findings correctly, found nothing new; fast",
-                        "when":  "2026-09-26T10:08:53+02:00"
+                        "when":  "2026-09-26T10:08:53+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  10,
@@ -2785,7 +2791,8 @@
                         "purpose":  "acceptance",
                         "useful":  "no",
                         "note":  "acceptance: prose without a verdict, no findings",
-                        "when":  "2026-09-26T10:08:55+02:00"
+                        "when":  "2026-09-26T10:08:55+02:00",
+                        "telemetry_sent":  1791297268
                     }
                 ]
 }

@@ -1594,7 +1594,8 @@
                         "purpose":  "framing",
                         "useful":  "yes",
                         "note":  "design review: 11 concrete defects with code locations (gitignore, foreground checks, terminal status, budget, first-write race, liveness, cwd, encoding); every decision traces to it",
-                        "when":  "2026-09-26T10:40:07+02:00"
+                        "when":  "2026-09-26T10:40:07+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  4,
@@ -1605,7 +1606,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "acceptance of wave 25: ACCEPT, 11 priors ruled, F07-1..3 (unreadable status never pruned, never-started wording, hook cost)",
-                        "when":  "2026-09-27T13:04:24+02:00"
+                        "when":  "2026-09-27T13:04:24+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  5,
@@ -1616,7 +1618,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "acceptance of wave 25: ACCEPT, F08-1..2 (unreadable prune, best-effort terminal writes); 33 min",
-                        "when":  "2026-09-27T13:04:25+02:00"
+                        "when":  "2026-09-27T13:04:25+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  7,
@@ -1627,7 +1630,8 @@
                         "purpose":  "acceptance",
                         "useful":  "partly",
                         "note":  "acceptance of wave 25: ACCEPT, ruled the priors, one note restating an accepted residual",
-                        "when":  "2026-09-27T13:04:26+02:00"
+                        "when":  "2026-09-27T13:04:26+02:00",
+                        "telemetry_sent":  1791297268
                     },
                     {
                         "n":  8,
@@ -1638,7 +1642,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "acceptance of wave 25 by muse: ACCEPT, F11-1..2 (unreadable prune, prompt lingering in a never-started record); 9 min",
-                        "when":  "2026-09-27T13:04:28+02:00"
+                        "when":  "2026-09-27T13:04:28+02:00",
+                        "telemetry_sent":  1791297268
                     }
                 ]
 }

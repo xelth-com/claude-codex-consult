@@ -88,7 +88,8 @@
                         "consult_when":  "2026-09-29T16:23:26+02:00",
                         "useful":  "yes",
                         "note":  "First live Z Code host run: answered Q1 substantively, verified all four claimed invariants against the code with line citations, and its RC1-RC3 checks correctly predicted the two host anomalies (coordinator.host=unknown, empty child_env_scrubbed) that I then confirmed against Get-CoordinatorHost/Get-HostMarkerNames.",
-                        "when":  "2026-09-29T16:35:59+02:00"
+                        "when":  "2026-09-29T16:35:59+02:00",
+                        "telemetry_sent":  1791297268
                     }
                 ]
 }

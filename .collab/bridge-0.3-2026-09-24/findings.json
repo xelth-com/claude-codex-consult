@@ -2731,7 +2731,8 @@
                         "purpose":  "framing",
                         "useful":  "yes",
                         "note":  "design round: F02-1..9 shaped R7/R8 (3 verified, 3 wontfix by decision, 2 superseded)",
-                        "when":  "2026-09-24T19:53:34+02:00"
+                        "when":  "2026-09-24T19:53:34+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  2,
@@ -2742,7 +2743,8 @@
                         "purpose":  "diff-review",
                         "useful":  "partly",
                         "note":  "prose only (schema ignored on the z.ai route); the points matched the design reviewer\u0027s (user-defined openai table, absent wire_api, event drift) but produced no ids",
-                        "when":  "2026-09-24T19:53:35+02:00"
+                        "when":  "2026-09-24T19:53:35+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  3,
@@ -2753,7 +2755,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "acceptance HOLD: both blockers real (unsupported ancestor declaration, ambiguous lineage string), all four fixed and confirmed",
-                        "when":  "2026-09-24T19:53:36+02:00"
+                        "when":  "2026-09-24T19:53:36+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  4,
@@ -2764,7 +2767,8 @@
                         "purpose":  "diff-review",
                         "useful":  "no",
                         "note":  "endpoint rejected --output-schema (capability failure); no reply - led to per-host schema transport",
-                        "when":  "2026-09-24T19:53:37+02:00"
+                        "when":  "2026-09-24T19:53:37+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  5,
@@ -2775,7 +2779,8 @@
                         "purpose":  "diff-review",
                         "useful":  "yes",
                         "note":  "fail-closed preflight, failure classes, cross-task endpoint health: F09-1..4 all verified",
-                        "when":  "2026-09-24T19:53:38+02:00"
+                        "when":  "2026-09-24T19:53:38+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  6,
@@ -2786,7 +2791,8 @@
                         "purpose":  "acceptance",
                         "useful":  "no",
                         "note":  "usage limit at the first request; no reply - led to retry_after parsing",
-                        "when":  "2026-09-24T19:53:39+02:00"
+                        "when":  "2026-09-24T19:53:39+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  7,
@@ -2797,7 +2803,8 @@
                         "purpose":  "acceptance",
                         "useful":  "yes",
                         "note":  "stand-in acceptance: nine prior ids checked against the code, F12-2 verified, F12-1 half adopted (auth none) half deferred (T5)",
-                        "when":  "2026-09-24T19:53:40+02:00"
+                        "when":  "2026-09-24T19:53:40+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  8,
@@ -2808,7 +2815,8 @@
                         "purpose":  "diff-review",
                         "useful":  "partly",
                         "note":  "prose again with the schema in the prompt; found F15-1..4 independently, no ids, 4.5M input tokens for one diff review",
-                        "when":  "2026-09-24T19:53:41+02:00"
+                        "when":  "2026-09-24T19:53:41+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  9,
@@ -2819,7 +2827,8 @@
                         "purpose":  "diff-review",
                         "useful":  "yes",
                         "note":  "structured HOLD with the DST, cross-zone, survivors and future-skew defects; all four adopted for wave 11",
-                        "when":  "2026-09-24T19:53:42+02:00"
+                        "when":  "2026-09-24T19:53:42+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  10,
@@ -2830,7 +2839,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "yes",
                         "note":  "first STRUCTURED reply on the z.ai route; precise diagnosis (contract buried mid-prompt, \u0027normal reply\u0027 sentence), retry gating and drift checks adopted",
-                        "when":  "2026-09-24T21:40:28+02:00"
+                        "when":  "2026-09-24T21:40:28+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  11,
@@ -2841,7 +2851,8 @@
                         "purpose":  "checkpoint",
                         "useful":  "yes",
                         "note":  "output-contract-first wording adopted; three minor findings restate known residuals (F18-1 adopted, F18-2/F18-3 already narrowed/deferred)",
-                        "when":  "2026-09-24T21:40:30+02:00"
+                        "when":  "2026-09-24T21:40:30+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  12,
@@ -2852,7 +2863,8 @@
                         "purpose":  "diff-review",
                         "useful":  "yes",
                         "note":  "first-turn JSON under the contract-first prompt on the z.ai route; three real blind spots in the repair path (drift check breadth, orphaned original on kill, prose heuristic), cheap remedies adopted",
-                        "when":  "2026-09-25T07:26:35+02:00"
+                        "when":  "2026-09-25T07:26:35+02:00",
+                        "telemetry_sent":  1791297265
                     },
                     {
                         "n":  13,
@@ -2863,7 +2875,8 @@
                         "purpose":  "diff-review",
                         "useful":  "yes",
                         "note":  "same three defects independently, with the kill-during-repair sequence traced through Test-PendingActive; HOLD adopted as wave 15",
-                        "when":  "2026-09-25T07:26:36+02:00"
+                        "when":  "2026-09-25T07:26:36+02:00",
+                        "telemetry_sent":  1791297265
                     }
                 ]
 }

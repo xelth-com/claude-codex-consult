@@ -903,7 +903,8 @@
                         "consult_when":  "2026-09-30T10:48:25+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T11:00:38+02:00"
+                        "when":  "2026-09-30T11:00:38+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  2,
@@ -921,7 +922,8 @@
                         "consult_when":  "2026-09-30T10:48:24+02:00",
                         "useful":  "yes",
                         "note":  "",
-                        "when":  "2026-09-30T11:00:39+02:00"
+                        "when":  "2026-09-30T11:00:39+02:00",
+                        "telemetry_sent":  1791297266
                     },
                     {
                         "n":  3,
@@ -939,7 +941,8 @@
                         "consult_when":  "2026-09-30T10:48:31+02:00",
                         "useful":  "partly",
                         "note":  "two findings, both generic; the concurrency point was raised more precisely by another reviewer",
-                        "when":  "2026-09-30T11:00:41+02:00"
+                        "when":  "2026-09-30T11:00:41+02:00",
+                        "telemetry_sent":  1791297266
                     }
                 ]
 }
