@@ -1662,7 +1662,7 @@
                      },
                      {
                          "id":  "F07-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -1721,6 +1721,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:42:56+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E5 two identities: route fingerprint with canonical base_url + env_key, plan key for quota; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -1729,7 +1738,7 @@
                      },
                      {
                          "id":  "F07-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -1784,6 +1793,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:42:59+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E4: ANTHROPIC_AUTH_TOKEN route; an x-api-key provider is out of scope until seen (recorded in README); harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -1792,7 +1810,7 @@
                      },
                      {
                          "id":  "F07-5",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -1846,6 +1864,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:02+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E6: Get-TelemetryVendor host-first, [1m] strip for every vendor, minimax row; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -1994,7 +2021,7 @@
                      },
                      {
                          "id":  "F08-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2044,6 +2071,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:05+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E6: host-first telemetry; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2052,7 +2088,7 @@
                      },
                      {
                          "id":  "F08-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2102,6 +2138,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:08+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E6: [1m] strip for every vendor; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2110,7 +2155,7 @@
                      },
                      {
                          "id":  "F08-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2164,6 +2209,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:11+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E1/E5/E7: distinct label per route, plan key for quota and the panel plan group; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2239,7 +2293,7 @@
                      },
                      {
                          "id":  "F08-5",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2293,6 +2347,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:13+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E8: the gate is measured in provider credits from the usage fields, not in model calls; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2301,7 +2364,7 @@
                      },
                      {
                          "id":  "F08-6",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -2351,6 +2414,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:16+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E4: endpoint.timeout_ms -\u003e API_TIMEOUT_MS, default 3000000; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2359,7 +2431,7 @@
                      },
                      {
                          "id":  "F09-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2404,6 +2476,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:19+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E6: host-first telemetry; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2412,7 +2493,7 @@
                      },
                      {
                          "id":  "F09-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2453,6 +2534,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:21+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E5: Get-CoordinatorMatch compares an endpoint entry like a codex entry; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2461,7 +2551,7 @@
                      },
                      {
                          "id":  "F09-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2507,6 +2597,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:24+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E3: apiKeySource is none on the route (P8/P10); the proof is init.model == pinned id; ANTHROPIC_API_KEY fails the turn; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2515,7 +2614,7 @@
                      },
                      {
                          "id":  "F09-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -2556,6 +2655,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:26+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E6: [1m] strip for every vendor; the open id pattern allows [1m]; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2564,7 +2672,7 @@
                      },
                      {
                          "id":  "F10-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2623,6 +2731,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:29+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E5: route identity + plan identity; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2631,7 +2748,7 @@
                      },
                      {
                          "id":  "F10-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2694,6 +2811,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:32+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E3/E4: the child env passes BASE_URL/AUTH_TOKEN/API_TIMEOUT_MS; init proof by model id; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2702,7 +2828,7 @@
                      },
                      {
                          "id":  "F10-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2761,6 +2887,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:34+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E6: telemetry host-first, minimax row, [1m] strip; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -2769,7 +2904,7 @@
                      },
                      {
                          "id":  "F10-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -2832,6 +2967,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T23:43:37+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wave 29b, commits ee03701/431ab31/03ff742 on wip/wave29-claude-engine: E7: engine-wide claude group kept + plan groups across engines; harness-claude 75/75 (ENDPOINT category)",
+                                             "evidence":  "",
+                                             "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
+                                             "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -3044,6 +3188,23 @@
                         "note":  "decision panel on handoff 06: concrete, cited the code lines, corrected the brief\u0027s premises (metering, Kimi endpoint, terms); decisions E1-E10 in handoff 12",
                         "when":  "2026-10-06T21:30:00+02:00",
                         "telemetry_sent":  1791315000
+                    },
+                    {
+                        "n":  8,
+                        "consult_id":  "e7911c60-ee92-4610-adad-bac319276b11",
+                        "lineage":  "ZAI-claude :: glm-5.3 [claude]",
+                        "provider":  "ZAI-claude",
+                        "model":  "glm-5.3",
+                        "engine":  "claude",
+                        "purpose":  "chore",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-06T23:44:38+02:00",
+                        "useful":  "yes",
+                        "note":  "first live consultation on the endpoint route (GLM through Claude Code headless): correct, 15 s",
+                        "when":  "2026-10-06T23:45:21+02:00",
+                        "telemetry_sent":  1791323121
                     }
                 ]
 }
