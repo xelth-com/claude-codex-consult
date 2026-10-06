@@ -2,7 +2,7 @@ Write in English.
 
 # Handoff 14 - claude: acceptance of wave 29 + 29b (the `claude` engine, subscription / API key / third-party endpoint)
 
-Date: 2026-10-06. Base commit: `bef3b08` (branch `wip/wave29-claude-engine`; the range under review is
+Date: 2026-10-06. Base commit: `d8fecd2` (branch `wip/wave29-claude-engine`; the range under review is
 `main..HEAD`, `-Range` on the command: 41 files, about 8.8k insertions, of which about 3k are `.collab`
 handoffs and ledgers - skip those files, they are the record of this task, not code).
 
@@ -32,6 +32,12 @@ had happened before today).
   endpoint, base_url, env_key, plan}`, fingerprint `944a94557723...`, `engine_run.model_resolved glm-5.3`,
   `api_key_source none`, `child_env_allowed` with ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, API_TIMEOUT_MS and
   no ANTHROPIC_API_KEY; the telemetry event delivered.
+
+- **After the first acceptance panel (replies 16 kimi, 17 dola-seed, 18 muse - all HOLD; astra out on the ChatGPT
+  limit, handoff 15 is her partial):** E11 (d8fecd2) closes their common blocker - with `auth: endpoint` the roster
+  validator and the `-Model` check refuse any Anthropic model id (the closed table, the four aliases, any
+  `claude-*` id), so the init-model equality is a billing proof on this route; harness-claude ENDPOINT 41/41,
+  harness-roster 119/119. F17-1/F17-2 superseded by F02-4/F04-1 and F04-2 (D5, D6); F18-2 wontfix (D4).
 
 ## CURRENT invariants claimed
 

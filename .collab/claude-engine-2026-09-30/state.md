@@ -17,7 +17,14 @@ harness-claude first run 55/55 after test fixes 55f5c0b).
   request). Telemetry host-first. Route identity per endpoint, plan identity for quota propagation.
 - Terms: z.ai, MiMo, Kimi Code documented; Alibaba not (interactive-only wording); MiniMax shape only.
 
+## Done (continued, 2026-10-07)
+- Wave 29b implemented (ee03701, 431ab31, 03ff742; harness-host fix 4c46cdf): all harnesses green, harness-claude 75/75; first live
+  endpoint consultation n=8 (handoff 13). Acceptance panel on handoff 14 (detach 81540537): astra OUT (ChatGPT limit, 00:01),
+  kimi/dola-seed/muse HOLD on one blocker -> E11 (d8fecd2): no Anthropic model id on the endpoint route. F16-1/F18-1
+  implemented; F17-1/F17-2 superseded; F18-2 wontfix (D4).
+
 ## Open
+- Astra alone on brief 14 (fork her thread) once her limit resets (retry after 01:01); her verdict decides the tag.
 - Wave 29b implementation (worker brief: handoff 12 + the recon map of 2026-10-06).
 - Wave 29c: the paired A/B run book (E8) - needs the operator's go (spends plan credits).
 - Ratings of n=4..7 given; the panel's findings F07..F10 to be moved by the worker's report.
