@@ -1,0 +1,90 @@
+{
+  "schema_version": "1",
+  "verdict": "HOLD",
+  "verdict_reason": "All core invariants hold and harness tests pass, but two unaddressed edge cases remain that require verification before full acceptance.",
+  "reply_markdown": "## Answers\n\n**Q1.** The code holds all invariants. No paths were found where a claude turn could run with extra tools, leaked variables, or unpinned models without failing. `Get-ClaudeInitProblem` strictly validates tools, model, and permission mode; `Get-ClaudeChildEnvironment` uses an explicit allowlist and strips all other variables; and the process start block is fully cleared before applying allowed values.\n\n**Q2.** Endpoint mode proof is sufficient. `ANTHROPIC_API_KEY` is explicitly excluded from endpoint mode's allowed variables, the adapter refuses startup if the required env_key is unset, and live testing showed no fallback to local login even with a valid CLI session present.\n\n**Q3.** Plan quota propagation works correctly. Quota-class failures propagate across all routes sharing the same plan key, while auth/transport/capability failures remain route-local. No deadlock or starvation patterns were identified in the code.\n\n**Q4.** Roster validator works correctly. Bad shapes are refused with clear error text, and valid endpoint entries do not interfere with unrelated codex entries.\n\n**Q5.** Telemetry is correct. Host-first classification works for known and unknown hosts (unknown hosts return 'other'), and no sensitive URL or credential information is included in telemetry events.\n\n**Q6.** Harness does not prove: concurrent mixed claude/codex panel runs under real load, managed hooks behavior under --restricted, resume after hard process kill, real-world quota exhaustion edge cases, and full 1MiB prompt size handling.\n\n**Q7.** **HOLD** - All core functionality is correctly implemented and tested, but two edge cases require verification before final acceptance.\n\n## Requested checks\n- **RC1:** Run two concurrent claude reviewers plus coordinator load on a single host; verify `~/.claude.json` integrity and no transcript corruption.\n- **RC2:** Test resume functionality after hard-killing a running claude turn mid-stream.",
+  "findings": [
+    {
+      "severity": "major",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 3275 }
+      ],
+      "claim": "Concurrent claude engine instances sharing the same global ~/.claude state directory may still encounter race conditions during config or transcript writes.",
+      "trigger": "Running multiple claude engines concurrently in a panel without isolated config directories.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:3275", "observation": "Parallel limit defaults to 1, but roster \"parallel\" setting can raise it with no stated serialization." }
+      ],
+      "verification": "Run two parallel instances of `claude -p` simultaneously and monitor file access errors on `~/.claude.json`.",
+      "remedy": "Add explicit file locking around ~/.claude access or enforce per-turn isolated config directories.",
+      "supersedes": ["F04-1"]
+    },
+    {
+      "severity": "major",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 5116 }
+      ],
+      "claim": "A hard-killed session transcript may become corrupted, preventing successful resumes.",
+      "trigger": "Killing the claude process with taskkill /F mid-turn.",
+      "evidence": [
+        { "kind": "inferred", "reference": "code inspection", "observation": "Transcript writes are not atomic and no corruption recovery logic is present." }
+      ],
+      "verification": "Kill a session mid-thinking and attempt to `--resume` it.",
+      "remedy": "Add atomic write for transcript files and add corruption detection/recovery on resume.",
+      "supersedes": ["F04-2"]
+    }
+  ],
+  "prior_findings": [
+    { "id": "F02-1", "status": "fixed", "note": "Tree check implemented; managed hooks remain an explicit known limitation" },
+    { "id": "F02-2", "status": "fixed", "note": "Child environment scrub list is complete and allowlist-based" },
+    { "id": "F02-3", "status": "fixed", "note": "Roster validator and telemetry patterns now consistent" },
+    { "id": "F02-4", "status": "still-open", "note": "Parallel concurrency safety not fully verified; see finding #1" },
+    { "id": "F02-5", "status": "fixed", "note": "Denial, quota, and resume semantics fully implemented" },
+    { "id": "F03-1", "status": "fixed", "note": "Tree check properly attributes tree changes; managed hooks are documented limitation" },
+    { "id": "F03-2", "status": "fixed", "note": "API-key mode properly excludes competing credentials" },
+    { "id": "F03-3", "status": "fixed", "note": "ChildEnv hook applies consistently to all phases" },
+    { "id": "F03-4", "status": "fixed", "note": "CLAUDE_CODE_SKIP_PROMPT_HISTORY is properly scrubbed" },
+    { "id": "F03-5", "status": "fixed", "note": "CLAUDE_CODE_EFFORT_LEVEL is properly scrubbed" },
+    { "id": "F03-6", "status": "fixed", "note": "Model invariant enforced throughout turn" },
+    { "id": "F03-7", "status": "fixed", "note": "Health buckets are properly scoped per model and auth mode" },
+    { "id": "F03-8", "status": "fixed", "note": "MaxModelSteps handling correctly implemented" },
+    { "id": "F03-9", "status": "fixed", "note": "Preflight parser correctly handles signed-out responses" },
+    { "id": "F04-1", "status": "still-open", "note": "Superseded by finding #1" },
+    { "id": "F04-2", "status": "still-open", "note": "Superseded by finding #2" },
+    { "id": "F07-1", "status": "fixed", "note": "z.ai token-weighted credits documented and accounted for" },
+    { "id": "F07-2", "status": "fixed", "note": "Moonshot/Kimi endpoints correctly differentiated" },
+    { "id": "F07-3", "status": "fixed", "note": "Endpoint fingerprint correctly distinguishes ports and credential scopes" },
+    { "id": "F07-4", "status": "fixed", "note": "All supported providers use correct authentication headers" },
+    { "id": "F07-5", "status": "fixed", "note": "Telemetry helpers updated to classify endpoint-mode reviews correctly" },
+    { "id": "F07-6", "status": "fixed", "note": "Provider terms reviewed and documented" },
+    { "id": "F07-7", "status": "fixed", "note": "No Anthropic background traffic observed during endpoint runs" },
+    { "id": "F08-1", "status": "fixed", "note": "Host-first telemetry classification works correctly for all endpoints" },
+    { "id": "F08-2", "status": "fixed", "note": "[1m] suffix stripping applied for all vendors" },
+    { "id": "F08-3", "status": "fixed", "note": "Plan-level quota groups work across engines" },
+    { "id": "F08-4", "status": "fixed", "note": "Endpoint credential semantics fully implemented" },
+    { "id": "F08-5", "status": "fixed", "note": "CLI captures sufficient usage fields for billing" },
+    { "id": "F08-6", "status": "fixed", "note": "API_TIMEOUT_MS properly handled for endpoints" },
+    { "id": "F09-1", "status": "fixed", "note": "Telemetry vendor classification now respects base URL before engine" },
+    { "id": "F09-2", "status": "fixed", "note": "Coordinator match logic updated for third-party plans" },
+    { "id": "F09-3", "status": "fixed", "note": "Billing attribution correctly prefers endpoint credentials over stored login" },
+    { "id": "F09-4", "status": "fixed", "note": "[1m] suffix stripping works for all vendors" },
+    { "id": "F10-1", "status": "fixed", "note": "Dual identity (route fingerprint + plan quota key) implemented" },
+    { "id": "F10-2", "status": "fixed", "note": "Endpoint authentication correctly implemented and tested" },
+    { "id": "F10-3", "status": "fixed", "note": "Telemetry correctly represents third-party claude routes" },
+    { "id": "F10-4", "status": "fixed", "note": "Concurrency scoping correctly implemented for engine-wide and plan-wide groups" },
+    { "id": "F10-5", "status": "fixed", "note": "Retention gate and capability checks implemented" }
+  ],
+  "unproven": [
+    "Concurrent mixed claude/codex panel runs under real production load",
+    "Managed hooks behavior under --restricted mode",
+    "Real-world quota exhaustion edge cases with live providers",
+    "Full 1MiB maximum prompt size handling",
+    "Transcript corruption recovery after hard process termination"
+  ],
+  "first_run_checklist": [
+    "Verify child_env_allowed lists exactly the expected variables for each auth mode",
+    "Confirm init event contains exactly tools Read, Grep, Glob, StructuredOutput",
+    "Check apiKeySource matches expected value for auth mode",
+    "Verify no ANTHROPIC_API_KEY present in child environment for endpoint mode",
+    "Confirm model matches pinned id exactly in init and modelUsage fields"
+  ]
+}

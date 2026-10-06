@@ -92,6 +92,30 @@
                                                      "note":  "Strict tree failure and WriteDisabled=false replace init-only attribution; the harness simulates a write but not a real managed hook.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Tree check implemented; managed hooks remain an explicit known limitation",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Managed-hooks write path still depends on --restricted disabling enterprise policy; tree check fail-closes but attribution wording unchanged.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "WriteDisabled stays false; the strict tree check fails a changed tree; SandboxRecord/TreeNote disclose managed hooks honestly.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -186,6 +210,30 @@
                                                      "note":  "The child allowlist removes inherited routing and override variables and is checked through the fake CLI.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Child environment scrub list is complete and allowlist-based",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Child env is now an allow-list; ANTHROPIC_*/CLAUDE_* absent except per-auth additions.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Allow list replaces the scrub list; every unnamed ANTHROPIC_*/CLAUDE_* variable is absent; harness HYGIENE asserts it for the turn and the auth child.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -275,6 +323,30 @@
                                                      "note":  "Roster and telemetry share one model table with [1m] normalization and drift tests.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Roster validator and telemetry patterns now consistent",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Closed model table + [1m] strip + host-first telemetry implemented.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "One table ($script:ClaudeModels) serves validator and telemetry; [1m] stripped before every comparison.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -364,6 +436,30 @@
                                                      "note":  "Default scheduling is serial, but roster parallel can recreate shared ~/.claude concurrency and real state integrity is untested.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Parallel concurrency safety not fully verified; see finding #1",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Engine-wide claude scheduling group in panel plan; live two-child race still unproven.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "ParallelScope engine serializes claude panel members; P7 observed two concurrent runs succeeding; the cross-process residual lives on as F17-1.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -453,6 +549,30 @@
                                                      "note":  "Denial, quota, subtype, stdin, and resume behavior are defined and tested defensively; real quota payloads remain external.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Denial, quota, and resume semantics fully implemented",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Denial/quota/resume taxonomy now defined in turn outcome.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "P1/P6 probed denials and resume; DeniedEmpty, quota classes and minted-id resume implemented in Get-ClaudeTurnOutcome.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -556,6 +676,30 @@
                                                      "note":  "Tree changes fail the run and are not attributed from init evidence; managed-hook execution remains documented rather than tested.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Tree check properly attributes tree changes; managed hooks are documented limitation",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Same root as F02-1: init tool list cannot attribute tree writes under managed hooks.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D1: the init event proves tools, the tree check (not WriteDisabled) carries the attribution.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -654,6 +798,30 @@
                                                      "note":  "The allowlist excludes inherited gateway routing and competing Anthropic credentials.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "API-key mode properly excludes competing credentials",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Allow-list plus apiProvider firstParty gate implemented.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Allow list excludes gateway/base-URL variables for api-key; the preflight requires apiProvider firstParty.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -761,6 +929,30 @@
                                                      "note":  "Auth preflight and turn launch share one child-environment builder.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "ChildEnv hook applies consistently to all phases",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "One builder serves preflight and turns.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "One builder (Get-ClaudeChildEnvironment) serves the preflight, the version probe and every turn.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -863,6 +1055,30 @@
                                                      "note":  "CLAUDE_CODE_SKIP_PROMPT_HISTORY and other CLAUDE_CODE variables are removed.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLAUDE_CODE_SKIP_PROMPT_HISTORY is properly scrubbed",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Allow-list drops persistence/model overrides.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLAUDE_CODE_SKIP_PROMPT_HISTORY is not on the allow list; harness HYGIENE checks its absence.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -965,6 +1181,30 @@
                                                      "note":  "CLAUDE_CODE_EFFORT_LEVEL is removed and repair effort is explicit.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLAUDE_CODE_EFFORT_LEVEL is properly scrubbed",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Allow-list drops inherited effort override.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLAUDE_CODE_EFFORT_LEVEL is absent from the child; the repair turn sends --effort low unopposed.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -1068,6 +1308,30 @@
                                                      "note":  "Init and dominant modelUsage drift fail; a secondary model is still recorded and warned rather than failed.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Model invariant enforced throughout turn",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Every init model plus main modelUsage checked; assistant-model remainder is new finding #2.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Per-turn proof: init model plus main modelUsage key must equal the pinned id, else class capability.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -1162,6 +1426,30 @@
                                                      "note":  "Health is separated by auth mode and model family, though live quota replay is not tested.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Health buckets are properly scoped per model and auth mode",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Per-route fingerprint plus plan-level quota group implemented.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Health fingerprint is cc-engine-v1|claude|\u003cauth\u003e|\u003cmodel family\u003e - an Opus limit never marks Sonnet or the API key out.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -1256,6 +1544,30 @@
                                                      "note":  "MaxModelSteps maps to --max-turns and the real CLI probe accepted it.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "MaxModelSteps handling correctly implemented",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "--max-turns mapping implemented.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "P2: --max-turns works; -MaxModelSteps maps to it.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -1350,6 +1662,30 @@
                                                      "note":  "Valid loggedIn=false JSON is treated as signed out before the exit code.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Preflight parser correctly handles signed-out responses",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "JSON read before exit code; loggedIn false means missing.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-ClaudeSignIn reads the JSON before the exit code; loggedIn false means out whatever the exit.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -1375,7 +1711,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F17-1"
                                            ],
                          "source":  {
                                         "consult":  3,
@@ -1436,6 +1772,30 @@
                                                      "note":  "No serialization or isolation of shared ~/.claude state exists when concurrency is raised.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Superseded by finding #1",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Engine-wide serialization group; live parallel integrity still unproven.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Same as F02-4: in-panel serialization plus P7; cross-process remains (F17-1).",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -1461,7 +1821,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F17-2"
                                            ],
                          "source":  {
                                         "consult":  3,
@@ -1522,6 +1882,30 @@
                                                      "note":  "One real kill/resume succeeded, but arbitrary hard-kill transcript corruption is neither prevented nor exhaustively tested.",
                                                      "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                                      "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Superseded by finding #2",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Timeout kill resumes minted id; hard-kill corruption path handled as failure.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "P6: taskkill /T /F mid-turn resumed with the same session id and a usable reply.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                                  }
                                              ]
                      },
@@ -1589,7 +1973,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "z.ai token-weighted credits documented and accounted for",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Token-weighted billing corrections recorded in handoff 12.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Corrected to token-weighted credits; P13 applies the published formula.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -1657,7 +2064,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Moonshot/Kimi endpoints correctly differentiated",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Kimi endpoint corrected to api.kimi.ai/coding/ per brief.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Kimi Code endpoint corrected to api.kimi.ai/coding/ in docs and vendor table.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -1733,7 +2163,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint fingerprint correctly distinguishes ports and credential scopes",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Canonical base_url + env-key fingerprint plus plan key implemented.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The route fingerprint\u0027s canonical form keeps the explicit port and the env_key name (credential scope).",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -1805,7 +2258,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "All supported providers use correct authentication headers",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "AUTH_TOKEN-only endpoint contract implemented; per-provider live auth still unproven.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "P8/P10/P11: AUTH_TOKEN route works against z.ai and MiMo; a wrong token fails closed (401, class auth).",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -1876,7 +2352,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Telemetry helpers updated to classify endpoint-mode reviews correctly",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Host-first vendor plus per-vendor [1m] handling implemented.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Host-first telemetry classification; harness E6 covers both legacy modes, endpoint hosts, unknown hosts and [1m].",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -1944,7 +2443,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Provider terms reviewed and documented",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Plan-terms corrections recorded; operator-scoped acceptance remains.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E9: z.ai, MiMo, Kimi documented with the terms caveat; Alibaba excluded and noted in TECH_DEBT.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2016,7 +2538,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "No Anthropic background traffic observed during endpoint runs",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Background-traffic isolation still needs destination-only network logs; code cannot prove it.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Rescoped by E1/E4 (telemetry/routing variables never reach the child, DISABLE_AUTOUPDATER=1); a destination-level network capture was never done - listed as unproven.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2083,7 +2628,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Host-first telemetry classification works correctly for all endpoints",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Host-first classification returns endpoint vendor before engine fallback.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-TelemetryVendor is host-first for every engine.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2150,7 +2718,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "[1m] suffix stripping applied for all vendors",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "[1m] stripped for every vendor.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The [1m] strip applies to every vendor\u0027s model token.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2221,7 +2812,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Plan-level quota groups work across engines",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Route fingerprint plus shared plan key implemented.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Route labels plus the plan key: distinct fingerprints per route, shared quota per plan; harness E5/E7.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2267,7 +2881,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F18-1"
                                            ],
                          "source":  {
                                         "consult":  5,
@@ -2288,7 +2902,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint credential semantics fully implemented",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Replaced by finding #1 (token-source proof still ambiguous).",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Superseded by F18-1 in the ledger; confirmed here in corrected form as finding #1.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2359,7 +2996,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLI captures sufficient usage fields for billing",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Billed-unit caveat documented; A/B deferred to wave 29c.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Token-weighted metering makes CLI usage fields sufficient; P13 computed credits from them.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2426,7 +3086,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "API_TIMEOUT_MS properly handled for endpoints",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "API_TIMEOUT_MS in endpoint child env with bounds.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "API_TIMEOUT_MS (endpoint.timeout_ms) is set in the endpoint child environment.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2488,7 +3171,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Telemetry vendor classification now respects base URL before engine",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Host-first reviewer class implemented.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Host-first classification returns zai for api.z.ai under engine claude.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2546,7 +3252,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Coordinator match logic updated for third-party plans",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint entries compare as codex entries (label + model).",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint entries compare as codex entries (label and model); the anthropic hardcoding applies to subscription/api-key only; harness cm1-cm4.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2579,7 +3308,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F18-1"
                                            ],
                          "source":  {
                                         "consult":  6,
@@ -2609,7 +3338,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Billing attribution correctly prefers endpoint credentials over stored login",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Replaced by finding #1.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Same substance as F18-1 / finding #1: apiKeySource none is ambiguous for subscription-servable ids.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2667,7 +3419,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "[1m] suffix stripping works for all vendors",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "[1m] stripped for vendor zai; open endpoint pattern documents suffix.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "glm-5.3[1m] classifies as zai/glm-5.3 (strip for every vendor).",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2743,7 +3518,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Dual identity (route fingerprint + plan quota key) implemented",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Distinct route fingerprints with shared plan quota key.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Two identities implemented: route fingerprint (base_url + env_key) and the plan quota key.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2793,7 +3591,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F18-1"
                                            ],
                          "source":  {
                                         "consult":  7,
@@ -2823,7 +3621,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint authentication correctly implemented and tested",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Replaced by finding #1.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Same substance as F18-1 / finding #1; the unset-token launch refusal is implemented, the same-model fallback corner is not.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2899,7 +3720,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Telemetry correctly represents third-party claude routes",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Host-first table with zai/MiMo/Moonshot/Alibaba/MiniMax rows and per-vendor [1m].",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Vendor table covers z.ai, MiMo, Moonshot, Alibaba, MiniMax; harness E6.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -2979,7 +3823,30 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Concurrency scoping correctly implemented for engine-wide and plan-wide groups",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Engine group plus plan group scopes implemented.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "ParallelScope engine (claude-wide group) plus plan:\u003cslug\u003e group keys across engines.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
                                              ]
                      },
                      {
@@ -3052,6 +3919,309 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-07T00:01:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Retention gate and capability checks implemented",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  12,
+                                                     "when":  "2026-10-07T00:02:36+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Versioned smoke + paired-trial gate; full power caveat accepted as 29c.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 },
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-07T00:26:43+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Capability smoke ran live (P8/P10/P13, ledger n=8); the full paired A/B is the E8 gate of wave 29c - carried in unproven.",
+                                                     "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                                     "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F16-1",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5066
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4424
+                                           }
+                                       ],
+                         "claim":  "Endpoint-mode billing proof has a hole for subscription-servable model ids: the endpoint branch of Get-ClaudeInitProblem rejects only apiKeySource ANTHROPIC_API_KEY, and the open endpoint id pattern permits claude-* ids, so an endpoint entry pinning a model the claude.ai subscription can serve has no per-turn proof of non-use - a silent same-model fallback to the local login would be indistinguishable in the ledger. For third-party-only ids (glm-5.3, mimo-v2.6-pro, k3) the init-model equality closes this, and P11 shows no fallback when the token is set; the claim is narrower than F18-1\u0027s.",
+                         "trigger":  "A roster endpoint entry whose model is a claude-* id (or alias shape) runs on a machine with an active claude.ai login.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5056-5082",
+                                              "observation":  "Endpoint branch returns after rejecting only apiKeySource ANTHROPIC_API_KEY; any other value (including \u0027none\u0027, also the subscription\u0027s value) passes."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4417-4435",
+                                              "observation":  "Get-ClaudeModelProblem -Auth endpoint accepts any id matching ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(\\[1m\\])?$ - including claude-sonnet-5-5."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/12-claude-claude-engine-endpoint-decisions.md",
+                                              "observation":  "P11: a wrong token yields 401 with no fallback; P8: apiKeySource none with a live login present - the observed token path is proven, the same-model fallback is not."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "README.md:2888",
+                                              "observation":  "The documented billing proof (\u0027init.model equal to the pinned id - a subscription turn cannot serve it\u0027) holds only when the pinned id is not subscription-servable."
+                                          }
+                                      ],
+                         "verification":  "Add the validator refusal, then a harness ENDPOINT check that an endpoint entry with model claude-sonnet-5-5 (or opus) is refused with a clear text; alternatively run RC1 and pin the observed token-source value as the only accepted one.",
+                         "remedy":  "In Get-ClaudeModelProblem\u0027s endpoint branch, refuse ids that match the Claude model table or alias shape (anything Test-ClaudeModelMatch would accept for the subscription), with a message naming the reason (billing proof); one line plus one harness check.",
+                         "supersedes":  [
+                                            "F18-1"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  10,
+                                        "reply":  "handoffs/16-codex-wave29-acceptance-kimi.md",
+                                        "thread":  "01a11338-b4fd-75f0-98ea-5927a93571c5",
+                                        "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                        "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T00:26:43+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                             "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F17-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3275
+                                           }
+                                       ],
+                         "claim":  "Concurrent claude engine instances sharing the same global ~/.claude state directory may still encounter race conditions during config or transcript writes.",
+                         "trigger":  "Running multiple claude engines concurrently in a panel without isolated config directories.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:3275",
+                                              "observation":  "Parallel limit defaults to 1, but roster \"parallel\" setting can raise it with no stated serialization."
+                                          }
+                                      ],
+                         "verification":  "Run two parallel instances of `claude -p` simultaneously and monitor file access errors on `~/.claude.json`.",
+                         "remedy":  "Add explicit file locking around ~/.claude access or enforce per-turn isolated config directories.",
+                         "supersedes":  [
+                                            "F04-1"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/17-codex-wave29-acceptance-byteplus.md",
+                                        "thread":  "01a11338-b47f-7511-b0da-604ba06cd347",
+                                        "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                        "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T00:01:06+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                             "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F17-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5116
+                                           }
+                                       ],
+                         "claim":  "A hard-killed session transcript may become corrupted, preventing successful resumes.",
+                         "trigger":  "Killing the claude process with taskkill /F mid-turn.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "code inspection",
+                                              "observation":  "Transcript writes are not atomic and no corruption recovery logic is present."
+                                          }
+                                      ],
+                         "verification":  "Kill a session mid-thinking and attempt to `--resume` it.",
+                         "remedy":  "Add atomic write for transcript files and add corruption detection/recovery on resume.",
+                         "supersedes":  [
+                                            "F04-2"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/17-codex-wave29-acceptance-byteplus.md",
+                                        "thread":  "01a11338-b47f-7511-b0da-604ba06cd347",
+                                        "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                        "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T00:01:06+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                             "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F18-1",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5065
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5126
+                                           }
+                                       ],
+                         "claim":  "Endpoint-mode turns cannot prove they did not bill the local subscription: init apiKeySource \u0027none\u0027 is the expected value on the endpoint route (P8/P10) and also the subscription\u0027s value, and the adapter explicitly records it raw and fails only on ANTHROPIC_API_KEY — so a silent same-model fallback to the signed-in login is indistinguishable in the ledger.",
+                         "trigger":  "A machine with an active claude.ai login runs an endpoint roster entry and the CLI silently prefers the login while serving the same model id.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5065-5071",
+                                              "observation":  "Endpoint branch returns early: only an init apiKeySource of ANTHROPIC_API_KEY fails the turn; any other source (including \u0027none\u0027) passes, with the comment that \u0027none\u0027 on this route \u0027proves nothing\u0027."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5126-5128,5243-5250",
+                                              "observation":  "Turn-outcome model proof for endpoint uses exact equality against the pinned id, so a fallback serving the same model id passes the model check too."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4641-4646",
+                                              "observation":  "Endpoint credential check is local-only (variable set + URL parses); no per-turn network or header proof exists. The live smoke (ledger n=8) shows apiKeySource none with the token env present, which is consistent with both routes."
+                                          }
+                                      ],
+                         "verification":  "Run RC1 and require the recorder to show the request carried the endpoint token (never the OAuth token) with the observed apiKeySource value.",
+                         "remedy":  "Before acceptance, run one local Anthropic-compatible recorder proof per CLI version (token + base_url alongside a signed-in config; capture the Authorization header and init apiKeySource), and either fail closed on the ambiguous source or require an endpoint model id that the subscription cannot serve. Record the observed source value as the only accepted one.",
+                         "supersedes":  [
+                                            "F08-4",
+                                            "F09-3",
+                                            "F10-2"
+                                        ],
+                         "superseded_by":  [
+                                               "F16-1"
+                                           ],
+                         "source":  {
+                                        "consult":  12,
+                                        "reply":  "handoffs/18-muse-wave29-acceptance-meta.md",
+                                        "thread":  "01a11339-1391-7e00-bbab-5e6b9bf4b383",
+                                        "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                        "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T00:02:36+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                             "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F18-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5259
+                                           }
+                                       ],
+                         "claim":  "A turn that does auxiliary work under a different model can still be accepted as usable: models appearing in assistant events or as non-main modelUsage keys are collected into OtherModels and demoted to a warning, while only init models and the main modelUsage key fail the turn.",
+                         "trigger":  "A turn whose assistant events or secondary modelUsage keys name a model outside the pinned id/family but whose init and main model match.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5243-5259,5272-5279",
+                                              "observation":  "Init-model drift over all init models and main-model mismatch both fail as capability, but the combined list of remaining modelUsage keys plus assistant models is assigned to OtherModels and only appended to Warnings before Ok=true."
+                                          }
+                                      ],
+                         "verification":  "Feed the adapter a stream with matching init/main model plus an assistant message.model of another family and require a capability failure (RC2-adjacent unit check).",
+                         "remedy":  "Fail the turn (class capability) on any model outside the pinned match (exact for endpoint, family for subscription/api-key), or document the helper-model allowlist with evidence that helpers cannot bill or act outside the pinned route.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  12,
+                                        "reply":  "handoffs/18-muse-wave29-acceptance-meta.md",
+                                        "thread":  "01a11339-1391-7e00-bbab-5e6b9bf4b383",
+                                        "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                        "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T00:02:36+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bef3b083a39eaafd8c1b6646a5af46b78900c845",
+                                             "tree_sha256":  "c34be8e6886f1a9fff95e3e25af63ab39e148cd8ec09ac286b1a7d96c25b8231"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -3205,6 +4375,60 @@
                         "note":  "first live consultation on the endpoint route (GLM through Claude Code headless): correct, 15 s",
                         "when":  "2026-10-06T23:45:21+02:00",
                         "telemetry_sent":  1791323121
+                    },
+                    {
+                        "n":  10,
+                        "consult_id":  "3baee918-8ab5-428a-8fbd-61e503bb0c72",
+                        "lineage":  "kimi :: k3",
+                        "provider":  "kimi",
+                        "model":  "k3",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+                                       "engines",
+                                       "roster"
+                                   ],
+                        "consult_when":  "2026-10-06T23:57:22+02:00",
+                        "useful":  "yes",
+                        "note":  "acceptance panel on handoff 14: HOLD on the endpoint billing proof (E11) and live-check requests; precise, cited",
+                        "when":  "2026-10-07T00:27:46+02:00",
+                        "telemetry_sent":  1791325667
+                    },
+                    {
+                        "n":  11,
+                        "consult_id":  "f64695f6-56f4-4586-adbb-b5d22b933d52",
+                        "lineage":  "byteplus :: dola-seed-2.0-pro",
+                        "provider":  "byteplus",
+                        "model":  "dola-seed-2.0-pro",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+                                       "engines",
+                                       "roster"
+                                   ],
+                        "consult_when":  "2026-10-06T23:57:22+02:00",
+                        "useful":  "yes",
+                        "note":  "acceptance panel on handoff 14: HOLD on the endpoint billing proof (E11) and live-check requests; precise, cited",
+                        "when":  "2026-10-07T00:27:52+02:00",
+                        "telemetry_sent":  1791325672
+                    },
+                    {
+                        "n":  12,
+                        "consult_id":  "07f1a083-f57b-4585-be49-1554cef5282f",
+                        "lineage":  "meta :: muse-spark-1.3-contributor [muse]",
+                        "provider":  "meta",
+                        "model":  "muse-spark-1.3-contributor",
+                        "engine":  "muse",
+                        "purpose":  "acceptance",
+                        "topics":  [
+                                       "engines",
+                                       "roster"
+                                   ],
+                        "consult_when":  "2026-10-06T23:57:23+02:00",
+                        "useful":  "yes",
+                        "note":  "acceptance panel on handoff 14: HOLD on the endpoint billing proof (E11) and live-check requests; precise, cited",
+                        "when":  "2026-10-07T00:27:58+02:00",
+                        "telemetry_sent":  1791325679
                     }
                 ]
 }
