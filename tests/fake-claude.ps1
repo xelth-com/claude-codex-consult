@@ -232,7 +232,10 @@ if ($env:FAKE_CLAUDE_NORESULT -ne '1') {
     else { $mu[$initModel] = [pscustomobject]@{ inputTokens = 12; outputTokens = 480; cacheReadInputTokens = 9000; cacheCreationInputTokens = 3000; costUSD = 0.05 } }
     $usage = if ($resume) { [pscustomobject]@{ input_tokens = 8; cache_creation_input_tokens = 500; cache_read_input_tokens = 30000; output_tokens = 300 } } else { [pscustomobject]@{ input_tokens = 12; cache_creation_input_tokens = 3000; cache_read_input_tokens = 9000; output_tokens = 480 } }
     $res = [ordered]@{ type = 'result'; subtype = $subtype; is_error = $isError; duration_ms = 3100; duration_api_ms = 2900; num_turns = 2; result = $resultText; session_id = $resultId; total_cost_usd = 0.0512; usage = $usage; modelUsage = [pscustomobject]$mu }
-    $res['permission_denials'] = $(if ($denied) { [object[]]@([pscustomobject]@{ tool_name = 'Read'; tool_use_id = 'toolu_denied'; tool_input = [pscustomobject]@{ file_path = 'C:\outside\secret.txt' } }) } else { [object[]]@() })
+    # (assigned directly: $(...) would unroll an empty array, and Windows PowerShell 5.1 then writes
+    # {} where the real CLI writes [])
+    if ($denied) { $res['permission_denials'] = [object[]]@([pscustomobject]@{ tool_name = 'Read'; tool_use_id = 'toolu_denied'; tool_input = [pscustomobject]@{ file_path = 'C:\outside\secret.txt' } }) }
+    else { $res['permission_denials'] = [object[]]@() }
     if ($null -ne $structured) { $res['structured_output'] = $structured }
     $res['stop_reason'] = 'end_turn'
     $res['uuid'] = [guid]::NewGuid().ToString()
