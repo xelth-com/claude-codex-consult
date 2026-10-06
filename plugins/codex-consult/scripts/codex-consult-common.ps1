@@ -10734,7 +10734,7 @@ function Get-TelemetryModelToken {
 }
 
 # (R24) The reviewer of a ledger entry as an event may carry it - ONE code path for the consultation
-# and the rating event: { engine (codex | agy | muse | other); provider (the vendor class of
+# and the rating event: { engine (codex | agy | muse | claude | other); provider (the vendor class of
 # Get-TelemetryVendor, else other); model (Get-TelemetryModelToken: an entry of that vendor's closed
 # list, other, or unknown without a model) }. The roster label is never read.
 function Get-TelemetryReviewerClass {
