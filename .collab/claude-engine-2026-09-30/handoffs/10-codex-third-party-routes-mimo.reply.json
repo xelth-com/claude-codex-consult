@@ -1,0 +1,301 @@
+{
+  "schema_version": "1",
+  "verdict": "ADVISE",
+  "verdict_reason": "Adopt alternative 2 only after route versus plan identity, endpoint authentication proof, telemetry, and cross-route concurrency contracts are defined and smoke-tested.",
+  "reply_markdown": "## Decision\n1. **Alternative 2 with an explicit endpoint object** - deciding factor: one tested Claude adapter and native schema with an auditable route. Failure mode: Claude assumptions leak into endpoint mode.\n2. **Alternative 2 referencing `[model_providers]` only for `env_key`** - deciding factor: less duplication. Failure mode: wrong OpenAI URL or wire derivation and hidden config coupling.\n3. **Alternative 3 `claude-compat`** - deciding factor: clean separation. Failure mode: duplicated adapter, caps, hooks, and telemetry drift.\n4. **Alternative 1 keep D10** - deciding factor: zero bridge risk. Failure mode: loses native-schema and cost advantages.\n5. **Alternative 4 outside the roster** - deciding factor: no code change. Failure mode: no ledger, panel, telemetry, or A/B evidence.\n\n**Q1.** Use alternative 2 with explicit `base_url`, `env_key`, and `plan_key` under `engine: claude`, `auth: endpoint`; never derive the Anthropic URL from the OpenAI-compatible table. Keep route identity `cc-engine-v1|claude|endpoint|base_url=<canonical>|wire_api=anthropic|credential=<env-key name>` for lineage and parenting, separate from quota identity `cc-plan-v1|<plan_key>`. Require distinct provider labels per route.\n\n**Q2.** Send `--model <provider-id>` directly. Do not pass `ANTHROPIC_MODEL` or `ANTHROPIC_DEFAULT_*_MODEL`. The straight variant should report the exact ID in `init.model` and dominant `modelUsage`; compare after stripping only terminal `[1m]`, while retaining the raw suffix. The alias variant is provider-dependent and may report `sonnet` or the mapped ID; capture this before allowing it. Reject alias mapping initially; if retained, require an explicit alias-to-ID map and compare against the mapped ID, never Claude family matching.\n\n**Q3.** Preflight locally: credential variable present plus launcher/version checks. Do not spend a live request because z.ai meters prompts and MiMo charges tokens. Propagate auth and quota failures through `plan_key` across codex and claude routes; keep transport and capability failures route-scoped.\n\n**Q4.** Pass exactly `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, and fixed or bounded `API_TIMEOUT_MS`. Keep `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_*_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`, custom headers, Bedrock/Vertex/Foundry variables, and other `CLAUDE_*` variables absent except `CLAUDE_CONFIG_DIR`. Every init must name the captured AUTH_TOKEN source; `none`, `claude.ai`, OAuth, or `ANTHROPIC_API_KEY` fails closed.\n\n**Q5.** Classify endpoint entries by base_url host first, then engine fallback. Keep raw ID, resolved ID, and endpoint in the ledger but never send the URL. Current gaps: the claude shortcut forces `anthropic`, MiniMax has no telemetry class, and `[1m]` normalization differs by vendor.\n\n**Q6.** Run paired, order-randomized identical briefs. Use 30 paired runs per provider as a pilot and about 100 pairs before claiming quality parity. z.ai gate: at least 20% fewer prompts per usable verdict, uncached input at most 110%, first-turn schema-valid rate no worse than 5 points, wall median at most 120%, and no blocker or major quality regression. MiMo gate: at least 20% lower credits using `300*uncached + 2.5*cached`, cache creation priced conservatively, cache-hit rate +10 points, and the same quality and wall gates.\n\n**Q7.** Keep claude children serialized engine-wide while sharing `~/.claude`; per-endpoint parallelism requires isolated `CLAUDE_CONFIG_DIR` plus race testing. Apply machine-wide parallel and quota limits across codex and claude by `plan_key`; current route fingerprints differ, so the limit is not shared.\n\n**Q8.** Additional risks: provider terms and data handling for automated review, CLI flag drift, mutable aliases, `[1m]` pricing or quota differences, endpoint URL canonicalization, provider-specific usage and rate-limit fields, schema-validity weaker than `structured_output`, and transcript corruption after arbitrary hard kills. Add capability smoke tests and a dated terms attestation before roster enablement.\n\n## Requested checks\n- **RC1** (finding #2), repository root, workspace-write, 20 minutes: run the fake-claude environment/init matrix for endpoint mode with `ANTHROPIC_AUTH_TOKEN`; observe the exact accepted `apiKeySource`, expected environment names, and absence of secrets, `ANTHROPIC_API_KEY`, and model overrides.\n- **RC2** (finding #1, finding #4), repository root, workspace-write, 45 minutes: run one codex ZAI and one claude z.ai member sharing `plan_key`, reject quota on one route, and observe shared health and concurrency while lineage remains separate.\n- **RC3** (finding #3, finding #5), repository root, workspace-write plus provider quota, 60 minutes: run one disposable Claude Code capability smoke per endpoint and capture flag acceptance, schema validation, model reporting, usage fields, and rate-limit shape.",
+  "findings": [
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 74
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2573
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5861
+        }
+      ],
+      "claim": "Endpoint mode needs two identities: a route fingerprint containing canonical base_url and credential scope for lineage, and a separate plan or quota key shared by codex and claude routes using the same plan. The current engine fingerprint omits endpoint identity and health is keyed only by provider_fingerprint, so same-plan routes cannot reliably share quota health or preserve one-endpoint lineage.",
+      "trigger": "The same provider plan and key are reachable through codex on the OpenAI-compatible URL and through claude on the Anthropic URL, and one route reaches its quota.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2573-2622",
+          "observation": "Engine identity is cc-engine-v1|claude|<auth>|<model family> with no endpoint URL or credential scope."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:5861-5912",
+          "observation": "Endpoint health is looked up by provider_fingerprint alone."
+        },
+        {
+          "kind": "read-code",
+          "reference": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:74-78",
+          "observation": "The proposed identity names base_url but explicitly leaves shared health with the codex route unresolved."
+        }
+      ],
+      "verification": "Create two entries for one declared plan, one codex and one endpoint-mode claude route; require distinct route fingerprints, reject resume across them, and replay a quota failure on one so the shared plan becomes unavailable while the other route remains lineage-distinct.",
+      "remedy": "Add an explicit endpoint object and plan_key. Fingerprint the canonical endpoint route for lineage; use plan_key as a separate quota and health scope shared only when explicitly declared. Keep route-specific failures scoped to the route.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 4371
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 4485
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 4883
+        },
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 100
+        }
+      ],
+      "claim": "Endpoint authentication cannot safely reuse the current claude env and billing proof. The child builder strips ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN, while init validation accepts only apiKeySource none or ANTHROPIC_API_KEY. The exact source value emitted for AUTH_TOKEN is unknown and must be captured before acceptance.",
+      "trigger": "A roster entry uses auth endpoint with ANTHROPIC_AUTH_TOKEN and a third-party base URL.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4371-4428",
+          "observation": "The allowlist passes ANTHROPIC_API_KEY only for api-key mode and removes every other ANTHROPIC variable."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4883-4905",
+          "observation": "Billing proof requires apiKeySource none for subscription or ANTHROPIC_API_KEY for api-key; no AUTH_TOKEN case exists."
+        },
+        {
+          "kind": "assumed",
+          "reference": "Claude Code init event for ANTHROPIC_AUTH_TOKEN",
+          "observation": "The exact apiKeySource token for an auth-token endpoint has not been captured."
+        }
+      ],
+      "verification": "Run a fake endpoint-mode child with AUTH_TOKEN and record argv environment names plus init apiKeySource; accept only the observed token-source value and fail closed on none, claude.ai, OAuth, or ANTHROPIC_API_KEY.",
+      "remedy": "Add endpoint auth mode, inject only BASE_URL, AUTH_TOKEN, and bounded API_TIMEOUT_MS, and extend init proof to the captured token source while logging names only.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 4308
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 10388
+        },
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 77
+        }
+      ],
+      "claim": "Telemetry cannot represent third-party claude routes correctly today. The engine vendor shortcut classifies every claude run as anthropic, the closed Claude model table makes GLM and MiMo IDs other, MiniMax has no vendor row or host, and [1m] normalization is inconsistent.",
+      "trigger": "Claude Code sends glm-5.3[1m] or mimo-v2.6-pro through api.z.ai, xiaomimimo.com, or api.minimax.io and telemetry is emitted.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:10388-10399",
+          "observation": "Host rows cover z.ai, xiaomimimo, moonshot, and alibaba, but no minimax row exists and the claude row has an empty host list."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4308-4368",
+          "observation": "Claude models are a closed Anthropic table and [1m] is stripped for model validation."
+        },
+        {
+          "kind": "inferred",
+          "reference": "telemetry vendor/model resolution rules",
+          "observation": "A host-based third-party route on engine claude needs host-first classification; otherwise provider becomes anthropic and model becomes other."
+        }
+      ],
+      "verification": "Unit-test telemetry for z.ai, MiMo, Moonshot, Alibaba, and MiniMax endpoint URLs with raw and [1m] models; require the correct vendor class and closed-list model while the ledger retains the raw name.",
+      "remedy": "Classify endpoint entries by base_url host first, add the missing MiniMax class and models, normalize suffixes consistently for lookup, and keep raw IDs and endpoint metadata locally.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 3327
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 8284
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 6374
+        },
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 109
+        }
+      ],
+      "claim": "Concurrency needs two separate scopes. Shared Claude global state requires engine-wide serialization unless config directories are isolated, while provider quota and machine-wide endpoint limits must be shared across codex and claude routes through the same plan_key. Current grouping cannot enforce both.",
+      "trigger": "A panel runs GLM through claude and the same z.ai plan through codex concurrently, or roster parallel raises claude concurrency.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:8284-8350",
+          "observation": "Scheduling merges claude labels with a synthetic engine:claude scope, while other endpoint grouping merges provider fingerprints."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:6374-6397",
+          "observation": "Machine-wide running counts are keyed by exact endpoint state, not a shared plan scope."
+        },
+        {
+          "kind": "inferred",
+          "reference": "F02-4 and F04-1 concurrency findings",
+          "observation": "Different endpoint URLs do not isolate shared ~/.claude state and do not prove shared quota limits are coordinated."
+        }
+      ],
+      "verification": "Run two claude children with raised parallel and inspect shared config integrity, then run codex and claude routes sharing plan_key while one is at the provider limit and require one shared waiting group.",
+      "remedy": "Keep engine-wide claude serialization until per-entry CLAUDE_CONFIG_DIR isolation passes race tests; add plan_key to scheduling and machine health so route limits apply across routes.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 105
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 4578
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 4618
+        }
+      ],
+      "claim": "The retention gate needs honest power and compatibility checks. Thirty paired runs can detect gross cost effects but cannot establish five-point quality or structured-output non-inferiority, and the adapter records CLI version without proving that flags, schema output, usage fields, or rate-limit shapes still work on each third-party endpoint.",
+      "trigger": "The A/B difference is marginal, or a Claude Code or provider update changes flag support or event fields.",
+      "evidence": [
+        {
+          "kind": "inferred",
+          "reference": "paired A/B design and proposed thresholds",
+          "observation": "Thirty pairs are suitable for large cost effects, not tight quality parity."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4578-4633",
+          "observation": "Harness detection records version only, while argv hardcodes restricted, schema, and max-turns flags."
+        },
+        {
+          "kind": "assumed",
+          "reference": "third-party provider behavior",
+          "observation": "Current terms, retention rules, aliases, and provider event shapes are not verified in this read-only review."
+        }
+      ],
+      "verification": "Run a versioned capability smoke per CLI and endpoint before the A/B, then run 30 paired trials and extend toward 100 pairs whenever cost or quality confidence intervals cross the gate.",
+      "remedy": "Treat 30 pairs as a pilot, pre-register thresholds, extend marginal cases, validate structured output locally, add capability smoke tests, and record a dated terms and data-handling attestation.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F02-1",
+      "status": "fixed",
+      "note": "Strict tree failure and WriteDisabled=false replace init-only attribution; the harness simulates a write but not a real managed hook."
+    },
+    {
+      "id": "F02-2",
+      "status": "fixed",
+      "note": "The child allowlist removes inherited routing and override variables and is checked through the fake CLI."
+    },
+    {
+      "id": "F02-3",
+      "status": "fixed",
+      "note": "Roster and telemetry share one model table with [1m] normalization and drift tests."
+    },
+    {
+      "id": "F02-4",
+      "status": "still-open",
+      "note": "Default scheduling is serial, but roster parallel can recreate shared ~/.claude concurrency and real state integrity is untested."
+    },
+    {
+      "id": "F02-5",
+      "status": "fixed",
+      "note": "Denial, quota, subtype, stdin, and resume behavior are defined and tested defensively; real quota payloads remain external."
+    },
+    {
+      "id": "F03-1",
+      "status": "fixed",
+      "note": "Tree changes fail the run and are not attributed from init evidence; managed-hook execution remains documented rather than tested."
+    },
+    {
+      "id": "F03-2",
+      "status": "fixed",
+      "note": "The allowlist excludes inherited gateway routing and competing Anthropic credentials."
+    },
+    {
+      "id": "F03-3",
+      "status": "fixed",
+      "note": "Auth preflight and turn launch share one child-environment builder."
+    },
+    {
+      "id": "F03-4",
+      "status": "fixed",
+      "note": "CLAUDE_CODE_SKIP_PROMPT_HISTORY and other CLAUDE_CODE variables are removed."
+    },
+    {
+      "id": "F03-5",
+      "status": "fixed",
+      "note": "CLAUDE_CODE_EFFORT_LEVEL is removed and repair effort is explicit."
+    },
+    {
+      "id": "F03-6",
+      "status": "fixed",
+      "note": "Init and dominant modelUsage drift fail; a secondary model is still recorded and warned rather than failed."
+    },
+    {
+      "id": "F03-7",
+      "status": "fixed",
+      "note": "Health is separated by auth mode and model family, though live quota replay is not tested."
+    },
+    {
+      "id": "F03-8",
+      "status": "fixed",
+      "note": "MaxModelSteps maps to --max-turns and the real CLI probe accepted it."
+    },
+    {
+      "id": "F03-9",
+      "status": "fixed",
+      "note": "Valid loggedIn=false JSON is treated as signed out before the exit code."
+    },
+    {
+      "id": "F04-1",
+      "status": "still-open",
+      "note": "No serialization or isolation of shared ~/.claude state exists when concurrency is raised."
+    },
+    {
+      "id": "F04-2",
+      "status": "still-open",
+      "note": "One real kill/resume succeeded, but arbitrary hard-kill transcript corruption is neither prevented nor exhaustively tested."
+    }
+  ],
+  "unproven": [
+    "The exact init apiKeySource value emitted for ANTHROPIC_AUTH_TOKEN.",
+    "Whether the alias-mapped z.ai variant reports sonnet or the mapped provider ID in init.model and modelUsage.",
+    "Current provider terms, retention rules, alias mappings, and model availability.",
+    "Real concurrent ~/.claude integrity and transcript recovery after arbitrary hard kills.",
+    "Third-party schema validity, usage/cache accounting, and rate_limit_event shapes."
+  ],
+  "first_run_checklist": []
+}

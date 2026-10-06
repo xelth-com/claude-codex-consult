@@ -1,0 +1,336 @@
+{
+  "schema_version": "1",
+  "verdict": "ADVISE",
+  "verdict_reason": "Prefer one Claude engine with explicit, provider-qualified endpoint profiles, separate lineage and quota identities, and adoption gated by corrected billing measurements.",
+  "reply_markdown": "1. **Q1 — choose option 2 with explicit endpoint configuration**, initially for qualified z.ai/MiMo profiles. Ranking (deciding factor → failure mode): **2 explicit**: self-contained configuration → profile drift; **2 referencing Codex**: centralized credential reference → hidden config coupling; **3**: independently versioned policy → duplicated engine contracts; **1**: no demonstrated benefit → forfeited savings; **4**: chores-only scope → no audited reviews. Use a versioned lineage tuple of engine, auth/header mode, canonical HTTPS URL including port/path, and nonsecret credential scope; keep model/window separate. Add an explicit account/plan quota-group ID shared across routes. Preserve existing fingerprints. Subscription billing alone does not force migration: existing Codex plan routes remain available.\n\n2. **Q2 — prefer direct IDs**, but qualify both forms before deciding. Exact init values for these variants were not supplied or observed here. Record selector, frozen alias mapping, init ID and primary assistant/usage IDs; validate a provider-specific mapping, not Anthropic-family matching. Permit syntactically valid IDs; capabilities remain profile/model/version-specific. Preserve context separately from tested `[1m]` normalization. F03-6 remains open: my in-memory test accepted a different final assistant model because the pinned model generated more aggregate output.\n\n3. **Q3 — local preflight by default:** validate route, credential presence and CLI compatibility; no automatic paid probe. Provide an explicit CLI smoke check. Share confirmed account-wide quota failures across the declared plan group; keep endpoint/protocol failures route-local and credential failures credential-local. A generic 429 does not prove plan exhaustion.\n\n4. **Q4 — use explicit authentication profiles.** For bearer profiles inject only `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`; exclude `ANTHROPIC_API_KEY`, inherited model mappings and OAuth variables. An x-api-key profile must instead inject its selected key. Kimi's current recipe uses that form; token-only compatibility is unproven. Bound optional `API_TIMEOUT_MS`; use mappings only when qualified. Init alone cannot prove destination/billing: verify egress and provider usage, including invalid-token failure without subscription fallback. [Gateway authentication](https://code.claude.com/docs/en/llm-gateway-connect)\n\n5. **Q5 — classify serving vendor by endpoint for endpoint mode**, before the engine fallback; retain closed model lists and map unknowns to `other`. Handle tested suffixes consistently. Keep model lab independent: GLM via Alibaba remains Zhipu for panel diversity. Export neither endpoint, credential reference nor quota-group ID. Existing code still classifies every Claude-engine record as Anthropic.\n\n6. **Q6 — update the premise:** current [z.ai documentation](https://docs.z.ai/devpack/overview) uses token-weighted credits, not one prompt per call. Confirm any grandfathered account. Measure actual credits per successful review for both providers, including repairs, retries, cache creation and output; calls/cache ratios are diagnostics. Proposed adoption gate: ≥20% cost reduction, paired 95% interval excluding no improvement, ≥95% initial schema success, no material adjudicated quality loss, and p95 latency ≤1.2× baseline. Randomize AB/BA on frozen repositories, control cache state/time pricing, and blind quality scoring. Start with 10 paired briefs/provider; target ≥30 distinct pairs, repeat a subset, and expand from pilot variance. Thirty is not a statistical guarantee.\n\n7. **Q7 — enforce both constraints:** a shared-profile concurrency cap and a shared-plan cap across Codex/Claude, plus session writer exclusion. Endpoint grouping alone cannot replace profile protection. Start profile concurrency at one; raise after qualification.\n\n8. **Q8 — qualify providers individually.** Correct Kimi to its regional [Coding endpoint](https://www.kimi.com/code/docs/), not Moonshot pay-as-you-go. [Alibaba documents interactive-only plans](https://www.alibabacloud.com/help/en/model-studio/base-url); read-only tools do not establish headless eligibility. Pin/test CLI upgrades, schema retries, effort and context behavior. Gateway routing does not suppress all Anthropic background traffic.\n\n## Requested checks\n\n- **RC1:** CWD disposable repository/profile; **workspace-write**; compare direct/mapped IDs, new/resume and invalid credentials for each initial provider; capture redacted egress, streams and usage. Settle Q2/Q4; budget six turns/provider, 20 minutes/provider.\n- **RC2:** CWD repository root; **read-only**; inspect current account billing and applicable plan terms for headless reviews. Settle findings #1/#6; budget 15 minutes/provider.\n- **RC3:** CWD isolated frozen checkouts; **workspace-write**; execute Q6's randomized paired pilot and blinded adjudication. Report cost/quality intervals before expansion; budget ten pairs/provider.",
+  "findings": [
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 36
+        },
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 106
+        }
+      ],
+      "claim": "The proposed z.ai decision metric assumes prompt-count billing, whereas current public GLM Coding Plan documentation specifies token-weighted credits; optimizing call count alone can select the more expensive route.",
+      "trigger": "One route makes fewer calls but consumes more uncached input or output tokens under the currently documented credit schedule.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:33-38",
+          "observation": "The brief equates one model call with one prompt of quota and says a z.ai route wins only through fewer calls."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "web.open https://docs.z.ai/devpack/overview",
+          "observation": "The current [plan documentation](https://docs.z.ai/devpack/overview) specifies input, cached-input and output credit multipliers, five-hour and weekly credit limits, and time-dependent discounts."
+        }
+      ],
+      "verification": "Inspect the operator's current z.ai plan console and billing schedule, then reconcile one isolated consultation's usage against its credit decrement; determine whether the account has a legacy prompt-based entitlement.",
+      "remedy": "Use actual billed quota units per successful review as the primary metric. Record the pricing regime and time discount, include failed attempts and internal retries, and retain model-call count as a diagnostic or a primary metric only for a confirmed legacy plan.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 46
+        }
+      ],
+      "claim": "The brief identifies the Moonshot API endpoint as Kimi Code, conflating separately billed products and potentially defeating the intended subscription route.",
+      "trigger": "A Kimi Code roster profile is configured with https://api.moonshot.ai/anthropic.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:46",
+          "observation": "The brief labels api.moonshot.ai/anthropic as Kimi Code."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "web.open https://www.kimi.com/code/docs/",
+          "observation": "The [official overview](https://www.kimi.com/code/docs/) distinguishes membership Coding endpoints api.kimi.ai/coding/ and api.kimi.com/coding/ from the pay-as-you-go Moonshot platform."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "web.open https://www.kimi.com/code/docs/en/third-party-tools/claude-code.html",
+          "observation": "The [English Claude Code integration](https://www.kimi.com/code/docs/en/third-party-tools/claude-code.html) configures https://api.kimi.ai/coding/."
+        }
+      ],
+      "verification": "Compare the intended Kimi account's issued credential and regional endpoint with its Coding console and the official integration recipe before making a smoke request.",
+      "remedy": "Create distinct provider profiles for Kimi Code and Moonshot API, with validated regional endpoints and credential references. Never infer that products share billing because their model vendor is the same.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 75
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 2615
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 8297
+        }
+      ],
+      "claim": "The proposed host-plus-path fingerprint does not distinguish ports or credential/account scopes, while one route fingerprint cannot also represent a plan quota shared across different protocols.",
+      "trigger": "Two accounts use the same endpoint, two gateways differ only by port, or one account reaches the same quota through distinct Codex and Claude URLs.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:69-78",
+          "observation": "The proposed fingerprint contains engine, endpoint mode and URL host/path; env_key is recorded separately, and cross-route health sharing is unresolved."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:2615-2621,8297-8335",
+          "observation": "The identity fingerprint is derived from CompatString, and endpoint groups merge labels sharing fingerprints."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Proposed identity tuple and current endpoint grouping",
+          "observation": "The proposed tuple merges distinguishable routes/accounts while leaving genuinely shared cross-protocol quotas disconnected."
+        }
+      ],
+      "verification": "Exercise identity and health fixtures for different ports, two credential scopes on one URL, and two protocol URLs sharing one explicit quota group; assert separate lineage and correctly scoped health.",
+      "remedy": "Version the new endpoint identity using canonical HTTPS origin including port, preserved path, protocol/auth-header mode and a nonsecret credential scope. Reject URL userinfo, query credentials and fragments. Add separate explicit quota-group and profile-concurrency keys; leave historical fingerprints unchanged.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 73
+        },
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 100
+        }
+      ],
+      "claim": "A universal AUTH_TOKEN-only contract is not established for all proposed providers; an endpoint requiring x-api-key will fail even with the correct secret.",
+      "trigger": "An endpoint expects x-api-key, but the adapter injects only ANTHROPIC_AUTH_TOKEN and forbids ANTHROPIC_API_KEY.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:73-74,100-102",
+          "observation": "The proposal fixes the credential transport to AUTH_TOKEN and asks for API_KEY to be absent."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "web.open https://code.claude.com/docs/en/llm-gateway-connect",
+          "observation": "The [gateway documentation](https://code.claude.com/docs/en/llm-gateway-connect) maps AUTH_TOKEN to Authorization: Bearer and API_KEY to x-api-key, with gateway-dependent requirements."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "web.open https://www.kimi.com/code/docs/en/third-party-tools/claude-code.html",
+          "observation": "Kimi's current official recipe sets ANTHROPIC_API_KEY. This does not prove bearer authentication is rejected, but it leaves the proposed universal bearer contract unverified."
+        }
+      ],
+      "verification": "For each admitted provider, run the documented authentication form through the restricted CLI and record the header name and destination without retaining secret values; test an invalid credential for fail-closed behavior.",
+      "remedy": "Either limit the initial feature to verified bearer profiles or add a closed authentication-header choice to endpoint profiles. Inject exactly the selected credential variable and exclude competing inherited credentials. Do not interpret apiKeySource alone as proof of destination or billing.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 10390
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 10701
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 10725
+        }
+      ],
+      "claim": "The existing telemetry helpers cannot classify endpoint-mode Claude reviews correctly without changes to dispatch, provider coverage and model-suffix handling.",
+      "trigger": "A Claude-engine ledger record carries a z.ai endpoint and glm-5.3, or a third-party model includes a tested [1m] suffix.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:10390-10398,10701-10735",
+          "observation": "Non-Codex engines are classified before examining base_url; suffix stripping applies only to Anthropic. The table also lacks MiniMax and the kimi.com regional host."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "In-memory PowerShell invocation of Get-TelemetryVendor and Get-TelemetryModelToken",
+          "observation": "A synthetic engine=claude, base_url=https://api.z.ai/api/anthropic, model=glm-5.3 record returned provider=anthropic and model=other."
+        }
+      ],
+      "verification": "Run telemetry fixtures covering both legacy Claude auth modes, endpoint-mode z.ai/MiMo/Kimi/MiniMax, unknown hosts and tested context suffixes; verify consultation and rating events produce the same closed classifications.",
+      "remedy": "Dispatch endpoint-mode records by canonical host before the engine fallback, extend reviewed vendor/model lists, and normalize only documented model suffixes. Preserve the distinction between serving vendor and model lab.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 49
+        }
+      ],
+      "claim": "The blanket assertion that named coding-tool support establishes eligibility for headless bridge reviews is insufficient for plans whose published scope is interactive use.",
+      "trigger": "A provider profile is enabled for automated claude -p review solely because the plan names Claude Code as a supported client.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:46-49",
+          "observation": "The brief generalizes tool eligibility across all listed plans without distinguishing interactive and scripted use."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "web.open https://www.alibabacloud.com/help/en/model-studio/base-url",
+          "observation": "The [September 28 endpoint documentation](https://www.alibabacloud.com/help/en/model-studio/base-url) describes Token Plan and Coding Plan as interactive-tool-only, excluding backend services."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "web.open https://modelstudio.alibabacloud.com/intl/blog/model-studio-token-plan-individual/",
+          "observation": "The [official plan article](https://modelstudio.alibabacloud.com/intl/blog/model-studio-token-plan-individual/) expressly distinguishes interactive tool use from automated scripts."
+        }
+      ],
+      "verification": "Review the terms applicable to each actual account and obtain a provider clarification where they do not clearly address operator-initiated headless code reviews; record the product, document date and applicable usage category.",
+      "remedy": "Qualify eligibility per provider and plan before advertising that profile. Do not infer permission from read-only tools or executable branding, and do not treat all headless invocations as definitively prohibited without resolving the applicable scope.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+          "line": 32
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 4393
+        }
+      ],
+      "claim": "Routing model requests to a third-party base URL does not establish the brief's broader guarantee that the child never contacts Anthropic.",
+      "trigger": "Claude Code emits background telemetry or other non-model traffic while inference uses the configured endpoint.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:29-32",
+          "observation": "The brief says the third-party route never touches Anthropic."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4393",
+          "observation": "The child environment currently sets DISABLE_AUTOUPDATER, without a corresponding explicit nonessential-traffic policy."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "web.find https://code.claude.com/docs/en/llm-gateway-connect",
+          "observation": "The [gateway documentation](https://code.claude.com/docs/en/llm-gateway-connect) states that nonessential background requests can go outside the gateway to Anthropic and other services."
+        }
+      ],
+      "verification": "Observe destination-only network logs for a restricted endpoint-profile smoke run, distinguishing inference requests from background traffic.",
+      "remedy": "Narrow the guarantee to verified inference routing and billing. If zero Anthropic egress is required, explicitly suppress nonessential traffic and enforce an egress policy rather than relying on BASE_URL.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F02-1",
+      "status": "fixed",
+      "note": "Read the Claude engine row: WriteDisabled=false, managed-hook limitations are stated, and tree changes follow the strict failure path. The managed-hook live probe was not rerun."
+    },
+    {
+      "id": "F02-2",
+      "status": "fixed",
+      "note": "The implementation now constructs an allowlisted child environment. In-memory checks confirmed inherited base URL, effort and persistence variables are excluded."
+    },
+    {
+      "id": "F02-3",
+      "status": "still-open",
+      "note": "Roster validation and Anthropic telemetry now share ClaudeModels, with suffix normalization. The broader context-capability claim remains unverified; accepting [1m] syntactically does not establish entitlement or effective context."
+    },
+    {
+      "id": "F02-4",
+      "status": "fixed",
+      "note": "ParallelScope=engine and Get-EndpointGroups implement default serialization within a panel; overrides remain explicit. This fixes the missing panel policy, not a universal guarantee about external coordinator processes."
+    },
+    {
+      "id": "F02-5",
+      "status": "still-open",
+      "note": "Denial and failure handling now exist, and handoff 05 reports successful denial and killed-session probes. README still identifies unverified limit streams and exit taxonomy; the larger stdin boundary is not established by the new 1 MiB cap."
+    },
+    {
+      "id": "F03-1",
+      "status": "fixed",
+      "note": "WriteDisabled=false removes the incorrect attribution of tree changes to other processes; the strict tree-check implementation and corresponding harness assertion were read."
+    },
+    {
+      "id": "F03-2",
+      "status": "fixed",
+      "note": "For the existing api-key mode, the allowlist admits ANTHROPIC_API_KEY and excludes inherited routing and competing Anthropic variables. Endpoint mode must add an explicit profile rather than reopen ambient inheritance."
+    },
+    {
+      "id": "F03-3",
+      "status": "fixed",
+      "note": "Invoke-ClaudeProbe clears its environment and uses Get-ClaudeChildEnvironment; Start-EngineProcess invokes the same adapter builder. The relevant implementation and hygiene assertions were read."
+    },
+    {
+      "id": "F03-4",
+      "status": "fixed",
+      "note": "CLAUDE_CODE_SKIP_PROMPT_HISTORY is absent from the allowlist; the in-memory Test-ClaudeChildEnvName check returned false. Live transcript durability was not retested."
+    },
+    {
+      "id": "F03-5",
+      "status": "fixed",
+      "note": "CLAUDE_CODE_EFFORT_LEVEL is absent from the allowlist; the in-memory Test-ClaudeChildEnvName check returned false."
+    },
+    {
+      "id": "F03-6",
+      "status": "still-open",
+      "note": "The implementation adds modelUsage checks but defines MainModel as the largest output-token contributor. An in-memory stream with Sonnet init, an Opus final assistant response, and usage Sonnet=100/Opus=10 was accepted as usable with only an OtherModels warning. Primary-message drift is still not enforced."
+    },
+    {
+      "id": "F03-7",
+      "status": "fixed",
+      "note": "Resolve-EngineIdentity now separates health fingerprints by auth mode and model family, resolving the earlier all-Claude bucket conflation. New endpoint/account and shared-plan semantics are addressed separately in finding #3."
+    },
+    {
+      "id": "F03-8",
+      "status": "fixed",
+      "note": "The engine maps StepsFlag to --max-turns, and the argv harness assertion covers it. Handoff 05 reports live acceptance of the flag; limit exhaustion was not rerun here."
+    },
+    {
+      "id": "F03-9",
+      "status": "fixed",
+      "note": "Get-ClaudeSignIn parses loggedIn before interpreting exit status and returns missing for loggedIn=false; the harness includes signed-out JSON with exit 1."
+    },
+    {
+      "id": "F04-1",
+      "status": "not-checked",
+      "note": "Default panel serialization is implemented, and handoff 05 reports two concurrent successes. I did not inspect raw shared-state traces or reproduce concurrent config writes; the earlier categorical prediction of races is not established by the evidence reviewed."
+    },
+    {
+      "id": "F04-2",
+      "status": "not-checked",
+      "note": "Handoff 05 reports successful recovery after one mid-tool kill, and fake continuation tests exist. Transcript corruption and recovery across kill timings, especially mid-thinking, were not independently tested."
+    }
+  ],
+  "unproven": [
+    "No live provider request, authentication change, file edit or write-producing harness run was performed. Executed tests used in-memory fixtures and pure classification functions.",
+    "The reported 55/97/74/112 passing harness results and historical token statistics were not independently reproduced or recomputed.",
+    "Direct-ID versus mapped-alias init fields, upstream model identities, schema retry behavior, effort application and effective context windows remain unmeasured for the proposed endpoint profiles.",
+    "The operator's actual z.ai billing regime may differ from current public documentation; grandfathered prompt-based terms were not checked.",
+    "Bearer authentication support for Kimi's current Coding endpoint is unproven; its published x-api-key recipe does not by itself prove bearer rejection.",
+    "Provider account scopes, cross-route quota sharing, mixed-engine concurrency and invalid-credential behavior with a saved Anthropic login remain untested.",
+    "Eligibility for headless reviews must be established for the actual provider plans; this review does not make a blanket contractual determination.",
+    "The brief's paused Anthropic programmatic-billing announcement was not independently confirmed and is not necessary to the recommendation."
+  ],
+  "first_run_checklist": []
+}

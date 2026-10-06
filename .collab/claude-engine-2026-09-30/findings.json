@@ -61,7 +61,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D1 (handoff 05): strict tree check fails the run on any change; WriteDisabled stays false; init_tools kept as evidence.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Read the Claude engine row: WriteDisabled=false, managed-hook limitations are stated, and tree changes follow the strict failure path. The managed-hook live probe was not rerun.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "WriteDisabled is false and the strict tree check fails changes; managed-hook non-guarantee is documented.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Strict tree failure and WriteDisabled=false replace init-only attribution; the harness simulates a write but not a real managed hook.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -124,7 +155,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D2: ALLOW-list child environment, verified in code (Get-ClaudeChildEnvironment / Test-ClaudeChildEnvName).",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The implementation now constructs an allowlisted child environment. In-memory checks confirmed inherited base URL, effort and persistence variables are excluded.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The claude child now uses a case-insensitive allowlist, not an incomplete scrub list.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The child allowlist removes inherited routing and override variables and is checked through the fake CLI.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -182,7 +244,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D4: one shared $script:ClaudeModels table for validator and telemetry, [1m] stripped, alias float pinned per thread via init + modelUsage - seen in code.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Roster validation and Anthropic telemetry now share ClaudeModels, with suffix normalization. The broader context-capability claim remains unverified; accepting [1m] syntactically does not establish entitlement or effective context.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Roster and telemetry share the Claude model table and normalize [1m]; live alias drift remains a future risk.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Roster and telemetry share one model table with [1m] normalization and drift tests.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -240,7 +333,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D5 + probe P7: engine parallel limit 1 by default; two concurrent runs observed working, documented as observed-not-guaranteed.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "ParallelScope=engine and Get-EndpointGroups implement default serialization within a panel; overrides remain explicit. This fixes the missing panel policy, not a universal guarantee about external coordinator processes.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Claude panel members are serialized engine-wide by ParallelScope engine; two-run probe P7 passed.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Default scheduling is serial, but roster parallel can recreate shared ~/.claude concurrency and real state integrity is untested.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -298,7 +422,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D6 + probes P1/P6: denial taxonomy, quota classes, resume-after-kill semantics defined.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Denial and failure handling now exist, and handoff 05 reports successful denial and killed-session probes. README still identifies unverified limit streams and exit taxonomy; the larger stdin boundary is not established by the new 1 MiB cap.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Denial and resume were probed, but the exact rate-limit payload remains defensively parsed and the true stdin ceiling is unknown.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Denial, quota, subtype, stdin, and resume behavior are defined and tested defensively; real quota payloads remain external.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -370,7 +525,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Same fix as F02-1 (D1 strict tree check).",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "WriteDisabled=false removes the incorrect attribution of tree changes to other processes; the strict tree-check implementation and corresponding harness assertion were read.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Init evidence no longer claims hooks cannot write; tree changes fail.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Tree changes fail the run and are not attributed from init evidence; managed-hook execution remains documented rather than tested.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -437,7 +623,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D2 allow list removes inherited gateway routing and competing credentials; ANTHROPIC_API_KEY only under auth api-key - seen in code.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "For the existing api-key mode, the allowlist admits ANTHROPIC_API_KEY and excludes inherited routing and competing Anthropic variables. Endpoint mode must add an explicit profile rather than reopen ambient inheritance.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The allowlist removes inherited routing and competing Anthropic credentials for the current two auth modes.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The allowlist excludes inherited gateway routing and competing Anthropic credentials.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -513,7 +730,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D3: preflight builds the same child environment as a turn (Invoke-ClaudeProbe uses Get-ClaudeChildEnvironment) - seen in code.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Invoke-ClaudeProbe clears its environment and uses Get-ClaudeChildEnvironment; Start-EngineProcess invokes the same adapter builder. The relevant implementation and hygiene assertions were read.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "One child-environment builder serves preflight, version probe and turns.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Auth preflight and turn launch share one child-environment builder.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -584,7 +832,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D2: every CLAUDE_* variable absent from the child, including CLAUDE_CODE_SKIP_PROMPT_HISTORY.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLAUDE_CODE_SKIP_PROMPT_HISTORY is absent from the allowlist; the in-memory Test-ClaudeChildEnvName check returned false. Live transcript durability was not retested.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLAUDE_CODE_SKIP_PROMPT_HISTORY cannot pass to the child.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLAUDE_CODE_SKIP_PROMPT_HISTORY and other CLAUDE_CODE variables are removed.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -655,7 +934,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D2: CLAUDE_CODE_EFFORT_LEVEL absent from the child environment.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLAUDE_CODE_EFFORT_LEVEL is absent from the allowlist; the in-memory Test-ClaudeChildEnvName check returned false.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLAUDE_CODE_EFFORT_LEVEL cannot override the requested effort.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "CLAUDE_CODE_EFFORT_LEVEL is removed and repair effort is explicit.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -727,7 +1037,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D4: per-turn proof via init model and modelUsage main key, class capability on mismatch - matching helpers seen in code.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "The implementation adds modelUsage checks but defines MainModel as the largest output-token contributor. An in-memory stream with Sonnet init, an Opus final assistant response, and usage Sonnet=100/Opus=10 was accepted as usable with only an OtherModels warning. Primary-message drift is still not enforced.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "All init models and the main modelUsage model are checked; other assistant models are warned.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Init and dominant modelUsage drift fail; a secondary model is still recorded and warned rather than failed.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -790,7 +1131,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D7: health key engine + auth mode + model family (claude/subscription/opus).",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Resolve-EngineIdentity now separates health fingerprints by auth mode and model family, resolving the earlier all-Claude bucket conflation. New endpoint/account and shared-plan semantics are addressed separately in finding #3.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Health fingerprints include auth mode and model family for the existing engine.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Health is separated by auth mode and model family, though live quota replay is not tested.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -853,7 +1225,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D8 + probe P2: --max-turns accepted (exit 0) despite absence from --help; MaxModelSteps maps to it.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The engine maps StepsFlag to --max-turns, and the argv harness assertion covers it. Handoff 05 reports live acceptance of the flag; limit exhaustion was not rerun here.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "--max-turns was observed and MaxModelSteps maps to it.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "MaxModelSteps maps to --max-turns and the real CLI probe accepted it.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -916,7 +1319,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D3: JSON read before exit code; loggedIn:false =\u003e out regardless of exit code.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Get-ClaudeSignIn parses loggedIn before interpreting exit status and returns missing for loggedIn=false; the harness includes signed-out JSON with exit 1.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "loggedIn false is classified before the nonzero exit code.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Valid loggedIn=false JSON is treated as signed out before the exit code.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -971,7 +1405,38 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D5 serialisation plus P7 evidence; same as F02-4.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Default panel serialization is implemented, and handoff 05 reports two concurrent successes. I did not inspect raw shared-state traces or reproduce concurrent config writes; the earlier categorical prediction of races is not established by the evidence reviewed.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Default serialization addresses the defect; concurrency is observed, not guaranteed.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "No serialization or isolation of shared ~/.claude state exists when concurrency is raised.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
                                              ]
                      },
                      {
@@ -1023,6 +1488,1426 @@
                                              "evidence":  "",
                                              "base_commit":  "1db1043447762e35febebc6b13f015f773fab52d",
                                              "tree_sha256":  "60cd63ef468b8bf6202387bdc38a876165a546bbb1e9cbe7eab06f79a97c1f4a"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  6,
+                                                     "when":  "2026-10-06T21:02:49+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "D6 + probe P6: hard-killed session resumes with the same session_id and a usable structured reply.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-06T21:06:31+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Handoff 05 reports successful recovery after one mid-tool kill, and fake continuation tests exist. Transcript corruption and recovery across kill timings, especially mid-thinking, were not independently tested.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-06T21:07:38+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Probe P6 resumed a hard-killed open session successfully.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 },
+                                                 {
+                                                     "consult":  7,
+                                                     "when":  "2026-10-06T21:26:06+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "One real kill/resume succeeded, but arbitrary hard-kill transcript corruption is neither prevented nor exhaustively tested.",
+                                                     "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                                     "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F07-1",
+                         "status":  "implemented",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  36
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  106
+                                           }
+                                       ],
+                         "claim":  "The proposed z.ai decision metric assumes prompt-count billing, whereas current public GLM Coding Plan documentation specifies token-weighted credits; optimizing call count alone can select the more expensive route.",
+                         "trigger":  "One route makes fewer calls but consumes more uncached input or output tokens under the currently documented credit schedule.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:33-38",
+                                              "observation":  "The brief equates one model call with one prompt of quota and says a z.ai route wins only through fewer calls."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "web.open https://docs.z.ai/devpack/overview",
+                                              "observation":  "The current [plan documentation](https://docs.z.ai/devpack/overview) specifies input, cached-input and output credit multipliers, five-hour and weekly credit limits, and time-dependent discounts."
+                                          }
+                                      ],
+                         "verification":  "Inspect the operator\u0027s current z.ai plan console and billing schedule, then reconcile one isolated consultation\u0027s usage against its credit decrement; determine whether the account has a legacy prompt-based entitlement.",
+                         "remedy":  "Use actual billed quota units per successful review as the primary metric. Record the pricing regime and time discount, include failed attempts and internal retries, and retain model-call count as a diagnostic or a primary metric only for a confirmed legacy plan.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-third-party-routes-openai.md",
+                                        "thread":  "01a11292-d0c0-7a42-8500-2251a0bebbc4",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:06:31+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T21:30:04+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Corrected in handoffs/12-claude-claude-engine-endpoint-decisions.md - E8: z.ai meters token-weighted credits; the gate is measured in credits (verified on docs.z.ai)",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F07-2",
+                         "status":  "implemented",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  46
+                                           }
+                                       ],
+                         "claim":  "The brief identifies the Moonshot API endpoint as Kimi Code, conflating separately billed products and potentially defeating the intended subscription route.",
+                         "trigger":  "A Kimi Code roster profile is configured with https://api.moonshot.ai/anthropic.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:46",
+                                              "observation":  "The brief labels api.moonshot.ai/anthropic as Kimi Code."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "web.open https://www.kimi.com/code/docs/",
+                                              "observation":  "The [official overview](https://www.kimi.com/code/docs/) distinguishes membership Coding endpoints api.kimi.ai/coding/ and api.kimi.com/coding/ from the pay-as-you-go Moonshot platform."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "web.open https://www.kimi.com/code/docs/en/third-party-tools/claude-code.html",
+                                              "observation":  "The [English Claude Code integration](https://www.kimi.com/code/docs/en/third-party-tools/claude-code.html) configures https://api.kimi.ai/coding/."
+                                          }
+                                      ],
+                         "verification":  "Compare the intended Kimi account\u0027s issued credential and regional endpoint with its Coding console and the official integration recipe before making a smoke request.",
+                         "remedy":  "Create distinct provider profiles for Kimi Code and Moonshot API, with validated regional endpoints and credential references. Never infer that products share billing because their model vendor is the same.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-third-party-routes-openai.md",
+                                        "thread":  "01a11292-d0c0-7a42-8500-2251a0bebbc4",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:06:31+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T21:30:07+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Corrected in handoffs/12-claude-claude-engine-endpoint-decisions.md - E9: Kimi Code endpoint is api.kimi.ai/coding/, api.moonshot.ai is pay-as-you-go (verified on kimi.com/code/docs)",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F07-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  75
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2615
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  8297
+                                           }
+                                       ],
+                         "claim":  "The proposed host-plus-path fingerprint does not distinguish ports or credential/account scopes, while one route fingerprint cannot also represent a plan quota shared across different protocols.",
+                         "trigger":  "Two accounts use the same endpoint, two gateways differ only by port, or one account reaches the same quota through distinct Codex and Claude URLs.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:69-78",
+                                              "observation":  "The proposed fingerprint contains engine, endpoint mode and URL host/path; env_key is recorded separately, and cross-route health sharing is unresolved."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:2615-2621,8297-8335",
+                                              "observation":  "The identity fingerprint is derived from CompatString, and endpoint groups merge labels sharing fingerprints."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Proposed identity tuple and current endpoint grouping",
+                                              "observation":  "The proposed tuple merges distinguishable routes/accounts while leaving genuinely shared cross-protocol quotas disconnected."
+                                          }
+                                      ],
+                         "verification":  "Exercise identity and health fixtures for different ports, two credential scopes on one URL, and two protocol URLs sharing one explicit quota group; assert separate lineage and correctly scoped health.",
+                         "remedy":  "Version the new endpoint identity using canonical HTTPS origin including port, preserved path, protocol/auth-header mode and a nonsecret credential scope. Reject URL userinfo, query credentials and fragments. Add separate explicit quota-group and profile-concurrency keys; leave historical fingerprints unchanged.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-third-party-routes-openai.md",
+                                        "thread":  "01a11292-d0c0-7a42-8500-2251a0bebbc4",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:06:31+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F07-4",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  73
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  100
+                                           }
+                                       ],
+                         "claim":  "A universal AUTH_TOKEN-only contract is not established for all proposed providers; an endpoint requiring x-api-key will fail even with the correct secret.",
+                         "trigger":  "An endpoint expects x-api-key, but the adapter injects only ANTHROPIC_AUTH_TOKEN and forbids ANTHROPIC_API_KEY.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:73-74,100-102",
+                                              "observation":  "The proposal fixes the credential transport to AUTH_TOKEN and asks for API_KEY to be absent."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "web.open https://code.claude.com/docs/en/llm-gateway-connect",
+                                              "observation":  "The [gateway documentation](https://code.claude.com/docs/en/llm-gateway-connect) maps AUTH_TOKEN to Authorization: Bearer and API_KEY to x-api-key, with gateway-dependent requirements."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "web.open https://www.kimi.com/code/docs/en/third-party-tools/claude-code.html",
+                                              "observation":  "Kimi\u0027s current official recipe sets ANTHROPIC_API_KEY. This does not prove bearer authentication is rejected, but it leaves the proposed universal bearer contract unverified."
+                                          }
+                                      ],
+                         "verification":  "For each admitted provider, run the documented authentication form through the restricted CLI and record the header name and destination without retaining secret values; test an invalid credential for fail-closed behavior.",
+                         "remedy":  "Either limit the initial feature to verified bearer profiles or add a closed authentication-header choice to endpoint profiles. Inject exactly the selected credential variable and exclude competing inherited credentials. Do not interpret apiKeySource alone as proof of destination or billing.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-third-party-routes-openai.md",
+                                        "thread":  "01a11292-d0c0-7a42-8500-2251a0bebbc4",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:06:31+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F07-5",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10390
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10701
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10725
+                                           }
+                                       ],
+                         "claim":  "The existing telemetry helpers cannot classify endpoint-mode Claude reviews correctly without changes to dispatch, provider coverage and model-suffix handling.",
+                         "trigger":  "A Claude-engine ledger record carries a z.ai endpoint and glm-5.3, or a third-party model includes a tested [1m] suffix.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:10390-10398,10701-10735",
+                                              "observation":  "Non-Codex engines are classified before examining base_url; suffix stripping applies only to Anthropic. The table also lacks MiniMax and the kimi.com regional host."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "In-memory PowerShell invocation of Get-TelemetryVendor and Get-TelemetryModelToken",
+                                              "observation":  "A synthetic engine=claude, base_url=https://api.z.ai/api/anthropic, model=glm-5.3 record returned provider=anthropic and model=other."
+                                          }
+                                      ],
+                         "verification":  "Run telemetry fixtures covering both legacy Claude auth modes, endpoint-mode z.ai/MiMo/Kimi/MiniMax, unknown hosts and tested context suffixes; verify consultation and rating events produce the same closed classifications.",
+                         "remedy":  "Dispatch endpoint-mode records by canonical host before the engine fallback, extend reviewed vendor/model lists, and normalize only documented model suffixes. Preserve the distinction between serving vendor and model lab.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-third-party-routes-openai.md",
+                                        "thread":  "01a11292-d0c0-7a42-8500-2251a0bebbc4",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:06:31+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F07-6",
+                         "status":  "implemented",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  49
+                                           }
+                                       ],
+                         "claim":  "The blanket assertion that named coding-tool support establishes eligibility for headless bridge reviews is insufficient for plans whose published scope is interactive use.",
+                         "trigger":  "A provider profile is enabled for automated claude -p review solely because the plan names Claude Code as a supported client.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:46-49",
+                                              "observation":  "The brief generalizes tool eligibility across all listed plans without distinguishing interactive and scripted use."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "web.open https://www.alibabacloud.com/help/en/model-studio/base-url",
+                                              "observation":  "The [September 28 endpoint documentation](https://www.alibabacloud.com/help/en/model-studio/base-url) describes Token Plan and Coding Plan as interactive-tool-only, excluding backend services."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "web.open https://modelstudio.alibabacloud.com/intl/blog/model-studio-token-plan-individual/",
+                                              "observation":  "The [official plan article](https://modelstudio.alibabacloud.com/intl/blog/model-studio-token-plan-individual/) expressly distinguishes interactive tool use from automated scripts."
+                                          }
+                                      ],
+                         "verification":  "Review the terms applicable to each actual account and obtain a provider clarification where they do not clearly address operator-initiated headless code reviews; record the product, document date and applicable usage category.",
+                         "remedy":  "Qualify eligibility per provider and plan before advertising that profile. Do not infer permission from read-only tools or executable branding, and do not treat all headless invocations as definitively prohibited without resolving the applicable scope.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-third-party-routes-openai.md",
+                                        "thread":  "01a11292-d0c0-7a42-8500-2251a0bebbc4",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:06:31+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T21:30:10+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Corrected in handoffs/12-claude-claude-engine-endpoint-decisions.md - E9: Alibaba plans not documented for the route (interactive-only wording, verified); the operator records the terms decision per plan",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F07-7",
+                         "status":  "implemented",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  32
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4393
+                                           }
+                                       ],
+                         "claim":  "Routing model requests to a third-party base URL does not establish the brief\u0027s broader guarantee that the child never contacts Anthropic.",
+                         "trigger":  "Claude Code emits background telemetry or other non-model traffic while inference uses the configured endpoint.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:29-32",
+                                              "observation":  "The brief says the third-party route never touches Anthropic."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4393",
+                                              "observation":  "The child environment currently sets DISABLE_AUTOUPDATER, without a corresponding explicit nonessential-traffic policy."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "web.find https://code.claude.com/docs/en/llm-gateway-connect",
+                                              "observation":  "The [gateway documentation](https://code.claude.com/docs/en/llm-gateway-connect) states that nonessential background requests can go outside the gateway to Anthropic and other services."
+                                          }
+                                      ],
+                         "verification":  "Observe destination-only network logs for a restricted endpoint-profile smoke run, distinguishing inference requests from background traffic.",
+                         "remedy":  "Narrow the guarantee to verified inference routing and billing. If zero Anthropic egress is required, explicitly suppress nonessential traffic and enforce an egress policy rather than relying on BASE_URL.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/07-codex-third-party-routes-openai.md",
+                                        "thread":  "01a11292-d0c0-7a42-8500-2251a0bebbc4",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:06:31+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T21:30:13+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Corrected in handoffs/12-claude-claude-engine-endpoint-decisions.md - E3/E4: the claim is withdrawn; the proof is init.model == pinned id plus child_env_allowed, never \"never contacts Anthropic\"",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F08-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  77
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10701
+                                           }
+                                       ],
+                         "claim":  "Alternative 2 cannot deliver endpoint-host telemetry under the current classifier: a non-codex engine is mapped to its engine vendor before provider_config.base_url is read, so GLM through engine claude would emit provider anthropic and model other.",
+                         "trigger":  "Commit a z.ai endpoint run under engine claude with the proposed provider_config.base_url.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:10701-10717",
+                                              "observation":  "Get-TelemetryVendor returns the engine-mapped row immediately for every engine other than codex and never reaches base-url host matching."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:10388-10399",
+                                              "observation":  "z.ai models are in the zai host-based row, while engine claude is bound to the anthropic row and its closed Claude model table."
+                                          }
+                                      ],
+                         "verification":  "Call Get-TelemetryVendor with engine claude and base_url https://api.z.ai/api/anthropic; it must return zai, not anthropy.",
+                         "remedy":  "Use a separate claude-compat engine with host classification, or make an explicit endpoint base_url take precedence over the engine vendor row.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/08-codex-third-party-routes-zai.md",
+                                        "thread":  "01a11292-c6fa-73a0-b398-06a62a1cd691",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:07:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F08-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10725
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  43
+                                           }
+                                       ],
+                         "claim":  "Telemetry strips the 1M-context suffix only for the anthropic vendor, so a z.ai model such as glm-5.3[1m] would classify as other even after host classification is fixed.",
+                         "trigger":  "Send glm-5.3[1m] through the z.ai Anthropic endpoint and telemetry-classify it as zai.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:10725-10732",
+                                              "observation":  "The [1m] suffix is removed only when Vendor.Class is exactly anthropic."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:42-45",
+                                              "observation":  "The operator’s documented z.ai mapping uses glm-5.3[1m]."
+                                          }
+                                      ],
+                         "verification":  "Unit-test Get-TelemetryModelToken with the zai row and glm-5.3[1m]; it must return glm-5.3.",
+                         "remedy":  "Move suffix normalization to the endpoint/vendor capability row, or disallow suffixes not explicitly listed for that vendor.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/08-codex-third-party-routes-zai.md",
+                                        "thread":  "01a11292-c6fa-73a0-b398-06a62a1cd691",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:07:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F08-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7281
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  8284
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  8314
+                                           }
+                                       ],
+                         "claim":  "The roster and scheduling model cannot represent one plan on two routes: a provider label may name only one engine, and endpoint groups merge only by provider fingerprint, with no plan-level alias.",
+                         "trigger":  "Add ZAI through codex and ZAI through claude or claude-compat and expect a shared quota or parallel limit.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:7281-7287",
+                                              "observation":  "The roster rejects one provider label used by two engines and identifies duplicate reviewers only by label plus model."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:8284-8349",
+                                              "observation":  "Get-EndpointGroups starts from labels and merges labels only when they share a fingerprint; no plan identifier exists."
+                                          }
+                                      ],
+                         "verification":  "Create route-specific labels for one plan, force a quota failure on one route, and inspect Get-EndpointGroups plus health selection for the other.",
+                         "remedy":  "Use distinct route labels and add provider_config.plan_id; merge quota-class health and machine-wide scheduling by plan_id independently of fingerprint.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/08-codex-third-party-routes-zai.md",
+                                        "thread":  "01a11292-c6fa-73a0-b398-06a62a1cd691",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:07:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F08-4",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4496
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4888
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  73
+                                           }
+                                       ],
+                         "claim":  "Endpoint credential semantics are neither implemented nor proven: current preflight still expects Claude sign-in/API-key state, and per-turn proof accepts only apiKeySource none or ANTHROPIC_API_KEY, not an AUTH_TOKEN/base-URL route.",
+                         "trigger":  "Launch an endpoint entry while a subscription login exists in CLAUDE_CONFIG_DIR and ANTHROPIC_AUTH_TOKEN plus ANTHROPIC_BASE_URL are set.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4496-4527",
+                                              "observation":  "Get-ClaudeSignIn runs auth status and accepts only subscription or API-key modes."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4883-4904",
+                                              "observation":  "Get-ClaudeInitProblem accepts only none or ANTHROPIC_API_KEY as apiKeySource."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4381-4401",
+                                              "observation":  "The current allowlist has no endpoint auth mode and excludes base URL and auth token."
+                                          }
+                                      ],
+                         "verification":  "Run the real CLI against a local Anthropic-compatible recorder with token/base-url environment and a signed-in config; capture init apiKeySource and the Authorization header.",
+                         "remedy":  "Implement endpoint-specific local preflight and require per-turn evidence that the named token and base URL were used; fail closed if the stream cannot prove it.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/08-codex-third-party-routes-zai.md",
+                                        "thread":  "01a11292-c6fa-73a0-b398-06a62a1cd691",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:07:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F08-5",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4823
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4852
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  36
+                                           }
+                                       ],
+                         "claim":  "The Claude event fields currently captured do not measure z.ai’s billed unit: num_turns, aggregate usage and modelUsage do not report the number of model calls/prompts, so the proposed A/B cannot decide from CLI output alone.",
+                         "trigger":  "Two routes make different numbers of API calls while producing the same num_turns and aggregate token totals.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4823-4863",
+                                              "observation":  "The parser records num_turns, aggregate usage and modelUsage keys, but no API-call count."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:35-38",
+                                              "observation":  "z.ai meters one model call as one quota prompt."
+                                          }
+                                      ],
+                         "verification":  "Run one controlled consultation while recording provider-dashboard prompt delta and compare it with the CLI result fields.",
+                         "remedy":  "Use provider-reported prompt/credit deltas or a local recorder as the A/B cost metric; store the count as local engine_run evidence without expanding telemetry secrets.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/08-codex-third-party-routes-zai.md",
+                                        "thread":  "01a11292-c6fa-73a0-b398-06a62a1cd691",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:07:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F08-6",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4381
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  43
+                                           }
+                                       ],
+                         "claim":  "The proposed endpoint environment omits API_TIMEOUT_MS even though the operator’s working z.ai setup sets it, so long provider calls may hit the CLI default or tempt operators into global environment changes.",
+                         "trigger":  "An endpoint model call exceeds Claude Code’s default API timeout while the child allowlist contains only base URL and token.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4381-4393",
+                                              "observation":  "API_TIMEOUT_MS is not on the Claude child allowlist or set list."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:42-45",
+                                              "observation":  "The operator’s known-good GLM route sets API_TIMEOUT_MS=3000000."
+                                          }
+                                      ],
+                         "verification":  "Use a local delayed Anthropic-compatible endpoint and compare turns with and without a bounded API_TIMEOUT_MS.",
+                         "remedy":  "Add an endpoint-level timeout_ms field, set API_TIMEOUT_MS only from it, and bound it by the bridge turn timeout.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/08-codex-third-party-routes-zai.md",
+                                        "thread":  "01a11292-c6fa-73a0-b398-06a62a1cd691",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:07:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F09-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10700
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10398
+                                           }
+                                       ],
+                         "claim":  "Get-TelemetryVendor short-circuits any non-codex engine to the engine-keyed vendor row before endpoint-host matching, so a claude reviewer on a third-party Anthropic-compatible endpoint (auth: endpoint) would classify as provider anthropic and its model (e.g. glm-5.3) would bucket `other` against the ClaudeModels list instead of zai/glm-5.3.",
+                         "trigger":  "Alternative 2 is adopted and a consultation runs with engine claude on https://api.z.ai/api/anthropic.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1 Get-TelemetryVendor (~10697) and $script:TelemetryVendors (10389-10398)",
+                                              "observation":  "For engine != codex the function returns the row whose Engine equals the engine name (anthropic for claude); host matching on provider_config.base_url happens only for the codex engine."
+                                          }
+                                      ],
+                         "verification":  "After adding the endpoint mode, build a ledger-shaped reviewer object {engine: claude, provider_config.base_url: https://api.z.ai/api/anthropic, model: glm-5.3} and assert Get-TelemetryReviewerClass returns provider zai, model glm-5.3.",
+                         "remedy":  "For the claude engine, resolve the vendor from provider_config.base_url host first (as for codex); fall back to the anthropic engine row only when no base_url is recorded.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/09-codex-third-party-routes-kimi.md",
+                                        "thread":  "01a11292-c8dc-7bd0-bf36-119c61f7a248",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:02:49+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F09-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7015
+                                           }
+                                       ],
+                         "claim":  "Get-CoordinatorMatch hardcodes that a claude-engine reviewer\u0027s vendor is anthropic (coordinator provider must equal \u0027anthropic\u0027, models compared via Test-ClaudeModelMatch); a coordinator running GLM through Claude Code can never be recognised as \u0027own\u0027/\u0027provider\u0027 relative to a GLM-via-claude reviewer, and an Anthropic coordinator compared against glm-5.3 silently falls to no-match.",
+                         "trigger":  "A Claude Code coordinator on a third-party plan (CODEX_CONSULT_COORDINATOR=\"zai :: glm-5.3\") panels a claude-endpoint reviewer of the same plan.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1 Get-CoordinatorMatch (7020)",
+                                              "observation":  "The claude branch requires the coordinator provider to equal anthropic and uses Test-ClaudeModelMatch, which only knows claude-* ids and the four Anthropic aliases."
+                                          }
+                                      ],
+                         "verification":  "Unit-test Get-CoordinatorMatch with coordinator \u0027zai :: glm-5.3\u0027 against reviewer {engine claude, model glm-5.3, base_url api.z.ai}; require \u0027own\u0027.",
+                         "remedy":  "When the reviewer carries an endpoint base_url, compare coordinator provider and model against the endpoint host\u0027s vendor class and the raw model id instead of the anthropic branch.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/09-codex-third-party-routes-kimi.md",
+                                        "thread":  "01a11292-c8dc-7bd0-bf36-119c61f7a248",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:02:49+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F09-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4886
+                                           }
+                                       ],
+                         "claim":  "Billing attribution for the endpoint mode is unverified: the adapter\u0027s auth check knows apiKeySource \u0027none\u0027 (subscription) and \u0027ANTHROPIC_API_KEY\u0027 (api-key), but what the init event reports when ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN are set alongside a stored OAuth login is unknown - if the CLI prefers the login, endpoint turns silently bill the Anthropic subscription, reversing the route\u0027s purpose.",
+                         "trigger":  "A machine with an active claude.ai login runs an endpoint roster entry.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1 (4886-4920)",
+                                              "observation":  "The apiKeySource comparison has only the two Anthropic credential shapes; no branch covers ANTHROPIC_AUTH_TOKEN."
+                                          },
+                                          {
+                                              "kind":  "assumed",
+                                              "reference":  "Claude Code credential precedence",
+                                              "observation":  "Not checked which credential wins when both an OAuth login and ANTHROPIC_AUTH_TOKEN are present."
+                                          }
+                                      ],
+                         "verification":  "RC1: run claude -p against z.ai with base_url+token and a live login in CLAUDE_CONFIG_DIR; require init apiKeySource to name the auth-token source.",
+                         "remedy":  "Extend the check: endpoint mode requires apiKeySource to equal the observed auth-token value and fails closed (class auth) on \u0027none\u0027, \u0027ANTHROPIC_API_KEY\u0027 or any unknown value.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/09-codex-third-party-routes-kimi.md",
+                                        "thread":  "01a11292-c8dc-7bd0-bf36-119c61f7a248",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:02:49+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F09-4",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10730
+                                           }
+                                       ],
+                         "claim":  "The [1m] suffix is stripped only for vendor class anthropic, but z.ai documents the alias \u0027glm-5.3[1m]\u0027; if such an id ever reaches telemetry under class zai it buckets \u0027other\u0027, and the roster\u0027s open endpoint table has no stated rule for the suffix.",
+                         "trigger":  "An operator copies z.ai\u0027s documented \u0027glm-5.3[1m]\u0027 into an endpoint roster entry.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1 Get-TelemetryModelToken (10730)",
+                                              "observation":  "`if ($Vendor.Class -ceq \u0027anthropic\u0027) { $m = $m -replace \u0027\\[1m\\]$\u0027, \u0027\u0027 }` - other classes compare the name verbatim."
+                                          }
+                                      ],
+                         "verification":  "Unit-test Get-TelemetryModelToken with vendor zai and model \u0027glm-5.3[1m]\u0027; require glm-5.3.",
+                         "remedy":  "State in the endpoint contract that roster ids are sent verbatim and [1m] is forbidden on endpoint entries; strip the suffix per vendor (zai) in telemetry as defence.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/09-codex-third-party-routes-kimi.md",
+                                        "thread":  "01a11292-c8dc-7bd0-bf36-119c61f7a248",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:02:49+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F10-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  74
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  2573
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5861
+                                           }
+                                       ],
+                         "claim":  "Endpoint mode needs two identities: a route fingerprint containing canonical base_url and credential scope for lineage, and a separate plan or quota key shared by codex and claude routes using the same plan. The current engine fingerprint omits endpoint identity and health is keyed only by provider_fingerprint, so same-plan routes cannot reliably share quota health or preserve one-endpoint lineage.",
+                         "trigger":  "The same provider plan and key are reachable through codex on the OpenAI-compatible URL and through claude on the Anthropic URL, and one route reaches its quota.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:2573-2622",
+                                              "observation":  "Engine identity is cc-engine-v1|claude|\u003cauth\u003e|\u003cmodel family\u003e with no endpoint URL or credential scope."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5861-5912",
+                                              "observation":  "Endpoint health is looked up by provider_fingerprint alone."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md:74-78",
+                                              "observation":  "The proposed identity names base_url but explicitly leaves shared health with the codex route unresolved."
+                                          }
+                                      ],
+                         "verification":  "Create two entries for one declared plan, one codex and one endpoint-mode claude route; require distinct route fingerprints, reject resume across them, and replay a quota failure on one so the shared plan becomes unavailable while the other route remains lineage-distinct.",
+                         "remedy":  "Add an explicit endpoint object and plan_key. Fingerprint the canonical endpoint route for lineage; use plan_key as a separate quota and health scope shared only when explicitly declared. Keep route-specific failures scoped to the route.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  7,
+                                        "reply":  "handoffs/10-codex-third-party-routes-mimo.md",
+                                        "thread":  "01a11292-c41c-7a43-8918-52e5a2ca793c",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:26:06+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F10-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4371
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4485
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4883
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  100
+                                           }
+                                       ],
+                         "claim":  "Endpoint authentication cannot safely reuse the current claude env and billing proof. The child builder strips ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN, while init validation accepts only apiKeySource none or ANTHROPIC_API_KEY. The exact source value emitted for AUTH_TOKEN is unknown and must be captured before acceptance.",
+                         "trigger":  "A roster entry uses auth endpoint with ANTHROPIC_AUTH_TOKEN and a third-party base URL.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4371-4428",
+                                              "observation":  "The allowlist passes ANTHROPIC_API_KEY only for api-key mode and removes every other ANTHROPIC variable."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4883-4905",
+                                              "observation":  "Billing proof requires apiKeySource none for subscription or ANTHROPIC_API_KEY for api-key; no AUTH_TOKEN case exists."
+                                          },
+                                          {
+                                              "kind":  "assumed",
+                                              "reference":  "Claude Code init event for ANTHROPIC_AUTH_TOKEN",
+                                              "observation":  "The exact apiKeySource token for an auth-token endpoint has not been captured."
+                                          }
+                                      ],
+                         "verification":  "Run a fake endpoint-mode child with AUTH_TOKEN and record argv environment names plus init apiKeySource; accept only the observed token-source value and fail closed on none, claude.ai, OAuth, or ANTHROPIC_API_KEY.",
+                         "remedy":  "Add endpoint auth mode, inject only BASE_URL, AUTH_TOKEN, and bounded API_TIMEOUT_MS, and extend init proof to the captured token source while logging names only.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  7,
+                                        "reply":  "handoffs/10-codex-third-party-routes-mimo.md",
+                                        "thread":  "01a11292-c41c-7a43-8918-52e5a2ca793c",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:26:06+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F10-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4308
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10388
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  77
+                                           }
+                                       ],
+                         "claim":  "Telemetry cannot represent third-party claude routes correctly today. The engine vendor shortcut classifies every claude run as anthropic, the closed Claude model table makes GLM and MiMo IDs other, MiniMax has no vendor row or host, and [1m] normalization is inconsistent.",
+                         "trigger":  "Claude Code sends glm-5.3[1m] or mimo-v2.6-pro through api.z.ai, xiaomimimo.com, or api.minimax.io and telemetry is emitted.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:10388-10399",
+                                              "observation":  "Host rows cover z.ai, xiaomimimo, moonshot, and alibaba, but no minimax row exists and the claude row has an empty host list."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4308-4368",
+                                              "observation":  "Claude models are a closed Anthropic table and [1m] is stripped for model validation."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "telemetry vendor/model resolution rules",
+                                              "observation":  "A host-based third-party route on engine claude needs host-first classification; otherwise provider becomes anthropic and model becomes other."
+                                          }
+                                      ],
+                         "verification":  "Unit-test telemetry for z.ai, MiMo, Moonshot, Alibaba, and MiniMax endpoint URLs with raw and [1m] models; require the correct vendor class and closed-list model while the ledger retains the raw name.",
+                         "remedy":  "Classify endpoint entries by base_url host first, add the missing MiniMax class and models, normalize suffixes consistently for lookup, and keep raw IDs and endpoint metadata locally.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  7,
+                                        "reply":  "handoffs/10-codex-third-party-routes-mimo.md",
+                                        "thread":  "01a11292-c41c-7a43-8918-52e5a2ca793c",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:26:06+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F10-4",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  3327
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  8284
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6374
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  109
+                                           }
+                                       ],
+                         "claim":  "Concurrency needs two separate scopes. Shared Claude global state requires engine-wide serialization unless config directories are isolated, while provider quota and machine-wide endpoint limits must be shared across codex and claude routes through the same plan_key. Current grouping cannot enforce both.",
+                         "trigger":  "A panel runs GLM through claude and the same z.ai plan through codex concurrently, or roster parallel raises claude concurrency.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:8284-8350",
+                                              "observation":  "Scheduling merges claude labels with a synthetic engine:claude scope, while other endpoint grouping merges provider fingerprints."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:6374-6397",
+                                              "observation":  "Machine-wide running counts are keyed by exact endpoint state, not a shared plan scope."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "F02-4 and F04-1 concurrency findings",
+                                              "observation":  "Different endpoint URLs do not isolate shared ~/.claude state and do not prove shared quota limits are coordinated."
+                                          }
+                                      ],
+                         "verification":  "Run two claude children with raised parallel and inspect shared config integrity, then run codex and claude routes sharing plan_key while one is at the provider limit and require one shared waiting group.",
+                         "remedy":  "Keep engine-wide claude serialization until per-entry CLAUDE_CONFIG_DIR isolation passes race tests; add plan_key to scheduling and machine health so route limits apply across routes.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  7,
+                                        "reply":  "handoffs/10-codex-third-party-routes-mimo.md",
+                                        "thread":  "01a11292-c41c-7a43-8918-52e5a2ca793c",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:26:06+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F10-5",
+                         "status":  "implemented",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                               "line":  105
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4578
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  4618
+                                           }
+                                       ],
+                         "claim":  "The retention gate needs honest power and compatibility checks. Thirty paired runs can detect gross cost effects but cannot establish five-point quality or structured-output non-inferiority, and the adapter records CLI version without proving that flags, schema output, usage fields, or rate-limit shapes still work on each third-party endpoint.",
+                         "trigger":  "The A/B difference is marginal, or a Claude Code or provider update changes flag support or event fields.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "paired A/B design and proposed thresholds",
+                                              "observation":  "Thirty pairs are suitable for large cost effects, not tight quality parity."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:4578-4633",
+                                              "observation":  "Harness detection records version only, while argv hardcodes restricted, schema, and max-turns flags."
+                                          },
+                                          {
+                                              "kind":  "assumed",
+                                              "reference":  "third-party provider behavior",
+                                              "observation":  "Current terms, retention rules, aliases, and provider event shapes are not verified in this read-only review."
+                                          }
+                                      ],
+                         "verification":  "Run a versioned capability smoke per CLI and endpoint before the A/B, then run 30 paired trials and extend toward 100 pairs whenever cost or quality confidence intervals cross the gate.",
+                         "remedy":  "Treat 30 pairs as a pilot, pre-register thresholds, extend marginal cases, validate structured output locally, add capability smoke tests, and record a dated terms and data-handling attestation.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  7,
+                                        "reply":  "handoffs/10-codex-third-party-routes-mimo.md",
+                                        "thread":  "01a11292-c41c-7a43-8918-52e5a2ca793c",
+                                        "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                        "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-06T21:26:06+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-06T21:30:16+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "Corrected in handoffs/12-claude-claude-engine-endpoint-decisions.md - E8: n \u003e= 12 pairs per provider, credits-based gates, one pair (P13) stated as anecdote",
+                                             "evidence":  "",
+                                             "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                             "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -1087,6 +2972,78 @@
                         "note":  "two findings, both generic; the concurrency point was raised more precisely by another reviewer",
                         "when":  "2026-09-30T11:00:41+02:00",
                         "telemetry_sent":  1791297266
+                    },
+                    {
+                        "n":  4,
+                        "consult_id":  "d0a71817-0674-4acf-aa7a-820908729426",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "decision",
+                        "topics":  [
+                                       "engines",
+                                       "roster"
+                                   ],
+                        "consult_when":  "2026-10-06T20:56:10+02:00",
+                        "useful":  "yes",
+                        "note":  "decision panel on handoff 06: concrete, cited the code lines, corrected the brief\u0027s premises (metering, Kimi endpoint, terms); decisions E1-E10 in handoff 12",
+                        "when":  "2026-10-06T21:29:48+02:00",
+                        "telemetry_sent":  1791314989
+                    },
+                    {
+                        "n":  5,
+                        "consult_id":  "8ca7b54c-efff-4ebb-b5c7-9192cb7f77a0",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "engine":  "codex",
+                        "purpose":  "decision",
+                        "topics":  [
+                                       "engines",
+                                       "roster"
+                                   ],
+                        "consult_when":  "2026-10-06T20:56:10+02:00",
+                        "useful":  "yes",
+                        "note":  "decision panel on handoff 06: concrete, cited the code lines, corrected the brief\u0027s premises (metering, Kimi endpoint, terms); decisions E1-E10 in handoff 12",
+                        "when":  "2026-10-06T21:29:53+02:00",
+                        "telemetry_sent":  1791314993
+                    },
+                    {
+                        "n":  6,
+                        "consult_id":  "f5667b8c-95a2-46ab-a06d-1fd66d7317ae",
+                        "lineage":  "kimi :: k3",
+                        "provider":  "kimi",
+                        "model":  "k3",
+                        "engine":  "codex",
+                        "purpose":  "decision",
+                        "topics":  [
+                                       "engines",
+                                       "roster"
+                                   ],
+                        "consult_when":  "2026-10-06T20:56:10+02:00",
+                        "useful":  "yes",
+                        "note":  "decision panel on handoff 06: concrete, cited the code lines, corrected the brief\u0027s premises (metering, Kimi endpoint, terms); decisions E1-E10 in handoff 12",
+                        "when":  "2026-10-06T21:29:56+02:00",
+                        "telemetry_sent":  1791314997
+                    },
+                    {
+                        "n":  7,
+                        "consult_id":  "1f7b8aff-db72-4838-997c-67f485e5b6a9",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "engine":  "codex",
+                        "purpose":  "decision",
+                        "topics":  [
+                                       "engines",
+                                       "roster"
+                                   ],
+                        "consult_when":  "2026-10-06T20:56:10+02:00",
+                        "useful":  "yes",
+                        "note":  "decision panel on handoff 06: concrete, cited the code lines, corrected the brief\u0027s premises (metering, Kimi endpoint, terms); decisions E1-E10 in handoff 12",
+                        "when":  "2026-10-06T21:30:00+02:00",
+                        "telemetry_sent":  1791315000
                     }
                 ]
 }

@@ -1158,6 +1158,1822 @@
                                        "wall_seconds":  220.5,
                                        "finished_at":  "2026-09-30T10:52:14+02:00",
                                        "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  4,
+                                       "when":  "2026-10-06T20:56:10+02:00",
+                                       "purpose":  "decision",
+                                       "topics":  [
+                                                      "engines",
+                                                      "roster"
+                                                  ],
+                                       "role":  "",
+                                       "consult_id":  "d0a71817-0674-4acf-aa7a-820908729426",
+                                       "reviewer":  {
+                                                        "provider":  "openai",
+                                                        "provider_source":  "roster",
+                                                        "model":  "gpt-6-astra",
+                                                        "model_source":  "roster",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "56d97b6ece36e75295a290d931ca6bbe2dd0b1f0807454b21a63a6fd17b32d7c",
+                                                        "provider_config":  {
+                                                                                "builtin":  "openai"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "openai :: gpt-6-astra",
+                                       "coordinator":  {
+                                                           "provider":  "anthropic",
+                                                           "model":  "claude-fable-5-1",
+                                                           "engine":  "codex",
+                                                           "host":  "claude-code",
+                                                           "host_by":  "markers",
+                                                           "source":  "explicit",
+                                                           "in_roster":  false,
+                                                           "unresolved":  null
+                                                       },
+                                       "preflight":  "ok: Logged in using ChatGPT",
+                                       "preflight_warning":  "",
+                                       "roster":  {
+                                                      "path":  "C:\\Users\\Dmytro\\.codex\\codex-consult-roster.json",
+                                                      "position":  1,
+                                                      "skipped":  [
+
+                                                                  ],
+                                                      "applied":  [
+                                                                      "model"
+                                                                  ]
+                                                  },
+                                       "panel":  {
+                                                     "id":  "6a852ab7-b963-4593-b0ed-fc27050926bb",
+                                                     "position":  1,
+                                                     "of":  4,
+                                                     "members":  [
+                                                                     {
+                                                                         "provider":  "openai",
+                                                                         "model":  "gpt-6-astra",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "ZAI",
+                                                                         "model":  "glm-5.3",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "mimo",
+                                                                         "model":  "mimo-v2.6-pro",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.8-flash-high",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.1-pro-high",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "deepseek-v4.1-flash",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "dola-seed-2.0-pro",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "kimi",
+                                                                         "model":  "k3",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "alibaba",
+                                                                         "model":  "qwen3.8-max",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "meta",
+                                                                         "model":  "muse-spark-1.3-contributor",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     }
+                                                                 ],
+                                                     "concurrency":  4,
+                                                     "limits":  {
+                                                                    "openai":  1,
+                                                                    "ZAI":  1,
+                                                                    "kimi":  1,
+                                                                    "mimo":  1
+                                                                },
+                                                     "asked":  4,
+                                                     "routing":  {
+                                                                     "mode":  "routed",
+                                                                     "order":  "routed",
+                                                                     "fallback":  "",
+                                                                     "seed":  "cb5e5b8db066a7236b043101cbc886d430e5cded7f17b21183663a456b002cc0",
+                                                                     "nonce":  "2026-10-06",
+                                                                     "nonce_source":  "date",
+                                                                     "size":  4,
+                                                                     "size_asked":  4,
+                                                                     "size_source":  "-PanelSize",
+                                                                     "reserve":  2,
+                                                                     "eligible":  [
+                                                                                      {
+                                                                                          "position":  1,
+                                                                                          "lineage":  "openai :: gpt-6-astra",
+                                                                                          "lab":  "openai",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.3,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  3,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  2,
+                                                                                          "lineage":  "ZAI :: glm-5.3",
+                                                                                          "lab":  "zhipu",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.7917,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  19,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  3,
+                                                                                          "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                          "lab":  "xiaomi",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.8478,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  21,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  4,
+                                                                                          "lineage":  "gemini :: gemini-3.8-flash-high [agy]",
+                                                                                          "lab":  "google",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.125,
+                                                                                          "basis":  "neutral",
+                                                                                          "ratings":  0,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  5,
+                                                                                          "lineage":  "gemini :: gemini-3.1-pro-high [agy]",
+                                                                                          "lab":  "google",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.125,
+                                                                                          "basis":  "neutral",
+                                                                                          "ratings":  0,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  6,
+                                                                                          "lineage":  "byteplus :: deepseek-v4.1-flash",
+                                                                                          "lab":  "deepseek",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.5,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  7,
+                                                                                          "lineage":  "byteplus :: dola-seed-2.0-pro",
+                                                                                          "lab":  "bytedance",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.2222,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  7,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  8,
+                                                                                          "lineage":  "kimi :: k3",
+                                                                                          "lab":  "moonshot",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.65,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  3,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  9,
+                                                                                          "lineage":  "alibaba :: qwen3.8-max",
+                                                                                          "lab":  "alibaba",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.8056,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  7,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  10,
+                                                                                          "lineage":  "meta :: muse-spark-1.3-contributor [muse]",
+                                                                                          "lab":  "meta",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.75,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  false
+                                                                                      }
+                                                                                  ],
+                                                                     "picked":  [
+                                                                                    {
+                                                                                        "slot":  1,
+                                                                                        "position":  1,
+                                                                                        "lineage":  "openai :: gpt-6-astra",
+                                                                                        "lab":  "openai",
+                                                                                        "rule":  "required"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  2,
+                                                                                        "position":  2,
+                                                                                        "lineage":  "ZAI :: glm-5.3",
+                                                                                        "lab":  "zhipu",
+                                                                                        "rule":  "required"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  3,
+                                                                                        "position":  8,
+                                                                                        "lineage":  "kimi :: k3",
+                                                                                        "lab":  "moonshot",
+                                                                                        "rule":  "lab-explore"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  4,
+                                                                                        "position":  3,
+                                                                                        "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                        "lab":  "xiaomi",
+                                                                                        "rule":  "lab-draw"
+                                                                                    }
+                                                                                ],
+                                                                     "explored":  [
+                                                                                      "kimi :: k3"
+                                                                                  ],
+                                                                     "required":  [
+                                                                                      "openai :: gpt-6-astra",
+                                                                                      "ZAI :: glm-5.3"
+                                                                                  ]
+                                                                 },
+                                                     "roles_note":  "",
+                                                     "started":  4,
+                                                     "usable":  4
+                                                 },
+                                       "parent_thread":  "01a0f180-34c3-7061-add1-37f2d0a34a63",
+                                       "thread":  "01a11292-d0c0-7a42-8500-2251a0bebbc4",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "fork",
+                                       "mode_fallback":  null,
+                                       "command":  "codex exec --sandbox read-only --color never --json -m gpt-6-astra -c model_reasoning_effort=\"high\" -c model_provider=\"openai\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-4c8979bc78714a22aec1d909e5cb3031.md --output-schema C:\\Users\\Dmytro\\.claude\\plugins\\cache\\claude-codex-consult\\codex-consult\\0.5.1\\schemas\\consult-reply.schema.json fork 01a0f180-34c3-7061-add1-37f2d0a34a63 -",
+                                       "child_env_scrubbed":  [
+                                                                  "AI_AGENT",
+                                                                  "CLAUDECODE",
+                                                                  "CLAUDE_CODE_CHILD_SESSION",
+                                                                  "CLAUDE_CODE_ENTRYPOINT",
+                                                                  "CLAUDE_CODE_EXECPATH",
+                                                                  "CLAUDE_CODE_MESSAGING_SOCKET",
+                                                                  "CLAUDE_CODE_MESSAGING_TOKEN",
+                                                                  "CLAUDE_CODE_SESSION_ATTENDED",
+                                                                  "CLAUDE_CODE_SESSION_ID",
+                                                                  "CLAUDE_EFFORT",
+                                                                  "CLAUDE_PID"
+                                                              ],
+                                       "brief":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                       "range":  null,
+                                       "prompt_chars":  12575,
+                                       "reply":  "handoffs/07-codex-third-party-routes-openai.md",
+                                       "reply_json":  "handoffs/07-codex-third-party-routes-openai.reply.json",
+                                       "events":  "handoffs/07-codex-third-party-routes-openai.events.jsonl",
+                                       "partial_reply":  "",
+                                       "model":  "gpt-6-astra",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "openai",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  700,
+                                       "sandbox":  "read-only",
+                                       "timeout_sec":  1800,
+                                       "timeout_source":  "purpose",
+                                       "continue_sec":  900,
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "context_window":  null,
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-10-06T20:56:10+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "output-schema",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "timeout_continue":  null,
+                                       "stall":  null,
+                                       "kill_confirmed":  null,
+                                       "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                       "reviewed_revision":  "8b11591",
+                                       "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff",
+                                       "tree_sha256_after":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff",
+                                       "tree_changed_during_review":  false,
+                                       "revision_moved":  null,
+                                       "changed_files":  0,
+                                       "brief_sha256":  "6dc51ced0b1386a4b0a67d3e322b3aee0fa1bb5d1aa7a2239b6fa61efea7e212",
+                                       "brief_sha256_after":  "6dc51ced0b1386a4b0a67d3e322b3aee0fa1bb5d1aa7a2239b6fa61efea7e212",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (1 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "tree_check":  null,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ADVISE",
+                                       "verdict_reason":  "Prefer one Claude engine with explicit, provider-qualified endpoint profiles, separate lineage and quota identities, and adoption gated by corrected billing measurements.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  5,
+                                                        "minor":  2,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+                                                           "F07-1",
+                                                           "F07-2",
+                                                           "F07-3",
+                                                           "F07-4",
+                                                           "F07-5",
+                                                           "F07-6",
+                                                           "F07-7"
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F02-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-3",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-5",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-6",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-7",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-8",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-9",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-2",
+                                                                  "status":  "not-checked"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  3124753,
+                                                     "cached_input_tokens":  2818944,
+                                                     "output_tokens":  24570,
+                                                     "reasoning_output_tokens":  7564
+                                                 },
+                                       "compactions":  null,
+                                       "engine_run":  null,
+                                       "wall_seconds":  619.1,
+                                       "finished_at":  "2026-10-06T21:06:31+02:00",
+                                       "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  5,
+                                       "when":  "2026-10-06T20:56:10+02:00",
+                                       "purpose":  "decision",
+                                       "topics":  [
+                                                      "engines",
+                                                      "roster"
+                                                  ],
+                                       "role":  "",
+                                       "consult_id":  "8ca7b54c-efff-4ebb-b5c7-9192cb7f77a0",
+                                       "reviewer":  {
+                                                        "provider":  "ZAI",
+                                                        "provider_source":  "roster",
+                                                        "model":  "glm-5.3",
+                                                        "model_source":  "roster",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "29edbb79ed7ddf2244796778196d47f9d7beae8c785399a1aa4c358b3633a886",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://api.z.ai/api/v1",
+                                                                                "name":  "Z.ai GLM Coding Plan",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "ZAI :: glm-5.3",
+                                       "coordinator":  {
+                                                           "provider":  "anthropic",
+                                                           "model":  "claude-fable-5-1",
+                                                           "engine":  "codex",
+                                                           "host":  "claude-code",
+                                                           "host_by":  "markers",
+                                                           "source":  "explicit",
+                                                           "in_roster":  false,
+                                                           "unresolved":  null
+                                                       },
+                                       "preflight":  "ok: env ZAI_API_KEY set",
+                                       "preflight_warning":  "",
+                                       "roster":  {
+                                                      "path":  "C:\\Users\\Dmytro\\.codex\\codex-consult-roster.json",
+                                                      "position":  2,
+                                                      "skipped":  [
+
+                                                                  ],
+                                                      "applied":  [
+                                                                      "model"
+                                                                  ]
+                                                  },
+                                       "panel":  {
+                                                     "id":  "6a852ab7-b963-4593-b0ed-fc27050926bb",
+                                                     "position":  2,
+                                                     "of":  4,
+                                                     "members":  [
+                                                                     {
+                                                                         "provider":  "openai",
+                                                                         "model":  "gpt-6-astra",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "ZAI",
+                                                                         "model":  "glm-5.3",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "mimo",
+                                                                         "model":  "mimo-v2.6-pro",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.8-flash-high",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.1-pro-high",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "deepseek-v4.1-flash",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "dola-seed-2.0-pro",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "kimi",
+                                                                         "model":  "k3",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "alibaba",
+                                                                         "model":  "qwen3.8-max",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "meta",
+                                                                         "model":  "muse-spark-1.3-contributor",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     }
+                                                                 ],
+                                                     "concurrency":  4,
+                                                     "limits":  {
+                                                                    "openai":  1,
+                                                                    "ZAI":  1,
+                                                                    "kimi":  1,
+                                                                    "mimo":  1
+                                                                },
+                                                     "asked":  4,
+                                                     "routing":  {
+                                                                     "mode":  "routed",
+                                                                     "order":  "routed",
+                                                                     "fallback":  "",
+                                                                     "seed":  "cb5e5b8db066a7236b043101cbc886d430e5cded7f17b21183663a456b002cc0",
+                                                                     "nonce":  "2026-10-06",
+                                                                     "nonce_source":  "date",
+                                                                     "size":  4,
+                                                                     "size_asked":  4,
+                                                                     "size_source":  "-PanelSize",
+                                                                     "reserve":  2,
+                                                                     "eligible":  [
+                                                                                      {
+                                                                                          "position":  1,
+                                                                                          "lineage":  "openai :: gpt-6-astra",
+                                                                                          "lab":  "openai",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.3,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  3,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  2,
+                                                                                          "lineage":  "ZAI :: glm-5.3",
+                                                                                          "lab":  "zhipu",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.7917,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  19,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  3,
+                                                                                          "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                          "lab":  "xiaomi",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.8478,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  21,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  4,
+                                                                                          "lineage":  "gemini :: gemini-3.8-flash-high [agy]",
+                                                                                          "lab":  "google",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.125,
+                                                                                          "basis":  "neutral",
+                                                                                          "ratings":  0,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  5,
+                                                                                          "lineage":  "gemini :: gemini-3.1-pro-high [agy]",
+                                                                                          "lab":  "google",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.125,
+                                                                                          "basis":  "neutral",
+                                                                                          "ratings":  0,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  6,
+                                                                                          "lineage":  "byteplus :: deepseek-v4.1-flash",
+                                                                                          "lab":  "deepseek",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.5,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  7,
+                                                                                          "lineage":  "byteplus :: dola-seed-2.0-pro",
+                                                                                          "lab":  "bytedance",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.2222,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  7,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  8,
+                                                                                          "lineage":  "kimi :: k3",
+                                                                                          "lab":  "moonshot",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.65,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  3,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  9,
+                                                                                          "lineage":  "alibaba :: qwen3.8-max",
+                                                                                          "lab":  "alibaba",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.8056,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  7,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  10,
+                                                                                          "lineage":  "meta :: muse-spark-1.3-contributor [muse]",
+                                                                                          "lab":  "meta",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.75,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  false
+                                                                                      }
+                                                                                  ],
+                                                                     "picked":  [
+                                                                                    {
+                                                                                        "slot":  1,
+                                                                                        "position":  1,
+                                                                                        "lineage":  "openai :: gpt-6-astra",
+                                                                                        "lab":  "openai",
+                                                                                        "rule":  "required"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  2,
+                                                                                        "position":  2,
+                                                                                        "lineage":  "ZAI :: glm-5.3",
+                                                                                        "lab":  "zhipu",
+                                                                                        "rule":  "required"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  3,
+                                                                                        "position":  8,
+                                                                                        "lineage":  "kimi :: k3",
+                                                                                        "lab":  "moonshot",
+                                                                                        "rule":  "lab-explore"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  4,
+                                                                                        "position":  3,
+                                                                                        "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                        "lab":  "xiaomi",
+                                                                                        "rule":  "lab-draw"
+                                                                                    }
+                                                                                ],
+                                                                     "explored":  [
+                                                                                      "kimi :: k3"
+                                                                                  ],
+                                                                     "required":  [
+                                                                                      "openai :: gpt-6-astra",
+                                                                                      "ZAI :: glm-5.3"
+                                                                                  ]
+                                                                 },
+                                                     "roles_note":  "",
+                                                     "started":  4,
+                                                     "usable":  4
+                                                 },
+                                       "parent_thread":  "",
+                                       "thread":  "01a11292-c6fa-73a0-b398-06a62a1cd691",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "new",
+                                       "mode_fallback":  null,
+                                       "command":  "codex exec --sandbox read-only --color never --json -m glm-5.3 -c model_reasoning_effort=\"high\" -c model_provider=\"ZAI\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-1d7e6828024b4fb19c9ef74779d9024a.md --output-schema C:\\Users\\Dmytro\\.claude\\plugins\\cache\\claude-codex-consult\\codex-consult\\0.5.1\\schemas\\consult-reply.schema.json -",
+                                       "child_env_scrubbed":  [
+                                                                  "AI_AGENT",
+                                                                  "CLAUDECODE",
+                                                                  "CLAUDE_CODE_CHILD_SESSION",
+                                                                  "CLAUDE_CODE_ENTRYPOINT",
+                                                                  "CLAUDE_CODE_EXECPATH",
+                                                                  "CLAUDE_CODE_MESSAGING_SOCKET",
+                                                                  "CLAUDE_CODE_MESSAGING_TOKEN",
+                                                                  "CLAUDE_CODE_SESSION_ATTENDED",
+                                                                  "CLAUDE_CODE_SESSION_ID",
+                                                                  "CLAUDE_EFFORT",
+                                                                  "CLAUDE_PID"
+                                                              ],
+                                       "brief":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                       "range":  null,
+                                       "prompt_chars":  12575,
+                                       "reply":  "handoffs/08-codex-third-party-routes-zai.md",
+                                       "reply_json":  "handoffs/08-codex-third-party-routes-zai.reply.json",
+                                       "events":  "handoffs/08-codex-third-party-routes-zai.events.jsonl",
+                                       "partial_reply":  "",
+                                       "model":  "glm-5.3",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "zai-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  700,
+                                       "sandbox":  "read-only",
+                                       "timeout_sec":  1800,
+                                       "timeout_source":  "purpose",
+                                       "continue_sec":  900,
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "context_window":  null,
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-10-06T20:56:10+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "output-schema",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "timeout_continue":  null,
+                                       "stall":  null,
+                                       "kill_confirmed":  null,
+                                       "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                       "reviewed_revision":  "8b11591",
+                                       "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff",
+                                       "tree_sha256_after":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff",
+                                       "tree_changed_during_review":  false,
+                                       "revision_moved":  null,
+                                       "changed_files":  0,
+                                       "brief_sha256":  "6dc51ced0b1386a4b0a67d3e322b3aee0fa1bb5d1aa7a2239b6fa61efea7e212",
+                                       "brief_sha256_after":  "6dc51ced0b1386a4b0a67d3e322b3aee0fa1bb5d1aa7a2239b6fa61efea7e212",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (1 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "tree_check":  null,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ADVISE",
+                                       "verdict_reason":  "The route is plausible, but it should be a separate compatible engine and must first close credential-proof, plan-health, telemetry and measurement contracts.",
+                                       "findings":  {
+                                                        "blocker":  1,
+                                                        "major":  4,
+                                                        "minor":  1,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+                                                           "F08-1",
+                                                           "F08-2",
+                                                           "F08-3",
+                                                           "F08-4",
+                                                           "F08-5",
+                                                           "F08-6"
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F02-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-5",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-6",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-7",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-8",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-9",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-2",
+                                                                  "status":  "fixed"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  2328668,
+                                                     "cached_input_tokens":  2172032,
+                                                     "output_tokens":  19542,
+                                                     "reasoning_output_tokens":  11619
+                                                 },
+                                       "compactions":  null,
+                                       "engine_run":  null,
+                                       "wall_seconds":  686.7,
+                                       "finished_at":  "2026-10-06T21:07:39+02:00",
+                                       "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  6,
+                                       "when":  "2026-10-06T20:56:10+02:00",
+                                       "purpose":  "decision",
+                                       "topics":  [
+                                                      "engines",
+                                                      "roster"
+                                                  ],
+                                       "role":  "",
+                                       "consult_id":  "f5667b8c-95a2-46ab-a06d-1fd66d7317ae",
+                                       "reviewer":  {
+                                                        "provider":  "kimi",
+                                                        "provider_source":  "roster",
+                                                        "model":  "k3",
+                                                        "model_source":  "roster",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "8f7901d404b5b5b2de84f2eb7f01cb71862a7125210fdebca1e70b53e1d19575",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://api.kimi.ai/coding/v1",
+                                                                                "name":  "Kimi Code membership (Moonshot, overseas)",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "kimi :: k3",
+                                       "coordinator":  {
+                                                           "provider":  "anthropic",
+                                                           "model":  "claude-fable-5-1",
+                                                           "engine":  "codex",
+                                                           "host":  "claude-code",
+                                                           "host_by":  "markers",
+                                                           "source":  "explicit",
+                                                           "in_roster":  false,
+                                                           "unresolved":  null
+                                                       },
+                                       "preflight":  "ok: env KIMI_API_KEY set",
+                                       "preflight_warning":  "",
+                                       "roster":  {
+                                                      "path":  "C:\\Users\\Dmytro\\.codex\\codex-consult-roster.json",
+                                                      "position":  8,
+                                                      "skipped":  [
+
+                                                                  ],
+                                                      "applied":  [
+                                                                      "model"
+                                                                  ]
+                                                  },
+                                       "panel":  {
+                                                     "id":  "6a852ab7-b963-4593-b0ed-fc27050926bb",
+                                                     "position":  3,
+                                                     "of":  4,
+                                                     "members":  [
+                                                                     {
+                                                                         "provider":  "openai",
+                                                                         "model":  "gpt-6-astra",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "ZAI",
+                                                                         "model":  "glm-5.3",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "mimo",
+                                                                         "model":  "mimo-v2.6-pro",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.8-flash-high",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.1-pro-high",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "deepseek-v4.1-flash",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "dola-seed-2.0-pro",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "kimi",
+                                                                         "model":  "k3",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "alibaba",
+                                                                         "model":  "qwen3.8-max",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "meta",
+                                                                         "model":  "muse-spark-1.3-contributor",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     }
+                                                                 ],
+                                                     "concurrency":  4,
+                                                     "limits":  {
+                                                                    "openai":  1,
+                                                                    "ZAI":  1,
+                                                                    "kimi":  1,
+                                                                    "mimo":  1
+                                                                },
+                                                     "asked":  4,
+                                                     "routing":  {
+                                                                     "mode":  "routed",
+                                                                     "order":  "routed",
+                                                                     "fallback":  "",
+                                                                     "seed":  "cb5e5b8db066a7236b043101cbc886d430e5cded7f17b21183663a456b002cc0",
+                                                                     "nonce":  "2026-10-06",
+                                                                     "nonce_source":  "date",
+                                                                     "size":  4,
+                                                                     "size_asked":  4,
+                                                                     "size_source":  "-PanelSize",
+                                                                     "reserve":  2,
+                                                                     "eligible":  [
+                                                                                      {
+                                                                                          "position":  1,
+                                                                                          "lineage":  "openai :: gpt-6-astra",
+                                                                                          "lab":  "openai",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.3,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  3,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  2,
+                                                                                          "lineage":  "ZAI :: glm-5.3",
+                                                                                          "lab":  "zhipu",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.7917,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  19,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  3,
+                                                                                          "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                          "lab":  "xiaomi",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.8478,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  21,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  4,
+                                                                                          "lineage":  "gemini :: gemini-3.8-flash-high [agy]",
+                                                                                          "lab":  "google",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.125,
+                                                                                          "basis":  "neutral",
+                                                                                          "ratings":  0,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  5,
+                                                                                          "lineage":  "gemini :: gemini-3.1-pro-high [agy]",
+                                                                                          "lab":  "google",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.125,
+                                                                                          "basis":  "neutral",
+                                                                                          "ratings":  0,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  6,
+                                                                                          "lineage":  "byteplus :: deepseek-v4.1-flash",
+                                                                                          "lab":  "deepseek",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.5,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  7,
+                                                                                          "lineage":  "byteplus :: dola-seed-2.0-pro",
+                                                                                          "lab":  "bytedance",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.2222,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  7,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  8,
+                                                                                          "lineage":  "kimi :: k3",
+                                                                                          "lab":  "moonshot",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.65,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  3,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  9,
+                                                                                          "lineage":  "alibaba :: qwen3.8-max",
+                                                                                          "lab":  "alibaba",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.8056,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  7,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  10,
+                                                                                          "lineage":  "meta :: muse-spark-1.3-contributor [muse]",
+                                                                                          "lab":  "meta",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.75,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  false
+                                                                                      }
+                                                                                  ],
+                                                                     "picked":  [
+                                                                                    {
+                                                                                        "slot":  1,
+                                                                                        "position":  1,
+                                                                                        "lineage":  "openai :: gpt-6-astra",
+                                                                                        "lab":  "openai",
+                                                                                        "rule":  "required"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  2,
+                                                                                        "position":  2,
+                                                                                        "lineage":  "ZAI :: glm-5.3",
+                                                                                        "lab":  "zhipu",
+                                                                                        "rule":  "required"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  3,
+                                                                                        "position":  8,
+                                                                                        "lineage":  "kimi :: k3",
+                                                                                        "lab":  "moonshot",
+                                                                                        "rule":  "lab-explore"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  4,
+                                                                                        "position":  3,
+                                                                                        "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                        "lab":  "xiaomi",
+                                                                                        "rule":  "lab-draw"
+                                                                                    }
+                                                                                ],
+                                                                     "explored":  [
+                                                                                      "kimi :: k3"
+                                                                                  ],
+                                                                     "required":  [
+                                                                                      "openai :: gpt-6-astra",
+                                                                                      "ZAI :: glm-5.3"
+                                                                                  ]
+                                                                 },
+                                                     "roles_note":  "",
+                                                     "started":  4,
+                                                     "usable":  4
+                                                 },
+                                       "parent_thread":  "",
+                                       "thread":  "01a11292-c8dc-7bd0-bf36-119c61f7a248",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "new",
+                                       "mode_fallback":  null,
+                                       "command":  "codex exec --sandbox read-only --color never --json -m k3 -c model_reasoning_effort=\"high\" -c model_provider=\"kimi\" -c model_context_window=256000 -c model_auto_compact_token_limit=204800 -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-e690cd6a37454fa68ebbdef42d03a42a.md -",
+                                       "child_env_scrubbed":  [
+                                                                  "AI_AGENT",
+                                                                  "CLAUDECODE",
+                                                                  "CLAUDE_CODE_CHILD_SESSION",
+                                                                  "CLAUDE_CODE_ENTRYPOINT",
+                                                                  "CLAUDE_CODE_EXECPATH",
+                                                                  "CLAUDE_CODE_MESSAGING_SOCKET",
+                                                                  "CLAUDE_CODE_MESSAGING_TOKEN",
+                                                                  "CLAUDE_CODE_SESSION_ATTENDED",
+                                                                  "CLAUDE_CODE_SESSION_ID",
+                                                                  "CLAUDE_EFFORT",
+                                                                  "CLAUDE_PID"
+                                                              ],
+                                       "brief":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                       "range":  null,
+                                       "prompt_chars":  15190,
+                                       "reply":  "handoffs/09-codex-third-party-routes-kimi.md",
+                                       "reply_json":  "handoffs/09-codex-third-party-routes-kimi.reply.json",
+                                       "events":  "handoffs/09-codex-third-party-routes-kimi.events.jsonl",
+                                       "partial_reply":  "",
+                                       "model":  "k3",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "kimi-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  700,
+                                       "sandbox":  "read-only",
+                                       "timeout_sec":  1800,
+                                       "timeout_source":  "purpose",
+                                       "continue_sec":  900,
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "context_window":  {
+                                                              "tokens":  256000,
+                                                              "auto_compact_limit":  204800,
+                                                              "items":  [
+                                                                            "model_context_window=256000",
+                                                                            "model_auto_compact_token_limit=204800"
+                                                                        ]
+                                                          },
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-10-06T20:56:10+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "timeout_continue":  null,
+                                       "stall":  null,
+                                       "kill_confirmed":  null,
+                                       "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                       "reviewed_revision":  "8b11591",
+                                       "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff",
+                                       "tree_sha256_after":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff",
+                                       "tree_changed_during_review":  false,
+                                       "revision_moved":  null,
+                                       "changed_files":  0,
+                                       "brief_sha256":  "6dc51ced0b1386a4b0a67d3e322b3aee0fa1bb5d1aa7a2239b6fa61efea7e212",
+                                       "brief_sha256_after":  "6dc51ced0b1386a4b0a67d3e322b3aee0fa1bb5d1aa7a2239b6fa61efea7e212",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (1 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "tree_check":  null,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ADVISE",
+                                       "verdict_reason":  "Adopt alternative 2 (a third credential mechanism `endpoint` of the claude engine with the endpoint spelled out in the roster entry), gated on the billing-attribution probe and four engine-keyed table fixes named below.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  3,
+                                                        "minor":  1,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+                                                           "F09-1",
+                                                           "F09-2",
+                                                           "F09-3",
+                                                           "F09-4"
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F02-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-6",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-7",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-8",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-9",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-2",
+                                                                  "status":  "fixed"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  362446,
+                                                     "cached_input_tokens":  246784,
+                                                     "output_tokens":  9119,
+                                                     "reasoning_output_tokens":  4907
+                                                 },
+                                       "compactions":  "unknown",
+                                       "engine_run":  null,
+                                       "wall_seconds":  397.8,
+                                       "finished_at":  "2026-10-06T21:02:49+02:00",
+                                       "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  7,
+                                       "when":  "2026-10-06T20:56:10+02:00",
+                                       "purpose":  "decision",
+                                       "topics":  [
+                                                      "engines",
+                                                      "roster"
+                                                  ],
+                                       "role":  "",
+                                       "consult_id":  "1f7b8aff-db72-4838-997c-67f485e5b6a9",
+                                       "reviewer":  {
+                                                        "provider":  "mimo",
+                                                        "provider_source":  "roster",
+                                                        "model":  "mimo-v2.6-pro",
+                                                        "model_source":  "roster",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "47cd6ee7e4ff9e9edca22c003d603d4c7fd722e8b85c63b4d02ef69f97ed8051",
+                                                        "provider_config":  {
+                                                                                "base_url":  "https://token-plan-ams.xiaomimimo.com/v1",
+                                                                                "name":  "Xiaomi MiMo Token Plan",
+                                                                                "wire_api":  "responses"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "mimo :: mimo-v2.6-pro",
+                                       "coordinator":  {
+                                                           "provider":  "anthropic",
+                                                           "model":  "claude-fable-5-1",
+                                                           "engine":  "codex",
+                                                           "host":  "claude-code",
+                                                           "host_by":  "markers",
+                                                           "source":  "explicit",
+                                                           "in_roster":  false,
+                                                           "unresolved":  null
+                                                       },
+                                       "preflight":  "ok: env MIMO_API_KEY set",
+                                       "preflight_warning":  "",
+                                       "roster":  {
+                                                      "path":  "C:\\Users\\Dmytro\\.codex\\codex-consult-roster.json",
+                                                      "position":  3,
+                                                      "skipped":  [
+
+                                                                  ],
+                                                      "applied":  [
+                                                                      "model",
+                                                                      "codex_config"
+                                                                  ]
+                                                  },
+                                       "panel":  {
+                                                     "id":  "6a852ab7-b963-4593-b0ed-fc27050926bb",
+                                                     "position":  4,
+                                                     "of":  4,
+                                                     "members":  [
+                                                                     {
+                                                                         "provider":  "openai",
+                                                                         "model":  "gpt-6-astra",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "ZAI",
+                                                                         "model":  "glm-5.3",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "mimo",
+                                                                         "model":  "mimo-v2.6-pro",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.8-flash-high",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "gemini",
+                                                                         "model":  "gemini-3.1-pro-high",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "deepseek-v4.1-flash",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "byteplus",
+                                                                         "model":  "dola-seed-2.0-pro",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "kimi",
+                                                                         "model":  "k3",
+                                                                         "state":  "run",
+                                                                         "reason":  ""
+                                                                     },
+                                                                     {
+                                                                         "provider":  "alibaba",
+                                                                         "model":  "qwen3.8-max",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     },
+                                                                     {
+                                                                         "provider":  "meta",
+                                                                         "model":  "muse-spark-1.3-contributor",
+                                                                         "state":  "not-picked",
+                                                                         "reason":  "panel size 4"
+                                                                     }
+                                                                 ],
+                                                     "concurrency":  4,
+                                                     "limits":  {
+                                                                    "openai":  1,
+                                                                    "ZAI":  1,
+                                                                    "kimi":  1,
+                                                                    "mimo":  1
+                                                                },
+                                                     "asked":  4,
+                                                     "routing":  {
+                                                                     "mode":  "routed",
+                                                                     "order":  "routed",
+                                                                     "fallback":  "",
+                                                                     "seed":  "cb5e5b8db066a7236b043101cbc886d430e5cded7f17b21183663a456b002cc0",
+                                                                     "nonce":  "2026-10-06",
+                                                                     "nonce_source":  "date",
+                                                                     "size":  4,
+                                                                     "size_asked":  4,
+                                                                     "size_source":  "-PanelSize",
+                                                                     "reserve":  2,
+                                                                     "eligible":  [
+                                                                                      {
+                                                                                          "position":  1,
+                                                                                          "lineage":  "openai :: gpt-6-astra",
+                                                                                          "lab":  "openai",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.3,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  3,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  2,
+                                                                                          "lineage":  "ZAI :: glm-5.3",
+                                                                                          "lab":  "zhipu",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.7917,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  19,
+                                                                                          "required":  true
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  3,
+                                                                                          "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                          "lab":  "xiaomi",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.8478,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  21,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  4,
+                                                                                          "lineage":  "gemini :: gemini-3.8-flash-high [agy]",
+                                                                                          "lab":  "google",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.125,
+                                                                                          "basis":  "neutral",
+                                                                                          "ratings":  0,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  5,
+                                                                                          "lineage":  "gemini :: gemini-3.1-pro-high [agy]",
+                                                                                          "lab":  "google",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.125,
+                                                                                          "basis":  "neutral",
+                                                                                          "ratings":  0,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  6,
+                                                                                          "lineage":  "byteplus :: deepseek-v4.1-flash",
+                                                                                          "lab":  "deepseek",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.5,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  7,
+                                                                                          "lineage":  "byteplus :: dola-seed-2.0-pro",
+                                                                                          "lab":  "bytedance",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.2222,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  7,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  8,
+                                                                                          "lineage":  "kimi :: k3",
+                                                                                          "lab":  "moonshot",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.65,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  3,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  9,
+                                                                                          "lineage":  "alibaba :: qwen3.8-max",
+                                                                                          "lab":  "alibaba",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.8056,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  7,
+                                                                                          "required":  false
+                                                                                      },
+                                                                                      {
+                                                                                          "position":  10,
+                                                                                          "lineage":  "meta :: muse-spark-1.3-contributor [muse]",
+                                                                                          "lab":  "meta",
+                                                                                          "lab_source":  "vendor",
+                                                                                          "score":  1.75,
+                                                                                          "basis":  "all-purpose",
+                                                                                          "ratings":  5,
+                                                                                          "required":  false
+                                                                                      }
+                                                                                  ],
+                                                                     "picked":  [
+                                                                                    {
+                                                                                        "slot":  1,
+                                                                                        "position":  1,
+                                                                                        "lineage":  "openai :: gpt-6-astra",
+                                                                                        "lab":  "openai",
+                                                                                        "rule":  "required"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  2,
+                                                                                        "position":  2,
+                                                                                        "lineage":  "ZAI :: glm-5.3",
+                                                                                        "lab":  "zhipu",
+                                                                                        "rule":  "required"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  3,
+                                                                                        "position":  8,
+                                                                                        "lineage":  "kimi :: k3",
+                                                                                        "lab":  "moonshot",
+                                                                                        "rule":  "lab-explore"
+                                                                                    },
+                                                                                    {
+                                                                                        "slot":  4,
+                                                                                        "position":  3,
+                                                                                        "lineage":  "mimo :: mimo-v2.6-pro",
+                                                                                        "lab":  "xiaomi",
+                                                                                        "rule":  "lab-draw"
+                                                                                    }
+                                                                                ],
+                                                                     "explored":  [
+                                                                                      "kimi :: k3"
+                                                                                  ],
+                                                                     "required":  [
+                                                                                      "openai :: gpt-6-astra",
+                                                                                      "ZAI :: glm-5.3"
+                                                                                  ]
+                                                                 },
+                                                     "roles_note":  "",
+                                                     "started":  4,
+                                                     "usable":  4
+                                                 },
+                                       "parent_thread":  "",
+                                       "thread":  "01a11292-c41c-7a43-8918-52e5a2ca793c",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "new",
+                                       "mode_fallback":  null,
+                                       "command":  "codex exec --sandbox read-only --color never --json -m mimo-v2.6-pro -c model_reasoning_effort=\"high\" -c model_provider=\"mimo\" -c model_catalog_json=\"C:/Users/Dmytro/.codex/model-catalogs.json\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-862af483e02140a9bdb112054693acd5.md -",
+                                       "child_env_scrubbed":  [
+                                                                  "AI_AGENT",
+                                                                  "CLAUDECODE",
+                                                                  "CLAUDE_CODE_CHILD_SESSION",
+                                                                  "CLAUDE_CODE_ENTRYPOINT",
+                                                                  "CLAUDE_CODE_EXECPATH",
+                                                                  "CLAUDE_CODE_MESSAGING_SOCKET",
+                                                                  "CLAUDE_CODE_MESSAGING_TOKEN",
+                                                                  "CLAUDE_CODE_SESSION_ATTENDED",
+                                                                  "CLAUDE_CODE_SESSION_ID",
+                                                                  "CLAUDE_EFFORT",
+                                                                  "CLAUDE_PID"
+                                                              ],
+                                       "brief":  ".collab/claude-engine-2026-09-30/handoffs/06-claude-claude-engine-third-party-routes.md",
+                                       "range":  null,
+                                       "prompt_chars":  14958,
+                                       "reply":  "handoffs/10-codex-third-party-routes-mimo.md",
+                                       "reply_json":  "handoffs/10-codex-third-party-routes-mimo.reply.json",
+                                       "events":  "handoffs/10-codex-third-party-routes-mimo.events.jsonl",
+                                       "partial_reply":  "",
+                                       "model":  "mimo-v2.6-pro",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "mimo-v1",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  700,
+                                       "sandbox":  "read-only",
+                                       "timeout_sec":  1800,
+                                       "timeout_source":  "purpose",
+                                       "continue_sec":  900,
+                                       "extra_config":  [
+                                                            "model_catalog_json=\"C:/Users/Dmytro/.codex/model-catalogs.json\""
+                                                        ],
+                                       "extra_config_source":  "roster",
+                                       "context_window":  null,
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-10-06T20:56:10+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "prompt-only",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "timeout_continue":  null,
+                                       "stall":  null,
+                                       "kill_confirmed":  null,
+                                       "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
+                                       "reviewed_revision":  "8b11591",
+                                       "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff",
+                                       "tree_sha256_after":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff",
+                                       "tree_changed_during_review":  false,
+                                       "revision_moved":  null,
+                                       "changed_files":  0,
+                                       "brief_sha256":  "6dc51ced0b1386a4b0a67d3e322b3aee0fa1bb5d1aa7a2239b6fa61efea7e212",
+                                       "brief_sha256_after":  "6dc51ced0b1386a4b0a67d3e322b3aee0fa1bb5d1aa7a2239b6fa61efea7e212",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (1 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "tree_check":  null,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ADVISE",
+                                       "verdict_reason":  "Adopt alternative 2 only after route versus plan identity, endpoint authentication proof, telemetry, and cross-route concurrency contracts are defined and smoke-tested.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  5,
+                                                        "minor":  0,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+                                                           "F10-1",
+                                                           "F10-2",
+                                                           "F10-3",
+                                                           "F10-4",
+                                                           "F10-5"
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F02-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-4",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-5",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-6",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-7",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-8",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-9",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-1",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F04-2",
+                                                                  "status":  "still-open"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  5669358,
+                                                     "cached_input_tokens":  3006464,
+                                                     "output_tokens":  22751,
+                                                     "reasoning_output_tokens":  13201
+                                                 },
+                                       "compactions":  null,
+                                       "engine_run":  null,
+                                       "wall_seconds":  1794.6,
+                                       "finished_at":  "2026-10-06T21:26:06+02:00",
+                                       "commit_wait_ms":  0
                                    }
                                ]
               }
