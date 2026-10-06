@@ -7153,7 +7153,7 @@ function Resolve-CoordinatorIdentity {
         return $r
     }
     $m = ConvertFrom-ReviewerMatcher -Matcher $v
-    # (wave 29, item 9) a Claude Code coordinator's model id may carry the 1M-context suffix
+    # (wave 29, item 9) a coordinator's model id (Claude family) may carry the 1M-context suffix
     # (claude-opus-5-5[1m]): stripped - the comparison is on the model
     if ($null -ne $m.Model -and ([string]$m.Model) -match '(?i)^claude-.*\[1m\]$') { $m.Model = ([string]$m.Model) -replace '(?i)\[1m\]$', '' }
     $why = [string]$m.Error
@@ -7208,7 +7208,7 @@ function Resolve-CoordinatorIdentity {
 # (wave 29, item 9) A reviewer of the claude engine: the ENGINE fixes the vendor - the coordinator's
 # provider is compared with anthropic (case-insensitive) whatever the roster's label, its engine may
 # be unnamed (codex, the default) or claude, and the models after normalising (Test-ClaudeModelMatch:
-# [1m] stripped, an alias equal to any id of its family). A Claude Code coordinator sets
+# [1m] stripped, an alias equal to any id of its family). A coordinator on an Anthropic model sets
 # CODEX_CONSULT_COORDINATOR="anthropic :: <its model id>". (wave 29b, E5) That anthropic branch is
 # for auth subscription and api-key only: an endpoint entry ($Auth endpoint - a third-party model
 # through the claude CLI) is compared as a codex entry is (its label and its model, ordinal).

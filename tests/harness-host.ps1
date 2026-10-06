@@ -263,6 +263,8 @@ try {
 
 # =============================================================== GREP: the root note and the wording (D2, D6)
 if (Want 'GREP') {
+    # (wave 29) the claude ENGINE (Claude Code headless as a reviewer) names its CLI, flags and login - such a line, or the setup-providers section 3g, is no host assumption
+    $engineRx = '(?i)\bengine\b|claude -p|Claude Code headless|claude auth|ANTHROPIC_|wave 29|\(claude\)|\bendpoint\b'
     $skillFiles = @(Get-ChildItem -LiteralPath (Join-Path $pluginDir 'skills') -Directory | ForEach-Object { Join-Path $_.FullName 'SKILL.md' } | Where-Object { Test-Path -LiteralPath $_ })
     $names = @($skillFiles | ForEach-Object { Split-Path -Leaf (Split-Path -Parent $_) } | Sort-Object)
     $noteMissing = New-Object System.Collections.Generic.List[string]
@@ -281,7 +283,7 @@ if (Want 'GREP') {
             $l = $lines[$i]
             if ($l -match '^## ') { $section = $l }
             # (wave 27d) a model name (Claude Fable 5.1, the prices of the waiting rule) names no host
-            if (($l -creplace '\bClaude (Fable|Opus|Sonnet|Haiku) \d+(\.\d+)?', '') -cmatch '\bClaude\b' -and $section -ne '## Means per host') { $claudeHits.Add("$($leaf):$($i + 1)") }
+            if (($l -creplace '\bClaude (Fable|Opus|Sonnet|Haiku) \d+(\.\d+)?', '') -cmatch '\bClaude\b' -and $section -ne '## Means per host' -and $l -notmatch $engineRx -and $section -notmatch '^## 3g\.') { $claudeHits.Add("$($leaf):$($i + 1)") }
             if ($l -ceq $note) { continue }
             foreach ($m in [regex]::Matches($l, '\$\{CLAUDE_PLUGIN_ROOT\}(.{0,12})')) {
                 if ($m.Groups[1].Value -notmatch '^/(scripts|templates|skills|schemas|install|hooks|agents)/') { $rootHits.Add("$($leaf):$($i + 1)") }
@@ -291,19 +293,19 @@ if (Want 'GREP') {
     }
     Check 'GREP' 'D2 every skill (consult-codex, coordinate, setup-providers) opens with the one-sentence root note right after its title: "`${CLAUDE_PLUGIN_ROOT}` is the plugin directory; from a plain shell set `CODEX_CONSULT_ROOT` to it and use that instead."' (($names -join ',') -eq 'consult-codex,coordinate,setup-providers' -and $noteMissing.Count -eq 0) "skills $($names -join ','); missing in $($noteMissing -join ',')"
     Check 'GREP' 'D2/D6 `${CLAUDE_PLUGIN_ROOT}` appears in the skills only in the root note and as a path prefix into the plugin (/scripts/, /templates/, /skills/, /install/ ...) - the `<skill dir>/../..` fallback is gone' ($rootHits.Count -eq 0) ($rootHits -join ', ')
-    Check 'GREP' 'D6 "Claude" appears in the skills only in the coordinate skill''s "Means per host" section (the coordinator, the judge everywhere else) - (wave 27d) a model name such as "Claude Fable 5.1" in the waiting rule is no host' ($claudeHits.Count -eq 0) ($claudeHits -join ', ')
+    Check 'GREP' 'D6 "Claude" appears in the skills only in the coordinate skill''s "Means per host" section (the coordinator, the judge everywhere else) - (wave 27d) a model name such as "Claude Fable 5.1" in the waiting rule is no host; wave 29: the claude engine''s own mentions are allowed' ($claudeHits.Count -eq 0) ($claudeHits -join ', ')
     # README: "Claude" only in the host sections - (wave 27d) and in "Waiting", whose prices are those of Claude models
-    $allowed = '^## (Install|For the coordinator|Waiting: keep the prompt cache or compact|Engines|Alternatives|Roadmap|Tested on)'
+    $allowed = '^## (For the agent installing this|First run: the prompt for the operator|Install|For the coordinator|Waiting: keep the prompt cache or compact|Engines|Alternatives|Roadmap|Tested on)'
     $readmeHits = New-Object System.Collections.Generic.List[string]
     $section = ''
     $rl = @($readme -split "`r?`n")
     for ($i = 0; $i -lt $rl.Count; $i++) {
         if ($rl[$i] -match '^## ') { $section = $rl[$i] }
-        if ($rl[$i] -cmatch '\bClaude\b' -and $section -notmatch $allowed) { $readmeHits.Add("$($i + 1): $($rl[$i].Substring(0, [Math]::Min(60, $rl[$i].Length)))") }
+        if ($rl[$i] -cmatch '\bClaude\b' -and $section -notmatch $allowed -and $rl[$i] -notmatch $engineRx) { $readmeHits.Add("$($i + 1): $($rl[$i].Substring(0, [Math]::Min(60, $rl[$i].Length)))") }
     }
-    Check 'GREP' 'D6 the README names "Claude" only in the host sections (Install, For the coordinator; the Engines, Alternatives, Roadmap and Tested-on product references; wave 27d: Waiting, the prices of the Claude models)' ($readmeHits.Count -eq 0) ($readmeHits -join ' || ')
-    $scriptHits = @(Get-ChildItem -LiteralPath $scripts -Filter '*.ps1' | ForEach-Object { $sf = $_; $n = 0; foreach ($l in ((Text $sf.FullName) -split "`n")) { $n++; if ($l -cmatch '\bClaude\b') { "$($sf.Name):$n" } } })
-    Check 'GREP' 'D6 no script says "Claude": the synopses, .DESCRIPTION/.EXAMPLE text and the hook header say the coordinator (codex-consult.ps1: "from any coordinator")' ($scriptHits.Count -eq 0 -and (Text $consultPs) -match 'from any coordinator' -and (Text $hookPs) -match "the coordinator's session") ($scriptHits -join ', ')
+    Check 'GREP' 'D6 the README names "Claude" only in the host sections (wave 29: the claude engine''s own mentions are allowed, and so are the agent-install and first-run sections that list the hosts and engines; Install, For the coordinator; the Engines, Alternatives, Roadmap and Tested-on product references; wave 27d: Waiting, the prices of the Claude models)' ($readmeHits.Count -eq 0) ($readmeHits -join ' || ')
+    $scriptHits = @(Get-ChildItem -LiteralPath $scripts -Filter '*.ps1' | ForEach-Object { $sf = $_; $n = 0; foreach ($l in ((Text $sf.FullName) -split "`n")) { $n++; if ($l -cmatch '\bClaude\b' -and $l -notmatch $engineRx) { "$($sf.Name):$n" } } })
+    Check 'GREP' 'D6 no script says "Claude": the synopses, .DESCRIPTION/.EXAMPLE text and the hook header say the coordinator - wave 29: the claude engine''s own mentions are allowed (codex-consult.ps1: "from any coordinator")' ($scriptHits.Count -eq 0 -and (Text $consultPs) -match 'from any coordinator' -and (Text $hookPs) -match "the coordinator's session") ($scriptHits -join ', ')
     # (wave 27c, D22) the brief templates name no host either
     $tplHits = @(Get-ChildItem -LiteralPath (Join-Path $pluginDir 'templates') -Filter '*.md' | ForEach-Object { $tf = $_; $n = 0; foreach ($l in ((Text $tf.FullName) -split "`n")) { $n++; if ($l -cmatch '\bClaude\b') { "$($tf.Name):$n" } } })
     Check 'GREP' '(wave 27c, D22) no brief template names a host: templates/*.md carry no "Claude" - "# Handoff <NN> - <coordinator>: <slug>" in brief-review.md and brief-framing.md' ($tplHits.Count -eq 0 -and (Text (Join-Path $pluginDir 'templates\brief-review.md')).Contains('# Handoff <NN> - <coordinator>: <slug>') -and (Text (Join-Path $pluginDir 'templates\brief-framing.md')).Contains('# Handoff <NN> - <coordinator>: <slug>')) ($tplHits -join ', ')
