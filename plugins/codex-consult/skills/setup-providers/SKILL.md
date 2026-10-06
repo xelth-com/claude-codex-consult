@@ -412,7 +412,8 @@ itself. Full contract: the README, "Engines (wave 29)".
    auth and refused with the others; `base_url` is an absolute https URL; `env_key` is the NAME of the variable that
    holds the plan's key - the USER sets it in their own terminal, you never create, print or paste its value;
    `timeout_ms` is optional (default 3000000). The `model` is the id as the provider publishes it (not the claude
-   model table). The label is distinct from the plan's codex entry (`ZAI` stays the codex entry, `ZAI-claude` the
+   model table); an Anthropic model id (`sonnet`, `claude-opus-5-5`, any `claude-*`) is refused, because only a model the
+   subscription cannot serve proves that the endpoint, not the local login, was billed (E11). The label is distinct from the plan's codex entry (`ZAI` stays the codex entry, `ZAI-claude` the
    endpoint entry). Examples: z.ai GLM Coding Plan `https://api.z.ai/api/anthropic`, `glm-5.3`, `ZAI_API_KEY`, plan
    `zai`; Xiaomi MiMo Token Plan `https://token-plan-ams.xiaomimimo.com/anthropic`, `mimo-v2.6-pro`, `MIMO_API_KEY`,
    plan `mimo`; Kimi Code `https://api.kimi.ai/coding/` (overseas; `api.kimi.com/coding/` domestic), `k3`, `k3-256k`

@@ -19,7 +19,7 @@ manifests are not bumped yet (the version stays 0.5.1 until the release).
   `.collab/claude-engine-2026-09-30/handoffs/12-claude-claude-engine-endpoint-decisions.md` (D10 reversed for this
   explicit route only; an inherited `ANTHROPIC_BASE_URL`, Bedrock, Vertex and Foundry stay out): E1 the entry key
   `endpoint` `{base_url, env_key, timeout_ms}` and the optional `plan` slug (a roster entry key of every engine); E2 the
-  model sent straight as the provider publishes it, proved by the init event; E3 a local preflight (`ok: env <NAME>
+  model sent straight as the provider publishes it, proved by the init event (E11: an endpoint entry cannot carry an Anthropic model id - the billing proof); E3 a local preflight (`ok: env <NAME>
   set`, no `claude auth status`, no live request); E4 the child environment (`ANTHROPIC_BASE_URL`,
   `ANTHROPIC_AUTH_TOKEN`, `API_TIMEOUT_MS`, never `ANTHROPIC_API_KEY`; a 401/403 is class auth, a 429 class quota);
   E5 two identities, the route (fingerprint, health) and the plan (a quota failure marks every entry of the plan out);

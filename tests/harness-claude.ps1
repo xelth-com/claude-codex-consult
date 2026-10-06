@@ -736,6 +736,21 @@ if (Want 'ENDPOINT') {
         $badE = @()
         foreach ($n in $refuseE.Keys) { $rr = & $rdE $refuseE[$n][0]; if (-not ($rr.Error -and $rr.Error.Contains($refuseE[$n][1]) -and -not $rr.Error.Contains('W29BSECRETPW'))) { $badE += "$n -> $($rr.Error)" } }
         Check 'ENDPOINT' "E1: refused - the whole roster, fail-closed - with their texts: $(@($refuseE.Keys) -join ', '); a URL or env_key value is never echoed" ($badE.Count -eq 0) ($badE -join ' | ')
+        # ---- E11: an endpoint entry cannot carry an Anthropic model id (the billing proof)
+        $e11Why = "which the endpoint route cannot carry: the init event's apiKeySource is 'none' on this route as on the subscription, so only a model the subscription cannot serve proves the billing - name the provider's own model id"
+        $e11 = [ordered]@{
+            'claude-sonnet-5-5'     = @('claude-sonnet-5-5', "entry 1: the claude model 'claude-sonnet-5-5' is an Anthropic model id, $e11Why")
+            'the alias sonnet'      = @('sonnet', "entry 1: the claude model 'sonnet' is an Anthropic model id, $e11Why")
+            'Claude-Opus-5-5[1m]'   = @('Claude-Opus-5-5[1m]', "entry 1: the claude model 'Claude-Opus-5-5[1m]' is an Anthropic model id, $e11Why")
+            'a future claude-* id'  = @('claude-haiku-9', "entry 1: the claude model 'claude-haiku-9' is an Anthropic model id, $e11Why")
+            'the alias FABLE'       = @('FABLE', "entry 1: the claude model 'FABLE' is an Anthropic model id, $e11Why")
+        }
+        $badE11 = @()
+        foreach ($n in $e11.Keys) { $rr = & $rdE (& $one (& $epWith '{"base_url":"https://a.example/v","env_key":"ABC"}' $e11[$n][0])); if (-not ($rr.Error -and $rr.Error.Contains($e11[$n][1]))) { $badE11 += "$n -> $($rr.Error)" } }
+        $okGlm = & $rdE (& $one (& $epWith '{"base_url":"https://a.example/v","env_key":"ABC"}' 'glm-5.3'))
+        $okSubs = & $rdE (& $one '{"provider":"x","engine":"claude","model":"claude-sonnet-5-5","auth":"subscription"}')
+        Check 'ENDPOINT' "E11: an endpoint entry whose model is an Anthropic id is refused with the billing-proof text - claude-sonnet-5-5, the alias sonnet, an upper-case id with [1m], a claude-* id outside the table, an upper-case alias: $(@($e11.Keys) -join ', ')" ($badE11.Count -eq 0) ($badE11 -join ' | ')
+        Check 'ENDPOINT' 'E11: the rule is for auth endpoint only - glm-5.3 on an endpoint entry and claude-sonnet-5-5 on a subscription entry are still accepted' (-not $okGlm.Error -and -not $okSubs.Error) "$($okGlm.Error) | $($okSubs.Error)"
 
         # ---- E5: the route identity and its health key
         $iEp = Resolve-ReviewerIdentity -Config $cfgEp -Provider 'ZAI-claude' -Model 'glm-5.3' -Engine 'claude' -Launcher 'C:\fake\claude.exe' -Auth 'endpoint' -Endpoint (& $mkEp $epUrl $epVar)

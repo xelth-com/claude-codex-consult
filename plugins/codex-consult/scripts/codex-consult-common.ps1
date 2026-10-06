@@ -4419,6 +4419,12 @@ function Get-ClaudeModelProblem {
     if (-not ($Model -is [string]) -or -not $Model.Trim()) { return 'is empty' }
     if ($Auth -eq 'endpoint') {
         if ([string]$Model -cnotmatch $script:ClaudeEndpointModelRe) { return 'is not a model id the endpoint route takes (the id as the provider publishes it: letters, digits, ".", "_", "-", at most 64 characters, optionally ending with [1m])' }
+        # (wave 29b, E11) the billing proof: on this route the init event's apiKeySource is 'none', the
+        # same as for the subscription login, so a silent fallback to the local login is visible only
+        # when the init model id is one the subscription CANNOT serve. An id of the closed table or any
+        # claude-* id could be served by the subscription: refused (a -Model and a roster entry alike).
+        $eb = (([string]$Model) -replace '\[1m\]$', '').ToLowerInvariant()
+        if ($script:ClaudeModels -contains $eb -or $eb.StartsWith('claude-', [StringComparison]::Ordinal)) { return "is an Anthropic model id, which the endpoint route cannot carry: the init event's apiKeySource is 'none' on this route as on the subscription, so only a model the subscription cannot serve proves the billing - name the provider's own model id" }
         return ''
     }
     $b = ([string]$Model) -replace '\[1m\]$', ''
