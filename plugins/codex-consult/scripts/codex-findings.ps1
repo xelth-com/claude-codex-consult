@@ -186,6 +186,9 @@ function Write-PendingLine {
         # stopped during a format-repair turn: the prose it had saved (and the like)
         $originalNote = Get-PendingOriginalNote $r
         if ($originalNote) { $line += "; $originalNote" }
+        # (wave 28e, E23) the unknown tree of a kill that was not confirmed: which record, and why
+        $ku = [string](Get-PropertyValue $r 'kill_unconfirmed' '')
+        if ($ku) { $line += "; the kill of that run was not confirmed ($ku): its process tree is unknown - the next consultation scans for it and is refused while one of it may run (outside Windows: delete this record by hand once none does)" }
         Write-Host $line -ForegroundColor Yellow
     }
 }

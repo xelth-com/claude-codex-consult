@@ -170,7 +170,8 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
 - **Wave 28e - the four small items of the 0.5.0 verdict** (2026-10-07) (decisions E1-E4 of
   `.collab/companions-2026-09-26/handoffs/56-claude-wave28d-verdict.md`, closing mimo's F54-1..F54-4 and glm's
   note F53-1 of the wave 28d re-acceptance; built with wave 29 and reviewed with it; E18-E20 close astra's
-  F27-1..F27-3 of the 0.6.0 acceptance, `.collab/claude-engine-2026-09-30/handoffs/27-codex-astra-0.6.0-delta.md`):
+  F27-1..F27-3 of the 0.6.0 acceptance, `.collab/claude-engine-2026-09-30/handoffs/27-codex-astra-0.6.0-delta.md`,
+  E23-E24 its second round's F30-1, F30-2, `handoffs/30-codex-astra-0.6.0-delta-2.md`):
   - E1 (F54-1) The recovery record keeps the descendants a kill could not verify: beside `survivors[]` a
     `survivors` record now carries `unverified[]` `{pid, why}` - the pids whose start time could not be read
     (the kill check's `Unverified` and its `Why`), written by the three places that record survivors (a turn,
@@ -224,13 +225,29 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
     `-Status` leaves it out meanwhile). A `.last` that cannot be written folds nothing - the files and the old
     baseline stay and the result carries a warning; TEST HOOK (test mode only): `CODEX_CONSULT_TEST_FOLD_CRASH=1`
     (the flush exits 87 between the save and the deletes).
+  - E23 (F30-1) A timeout kill that is NOT confirmed and names no pid (the children could not be enumerated and
+    the tree-kill fallback failed) keeps the record too, at all three places: state `survivors`, `survivors: []`,
+    `unverified: []` and `kill_unconfirmed: "<why>"` (`Get-KillUnconfirmedWhy`). The next run releases it only
+    after a clean scan - by parent pid under the recorded bridge and child, then (outside a panel) the
+    machine-wide rule - with `unknown tree after an unconfirmed kill: the scan found no codex-like process under
+    pid <bridge>, <child> since <started> - released`; a scan that fails or finds a process refuses, and so do
+    a host outside Windows and another host (the operator deletes the record; `codex-findings.ps1 -List` names it).
+  - E24 (F30-2) `not_spooled_folded[]` entries are `{name, bytes}` - each file's length when the fold counted it
+    (`Get-TelemetryFoldedMap`). On the replay a named file of that length is deleted uncounted, a LONGER one has
+    its complete lines beyond the recorded bytes counted as new (and `-Status` counts them meanwhile) before it
+    is deleted, and a shorter one is another file under that name, folded afresh - an older bridge's legacy
+    line appended after a crash is counted exactly once.
   - Tests: `tests/harness-fixes28e.ps1` (RECORD NOTSPOOLED MARKER ANCHOR DOCS GUARD), registered in
     `tests/run-all.ps1` between `harness-fixes28d` and `harness-claude`; `harness-fixes28d` follows E2 (its
     NOTSPOOLED case reads this process's own file) and E4 (the cut at 300), `harness-telemetry`'s "nothing
     counted" check looks for every not-spooled file (and, E20, its `.last` field list names
     `not_spooled_folded`). E18-E20 (RC1, RC2 of handoff 27): RECORD - a kill with zero survivors and one
     unverified descendant, a generic-runtime pid whose command line cannot be read, the same pid read and
-    not codex-like, a survivor without a start time both ways; NOTSPOOLED - a crash between the save and the deletes, a read-only `.last`. Docs: README (the recovery record, the kill, the
+    not codex-like, a survivor without a start time both ways; NOTSPOOLED - a crash between the save and the
+    deletes, a read-only `.last`. E23-E24 (RC1, RC2 of handoff 30): RECORD - a denied enumeration with an orphan
+    left (`CODEX_CONSULT_TEST_KILL_DENIED=1`): kept, refused while it runs, released once it is gone; outside
+    Windows and from another host refused; NOTSPOOLED - a legacy line appended between the crash and the restart,
+    a shorter file under a recorded name, a bare name. Docs: README (the recovery record, the kill, the
     not-spooled count, the forgetting marker, the ledger's `compactions` row), `codex-telemetry.ps1`'s help,
     `tests/README.md`.
 

@@ -9843,6 +9843,19 @@ function New-UnverifiedEntries {
     }
 }
 
+# (wave 28e, E23 / F30-1) A tree kill that was NOT confirmed and names no pid - neither a survivor nor a
+# descendant it could not verify (the children could not be enumerated and the tree-kill fallback failed,
+# or the root did not exit): its why, '' for any other kill. The recovery record then keeps the UNKNOWN
+# tree (`kill_unconfirmed`: that why) and the next run scans for it (Test-PendingActive).
+function Get-KillUnconfirmedWhy {
+    param($Check, [int[]]$Survivors = @())
+    if (-not $Check -or $Check.Confirmed) { return '' }
+    if (@($Survivors).Count -gt 0 -or @(Get-PropertyValue $Check 'Survivors' @()).Count -gt 0 -or @(Get-PropertyValue $Check 'Unverified' @()).Count -gt 0) { return '' }
+    $w = [string](Get-PropertyValue $Check 'Why' '')
+    if (-not $w) { $w = 'the kill was not confirmed' }
+    return $w
+}
+
 # (wave 28e, E1 / F54-1) A pid of the record's unverified[] - a descendant whose start time could not be
 # read at the kill, so no start time was recorded - checked again: { Alive; How }.
 #   gone (no process with that pid): not alive - dropped;
@@ -10031,6 +10044,11 @@ function Get-PendingOriginalNote {
 #                          no proof of a dead tree);
 #      launching           the child may or may not exist: the process scan below; from
 #                          another host (no pids to check): treated as dead.
+#      (wave 28e, E23 / F30-1) a record with kill_unconfirmed (a kill that was not confirmed
+#                          and named no pid): its tree is unknown - released only by a clean
+#                          scan by parent pid (the writer, the child, the other recorded pids)
+#                          and, outside a panel, the machine-wide rule; a failed scan, a find,
+#                          a host outside Windows or another host: active (fail-closed).
 #   3. The process scan: children of the recorded writer and of the recorded pids (Windows
 #      keeps an orphan's parent id), then - for a record OUTSIDE a panel only - the
 #      machine-wide "looks like codex" rule (Find-CodexProcesses; "task not verifiable").
@@ -10161,6 +10179,43 @@ function Test-PendingActive {
         $recordedGone = ''
     }
     if ($writerGone) { $recordedGone = $(if ($recordedGone) { "$writerGone; $recordedGone" } else { $writerGone }) }
+    # (wave 28e, E23 / F30-1) a kill that was not confirmed and named no pid left an UNKNOWN tree
+    # (`kill_unconfirmed`): only a clean scan by parent pid - the writer, the child, every other recorded
+    # pid (Windows keeps an orphan's parent id) - and, outside a panel, the machine-wide "looks like codex"
+    # rule releases the record; a scan that fails or finds a process refuses, and so does a host without
+    # the rule by parent pid (outside Windows orphans are reparented) or another host: the operator then
+    # deletes the record knowing none of it runs (fail-closed).
+    $killUnconfirmed = [string](Get-PropertyValue $Record 'kill_unconfirmed' '')
+    if ($killUnconfirmed) {
+        $kWhy = "the kill of its $cli run was not confirmed ($killUnconfirmed)"
+        $kRelease = "Make sure no $cli process of that run still runs, then delete $Path to release it."
+        if ($otherHost) { return (& $active "an interrupted consultation on host $recHost ($what) left an UNKNOWN process tree - $kWhy; it cannot be checked from this host. $kRelease" "unknown tree after an unconfirmed kill on host $recHost") }
+        if (-not $script:OnWindows) { return (& $active "an interrupted consultation ($what) left an UNKNOWN process tree - $kWhy - and this host cannot scan for its processes by parent pid (outside Windows an orphan is reparented). $kRelease" "unknown tree after an unconfirmed kill ($killUnconfirmed): no scan by parent pid outside Windows - released only by the operator") }
+        $kParents = New-Object System.Collections.Generic.List[int]
+        $kWriter = 0
+        if ([int]::TryParse([string](Get-PropertyValue $Record 'pid' ''), [ref]$kWriter) -and $kWriter -gt 0) { $kParents.Add($kWriter) }
+        foreach ($entry in $pids) { if ([int]$entry.pid -gt 0 -and -not $kParents.Contains([int]$entry.pid)) { $kParents.Add([int]$entry.pid) } }
+        foreach ($entry in $unverified) { if ([int]$entry.pid -gt 0 -and -not $kParents.Contains([int]$entry.pid)) { $kParents.Add([int]$entry.pid) } }
+        if ($kParents.Count -eq 0) { return (& $active "an interrupted consultation ($what) left an UNKNOWN process tree - $kWhy - and the record names no pid to scan under. $kRelease" "unknown tree after an unconfirmed kill: no recorded pid to scan under") }
+        $kSince = [datetime]::MinValue
+        try { $kSince = [DateTimeOffset]::Parse((ConvertTo-JsonText (Get-PropertyValue $Record 'started' '')), $script:Invariant).LocalDateTime } catch { $kSince = [datetime]::MinValue }
+        $kChecks = New-Object System.Collections.Generic.List[string]
+        if ($recordedGone) { $kChecks.Add($recordedGone) }
+        $kScans = New-Object System.Collections.Generic.List[object]
+        foreach ($parent in $kParents) { $kScans.Add($parent) }
+        # outside a panel the machine-wide rule too: a grandchild whose own parent died is invisible by parent
+        if (-not $isPanel) { $kScans.Add(0) }
+        foreach ($parent in $kScans) {
+            $s = Find-CodexProcesses -Since $kSince -Launcher $launcher -BridgePid ([int]$parent)
+            if ($s.Failed) { return (& $active "an interrupted consultation ($what) left an UNKNOWN process tree - $kWhy - and the scan for its processes failed: $($s.Check). $kRelease" "unknown tree after an unconfirmed kill; $($s.Check)") }
+            if (@($s.Found).Count -gt 0) {
+                $list = (@($s.Found) | ForEach-Object { "pid $($_.pid) $($_.name) [$($_.rule)]" }) -join ', '
+                return (& $active "an interrupted consultation ($what) left an UNKNOWN process tree - $kWhy - and a $cli-like process of it may still run: $list, found by $($s.Check). Wait for it to exit or stop it, then retry (or delete $Path once you know it is unrelated)." "unknown tree after an unconfirmed kill; $($s.Check)")
+            }
+            $kChecks.Add("$($s.Check): none found")
+        }
+        return (& $inactive "unknown tree after an unconfirmed kill: the scan found no codex-like process under pid $($kParents -join ', ') since $(ConvertTo-JsonText (Get-PropertyValue $Record 'started' '')) - released ($($kChecks -join '; '))")
+    }
     # The child may exist unregistered (launching) or as a descendant of a dead recorded
     # process (running/survivors). Scan for it; never trust a dead root or elapsed time.
     if ($otherHost) { return (& $inactive "state '$state' from host $recHost without pids: treated as dead") }
@@ -11876,14 +11931,50 @@ function Get-TelemetryNotSpooledLines {
     return , ([string[]]@($t -split "`n" | Where-Object { $_.Trim() }))
 }
 
+# (wave 28e, E24 / F30-2) The `not_spooled_folded[]` of a .last record as a map name -> bytes: each entry
+# {name, bytes} names a file a fold counted and the length it had then (its lines up to there are in a
+# fold's note); a bare name (the E20 build before E24) maps to -1 - counted whole. Case-insensitive, as
+# the file names are on Windows.
+function Get-TelemetryFoldedMap {
+    param($Last)
+    $m = @{}
+    foreach ($e in @(Get-PropertyValue $Last 'not_spooled_folded' @())) {
+        if ($null -eq $e) { continue }
+        if ($e -is [string]) { if ($e) { $m[$e] = [long]-1 }; continue }
+        $n = [string](Get-PropertyValue $e 'name' '')
+        if (-not $n) { continue }
+        $b = [long]-1
+        [void][long]::TryParse([string](Get-PropertyValue $e 'bytes' ''), [ref]$b)
+        $m[$n] = $b
+    }
+    return $m
+}
+
+# (wave 28e, E24 / F30-2) The text of a shared file from byte $Offset on (UTF-8): $null when the file is
+# shorter than $Offset (another file under that name) or cannot be read.
+function Read-SharedTextFrom {
+    param([string]$Path, [long]$Offset)
+    try {
+        $fs = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+        try {
+            if ($fs.Length -lt $Offset) { return $null }
+            [void]$fs.Seek($Offset, [System.IO.SeekOrigin]::Begin)
+            $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $false, 4096, $true)
+            try { return $sr.ReadToEnd() } finally { $sr.Dispose() }
+        } finally { $fs.Dispose() }
+    } catch { return $null }
+}
+
 # The events not spooled since the last flush - (wave 28e, E2) the complete lines of EVERY not-spooled
 # file (Get-TelemetryNotSpooledFiles: one per producer, and the legacy file), summed, less the
 # `not_spooled_seen` of <spool>/.last (the lines of the files that flush KEPT after its fold - the
 # folded files are gone with their lines; an older .last's count of the legacy file means the same);
 # every line when no flush recorded one. { Count; Last (the latest why by time, '' when none since the
 # last flush); When; Total (every line of every file); Files }. -All: every line counts.
-# (wave 28e, E20 / F27-3) A file that .last `not_spooled_folded[]` names is left out: its lines are in a
-# fold's note already (a flush that saved .last but did not get to delete it).
+# (wave 28e, E20 / F27-3; E24 / F30-2) A file that .last `not_spooled_folded[]` names counts only its
+# complete lines BEYOND the bytes recorded there (those are in a fold's note already - a flush that saved
+# .last but did not get to delete it; an older bridge may have appended since); one shorter than that is
+# another file under that name and counts whole; a bare name (bytes unknown) counts nothing.
 function Get-TelemetryNotSpooled {
     param([switch]$All)
     $r = [pscustomobject]@{ Count = 0; Last = ''; When = ''; Total = 0; Files = 0 }
@@ -11892,14 +11983,23 @@ function Get-TelemetryNotSpooled {
     $files = Get-TelemetryNotSpooledFiles -Paths $p
     if ($files.Count -eq 0) { return $r }
     $lastRec = Read-TelemetryLast
-    $foldedNames = [string[]]@(@(Get-PropertyValue $lastRec 'not_spooled_folded' @()) | Where-Object { $_ } | ForEach-Object { [string]$_ })
+    $folded = Get-TelemetryFoldedMap -Last $lastRec
     $seen = [long]0
     if (-not $All) { $sv = Get-TelemetryCount (Get-PropertyValue $lastRec 'not_spooled_seen' $null); if ($null -ne $sv) { $seen = [long]$sv } }
     $latest = $null
     foreach ($f in $files) {
-        if ($foldedNames -contains $f.Name) { continue }
         try {
-            $lines = Get-TelemetryNotSpooledLines -Text ([string](Read-SharedText -Path $f.Path))
+            $text = $null
+            if ($folded.ContainsKey($f.Name)) {
+                $b = [long]$folded[$f.Name]
+                if ($b -lt 0) { continue }
+                $text = Read-SharedTextFrom -Path $f.Path -Offset $b
+            }
+            $named = ($null -ne $text)
+            if ($null -eq $text) { $text = [string](Read-SharedText -Path $f.Path) }
+            $lines = Get-TelemetryNotSpooledLines -Text $text
+            # a named file with nothing beyond its recorded bytes is accounted for: not one of the files
+            if ($named -and $lines.Count -eq 0) { continue }
             $r.Files++
             $r.Total += $lines.Count
             foreach ($l in $lines) {
@@ -11923,33 +12023,52 @@ function Get-TelemetryNotSpooled {
 # lost) and its lines counted (a last piece without a line end too: its producer will never end it).
 # A producer that lives - or whose identity cannot be confirmed - keeps its file.
 # (wave 28e, E20 / F27-3) NOTHING is deleted here: the flush first saves .last - the fold's note, the new
-# `not_spooled_seen` and `not_spooled_folded[]` (the names of these files) - and only after that save
-# deletes them under the handles kept open (Complete-TelemetryNotSpooledFold): a crash or a failed save
-# never loses their count. A file that $AlreadyFolded (the `not_spooled_folded[]` of the .last before)
-# names was counted by an earlier flush that did not get to delete it: it is held for its delete and
-# NOT counted again (one that cannot be opened stays named, never counted as kept).
-# { Lines (the lines folded now); Producers (the files folded now); Seen (the complete lines of the
-# files kept - the flush's `not_spooled_seen`); Folded (string[] list: every name this fold covers -
-# the files folded now and those an earlier flush counted - the new `not_spooled_folded`); Open (the
-# handles held: { Path; Name; Stream }); Home }. Never throws; Complete-TelemetryNotSpooledFold closes
-# the handles.
+# `not_spooled_seen` and `not_spooled_folded[]` - and only after that save deletes the files under the
+# handles kept open (Complete-TelemetryNotSpooledFold): a crash or a failed save never loses their count.
+# (E24 / F30-2) `not_spooled_folded[]` holds {name, bytes} - the length each file had when it was counted
+# (under its handle: nothing appended meanwhile). A file that $AlreadyFolded (Get-TelemetryFoldedMap of the
+# .last before) names was counted by an earlier flush that did not get to delete it: of the SAME length -
+# held for its delete, not counted again; LONGER (an older bridge appended to the legacy file after the
+# crash) - its complete lines beyond the recorded bytes are counted as new (one more producer folded), then
+# deleted; SHORTER - another file under that name: folded afresh; a bare name (bytes unknown) - deleted
+# without counting; one that cannot be opened stays named, never counted as kept. A name whose file is
+# gone simply leaves the list.
+# { Lines (the lines folded now); Producers (the files folded now); Seen (the complete lines of the files
+# kept - the flush's `not_spooled_seen`); Folded (a list of {name, bytes}: every file this fold covers -
+# the new `not_spooled_folded`); Open (the handles held: { Path; Name; Stream }); Home }. Never throws;
+# Complete-TelemetryNotSpooledFold closes the handles.
 function Merge-TelemetryNotSpooled {
-    param($Paths = $null, [string[]]$AlreadyFolded = @())
-    $r = [pscustomobject]@{ Lines = 0; Producers = 0; Seen = 0; Folded = (New-Object System.Collections.Generic.List[string]); Open = (New-Object System.Collections.Generic.List[object]); Home = '' }
+    param($Paths = $null, $AlreadyFolded = $null)
+    $r = [pscustomobject]@{ Lines = 0; Producers = 0; Seen = 0; Folded = (New-Object System.Collections.Generic.List[object]); Open = (New-Object System.Collections.Generic.List[object]); Home = '' }
     $p = $(if ($Paths) { $Paths } else { Get-TelemetryPaths })
     if (-not $p) { return $r }
     $r.Home = [string]$p.Home
+    $before = $(if ($AlreadyFolded -is [hashtable]) { $AlreadyFolded } else { @{} })
     foreach ($f in (Get-TelemetryNotSpooledFiles -Paths $p)) {
         try {
-            $earlier = (@($AlreadyFolded) -contains $f.Name)
-            $gone = $earlier -or $f.Legacy -or ((Get-PidIdentityTicks -ProcessId $f.Pid -StartTicks $f.Ticks) -eq 'gone')
+            $rec = $null
+            if ($before.ContainsKey($f.Name)) { $rec = [long]$before[$f.Name] }
+            $gone = ($null -ne $rec) -or $f.Legacy -or ((Get-PidIdentityTicks -ProcessId $f.Pid -StartTicks $f.Ticks) -eq 'gone')
             if ($gone) {
                 $fs = $null
                 try { $fs = New-Object System.IO.FileStream($f.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Delete) } catch { $fs = $null }
                 if ($fs) {
                     $n = -1
+                    $len = [long]-1
+                    $earlier = $false
                     try {
-                        if ($earlier) { $n = 0 } else {
+                        $len = [long]$fs.Length
+                        if ($null -ne $rec -and ($rec -lt 0 -or $len -ge $rec)) {
+                            # counted up to $rec bytes by an earlier fold: only the complete lines beyond are new
+                            $earlier = $true
+                            $n = 0
+                            if ($rec -ge 0 -and $len -gt $rec) {
+                                [void]$fs.Seek($rec, [System.IO.SeekOrigin]::Begin)
+                                $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $false, 4096, $true)
+                                try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
+                                $n = (Get-TelemetryNotSpooledLines -Text $text).Count
+                            }
+                        } else {
                             $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $false, 4096, $true)
                             try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
                             $n = (Get-TelemetryNotSpooledLines -Text $text -Tail).Count
@@ -11957,13 +12076,13 @@ function Merge-TelemetryNotSpooled {
                     } catch { $n = -1 }
                     if ($n -ge 0) {
                         $r.Open.Add([pscustomobject]@{ Path = $f.Path; Name = $f.Name; Stream = $fs })
-                        $r.Folded.Add($f.Name)
-                        if (-not $earlier) { $r.Lines += $n; $r.Producers++ }
+                        $r.Folded.Add([pscustomobject]@{ name = $f.Name; bytes = $len })
+                        if (-not $earlier -or $n -gt 0) { $r.Lines += $n; $r.Producers++ }
                         continue
                     }
                     $fs.Dispose()
                 }
-                if ($earlier) { $r.Folded.Add($f.Name); continue }
+                if ($null -ne $rec) { $r.Folded.Add([pscustomobject]@{ name = $f.Name; bytes = $rec }); continue }
             }
             $r.Seen += (Get-TelemetryNotSpooledLines -Text ([string](Read-SharedText -Path $f.Path))).Count
         } catch { }
@@ -11973,18 +12092,19 @@ function Merge-TelemetryNotSpooled {
 
 # (wave 28e, E20 / F27-3) The end of a fold (Merge-TelemetryNotSpooled): -Delete - ONLY after .last was
 # saved - deletes every file the fold holds open (under its handle: nothing appends meanwhile); then every
-# handle is closed (without -Delete: closed only, every file stays). The names of the fold whose file is
-# still there afterwards (string[]) - .last goes on naming them. Never throws.
+# handle is closed (without -Delete: closed only, every file stays). The entries {name, bytes} of the fold
+# whose file is still there afterwards (object[]) - .last goes on naming them. Never throws.
 function Complete-TelemetryNotSpooledFold {
     param($Fold, [switch]$Delete)
-    if (-not $Fold) { return , ([string[]]@()) }
+    if (-not $Fold) { return , ([object[]]@()) }
     # (.ToArray(), never @(): Windows PowerShell 5.1 fails "argument types do not match" on @() of a
     # List[object] held in a property)
     foreach ($o in $Fold.Open.ToArray()) {
         try { if ($Delete) { [IO.File]::Delete($o.Path) } } catch { } finally { try { $o.Stream.Dispose() } catch { } }
     }
-    $left = @(foreach ($n in $Fold.Folded.ToArray()) { if (-not $Fold.Home -or [IO.File]::Exists((Join-Path $Fold.Home $n))) { [string]$n } })
-    return , ([string[]]$left)
+    $left = New-Object System.Collections.Generic.List[object]
+    foreach ($e in $Fold.Folded.ToArray()) { if (-not $Fold.Home -or [IO.File]::Exists((Join-Path $Fold.Home ([string]$e.name)))) { $left.Add($e) } }
+    return , ([object[]]$left.ToArray())
 }
 
 # (wave 28b, D6; wave 28c, D3, D7 / F42-3, F43-4) The bridge's spool append of the event of $Entry -
@@ -12590,7 +12710,7 @@ function Invoke-TelemetryFlush {
         # line(s) of <m> gone producer(s)" - and removed; not_spooled_seen counts the lines of the files
         # kept (live producers). Without the lock nothing is folded and every line counts as seen.
         # (wave 28e, E20 / F27-3) In THIS order: .last is saved first - the fold's note, the new
-        # not_spooled_seen and not_spooled_folded[] (the names of the files the fold covers) - and only
+        # not_spooled_seen and not_spooled_folded[] ((E24) {name, bytes} of the files the fold covers) - and only
         # after that save are the files deleted (still under the handles the fold holds); then .last is
         # written once more without the names of the files now gone. A crash between the save and the
         # deletes leaves files .last names: the next flush deletes them WITHOUT counting them again (and
@@ -12601,16 +12721,17 @@ function Invoke-TelemetryFlush {
         try {
             $lastBefore = Read-TelemetryLast
             $notes = @(@(Get-PropertyValue $lastBefore 'notes' @()) | Where-Object { $_ -and ([string]$_) -notmatch '^\S+ sender stuck since ' } | ForEach-Object { [string]$_ })
-            $foldedBefore = [string[]]@(@(Get-PropertyValue $lastBefore 'not_spooled_folded' @()) | Where-Object { $_ } | ForEach-Object { [string]$_ })
+            # (wave 28e, E24) {name, bytes} of the files an earlier fold counted (a bare name: bytes -1)
+            $foldedBefore = Get-TelemetryFoldedMap -Last $lastBefore
             if ($lkLast.Ok) {
                 $fold = Merge-TelemetryNotSpooled -Paths $p -AlreadyFolded $foldedBefore
                 $nsSeen = [long]$fold.Seen
-                $foldedNames = [string[]]$fold.Folded.ToArray()
+                $foldedNames = [object[]]$fold.Folded.ToArray()
                 if ($fold.Producers -gt 0) { $notes += "$(Get-IsoTimestamp) folded $($fold.Lines) not-spooled line(s) of $($fold.Producers) gone producer(s)" }
             } else {
                 $nsSeen = [long](Get-TelemetryNotSpooled -All).Total
-                # the names an earlier fold counted stay named while their files are there
-                $foldedNames = [string[]]@($foldedBefore | Where-Object { [IO.File]::Exists((Join-Path $p.Home $_)) })
+                # the entries an earlier fold counted stay while their files are there
+                $foldedNames = [object[]]@(foreach ($k in @($foldedBefore.Keys)) { if ([IO.File]::Exists((Join-Path $p.Home ([string]$k)))) { [pscustomobject]@{ name = [string]$k; bytes = [long]$foldedBefore[$k] } } })
             }
             $notes = @($notes | Select-Object -Last $script:TelemetryLastNotesMax)
             $lastNew = [pscustomobject]@{ time = (Get-IsoTimestamp); result = $res.Result; delivered = $res.Delivered; kept = $res.Kept; dropped = $res.Dropped; rejected = [object[]]$res.Rejected.ToArray(); http = $res.Http; not_spooled_seen = $nsSeen; not_spooled_folded = [object[]]$foldedNames; notes = [object[]]$notes }

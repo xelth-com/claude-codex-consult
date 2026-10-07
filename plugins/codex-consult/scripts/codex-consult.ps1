@@ -1893,14 +1893,17 @@ function Invoke-EngineTurn {
                     $t.Problem = "$stopWhat (process tree killed; $($surv.Count) processes survived: pid $($surv -join ', ')$(Get-KillUnverifiedText $turnKill))"
                 }
                 # (wave 28e, E18 / F27-1) the record is kept (state survivors) when the kill left survivors
-                # OR descendants it could not verify - survivors[] may then be empty beside unverified[]
-                if ($surv.Count -gt 0 -or @(Get-PropertyValue $turnKill 'Unverified' @()).Count -gt 0) {
+                # OR descendants it could not verify - survivors[] may then be empty beside unverified[];
+                # (E23 / F30-1) and when it was not confirmed with neither: an unknown tree (kill_unconfirmed)
+                $turnUnconfirmed = Get-KillUnconfirmedWhy -Check $turnKill -Survivors $surv
+                if ($surv.Count -gt 0 -or @(Get-PropertyValue $turnKill 'Unverified' @()).Count -gt 0 -or $turnUnconfirmed) {
                     $t.KeepPending = $true
                     try {
                         $pendingRecord.state = 'survivors'
                         $pendingRecord.survivors = [object[]]@(New-SurvivorEntries -Pids $surv)
                         # (wave 28e, E1 / F54-1) the descendants the kill could not verify, beside them
                         $pendingRecord | Add-Member -NotePropertyName 'unverified' -NotePropertyValue ([object[]]@(New-UnverifiedEntries -Check $turnKill)) -Force
+                        if ($turnUnconfirmed) { $pendingRecord | Add-Member -NotePropertyName 'kill_unconfirmed' -NotePropertyValue $turnUnconfirmed -Force }
                         Write-PendingFile -Path $pendingPath -Record $pendingRecord
                     } catch { }
                 }
@@ -4712,9 +4715,13 @@ try {
                     # record is kept for them too - said in the outcome
                     $bridgeOutcome = "failed: $stopText (kill not confirmed: $($mainKill.Why); pid $($mainUnverified -join ', ') may still run; the next run for this task is refused until $(if ($mainUnverified.Count -eq 1) { 'it exits' } else { 'they exit' }))"
                 }
-                if ($survivors.Count -gt 0 -or $mainUnverified.Count -gt 0) {
+                # (wave 28e, E23 / F30-1) a kill not confirmed with neither survivors nor unverified pids
+                # (the children could not be enumerated, the fallback failed): the tree is unknown
+                $mainUnconfirmed = Get-KillUnconfirmedWhy -Check $mainKill -Survivors $survivors
+                if ($survivors.Count -gt 0 -or $mainUnverified.Count -gt 0 -or $mainUnconfirmed) {
                     # (5) survivors - kept after this run; (wave 28e, E18) so are descendants the kill
-                    # could not verify (survivors[] may be empty beside unverified[])
+                    # could not verify (survivors[] may be empty beside unverified[]); (E23) and so is the
+                    # unknown tree of an unconfirmed kill (kill_unconfirmed: its why)
                     $keepPending = $true
                     try {
                         $pendingRecord.state = 'survivors'
@@ -4724,9 +4731,10 @@ try {
                         $pendingRecord.survivors = [object[]]@(New-SurvivorEntries -Pids $survivors)
                         # (wave 28e, E1 / F54-1) the descendants the kill could not verify, beside them
                         $pendingRecord | Add-Member -NotePropertyName 'unverified' -NotePropertyValue ([object[]]@(New-UnverifiedEntries -Check $mainKill)) -Force
+                        if ($mainUnconfirmed) { $pendingRecord | Add-Member -NotePropertyName 'kill_unconfirmed' -NotePropertyValue $mainUnconfirmed -Force }
                         Write-PendingFile -Path $pendingPath -Record $pendingRecord
                     } catch {
-                        $bridgeOutcome += "; WARNING: the $(if ($survivors.Count -gt 0) { 'survivors' } else { 'unverified pids' }) could not be recorded ($(ConvertTo-OneLine $_.Exception.Message)) - $pendingPath still names only child pid $($proc.Id)"
+                        $bridgeOutcome += "; WARNING: the $(if ($survivors.Count -gt 0) { 'survivors' } elseif ($mainUnverified.Count -gt 0) { 'unverified pids' } else { 'unconfirmed kill' }) could not be recorded ($(ConvertTo-OneLine $_.Exception.Message)) - $pendingPath still names only child pid $($proc.Id)"
                     }
                 }
             } else {
@@ -5328,14 +5336,17 @@ try {
                         if ($repairSurvivors.Count -gt 0) {
                             $repairProblem = "$repairStop (process tree killed; $($repairSurvivors.Count) processes survived: pid $($repairSurvivors -join ', ')$(Get-KillUnverifiedText $repairKill))"
                         }
-                        # (wave 28e, E18 / F27-1) kept for survivors OR descendants the kill could not verify
-                        if ($repairSurvivors.Count -gt 0 -or @(Get-PropertyValue $repairKill 'Unverified' @()).Count -gt 0) {
+                        # (wave 28e, E18 / F27-1) kept for survivors OR descendants the kill could not verify;
+                        # (E23 / F30-1) and for the unknown tree of a kill not confirmed with neither
+                        $repairUnconfirmed = Get-KillUnconfirmedWhy -Check $repairKill -Survivors $repairSurvivors
+                        if ($repairSurvivors.Count -gt 0 -or @(Get-PropertyValue $repairKill 'Unverified' @()).Count -gt 0 -or $repairUnconfirmed) {
                             $keepPending = $true
                             try {
                                 $pendingRecord.state = 'survivors'
                                 $pendingRecord.survivors = [object[]]@(New-SurvivorEntries -Pids $repairSurvivors)
                                 # (wave 28e, E1 / F54-1) the descendants the kill could not verify, beside them
                                 $pendingRecord | Add-Member -NotePropertyName 'unverified' -NotePropertyValue ([object[]]@(New-UnverifiedEntries -Check $repairKill)) -Force
+                                if ($repairUnconfirmed) { $pendingRecord | Add-Member -NotePropertyName 'kill_unconfirmed' -NotePropertyValue $repairUnconfirmed -Force }
                                 Write-PendingFile -Path $pendingPath -Record $pendingRecord
                             } catch { }
                         }

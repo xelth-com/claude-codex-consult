@@ -952,7 +952,11 @@ hand if they do`; (wave 28e, E1 / F54-1) the recovery record keeps that group to
 beside `survivors[]`), so the next run checks it again. (Wave 28e, E18 / F27-1) A kill that left NO
 survivor but such a group keeps the record as well (state `survivors`, `survivors: []` beside
 `unverified[]`): the outcome ends `(kill not confirmed: <why>; pid <u> may still run; the next run for
-this task is refused until it exits)`, and the next run checks that pid again as below. On Windows `taskkill /PID <root> /T /F`, which walks the root's live tree itself, still
+this task is refused until it exits)`, and the next run checks that pid again as below. (Wave 28e,
+E23 / F30-1) A kill that is NOT confirmed and names no pid at all - the children could not be enumerated
+and the tree-kill fallback failed - keeps the record too (state `survivors`, `survivors: []`,
+`unverified: []`, `kill_unconfirmed: "<why>"`): its tree is unknown, and the next run releases it only
+after a clean scan for its processes (below). On Windows `taskkill /PID <root> /T /F`, which walks the root's live tree itself, still
 runs. The outcome says `(process tree
 killed)` ONLY when the kill is confirmed; otherwise `(kill not confirmed: <why>; pid <n> may still
 run)`, the ledger's `kill_confirmed` is `false`, `warnings[]` says `kill not confirmed (<turn>): ...`
@@ -1739,7 +1743,17 @@ unless the bridge that wrote it or a codex process from it is still alive; never
   these pids read with a command line that cannot be read). The same rule, with the same messages,
   re-checks a SURVIVOR recorded without a start time (an older record's bare pid) or whose start time
   cannot be read now (`Test-RecordedProcess`); a survivor whose recorded start time is read now is
-  judged by its pid and that start time as before.
+  judged by its pid and that start time as before. (Wave 28e, E23 / F30-1) A record with
+  `kill_unconfirmed` (a kill that named no pid and was not confirmed) is released only by a clean scan:
+  by parent pid under the recorded bridge, then under the recorded child (Windows keeps an orphan's
+  parent id) and, outside a panel, by the machine-wide rule below - a scan that fails refuses (`… left an
+  UNKNOWN process tree - the kill of its codex run was not confirmed (<why>) - and the scan for its
+  processes failed: …`), one that finds a process refuses naming it (`… and a codex-like process of it
+  may still run: pid N … [child of the interrupted bridge (ppid M)], found by …`), and a clean one
+  releases the record (`unknown tree after an unconfirmed kill: the scan found no codex-like process
+  under pid <bridge>, <child> since <started> - released (…)`). Outside Windows (no scan by parent pid)
+  and from another host the run is refused (`… Make sure no codex process of that run still runs, then
+  delete <record> to release it.`), and `codex-findings.ps1 -List` names the record and why.
   A dead recorded pid is not proof of a dead tree (it is usually the launcher shim), so
   when every recorded pid is gone, and for a `launching` record, the bridge scans for a
   child of the dead bridge or of a dead recorded pid (Windows keeps an orphan's parent
@@ -3274,7 +3288,11 @@ wrote. (Wave 28e, E20 / F27-3) In THIS order: `.last` is saved first - the note,
 `not_spooled_seen` and `not_spooled_folded[]` (the names of the files the fold covers) - and only after
 that save are the files deleted (then `.last` drops the names of the files now gone). A crash in between
 leaves files `.last` names: `-Status` leaves them out, and the next flush deletes them WITHOUT counting
-them again; a `.last` that cannot be written folds nothing - the files and the old baseline stay, and the
+them again. (Wave 28e, E24 / F30-2) Each entry is `{name, bytes}` - the file's length when it was counted
+- so an older bridge's line appended to the legacy file after such a crash is counted exactly once: a
+named file of the recorded length is deleted uncounted, a LONGER one has its complete lines beyond the
+recorded bytes counted as new (`-Status` counts them too) and is then deleted, and a shorter one is
+another file under that name, folded afresh. A `.last` that cannot be written folds nothing - the files and the old baseline stay, and the
 flush's result ends `; warning: <spool>/.last could not be written (...) - nothing was folded: ...`
 (TEST HOOK, test mode only: `CODEX_CONSULT_TEST_FOLD_CRASH=1` - the flush exits between the save and the
 deletes). `-Forget -Local` removes every one of them. After the commit ONE
