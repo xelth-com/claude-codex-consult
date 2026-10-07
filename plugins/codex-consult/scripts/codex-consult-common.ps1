@@ -68,7 +68,8 @@
                          members' .consult.pending-<NN>.json); (wave 28e)
                          New-UnverifiedEntries, Test-UnverifiedProcess (E19: Get-CommandLineGap);
                          (wave 29, E27) Get-CodexRule / Get-CodexMatch, Get-CodexServerExclusion
-                         (the Codex app's servers and helpers), Split-CommandLineTokens
+                         (the Codex app's servers and helpers), Split-CommandLineTokens, (E28)
+                         Test-ExecWord
       * processes        Stop-ProcessTree, ConvertTo-ProcArg, Format-Argv
       * detached runs    (wave 25, R12) Write-DetachedStatus, Get-DetachedBudget (D4),
                          Complete-DetachedRecord (D3), ConvertTo-DetachArgs /
@@ -9752,7 +9753,8 @@ function Remove-PendingFile {
 # a process belongs to. (wave 29, E27) A codex-named process whose command line shows it is one
 # of the Codex desktop app's (or an IDE extension's) servers or helpers never matches
 # (Get-CodexServerExclusion; Get-CodexMatch says what was left out); one whose command line
-# cannot be read still does (fail-closed).
+# cannot be read still does (fail-closed), and so (E28 / F37-1) does one whose command line holds
+# the word exec anywhere or whose quoting is ambiguous.
 function Get-CodexRule {
     param([string]$Name, [string]$Cmd, [string]$Launcher = '')
     return [string](Get-CodexMatch -Name $Name -Cmd $Cmd -Launcher $Launcher).Rule
@@ -9762,13 +9764,16 @@ function Get-CodexRule {
 # Get-CodexRule returns it); Excluded ('' or what the process was recognised as - "codex app-server" -
 # when a codex-named process is one of the Codex app's servers or helpers and is therefore NOT matched) }.
 # The exclusion is decided first: a codex-named server is left out even when its command line carries
-# the recorded launcher (the app's own codex.exe given as -CodexExe). Pure.
+# the recorded launcher (the app's own codex.exe given as -CodexExe). (wave 29, E28 / F37-1) A
+# codex-named process whose command line cannot be split with certainty (unbalanced quoting) is NOT
+# excluded and counts as codex: Rule "command line ambiguous - counted as codex". Pure.
 function Get-CodexMatch {
     param([string]$Name, [string]$Cmd, [string]$Launcher = '')
-    $why = Get-CodexServerExclusion -Name $Name -Cmd $Cmd
-    if ($why) { return [pscustomobject]@{ Rule = ''; Excluded = $why } }
+    $verdict = Get-CodexServerExclusion -Name $Name -Cmd $Cmd
+    if ($verdict.Excluded) { return [pscustomobject]@{ Rule = ''; Excluded = [string]$verdict.Excluded } }
     $rule = ''
-    if ($Name -match '^codex(\.exe)?$') { $rule = 'name codex' }
+    if ($verdict.Ambiguous) { $rule = 'command line ambiguous - counted as codex' }
+    if (-not $rule -and $Name -match '^codex(\.exe)?$') { $rule = 'name codex' }
     if (-not $rule -and $Launcher -and $Name) {
         $ext = [IO.Path]::GetExtension($Launcher)
         $base = [IO.Path]::GetFileNameWithoutExtension($Launcher)
@@ -9789,46 +9794,125 @@ $script:CodexServerSubcommands = @('app-server', 'exec-server', 'mcp-server', 'l
 # with that value while the first non-option token (the subcommand) is looked for. Case-sensitive.
 $script:CodexValueOptions = @('-c', '--config', '-m', '--model', '-p', '--profile', '-C', '--cd', '-s', '--sandbox', '-a', '--ask-for-approval', '-i', '--image', '--enable', '--disable', '--add-dir', '--local-provider')
 
-# (wave 29, E27) The tokens of a command line: split at blanks outside double quotes, the quotes
-# removed. Pure.
+# (wave 29, E27; E28 / F37-1) The arguments of a Windows command line as the program itself sees them -
+# the rules of the Rust standard library (the Codex CLI is a Rust program) and of the Microsoft C
+# runtime: { Tokens = [string[]] (the program name first); Ambiguous ('' or why the split is not
+# certain) }.
+#   the program name: a quote toggles quoting (no escapes in it), a blank outside quotes ends it;
+#   an argument: blanks outside quotes separate arguments; n backslashes followed by a quote become n/2
+#     backslashes, and an odd n makes that quote a literal one (\" is a quote inside a value, it does
+#     NOT toggle quoting); backslashes not followed by a quote are literal; inside quotes "" is one
+#     literal quote; any other quote toggles quoting; "" outside quotes is an empty argument.
+# Ambiguous: the command line ends inside quotes (unbalanced quoting) - the program could see other
+# arguments than the ones split here. Pure.
 function Split-CommandLineTokens {
     param([string]$Cmd)
+    $s = [string]$Cmd
+    $n = $s.Length
     $tokens = New-Object System.Collections.Generic.List[string]
     $sb = New-Object System.Text.StringBuilder
+    $i = 0
+    while ($i -lt $n -and ($s[$i] -eq [char]' ' -or $s[$i] -eq [char]"`t")) { $i++ }
+    # the program name
     $quoted = $false
     $has = $false
-    foreach ($ch in ([string]$Cmd).ToCharArray()) {
-        if ($ch -eq [char]'"') { $quoted = -not $quoted; $has = $true; continue }
+    while ($i -lt $n) {
+        $ch = $s[$i]
+        if ($ch -eq [char]'"') { $quoted = -not $quoted; $has = $true; $i++; continue }
+        if (-not $quoted -and ($ch -eq [char]' ' -or $ch -eq [char]"`t")) { break }
+        [void]$sb.Append($ch)
+        $has = $true
+        $i++
+    }
+    if ($quoted) { if ($has) { $tokens.Add($sb.ToString()) }; return [pscustomobject]@{ Tokens = [string[]]$tokens.ToArray(); Ambiguous = 'the quote of the program name is not closed' } }
+    if ($has) { $tokens.Add($sb.ToString()) }
+    [void]$sb.Clear()
+    $has = $false
+    # the arguments
+    while ($i -lt $n) {
+        $ch = $s[$i]
         if (-not $quoted -and ($ch -eq [char]' ' -or $ch -eq [char]"`t")) {
             if ($has) { $tokens.Add($sb.ToString()); [void]$sb.Clear(); $has = $false }
+            $i++
+            continue
+        }
+        if ($ch -eq [char]'\') {
+            $k = $i
+            while ($k -lt $n -and $s[$k] -eq [char]'\') { $k++ }
+            $count = $k - $i
+            if ($k -lt $n -and $s[$k] -eq [char]'"') {
+                [void]$sb.Append('\' * [int][Math]::Floor($count / 2))
+                if ($count % 2 -eq 1) { [void]$sb.Append('"'); $k++ }
+            } else {
+                [void]$sb.Append('\' * $count)
+            }
+            $has = $true
+            $i = $k
+            continue
+        }
+        if ($ch -eq [char]'"') {
+            if ($quoted) {
+                if ($i + 1 -lt $n -and $s[$i + 1] -eq [char]'"') { [void]$sb.Append('"'); $i += 2; continue }
+                $quoted = $false
+            } else {
+                $quoted = $true
+                $has = $true
+            }
+            $i++
             continue
         }
         [void]$sb.Append($ch)
         $has = $true
+        $i++
     }
     if ($has) { $tokens.Add($sb.ToString()) }
-    return , ([string[]]$tokens.ToArray())
+    $why = $(if ($quoted) { 'unbalanced quoting (the command line ends inside quotes)' } else { '' })
+    return [pscustomobject]@{ Tokens = [string[]]$tokens.ToArray(); Ambiguous = $why }
 }
 
-# (wave 29, E27) '' or what a codex-named process (its name, without .exe, starts with codex) is when
-# its name or command line shows it is one of the Codex desktop app's servers or helpers - never a
-# reviewer run:
-#   an executable named codex-computer-use* (the app's computer-use helper): "<name> helper";
-#   a command line READ whose first non-option token after the executable (the value of a global
-#     option such as -c key=value skipped with it - $script:CodexValueOptions) is app-server,
-#     exec-server, mcp-server, login or app ($script:CodexServerSubcommands): "codex <subcommand>";
-#   a command line READ with --parent-pid and no exec token anywhere: "codex helper (--parent-pid, no exec)".
-# Anything else is '' and the rule decides as before - `codex exec ...` and `codex.exe exec ...` (exec
-# is the first token), a codex without arguments, and a command line that cannot be read
-# (Get-CommandLineGap: '' when access is denied, ps's "[name]") - unknown stays suspicious
-# (fail-closed). Pure.
+# (wave 29, E28 / F37-1) Whether a text holds the word exec - a whole word in the sense of the command
+# line, where a hyphen belongs to the word (exec-server and --exec are not it; exec, "exec", =exec and
+# \exec\ are), case-insensitive. Pure.
+function Test-ExecWord {
+    param([string]$Text)
+    return ([string]$Text -match '(?i)(?<![\w-])exec(?![\w-])')
+}
+
+# (wave 29, E27; E28 / F37-1) Whether a codex-named process (its name, without .exe, starts with codex)
+# is one of the Codex desktop app's servers or helpers - never a reviewer run: { Excluded ('' or what
+# it is); Ambiguous ('' or why its command line cannot be split with certainty) }. In this order:
+#   (E28) a command line READ that holds the word exec anywhere (Test-ExecWord on the raw text, quotes
+#     ignored, and on every argument as the program sees it) is NEVER excluded - a reviewer run always
+#     carries exec, the app's servers never do;
+#   an executable named codex-computer-use* (the app's computer-use helper): "<name> helper" (also
+#     when its command line cannot be read);
+#   a command line that cannot be read (Get-CommandLineGap: '' when access is denied, ps's "[name]"):
+#     not excluded - unknown stays suspicious (fail-closed);
+#   (E28) a command line whose split is ambiguous (Split-CommandLineTokens: unbalanced quoting): not
+#     excluded, Ambiguous set - the caller counts it as codex;
+#   the first non-option token after the executable (Windows quoting - a \" inside a quoted value does
+#     not end it; the value of a global option such as -c key=value skipped with it -
+#     $script:CodexValueOptions) is app-server, exec-server, mcp-server, login or app
+#     ($script:CodexServerSubcommands): "codex <subcommand>";
+#   --parent-pid (and no exec, above): "codex helper (--parent-pid, no exec)".
+# Anything else is neither, and the rule decides as before (a codex without arguments: name codex).
+# Pure.
 function Get-CodexServerExclusion {
     param([string]$Name, [string]$Cmd)
+    $none = [pscustomobject]@{ Excluded = ''; Ambiguous = '' }
     $base = ([string]$Name -replace '(?i)\.exe$', '')
-    if ($base -notmatch '^codex') { return '' }
-    if ($base -match '^codex-computer-use') { return "$($base.ToLowerInvariant()) helper" }
-    if (Get-CommandLineGap -Name $Name -Cmd $Cmd) { return '' }
-    $tokens = Split-CommandLineTokens -Cmd $Cmd
+    if ($base -notmatch '^codex') { return $none }
+    $gap = Get-CommandLineGap -Name $Name -Cmd $Cmd
+    $split = $null
+    if (-not $gap) {
+        if (Test-ExecWord $Cmd) { return $none }
+        $split = Split-CommandLineTokens -Cmd $Cmd
+        foreach ($t in @($split.Tokens)) { if (Test-ExecWord $t) { return $none } }
+    }
+    if ($base -match '^codex-computer-use') { return [pscustomobject]@{ Excluded = "$($base.ToLowerInvariant()) helper"; Ambiguous = '' } }
+    if ($gap) { return $none }
+    if ($split.Ambiguous) { return [pscustomobject]@{ Excluded = ''; Ambiguous = [string]$split.Ambiguous } }
+    $tokens = [string[]]@($split.Tokens)
     $sub = ''
     for ($i = 1; $i -lt $tokens.Count; $i++) {
         $t = $tokens[$i]
@@ -9840,16 +9924,13 @@ function Get-CodexServerExclusion {
         $sub = $t
         break
     }
-    if ($sub -and $script:CodexServerSubcommands -contains $sub) { return "codex $($sub.ToLowerInvariant())" }
-    $parentPid = $false
-    $exec = $false
+    if ($sub -and $script:CodexServerSubcommands -contains $sub) { return [pscustomobject]@{ Excluded = "codex $($sub.ToLowerInvariant())"; Ambiguous = '' } }
+    # exec is nowhere on this command line (above)
     for ($i = 1; $i -lt $tokens.Count; $i++) {
         $t = $tokens[$i]
-        if ($t -ieq 'exec') { $exec = $true }
-        if ($t -ieq '--parent-pid' -or $t -like '--parent-pid=*') { $parentPid = $true }
+        if ($t -ieq '--parent-pid' -or $t -like '--parent-pid=*') { return [pscustomobject]@{ Excluded = 'codex helper (--parent-pid, no exec)'; Ambiguous = '' } }
     }
-    if ($parentPid -and -not $exec) { return 'codex helper (--parent-pid, no exec)' }
-    return ''
+    return $none
 }
 
 # One process: { pid; name (ProcessName); cmd; start (UTC round-trip, '' when it cannot
@@ -10023,7 +10104,9 @@ function Test-RecordedProcess {
 #     The Codex desktop app's servers and helpers (Get-CodexServerExclusion: codex app-server,
 #     exec-server, mcp-server, login, app, codex-computer-use*, --parent-pid without exec) are
 #     left out and named in Check ("excluded: pid N codex.exe [codex app-server]") and in
-#     Excluded; a codex process whose command line cannot be read still counts (fail-closed).
+#     Excluded; a codex process whose command line cannot be read still counts (fail-closed), and
+#     (E28 / F37-1) one whose command line holds the word exec is never left out, one whose quoting
+#     is ambiguous counts ("command line ambiguous - counted as codex").
 #     TEST HOOK (test mode only): CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>] - these
 #     pids are scanned with the command line '' (as access denied makes it), as in Get-ProcessInfo.
 # Returns { Found = [object[]] { pid; name; rule }; Check = <what was scanned>; Failed;

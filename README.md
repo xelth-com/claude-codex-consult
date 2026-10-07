@@ -1772,7 +1772,12 @@ unless the bridge that wrote it or a codex process from it is still alive; never
   `exec` - and the scan names what it left out (`Win32_Process scan (…; excluded: pid N codex.exe
   [codex app-server]): none found`); `codex exec …`, the launcher path or `@openai/codex` on a
   command line, and a codex whose command line cannot be read still count (fail-closed; the test
-  hook `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE` is honoured by this scan too).
+  hook `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE` is honoured by this scan too). (Wave 29, E28 /
+  F37-1) A codex-named process whose command line holds the word `exec` anywhere (a whole word,
+  case-insensitive; `exec-server` is not it) is never left out, the subcommand is found with the
+  Windows quoting rules the program itself applies (a `\"` inside a quoted `-c` value does not end
+  it, `""` inside quotes is a literal quote), and a command line whose quoting is unbalanced is not
+  left out either (`command line ambiguous - counted as codex`).
   That second rule cannot tell tasks apart and says so ("task not verifiable"); there is
   no age cut-off - and it is never applied to a panel member's record, which is judged by
   its recorded pids and (Windows) their children only: a live SIBLING member's reviewer
