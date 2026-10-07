@@ -124,6 +124,14 @@
                                                      "note":  "WriteDisabled is false; monitored tree changes fail. This is detection, not prevention of all hook writes.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Collab tracker marks implemented (D1 strict tree); not re-verified in this checkpoint.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -250,6 +258,14 @@
                                                      "note":  "Allowlist replaces ambient inheritance; inspected and exercised relevant name filtering.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Allowlist per D2; not re-read in this checkpoint.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -371,6 +387,14 @@
                                                      "note":  "Validator/telemetry share the Claude table and suffix handling; actual context capacity remains unproven.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Shared model table/telemetry claim; not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -492,6 +516,14 @@
                                                      "note":  "D5 panel serialization is implemented; broader machine-wide scope remains under F10-4.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Panel serialization (D5) plus machine-wide plan/fingerprint counting (E16) close the scheduling half; residual kill/concurrency durability under F04-1/2.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -613,6 +645,14 @@
                                                      "note":  "Denial and resume rules are implemented, but finding #4 replaces the broad quota concern with a reproduced defect; live boundary coverage remains incomplete.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Quota half superseded by F20-4 and closed by E15; denial/resume rules per D6/P1/P6. Live boundary shapes remain unproven.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -748,6 +788,14 @@
                                                      "note":  "Claude uses strict tree failure rather than WriteDisabled attribution.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Strict-tree attribution; carried from handoff 20, not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -878,6 +926,14 @@
                                                      "note":  "API-key child environment excludes inherited endpoint tokens, base URLs and provider selectors.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Env allowlist for api-key mode; not re-read here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -1017,6 +1073,14 @@
                                                      "note":  "Authentication probes and reviewer launches use the shared child-environment builder.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Shared child-env builder for preflight; not re-read here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -1151,6 +1215,14 @@
                                                      "note":  "CLAUDE_CODE_SKIP_PROMPT_HISTORY is excluded; name-filter replay returned false.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "CLAUDE_CODE_SKIP_PROMPT_HISTORY exclusion; not re-read here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -1285,6 +1357,14 @@
                                                      "note":  "CLAUDE_CODE_EFFORT_LEVEL is excluded; name-filter replay returned false.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "CLAUDE_CODE_EFFORT_LEVEL exclusion; not re-read here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -1420,6 +1500,14 @@
                                                      "note":  "Superseded by finding #2: modelUsage checking was added, but the token-volume heuristic still accepts primary-model drift.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Superseded by F20-2; closed by E13\u0027s assistant-message model proof.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -1546,6 +1634,14 @@
                                                      "note":  "Subscription/API-key fingerprints distinguish auth mode and model family.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Health key per auth mode/family (D7); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -1672,6 +1768,14 @@
                                                      "note":  "MaxModelSteps maps to --max-turns; P2 records CLI support.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "MaxModelSteps -\u003e --max-turns (D8/P2); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -1798,6 +1902,14 @@
                                                      "note":  "Parsed loggedIn=false is handled before exit-code-based uncertainty.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Preflight loggedIn=false precedence (D3); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -1916,6 +2028,14 @@
                                                      "note":  "P7 records two successful concurrent runs; no sustained shared-state integrity test was executed here.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Shared ~/.claude races; P7 observation only, no sustained integrity test.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -2034,6 +2154,14 @@
                                                      "note":  "P6 records one successful interrupted-session resume; arbitrary kill-point durability was not tested.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Kill-point transcript durability; P6 one observation only.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -2132,6 +2260,14 @@
                                                      "note":  "Decisions and README use token-weighted credits; account-level reconciliation remains unproven.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Token-weighted z.ai credits correction; not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -2231,6 +2367,14 @@
                                                      "note":  "Documentation distinguishes api.kimi.ai/coding from Moonshot pay-as-you-go.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Kimi endpoint correction; not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -2338,6 +2482,14 @@
                                                      "note":  "Canonical URL, port and credential-variable name define route identity; plan is separate. Identity replay confirmed distinct fingerprints.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Route fingerprint vs plan key (E5); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -2441,6 +2593,14 @@
                                                      "note":  "AUTH_TOKEN-only implementation remains; recorded live qualification covers z.ai/MiMo, not every documented provider.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "AUTH_TOKEN-only contract is unproven for every documented provider; E12-E16 do not address it.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -2543,6 +2703,14 @@
                                                      "note":  "Executed endpoint telemetry fixtures returned correct closed vendor/model classifications.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Endpoint telemetry classification (E6); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -2642,6 +2810,14 @@
                                                      "note":  "Blanket eligibility claim is withdrawn; documentation requires an operator decision and excludes Alibaba examples.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Terms eligibility per account (E9); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -2745,6 +2921,14 @@
                                                      "note":  "Current endpoint claim concerns inference/billing rather than guaranteed absence of all Anthropic traffic; egress was not measured.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Non-inference egress claim; not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -2843,6 +3027,14 @@
                                                      "note":  "Host-first classification replay returned zai for Claude on api.z.ai.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Telemetry host-first classification (E6); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -2941,6 +3133,14 @@
                                                      "note":  "glm-5.3[1m] replay classified as zai/glm-5.3.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "[1m] strip for all vendors (E6); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -3043,6 +3243,14 @@
                                                      "note":  "Distinct route labels can share plan health and a local panel scheduling group.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "One plan on two routes (E5/E7); partially covered by E16 but not re-tested here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -3141,6 +3349,14 @@
                                                      "note":  "Endpoint preflight is local; P8/P10 establish observed source none, and E11 restricts the admitted model set.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint mode is implemented (E1/E3/E4/E11: local preflight, apiKeySource none accepted, ANTHROPIC_API_KEY fails). Wire-level credential proof remains unproven (RC3).",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -3243,6 +3459,14 @@
                                                      "note":  "Retention measurement now uses token-weighted credits rather than inferring billed prompt counts from num_turns.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Prompt-count billing measurement; not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -3341,6 +3565,14 @@
                                                      "note":  "Bounded endpoint.timeout_ms supplies API_TIMEOUT_MS; actual delayed-provider behavior was not exercised.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "API_TIMEOUT_MS in endpoint env (E4); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -3434,6 +3666,14 @@
                                                      "note":  "Executed ledger-shaped telemetry fixture returned provider zai and model glm-5.3.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Engine-vendor shortcut in telemetry; not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -3523,6 +3763,14 @@
                                                      "note":  "Endpoint mode bypasses the hardcoded Anthropic branch and uses the documented exact route-label/model contract.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Get-CoordinatorMatch hardcoded anthropic; not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -3617,6 +3865,14 @@
                                                      "note":  "Observed none replaces the incorrect token-source expectation; P11 and E11 address the identified fallback ambiguity.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Closed by E11 (endpoint refuses Anthropic ids) plus observed apiKeySource none; wire capture still open in unproven.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -3706,6 +3962,14 @@
                                                      "note":  "Suffix normalization applies to all vendor rows and passed replay.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "[1m] strip under vendor zai (E6); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -3813,6 +4077,14 @@
                                                      "note":  "Route fingerprints remain distinct while plan quota aggregates their health records.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E5\u0027s two identities implemented (plan excluded from route fingerprint; plan propagation via Get-PlanQuotaVerdict).",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -3924,6 +4196,14 @@
                                                      "note":  "Endpoint environment injection is implemented; observed source none is handled under the revised E11 model restriction.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint env injection (E4) plus E11 model refusal close the auth-reuse hole; observed source none accepted.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -4031,6 +4311,14 @@
                                                      "note":  "Host-first dispatch, MiniMax coverage and universal suffix normalization are implemented and sampled successfully.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Telemetry third-party coverage (E6); not re-verified here.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -4151,6 +4439,14 @@
                                                      "note":  "Local groups merge engine/plan keys, but machine running records store only route fingerprints and panels count only selected routes; external same-plan routes can escape the limit.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E16 adds plan to running rows and Get-MachineRunningCount -Plans; engine-wide claude group kept (E7/D5). Residual: shared-state durability under F04-1.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -4258,6 +4554,14 @@
                                                      "note":  "E8 still uses a small empirical retention gate without uncertainty bounds; native-schema and versioned endpoint qualification remain incomplete.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Retention-gate power and per-version/endpoint capability smoke are still deferred; E12-E16 do not address them.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -4342,6 +4646,14 @@
                                                      "note":  "E11 rejects closed-table aliases and all claude-* endpoint IDs; direct and mixed-roster refusal replays passed.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E11 refusal present in Get-ClaudeModelProblem (claude-* and closed-table ids refused on endpoint).",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -4539,6 +4851,14 @@
                                                      "note":  "E11 removes subscription-servable model IDs from the admitted endpoint scope; independent wire-level credential verification remains unproven.",
                                                      "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                                      "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                                 },
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E11 removes subscription-servable ids from the endpoint scope; independent wire-level credential proof remains unproven.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                                  }
                                              ]
                      },
@@ -4615,7 +4935,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Assistant-message half closed by E13 (capability failure); the non-main modelUsage half is deliberately kept as a warning by E13 (helper model).",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 }
                                              ]
                      },
                      {
@@ -4695,7 +5022,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E12 implemented: init/model proof runs in the Pre branch (5231-5244) and ProofProblem blocks continuation.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 }
                                              ]
                      },
                      {
@@ -4766,7 +5100,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E13 implemented: foreign assistant message.model fails with class capability (5129-5130).",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 }
                                              ]
                      },
                      {
@@ -4833,7 +5174,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E14 implemented: InitLacks over model/permissionMode/tools/mcp_servers fails the turn (4944-4953, 5088-5089).",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 }
                                              ]
                      },
                      {
@@ -4906,6 +5254,344 @@
                                              "evidence":  "",
                                              "base_commit":  "4aca34d49e16f92f7998b1547f639946af025140",
                                              "tree_sha256":  "08a6c36d1f3e4c0ef62750232e0aefcc91fbe5f2611cd15584cb4519acd73bc2"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  15,
+                                                     "when":  "2026-10-07T04:25:56+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E15 implemented: rejecting event warns, QuotaMark recorded, health quota_mark applied (5354-5360, 6663-6671). Decision-level conflict with D6 filed as finding #1.",
+                                                     "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                                     "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F22-1",
+                         "status":  "implemented",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md",
+                                               "line":  27
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/05-claude-claude-engine-decisions.md",
+                                               "line":  50
+                                           }
+                                       ],
+                         "claim":  "E15 contradicts D6: D6 classifies any rate_limit_event whose status rejects the request as class quota (a failed turn), while E15 keeps the reply usable and records only a warning plus a health mark; E15 never declares D6 amended, unlike E13 which explicitly amends D4.",
+                         "trigger":  "A turn emits rate_limit_info.status=\u0027rejected\u0027 and then a successful nonempty result (the F20-4 scenario).",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/05-claude-claude-engine-decisions.md:50",
+                                              "observation":  "D6: \u0027a rate_limit_event whose status rejects the request is class quota\u0027."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md:27",
+                                              "observation":  "E15: \u0027The reply stays usable\u0027 with a warning and a health mark; no amendment of D6 named."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5354",
+                                              "observation":  "Code follows E15 on the success path (warning + QuotaMark), while comments still cite D6 for quota evidence at 5202."
+                                          }
+                                      ],
+                         "verification":  "Replay the rejection-plus-success fixture and confirm the decision record names one rule: either D6 is amended to \u0027rejecting event on a failed turn is quota; on a usable turn it is a warning + mark\u0027, or E15 is reverted.",
+                         "remedy":  "Amend D6 explicitly in E15\u0027s text (\"D6 is amended accordingly\") to scope class quota to failing turns and define the usable-turn behavior as the sole rule.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  15,
+                                        "reply":  "handoffs/22-claudecode-smoke-mimo-native.md",
+                                        "thread":  "a9e70e3c-8cb5-4581-9519-c8bfd93757d7",
+                                        "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                        "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T04:25:56+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                             "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T04:30:22+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wording of the decision record corrected: amendments A1-A5 in handoffs/21 (D6 amended by E15; E13 compares against the init-resolved id; E15\u0027s burst clause withdrawn; E12 classes; E16 plan cap note)",
+                                             "evidence":  "",
+                                             "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                             "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-2",
+                         "status":  "implemented",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md",
+                                               "line":  18
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5129
+                                           }
+                                       ],
+                         "claim":  "E13\u0027s rule that every assistant message.model must equal \u0027the pinned id after the [1m] strip\u0027 contradicts D4/E2\u0027s alias resolution: an alias pin (e.g. sonnet) can never equal the served full id, so literal E13 would fail every alias-pinned turn. The code compares against the init\u0027s resolved id instead.",
+                         "trigger":  "A subscription turn pinned to an alias whose init resolves to claude-sonnet-5-5 and whose assistant events carry that full id.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md:18",
+                                              "observation":  "E13 wording: \u0027must equal the pinned id after the [1m] strip\u0027."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5129",
+                                              "observation":  "Implementation compares AssistantModels to $Events.InitModel (the init\u0027s id) with exact match, not to the raw pin."
+                                          }
+                                      ],
+                         "verification":  "Unit-check Get-ClaudeServedModelProblem with Pinned \u0027sonnet\u0027, init model claude-sonnet-5-5 and assistant model claude-sonnet-5-5; it must pass, which the literal E13 text forbids.",
+                         "remedy":  "Reword E13 to \u0027the init event\u0027s resolved id (the pin after alias resolution and the [1m] strip)\u0027.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  15,
+                                        "reply":  "handoffs/22-claudecode-smoke-mimo-native.md",
+                                        "thread":  "a9e70e3c-8cb5-4581-9519-c8bfd93757d7",
+                                        "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                        "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T04:25:56+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                             "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T04:30:24+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wording of the decision record corrected: amendments A1-A5 in handoffs/21 (D6 amended by E15; E13 compares against the init-resolved id; E15\u0027s burst clause withdrawn; E12 classes; E16 plan cap note)",
+                                             "evidence":  "",
+                                             "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                             "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-3",
+                         "status":  "implemented",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md",
+                                               "line":  30
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5801
+                                           }
+                                       ],
+                         "claim":  "E15\u0027s promised health mark \u0027a burst 429 -\u003e 10 minutes\u0027 cannot occur on the E15 path: QuotaMark text always begins \u0027usage limit reached/usage limit:\u0027, which matches QuotaWindowPattern, so Get-FailureKind never returns burst and the mark runs the full 60 minutes.",
+                         "trigger":  "A rejecting rate_limit_event of burst type (no usage window) followed by a successful result.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5208",
+                                              "observation":  "quotaText always contains \u0027usage limit reached (claude rate_limit_event ...)\u0027."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5794",
+                                              "observation":  "QuotaWindowPattern matches \u0027usage[ _]?limit\u0027, excluding the burst branch at 5801."
+                                          }
+                                      ],
+                         "verification":  "Run RC2 (New-ProviderFailure on the E15 mark text) and observe kind \u0027\u0027 and a 60-minute out.",
+                         "remedy":  "Classify burst from RateLimitType/raw event before synthesizing the text, or drop the burst clause from E15.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  15,
+                                        "reply":  "handoffs/22-claudecode-smoke-mimo-native.md",
+                                        "thread":  "a9e70e3c-8cb5-4581-9519-c8bfd93757d7",
+                                        "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                        "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T04:25:56+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                             "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T04:30:27+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wording of the decision record corrected: amendments A1-A5 in handoffs/21 (D6 amended by E15; E13 compares against the init-resolved id; E15\u0027s burst clause withdrawn; E12 classes; E16 plan cap note)",
+                                             "evidence":  "",
+                                             "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                             "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-4",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md",
+                                               "line":  26
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5102
+                                           }
+                                       ],
+                         "claim":  "E14 makes a missing apiKeySource a non-failure (older CLIs), but for auth api-key and subscription the per-turn billing proof IS apiKeySource; with the field absent those modes pass with no proof of what billed the turn, undercutting E3\u0027s proof model.",
+                         "trigger":  "An older CLI emits init without apiKeySource on an api-key roster entry.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md:26",
+                                              "observation":  "E14: \u0027apiKeySource missing is recorded as null (older CLIs) - not a failure\u0027."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5102",
+                                              "observation":  "InitKeySources empty yields no badKey, so the want-check passes silently."
+                                          }
+                                      ],
+                         "verification":  "Replay an init without apiKeySource under auth api-key and confirm the turn is accepted with no auth evidence recorded.",
+                         "remedy":  "Either require apiKeySource on subscription/api-key turns (endpoint keeps the null rule), or record the proof gap as a warning and exclude such turns from billing claims.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  15,
+                                        "reply":  "handoffs/22-claudecode-smoke-mimo-native.md",
+                                        "thread":  "a9e70e3c-8cb5-4581-9519-c8bfd93757d7",
+                                        "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                        "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T04:25:56+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                             "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F22-5",
+                         "status":  "implemented",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md",
+                                               "line":  12
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md",
+                                               "line":  35
+                                           }
+                                       ],
+                         "claim":  "Two wording defects in the decision record: E12 labels an apiKeySource problem \u0027a capability or permission problem\u0027 although that class is auth (E3), and E16\u0027s plan default 1 silently caps D5\u0027s label parallel raise, so D5\u0027s \u0027the roster\u0027s parallel may raise it\u0027 is ineffective for entries that carry a plan unless parallel.\u003cplan\u003e is also raised.",
+                         "trigger":  "An operator raises parallel on two claude labels of one plan, or reads E12\u0027s class list against E3.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md:12",
+                                              "observation":  "E12 groups \u0027a wrong apiKeySource\u0027 under capability/permission, then says \u0027with that class\u0027."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:8838",
+                                              "observation":  "Get-PanelPlan: a label\u0027s parallel value is then capped by each plan\u0027s limit (default 1 at 8831)."
+                                          }
+                                      ],
+                         "verification":  "Build a panel of two same-plan claude labels with parallel raised on both labels only; the plan group must still serialize at 1.",
+                         "remedy":  "Fix E12\u0027s class wording to name auth for apiKeySource, and state in E16 that parallel.\u003cplan\u003e is required to raise a planned entry.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  15,
+                                        "reply":  "handoffs/22-claudecode-smoke-mimo-native.md",
+                                        "thread":  "a9e70e3c-8cb5-4581-9519-c8bfd93757d7",
+                                        "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                        "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T04:25:56+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                             "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T04:30:29+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "wording of the decision record corrected: amendments A1-A5 in handoffs/21 (D6 amended by E15; E13 compares against the init-resolved id; E15\u0027s burst clause withdrawn; E12 classes; E16 plan cap note)",
+                                             "evidence":  "",
+                                             "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
+                                             "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -5131,6 +5817,23 @@
                         "note":  "acceptance after E11: four real defects of the turn-outcome logic with replays (timeout bypass, main-model heuristic, missing init fields, lost rate-limit rejection) -\u003e E12-E16",
                         "when":  "2026-10-07T02:14:58+02:00",
                         "telemetry_sent":  1791332099
+                    },
+                    {
+                        "n":  15,
+                        "consult_id":  "d7f9556d-ea3c-4539-ac26-c18eed12f5c2",
+                        "lineage":  "mimo-claude :: mimo-v2.6-pro [claude]",
+                        "provider":  "mimo-claude",
+                        "model":  "mimo-v2.6-pro",
+                        "engine":  "claude",
+                        "purpose":  "checkpoint",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-07T04:06:52+02:00",
+                        "useful":  "yes",
+                        "note":  "RC3 smoke on the MiMo endpoint route (native schema, after a timeout continuation): five precise wording findings on the decision record",
+                        "when":  "2026-10-07T04:29:47+02:00",
+                        "telemetry_sent":  1791340188
                     }
                 ]
 }

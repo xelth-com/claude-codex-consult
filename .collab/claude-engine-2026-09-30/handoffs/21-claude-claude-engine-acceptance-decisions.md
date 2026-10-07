@@ -39,6 +39,26 @@ E17. **Brief 14's tool invariant corrected**: the init tools are Read, Grep, Glo
      under the `native` schema transport; a prompt-only or raw/chore run lists three. Handoff 13 (a chore) is a
      smoke of the route, not native-schema evidence; P8 and the A/B run (handoff 11, `--json-schema`) are.
 
+Amendments after the RC3 smoke on the MiMo endpoint route (handoff 22, F22-1..5; 2026-10-07):
+
+A1. (F22-1) **D6 is AMENDED by E15**: a `rate_limit_event` whose status rejects the request is class `quota` only
+    when the turn produces no usable result; when the CLI retried and the terminal result is a success, the reply
+    stands (E15) and the rejection is carried as the warning and the health mark. The README states both halves.
+A2. (F22-2) E13 reads: every assistant message's `message.model` must equal **the id the init event resolved**
+    (an alias pin such as `sonnet` resolves to `claude-sonnet-5-5` in the init event; the comparison is against
+    that id, after the `[1m]` strip) - as the code does.
+A3. (F22-3) E15's mark is the usage-window mark of the existing classifier - until the reset the event names,
+    else 60 minutes; the burst (10-minute) kind cannot arise on this path because the mark's text names a usage
+    limit. The "burst 429 -> 10 minutes" clause of E15 is withdrawn.
+A4. (F22-4) **E14 amended**: a missing `apiKeySource` is recorded `null` and tolerated ONLY under `auth: endpoint`
+    (where the field proves nothing - E3); under `subscription` and `api-key` the field IS the per-turn billing
+    proof, so a missing or non-string `apiKeySource` FAILS the turn with class `auth` (`init event lacks
+    apiKeySource - the billing proof of this auth mode; pin the CLI version`).
+A5. (F22-5) E12's wording: an apiKeySource problem of a killed turn's init is class `auth`, the tool, MCP and
+    permission-mode problems class `permission`/`capability` - whatever `Get-ClaudeInitProblem` returns. E16's
+    note: a label that carries a `plan` is capped by `parallel.<plan>` (default 1), so raising D5's label limit
+    needs `parallel.<plan>` raised as well; the README's roster table says so.
+
 Verification (the acceptance's RC1-RC3 of handoff 20): fake-stream fixtures in `tests/harness-claude.ps1` for
 E12-E15 (a prohibited init on a timed-out turn followed by a valid continuation stays FAILED; an Opus-authored
 assistant message under a pinned Sonnet fails; an init without `tools` fails; a rejecting rate-limit event
