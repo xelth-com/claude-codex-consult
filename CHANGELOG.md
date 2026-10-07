@@ -14,6 +14,21 @@ version stays 0.5.1 until the release).
 
 ### Added
 
+- **Roster `panel: light`** (2026-10-07). A third panel weight beside `"always"` and `"weighty"`: a `"light"` entry
+  joins a `-Panel` run on the light purposes (as `"always"` does) and is held back on the weighty ones (`framing`,
+  `decision`, `core-contract`, `acceptance`, `stuck`) - `skipped: light reviewer; purpose <p> is weighty - it stands in
+  only when no entry of its label runs` - unless, once the whole roster is judged, no other entry of its provider label
+  runs (every one skipped - unavailable, context, refused - or none): then it stands in, listed and recorded in
+  `panel.members` as `stands in for #<n> (<that entry's skip reason>)` or `stands in (no other entry of label
+  <label>)`; one light entry per label stands in (roster order). `-PanelAll` seats it whatever the purpose, a
+  `-Require`d light entry is never held back (exit 5 refusals unchanged), and the single-reviewer walk ignores the
+  weight (its context skip already moves on to the next entry). The case: Kimi Code's `k3` (256K window, `"weighty"`)
+  and `kimi-for-coding` (K2.8 Preview, 1M window, `"light"`) on one plan - the code reviews and checkpoints go to
+  `kimi-for-coding`, the architecture decisions to `k3`, and `kimi-for-coding` takes over a weighty brief too long for
+  `k3`, without both sitting in one weighty panel and spending the plan's 5-hour window twice. The validator's refusal
+  reads `panel must be "always", "weighty" or "light" (got ...)`. README (the roster example and table, "Size by
+  stakes", `-Require`), `setup-providers` 3d and 4, `consult-codex`; harness-panel's new LIGHT category (8 checks),
+  harness-roster WEIGHT one more (the validator).
 - **The `claude` engine's endpoint mode (wave 29b)** (2026-10-06). A third credential mechanism, `auth: "endpoint"`:
   a roster entry runs Claude Code against a third-party Anthropic-compatible endpoint (a coding plan: z.ai GLM, Xiaomi
   MiMo, Kimi Code). Decisions E1-E7 of

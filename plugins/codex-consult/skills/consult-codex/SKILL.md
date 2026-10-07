@@ -299,8 +299,8 @@ member. `-Effort` and `-MaxWords` override the preset when given. Options:
   rather than silently skipping the binding.
 - `-Raw` — 0.1-style plain-text reply: no structured schema, no findings bookkeeping.
   Use it for a quick informal ask that is not going into the findings ledger.
-- `-Panel` (`-PanelAll`: every eligible roster entry, `"weighty"` ones included whatever the
-  purpose) — send the **same brief to as many roster reviewers as the purpose needs**
+- `-Panel` (`-PanelAll`: every eligible roster entry, `"weighty"` and `"light"` ones included
+  whatever the purpose) — send the **same brief to as many roster reviewers as the purpose needs**
   (0.5.0: chore, none and checkpoint 1, diff-review 2, framing and decision 3, core-contract
   and acceptance 4, stuck every eligible one; `-PanelSize <n>` to choose), seated by their
   track record (`-PanelOrder routed`, the default; `roster` keeps the roster order), in
@@ -443,8 +443,9 @@ Treat every reviewer in play — you (the coordinator), Codex, and any roster me
   decisions, 4 for core contracts and acceptance, every eligible reviewer when stuck). Cheap
   roster members join every brief; weighty ones (roster `"panel": "weighty"`) join only the
   weighty purposes (`framing`, `decision`, `core-contract`, `acceptance`, `stuck`) unless you
-  pass `-PanelAll`. Tokens are finite for every provider — do not spend a weighty
-  reviewer on a checkpoint or a routine diff review unless the question is hard.
+  pass `-PanelAll`; light ones (`"panel": "light"`) join the other purposes and on a weighty one
+  only stand in when no other entry of their label runs. Tokens are finite for every provider —
+  do not spend a weighty reviewer on a checkpoint or a routine diff review unless the question is hard.
 - **Framing and decision questions go to a panel of at least one companion - never only your
   own judgement** (the design floor): a framing or decision panel that seats fewer than 2
   members warns (`panel floor: ...`, console and ledger `warnings[]`) - add a reviewer, or say
@@ -492,8 +493,9 @@ as required coverage, not as a redundant second look.
 brief to the roster entries it seats**: each member is a complete, independent
 consultation — its own preflight, its own lineage, its own reply file
 (`handoffs/NN-codex-<ReplyName>-<provider>.md`) and its own ledger entry (`panel`
-field). `-PanelAll` includes `"weighty"` roster entries whatever the purpose; without
-it, a `"weighty"` entry only joins on the weighty purposes.
+field). `-PanelAll` includes `"weighty"` and `"light"` roster entries whatever the purpose;
+without it, a `"weighty"` entry only joins on the weighty purposes, and a `"light"` entry joins
+those only as a stand-in (`stands in for #<n> (...)`) when no other entry of its label runs.
 
 - **Size and seats (0.5.0; the README's "Companions")** — the panel starts as many members as
   the purpose needs (`-PanelSize` overrides; no backfill for a member that fails); an eligible

@@ -8,7 +8,9 @@
 # an agy member beside committing siblings (D7), the parent killed mid-panel, a member's timeout
 # kill without survivors (no orphan process, no kept record - wave 23b) and with survivors, the
 # kill guard (D11), a commit blocked by a held write lock (D3), a kill inside the
-# commit (ORPHAN, D4/F03-11), Get-EndpointHealth by completion (D9). FAKES ONLY: fake-codex3.cmd
+# commit (ORPHAN, D4/F03-11), Get-EndpointHealth by completion (D9); LIGHT (2026-10-07) - the
+# roster's "panel": "light" (seated on a light purpose, held back on a weighty one unless no other
+# entry of its label runs - then it stands in - -PanelAll, -Require). FAKES ONLY: fake-codex3.cmd
 # (CODEX_CONSULT_EXE and -CodexExe) and fake-agy.cmd (CODEX_CONSULT_AGY_EXE); CODEX_HOME and
 # CODEX_CONSULT_ROSTER point at scratch files; the API key variables hold dummy test values.
 # Runs under the host it is started with (powershell 5.1 or pwsh 7, Windows) and launches the
@@ -656,6 +658,38 @@ if (Want 'GUARD') {
     Check 'GUARD' 'a member still alive past its guard (test: 15 s) is stopped by the panel run: summary "killed by the panel after N s (its guard: 15 s)", its record kept (state running), the other member usable, exit 1' ($p.Code -eq 1 -and $led.Count -eq 1 -and $led[0].bridge_outcome -eq 'usable reply' -and $sum[2] -match '^  mimo :: mimo-v2\.6-pro\s+killed by the panel after [0-9.]+ s \(its guard: 15 s\)' -and @($recs).Count -eq 1 -and $recs[0].Name -eq '.consult.pending-02.json' -and $recs[0].Record.state -eq 'running') ($sum[0..2] -join ' | ')
     $y = Consult $r $roster2 @('-Provider', 'mimo', '-Prompt', 'y', '-ReplyName', 'next') @{ FAKE_CODEX_REPLY = $advise }
     Check 'GUARD' 'the next run recovers the killed member''s reservation (n=2, nn=02; the member and its reviewer are gone)' ($y.Code -eq 0 -and $y.Out -match "recovered reservation n=2, nn=02 \(\.consult\.pending-02\.json: state 'running' of an interrupted run" -and @(Ledger $r)[-1].n -eq 3) (Line $y.Out 'codex-consult: recovered')
+}
+
+# =============================================================== LIGHT: the roster's "panel": "light" (2026-10-07)
+if (Want 'LIGHT') {
+    # #1 the weighty reviewer of the label (a small window), #2 its light sibling, #3 another label
+    $rosterL = Write-Roster 'light' '{"roster_version":1,"reviewers":[{"provider":"ZAI","model":"glm-5.3","panel":"weighty","context_tokens":32000},{"provider":"ZAI","model":"glm-5.3-flash","panel":"light"},{"provider":"openai","model":"gpt-5.1"}]}'
+    $standReason = 'light reviewer; purpose acceptance is weighty - it stands in only when no entry of its label runs'
+    $r = New-Repo 'light'
+    $l1 = Consult $r $rosterL @('-Panel', '-DryRun', '-Prompt', 'x', '-Purpose', 'checkpoint')
+    Check 'LIGHT' 'a checkpoint panel (size 1): the light entry takes the seat, its weighty sibling of the same label is skipped "weighty", the other label is not picked' ($l1.Code -eq 0 -and $l1.First -match ': 1 of 3 roster entries would run' -and $l1.Out -match '(?m)^  #1 ZAI :: glm-5\.3 - skipped: weighty reviewer; purpose checkpoint is light \(use -PanelAll\)$' -and $l1.Out -match '(?m)^  #2 ZAI :: glm-5\.3-flash - member, n=1, handoff 01$' -and $l1.Out -match '(?m)^  #3 openai :: gpt-5\.1 - not picked: panel size 1$') "$(Line $l1.Out '  #1') | $(Line $l1.Out '  #2') | $(Line $l1.Out '  #3')"
+    $l2 = Consult $r $rosterL @('-Panel', '-DryRun', '-Prompt', 'x', '-Purpose', 'acceptance')
+    Check 'LIGHT' 'an acceptance panel: the weighty sibling runs, the light entry is skipped with the stand-in reason (listing and summary)' ($l2.Code -eq 0 -and $l2.First -match ': 2 of 3 roster entries would run' -and $l2.Out -match '(?m)^  #1 ZAI :: glm-5\.3 - member, n=1, handoff 01$' -and $l2.Out.Contains("  #2 ZAI :: glm-5.3-flash - skipped: $standReason`n") -and $l2.Out -match '(?m)^  #3 openai :: gpt-5\.1 - member, n=2, handoff 02$' -and $l2.Out -match ('(?m)^  ZAI :: glm-5\.3-flash\s+skipped\s+' + [regex]::Escape($standReason) + '$')) "$(Line $l2.Out '  #1') | $(Line $l2.Out '  #2')"
+    # the weighty sibling skipped for its context window (est. 30001 of 32000 tokens > 80%)
+    $rb = New-Repo 'light-big'
+    [IO.File]::WriteAllText((Join-Path $rb 'big.md'), ('word ' * 24000), $u8)
+    $ctxReason = "brief too large for this reviewer's context (est. 30001 of 32000 tokens)"
+    $l3 = Consult $rb $rosterL @('-Panel', '-Brief', 'big.md', '-DryRun', '-Prompt', 'x', '-Purpose', 'acceptance')
+    Check 'LIGHT' 'an acceptance panel whose weighty sibling is skipped for its context: the light entry stands in - "member, n=1, handoff 01, stands in for #1 (<the sibling''s reason>)"' ($l3.Code -eq 0 -and $l3.First -match ': 2 of 3 roster entries would run' -and $l3.Out.Contains("  #1 ZAI :: glm-5.3 - skipped: $ctxReason`n") -and $l3.Out.Contains("  #2 ZAI :: glm-5.3-flash - member, n=1, handoff 01, stands in for #1 ($ctxReason)`n") -and $l3.Out -match '(?m)^  #3 openai :: gpt-5\.1 - member, n=2, handoff 02$') "$(Line $l3.Out '  #1') | $(Line $l3.Out '  #2')"
+    $l3x = Consult $rb $rosterL @('-Panel', '-Brief', 'big.md', '-Prompt', 'x', '-Purpose', 'acceptance', '-ReplyName', 'li') @{ FAKE_CODEX_REPLY = $advise }
+    $ll = @(Ledger $rb)
+    $lm = @($ll | Where-Object { $_.reviewer.model -eq 'glm-5.3-flash' }) | Select-Object -First 1
+    $lmm = @($(if ($lm) { @($lm.panel.members) } else { @() }))
+    Check 'LIGHT' 'the real run: two usable members, the stand-in among them; panel.members records #1 skipped with its context reason and #2 state run with reason "stands in for #1 (...)"' ($l3x.Code -eq 0 -and $ll.Count -eq 2 -and $null -ne $lm -and $lm.bridge_outcome -eq 'usable reply' -and $lmm.Count -eq 3 -and $lmm[0].state -eq 'skipped' -and $lmm[0].reason -eq $ctxReason -and $lmm[1].state -eq 'run' -and $lmm[1].reason -eq "stands in for #1 ($ctxReason)" -and $lmm[2].state -eq 'run') "exit $($l3x.Code); $($ll.Count) entries; $(ConvertTo-Json -Compress -InputObject $lmm)"
+    $l4 = Consult $r $rosterL @('-PanelAll', '-DryRun', '-Prompt', 'x', '-Purpose', 'acceptance')
+    Check 'LIGHT' '-PanelAll on acceptance: every entry, the light one too' ($l4.Code -eq 0 -and $l4.First -match ': 3 of 3 roster entries would run' -and $l4.Out -match '(?m)^  #2 ZAI :: glm-5\.3-flash - member, n=2, handoff 02$') "$($l4.First) | $(Line $l4.Out '  #2')"
+    $l5 = Consult $r $rosterL @('-Panel', '-DryRun', '-Prompt', 'x', '-Purpose', 'acceptance', '-Require', '#2')
+    Check 'LIGHT' '-Require #2 on acceptance: the light gate does not hold a required entry back - it takes the first seat beside its running sibling' ($l5.Code -eq 0 -and $l5.First -match ': 3 of 3 roster entries would run' -and $l5.Out -match '(?m)^  #2 ZAI :: glm-5\.3-flash - member, n=1, handoff 01, required$') "$($l5.First) | $(Line $l5.Out '  #2') | $($l5.Refusal)"
+    $rosterSolo = Write-Roster 'light-solo' '{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1"},{"provider":"mimo","model":"mimo-v2.6-pro","panel":"light"}]}'
+    $l6 = Consult $r $rosterSolo @('-Panel', '-DryRun', '-Prompt', 'x', '-Purpose', 'decision')
+    Check 'LIGHT' 'a light entry without another entry of its label on a weighty purpose: "stands in (no other entry of label mimo)"' ($l6.Code -eq 0 -and $l6.First -match ': 2 of 2 roster entries would run' -and $l6.Out -match '(?m)^  #2 mimo :: mimo-v2\.6-pro - member, n=2, handoff 02, stands in \(no other entry of label mimo\)$') (Line $l6.Out '  #2')
+    $l7 = Consult $rb $rosterL @('-Brief', 'big.md', '-DryRun', '-Prompt', 'x', '-Purpose', 'acceptance')
+    Check 'LIGHT' 'the single-reviewer walk ignores the weight: the brief too large for #1 moves the walk to the light #2' ($l7.Code -eq 0 -and $l7.Out.Contains("Roster: $rosterL - position 2 of 3; skipped ZAI :: glm-5.3 ($ctxReason)")) (Line $l7.Out 'Roster:')
 }
 
 } finally {
