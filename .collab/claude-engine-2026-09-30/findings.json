@@ -7032,6 +7032,14 @@
                                                      "note":  "All three kill sites now retain records when Unverified is nonempty even without survivors; the new end-to-end fixture covers retention and next-run refusal. Finding #1 concerns denied enumeration with neither array populated.",
                                                      "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
                                                      "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                                 },
+                                                 {
+                                                     "consult":  21,
+                                                     "when":  "2026-10-07T20:30:26+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Unverified-only kills retain recovery records at all three kill sites; E23 preserves that behavior.",
+                                                     "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
+                                                     "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
                                                  }
                                              ]
                      },
@@ -7110,6 +7118,14 @@
                                                      "note":  "Both process recheck functions now retain unreadable command lines and bare runtimes; read-only replays confirmed these cases and recorded-parent handling.",
                                                      "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
                                                      "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                                 },
+                                                 {
+                                                     "consult":  21,
+                                                     "when":  "2026-10-07T20:30:26+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The previously verified fail-closed command-line checks remain unchanged in this delta.",
+                                                     "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
+                                                     "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
                                                  }
                                              ]
                      },
@@ -7188,6 +7204,14 @@
                                                      "note":  "The original delete-before-save ordering is corrected, with committed folded names supporting replay. Finding #2 concerns mutable legacy contents under that filename-based protocol.",
                                                      "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
                                                      "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                                 },
+                                                 {
+                                                     "consult":  21,
+                                                     "when":  "2026-10-07T20:30:26+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accounting is still saved before source deletion; the remaining replacement-file defect is covered by finding #2.",
+                                                     "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
+                                                     "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
                                                  }
                                              ]
                      },
@@ -7309,7 +7333,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F32-1"
                                            ],
                          "source":  {
                                         "consult":  20,
@@ -7339,7 +7363,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  21,
+                                                     "when":  "2026-10-07T20:30:26+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Unknown-tree records are now persisted. Finding #1 replaces the original persistence concern with a reproduced unsafe-release case.",
+                                                     "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
+                                                     "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                                 }
                                              ]
                      },
                      {
@@ -7393,7 +7424,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F32-2"
                                            ],
                          "source":  {
                                         "consult":  20,
@@ -7420,6 +7451,142 @@
                                              "evidence":  "",
                                              "base_commit":  "8629bcb5653c3e307cafb91dc5cf7369f1f25953",
                                              "tree_sha256":  "f82832d9a88f39e0d103dd1a4e677f433c16d840b17da11cdfd2336883d17821"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  21,
+                                                     "when":  "2026-10-07T20:30:26+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Same-generation appends are handled, but equal-length and longer replacement generations still lose counts; finding #2 narrows and supersedes the earlier claim.",
+                                                     "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
+                                                     "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F32-1",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  9981
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10207
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10217
+                                           }
+                                       ],
+                         "claim":  "Unknown-tree recovery releases a panel member when a live reviewer descends through a dead, unrecorded intermediate process, because direct-parent scans cannot find it and the panel path omits the machine-wide scan.",
+                         "trigger":  "After denied enumeration and an unconfirmed kill, the recorded bridge and launcher are gone, an unrecorded intermediate parent has exited, and its reviewer child remains alive.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:Find-CodexProcesses",
+                                              "observation":  "The by-parent scan matches only processes whose current ParentProcessId equals the supplied recorded PID."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:10207-10217",
+                                              "observation":  "Panel records omit the machine-wide scan and return inactive after the recorded-parent scans find nothing."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only Test-PendingActive replay using the actual Find-CodexProcesses function and a mocked Windows process table",
+                                              "observation":  "A live codex.exe with a dead, unrecorded parent produced Active=false for a panel record. Removing the panel field produced Active=true for the same process table."
+                                          }
+                                      ],
+                         "verification":  "Run a panel recovery fixture containing a surviving reviewer beneath a dead, unrecorded intermediate parent; require recovery to remain active and prevent another launch.",
+                         "remedy":  "Do not release an unknown panel tree solely from clean direct-parent scans. Preserve the uncertainty until reliable ownership tracking establishes termination or the operator explicitly clears it; merely adding a global scan must also account for live sibling reviewers.",
+                         "supersedes":  [
+                                            "F30-1"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  21,
+                                        "reply":  "handoffs/32-codex-astra-0.6.0-delta-3.md",
+                                        "thread":  "01a1179e-e5b7-7ea3-a56e-c611d5acf0ef",
+                                        "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
+                                        "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T20:30:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
+                                             "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F32-2",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  11960
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  12061
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  12103
+                                           }
+                                       ],
+                         "claim":  "The {name, bytes} fold marker cannot distinguish a recreated legacy file whose length equals or exceeds the deleted generation, so new diagnostic counter lines can still be skipped and deleted.",
+                         "trigger":  "A fold deletes the legacy file, then crashes before clearing its committed marker; an older producer recreates that filename with at least the recorded byte length before recovery.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:Read-SharedTextFrom, Merge-TelemetryNotSpooled",
+                                              "observation":  "Only shorter files are treated as replacements. Equal or longer files are treated as already accounted through the recorded offset."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only telemetry replay using MemoryStream-backed files",
+                                              "observation":  "An equal-length replacement containing one new line returned Status=0 and NewlyFolded=0. A longer replacement containing two new lines returned Status=1 and NewlyFolded=1. Both were held for deletion; the same-file append control correctly counted one appended line."
+                                          }
+                                      ],
+                         "verification":  "Interrupt after legacy-file deletion but before marker cleanup, recreate the filename with equal-length and longer new contents, then require all replacement lines to be accounted exactly once.",
+                         "remedy":  "Use a unique staged filename or another reliable generation identity for committed fold contents. Do not infer generation identity from length; retain offset handling only after establishing that it is the same generation.",
+                         "supersedes":  [
+                                            "F30-2"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  21,
+                                        "reply":  "handoffs/32-codex-astra-0.6.0-delta-3.md",
+                                        "thread":  "01a1179e-e5b7-7ea3-a56e-c611d5acf0ef",
+                                        "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
+                                        "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T20:30:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
+                                             "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7732,6 +7899,23 @@
                         "note":  "Confirmed E18/E19/E20 within their triggers by replay; the unknown-tree case (denied enumeration, unconfirmed kill) is a real blocker; the legacy-file append after the first save is a real gap of the name-only replay",
                         "when":  "2026-10-07T19:40:12+02:00",
                         "telemetry_sent":  1791394812
+                    },
+                    {
+                        "n":  21,
+                        "consult_id":  "c882f784-cca9-4410-b51f-c4780e373614",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-07T20:27:29+02:00",
+                        "useful":  "yes",
+                        "note":  "Mocked process-table replay showed the panel path\u0027s by-parent-only release misses a grandchild under a dead intermediate; the recreated-legacy-file case of the length marker is real",
+                        "when":  "2026-10-07T20:31:18+02:00",
+                        "telemetry_sent":  1791397878
                     }
                 ]
 }

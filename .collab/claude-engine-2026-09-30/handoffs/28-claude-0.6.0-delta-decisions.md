@@ -49,3 +49,14 @@ E24. (F30-2) **The fold is generation-aware by length.** `not_spooled_folded[]` 
      replay a named file of that length is deleted without counting, a longer one has its tail (complete lines)
      counted as new, a shorter or missing one is dropped from the list; `-Status` counts only the tail of a named
      file. E22(b) is withdrawn.
+
+Addendum 3 after astra's third round (32, F32-1 blocker, F32-2 minor):
+
+E25. (F32-1) **A panel record's unknown tree is released only when both scans are clean** - the by-parent scan AND the
+     machine-wide "looks like codex" check, exactly as a non-panel record; a sibling member's live codex process
+     postpones the release (named in the refusal). Nothing is released on a direct-child scan alone.
+E26. (F32-2) **The legacy file is staged, never folded under its own name:** under the telemetry lock the fold renames
+     `telemetry-not-spooled.ndjson` atomically to `telemetry-not-spooled-legacy-<utc ticks>.ndjson` before counting
+     (a move that fails on a held handle is retried briefly, then skipped this flush with a note); staged names never
+     recur, so `{name, bytes}` identifies a file exactly; a writer that recreates the legacy name writes a new
+     generation. `-Status` counts the legacy file's complete lines as not yet flushed.
