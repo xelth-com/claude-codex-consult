@@ -1383,7 +1383,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `unchecked_prior_blockers` | open prior blockers the reviewer did not check while answering `ACCEPT` |
 | `usage` / `wall_seconds` | token counts from the event stream (agy: `cache_read_tokens` -> `cached_input_tokens`, `thinking_tokens` -> `reasoning_output_tokens`, plus `total_tokens`; muse: `null` - its records carry no usage); wall time |
 | `compactions` | (wave 28c, D11 / F43-3, F44-6; right after `usage`) how often the reviewer compacted its context during the run, as its ENGINE REPORTED it in the event streams of the run's turns (`Get-CompactionCount`: a `context_compacted` / `compacted` / `thread.compacted` event, or an `item.completed` whose item is a `context_compaction` / `contextCompaction` / `compaction` - the names of the Codex CLI's protocol): a number n > 0 - and the warning `the reviewer compacted its context <n> time(s) - the reply may rest on a summary of the brief`; `unknown` for a member with `context_tokens` when none was reported - the installed codex-cli 0.155.1's `exec --json` stream reports no compaction at all (its item types, read from the binary: agent_message, reasoning, command_execution, file_change, mcp_tool_call, collab_tool_call, web_search, todo_list), so "none seen" is not "none happened"; `null` otherwise. The prompt of a member with `context_tokens` (and a `-Brief`) names the brief again as its last line before the consultation id: ``Before you answer, re-read the brief: `<path>`.``; (wave 28d, D7 / F50-2) without a brief file (an inline `-Prompt`) the one-line ask itself is repeated there - `Before you answer, re-read the ask: <the ask, whitespace folded to one line>` (an ask longer than 500 characters is cut there and points to the top of the prompt). (D8 / F48-4) The line is bridge text: no hash of the prompt exists, and the line takes no part in the context estimate that decides whether a fork or resume continues its thread (`mode_fallback`) |
-| `engine_run` | (wave 23) `null` for codex; for an engine `{turns, max_model_steps, msp_schema_version}`: the engine turns started (the main turn, a denial retry, a format repair - each muse turn spends one Muse Code subscription prompt), `-MaxModelSteps` as sent (`null` when not), the MSP `schema_version` of a muse stream (`null` for agy); right after `compactions` (wave 28c; before: `usage`) (Wave 29) For the claude engine `{turns, max_model_steps, msp_schema_version (null), auth, init_tools, mcp_servers, permission_mode, api_key_source, model_resolved, other_models, permission_denials, denied_tools, rate_limit, cost_usd, child_env_allowed, switched_off}`: the init event's proof of every turn, the ONE resolved model of the thread, the raw most-severe `rate_limit_event` info, `total_cost_usd` (local only; notional on a subscription), the NAMES (never values) of the environment variables the child received, and what R22 switched off. |
+| `engine_run` | (wave 23) `null` for codex; for an engine `{turns, max_model_steps, msp_schema_version}`: the engine turns started (the main turn, a denial retry, a format repair - each muse turn spends one Muse Code subscription prompt), `-MaxModelSteps` as sent (`null` when not), the MSP `schema_version` of a muse stream (`null` for agy); right after `compactions` (wave 28c; before: `usage`) (Wave 29) For the claude engine `{turns, max_model_steps, msp_schema_version (null), auth, init_tools, mcp_servers, permission_mode, api_key_source, model_resolved, other_models, permission_denials, denied_tools, rate_limit, quota_mark, cost_usd, child_env_allowed, switched_off}`: the init event's proof of every turn, the ONE resolved model of the thread, the raw most-severe `rate_limit_event` info, (wave 29b, E15) `quota_mark` - `null`, or the `provider_failure` a failed quota turn would record, when a rejecting `rate_limit_event` came beside a successful result (the endpoint health reads it as a quota failure right after the reply) -, `total_cost_usd` (local only; notional on a subscription), the NAMES (never values) of the environment variables the child received, and what R22 switched off. |
 | `finished_at` | (0.4.x wave 21) when the entry was committed (`when` is the reviewer's start). The endpoint health's "newest wins" orders by it (older entries: `when` + `wall_seconds`), ties by `n` - a panel's members finish in any order |
 | `commit_wait_ms` | (0.4.x wave 21) how long the commit waited for the write lock because another commit of the task held it (`0`: it was free); the console says `write lock : waited N ms for another commit of this task` when it waited |
 
@@ -1895,7 +1895,8 @@ another, `=none` turns it off - read nor written): a usable reply (`class` `ok`)
 failure (class `operator` excepted) as `{endpoint (the provider fingerprint), class, kind,
 until, retry_after, repo, when, message}` - `until` the reset time the provider named, else the
 hit + 60 minutes (10 for a burst), an auth failure + 24 h - and, while its engine turns run, a
-row in `running[]` (`{endpoint, label, pid, start_time, repo, task, nn, panel, since}`). Every
+row in `running[]` (`{endpoint, label, pid, start_time, repo, task, nn, panel, since}`, (wave 29b, E16) plus `plan`
+when the roster entry names one; (E15) a `class` `ok` record may carry a `quota_mark`). Every
 write happens under `<file>.lock` (an exclusive open; (wave 26c, D2) three attempts of 5 s each;
 not acquired = not written) and prunes: an endpoint record older than 24 h whose `until` has
 passed, a running row whose pid and start time are gone. (Wave 26c, D2) A run writes its outcome
@@ -1930,9 +1931,11 @@ endpoint-health question - the roster walk, the panel's selection, `-Require`,
 ledgers as ONE record set: the newest record decides, as within one ledger (a later usable reply
 anywhere clears a failure; two records at the same moment count with the later `until` - (wave
 26c) the record's STORED `until` and `retry_after` travel with it). A panel's endpoint parallel limit (the roster's `parallel`, default 1)
-also counts the runs of OTHER repositories, panels and single runs on the member's endpoint: the
-member waits, and says so (`panel member 2 of 3 waits: 1 run(s) elsewhere on this machine use
-its endpoint (parallel limit 1): ZAI in <repo> task t handoff 04 (pid 1234)`). The file is
+also counts the runs of OTHER repositories, panels and single runs on the member's endpoint - (wave
+29b, E16) and on any route of the member's `plan` -: the member waits, and says so (`panel member 2
+of 3 waits: 1 run(s) elsewhere on this machine use its endpoint (parallel limit 1): ZAI in <repo>
+task t handoff 04 (pid 1234)`; `... use its plan zai ...`, `(plan zai, pid 1234)` for a run counted
+through its plan). The file is
 optional: absent, unreadable or not parseable = as before wave 26b; a single run never waits
 for it (its own row counts for the panels).
 
@@ -2787,9 +2790,17 @@ fork` sends `--resume <parent> --fork-session` and the answer must be a new uuid
 own projects directory, outside the repository; a `CLAUDE_CONFIG_DIR` or a projects directory inside the repository
 under review refuses the run.
 
-**What is proven on every turn.** The init event of EVERY turn must show the tools `Read`, `Grep`, `Glob` and
-`StructuredOutput` only, no MCP server, and `permissionMode` `dontAsk` - else the turn FAILS with class
-`permission`. Billing: with roster `auth` `subscription` the init `apiKeySource` must be `none`; with `api-key` the
+**What is proven on every turn.** The init event of EVERY turn must CARRY `model`, `permissionMode`, `tools` (an
+array) and `mcp_servers` (an array) - a missing, null or non-array field FAILS the turn with class `capability`
+(`init event lacks <field> - the CLI's schema changed; pin the version`; wave 29b, E14 - a missing field is never read
+as an empty one; a missing `apiKeySource`, as older CLIs write it, is recorded as `null`, not a failure). It must list
+no tool outside `Read`, `Grep`, `Glob` and `StructuredOutput` - the init lists `Read`, `Grep`, `Glob`, plus
+`StructuredOutput` only under the `native` schema transport (`--json-schema`); a prompt-only or raw/chore run lists
+three (E17) -, no MCP server, and `permissionMode` `dontAsk` - else the turn FAILS with class `permission`. (E12) A
+turn the bridge KILLED on its timeout or stall is judged the same way: an init or model proof that fails is the run's
+outcome (`<problem> (the turn was also stopped: timeout after N s ...)`, its class), NO timeout continuation resumes
+that session (`timeout_continue.outcome` `not attempted: the killed turn failed its proof (class <c>: <problem>)`),
+and the salvage (`.partial.md`) is kept. Billing: with roster `auth` `subscription` the init `apiKeySource` must be `none`; with `api-key` the
 variable `ANTHROPIC_API_KEY` must be set - else class `auth`; with `endpoint` see "Endpoint mode". What R22 switched off is recorded (ledger
 `engine_run.switched_off`): user, project and local settings, instruction files (the repository's and the home
 directory's `CLAUDE.md` / `AGENTS.md` do not reach a restricted reviewer - observed), MCP servers, skills, slash
@@ -2798,9 +2809,12 @@ commands, code tools, web tools, write tools, the autoupdater.
 **One model per thread (D4).** The roster model goes to `--model` on a new thread; the init event's model is the
 resolved id, and every later turn of the thread - the secondary turns, and later `-Mode resume` or `fork`
 consultations (from the parent entry's `engine_run.model_resolved`) - sends that id. The init model must match the
-pinned one (an alias `opus|sonnet|haiku|fable` matches any `claude-<alias>-...` id; `[1m]` is stripped) and the
-result's `modelUsage` main model (the one with the most output tokens) must be it - else class `capability`; a second
-`modelUsage` key is recorded (`engine_run.other_models`) with a warning. A run on an alias says `the alias floats;
+pinned one (an alias `opus|sonnet|haiku|fable` matches any `claude-<alias>-...` id; `[1m]` is stripped); (wave 29b,
+E13) EVERY `assistant` event's `message.model` must equal that id after the `[1m]` strip - the assistant messages prove
+who answered, not the largest-output heuristic (`a different model authored an assistant message: <id>`); and the
+result's `modelUsage` main model (the one with the most output tokens) must be it too - else class `capability`. A
+`modelUsage` key that authored no assistant message (a helper model of the CLI) is recorded
+(`engine_run.other_models`) with a warning. A run on an alias says `the alias floats;
 each thread is pinned to the id it resolves to`.
 
 **The child environment (D2, D3).** An ALLOW list, not a scrub list. The claude child gets: the system variables a
@@ -2843,7 +2857,7 @@ input + cache read + cache creation, `cached_input_tokens` the cache read, `cach
 on a subscription). Garbage after the result, or two results, is a malformed stream (class `transport`); a partial
 last line is tolerated only after a kill or a non-zero exit. Ledger `engine_run` is `{turns, max_model_steps,
 msp_schema_version (null), auth, init_tools, mcp_servers, permission_mode, api_key_source, model_resolved,
-other_models, permission_denials, denied_tools, rate_limit, cost_usd, child_env_allowed, switched_off}`; the handoff
+other_models, permission_denials, denied_tools, rate_limit, quota_mark, cost_usd, child_env_allowed, switched_off}`; the handoff
 header reads `Engine turns: N (claude -p, auth subscription; model <id>; init tools Glob, Grep, Read,
 StructuredOutput; permission denials 0)`.
 
@@ -2857,7 +2871,15 @@ limit`, `limit reached`, `hit your limit`, ...) (class `quota`, with the reset t
 `|<unix time>` in the text - as `provider_failure.retry_after`); `error_max_turns` (from `-MaxModelSteps`) and
 `error_max_structured_output_retries` (class `capability`); an init proof that fails (class `permission`), a model
 that drifts (class `capability`), a malformed stream (class `transport`). The raw most-severe `rate_limit_event` info
-is kept in `engine_run.rate_limit`; a warning status (`allowed_warning`) becomes a ledger warning.
+is kept in `engine_run.rate_limit`; a warning status (`allowed_warning`) becomes a ledger warning. (Wave 29b, E15) A
+REJECTING `rate_limit_event` followed by a SUCCESSFUL result keeps the reply usable: the event goes raw into
+`engine_run.rate_limit`, the warning `a rate limit rejected a request during the turn: <the event, raw>` is added, and
+`engine_run.quota_mark` holds the `provider_failure` a failed quota turn would have recorded (the same classifier on
+the same text: a usage window until its reset, without one 60 minutes; a burst 429 10 minutes). The endpoint health
+reads that mark as a quota failure right after the reply, so the roster walk, `codex-providers.ps1` (`unavailable
+(usage limit until <reset>)`) and the plan (E5: `unavailable (plan zai (usage limit on ZAI-claude until <reset>))`)
+see it before the next request hits it; the machine-wide record (`class` `ok` with its `quota_mark`) carries it to
+the other repositories; a later usable reply on the route clears it as usual.
 
 **Read-only: flags plus evidence, and the STRICT tree check (D1).** `--tools Read,Grep,Glob` leaves no writing tool,
 but managed settings and their hooks still apply under `--restricted`, so the init event proves the tools, not the
@@ -2949,7 +2971,12 @@ endpoint out; it is never derived from a Codex `[model_providers]` table:
 - **Concurrency (E7).** The claude members keep ONE engine-wide scheduling group by default (D5); in addition every
   `plan` is a scheduling group across engines: a ZAI-via-codex member and a ZAI-claude member run one after another,
   raised by the roster's `"parallel": {"zai": 2}` (a `parallel` key may name a plan slug as well as a provider label; a
-  label without its own value takes its plan's).
+  label without its own value takes its plan's). (E16) Machine-wide too: a run's row in the health file's `running[]`
+  carries its entry's `plan`, and a panel member counts every running row of its plan - from any engine and any
+  repository - against its group's limit (never above the plan's `parallel`, default 1), exactly as a run on its own
+  endpoint (wave 26b): a codex `ZAI` run in another repository makes a `ZAI-claude` member wait, `panel member 1 of 2
+  waits: 1 run(s) elsewhere on this machine use its plan zai (parallel limit 1): ZAI in <repo> task t handoff 01 (plan
+  zai, pid <n>)`.
 - **Dry run.** Two lines for this mode: `child env   : an allow list (auth endpoint): <names> - every other variable
   (the host markers, ANTHROPIC_* but ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN, CLAUDE_* but CLAUDE_CONFIG_DIR) is
   left out` and `endpoint    : https://api.z.ai/api/anthropic (ANTHROPIC_BASE_URL); token from env ZAI_API_KEY
@@ -3628,7 +3655,7 @@ passes it to every harness (each takes it too) and names it in its summary line
 `CODEX_CONSULT_TELEMETRY=off` (the intake pointed at a closed loopback port - only `harness-telemetry` talks to
 a local `HttpListener`) and `CODEX_CONSULT_TEST_MODE=1` (the bridge honours its test hooks only then).
 
-(Wave 29) `harness-claude` drives the `claude` engine against a FAKE `claude` (`tests/fake-claude.cmd` + `tests/fake-claude.ps1`, steered by `FAKE_CLAUDE_*`); it is registered in `run-all.ps1` as the twentieth harness. Its sections: UNIT ROSTER DRYRUN ENGINEEXE RUN BILLING PREFLIGHT FAIL TREE RESUME FORK REPAIR PANEL LISTING TOOLSET TIMEOUT STALL HYGIENE GUARD. GUARD: the harness never starts the real `claude` - a scratch USERPROFILE / HOME / LOCALAPPDATA, `CODEX_CONSULT_CLAUDE_EXE` pinned to the fake, every PATH directory holding a real launcher stripped, and a child without an argv-log line fails the case.
+(Wave 29) `harness-claude` drives the `claude` engine against a FAKE `claude` (`tests/fake-claude.cmd` + `tests/fake-claude.ps1`, steered by `FAKE_CLAUDE_*`); it is registered in `run-all.ps1` as the twentieth harness. Its sections: UNIT ROSTER DRYRUN ENGINEEXE RUN BILLING PREFLIGHT FAIL TREE RESUME FORK REPAIR PANEL LISTING TOOLSET TIMEOUT STALL HYGIENE ENDPOINT ACCEPT GUARD ((wave 29b) ENDPOINT the endpoint mode, ACCEPT the acceptance decisions E12-E16: a killed turn's init judged, the assistant messages as the model proof, a missing init field, a rejecting rate-limit event beside a successful result, the plan in the machine-wide running rows - 85 checks). GUARD: the harness never starts the real `claude` - a scratch USERPROFILE / HOME / LOCALAPPDATA, `CODEX_CONSULT_CLAUDE_EXE` pinned to the fake, every PATH directory holding a real launcher stripped, and a child without an argv-log line fails the case.
 
 Assertions per harness (Windows PowerShell 5.1, 2026-09-27, 0.5.0 wave 26): `harness-0.3` 229,
 `harness-roster` 119, `harness-format` 37, `harness-engines` 97, `harness-muse` 72,

@@ -29,6 +29,25 @@ manifests are not bumped yet (the version stays 0.5.1 until the release).
   document it (z.ai, MiMo and Kimi Code as examples; Alibaba's plans are not documented for this route - their terms
   say "for interactive AI coding tools (Claude Code, Codex) only - not for backend services"; whether the route stays
   is decided by the wave 29c A/B). harness-claude 75 (its new ENDPOINT category 20 checks, against the fake CLI's endpoint mode).
+- **The `claude` engine after its acceptance round (wave 29b, E12-E17)** (2026-10-07). Decisions E12-E17 of
+  `.collab/claude-engine-2026-09-30/handoffs/21-claude-claude-engine-acceptance-decisions.md` (the acceptance reply 20,
+  F20-1..F20-4 and F10-4): E12 a turn killed on its timeout or stall is judged by its init and model like any turn - a
+  prohibited tool, an MCP server, another permission mode, model or `apiKeySource`, a missing init field fails the run
+  with that class and that reason (`<problem> (the turn was also stopped: ...)`), and no timeout continuation resumes the
+  session (`not attempted: the killed turn failed its proof (...)`), the salvage kept; E13 every assistant event's
+  `message.model` must equal the pinned id after the `[1m]` strip (`a different model authored an assistant message:
+  <id>`, class capability; a `modelUsage` key that authored nothing stays `other_models` with its warning); E14 the init
+  must carry `model`, `permissionMode`, `tools` and `mcp_servers` (arrays) - else `init event lacks <field> - the CLI's
+  schema changed; pin the version`, class capability; a missing `apiKeySource` is recorded null; E15 a rejecting
+  `rate_limit_event` beside a successful result keeps the reply usable, with the event raw in `engine_run.rate_limit`,
+  the warning `a rate limit rejected a request during the turn: <raw>` and `engine_run.quota_mark` (the quota failure a
+  failed turn would record), which the endpoint health, the plan (E5) and the machine-wide record read as a quota failure
+  right after the reply; E16 the machine-wide running rows carry the entry's `plan`, and a panel member waits for a run
+  of its plan from any engine or repository (`... use its plan zai (parallel limit 1): ... (plan zai, pid N)`); E17 the
+  documented init tools are Read, Grep, Glob, plus StructuredOutput only under the native schema transport. The fake
+  CLI's empty `mcp_servers` is now `[]` as the real CLI's (it wrote `null`, which E14 refuses). harness-claude 85 (its
+  new ACCEPT category 8 checks: the four fake-stream fixtures of RC1, the codex-providers views and the two-repository
+  wait of RC2).
 - **First run: the operator's prompt and the interview** (2026-10-06). The plugin ships no
   subscription, so a fresh installation needs a conversation before a roster. README gains the
   section "First run: the prompt for the operator": one host-agnostic prompt the operator pastes
