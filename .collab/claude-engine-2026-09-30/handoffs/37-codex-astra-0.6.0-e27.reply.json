@@ -1,0 +1,66 @@
+{
+  "schema_version": "1",
+  "verdict": "HOLD",
+  "verdict_reason": "E27 can misparse an escaped configuration value as a server subcommand and release recovery protection while a reviewer remains alive.",
+  "reply_markdown": "1. **E27 can hide a real reviewer — finding #1 blocks acceptance.** The tokenizer toggles quoting at every double quote, including Windows backslash-escaped quotes. A reviewer launched with a quoted global `-c` value containing `app-server` can therefore be excluded even though its actual subcommand is `exec`. In a read-only mocked process scan, this propagated through `Test-PendingActive`: an unknown-tree panel record returned `Active=false` and reported the reviewer as an excluded app server. The same fixture returned `Active=true` for ordinary `exec` and an unreadable command line. Thus those fail-closed cases hold, but readable command lines are not necessarily parsed safely. Exact recorded PID/start-time protection remains intact; the demonstrated failure concerns an orphan beneath a dead, unrecorded intermediate process.\n\n2. **Fix the parser and add the missing regression before tagging.** Both changed PowerShell files parsed without errors, and the non-`.collab` diff passed whitespace checks. Direct checks accepted both Haiku 5.5 model spellings and classified their telemetry as `anthropic / claude-haiku-5-5`. These checks establish local consistency, not live model availability or context entitlement.\n\n   The reported previous full-suite run plus focused reruns are a reasonable scope for this delta; another complete suite is not required solely because of E27. However, the existing tests do not cover escaped quotes inside global option values. After fixing that case, rerun the affected recovery harnesses with the desktop app open. I did not execute writing harnesses during this read-only review.\n\n3. **HOLD**, with finding #1 as the blocker. Acceptance requires preserving recovery protection for the escaped-argument reviewer while retaining the intended desktop-server exclusions. First-run observations are listed in `first_run_checklist`.\n\n## Requested checks\n\n- **RC1:** Working directory: repository root. Permission: workspace-write. Extend the E27 fixture with a Windows reviewer command whose global configuration argument is `developer_instructions=\"please app-server check\"`, encoded with backslash-escaped embedded quotes, followed by `exec --json -`; place it beneath a dead, unrecorded intermediate process and exercise unknown-tree recovery. Require refusal and retention of the pending record while it lives, then release after exit; retain desktop-server and unreadable-command controls. Budget: one fixture, 10 minutes. Settles finding #1.\n- **RC2:** Working directory: repository root. Permission: workspace-write. After RC1 passes, run `harness-fixes.ps1`, `harness-pending.ps1`, `harness-fixes28e.ps1`, `harness-fixes27c.ps1`, and `harness-3b.ps1` sequentially from `tests/` with the desktop app open. Require zero failures and explicit server exclusions without reviewer exclusions. Budget: one pass, 30 minutes.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 9794
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 9825
+        },
+        {
+          "path": "tests/harness-fixes.ps1",
+          "line": 401
+        }
+      ],
+      "claim": "The server-exclusion tokenizer does not handle Windows backslash-escaped quotes, so text inside a global configuration value can become the apparent subcommand. This can exclude a real exec reviewer and cause unknown-tree recovery to release its pending record.",
+      "trigger": "A surviving reviewer has the Windows command line `codex.exe -c \"developer_instructions=\\\"please app-server check\\\"\" exec --json -`, and its parent is a dead, unrecorded intermediate process, leaving the machine-wide scan responsible for detecting it.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:9794",
+          "observation": "Split-CommandLineTokens toggles quote state on every double quote without considering preceding backslashes. Get-CodexServerExclusion treats the first resulting non-option token as sufficient evidence for exclusion."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Read-only PowerShell invocation of Split-CommandLineTokens and Get-CodexMatch with the trigger command",
+          "observation": "The configuration value split into separate tokens including app-server; Get-CodexMatch returned an empty Rule and Excluded='codex app-server'."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Read-only PowerShell Test-PendingActive fixture with mocked Get-CimInstance and Get-ProcessInfo",
+          "observation": "For an unknown-tree panel record and the surviving orphan, Active was false and Check reported release with that PID excluded as an app server. Ordinary exec and unreadable-command controls returned Active=true; the desktop app-server control returned Active=false."
+        },
+        {
+          "kind": "read-code",
+          "reference": "tests/harness-fixes.ps1:401",
+          "observation": "The E27 cases cover simple global configuration values and quoted executable paths, but omit embedded escaped quotes in global option values."
+        }
+      ],
+      "verification": "Run RC1 after adding the escaped-configuration regression; require the live orphan to keep recovery active and prevent another launch.",
+      "remedy": "Use Windows-compatible argument parsing for Windows process command lines, and retain reviewer protection whenever parsing or option interpretation is ambiguous. Add the escaped-value case at both matcher and unknown-tree recovery levels.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [],
+  "unproven": [
+    "The writing harnesses and real-process regression were not executed during this read-only review; reported reruns come from handoff 36.",
+    "The escaped-argument failure was reproduced through mocked process enumeration, not a newly launched native reviewer.",
+    "Live Haiku 5.5 availability, account eligibility, and support for the [1m] context request were not established.",
+    "Arbitrary launcher shims, older CLI option layouts, and non-Windows command-line representations were not exhaustively tested."
+  ],
+  "first_run_checklist": [
+    "With only desktop servers remaining, recovery output names their PIDs and exclusion reasons, then reports the interrupted reservation recovered.",
+    "A live exec reviewer, including the escaped-global-configuration case, causes refusal and leaves the pending record present; its PID must not appear as an excluded server.",
+    "An unreadable codex.exe command line causes refusal and retains recovery protection.",
+    "After the reviewer exits, recovery proceeds while desktop servers remain alive.",
+    "For a Haiku 5.5 consultation, the recorded served model matches the requested pin, the result is nonempty and usable, and telemetry records anthropic / claude-haiku-5-5."
+  ]
+}

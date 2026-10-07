@@ -7794,6 +7794,78 @@
                          "reviewer_checks":  [
 
                                              ]
+                     },
+                     {
+                         "id":  "F37-1",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  9794
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  9825
+                                           },
+                                           {
+                                               "path":  "tests/harness-fixes.ps1",
+                                               "line":  401
+                                           }
+                                       ],
+                         "claim":  "The server-exclusion tokenizer does not handle Windows backslash-escaped quotes, so text inside a global configuration value can become the apparent subcommand. This can exclude a real exec reviewer and cause unknown-tree recovery to release its pending record.",
+                         "trigger":  "A surviving reviewer has the Windows command line `codex.exe -c \"developer_instructions=\\\"please app-server check\\\"\" exec --json -`, and its parent is a dead, unrecorded intermediate process, leaving the machine-wide scan responsible for detecting it.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:9794",
+                                              "observation":  "Split-CommandLineTokens toggles quote state on every double quote without considering preceding backslashes. Get-CodexServerExclusion treats the first resulting non-option token as sufficient evidence for exclusion."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only PowerShell invocation of Split-CommandLineTokens and Get-CodexMatch with the trigger command",
+                                              "observation":  "The configuration value split into separate tokens including app-server; Get-CodexMatch returned an empty Rule and Excluded=\u0027codex app-server\u0027."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only PowerShell Test-PendingActive fixture with mocked Get-CimInstance and Get-ProcessInfo",
+                                              "observation":  "For an unknown-tree panel record and the surviving orphan, Active was false and Check reported release with that PID excluded as an app server. Ordinary exec and unreadable-command controls returned Active=true; the desktop app-server control returned Active=false."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-fixes.ps1:401",
+                                              "observation":  "The E27 cases cover simple global configuration values and quoted executable paths, but omit embedded escaped quotes in global option values."
+                                          }
+                                      ],
+                         "verification":  "Run RC1 after adding the escaped-configuration regression; require the live orphan to keep recovery active and prevent another launch.",
+                         "remedy":  "Use Windows-compatible argument parsing for Windows process command lines, and retain reviewer protection whenever parsing or option interpretation is ambiguous. Add the escaped-value case at both matcher and unknown-tree recovery levels.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  24,
+                                        "reply":  "handoffs/37-codex-astra-0.6.0-e27.md",
+                                        "thread":  "01a1188c-1205-7041-acca-b9cfc8a89a80",
+                                        "base_commit":  "8083ae02170f4f543b25e4b6606099aa892dd843",
+                                        "tree_sha256":  "2bf39b51a50df96a8557f15daa7dd53f3e4e064f404c6a2a8a4b169b735a0ebf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T00:51:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "8083ae02170f4f543b25e4b6606099aa892dd843",
+                                             "tree_sha256":  "2bf39b51a50df96a8557f15daa7dd53f3e4e064f404c6a2a8a4b169b735a0ebf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
                      }
                  ],
     "ratings":  [
@@ -8135,6 +8207,23 @@
                         "note":  "ACCEPT after replaying the panel-orphan and recreated-file cases against E25/E26; the migration recount is nonblocking and only concerns an unreleased intermediate build",
                         "when":  "2026-10-07T21:48:02+02:00",
                         "telemetry_sent":  1791402482
+                    },
+                    {
+                        "n":  24,
+                        "consult_id":  "7675f76d-9cb2-4efb-9ef4-39818a869934",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-08T00:46:33+02:00",
+                        "useful":  "yes",
+                        "note":  "A real hole in E27\u0027s tokenizer (Windows backslash-escaped quotes inside a -c value), demonstrated by a mocked scan releasing an unknown-tree record; the fix is a fail-closed \u0027exec anywhere -\u003e never excluded\u0027 rule plus proper quoting",
+                        "when":  "2026-10-08T00:52:00+02:00",
+                        "telemetry_sent":  1791413521
                     }
                 ]
 }

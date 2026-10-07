@@ -72,3 +72,13 @@ E27. **The "looks like codex" rule ignores the Codex desktop app's servers.** Th
      path, `@openai/codex` and a codex-named process whose command line cannot be read still match (fail-closed).
      The exclusion is named in the match text. Checks in harness-fixes; the recovery harnesses rerun with the app
      open; astra's fifth round on the one-function diff decides.
+
+Addendum 5 after astra's fifth round (37, F37-1 blocker, 2026-10-08 01:10):
+
+E28. (F37-1) **E27's exclusion is fail-closed on the word `exec`.** A codex-named process whose command line contains
+     the whole word `exec` anywhere (raw text, quotes ignored, case-insensitive) is never excluded - a reviewer run
+     always carries it, the app's servers never do. The subcommand tokenizer handles Windows quoting (a backslash-
+     escaped `\"` inside a quoted value does not toggle quoting, `""` is a literal quote) and does not exclude when
+     the quoting is unbalanced or ambiguous (`command line ambiguous - counted as codex`). Everything else of E27
+     stands. RC1 (handoff 37): the escaped-quote reviewer beneath a dead intermediate, as a real process, refused
+     while it lives and released after; RC2: the five recovery harnesses with the desktop app open.
