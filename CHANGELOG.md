@@ -277,6 +277,13 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
   app-server]`). `codex exec …`, the launcher path or `@openai/codex` on a command line and a codex whose
   command line cannot be read still count (fail-closed; `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE` is honoured
   by the scan too), proven by `harness-fixes` E27 with real processes named `codex.exe` and with the app open.
+  (E28, closing astra's F37-1 of `.collab/claude-engine-2026-09-30/handoffs/37-codex-astra-0.6.0-e27.md`) A
+  codex-named process whose command line holds the word `exec` anywhere is never left out, the subcommand is
+  found with Windows quoting (a backslash-escaped quote inside a `-c` value no longer splits it - E27 took
+  `codex.exe -c "developer_instructions=\"please app-server check\"" exec --json -` for an app server and
+  released an unknown tree while that reviewer lived), and unbalanced quoting counts as codex (`command line
+  ambiguous - counted as codex`), proven by `harness-fixes` E28 with two such reviewers running beneath a
+  dead, unrecorded intermediate.
 
 ## [0.5.1] - 2026-10-06
 

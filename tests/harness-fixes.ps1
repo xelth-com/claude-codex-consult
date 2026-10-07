@@ -1,5 +1,6 @@
 # Demonstrates the fixes for review findings F04-1..F04-11 (and, wave 29, decision E27: the Codex
-# desktop app's servers are no reviewer run) against the CURRENT scripts.
+# desktop app's servers are no reviewer run; E28: a command line holding exec is never left out, Windows
+# quoting, unbalanced quoting counts) against the CURRENT scripts.
 # Every assertion prints "PASS" or "FAIL" with its evidence. Uses the fake codex only.
 param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
@@ -432,6 +433,27 @@ if (Want 'E27') {
         if ([string]$m.Rule -cne $u[3] -or [string]$m.Excluded -cne $u[4] -or $rr -cne $u[3]) { "$($u[0]) '$($u[1])' -> rule '$($m.Rule)' / '$rr' excluded '$($m.Excluded)'" }
     })
     Check 'E27' 'UNIT Get-CodexMatch / Get-CodexRule: a codex-named app-server (after -c key=value), exec-server, mcp-server, login, app, codex-computer-use*, --parent-pid without exec - NOT matched, Excluded says what it is (the recorded launcher on it too); codex exec / codex.exe exec (also with --parent-pid, also -c app-server=1 before exec), a codex without arguments, an unreadable command line ('''' and ps''s [codex]), @openai/codex and the launcher in a command line - matched as before' ($unitBad.Count -eq 0) ($unitBad -join ' // ')
+    # (wave 29, E28 / F37-1) the escaped-quote reviewer (astra's encoding and the coordinator's), exec hidden
+    # by quoting, the word exec inside a server's value, Windows quoting (\" and "" inside a value) on a
+    # real server, unbalanced quoting
+    $unit28 = @(
+        @('codex.exe', 'codex.exe -c "developer_instructions=\"please app-server check\"" exec --json -', '', 'name codex', ''),
+        @('codex.exe', 'codex.exe -c developer_instructions="please \"app-server\" check" exec --json -', '', 'name codex', ''),
+        @('codex.exe', 'codex.exe -c "a=\"app-server\"" e"x"ec -', '', 'name codex', ''),
+        @('codex.exe', 'codex.exe -c "developer_instructions=never exec here" app-server', '', 'name codex', ''),
+        @('codex.exe', 'codex.exe -c "x=\"y\"" app-server --analytics-default-enabled', '', '', 'codex app-server'),
+        @('codex.exe', 'codex.exe -c "x=""y"" z" app-server', '', '', 'codex app-server'),
+        @('codex.exe', 'codex.exe -c "x=\"y app-server', '', 'command line ambiguous - counted as codex', ''),
+        @('codex.exe', '"C:\x\codex.exe app-server', '', 'command line ambiguous - counted as codex', ''),
+        @('codex-command-runner.exe', 'codex-command-runner.exe "x', '', 'command line ambiguous - counted as codex', '')
+    )
+    $unit28Bad = @(foreach ($u in $unit28) {
+        $m = Get-CodexMatch -Name $u[0] -Cmd $u[1] -Launcher $u[2]
+        if ([string]$m.Rule -cne $u[3] -or [string]$m.Excluded -cne $u[4]) { "$($u[0]) '$($u[1])' -> rule '$($m.Rule)' excluded '$($m.Excluded)'" }
+    })
+    $split28 = Split-CommandLineTokens -Cmd 'codex.exe -c "developer_instructions=\"please app-server check\"" exec --json -'
+    $splitU = Split-CommandLineTokens -Cmd 'codex.exe -c "x=\"y app-server'
+    Check 'E28' 'UNIT (F37-1) Get-CodexMatch: a reviewer whose -c value carries backslash-escaped quotes around app-server (-c "developer_instructions=\"please app-server check\"" exec, and developer_instructions="please \"app-server\" check" exec), exec spelled e"x"ec, the word exec inside a server''s value - NEVER excluded (name codex); \" and "" inside a quoted value of a real app-server - still excluded; unbalanced quoting (in a value, in the program name, another codex-named program) - "command line ambiguous - counted as codex"; Split-CommandLineTokens gives the arguments the program sees' ($unit28Bad.Count -eq 0 -and ($split28.Tokens -join '|') -ceq 'codex.exe|-c|developer_instructions="please app-server check"|exec|--json|-' -and -not $split28.Ambiguous -and $splitU.Ambiguous -ceq 'unbalanced quoting (the command line ends inside quotes)') "$($unit28Bad -join ' // ') | tokens [$($split28.Tokens -join '|')] | ambiguous '$($splitU.Ambiguous)'"
 
     $r = New-Repo 'e27'
     $td = Join-Path $r '.collab\t'
@@ -441,7 +463,7 @@ if (Want 'E27') {
     $simExe = Join-Path $simDir 'codex.exe'
     Copy-Item "$env:SystemRoot\System32\cmd.exe" $simExe -Force
     $sims = New-Object System.Collections.Generic.List[int]
-    function Start-Sim { param([string]$Lead) $sp0 = Start-Process $simExe -ArgumentList "$Lead /d /c `"ping -n 90 127.0.0.1 >nul`"" -PassThru -WindowStyle Hidden; $sims.Add($sp0.Id); return $sp0 }
+    function Start-Sim { param([string]$Lead) $sp0 = Start-Process $simExe -ArgumentList "$Lead /d /c `"ping -n 300 127.0.0.1 >nul`"" -PassThru -WindowStyle Hidden; $sims.Add($sp0.Id); return $sp0 }
     function Stop-Sim { param([int]$Id) $p0 = $ErrorActionPreference; $ErrorActionPreference = 'Continue'; & taskkill.exe /PID $Id /T /F 2>&1 | Out-Null; $ErrorActionPreference = $p0 }
     function Seed-Launching { param([int]$N, [string]$Nn) [IO.File]::WriteAllText($pend, '{"state":"launching","n":' + $N + ',"nn":"' + $Nn + '","reply":"handoffs/' + $Nn + '-codex-old.md","started":"' + $e27Started + '","pid":1,"host":"' + [Environment]::MachineName + '","launcher":' + (ConvertTo-Json $fake) + ',"child_pid":null,"child_start_time":"","survivors":[],"note":""}', $u8) }
     function Found-List { param([string]$Out) if ($Out -match 'may still have its codex process running: (.*?), found by ') { return $Matches[1] }; return '' }
@@ -484,6 +506,70 @@ if (Want 'E27') {
         $w = Run-Consult $r @('-Prompt', 'x', '-ReplyName', 'readable') @{ FAKE_CODEX_REPLY = (Reply 'e27e.json' $advise) }
         $wr = (($w.Out -split "`n") | Where-Object { $_ -match 'recovered reservation' }) -join ' '
         Check 'E27' '(d) the same process with its command line read (no hook): excluded as codex app-server, with the other two - the run proceeds (recovered reservation n=20, nn=22)' ($w.Code -eq 0 -and $wr -match "recovered reservation n=20, nn=22 .*pid $($hid.Id) codex\.exe \[codex app-server\]" -and $wr -match "pid $($srv.Id) codex\.exe \[codex app-server\]" -and $wr -match "pid $($exs.Id) codex\.exe \[codex exec-server\]" -and -not (Test-Path -LiteralPath $pend)) "exit $($w.Code) | $wr"
+
+        # (wave 29, E28 / F37-1) REAL reviewers whose global -c value carries backslash-escaped quotes around
+        # app-server - astra's encoding -c "developer_instructions=\"please app-server check\"" (which E27
+        # took for a codex app-server) and the coordinator's -c developer_instructions="please \"app-server\"
+        # check" - followed by exec --json -, beneath a DEAD, UNRECORDED intermediate: launcher (recorded as
+        # the child, stopped) -> intermediate (stopped) -> the two reviewers (alive). A panel member's record
+        # with kill_unconfirmed: only the machine-wide check can see them (unknown-tree recovery, E23/E25).
+        $r28 = New-Repo 'e28'
+        $pend28 = Join-Path $r28 '.collab\t\.consult.pending-02.json'
+        $chainDir = Join-Path $work 'e28-chain'
+        [void][IO.Directory]::CreateDirectory($chainDir)
+        [IO.File]::WriteAllText((Join-Path $chainDir 'args-a.txt'), '-c "developer_instructions=\"please app-server check\"" exec --json - /d /c "ping -n 300 127.0.0.1 >nul"', $u8)
+        [IO.File]::WriteAllText((Join-Path $chainDir 'args-b.txt'), '-c developer_instructions="please \"app-server\" check" exec --json - /d /c "ping -n 300 127.0.0.1 >nul"', $u8)
+        $chainPs = Join-Path $work 'e28-chain.ps1'
+        [IO.File]::WriteAllText($chainPs, @'
+param([string]$Role, [string]$Exe, [string]$Dir)
+if ($Role -eq 'top') {
+    $m = Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $PSCommandPath + '"'), 'mid', ('"' + $Exe + '"'), ('"' + $Dir + '"')) -PassThru -WindowStyle Hidden
+    [IO.File]::WriteAllText((Join-Path $Dir 'mid.pid'), [string]$m.Id)
+} else {
+    $a = Start-Process -FilePath $Exe -ArgumentList ([IO.File]::ReadAllText((Join-Path $Dir 'args-a.txt'))) -PassThru -WindowStyle Hidden
+    $b = Start-Process -FilePath $Exe -ArgumentList ([IO.File]::ReadAllText((Join-Path $Dir 'args-b.txt'))) -PassThru -WindowStyle Hidden
+    [IO.File]::WriteAllText((Join-Path $Dir 'reviewers.tmp'), "$($a.Id),$($b.Id)")
+    [IO.File]::Move((Join-Path $Dir 'reviewers.tmp'), (Join-Path $Dir 'reviewers.pid'))
+}
+Start-Sleep 300
+'@, $u8)
+        $top = Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$chainPs`"", 'top', "`"$simExe`"", "`"$chainDir`"") -PassThru -WindowStyle Hidden
+        $wc = [Diagnostics.Stopwatch]::StartNew()
+        while (-not (Test-Path -LiteralPath (Join-Path $chainDir 'reviewers.pid')) -and $wc.Elapsed.TotalSeconds -lt 60) { Start-Sleep -Milliseconds 200 }
+        $midId = 0; try { [void][int]::TryParse(([IO.File]::ReadAllText((Join-Path $chainDir 'mid.pid'))).Trim(), [ref]$midId) } catch { }
+        $revIds = @(); try { $revIds = @(([IO.File]::ReadAllText((Join-Path $chainDir 'reviewers.pid'))).Split(',') | ForEach-Object { [int]$_ }) } catch { }
+        foreach ($id in $revIds) { $sims.Add($id) }
+        if ($midId -gt 0) { $sims.Add($midId) }
+        $sims.Add($top.Id)
+        $topStart = [string](Get-ProcessStartIso -ProcessId $top.Id)
+        foreach ($id in @($top.Id, $midId)) { if ($id -gt 0) { try { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue } catch { } } }
+        $wc = [Diagnostics.Stopwatch]::StartNew()
+        while ((($midId -gt 0 -and (Get-Process -Id $midId -ErrorAction SilentlyContinue)) -or (Get-Process -Id $top.Id -ErrorAction SilentlyContinue)) -and $wc.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 100 }
+        $revA = $(if ($revIds.Count -ge 1) { $revIds[0] } else { 0 })
+        $revB = $(if ($revIds.Count -ge 2) { $revIds[1] } else { 0 })
+        $revCmdA = ''; $revCmdB = ''
+        try { $revCmdA = [string](Get-CimInstance -ClassName Win32_Process -Filter "ProcessId=$revA" -ErrorAction Stop).CommandLine; $revCmdB = [string](Get-CimInstance -ClassName Win32_Process -Filter "ProcessId=$revB" -ErrorAction Stop).CommandLine } catch { }
+        $revParent = 0; try { $revParent = [int](Get-CimInstance -ClassName Win32_Process -Filter "ProcessId=$revA" -ErrorAction Stop).ParentProcessId } catch { }
+        $chainOk = ($revA -gt 0 -and $revB -gt 0 -and $midId -gt 0 -and $revParent -eq $midId -and -not (Get-Process -Id $midId -ErrorAction SilentlyContinue) -and (Get-Process -Id $revA -ErrorAction SilentlyContinue) -and (Get-Process -Id $revB -ErrorAction SilentlyContinue) -and $revCmdA.Contains('-c "developer_instructions=\"please app-server check\"" exec --json -') -and $revCmdB.Contains('-c developer_instructions="please \"app-server\" check" exec --json -'))
+        # the scan itself: both reviewers found as codex, never excluded; the app-like servers excluded
+        $scan28 = Find-CodexProcesses -Since $scanStart.AddSeconds(-2) -Launcher $fake
+        $foundIds = @(@($scan28.Found) | ForEach-Object { [int]$_.pid })
+        $exclIds = @(@($scan28.Excluded) | ForEach-Object { [int]$_.pid })
+        $revRules = @(@($scan28.Found) | Where-Object { $_.pid -eq $revA -or $_.pid -eq $revB } | ForEach-Object { $_.rule } | Select-Object -Unique)
+        Check 'E28' '(F37-1) Find-CodexProcesses with the two escaped-quote reviewers alive beneath their dead intermediate (their command lines read back as launched): both FOUND ([name codex, task not verifiable]), neither in Excluded or in "excluded: ..."; the app-like servers (a), (b), (d) still excluded as codex app-server / exec-server' ($chainOk -and $foundIds -contains $revA -and $foundIds -contains $revB -and ($revRules -join '|') -ceq 'name codex, task not verifiable' -and $exclIds -notcontains $revA -and $exclIds -notcontains $revB -and $scan28.Check -notmatch "pid ($revA|$revB) " -and $exclIds -contains $srv.Id -and $exclIds -contains $exs.Id -and $exclIds -contains $hid.Id -and $scan28.Check -match "pid $($srv.Id) codex\.exe \[codex app-server\]") "chain ok $chainOk (mid $midId, reviewers $revA $revB, parent $revParent) | found [$($foundIds -join ',')] rules [$($revRules -join '|')] excluded [$($exclIds -join ',')] | A: $revCmdA"
+        $panelId = [guid]::NewGuid().ToString()
+        [IO.File]::WriteAllText($pend28, '{"state":"survivors","n":2,"nn":"02","reply":"handoffs/02-codex-m-openai.md","events":"","consult_id":"","started":"' + $e27Started + '","pid":999998,"host":"' + [Environment]::MachineName + '","launcher":' + (ConvertTo-Json $fake) + ',"engine":"codex","child_pid":' + $top.Id + ',"child_start_time":"' + $topStart + '","survivors":[],"unverified":[],"kill_unconfirmed":"the children could not be enumerated (test)","note":"","panel":{"id":"' + $panelId + '","position":2,"of":2,"parent_pid":999997,"parent_start_time":""}}', $u8)
+        $text28 = [IO.File]::ReadAllText($pend28)
+        $log28 = Join-Path $work 'e28-fake.log'
+        $q1 = Run-Consult $r28 @('-Prompt', 'x', '-ReplyName', 'q1') @{ FAKE_CODEX_REPLY = (Reply 'e28a.json' $advise); FAKE_CODEX_LOG = $log28 }
+        $q1List = $(if ($q1.Out -match 'a codex-like process runs: (.*?) - this panel member''s unknown tree is released only when no such process runs') { $Matches[1] } else { '' })
+        Check 'E28' '(F37-1) the unknown-tree recovery of that panel member''s record (kill_unconfirmed, the writer and the recorded launcher dead) while the reviewers live: REFUSED (exit 1) "... left an UNKNOWN process tree - ... - and a codex-like process runs: pid <A> codex.exe (task not verifiable), pid <B> codex.exe (task not verifiable) - this panel member''s unknown tree is released only when no such process runs"; no reviewer launched, the record byte-identical' ($chainOk -and $q1.Code -eq 1 -and $q1.Out -match 'left an UNKNOWN process tree - the kill of its codex run was not confirmed \(the children could not be enumerated \(test\)\)' -and $q1List.Contains("pid $revA codex.exe (task not verifiable)") -and $q1List.Contains("pid $revB codex.exe (task not verifiable)") -and -not (Test-Path -LiteralPath $log28) -and (Test-Path -LiteralPath $pend28) -and [IO.File]::ReadAllText($pend28) -ceq $text28) "exit $($q1.Code) | runs: $q1List | $((($q1.Out -split "`n") | Select-Object -First 1))"
+        foreach ($id in @($revA, $revB)) { if ($id -gt 0) { Stop-Sim $id } }
+        $wc = [Diagnostics.Stopwatch]::StartNew()
+        while ((($revA -gt 0 -and (Get-Process -Id $revA -ErrorAction SilentlyContinue)) -or ($revB -gt 0 -and (Get-Process -Id $revB -ErrorAction SilentlyContinue))) -and $wc.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 100 }
+        $q2 = Run-Consult $r28 @('-Prompt', 'x', '-ReplyName', 'q2') @{ FAKE_CODEX_REPLY = (Reply 'e28b.json' $advise); FAKE_CODEX_LOG = $log28 }
+        $q2r = (($q2.Out -split "`n") | Where-Object { $_ -match 'recovered reservation' }) -join ' '
+        Check 'E28' '(F37-1) the reviewers gone, the app-like servers still running: the record is RELEASED - "recovered reservation n=2, nn=02 (.consult.pending-02.json: state ''survivors'' ...; unknown tree after an unconfirmed kill: the scan found no codex-like process under pid 999998, <launcher> since <started> - released (... excluded: pid <n> codex.exe [codex app-server] ...))" - the reviewer launched, the record gone' ($q2.Code -eq 0 -and $q2r -match ("recovered reservation n=2, nn=02 \(\.consult\.pending-02\.json: state 'survivors' of an interrupted run; .*unknown tree after an unconfirmed kill: the scan found no codex-like process under pid 999998, $($top.Id) since .* - released \(") -and $q2r -match "excluded: .*pid $($srv.Id) codex\.exe \[codex app-server\]" -and $q2r -notmatch "pid ($revA|$revB) " -and (Test-Path -LiteralPath $log28) -and -not (Test-Path -LiteralPath $pend28)) "exit $($q2.Code) | $q2r"
     } finally {
         foreach ($id in $sims) { Stop-Sim $id }
         Start-Sleep -Milliseconds 300
