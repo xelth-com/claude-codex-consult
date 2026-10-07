@@ -2,8 +2,8 @@ Write in English.
 
 # Handoff 26 - claude: acceptance of the 0.6.0 candidate's delta since your ACCEPT (wave 28e, roster `panel: light`)
 
-Date: 2026-10-07. Base commit: `84644a7` (branch `wip/wave29-claude-engine`; the range under review is
-`95d9be2..84644a7`, `-Range` on the command - the delta since the state you accepted in handoff 25; skip the
+Date: 2026-10-07. Base commit: `a75ccbf` (branch `wip/wave29-claude-engine`; the range under review is
+`95d9be2..a75ccbf`, `-Range` on the command - the delta since the state you accepted in handoff 25; skip the
 `.collab/` files, they are the record).
 
 ## Question
@@ -59,7 +59,7 @@ tagged 0.6.0 with them? ACCEPT, HOLD (blockers by id) or ADVISE. Nothing of wave
   (harness-claude 87/87); harness-panel 53/54 - its check "the panel's wall clock is below the sum of the members'
   own wall times" failed twice under load (22 s vs 21.9 s; 22.9 s vs 20.3 s), once together with a SPEC race
   (the parent's death vs the member's phase), while two worker sessions ran harnesses and parse checks on the same
-  machine; the harness passed 54/54 on 2026-10-06. A second full suite runs on the merged head (84644a7) right after this round, before the tag; harness-panel alone on the quiet machine is being rerun now.
+  machine; the harness passed 54/54 on 2026-10-06. harness-panel then passed 62/62 alone on the quiet machine after a TEST fix (a75ccbf): the D1 check "its panel run dies during its preflight" killed the parent right after observing the record rewrite, which races the member's early parent check (a member runs no login status of its own, the fake's `FAKE_CODEX_LOGIN_DELAY_MS` never existed, and the launcher probe runs with the FAKE_* variables hidden); the bridge gains the test-mode hook `CODEX_CONSULT_TEST_MEMBER_LAUNCH_MARK` / `_PAUSE_MS` (a mark and a pause right before the launch-time parent check) and the harness kills the parent only after the mark. A second full suite runs on this head right after this round, before the tag.
 
 ## CURRENT invariants claimed
 
@@ -81,7 +81,7 @@ tagged 0.6.0 with them? ACCEPT, HOLD (blockers by id) or ADVISE. Nothing of wave
 |---|---|
 | `plugins/codex-consult/scripts/codex-consult-common.ps1` | E1 re-check in `Test-PendingActive`, the `unverified` record field; E2 per-producer files and the fold; E3 marker ticks; the `light` validator value and seating pass |
 | `plugins/codex-consult/scripts/codex-consult-detached.ps1` | `Get-ProcessStartTicks`, `Get-PidIdentityTicks` |
-| `plugins/codex-consult/scripts/codex-consult.ps1` | `unverified[]` at the three places that record survivors; test hook `CODEX_CONSULT_TEST_UNVERIFIED` (test mode, main turn only); the E4 anchor; the not-spooled caller |
+| `plugins/codex-consult/scripts/codex-consult.ps1` | `unverified[]` at the three places that record survivors; test hooks `CODEX_CONSULT_TEST_UNVERIFIED` (main turn only) and `CODEX_CONSULT_TEST_MEMBER_LAUNCH_MARK` / `_PAUSE_MS` (test mode only); the E4 anchor; the not-spooled caller |
 | `plugins/codex-consult/scripts/codex-findings.ps1`, `codex-telemetry.ps1` | the not-spooled caller; `-Status` sum line and help |
 | `plugins/codex-consult/scripts/codex-providers.ps1` | unchanged - it never prints the weight |
 | `tests/harness-fixes28e.ps1` (new), `tests/harness-fixes28d.ps1`, `tests/harness-telemetry.ps1`, `tests/harness-panel.ps1`, `tests/run-all.ps1`, `tests/README.md` | the checks named above |
