@@ -6950,7 +6950,7 @@
                      },
                      {
                          "id":  "F27-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -7022,6 +7022,15 @@
                                              "evidence":  "",
                                              "base_commit":  "90f274856c2c01e8a8e0d7d809c6b3a66e3574ab",
                                              "tree_sha256":  "5172a3c6fb5f34fe24e69db3befad3650566b5090cb4bf0f959254f39fbc3a90"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T21:48:33+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "verified by astra\u0027s fourth round on the delta; RC3 (the full suite) runs before the tag",
+                                             "evidence":  "handoffs/35-codex-astra-0.6.0-delta-4b.md (n=23, ACCEPT): astra\u0027s read-only replays of the recovery paths (panel orphan under a dead intermediate -\u003e Active=true; clean table -\u003e released) and of the fold (an accounted staged generation plus a new generation counts only the new line); harness-fixes28e 65/65 (RC1/RC2 fixtures) in the worker\u0027s runs",
+                                             "base_commit":  "e3ecde79155a1a0400b3ae31216d557c2ed8b8b9",
+                                             "tree_sha256":  "f73b034b1c10b36a27824209949802cfba91adb598050e54d76b01e12bbcb3cd"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7053,7 +7062,7 @@
                      },
                      {
                          "id":  "F27-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -7116,6 +7125,15 @@
                                              "evidence":  "",
                                              "base_commit":  "90f274856c2c01e8a8e0d7d809c6b3a66e3574ab",
                                              "tree_sha256":  "5172a3c6fb5f34fe24e69db3befad3650566b5090cb4bf0f959254f39fbc3a90"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T21:48:36+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "verified by astra\u0027s fourth round on the delta; RC3 (the full suite) runs before the tag",
+                                             "evidence":  "handoffs/35-codex-astra-0.6.0-delta-4b.md (n=23, ACCEPT): astra\u0027s read-only replays of the recovery paths (panel orphan under a dead intermediate -\u003e Active=true; clean table -\u003e released) and of the fold (an accounted staged generation plus a new generation counts only the new line); harness-fixes28e 65/65 (RC1/RC2 fixtures) in the worker\u0027s runs",
+                                             "base_commit":  "e3ecde79155a1a0400b3ae31216d557c2ed8b8b9",
+                                             "tree_sha256":  "f73b034b1c10b36a27824209949802cfba91adb598050e54d76b01e12bbcb3cd"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7147,7 +7165,7 @@
                      },
                      {
                          "id":  "F27-3",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -7210,6 +7228,15 @@
                                              "evidence":  "",
                                              "base_commit":  "90f274856c2c01e8a8e0d7d809c6b3a66e3574ab",
                                              "tree_sha256":  "5172a3c6fb5f34fe24e69db3befad3650566b5090cb4bf0f959254f39fbc3a90"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T21:48:39+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "verified by astra\u0027s fourth round on the delta; RC3 (the full suite) runs before the tag",
+                                             "evidence":  "handoffs/35-codex-astra-0.6.0-delta-4b.md (n=23, ACCEPT): astra\u0027s read-only replays of the recovery paths (panel orphan under a dead intermediate -\u003e Active=true; clean table -\u003e released) and of the fold (an accounted staged generation plus a new generation counts only the new line); harness-fixes28e 65/65 (RC1/RC2 fixtures) in the worker\u0027s runs",
+                                             "base_commit":  "e3ecde79155a1a0400b3ae31216d557c2ed8b8b9",
+                                             "tree_sha256":  "f73b034b1c10b36a27824209949802cfba91adb598050e54d76b01e12bbcb3cd"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7308,7 +7335,7 @@
                      },
                      {
                          "id":  "F30-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -7384,6 +7411,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8629bcb5653c3e307cafb91dc5cf7369f1f25953",
                                              "tree_sha256":  "f82832d9a88f39e0d103dd1a4e677f433c16d840b17da11cdfd2336883d17821"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T21:48:42+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "verified by astra\u0027s fourth round on the delta; RC3 (the full suite) runs before the tag",
+                                             "evidence":  "handoffs/35-codex-astra-0.6.0-delta-4b.md (n=23, ACCEPT): astra\u0027s read-only replays of the recovery paths (panel orphan under a dead intermediate -\u003e Active=true; clean table -\u003e released) and of the fold (an accounted staged generation plus a new generation counts only the new line); harness-fixes28e 65/65 (RC1/RC2 fixtures) in the worker\u0027s runs",
+                                             "base_commit":  "e3ecde79155a1a0400b3ae31216d557c2ed8b8b9",
+                                             "tree_sha256":  "f73b034b1c10b36a27824209949802cfba91adb598050e54d76b01e12bbcb3cd"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7407,7 +7443,7 @@
                      },
                      {
                          "id":  "F30-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -7483,6 +7519,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8629bcb5653c3e307cafb91dc5cf7369f1f25953",
                                              "tree_sha256":  "f82832d9a88f39e0d103dd1a4e677f433c16d840b17da11cdfd2336883d17821"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T21:48:46+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "verified by astra\u0027s fourth round on the delta; RC3 (the full suite) runs before the tag",
+                                             "evidence":  "handoffs/35-codex-astra-0.6.0-delta-4b.md (n=23, ACCEPT): astra\u0027s read-only replays of the recovery paths (panel orphan under a dead intermediate -\u003e Active=true; clean table -\u003e released) and of the fold (an accounted staged generation plus a new generation counts only the new line); harness-fixes28e 65/65 (RC1/RC2 fixtures) in the worker\u0027s runs",
+                                             "base_commit":  "e3ecde79155a1a0400b3ae31216d557c2ed8b8b9",
+                                             "tree_sha256":  "f73b034b1c10b36a27824209949802cfba91adb598050e54d76b01e12bbcb3cd"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7506,7 +7551,7 @@
                      },
                      {
                          "id":  "F32-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -7574,6 +7619,15 @@
                                              "evidence":  "",
                                              "base_commit":  "ab51d1f1b7c1196df9edd8f54305aa474fe74d9a",
                                              "tree_sha256":  "5c0591ba30bc130e4491d879e56550244dc0b0fbfc947a75dabeb31c85f12960"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T21:48:49+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "verified by astra\u0027s fourth round on the delta; RC3 (the full suite) runs before the tag",
+                                             "evidence":  "handoffs/35-codex-astra-0.6.0-delta-4b.md (n=23, ACCEPT): astra\u0027s read-only replays of the recovery paths (panel orphan under a dead intermediate -\u003e Active=true; clean table -\u003e released) and of the fold (an accounted staged generation plus a new generation counts only the new line); harness-fixes28e 65/65 (RC1/RC2 fixtures) in the worker\u0027s runs",
+                                             "base_commit":  "e3ecde79155a1a0400b3ae31216d557c2ed8b8b9",
+                                             "tree_sha256":  "f73b034b1c10b36a27824209949802cfba91adb598050e54d76b01e12bbcb3cd"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7589,7 +7643,7 @@
                      },
                      {
                          "id":  "F32-2",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -7652,6 +7706,15 @@
                                              "evidence":  "",
                                              "base_commit":  "ab51d1f1b7c1196df9edd8f54305aa474fe74d9a",
                                              "tree_sha256":  "5c0591ba30bc130e4491d879e56550244dc0b0fbfc947a75dabeb31c85f12960"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T21:48:52+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "verified by astra\u0027s fourth round on the delta; RC3 (the full suite) runs before the tag",
+                                             "evidence":  "handoffs/35-codex-astra-0.6.0-delta-4b.md (n=23, ACCEPT): astra\u0027s read-only replays of the recovery paths (panel orphan under a dead intermediate -\u003e Active=true; clean table -\u003e released) and of the fold (an accounted staged generation plus a new generation counts only the new line); harness-fixes28e 65/65 (RC1/RC2 fixtures) in the worker\u0027s runs",
+                                             "base_commit":  "e3ecde79155a1a0400b3ae31216d557c2ed8b8b9",
+                                             "tree_sha256":  "f73b034b1c10b36a27824209949802cfba91adb598050e54d76b01e12bbcb3cd"
                                          }
                                      ],
                          "reviewer_checks":  [
