@@ -7260,7 +7260,7 @@
                      },
                      {
                          "id":  "F30-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -7327,6 +7327,15 @@
                                              "evidence":  "",
                                              "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
                                              "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T20:27:06+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E23 (handoff 28): an unconfirmed kill keeps the record with kill_unconfirmed; the next run releases it only after a clean by-parent scan (plus the machine-wide codex-like check for a non-panel record), refuses on a failed scan, a found process, a non-Windows host or another host; commit 3869bbd, harness-fixes28e RC1",
+                                             "evidence":  "",
+                                             "base_commit":  "8629bcb5653c3e307cafb91dc5cf7369f1f25953",
+                                             "tree_sha256":  "f82832d9a88f39e0d103dd1a4e677f433c16d840b17da11cdfd2336883d17821"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7335,7 +7344,7 @@
                      },
                      {
                          "id":  "F30-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -7402,6 +7411,15 @@
                                              "evidence":  "",
                                              "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
                                              "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T20:27:09+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E24 (handoff 28): not_spooled_folded[] entries {name, bytes}; a longer file\u0027s tail counted once, same length deleted uncounted, shorter folded afresh; -Status counts only the tail; commit 3869bbd, harness-fixes28e RC2",
+                                             "evidence":  "",
+                                             "base_commit":  "8629bcb5653c3e307cafb91dc5cf7369f1f25953",
+                                             "tree_sha256":  "f82832d9a88f39e0d103dd1a4e677f433c16d840b17da11cdfd2336883d17821"
                                          }
                                      ],
                          "reviewer_checks":  [
