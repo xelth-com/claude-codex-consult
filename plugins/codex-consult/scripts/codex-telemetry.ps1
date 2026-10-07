@@ -26,7 +26,9 @@
                    folding the not-spooled files of gone producers into one line of its notes and
                    removing them ((E20) .last is saved BEFORE the files are deleted; a file that
                    not_spooled_folded names ((E24) {name, bytes}) is deleted without its counted
-                   bytes being counted again - only the complete lines beyond them are new).
+                   bytes being counted again - only the complete lines beyond them are new; (E26)
+                   the legacy file is first renamed to a unique staged name
+                   telemetry-not-spooled-legacy-<utc ticks>.ndjson, never counted under its own).
                    Delivered = a 2xx answer that is a JSON object with "ok": true.
                    (D8) A batch refused with 400 "events[i]: reason" drops event i (a line in
                    `rejected`) and resends the rest - at most three times per flush; 413 halves the
