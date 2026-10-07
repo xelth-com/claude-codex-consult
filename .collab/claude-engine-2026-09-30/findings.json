@@ -4108,6 +4108,15 @@
                                              "evidence":  "",
                                              "base_commit":  "03ff742d47bf46706a32344ccf88e20d211c45ec",
                                              "tree_sha256":  "74ad475d8144c6e1bd55634c4e9c24797dd1fcf8a29edca70a3f05bd3bcae0da"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T03:50:50+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "handoff 21, commits 450fcf4/93c8463/4aca34d: E16: the machine-wide running record carries the plan; same-plan runs of any engine or repository count against the plan limit; harness-claude ACCEPT 85/85",
+                                             "evidence":  "",
+                                             "base_commit":  "4aca34d49e16f92f7998b1547f639946af025140",
+                                             "tree_sha256":  "08a6c36d1f3e4c0ef62750232e0aefcc91fbe5f2611cd15584cb4519acd73bc2"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4535,7 +4544,7 @@
                      },
                      {
                          "id":  "F18-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -4594,6 +4603,15 @@
                                              "evidence":  "",
                                              "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                              "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T03:50:53+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "handoff 21, commits 450fcf4/93c8463/4aca34d: E13 (the same rule); harness-claude ACCEPT 85/85",
+                                             "evidence":  "",
+                                             "base_commit":  "4aca34d49e16f92f7998b1547f639946af025140",
+                                             "tree_sha256":  "08a6c36d1f3e4c0ef62750232e0aefcc91fbe5f2611cd15584cb4519acd73bc2"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4602,7 +4620,7 @@
                      },
                      {
                          "id":  "F20-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -4665,6 +4683,15 @@
                                              "evidence":  "",
                                              "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                              "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T03:50:55+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "handoff 21, commits 450fcf4/93c8463/4aca34d: E12: a killed turn\u0027s init is judged, no continuation after a failed proof; harness-claude ACCEPT 85/85",
+                                             "evidence":  "",
+                                             "base_commit":  "4aca34d49e16f92f7998b1547f639946af025140",
+                                             "tree_sha256":  "08a6c36d1f3e4c0ef62750232e0aefcc91fbe5f2611cd15584cb4519acd73bc2"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4673,7 +4700,7 @@
                      },
                      {
                          "id":  "F20-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -4727,6 +4754,15 @@
                                              "evidence":  "",
                                              "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                              "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T03:50:58+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "handoff 21, commits 450fcf4/93c8463/4aca34d: E13: every assistant message\u0027s model must equal the pinned id; harness-claude ACCEPT 85/85",
+                                             "evidence":  "",
+                                             "base_commit":  "4aca34d49e16f92f7998b1547f639946af025140",
+                                             "tree_sha256":  "08a6c36d1f3e4c0ef62750232e0aefcc91fbe5f2611cd15584cb4519acd73bc2"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4735,7 +4771,7 @@
                      },
                      {
                          "id":  "F20-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -4785,6 +4821,15 @@
                                              "evidence":  "",
                                              "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                              "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T03:51:00+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "handoff 21, commits 450fcf4/93c8463/4aca34d: E14: model/permissionMode/tools/mcp_servers required in the init event; harness-claude ACCEPT 85/85",
+                                             "evidence":  "",
+                                             "base_commit":  "4aca34d49e16f92f7998b1547f639946af025140",
+                                             "tree_sha256":  "08a6c36d1f3e4c0ef62750232e0aefcc91fbe5f2611cd15584cb4519acd73bc2"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -4793,7 +4838,7 @@
                      },
                      {
                          "id":  "F20-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -4852,6 +4897,15 @@
                                              "evidence":  "",
                                              "base_commit":  "c92c30e238d42f89c1d681fce58a7324874ef24f",
                                              "tree_sha256":  "3d9f9f2a9811307607045eb4e66025195a5ed15cdaa2d04bbed722121bac31ce"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T03:51:03+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "handoff 21, commits 450fcf4/93c8463/4aca34d: E15: a rejecting rate_limit_event marks the route\u0027s health (engine_run.quota_mark) though the reply stays usable; harness-claude ACCEPT 85/85",
+                                             "evidence":  "",
+                                             "base_commit":  "4aca34d49e16f92f7998b1547f639946af025140",
+                                             "tree_sha256":  "08a6c36d1f3e4c0ef62750232e0aefcc91fbe5f2611cd15584cb4519acd73bc2"
                                          }
                                      ],
                          "reviewer_checks":  [
