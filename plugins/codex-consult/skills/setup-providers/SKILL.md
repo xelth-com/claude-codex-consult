@@ -269,8 +269,11 @@ wire_api = "responses"
   checkpoint with `k3` at `high` (the reviewer verified six prior findings with read-only tool
   calls) took 198 s and ~515k input tokens (410k cached), because Codex re-sends the context on
   every tool turn - budget the window in tokens, not in calls.
-- `kimi-for-coding` is K2.8 Preview since 2026-09-11 (released under the unchanged id): a 1M
-  context window on the plan that holds `k3` at 256K, thinking `low | high | max`.
+- `kimi-for-coding` is K2.8 Preview since 2026-09-11 (released under the unchanged id), thinking
+  `low | high | max` (default `max`). Its window: the "What's new" page says up to 1M on every tier,
+  the models page says 1M for Pro and above - set `context_tokens` to what ONE long brief on your
+  tier proves (a window the tier does not unlock fails the run with the endpoint's error, class
+  capability), 256000 until then.
 - Roster entries - one model for the weighty purposes, the other for the rest (2026-10-07,
   `"panel": "light"`, section 4):
   `{ "provider": "kimi", "model": "k3", "context_tokens": 256000, "panel": "weighty" }` and

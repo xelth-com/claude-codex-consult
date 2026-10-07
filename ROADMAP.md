@@ -1,7 +1,7 @@
 # Roadmap
 
 Features the bridge should grow. Each entry names the problem it solves; the order is the
-order we would build them. Released so far: 0.2.0, 0.3.0, 0.4.0 (2026-09-26) and 0.5.0 (2026-09-30: R12, R14-R20, R23; hosts Claude Code, Codex CLI, Z Code, Kimi Code). The 0.6.0 candidate starts with R10's claude engine (wave 29, written, on the branch wip/wave29-claude-engine) and R8/R9. Agreed on 2026-09-23 between the Claude Code coordinator and the
+order we would build them. Released so far: 0.2.0, 0.3.0, 0.4.0 (2026-09-26) 0.5.0 (2026-09-30: R12, R14-R20, R23; hosts Claude Code, Codex CLI, Z Code, Kimi Code) and 0.6.0 (2026-10-07: R10's claude engine with its endpoint mode, wave 28e, the roster value panel: light). Next: R8/R9. Agreed on 2026-09-23 between the Claude Code coordinator and the
 Codex reviewer after a seven-wave implementation task with three consultations (framing,
 acceptance, re-acceptance), and merged with the earlier help-wanted list.
 
@@ -157,7 +157,7 @@ optional participant whose "done" is never trusted and who never closes a findin
   Codex and a provider, and mixing engines inside one lineage (a thread belongs to one
   engine as it belongs to one provider). Measured by first-turn structured rate per route
   and by the scoreboard's hit rate per (engine, provider, purpose).
-  **Status (0.4.0 candidate, wave 17): `agy` shipped, `claude` next.** The engine table
+  **Status: `agy` shipped (0.4.0, wave 17); `claude` shipped (0.6.0, waves 29 and 29b - the Claude subscription, an API key or a third-party Anthropic-compatible endpoint; decisions D1-D12, E1-E17, A1-A6 in `.collab/claude-engine-2026-09-30/`).** The engine table
   (`$script:Engines`) with its first row `agy` - after a design round with a panel (GLM,
   MiMo) and Gemini itself (`.collab/engines-0.4-2026-09-25/`), whose amendments A1-A20 are in
   the code: stdin stream-json transport (one NDJSON line), default mode `new`, the

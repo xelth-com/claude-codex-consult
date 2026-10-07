@@ -4,13 +4,14 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-10-07
 
-The first wave of the 0.6.0 candidate: wave 29, the `claude` engine - ROADMAP R10 with R22. Design:
+Wave 29, the `claude` engine - ROADMAP R10 with R22: Claude Code headless as a reviewer for the Claude
+subscription, an API key or (wave 29b) a third-party Anthropic-compatible endpoint. Design:
 `.collab/claude-engine-2026-09-30/handoffs/01-claude-claude-engine-design.md`; decisions D1-D12 of
-`.collab/claude-engine-2026-09-30/handoffs/05-claude-claude-engine-decisions.md`. With it, wave 28e - the four
-small items of the 0.5.0 verdict (under "Fixed"). The plugin and marketplace manifests are not bumped yet (the
-version stays 0.5.1 until the release).
+`.collab/claude-engine-2026-09-30/handoffs/05-claude-claude-engine-decisions.md`, E1-E17 and A1-A6 of handoffs 12
+and 21 there; accepted by the standing reviewer after four rounds (handoff 25). With it, wave 28e - the four
+small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: light`.
 
 ### Added
 
