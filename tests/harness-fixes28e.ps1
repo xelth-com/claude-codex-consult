@@ -18,7 +18,9 @@
 # (state survivors, survivors [], unverified [{pid, why}]) and the next run is refused while that pid's
 # identity cannot be read (E18); a recorded unverified pid that started after the record and whose
 # command line cannot be read (the gated test hook CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>) counts
-# as running, the same pid with a command line read and not codex-like is dropped (E19); NOTSPOOLED -
+# as running, the same pid with a command line read and not codex-like is dropped - and so is a survivor
+# recorded without a start time: unreadable command line refused, read and not codex-like dropped
+# (E19); NOTSPOOLED -
 # the fold saves .last (its note, not_spooled_seen, not_spooled_folded[]) BEFORE it deletes the files: a
 # crash between the two (the gated test hook CODEX_CONSULT_TEST_FOLD_CRASH=1, a real process exit) and
 # the next flush deletes them without counting them again; a .last that cannot be written (read-only)
@@ -298,6 +300,24 @@ if (Want 'RECORD') {
     Stop-Process -Id $sE.Id -Force -ErrorAction SilentlyContinue
     $gaps = @((Get-CommandLineGap -Name 'node' -Cmd ''), (Get-CommandLineGap -Name 'node' -Cmd '[node]'), (Get-CommandLineGap -Name 'node.exe' -Cmd '"C:\Program Files\nodejs\node.exe" '), (Get-CommandLineGap -Name 'pwsh' -Cmd 'pwsh'), (Get-CommandLineGap -Name 'node' -Cmd '"C:\Program Files\nodejs\node.exe" C:\x\cli.js'), (Get-CommandLineGap -Name 'notepad' -Cmd 'notepad.exe'))
     Check 'RECORD' 'E19 Test-UnverifiedProcess, started after the run: the command line read and not codex-like - dropped ("..., not codex"); the same process a child of a recorded pid (-RecordedPids) - counted as running; a generic runtime with no arguments (a bare cmd.exe) - counted as running; the command line unreadable - counted as running unless it started before the run (dropped); the hook ignored without test mode. Get-CommandLineGap: empty and "[node]" unreadable, a generic runtime with only its executable "no arguments", with arguments or another program none' (-not $tRead.Alive -and $tRead.How -ceq "start time readable now; pid $($sE.Id) runs $psName, not codex" -and $tChild.Alive -and $tChild.How -ceq "start time readable now; pid $($sE.Id) runs $psName, a child of the recorded pid $PID - counted as running" -and $tBare.Alive -and $tBare.How -ceq "start time readable now; pid $($bare.Id) runs cmd (a generic runtime, no arguments on its command line); command line not readable - counted as running (fail-closed)" -and $tCmdU.Alive -and $tCmdU.How -ceq "start time readable now; pid $($sE.Id) runs $psName; command line not readable - counted as running (fail-closed)" -and -not $tCmdBefore.Alive -and $tCmdBefore.How -match ', before that run: not its process$' -and -not $tCmdGated.Alive -and ($gaps -join '|') -eq 'unreadable|unreadable|no arguments|no arguments||') "$($tRead.How) | $($tChild.How) | $($tBare.How) | $($tCmdU.How) | $($tCmdBefore.How) | gated $($tCmdGated.Alive) | gaps [$($gaps -join '|')]"
+    # (wave 28e, E19) the same rule for a SURVIVOR recorded without a start time (Test-RecordedProcess):
+    # a sleeper that started after the record, its command line unreadable - then read and not codex-like
+    $rsv = New-Repo 'record-survivor'
+    $tdS = Join-Path $rsv '.collab\t'
+    [void][IO.Directory]::CreateDirectory($tdS)
+    $pendS = Join-Path $tdS '.consult.pending.json'
+    $startedS = Get-IsoTimestamp
+    Start-Sleep -Milliseconds 1500
+    $sG = Start-Sleeper; $sleepers.Add($sG)
+    [IO.File]::WriteAllText($pendS, '{"state":"survivors","n":2,"nn":"03","reply":"handoffs/03-codex-old.md","events":"","consult_id":"","started":"' + $startedS + '","pid":999998,"host":"' + [Environment]::MachineName + '","launcher":' + (ConvertTo-Json $fake) + ',"engine":"codex","child_pid":null,"child_start_time":"","survivors":[{"pid":' + $sG.Id + ',"start_time":"","name":"' + $psName + '"}],"unverified":[],"note":""}', $u8)
+    $beforeS = Text $pendS
+    $logS = Join-Path $work 'record-survivor-exec.log'
+    $xs1 = Consult $rsv '' @('-Prompt', 'x', '-ReplyName', 's1') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $logS; CODEX_CONSULT_TEST_CMDLINE_UNREADABLE = [string]$sG.Id }
+    Check 'RECORD' 'E19 a SURVIVOR recorded without a start time (Test-RecordedProcess), alive, started after the record, its command line NOT readable (CODEX_CONSULT_TEST_CMDLINE_UNREADABLE): the same rule as an unverified pid - REFUSED (exit 1) "a previous consultation''s codex process (pid <n> [start time readable now; pid <n> runs <host>; command line not readable - counted as running (fail-closed)]) is still running"; no reviewer launched, the record untouched' ($xs1.Code -eq 1 -and $xs1.Out -match ([regex]::Escape("a previous consultation's codex process (pid $($sG.Id) [start time readable now; pid $($sG.Id) runs $psName; command line not readable - counted as running (fail-closed)]) is still running")) -and -not (Test-Path -LiteralPath $logS) -and (Text $pendS) -ceq $beforeS -and @(Ledger $rsv).Count -eq 0) "exit $($xs1.Code) | $($xs1.First)"
+    $xs2 = Consult $rsv '' @('-Prompt', 'x', '-ReplyName', 's2') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $logS }
+    $es2 = @(Ledger $rsv)[-1]
+    Check 'RECORD' 'E19 the same survivor with its command line READ (no hook) and not codex-like, not a child of a recorded pid: dropped - "recovered reservation n=2, nn=03 (state ''survivors'' of an interrupted run; codex pid(s) <n> [start time readable now; pid <n> runs <host>, not codex] no longer running; ...)" - and the run goes on (exit 0, a usable reply, the reviewer launched, the record gone)' ($xs2.Code -eq 0 -and $xs2.Out -match ("recovered reservation n=2, nn=03 \(state 'survivors' of an interrupted run; codex pid\(s\) $($sG.Id) \[start time readable now; pid $($sG.Id) runs $([regex]::Escape($psName)), not codex\] no longer running") -and $es2.bridge_outcome -eq 'usable reply' -and (Test-Path -LiteralPath $logS) -and -not (Test-Path -LiteralPath $pendS)) "exit $($xs2.Code) | $((($xs2.Out -split "`n") | Where-Object { $_ -match 'recovered' }) -join ' // ')"
+    Stop-Process -Id $sG.Id -Force -ErrorAction SilentlyContinue
     Check 'RECORD' 'E18 the code: the three places keep the record (state survivors) for survivors OR unverified pids - a turn, the main turn, the format repair; the main turn''s outcome says the refusal for the unverified group too' ($cs.Contains("if (`$surv.Count -gt 0 -or @(Get-PropertyValue `$turnKill 'Unverified' @()).Count -gt 0)") -and $cs.Contains("if (`$survivors.Count -gt 0 -or `$mainUnverified.Count -gt 0)") -and $cs.Contains("if (`$repairSurvivors.Count -gt 0 -or @(Get-PropertyValue `$repairKill 'Unverified' @()).Count -gt 0)") -and $cs.Contains('may still run; the next run for this task is refused until')) ''
 }
 

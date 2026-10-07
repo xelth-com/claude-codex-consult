@@ -209,10 +209,11 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
     `unverified[]` at all three places (a turn, the main turn, the format repair), and the main turn's outcome
     ends `; the next run for this task is refused until it exits)`. Before, such a kill kept no record, so the
     next consultation could start while the uncertain descendant still ran.
-  - E19 (F27-2) The re-check of an unverified pid is fail-closed on the evidence: once its start time is
-    readable it is dropped only when it started before that run, or its command line was read, does not look
-    like codex and its parent is none of the record's pids (`Test-UnverifiedProcess -RecordedPids`,
-    `Get-CommandLineGap`). A command line that cannot be read - access denied, or a generic runtime such as
+  - E19 (F27-2) The re-check of an unverified pid - and of a survivor recorded without a start time or whose
+    start time cannot be read now (`Test-RecordedProcess`, the same rule and messages) - is fail-closed on the
+    evidence: once its start time is readable it is dropped only when it started before that run, or its
+    command line was read, does not look like codex and its parent is none of the record's pids
+    (`Test-UnverifiedProcess -RecordedPids`, `Get-CommandLineGap`). A command line that cannot be read - access denied, or a generic runtime such as
     `node` or `powershell` with no arguments on it - counts as running (`command line not readable - counted
     as running (fail-closed)`), and so does a child of a recorded pid; TEST HOOK (test mode only):
     `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>]`.
@@ -229,7 +230,7 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
     counted" check looks for every not-spooled file (and, E20, its `.last` field list names
     `not_spooled_folded`). E18-E20 (RC1, RC2 of handoff 27): RECORD - a kill with zero survivors and one
     unverified descendant, a generic-runtime pid whose command line cannot be read, the same pid read and
-    not codex-like; NOTSPOOLED - a crash between the save and the deletes, a read-only `.last`. Docs: README (the recovery record, the kill, the
+    not codex-like, a survivor without a start time both ways; NOTSPOOLED - a crash between the save and the deletes, a read-only `.last`. Docs: README (the recovery record, the kill, the
     not-spooled count, the forgetting marker, the ledger's `compactions` row), `codex-telemetry.ps1`'s help,
     `tests/README.md`.
 

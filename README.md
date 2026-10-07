@@ -1736,7 +1736,10 @@ unless the bridge that wrote it or a codex process from it is still alive; never
   denied, or a generic runtime such as `node` or `powershell` with no arguments on it) counts as
   running (`… command line not readable - counted as running (fail-closed)`), and so does a child of
   a recorded pid (TEST HOOK, test mode only: `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>]` -
-  these pids read with a command line that cannot be read).
+  these pids read with a command line that cannot be read). The same rule, with the same messages,
+  re-checks a SURVIVOR recorded without a start time (an older record's bare pid) or whose start time
+  cannot be read now (`Test-RecordedProcess`); a survivor whose recorded start time is read now is
+  judged by its pid and that start time as before.
   A dead recorded pid is not proof of a dead tree (it is usually the launcher shim), so
   when every recorded pid is gone, and for a `launching` record, the bridge scans for a
   child of the dead bridge or of a dead recorded pid (Windows keeps an orphan's parent

@@ -9362,8 +9362,9 @@ function Select-ParentThread {
 #                                   process counts as alive only while its pid runs with
 #                                   the SAME start time (and name, when recorded); an
 #                                   entry without a start time (older records: a bare
-#                                   pid) counts only if that process looks like codex
-#                                   (Test-RecordedProcess) - never by pid alone.
+#                                   pid) is judged by the evidence rule of the unverified
+#                                   pids (Test-RecordedProcess; wave 28e, E19: fail-closed)
+#                                   - never by pid alone.
 #                                 unverified[] (wave 28e, E1): { pid, why } per descendant
 #                                   whose start time could not be read at the kill (left
 #                                   alone by it: neither a survivor nor gone). The next
@@ -9856,7 +9857,9 @@ function New-UnverifiedEntries {
 # survivors, the other unverified pids). A command line that cannot be read (access denied; a generic
 # runtime such as node or powershell with no arguments on it) counts as RUNNING ("command line not
 # readable - counted as running (fail-closed)"), and so does a child of a recorded pid. Only "gone",
-# "started before that run" or "command line read and not codex-like" release it.
+# "started before that run" or "command line read and not codex-like" release it. The same rule
+# re-checks a survivor recorded without a start time, or whose start time cannot be read now
+# (Test-RecordedProcess).
 function Test-UnverifiedProcess {
     param([int]$ProcessId, $Since = $null, [string]$Launcher = '', [int[]]$RecordedPids = @())
     $st = Get-ProcessStartIso -ProcessId $ProcessId
@@ -9880,13 +9883,18 @@ function Test-UnverifiedProcess {
 }
 
 # Is a process recorded in a pending record still that process? Returns { Alive; How }.
-#   with a recorded start time: alive only when the pid runs with that start time (and
-#     that name, when one is recorded) - a different start time means the pid was
+#   with a recorded start time that can be read now too: alive only when the pid runs with that
+#     start time (and that name, when one is recorded) - a different start time means the pid was
 #     reused by an unrelated process;
-#   without one (older records), or when the live start time cannot be read: alive
-#     only when the process looks like codex (Get-CodexRule) - never by pid alone.
+#   without one (older records: a bare pid), or when the live start time cannot be read: (wave 28e,
+#     E19 / F27-2) the SAME fail-closed evidence rule and messages as an unverified pid
+#     (Test-UnverifiedProcess): gone - not alive; its start time unreadable - counted as running;
+#     started before that run ($Since) - not alive; looks like codex (Get-CodexRule) - alive; its
+#     command line unreadable (a generic runtime with no arguments too) - counted as running; a child
+#     of a recorded pid ($RecordedPids) - counted as running; only a command line read and not
+#     codex-like drops it. Never by pid alone (before E19: alive only when it looked like codex).
 function Test-RecordedProcess {
-    param([int]$ProcessId, [string]$StartTime = '', [string]$Name = '', [string]$Launcher = '')
+    param([int]$ProcessId, [string]$StartTime = '', [string]$Name = '', [string]$Launcher = '', $Since = $null, [int[]]$RecordedPids = @())
     $info = Get-ProcessInfo -ProcessId $ProcessId
     if (-not $info) { return [pscustomobject]@{ Alive = $false; How = 'gone' } }
     if ($StartTime -and $info.start) {
@@ -9894,9 +9902,7 @@ function Test-RecordedProcess {
         if ($Name -and -not $info.name.Equals($Name, [StringComparison]::OrdinalIgnoreCase)) { return [pscustomobject]@{ Alive = $false; How = "pid reused (now $($info.name))" } }
         return [pscustomobject]@{ Alive = $true; How = 'pid + start time' }
     }
-    $rule = Get-CodexRule -Name $info.name -Cmd $info.cmd -Launcher $Launcher
-    if ($rule) { return [pscustomobject]@{ Alive = $true; How = "no start time recorded; $rule" } }
-    return [pscustomobject]@{ Alive = $false; How = "no start time recorded; pid $ProcessId runs $($info.name), not codex" }
+    return (Test-UnverifiedProcess -ProcessId $ProcessId -Since $Since -Launcher $Launcher -RecordedPids $RecordedPids)
 }
 
 # Best-effort scan for the codex process an interrupted 'launching' run may have left,
@@ -10110,19 +10116,22 @@ function Test-PendingActive {
         $alive = New-Object System.Collections.Generic.List[string]
         $aliveHow = New-Object System.Collections.Generic.List[string]
         $gone = New-Object System.Collections.Generic.List[string]
+        # (wave 28e, E19 / F27-2) the record's start and pids, for EVERY re-check by the evidence rule (a
+        # survivor without a start time, or whose start time cannot be read now, and every unverified pid):
+        # a process that started before the record is not its; a child of a recorded pid is never dropped
+        $uSince = $null
+        try { $uSince = [DateTimeOffset]::Parse((ConvertTo-JsonText (Get-PropertyValue $Record 'started' '')), $script:Invariant) } catch { $uSince = $null }
+        $recordedPids = [int[]]@(@($(if ($writerPid -gt 0) { $writerPid })) + @($pids | ForEach-Object { [int]$_.pid }) + @($unverified | ForEach-Object { [int]$_.pid }) | Where-Object { $_ -gt 0 } | Select-Object -Unique)
         foreach ($entry in $pids) {
-            $verdict = Test-RecordedProcess -ProcessId $entry.pid -StartTime $entry.start -Name $entry.name -Launcher $launcher
-            if ($verdict.Alive) { $alive.Add("$($entry.pid)"); $aliveHow.Add("$($entry.pid) [$($verdict.How)]") } else { $gone.Add("$($entry.pid) [$($verdict.How)]") }
+            $verdict = Test-RecordedProcess -ProcessId $entry.pid -StartTime $entry.start -Name $entry.name -Launcher $launcher -Since $uSince -RecordedPids $recordedPids
+            # (E19) a pid judged by the evidence rule (not by its pid + start time) says why in the refusal
+            if ($verdict.Alive) { $alive.Add($(if ($verdict.How -eq 'pid + start time') { "$($entry.pid)" } else { "$($entry.pid) [$($verdict.How)]" })); $aliveHow.Add("$($entry.pid) [$($verdict.How)]") } else { $gone.Add("$($entry.pid) [$($verdict.How)]") }
         }
         # (wave 28e, E1 / F54-1) the descendants the kill could not verify, checked again now: one still
         # unreadable, or readable and codex-like, blocks like a survivor; a gone one is dropped - said
         $uAlive = New-Object System.Collections.Generic.List[string]
         $uGone = New-Object System.Collections.Generic.List[string]
         if ($unverified.Count -gt 0) {
-            $uSince = $null
-            try { $uSince = [DateTimeOffset]::Parse((ConvertTo-JsonText (Get-PropertyValue $Record 'started' '')), $script:Invariant) } catch { $uSince = $null }
-            # (wave 28e, E19) the record's pids: a child of one of them is never dropped as unrelated
-            $recordedPids = [int[]]@(@($(if ($writerPid -gt 0) { $writerPid })) + @($pids | ForEach-Object { [int]$_.pid }) + @($unverified | ForEach-Object { [int]$_.pid }) | Where-Object { $_ -gt 0 } | Select-Object -Unique)
             foreach ($entry in $unverified) {
                 $verdict = Test-UnverifiedProcess -ProcessId $entry.pid -Since $uSince -Launcher $launcher -RecordedPids $recordedPids
                 if ($verdict.Alive) { $uAlive.Add("$($entry.pid) [$($verdict.How)$(if ($entry.why) { "; at the kill: $($entry.why)" })]") } else { $uGone.Add("$($entry.pid) [$($verdict.How)]") }
