@@ -22,8 +22,10 @@
                    wave 28b, D2; a 429 with Retry-After of at most 60 s that fits the deadline is
                    waited for and sent once more), removes what was delivered, keeps the rest and
                    writes <codex home>/telemetry-spool/.last {time, result, delivered, kept, dropped,
-                   rejected, http, not_spooled_seen, notes} - (wave 28e, E2) after folding the
-                   not-spooled files of gone producers into one line of its notes and removing them.
+                   rejected, http, not_spooled_seen, not_spooled_folded, notes} - (wave 28e, E2)
+                   folding the not-spooled files of gone producers into one line of its notes and
+                   removing them ((E20) .last is saved BEFORE the files are deleted; a file that
+                   not_spooled_folded names is deleted without being counted again).
                    Delivered = a 2xx answer that is a JSON object with "ok": true.
                    (D8) A batch refused with 400 "events[i]: reason" drops event i (a line in
                    `rejected`) and resends the rest - at most three times per flush; 413 halves the

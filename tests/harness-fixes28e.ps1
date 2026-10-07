@@ -13,6 +13,18 @@
 # the right ticks - alive, refuses; an older marker without ticks as before (E3); ANCHOR - the inline
 # re-read anchor of a context_tokens member keeps the FIRST line of a multi-line ask whole (cut at 300)
 # and the count of the remaining lines (E4); DOCS; GUARD.
+# The 0.6.0 acceptance (.collab/claude-engine-2026-09-30/handoffs/27-..., F27-1..F27-3; decisions
+# E18-E20): RECORD - a kill with NO survivor but a descendant it could not verify keeps the record too
+# (state survivors, survivors [], unverified [{pid, why}]) and the next run is refused while that pid's
+# identity cannot be read (E18); a recorded unverified pid that started after the record and whose
+# command line cannot be read (the gated test hook CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>) counts
+# as running, the same pid with a command line read and not codex-like is dropped - and so is a survivor
+# recorded without a start time: unreadable command line refused, read and not codex-like dropped
+# (E19); NOTSPOOLED -
+# the fold saves .last (its note, not_spooled_seen, not_spooled_folded[]) BEFORE it deletes the files: a
+# crash between the two (the gated test hook CODEX_CONSULT_TEST_FOLD_CRASH=1, a real process exit) and
+# the next flush deletes them without counting them again; a .last that cannot be written (read-only)
+# folds nothing and warns (E20).
 # FAKES ONLY: fake-codex3.cmd; CODEX_HOME points at scratch directories, CODEX_CONSULT_ROSTER at
 # scratch files, CODEX_CONSULT_HEALTH is 'none', telemetry off and the intake a closed loopback port
 # (http://127.0.0.1:9/ - nothing is ever sent anywhere); the host markers of the process that runs it
@@ -95,7 +107,7 @@ function New-Home {
 }
 function Write-Roster { param([string]$Name, [string]$Json) $p = Join-Path $work "roster-$Name.json"; [IO.File]::WriteAllText($p, $Json, $u8); return $p }
 $fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_ENV_DUMP', 'FAKE_CODEX_PRELINE', 'FAKE_CODEX_HANG_ON')
-$testVars = @('RT_ZAI_KEY', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_COORDINATOR', 'CODEX_CONSULT_BRIEF_PREFIX', 'CODEX_CONSULT_TEST_SURVIVORS', 'CODEX_CONSULT_TEST_UNVERIFIED', 'CODEX_CONSULT_TEST_START_UNREADABLE')
+$testVars = @('RT_ZAI_KEY', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_COORDINATOR', 'CODEX_CONSULT_BRIEF_PREFIX', 'CODEX_CONSULT_TEST_SURVIVORS', 'CODEX_CONSULT_TEST_UNVERIFIED', 'CODEX_CONSULT_TEST_START_UNREADABLE', 'CODEX_CONSULT_TEST_CMDLINE_UNREADABLE', 'CODEX_CONSULT_TEST_FOLD_CRASH')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     foreach ($k in (Get-HostMarkerNames)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
@@ -227,6 +239,86 @@ if (Want 'RECORD') {
     $cs = Text $consultPs
     $rk = New-PendingRecord -State 'reserved' -N 1 -Nn '02' -Reply 'r' -Started (Get-IsoTimestamp)
     Check 'RECORD' 'E1 the code: the three places that record survivors (a turn, the main turn, the format repair) record unverified[] from their kill check beside them; a new record carries unverified [] after survivors; the test hook CODEX_CONSULT_TEST_UNVERIFIED is read through Get-TestHookValue (test mode only)' ($cs.Contains('New-UnverifiedEntries -Check $turnKill') -and $cs.Contains('New-UnverifiedEntries -Check $mainKill') -and $cs.Contains('New-UnverifiedEntries -Check $repairKill') -and (($rk.PSObject.Properties.Name -join ',') -match ',survivors,unverified,note$') -and $cs.Contains("Get-TestHookValue 'CODEX_CONSULT_TEST_UNVERIFIED'")) (($rk.PSObject.Properties.Name) -join ',')
+    # (wave 28e, E18 / F27-1) a timeout kill with NO survivor and one descendant it could not verify
+    # (CODEX_CONSULT_TEST_UNVERIFIED alone): the record is kept all the same
+    $sC = Start-Sleeper; $sleepers.Add($sC)
+    $ru = New-Repo 'record-unverified'
+    $pendU = Join-Path $ru '.collab\t\.consult.pending.json'
+    $xu1 = Consult $ru '' @('-Prompt', 'x', '-ReplyName', 'u1', '-TimeoutSec', '4') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_HANG_ON = '--json'; CODEX_CONSULT_TEST_UNVERIFIED = [string]$sC.Id }
+    $recU = $null; try { $recU = ConvertFrom-Json (Text $pendU) } catch { }
+    $eu1 = @(Ledger $ru)[-1]
+    $uvU = @($(if ($recU) { $recU.unverified } else { @() }))
+    $whyC = "start time of pid $($sC.Id) unreadable"
+    Check 'RECORD' 'E18 (F27-1) a timeout kill with ZERO survivors and one descendant whose start time could not be read: the recovery record is KEPT - state survivors, survivors [], unverified [{pid, why}] ("recovery record kept: ... (state ''survivors'')"); the outcome "(kill not confirmed: start time of pid <n> unreadable; pid <n> may still run; the next run for this task is refused until it exits)"' ($recU -and $recU.state -eq 'survivors' -and @($recU.survivors).Count -eq 0 -and $uvU.Count -eq 1 -and [int]$uvU[0].pid -eq $sC.Id -and [string]$uvU[0].why -ceq $whyC -and [string]$eu1.bridge_outcome -match ([regex]::Escape("(kill not confirmed: $whyC; pid $($sC.Id) may still run; the next run for this task is refused until it exits)")) -and $xu1.Out -match "recovery record kept: .*\(state 'survivors'\)") "exit $($xu1.Code) | record $(Text $pendU) | outcome $($eu1.bridge_outcome)"
+    $logU = Join-Path $work 'record-unverified-exec.log'
+    $beforeU = Text $pendU
+    $xu2 = Consult $ru '' @('-Prompt', 'x', '-ReplyName', 'u2') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $logU; CODEX_CONSULT_TEST_START_UNREADABLE = [string]$sC.Id }
+    Check 'RECORD' 'E18 the next run names that pid and, while its identity cannot be read (CODEX_CONSULT_TEST_START_UNREADABLE), is REFUSED (exit 1) - "... left a process its kill could not verify (...): pid <n> [its start time still cannot be read - counted as running (fail-closed); at the kill: ...] - it blocks the task as a survivor does"; NO reviewer launched (the fake''s exec log not written), no ledger entry added, the record untouched' ($xu2.Code -eq 1 -and $xu2.Out -match ([regex]::Escape("pid $($sC.Id) [its start time still cannot be read - counted as running (fail-closed); at the kill: $whyC] - it blocks the task as a survivor does")) -and -not (Test-Path -LiteralPath $logU) -and @(Ledger $ru).Count -eq 1 -and (Text $pendU) -ceq $beforeU) "exit $($xu2.Code) | $($xu2.First)"
+    Stop-Process -Id $sC.Id -Force -ErrorAction SilentlyContinue
+    try { $null = $sC.WaitForExit(10000) } catch { }
+    $xu3 = Consult $ru '' @('-Prompt', 'x', '-ReplyName', 'u3') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $logU }
+    $eu3 = @(Ledger $ru)[-1]
+    Check 'RECORD' 'E18 once that pid is gone the next run clears the record naming it ("cleared the recovery record of consult n=1, nn=01 (state ''survivors''; ... unverified pid(s) <n> [gone] dropped") and goes on (exit 0, a usable reply, the reviewer launched)' ($xu3.Code -eq 0 -and $xu3.Out -match ("cleared the recovery record of consult n=1, nn=01 \(state 'survivors'; .*unverified pid\(s\) $($sC.Id) \[gone\] dropped") -and $eu3.bridge_outcome -eq 'usable reply' -and (Test-Path -LiteralPath $logU) -and -not (Test-Path -LiteralPath $pendU)) "exit $($xu3.Code) | $((($xu3.Out -split "`n") | Where-Object { $_ -match 'recovery record|recovered' }) -join ' // ')"
+    # (wave 28e, E19 / F27-2) a recorded unverified pid that started AFTER the record - a generic runtime
+    # (this host's executable) - whose command line cannot be read (CODEX_CONSULT_TEST_CMDLINE_UNREADABLE)
+    $rcl = New-Repo 'record-cmdline'
+    $tdC = Join-Path $rcl '.collab\t'
+    [void][IO.Directory]::CreateDirectory($tdC)
+    $pendC = Join-Path $tdC '.consult.pending.json'
+    # (the record's started is cut to the second: the sleeper starts well after it)
+    $startedC = Get-IsoTimestamp
+    Start-Sleep -Milliseconds 1500
+    $sD = Start-Sleeper; $sleepers.Add($sD)
+    [IO.File]::WriteAllText($pendC, '{"state":"survivors","n":2,"nn":"03","reply":"handoffs/03-codex-old.md","events":"","consult_id":"","started":"' + $startedC + '","pid":999998,"host":"' + [Environment]::MachineName + '","launcher":' + (ConvertTo-Json $fake) + ',"engine":"codex","child_pid":null,"child_start_time":"","survivors":[],"unverified":[{"pid":' + $sD.Id + ',"why":"start time of pid ' + $sD.Id + ' unreadable"}],"note":""}', $u8)
+    $beforeC = Text $pendC
+    $logC = Join-Path $work 'record-cmdline-exec.log'
+    $xc1 = Consult $rcl '' @('-Prompt', 'x', '-ReplyName', 'c1') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $logC; CODEX_CONSULT_TEST_CMDLINE_UNREADABLE = [string]$sD.Id }
+    Check 'RECORD' 'E19 (F27-2) a recorded unverified pid that is a generic runtime (powershell), alive, its start time readable and AFTER the record''s started, its command line NOT readable (CODEX_CONSULT_TEST_CMDLINE_UNREADABLE): counted as running - REFUSED (exit 1) "pid <n> [start time readable now; pid <n> runs <host>; command line not readable - counted as running (fail-closed); at the kill: ...] - it blocks the task as a survivor does"; no reviewer launched, the record untouched, no ledger' ($xc1.Code -eq 1 -and $xc1.Out -match ([regex]::Escape("pid $($sD.Id) [start time readable now; pid $($sD.Id) runs $psName; command line not readable - counted as running (fail-closed); at the kill: start time of pid $($sD.Id) unreadable] - it blocks the task as a survivor does")) -and -not (Test-Path -LiteralPath $logC) -and (Text $pendC) -ceq $beforeC -and @(Ledger $rcl).Count -eq 0) "exit $($xc1.Code) | $($xc1.First)"
+    $xc2 = Consult $rcl '' @('-Prompt', 'x', '-ReplyName', 'c2') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $logC }
+    $ec2 = @(Ledger $rcl)[-1]
+    Check 'RECORD' 'E19 the same pid with its command line READ (no hook) and not codex-like (-NoProfile -Command Start-Sleep ...; the recorded launcher nowhere on it), not a child of a recorded pid: proven unrelated - "recovered reservation n=2, nn=03 (state ''survivors'' of an interrupted run; unverified pid(s) <n> [start time readable now; pid <n> runs <host>, not codex] dropped; ...)" - and the run goes on (exit 0, a usable reply, the reviewer launched, the record gone)' ($xc2.Code -eq 0 -and $xc2.Out -match ("recovered reservation n=2, nn=03 \(state 'survivors' of an interrupted run; unverified pid\(s\) $($sD.Id) \[start time readable now; pid $($sD.Id) runs $([regex]::Escape($psName)), not codex\] dropped") -and $ec2.bridge_outcome -eq 'usable reply' -and (Test-Path -LiteralPath $logC) -and -not (Test-Path -LiteralPath $pendC)) "exit $($xc2.Code) | $((($xc2.Out -split "`n") | Where-Object { $_ -match 'recovered' }) -join ' // ')"
+    Stop-Process -Id $sD.Id -Force -ErrorAction SilentlyContinue
+    # the E19 rules in this process: a fresh sleeper (it started after $sinceE)
+    $sE = Start-Sleeper; $sleepers.Add($sE)
+    $bare = Start-Process -FilePath (Join-Path ([Environment]::SystemDirectory) 'cmd.exe') -PassThru -WindowStyle Hidden
+    if ($PSVersionTable.PSVersion.Major -lt 6) { try { $null = $bare.Handle } catch { } }
+    $sleepers.Add($bare)
+    Start-Sleep -Milliseconds 500
+    $sinceE = [DateTimeOffset]::UtcNow.AddMinutes(-5)
+    $nowhere = 'C:\nowhere\codex.cmd'
+    $tRead = Test-UnverifiedProcess -ProcessId $sE.Id -Since $sinceE -Launcher $nowhere
+    $tChild = Test-UnverifiedProcess -ProcessId $sE.Id -Since $sinceE -Launcher $nowhere -RecordedPids @(999998, $PID)
+    $tBare = Test-UnverifiedProcess -ProcessId $bare.Id -Since $sinceE -Launcher $nowhere
+    $env:CODEX_CONSULT_TEST_CMDLINE_UNREADABLE = [string]$sE.Id
+    try {
+        $tCmdU = Test-UnverifiedProcess -ProcessId $sE.Id -Since $sinceE -Launcher $nowhere
+        $tCmdBefore = Test-UnverifiedProcess -ProcessId $sE.Id -Since ([DateTimeOffset]::UtcNow.AddMinutes(5)) -Launcher $nowhere
+        $env:CODEX_CONSULT_TEST_MODE = ''
+        $tCmdGated = Test-UnverifiedProcess -ProcessId $sE.Id -Since $sinceE -Launcher $nowhere
+    } finally { Remove-Item env:CODEX_CONSULT_TEST_CMDLINE_UNREADABLE -ErrorAction SilentlyContinue; $env:CODEX_CONSULT_TEST_MODE = '1' }
+    try { Stop-Process -Id $bare.Id -Force -ErrorAction SilentlyContinue } catch { }
+    Stop-Process -Id $sE.Id -Force -ErrorAction SilentlyContinue
+    $gaps = @((Get-CommandLineGap -Name 'node' -Cmd ''), (Get-CommandLineGap -Name 'node' -Cmd '[node]'), (Get-CommandLineGap -Name 'node.exe' -Cmd '"C:\Program Files\nodejs\node.exe" '), (Get-CommandLineGap -Name 'pwsh' -Cmd 'pwsh'), (Get-CommandLineGap -Name 'node' -Cmd '"C:\Program Files\nodejs\node.exe" C:\x\cli.js'), (Get-CommandLineGap -Name 'notepad' -Cmd 'notepad.exe'))
+    Check 'RECORD' 'E19 Test-UnverifiedProcess, started after the run: the command line read and not codex-like - dropped ("..., not codex"); the same process a child of a recorded pid (-RecordedPids) - counted as running; a generic runtime with no arguments (a bare cmd.exe) - counted as running; the command line unreadable - counted as running unless it started before the run (dropped); the hook ignored without test mode. Get-CommandLineGap: empty and "[node]" unreadable, a generic runtime with only its executable "no arguments", with arguments or another program none' (-not $tRead.Alive -and $tRead.How -ceq "start time readable now; pid $($sE.Id) runs $psName, not codex" -and $tChild.Alive -and $tChild.How -ceq "start time readable now; pid $($sE.Id) runs $psName, a child of the recorded pid $PID - counted as running" -and $tBare.Alive -and $tBare.How -ceq "start time readable now; pid $($bare.Id) runs cmd (a generic runtime, no arguments on its command line); command line not readable - counted as running (fail-closed)" -and $tCmdU.Alive -and $tCmdU.How -ceq "start time readable now; pid $($sE.Id) runs $psName; command line not readable - counted as running (fail-closed)" -and -not $tCmdBefore.Alive -and $tCmdBefore.How -match ', before that run: not its process$' -and -not $tCmdGated.Alive -and ($gaps -join '|') -eq 'unreadable|unreadable|no arguments|no arguments||') "$($tRead.How) | $($tChild.How) | $($tBare.How) | $($tCmdU.How) | $($tCmdBefore.How) | gated $($tCmdGated.Alive) | gaps [$($gaps -join '|')]"
+    # (wave 28e, E19) the same rule for a SURVIVOR recorded without a start time (Test-RecordedProcess):
+    # a sleeper that started after the record, its command line unreadable - then read and not codex-like
+    $rsv = New-Repo 'record-survivor'
+    $tdS = Join-Path $rsv '.collab\t'
+    [void][IO.Directory]::CreateDirectory($tdS)
+    $pendS = Join-Path $tdS '.consult.pending.json'
+    $startedS = Get-IsoTimestamp
+    Start-Sleep -Milliseconds 1500
+    $sG = Start-Sleeper; $sleepers.Add($sG)
+    [IO.File]::WriteAllText($pendS, '{"state":"survivors","n":2,"nn":"03","reply":"handoffs/03-codex-old.md","events":"","consult_id":"","started":"' + $startedS + '","pid":999998,"host":"' + [Environment]::MachineName + '","launcher":' + (ConvertTo-Json $fake) + ',"engine":"codex","child_pid":null,"child_start_time":"","survivors":[{"pid":' + $sG.Id + ',"start_time":"","name":"' + $psName + '"}],"unverified":[],"note":""}', $u8)
+    $beforeS = Text $pendS
+    $logS = Join-Path $work 'record-survivor-exec.log'
+    $xs1 = Consult $rsv '' @('-Prompt', 'x', '-ReplyName', 's1') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $logS; CODEX_CONSULT_TEST_CMDLINE_UNREADABLE = [string]$sG.Id }
+    Check 'RECORD' 'E19 a SURVIVOR recorded without a start time (Test-RecordedProcess), alive, started after the record, its command line NOT readable (CODEX_CONSULT_TEST_CMDLINE_UNREADABLE): the same rule as an unverified pid - REFUSED (exit 1) "a previous consultation''s codex process (pid <n> [start time readable now; pid <n> runs <host>; command line not readable - counted as running (fail-closed)]) is still running"; no reviewer launched, the record untouched' ($xs1.Code -eq 1 -and $xs1.Out -match ([regex]::Escape("a previous consultation's codex process (pid $($sG.Id) [start time readable now; pid $($sG.Id) runs $psName; command line not readable - counted as running (fail-closed)]) is still running")) -and -not (Test-Path -LiteralPath $logS) -and (Text $pendS) -ceq $beforeS -and @(Ledger $rsv).Count -eq 0) "exit $($xs1.Code) | $($xs1.First)"
+    $xs2 = Consult $rsv '' @('-Prompt', 'x', '-ReplyName', 's2') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $logS }
+    $es2 = @(Ledger $rsv)[-1]
+    Check 'RECORD' 'E19 the same survivor with its command line READ (no hook) and not codex-like, not a child of a recorded pid: dropped - "recovered reservation n=2, nn=03 (state ''survivors'' of an interrupted run; codex pid(s) <n> [start time readable now; pid <n> runs <host>, not codex] no longer running; ...)" - and the run goes on (exit 0, a usable reply, the reviewer launched, the record gone)' ($xs2.Code -eq 0 -and $xs2.Out -match ("recovered reservation n=2, nn=03 \(state 'survivors' of an interrupted run; codex pid\(s\) $($sG.Id) \[start time readable now; pid $($sG.Id) runs $([regex]::Escape($psName)), not codex\] no longer running") -and $es2.bridge_outcome -eq 'usable reply' -and (Test-Path -LiteralPath $logS) -and -not (Test-Path -LiteralPath $pendS)) "exit $($xs2.Code) | $((($xs2.Out -split "`n") | Where-Object { $_ -match 'recovered' }) -join ' // ')"
+    Stop-Process -Id $sG.Id -Force -ErrorAction SilentlyContinue
+    Check 'RECORD' 'E18 the code: the three places keep the record (state survivors) for survivors OR unverified pids - a turn, the main turn, the format repair; the main turn''s outcome says the refusal for the unverified group too' ($cs.Contains("if (`$surv.Count -gt 0 -or @(Get-PropertyValue `$turnKill 'Unverified' @()).Count -gt 0)") -and $cs.Contains("if (`$survivors.Count -gt 0 -or `$mainUnverified.Count -gt 0)") -and $cs.Contains("if (`$repairSurvivors.Count -gt 0 -or @(Get-PropertyValue `$repairKill 'Unverified' @()).Count -gt 0)") -and $cs.Contains('may still run; the next run for this task is refused until')) ''
 }
 
 # =============================================================== NOTSPOOLED: one file per producer, folded (E2)
@@ -305,11 +397,58 @@ exit 0
     [IO.File]::WriteAllText($goneF, '{"time":"2026-10-01T10:00:00+02:00","why":"gone-again"}' + "`n", $u8)
     $fg = Run-Child $telemetryPs @('-Forget', '-Local', '-Yes') $h
     Check 'NOTSPOOLED' 'E2 -Forget -Local -Yes removes EVERY not-spooled file - this live producer''s, a gone one''s, the legacy file (named in "removed locally - ...") - and leaves a foreign name alone' ($fg.Code -eq 0 -and $fg.Out -match 'removed locally - ' -and $fg.Out.Contains([IO.Path]::GetFileName($own)) -and $fg.Out.Contains('telemetry-not-spooled.ndjson') -and $fg.Out.Contains([IO.Path]::GetFileName($goneF)) -and (NsNames $h) -ceq 'telemetry-not-spooled-notes.ndjson') "exit $($fg.Code) | left $(NsNames $h) | $($fg.Out)"
+    # (wave 28e, E20 / F27-3) .last FIRST, then the deletes: a crash between the two, and a .last that
+    # cannot be written
+    $hf = New-Home 'fold'
+    $env:CODEX_HOME = $hf
+    $null = Add-TelemetryNotSpooled -Why 'live-1'
+    $null = Add-TelemetryNotSpooled -Why 'live-2'
+    $sdf = Join-Path $hf 'telemetry-spool'
+    [void][IO.Directory]::CreateDirectory($sdf)
+    $lastF = Join-Path $sdf '.last'
+    $flA = Invoke-TelemetryFlush -FlushMs 20000
+    $seenA = -1; try { $seenA = [int](ConvertFrom-Json (Text $lastF)).not_spooled_seen } catch { }
+    $goneA = Join-Path $hf 'telemetry-not-spooled-999999-639000000000000001.ndjson'
+    [IO.File]::WriteAllText($goneA, '{"time":"2026-10-07T10:00:00+02:00","why":"gone-a1"}' + "`n" + '{"time":"2026-10-07T10:01:00+02:00","why":"gone-a2"}' + "`n" + '{"time":"2026-10-07T10:02:00+02:00","why":"gone-a3"}' + "`n", $u8)
+    $legacyA = Join-Path $hf 'telemetry-not-spooled.ndjson'
+    [IO.File]::WriteAllText($legacyA, '{"time":"2026-09-01T10:00:00+02:00","why":"legacy-a1"}' + "`n" + '{"time":"2026-09-01T10:01:00+02:00","why":"legacy-a2"}' + "`n", $u8)
+    $nA = Get-TelemetryNotSpooled
+    $crashF = Run-Child $telemetryPs @('-Flush', '-Telemetry', 'on') $hf @{ CODEX_CONSULT_TEST_FOLD_CRASH = '1' }
+    $lastC = $null; try { $lastC = ConvertFrom-Json (Text $lastF) } catch { }
+    $notesC = LastNotes $hf
+    $foldLinesC = @($notesC | Where-Object { $_ -match ' folded \d+ not-spooled' })
+    $nC = Get-TelemetryNotSpooled
+    $stC = Run-Child $telemetryPs @('-Status') $hf
+    $namesA = (@([IO.Path]::GetFileName($goneA), 'telemetry-not-spooled.ndjson') | Sort-Object) -join ','
+    Check 'NOTSPOOLED' 'E20 (F27-3) a nonzero baseline (not_spooled_seen 2: this live producer''s two lines), two gone producers'' files (999999: 3 lines, the legacy file: 2 - 5 since the last flush), and a crash BETWEEN the save of .last and the deletes (test hook CODEX_CONSULT_TEST_FOLD_CRASH=1: the -Flush child exits 87 there): .last is SAVED - one note "folded 5 not-spooled line(s) of 2 gone producer(s)", not_spooled_seen 2, not_spooled_folded [both names] - and both files are still there' ($flA.Exit -eq 0 -and $seenA -eq 2 -and $nA.Count -eq 5 -and $crashF.Code -eq 87 -and $lastC -and [int]$lastC.not_spooled_seen -eq 2 -and ((@($lastC.not_spooled_folded) | Sort-Object) -join ',') -eq $namesA -and $foldLinesC.Count -eq 1 -and $foldLinesC[0] -match '^\S+ folded 5 not-spooled line\(s\) of 2 gone producer\(s\)$' -and (Test-Path -LiteralPath $goneA) -and (Test-Path -LiteralPath $legacyA)) "baseline $seenA | before $($nA.Count) | exit $($crashF.Code) | folded [$(@($lastC.not_spooled_folded) -join ',')] seen $($lastC.not_spooled_seen) | notes $($notesC -join ' // ')"
+    Check 'NOTSPOOLED' 'E20 meanwhile -Status leaves out the files .last names (their lines are in the note): "not spooled: none since the last flush (2 line(s) in 1 file(s), ...)"' ($nC.Count -eq 0 -and $nC.Total -eq 2 -and $nC.Files -eq 1 -and $stC.Out -match '(?m)^not spooled: none since the last flush \(2 line\(s\) in 1 file\(s\)') "$(StatusLine $stC.Out 'not spooled')"
+    $restart = Run-Child $telemetryPs @('-Flush', '-Telemetry', 'on') $hf
+    $lastR = $null; try { $lastR = ConvertFrom-Json (Text $lastF) } catch { }
+    $notesR = LastNotes $hf
+    $foldLinesR = @($notesR | Where-Object { $_ -match ' folded \d+ not-spooled' })
+    $null = Add-TelemetryNotSpooled -Why 'live-3'
+    $stR = Run-Child $telemetryPs @('-Status') $hf
+    Check 'NOTSPOOLED' 'E20 the restarted flush DELETES the files .last names WITHOUT counting them again: both gone, the folded note kept ONCE (the same line, no new fold note), not_spooled_seen 2, not_spooled_folded [] (a name leaves once its file is gone); one line appended after it: "not spooled: 1 event(s) since the last flush - the latest <t>: live-3 (3 line(s) in 1 file(s), ..."' ($restart.Code -eq 0 -and -not (Test-Path -LiteralPath $goneA) -and -not (Test-Path -LiteralPath $legacyA) -and $lastR -and [int]$lastR.not_spooled_seen -eq 2 -and $null -ne $lastR.PSObject.Properties['not_spooled_folded'] -and @($lastR.not_spooled_folded | Where-Object { $_ }).Count -eq 0 -and $foldLinesR.Count -eq 1 -and $foldLinesC.Count -eq 1 -and $foldLinesR[0] -ceq $foldLinesC[0] -and $stR.Out -match '(?m)^not spooled: 1 event\(s\) since the last flush - the latest \S+: live-3 \(3 line\(s\) in 1 file\(s\)') "exit $($restart.Code) $($restart.Out) | folded [$(@($lastR.not_spooled_folded) -join ',')] seen $($lastR.not_spooled_seen) | notes $($notesR -join ' // ') | $(StatusLine $stR.Out 'not spooled')"
+    $goneB = Join-Path $hf 'telemetry-not-spooled-999999-639000000000000002.ndjson'
+    [IO.File]::WriteAllText($goneB, '{"time":"2026-10-07T11:00:00+02:00","why":"gone-b1"}' + "`n" + '{"time":"2026-10-07T11:01:00+02:00","why":"gone-b2"}' + "`n", $u8)
+    $beforeW = Text $lastF
+    $nW0 = Get-TelemetryNotSpooled
+    [IO.File]::SetAttributes($lastF, [IO.FileAttributes]::ReadOnly)
+    try { $flW = Invoke-TelemetryFlush -FlushMs 20000 } finally { [IO.File]::SetAttributes($lastF, [IO.FileAttributes]::Normal) }
+    $nW = Get-TelemetryNotSpooled
+    Check 'NOTSPOOLED' 'E20 a .last that cannot be written (made read-only): the flush folds NOTHING - the gone producer''s file stays, .last is byte-identical (the old baseline, no new note), "since the last flush" still 3 (1 + 2) - and its result carries the warning "; warning: <spool>/.last could not be written (...) - nothing was folded: the not-spooled files and the last baseline stay, the next flush counts them"' ($nW0.Count -eq 3 -and [string]$flW.Result -match ('; warning: ' + [regex]::Escape($lastF) + ' could not be written \(.+\) - nothing was folded: the not-spooled files and the last baseline stay, the next flush counts them$') -and (Test-Path -LiteralPath $goneB) -and (Text $lastF) -ceq $beforeW -and $nW.Count -eq 3 -and $nW.Total -eq 5) "before $($nW0.Count) | $($flW.Result) | after $($nW.Count)/$($nW.Total)"
+    $flOk = Invoke-TelemetryFlush -FlushMs 20000
+    $notesOk = LastNotes $hf
+    $nOk = Get-TelemetryNotSpooled
+    $seenOk = -1; try { $seenOk = [int](ConvertFrom-Json (Text $lastF)).not_spooled_seen } catch { }
+    Check 'NOTSPOOLED' 'E20 writable again, the next flush folds it ("folded 2 not-spooled line(s) of 1 gone producer(s)", the file gone, not_spooled_seen 3): none since the last flush' ($flOk.Exit -eq 0 -and [string]$flOk.Result -notmatch 'warning' -and -not (Test-Path -LiteralPath $goneB) -and @($notesOk | Where-Object { $_ -match '^\S+ folded 2 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq 1 -and $seenOk -eq 3 -and $nOk.Count -eq 0) "$($flOk.Result) | seen $seenOk | notes $($notesOk -join ' // ')"
     $env:CODEX_HOME = $savedCodexHome
     $cm = Text $commonPs
     $fnN = $(if ($cm -match '(?s)\nfunction Add-TelemetryNotSpooled \{(.*?)\n\}\r?\n') { $Matches[1] } else { '' })
     $fnF = $(if ($cm -match '(?s)\nfunction Invoke-TelemetryFlush \{(.*?)\n\}\r?\n') { $Matches[1] } else { '' })
     Check 'NOTSPOOLED' 'E2 the code: Add-TelemetryNotSpooled appends to this process''s own file (NotSpooledOwn) and takes no lock; the flush folds (Merge-TelemetryNotSpooled) only while it holds the telemetry lock' ($fnN -and $fnN -notmatch 'Enter-TelemetryLock' -and $fnN.Contains('AppendAllText($p.NotSpooledOwn') -and $fnF -match '(?s)if \(\$lkLast\.Ok\) \{\s*\$fold = Merge-TelemetryNotSpooled') ''
+    $fnM = $(if ($cm -match '(?s)\nfunction Merge-TelemetryNotSpooled \{(.*?)\n\}\r?\n') { $Matches[1] } else { '' })
+    Check 'NOTSPOOLED' 'E20 the code: Merge-TelemetryNotSpooled deletes nothing (it counts and holds the files open); the flush saves .last (Write-JsonFile ... $lastNew) BEFORE Complete-TelemetryNotSpooledFold -Delete, with the crash hook between the two read through Get-TestHookValue (test mode only)' ($fnM -and $fnM -notmatch '\[IO\.File\]::Delete' -and $fnF -match "(?s)Write-JsonFile -Path \`$p\.Last -Object \`$lastNew.*Get-TestHookValue 'CODEX_CONSULT_TEST_FOLD_CRASH'.*Complete-TelemetryNotSpooledFold -Fold \`$fold -Delete") ''
 }
 
 # =============================================================== MARKER: the owner on pid and ticks (E3)
@@ -388,6 +527,9 @@ if (Want 'DOCS') {
     Check 'DOCS' 'CHANGELOG [Unreleased] "Wave 28e - the four small items of the 0.5.0 verdict": E1-E4 with their findings (F54-1..F54-4, F53-1) and the new names' ($clSec -and @(1..4 | Where-Object { $clSec -notmatch "\bE$_\b" -or $clSec -notmatch "\bF54-$_\b" }).Count -eq 0 -and $clSec -match '\bF53-1\b' -and $clSec.Contains('telemetry-not-spooled-<pid>-<start ticks>.ndjson') -and $clSec.Contains('unverified[]') -and $clSec.Contains('start_ticks')) ''
     $tr = Text (Join-Path $sp 'README.md')
     $runAll = Text (Join-Path $sp 'run-all.ps1')
+    $miss2 = @(foreach ($k in @('`not_spooled_folded[]`', 'command line not readable - counted as running (fail-closed)', 'CODEX_CONSULT_TEST_CMDLINE_UNREADABLE', 'CODEX_CONSULT_TEST_FOLD_CRASH', '`survivors: []`', 'the next run for this task is refused until it exits')) { if ($readme.IndexOf($k, [StringComparison]::Ordinal) -lt 0) { $k } })
+    Check 'DOCS' 'README: a kill with only unverified descendants keeps the record (E18), the fail-closed command-line rule (E19), .last saved before the deletes and not_spooled_folded[] (E20), the two new test hooks' ($miss2.Count -eq 0) "missing: $($miss2 -join ', ')"
+    Check 'DOCS' 'CHANGELOG [0.6.0] wave 28e bullet: E18-E20 with their findings F27-1..F27-3 and the new names' ($clSec -and @(18..20 | Where-Object { $clSec -notmatch "\bE$_\b" }).Count -eq 0 -and @(1..3 | Where-Object { $clSec -notmatch "\bF27-$_\b" }).Count -eq 0 -and $clSec.Contains('not_spooled_folded') -and $clSec.Contains('CODEX_CONSULT_TEST_CMDLINE_UNREADABLE') -and $clSec.Contains('CODEX_CONSULT_TEST_FOLD_CRASH')) ''
     Check 'DOCS' 'tests/README.md describes harness-fixes28e and run-all.ps1 registers it between harness-fixes28d and harness-claude' ($tr.Contains('harness-fixes28e') -and $runAll -match "'harness-fixes28d', 'harness-fixes28e', 'harness-claude'") ''
 }
 

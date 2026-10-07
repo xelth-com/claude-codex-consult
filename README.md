@@ -949,7 +949,10 @@ the outcome `(process tree killed; <n> processes survived: pid <a>, <b>; start t
 unreadable; pid <u> may still run)` and the warning `kill not confirmed (<turn>): <n> processes survived:
 pid <a>, <b>; start time of pid <u> unreadable; pid <u> may still run - check them, and stop them by
 hand if they do`; (wave 28e, E1 / F54-1) the recovery record keeps that group too (`unverified[]`
-beside `survivors[]`), so the next run checks it again. On Windows `taskkill /PID <root> /T /F`, which walks the root's live tree itself, still
+beside `survivors[]`), so the next run checks it again. (Wave 28e, E18 / F27-1) A kill that left NO
+survivor but such a group keeps the record as well (state `survivors`, `survivors: []` beside
+`unverified[]`): the outcome ends `(kill not confirmed: <why>; pid <u> may still run; the next run for
+this task is refused until it exits)`, and the next run checks that pid again as below. On Windows `taskkill /PID <root> /T /F`, which walks the root's live tree itself, still
 runs. The outcome says `(process tree
 killed)` ONLY when the kill is confirmed; otherwise `(kill not confirmed: <why>; pid <n> may still
 run)`, the ledger's `kill_confirmed` is `false`, `warnings[]` says `kill not confirmed (<turn>): ...`
@@ -1725,7 +1728,18 @@ unless the bridge that wrote it or a codex process from it is still alive; never
   [gone] dropped`); its start time still unreadable - it blocks the task as a survivor does
   (`… its start time still cannot be read - counted as running (fail-closed)`); readable now - a
   process that started before that run is not its descendant (dropped), any other blocks only
-  when it looks like codex (the rule below), never by pid alone.
+  when it looks like codex (the rule below), never by pid alone. (Wave 28e, E18 / F27-1) A kill that
+  left only such descendants keeps its record too (`survivors: []`). (Wave 28e, E19 / F27-2) That
+  re-check is FAIL-CLOSED on the evidence: a pid whose start time is readable now is dropped only when
+  it is proven unrelated - it started before that run, or its command line was READ, does not look
+  like codex and its parent is none of the record's pids; a command line that cannot be read (access
+  denied, or a generic runtime such as `node` or `powershell` with no arguments on it) counts as
+  running (`… command line not readable - counted as running (fail-closed)`), and so does a child of
+  a recorded pid (TEST HOOK, test mode only: `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>]` -
+  these pids read with a command line that cannot be read). The same rule, with the same messages,
+  re-checks a SURVIVOR recorded without a start time (an older record's bare pid) or whose start time
+  cannot be read now (`Test-RecordedProcess`); a survivor whose recorded start time is read now is
+  judged by its pid and that start time as before.
   A dead recorded pid is not proof of a dead tree (it is usually the launcher shim), so
   when every recorded pid is gone, and for a `launching` record, the bridge scans for a
   child of the dead bridge or of a dead recorded pid (Windows keeps an orphan's parent
@@ -3256,7 +3270,14 @@ the telemetry lock, folds the files whose producer is gone (no process with that
 the legacy file too) into ONE line of `.last` `notes` (`folded <n> not-spooled line(s) of <m> gone
 producer(s)`) and removes them, and records in `.last` `not_spooled_seen` the lines of the files it
 kept (live producers): `-Status` counts the lines beyond them, and no file grows past what one process
-wrote. `-Forget -Local` removes every one of them. After the commit ONE
+wrote. (Wave 28e, E20 / F27-3) In THIS order: `.last` is saved first - the note, the new
+`not_spooled_seen` and `not_spooled_folded[]` (the names of the files the fold covers) - and only after
+that save are the files deleted (then `.last` drops the names of the files now gone). A crash in between
+leaves files `.last` names: `-Status` leaves them out, and the next flush deletes them WITHOUT counting
+them again; a `.last` that cannot be written folds nothing - the files and the old baseline stay, and the
+flush's result ends `; warning: <spool>/.last could not be written (...) - nothing was folded: ...`
+(TEST HOOK, test mode only: `CODEX_CONSULT_TEST_FOLD_CRASH=1` - the flush exits between the save and the
+deletes). `-Forget -Local` removes every one of them. After the commit ONE
 detached sender starts - `codex-telemetry.ps1 -Flush`, the same PowerShell, hidden, not waited for
 (a panel starts one when every member is done).
 
@@ -3339,7 +3360,7 @@ keeps the spool and costs exactly one line in `codex-telemetry.ps1 -Status`, nev
 consultation; the next consultation's sender tries again. A `429` whose `Retry-After` is at most
 60 s - and fits into the flush's deadline - is waited for and the same request sent once more; a
 longer one, a missing one or a second 429 ends the flush. The result is written to `<spool>/.last`
-`{time, result, delivered, kept, dropped, rejected, http, not_spooled_seen, notes}` (wave 28d: `notes` - at
+`{time, result, delivered, kept, dropped, rejected, http, not_spooled_seen, not_spooled_folded, notes}` (wave 28d: `notes` - at
 most 10 lines `<time> <text>` of what the telemetry client did or saw on its own, carried from flush to
 flush; a `sender stuck` line goes once a sender holds the lock again). `codex-telemetry.ps1 -Flush` sends by
 hand (exit `0` done or nothing to send, `1` something not delivered, `2` another sender holds the
@@ -3511,7 +3532,7 @@ Environment variables:
 | `CODEX_CONSULT_CLAUDE_EXE` | user | claude launcher path (the `claude` engine, wave 29) |
 | `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the bridge can read; required (wave 23b: without a readable oauth sign-in no muse run is launched, `-SkipPreflight` included); passed to muse unchanged |
 | `META_API_KEY`, `MODEL_API_KEY` | nobody, for the bridge | must NOT be set: a muse run is refused while either is (it would bill per token instead of the subscription) |
-| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV`, (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL`, `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`, `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`, `CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS`, (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE`, (wave 28d) `CODEX_CONSULT_TEST_TELEMETRY_REWRITE_CRASH` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28; wave 28b) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of every variable of its environment; (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL=1`: the registration write of the engine process fails (D19); `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST=1`: the first endpoint update of a run fails (D13); `..._TELEMETRY_REQUEST_MS` / `..._FLUSH_MS`: the sender's bounds). (wave 28b, D10) A run that finds `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` on the console and in `warnings[]`; no ENGINE child (a turn, a launcher probe) gets `CODEX_CONSULT_TEST_MODE` or any `CODEX_CONSULT_TEST_*` variable - a panel member and the detached background (the bridge itself) keep them, the telemetry sender gets only the test mode and its own hooks. (wave 28c, D12) Where the line appears: the console of a committed run (after the commit) and its `warnings[]`, a dry run (with the other run warnings, and its preview's `warnings[]`), a -Panel run (the panel's lines, and each member's `warnings[]`), a detached run (its foreground's lines and the background's entry) - NOT on a refused run: a refusal stops before anything starts or is written. (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE=<pid>[,<pid>]`: these pids read as a process whose start time cannot be read (D8); `CODEX_CONSULT_TEST_KILL_DENIED=taskkill`: only `taskkill` is denied (`=1` denies the enumeration too) (Wave 29) `CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix>` (test mode only): lets the environment variables with that prefix through to a claude engine child (the harness's fake reads `FAKE_CLAUDE_*`); never a prefix of ANTHROPIC, CLAUDE or CODEX_CONSULT. |
+| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV`, (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL`, `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`, `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`, `CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS`, (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE`, (wave 28d) `CODEX_CONSULT_TEST_TELEMETRY_REWRITE_CRASH`, (wave 28e) `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE`, `CODEX_CONSULT_TEST_FOLD_CRASH` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28; wave 28b) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of every variable of its environment; (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL=1`: the registration write of the engine process fails (D19); `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST=1`: the first endpoint update of a run fails (D13); `..._TELEMETRY_REQUEST_MS` / `..._FLUSH_MS`: the sender's bounds). (wave 28b, D10) A run that finds `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` on the console and in `warnings[]`; no ENGINE child (a turn, a launcher probe) gets `CODEX_CONSULT_TEST_MODE` or any `CODEX_CONSULT_TEST_*` variable - a panel member and the detached background (the bridge itself) keep them, the telemetry sender gets only the test mode and its own hooks. (wave 28c, D12) Where the line appears: the console of a committed run (after the commit) and its `warnings[]`, a dry run (with the other run warnings, and its preview's `warnings[]`), a -Panel run (the panel's lines, and each member's `warnings[]`), a detached run (its foreground's lines and the background's entry) - NOT on a refused run: a refusal stops before anything starts or is written. (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE=<pid>[,<pid>]`: these pids read as a process whose start time cannot be read (D8); `CODEX_CONSULT_TEST_KILL_DENIED=taskkill`: only `taskkill` is denied (`=1` denies the enumeration too); (wave 28e, E19) `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>]`: these pids read with a command line that cannot be read; (E20) `CODEX_CONSULT_TEST_FOLD_CRASH=1`: a flush exits (code 87) between the save of `.last` and the deletes of its fold. (Wave 29) `CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix>` (test mode only): lets the environment variables with that prefix through to a claude engine child (the harness's fake reads `FAKE_CLAUDE_*`); never a prefix of ANTHROPIC, CLAUDE or CODEX_CONSULT. |
 | `CODEX_CONSULT_SCRIPTS_DIR` | tests only | (0.5.0, T4) the scripts directory `tests/run-all.ps1` and every harness test when `-ScriptsDir` is not given (e.g. an installed copy of the plugin); unset: the checkout's `plugins/codex-consult/scripts` |
 
 ---

@@ -1891,6 +1891,10 @@ function Invoke-EngineTurn {
                 $t.Problem = "$stopWhat $(Format-KillText $turnKill)"
                 if ($surv.Count -gt 0) {
                     $t.Problem = "$stopWhat (process tree killed; $($surv.Count) processes survived: pid $($surv -join ', ')$(Get-KillUnverifiedText $turnKill))"
+                }
+                # (wave 28e, E18 / F27-1) the record is kept (state survivors) when the kill left survivors
+                # OR descendants it could not verify - survivors[] may then be empty beside unverified[]
+                if ($surv.Count -gt 0 -or @(Get-PropertyValue $turnKill 'Unverified' @()).Count -gt 0) {
                     $t.KeepPending = $true
                     try {
                         $pendingRecord.state = 'survivors'
@@ -4700,9 +4704,17 @@ try {
                     $null = Remove-PendingFile -Path $script:KickPath
                 }
                 $mainSurvivors = $survivors.Count
+                $mainUnverified = @(Get-PropertyValue $mainKill 'Unverified' @())
                 if ($survivors.Count -gt 0) {
                     $bridgeOutcome = "failed: $stopText (process tree killed; $($survivors.Count) processes survived: pid $($survivors -join ', ')$(Get-KillUnverifiedText $mainKill); the next run for this task is refused until they exit)"
-                    # (5) survivors - kept after this run.
+                } elseif ($mainUnverified.Count -gt 0) {
+                    # (wave 28e, E18 / F27-1) no survivor, but descendants the kill could not verify: the
+                    # record is kept for them too - said in the outcome
+                    $bridgeOutcome = "failed: $stopText (kill not confirmed: $($mainKill.Why); pid $($mainUnverified -join ', ') may still run; the next run for this task is refused until $(if ($mainUnverified.Count -eq 1) { 'it exits' } else { 'they exit' }))"
+                }
+                if ($survivors.Count -gt 0 -or $mainUnverified.Count -gt 0) {
+                    # (5) survivors - kept after this run; (wave 28e, E18) so are descendants the kill
+                    # could not verify (survivors[] may be empty beside unverified[])
                     $keepPending = $true
                     try {
                         $pendingRecord.state = 'survivors'
@@ -4714,7 +4726,7 @@ try {
                         $pendingRecord | Add-Member -NotePropertyName 'unverified' -NotePropertyValue ([object[]]@(New-UnverifiedEntries -Check $mainKill)) -Force
                         Write-PendingFile -Path $pendingPath -Record $pendingRecord
                     } catch {
-                        $bridgeOutcome += "; WARNING: the survivors could not be recorded ($(ConvertTo-OneLine $_.Exception.Message)) - $pendingPath still names only child pid $($proc.Id)"
+                        $bridgeOutcome += "; WARNING: the $(if ($survivors.Count -gt 0) { 'survivors' } else { 'unverified pids' }) could not be recorded ($(ConvertTo-OneLine $_.Exception.Message)) - $pendingPath still names only child pid $($proc.Id)"
                     }
                 }
             } else {
@@ -5315,6 +5327,9 @@ try {
                         $repairProblem = "$repairStop $(Format-KillText $repairKill)"
                         if ($repairSurvivors.Count -gt 0) {
                             $repairProblem = "$repairStop (process tree killed; $($repairSurvivors.Count) processes survived: pid $($repairSurvivors -join ', ')$(Get-KillUnverifiedText $repairKill))"
+                        }
+                        # (wave 28e, E18 / F27-1) kept for survivors OR descendants the kill could not verify
+                        if ($repairSurvivors.Count -gt 0 -or @(Get-PropertyValue $repairKill 'Unverified' @()).Count -gt 0) {
                             $keepPending = $true
                             try {
                                 $pendingRecord.state = 'survivors'

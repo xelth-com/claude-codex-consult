@@ -66,7 +66,7 @@
                          Test-PendingActive, Find-CodexProcesses, Get-PendingPaths,
                          Read-TaskPendingRecords (.consult.pending.json and the panel
                          members' .consult.pending-<NN>.json); (wave 28e)
-                         New-UnverifiedEntries, Test-UnverifiedProcess
+                         New-UnverifiedEntries, Test-UnverifiedProcess (E19: Get-CommandLineGap)
       * processes        Stop-ProcessTree, ConvertTo-ProcArg, Format-Argv
       * detached runs    (wave 25, R12) Write-DetachedStatus, Get-DetachedBudget (D4),
                          Complete-DetachedRecord (D3), ConvertTo-DetachArgs /
@@ -108,7 +108,8 @@
                          Invoke-TelemetryFlush (the sender: 60 s, the D8 answers),
                          Get-TelemetrySpoolCounts, Get-TelemetryNotSpooled (wave 28e: one file
                          per producer - Get-TelemetryNotSpooledFiles, the flush's fold
-                         Merge-TelemetryNotSpooled), Read-TelemetryLast,
+                         Merge-TelemetryNotSpooled / Complete-TelemetryNotSpooledFold - E20:
+                         .last first, then the deletes), Read-TelemetryLast,
                          Invoke-TelemetryComplaint (-Complain), Invoke-TelemetryForget (-Forget);
                          the switch - Get-TelemetrySwitch - lives in
                          codex-consult-detached.ps1 (the hook prints it)
@@ -9361,8 +9362,9 @@ function Select-ParentThread {
 #                                   process counts as alive only while its pid runs with
 #                                   the SAME start time (and name, when recorded); an
 #                                   entry without a start time (older records: a bare
-#                                   pid) counts only if that process looks like codex
-#                                   (Test-RecordedProcess) - never by pid alone.
+#                                   pid) is judged by the evidence rule of the unverified
+#                                   pids (Test-RecordedProcess; wave 28e, E19: fail-closed)
+#                                   - never by pid alone.
 #                                 unverified[] (wave 28e, E1): { pid, why } per descendant
 #                                   whose start time could not be read at the kill (left
 #                                   alone by it: neither a survivor nor gone). The next
@@ -9761,7 +9763,11 @@ function Get-CodexRule {
 }
 
 # One process: { pid; name (ProcessName); cmd; start (UTC round-trip, '' when it cannot
-# be read) }, or $null when no process has that pid.
+# be read); (wave 28e, E19) ppid (its parent's pid, 0 when it cannot be read) }, or $null when no
+# process has that pid. A command line that cannot be read (access denied - another user's or an
+# elevated process) is ''. (wave 28e, E19) TEST HOOK (test mode only):
+# CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>] - these pids read with the command line ''
+# (as access denied makes it).
 function Get-ProcessInfo {
     param([int]$ProcessId)
     if ($ProcessId -le 0) { return $null }
@@ -9770,19 +9776,49 @@ function Get-ProcessInfo {
     $start = ''
     try { $start = $p.StartTime.ToUniversalTime().ToString('o', $script:Invariant) } catch { $start = '' }
     $cmd = ''
+    $ppid = 0
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
         if ($script:OnWindows) {
             try {
-                $w = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId=$ProcessId" -Property CommandLine -ErrorAction Stop
-                if ($w) { $cmd = [string]@($w)[0].CommandLine }
+                $w = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId=$ProcessId" -Property CommandLine, ParentProcessId -ErrorAction Stop
+                if ($w) { $cmd = [string]@($w)[0].CommandLine; [void][int]::TryParse([string]@($w)[0].ParentProcessId, [ref]$ppid) }
             } catch { $cmd = '' }
         } else {
             try { $cmd = ((@(& ps -o 'args=' -p $ProcessId 2>$null)) -join ' ').Trim() } catch { $cmd = '' }
+            try { [void][int]::TryParse(((@(& ps -o 'ppid=' -p $ProcessId 2>$null)) -join ' ').Trim(), [ref]$ppid) } catch { $ppid = 0 }
         }
     } finally { $ErrorActionPreference = $previous }
-    return [pscustomobject]@{ pid = $ProcessId; name = [string]$p.ProcessName; cmd = $cmd; start = $start }
+    $hook = Get-TestHookValue 'CODEX_CONSULT_TEST_CMDLINE_UNREADABLE'
+    if ($hook -and (@($hook.Split(',') | ForEach-Object { $_.Trim() }) -contains [string]$ProcessId)) { $cmd = '' }
+    return [pscustomobject]@{ pid = $ProcessId; name = [string]$p.ProcessName; cmd = $cmd; start = $start; ppid = $ppid }
+}
+
+# (wave 28e, E19 / F27-2) The generic runtimes a reviewer may run under (the codex npm shim is cmd ->
+# node -> codex): such a process tells what it runs only through the arguments on its command line.
+$script:GenericRuntimeNames = @('node', 'nodejs', 'bun', 'deno', 'cmd', 'powershell', 'pwsh', 'sh', 'bash', 'dash', 'zsh', 'python', 'python3')
+# (wave 28e, E19 / F27-2) Whether a command line read for a process says what it runs: '' when it does;
+# 'unreadable' when it could not be read ('' - access denied - or ps's "[name]" for a process whose
+# arguments it cannot see); 'no arguments' when the process is a generic runtime
+# ($script:GenericRuntimeNames) and its command line holds nothing beyond the executable. Pure.
+function Get-CommandLineGap {
+    param([string]$Name, [string]$Cmd)
+    $c = ([string]$Cmd).Trim()
+    if (-not $c -or $c -match '^\[[^\]]*\]$') { return 'unreadable' }
+    $base = ([string]$Name -replace '(?i)\.exe$', '').ToLowerInvariant()
+    if ($script:GenericRuntimeNames -contains $base) {
+        $rest = ''
+        if ($c.StartsWith('"')) {
+            $close = $c.IndexOf('"', 1)
+            $rest = $(if ($close -ge 0) { $c.Substring($close + 1) } else { '' })
+        } else {
+            $sp = $c.IndexOfAny([char[]]@(' ', "`t"))
+            $rest = $(if ($sp -ge 0) { $c.Substring($sp) } else { '' })
+        }
+        if (-not $rest.Trim()) { return 'no arguments' }
+    }
+    return ''
 }
 
 # Survivor entries { pid, start_time, name } for the given pids (a pid that is already
@@ -9815,8 +9851,17 @@ function New-UnverifiedEntries {
 #   readable now: a process that started before that run ($Since, the record's `started`) cannot be
 #     one of its descendants - not alive; else the "looks like codex" rule (Get-CodexRule) decides, as
 #     for a survivor recorded without a start time - never by pid alone.
+# (wave 28e, E19 / F27-2) FAIL-CLOSED on the evidence: a process that started after that run is dropped
+# only when it is PROVEN unrelated - its command line was read (Get-CommandLineGap ''), the rule does
+# not match it AND its parent is none of the record's pids ($RecordedPids: the writer, the child, the
+# survivors, the other unverified pids). A command line that cannot be read (access denied; a generic
+# runtime such as node or powershell with no arguments on it) counts as RUNNING ("command line not
+# readable - counted as running (fail-closed)"), and so does a child of a recorded pid. Only "gone",
+# "started before that run" or "command line read and not codex-like" release it. The same rule
+# re-checks a survivor recorded without a start time, or whose start time cannot be read now
+# (Test-RecordedProcess).
 function Test-UnverifiedProcess {
-    param([int]$ProcessId, $Since = $null, [string]$Launcher = '')
+    param([int]$ProcessId, $Since = $null, [string]$Launcher = '', [int[]]$RecordedPids = @())
     $st = Get-ProcessStartIso -ProcessId $ProcessId
     if ($null -eq $st) { return [pscustomobject]@{ Alive = $false; How = 'gone' } }
     if (-not $st) { return [pscustomobject]@{ Alive = $true; How = 'its start time still cannot be read - counted as running (fail-closed)' } }
@@ -9830,17 +9875,26 @@ function Test-UnverifiedProcess {
     if (-not $info) { return [pscustomobject]@{ Alive = $false; How = 'gone' } }
     $rule = Get-CodexRule -Name $info.name -Cmd $info.cmd -Launcher $Launcher
     if ($rule) { return [pscustomobject]@{ Alive = $true; How = "start time readable now; $rule" } }
+    $gap = Get-CommandLineGap -Name $info.name -Cmd $info.cmd
+    if ($gap) { return [pscustomobject]@{ Alive = $true; How = "start time readable now; pid $ProcessId runs $($info.name)$(if ($gap -eq 'no arguments') { ' (a generic runtime, no arguments on its command line)' }); command line not readable - counted as running (fail-closed)" } }
+    $ppid = [int](Get-PropertyValue $info 'ppid' 0)
+    if ($ppid -gt 0 -and $ppid -ne $ProcessId -and @($RecordedPids) -contains $ppid) { return [pscustomobject]@{ Alive = $true; How = "start time readable now; pid $ProcessId runs $($info.name), a child of the recorded pid $ppid - counted as running" } }
     return [pscustomobject]@{ Alive = $false; How = "start time readable now; pid $ProcessId runs $($info.name), not codex" }
 }
 
 # Is a process recorded in a pending record still that process? Returns { Alive; How }.
-#   with a recorded start time: alive only when the pid runs with that start time (and
-#     that name, when one is recorded) - a different start time means the pid was
+#   with a recorded start time that can be read now too: alive only when the pid runs with that
+#     start time (and that name, when one is recorded) - a different start time means the pid was
 #     reused by an unrelated process;
-#   without one (older records), or when the live start time cannot be read: alive
-#     only when the process looks like codex (Get-CodexRule) - never by pid alone.
+#   without one (older records: a bare pid), or when the live start time cannot be read: (wave 28e,
+#     E19 / F27-2) the SAME fail-closed evidence rule and messages as an unverified pid
+#     (Test-UnverifiedProcess): gone - not alive; its start time unreadable - counted as running;
+#     started before that run ($Since) - not alive; looks like codex (Get-CodexRule) - alive; its
+#     command line unreadable (a generic runtime with no arguments too) - counted as running; a child
+#     of a recorded pid ($RecordedPids) - counted as running; only a command line read and not
+#     codex-like drops it. Never by pid alone (before E19: alive only when it looked like codex).
 function Test-RecordedProcess {
-    param([int]$ProcessId, [string]$StartTime = '', [string]$Name = '', [string]$Launcher = '')
+    param([int]$ProcessId, [string]$StartTime = '', [string]$Name = '', [string]$Launcher = '', $Since = $null, [int[]]$RecordedPids = @())
     $info = Get-ProcessInfo -ProcessId $ProcessId
     if (-not $info) { return [pscustomobject]@{ Alive = $false; How = 'gone' } }
     if ($StartTime -and $info.start) {
@@ -9848,9 +9902,7 @@ function Test-RecordedProcess {
         if ($Name -and -not $info.name.Equals($Name, [StringComparison]::OrdinalIgnoreCase)) { return [pscustomobject]@{ Alive = $false; How = "pid reused (now $($info.name))" } }
         return [pscustomobject]@{ Alive = $true; How = 'pid + start time' }
     }
-    $rule = Get-CodexRule -Name $info.name -Cmd $info.cmd -Launcher $Launcher
-    if ($rule) { return [pscustomobject]@{ Alive = $true; How = "no start time recorded; $rule" } }
-    return [pscustomobject]@{ Alive = $false; How = "no start time recorded; pid $ProcessId runs $($info.name), not codex" }
+    return (Test-UnverifiedProcess -ProcessId $ProcessId -Since $Since -Launcher $Launcher -RecordedPids $RecordedPids)
 }
 
 # Best-effort scan for the codex process an interrupted 'launching' run may have left,
@@ -9972,7 +10024,8 @@ function Get-PendingOriginalNote {
 #                          active while child_pid (with its start time) or any survivor pid
 #                          is alive on this host - (wave 28e, E1) or an unverified pid
 #                          (Test-UnverifiedProcess: its start time still unreadable, or
-#                          readable and codex-like); every one of them is named; pids from
+#                          readable and codex-like - (E19) or its command line unreadable,
+#                          or a child of a recorded pid); every one of them is named; pids from
 #                          another host: active (they cannot be checked from here); all
 #                          recorded pids gone: the process scan below (a dead launcher is
 #                          no proof of a dead tree);
@@ -10063,19 +10116,24 @@ function Test-PendingActive {
         $alive = New-Object System.Collections.Generic.List[string]
         $aliveHow = New-Object System.Collections.Generic.List[string]
         $gone = New-Object System.Collections.Generic.List[string]
+        # (wave 28e, E19 / F27-2) the record's start and pids, for EVERY re-check by the evidence rule (a
+        # survivor without a start time, or whose start time cannot be read now, and every unverified pid):
+        # a process that started before the record is not its; a child of a recorded pid is never dropped
+        $uSince = $null
+        try { $uSince = [DateTimeOffset]::Parse((ConvertTo-JsonText (Get-PropertyValue $Record 'started' '')), $script:Invariant) } catch { $uSince = $null }
+        $recordedPids = [int[]]@(@($(if ($writerPid -gt 0) { $writerPid })) + @($pids | ForEach-Object { [int]$_.pid }) + @($unverified | ForEach-Object { [int]$_.pid }) | Where-Object { $_ -gt 0 } | Select-Object -Unique)
         foreach ($entry in $pids) {
-            $verdict = Test-RecordedProcess -ProcessId $entry.pid -StartTime $entry.start -Name $entry.name -Launcher $launcher
-            if ($verdict.Alive) { $alive.Add("$($entry.pid)"); $aliveHow.Add("$($entry.pid) [$($verdict.How)]") } else { $gone.Add("$($entry.pid) [$($verdict.How)]") }
+            $verdict = Test-RecordedProcess -ProcessId $entry.pid -StartTime $entry.start -Name $entry.name -Launcher $launcher -Since $uSince -RecordedPids $recordedPids
+            # (E19) a pid judged by the evidence rule (not by its pid + start time) says why in the refusal
+            if ($verdict.Alive) { $alive.Add($(if ($verdict.How -eq 'pid + start time') { "$($entry.pid)" } else { "$($entry.pid) [$($verdict.How)]" })); $aliveHow.Add("$($entry.pid) [$($verdict.How)]") } else { $gone.Add("$($entry.pid) [$($verdict.How)]") }
         }
         # (wave 28e, E1 / F54-1) the descendants the kill could not verify, checked again now: one still
         # unreadable, or readable and codex-like, blocks like a survivor; a gone one is dropped - said
         $uAlive = New-Object System.Collections.Generic.List[string]
         $uGone = New-Object System.Collections.Generic.List[string]
         if ($unverified.Count -gt 0) {
-            $uSince = $null
-            try { $uSince = [DateTimeOffset]::Parse((ConvertTo-JsonText (Get-PropertyValue $Record 'started' '')), $script:Invariant) } catch { $uSince = $null }
             foreach ($entry in $unverified) {
-                $verdict = Test-UnverifiedProcess -ProcessId $entry.pid -Since $uSince -Launcher $launcher
+                $verdict = Test-UnverifiedProcess -ProcessId $entry.pid -Since $uSince -Launcher $launcher -RecordedPids $recordedPids
                 if ($verdict.Alive) { $uAlive.Add("$($entry.pid) [$($verdict.How)$(if ($entry.why) { "; at the kill: $($entry.why)" })]") } else { $uGone.Add("$($entry.pid) [$($verdict.How)]") }
             }
         }
@@ -11824,6 +11882,8 @@ function Get-TelemetryNotSpooledLines {
 # folded files are gone with their lines; an older .last's count of the legacy file means the same);
 # every line when no flush recorded one. { Count; Last (the latest why by time, '' when none since the
 # last flush); When; Total (every line of every file); Files }. -All: every line counts.
+# (wave 28e, E20 / F27-3) A file that .last `not_spooled_folded[]` names is left out: its lines are in a
+# fold's note already (a flush that saved .last but did not get to delete it).
 function Get-TelemetryNotSpooled {
     param([switch]$All)
     $r = [pscustomobject]@{ Count = 0; Last = ''; When = ''; Total = 0; Files = 0 }
@@ -11831,10 +11891,13 @@ function Get-TelemetryNotSpooled {
     if (-not $p) { return $r }
     $files = Get-TelemetryNotSpooledFiles -Paths $p
     if ($files.Count -eq 0) { return $r }
+    $lastRec = Read-TelemetryLast
+    $foldedNames = [string[]]@(@(Get-PropertyValue $lastRec 'not_spooled_folded' @()) | Where-Object { $_ } | ForEach-Object { [string]$_ })
     $seen = [long]0
-    if (-not $All) { $sv = Get-TelemetryCount (Get-PropertyValue (Read-TelemetryLast) 'not_spooled_seen' $null); if ($null -ne $sv) { $seen = [long]$sv } }
+    if (-not $All) { $sv = Get-TelemetryCount (Get-PropertyValue $lastRec 'not_spooled_seen' $null); if ($null -ne $sv) { $seen = [long]$sv } }
     $latest = $null
     foreach ($f in $files) {
+        if ($foldedNames -contains $f.Name) { continue }
         try {
             $lines = Get-TelemetryNotSpooledLines -Text ([string](Read-SharedText -Path $f.Path))
             $r.Files++
@@ -11857,37 +11920,71 @@ function Get-TelemetryNotSpooled {
 # producer is gone (Get-PidIdentityTicks 'gone': no process with its pid, or one with another start) -
 # and the legacy single file, whose writers are older bridges - is read under an exclusive handle that
 # still lets it be deleted (an appender meanwhile waits and then starts the file anew: nothing is
-# lost), its lines counted (a last piece without a line end too: its producer will never end it) and
-# the file DELETED. A producer that lives - or whose identity cannot be confirmed - keeps its file.
-# { Lines (the lines folded); Producers (the files folded); Seen (the complete lines of the files kept -
-# the flush's `not_spooled_seen`) }. Never throws.
+# lost) and its lines counted (a last piece without a line end too: its producer will never end it).
+# A producer that lives - or whose identity cannot be confirmed - keeps its file.
+# (wave 28e, E20 / F27-3) NOTHING is deleted here: the flush first saves .last - the fold's note, the new
+# `not_spooled_seen` and `not_spooled_folded[]` (the names of these files) - and only after that save
+# deletes them under the handles kept open (Complete-TelemetryNotSpooledFold): a crash or a failed save
+# never loses their count. A file that $AlreadyFolded (the `not_spooled_folded[]` of the .last before)
+# names was counted by an earlier flush that did not get to delete it: it is held for its delete and
+# NOT counted again (one that cannot be opened stays named, never counted as kept).
+# { Lines (the lines folded now); Producers (the files folded now); Seen (the complete lines of the
+# files kept - the flush's `not_spooled_seen`); Folded (string[] list: every name this fold covers -
+# the files folded now and those an earlier flush counted - the new `not_spooled_folded`); Open (the
+# handles held: { Path; Name; Stream }); Home }. Never throws; Complete-TelemetryNotSpooledFold closes
+# the handles.
 function Merge-TelemetryNotSpooled {
-    param($Paths = $null)
-    $r = [pscustomobject]@{ Lines = 0; Producers = 0; Seen = 0 }
+    param($Paths = $null, [string[]]$AlreadyFolded = @())
+    $r = [pscustomobject]@{ Lines = 0; Producers = 0; Seen = 0; Folded = (New-Object System.Collections.Generic.List[string]); Open = (New-Object System.Collections.Generic.List[object]); Home = '' }
     $p = $(if ($Paths) { $Paths } else { Get-TelemetryPaths })
     if (-not $p) { return $r }
+    $r.Home = [string]$p.Home
     foreach ($f in (Get-TelemetryNotSpooledFiles -Paths $p)) {
         try {
-            $gone = $f.Legacy -or ((Get-PidIdentityTicks -ProcessId $f.Pid -StartTicks $f.Ticks) -eq 'gone')
+            $earlier = (@($AlreadyFolded) -contains $f.Name)
+            $gone = $earlier -or $f.Legacy -or ((Get-PidIdentityTicks -ProcessId $f.Pid -StartTicks $f.Ticks) -eq 'gone')
             if ($gone) {
-                $n = -1
                 $fs = $null
                 try { $fs = New-Object System.IO.FileStream($f.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Delete) } catch { $fs = $null }
                 if ($fs) {
+                    $n = -1
                     try {
-                        $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $false, 4096, $true)
-                        try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
-                        $cnt = (Get-TelemetryNotSpooledLines -Text $text -Tail).Count
-                        [IO.File]::Delete($f.Path)
-                        $n = $cnt
-                    } catch { $n = -1 } finally { $fs.Dispose() }
+                        if ($earlier) { $n = 0 } else {
+                            $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $false, 4096, $true)
+                            try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
+                            $n = (Get-TelemetryNotSpooledLines -Text $text -Tail).Count
+                        }
+                    } catch { $n = -1 }
+                    if ($n -ge 0) {
+                        $r.Open.Add([pscustomobject]@{ Path = $f.Path; Name = $f.Name; Stream = $fs })
+                        $r.Folded.Add($f.Name)
+                        if (-not $earlier) { $r.Lines += $n; $r.Producers++ }
+                        continue
+                    }
+                    $fs.Dispose()
                 }
-                if ($n -ge 0) { $r.Lines += $n; $r.Producers++; continue }
+                if ($earlier) { $r.Folded.Add($f.Name); continue }
             }
             $r.Seen += (Get-TelemetryNotSpooledLines -Text ([string](Read-SharedText -Path $f.Path))).Count
         } catch { }
     }
     return $r
+}
+
+# (wave 28e, E20 / F27-3) The end of a fold (Merge-TelemetryNotSpooled): -Delete - ONLY after .last was
+# saved - deletes every file the fold holds open (under its handle: nothing appends meanwhile); then every
+# handle is closed (without -Delete: closed only, every file stays). The names of the fold whose file is
+# still there afterwards (string[]) - .last goes on naming them. Never throws.
+function Complete-TelemetryNotSpooledFold {
+    param($Fold, [switch]$Delete)
+    if (-not $Fold) { return , ([string[]]@()) }
+    # (.ToArray(), never @(): Windows PowerShell 5.1 fails "argument types do not match" on @() of a
+    # List[object] held in a property)
+    foreach ($o in $Fold.Open.ToArray()) {
+        try { if ($Delete) { [IO.File]::Delete($o.Path) } } catch { } finally { try { $o.Stream.Dispose() } catch { } }
+    }
+    $left = @(foreach ($n in $Fold.Folded.ToArray()) { if (-not $Fold.Home -or [IO.File]::Exists((Join-Path $Fold.Home $n))) { [string]$n } })
+    return , ([string[]]$left)
 }
 
 # (wave 28b, D6; wave 28c, D3, D7 / F42-3, F43-4) The bridge's spool append of the event of $Entry -
@@ -12338,8 +12435,9 @@ function Get-TelemetryHookMs {
 # (Remove-TelemetrySpoolLines); (D2) a forgetting marker whose owner lives stops the flush, one whose
 # owner is gone is removed.
 # Writes <spool>/.last {time, result, delivered, kept, dropped, rejected, http, (wave 28d) not_spooled_seen,
-# notes} - (wave 28e, E2) after folding the not-spooled files of gone producers into one of its notes
-# (Merge-TelemetryNotSpooled). { Exit (0 done or
+# (wave 28e, E20) not_spooled_folded, notes} - (wave 28e, E2) folding the not-spooled files of gone
+# producers into one of its notes (Merge-TelemetryNotSpooled; E20: saved BEFORE the files are deleted -
+# Complete-TelemetryNotSpooledFold). { Exit (0 done or
 # nothing to send, 1 something not delivered or the URL refused, 2 another sender holds the lock);
 # Result; Delivered; Kept; Dropped; Rejected (string[]); Http; TookOver }.
 $script:TelemetryRewriteReserveMs = 1000
@@ -12491,19 +12589,52 @@ function Invoke-TelemetryFlush {
         # not-spooled events whose producers are gone are folded - ONE note line "folded <n> not-spooled
         # line(s) of <m> gone producer(s)" - and removed; not_spooled_seen counts the lines of the files
         # kept (live producers). Without the lock nothing is folded and every line counts as seen.
+        # (wave 28e, E20 / F27-3) In THIS order: .last is saved first - the fold's note, the new
+        # not_spooled_seen and not_spooled_folded[] (the names of the files the fold covers) - and only
+        # after that save are the files deleted (still under the handles the fold holds); then .last is
+        # written once more without the names of the files now gone. A crash between the save and the
+        # deletes leaves files .last names: the next flush deletes them WITHOUT counting them again (and
+        # -Status leaves them out). A .last that cannot be written folds nothing: the files and the old
+        # baseline stay, and the result carries a warning.
         $lkLast = Enter-TelemetryLock -WaitMs 1000 -IgnoreMarker
+        $fold = $null
         try {
-            $notes = @(@(Get-PropertyValue (Read-TelemetryLast) 'notes' @()) | Where-Object { $_ -and ([string]$_) -notmatch '^\S+ sender stuck since ' } | ForEach-Object { [string]$_ })
+            $lastBefore = Read-TelemetryLast
+            $notes = @(@(Get-PropertyValue $lastBefore 'notes' @()) | Where-Object { $_ -and ([string]$_) -notmatch '^\S+ sender stuck since ' } | ForEach-Object { [string]$_ })
+            $foldedBefore = [string[]]@(@(Get-PropertyValue $lastBefore 'not_spooled_folded' @()) | Where-Object { $_ } | ForEach-Object { [string]$_ })
             if ($lkLast.Ok) {
-                $fold = Merge-TelemetryNotSpooled -Paths $p
+                $fold = Merge-TelemetryNotSpooled -Paths $p -AlreadyFolded $foldedBefore
                 $nsSeen = [long]$fold.Seen
+                $foldedNames = [string[]]$fold.Folded.ToArray()
                 if ($fold.Producers -gt 0) { $notes += "$(Get-IsoTimestamp) folded $($fold.Lines) not-spooled line(s) of $($fold.Producers) gone producer(s)" }
             } else {
                 $nsSeen = [long](Get-TelemetryNotSpooled -All).Total
+                # the names an earlier fold counted stay named while their files are there
+                $foldedNames = [string[]]@($foldedBefore | Where-Object { [IO.File]::Exists((Join-Path $p.Home $_)) })
             }
             $notes = @($notes | Select-Object -Last $script:TelemetryLastNotesMax)
-            Write-JsonFile -Path $p.Last -Object ([pscustomobject]@{ time = (Get-IsoTimestamp); result = $res.Result; delivered = $res.Delivered; kept = $res.Kept; dropped = $res.Dropped; rejected = [object[]]$res.Rejected.ToArray(); http = $res.Http; not_spooled_seen = $nsSeen; notes = [object[]]$notes })
-        } catch { } finally { if ($lkLast.Ok) { Exit-TelemetryLock } }
+            $lastNew = [pscustomobject]@{ time = (Get-IsoTimestamp); result = $res.Result; delivered = $res.Delivered; kept = $res.Kept; dropped = $res.Dropped; rejected = [object[]]$res.Rejected.ToArray(); http = $res.Http; not_spooled_seen = $nsSeen; not_spooled_folded = [object[]]$foldedNames; notes = [object[]]$notes }
+            $saved = $false
+            try {
+                Write-JsonFile -Path $p.Last -Object $lastNew
+                $saved = $true
+            } catch {
+                $res.Result += "; warning: $($p.Last) could not be written ($(ConvertTo-OneLine $_.Exception.Message)) - nothing was folded: the not-spooled files and the last baseline stay, the next flush counts them"
+            }
+            if ($saved -and $fold -and $fold.Folded.Count -gt 0) {
+                # TEST HOOK (test mode only): CODEX_CONSULT_TEST_FOLD_CRASH=1 - the process exits (code 87)
+                # between the save of .last and the deletes, as a crash would
+                if ((Get-TestHookValue 'CODEX_CONSULT_TEST_FOLD_CRASH').Trim() -eq '1') { [Environment]::Exit(87) }
+                $left = Complete-TelemetryNotSpooledFold -Fold $fold -Delete
+                if ($left.Count -ne $foldedNames.Count) {
+                    $lastNew.not_spooled_folded = [object[]]$left
+                    try { Write-JsonFile -Path $p.Last -Object $lastNew } catch { }
+                }
+            }
+        } catch { } finally {
+            if ($fold) { try { $null = Complete-TelemetryNotSpooledFold -Fold $fold } catch { } }
+            if ($lkLast.Ok) { Exit-TelemetryLock }
+        }
     } finally { Exit-TelemetryFlushLock -Path $p.Lock -Token $lock.Token }
     return $res
 }

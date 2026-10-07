@@ -169,7 +169,8 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
 
 - **Wave 28e - the four small items of the 0.5.0 verdict** (2026-10-07) (decisions E1-E4 of
   `.collab/companions-2026-09-26/handoffs/56-claude-wave28d-verdict.md`, closing mimo's F54-1..F54-4 and glm's
-  note F53-1 of the wave 28d re-acceptance; built with wave 29 and reviewed with it):
+  note F53-1 of the wave 28d re-acceptance; built with wave 29 and reviewed with it; E18-E20 close astra's
+  F27-1..F27-3 of the 0.6.0 acceptance, `.collab/claude-engine-2026-09-30/handoffs/27-codex-astra-0.6.0-delta.md`):
   - E1 (F54-1) The recovery record keeps the descendants a kill could not verify: beside `survivors[]` a
     `survivors` record now carries `unverified[]` `{pid, why}` - the pids whose start time could not be read
     (the kill check's `Unverified` and its `Why`), written by the three places that record survivors (a turn,
@@ -203,10 +204,33 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
     ask is at the top of this prompt)`) and appends the count of the remaining non-blank lines -
     `Before you answer, re-read the ask: <first line> (+<n> more lines)`; a one-line ask is cut at 300
     characters (500 before).
+  - E18 (F27-1) A timeout kill keeps its recovery record (state `survivors`) whenever it left survivors OR
+    descendants it could not verify - a kill with only the latter now records `survivors: []` beside
+    `unverified[]` at all three places (a turn, the main turn, the format repair), and the main turn's outcome
+    ends `; the next run for this task is refused until it exits)`. Before, such a kill kept no record, so the
+    next consultation could start while the uncertain descendant still ran.
+  - E19 (F27-2) The re-check of an unverified pid - and of a survivor recorded without a start time or whose
+    start time cannot be read now (`Test-RecordedProcess`, the same rule and messages) - is fail-closed on the
+    evidence: once its start time is readable it is dropped only when it started before that run, or its
+    command line was read, does not look like codex and its parent is none of the record's pids
+    (`Test-UnverifiedProcess -RecordedPids`, `Get-CommandLineGap`). A command line that cannot be read - access denied, or a generic runtime such as
+    `node` or `powershell` with no arguments on it - counts as running (`command line not readable - counted
+    as running (fail-closed)`), and so does a child of a recorded pid; TEST HOOK (test mode only):
+    `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>]`.
+  - E20 (F27-3) The flush's fold saves `.last` FIRST - the note, the new `not_spooled_seen` and
+    `not_spooled_folded[]`, the names of the files it covers - and deletes the files only after that save
+    (`Complete-TelemetryNotSpooledFold`, under the handles the fold holds); a file `not_spooled_folded[]`
+    already names is deleted without being counted again (after a crash between the save and the deletes;
+    `-Status` leaves it out meanwhile). A `.last` that cannot be written folds nothing - the files and the old
+    baseline stay and the result carries a warning; TEST HOOK (test mode only): `CODEX_CONSULT_TEST_FOLD_CRASH=1`
+    (the flush exits 87 between the save and the deletes).
   - Tests: `tests/harness-fixes28e.ps1` (RECORD NOTSPOOLED MARKER ANCHOR DOCS GUARD), registered in
     `tests/run-all.ps1` between `harness-fixes28d` and `harness-claude`; `harness-fixes28d` follows E2 (its
     NOTSPOOLED case reads this process's own file) and E4 (the cut at 300), `harness-telemetry`'s "nothing
-    counted" check looks for every not-spooled file. Docs: README (the recovery record, the kill, the
+    counted" check looks for every not-spooled file (and, E20, its `.last` field list names
+    `not_spooled_folded`). E18-E20 (RC1, RC2 of handoff 27): RECORD - a kill with zero survivors and one
+    unverified descendant, a generic-runtime pid whose command line cannot be read, the same pid read and
+    not codex-like, a survivor without a start time both ways; NOTSPOOLED - a crash between the save and the deletes, a read-only `.last`. Docs: README (the recovery record, the kill, the
     not-spooled count, the forgetting marker, the ledger's `compactions` row), `codex-telemetry.ps1`'s help,
     `tests/README.md`.
 
