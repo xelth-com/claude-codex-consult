@@ -99,7 +99,7 @@
 
     Reviewer roster (optional; see codex-consult-common.ps1): an ordered list of
     reviewers {provider, model?, codex_config?, auth?: "none", panel?:
-    "always"|"weighty"} in the JSON file CODEX_CONSULT_ROSTER names (it must exist -
+    "always"|"weighty"|"light"} in the JSON file CODEX_CONSULT_ROSTER names (it must exist -
     a missing one refuses every run), else <codex home>/codex-consult-roster.json
     (absent = no roster, everything as without one). CODEX_CONSULT_ROSTER=none: no
     roster at all, the default file is ignored too. An existing file that is not a
@@ -120,8 +120,8 @@
     Ledger: roster {path, position, skipped[{provider, model, reason}], applied[]}
     after preflight_warning ($null without a roster); one line "Roster: ..." on the
     console, in the dry run and in the handoff header.
-    -Panel (-PanelAll: every eligible entry, "weighty" ones too, whatever the purpose) sends the
-    same brief to the roster entries it seats (wave 26: as many as the purpose needs, seated by
+    -Panel (-PanelAll: every eligible entry, "weighty" and "light" ones too, whatever the
+    purpose) sends the same brief to the roster entries it seats (wave 26: as many as the purpose needs, seated by
     their track record - "Companions" below), each a consultation of its own (own
     preflight, recovery record .consult.pending-<NN>.json, parent thread, consultation
     id, handoffs/NN-codex-<ReplyName>-<provider>.md and ledger entry with panel {id,
@@ -139,8 +139,10 @@
     withdraws the record and stops, nothing started), and commits under the write lock
     (.consult.write.lock: re-read the stores, apply its own delta - the ledger stays
     sorted by n). A "weighty" entry joins only on framing, decision, core-contract,
-    acceptance and stuck. Every member is shown the findings open when the panel
-    started. A failing member does not stop the others; with -PanelConcurrency 1 a
+    acceptance and stuck; a "light" entry (2026-10-07) joins on the other purposes and on
+    those five only stands in - when no other entry of its provider label runs (listed
+    "stands in for #<p> (<that entry's skip reason>)"). Every member is shown the findings
+    open when the panel started. A failing member does not stop the others; with -PanelConcurrency 1 a
     member that leaves surviving processes stops the remaining ones (summary:
     "skipped  not started: ..."). A summary block closes the run; exit 0 only when
     every member produced a usable reply. Not with -Provider, -Thread or -Mode
@@ -159,8 +161,8 @@
         1, diff-review 2, framing and decision 3, core-contract and acceptance 4, stuck every
         eligible member; -PanelSize <n> overrides (not with -PanelAll, which takes every
         eligible member). Eligible = available (the roster walk's verdict), past the weighty
-        gate, matching -Engine/-Model - one set for the size, the ranking, the draw and the
-        exploration. An eligible entry without a seat is `not-picked` (reason "panel size k"),
+        and light gates, matching -Engine/-Model - one set for the size, the ranking, the draw
+        and the exploration. An eligible entry without a seat is `not-picked` (reason "panel size k"),
         never a skip. No backfill: a member that fails is not replaced. The summary and the
         ledger's panel record say `asked k, started j, usable i` (started/usable are written
         into every member's entry when the panel ends; wave 26b, D2: asked is the size
@@ -206,8 +208,8 @@
         every matcher names an entry); -Require none drops it. A required reviewer is judged
         with the roster walk's verdict (a usage limit without a reset time is out); one that is
         out refuses the run before anything starts - who, why and when it is back - EXIT 5 (the
-        dry run too); in a panel it takes a seat first (past the weighty gate), and when it
-        produces no usable reply no further member starts: exit 5
+        dry run too); in a panel it takes a seat first (past the weighty or light gate), and when
+        it produces no usable reply no further member starts: exit 5
       * -Role <name> (a single run, or every member of a panel) / -Roles a,b (a panel: by score
         rank, highest first; a roster entry's "roles": [...] says which it is willing to take -
         wave 26b, D4: an exact matching - every role some seated member is willing to take
@@ -716,10 +718,12 @@ param(
     # entry with a `panel` record); members of different endpoints run at once (see
     # -PanelConcurrency). Needs a roster; not with -Provider, -Thread or -Mode resume. A
     # "weighty" roster entry joins only on framing, decision, core-contract, acceptance and
-    # stuck. Exit 0 only when every member produced a usable reply.
+    # stuck; a "light" one stands in on those only when no other entry of its label runs. Exit 0
+    # only when every member produced a usable reply.
     [switch]$Panel,
 
-    # -Panel with every eligible entry (no size), "weighty" ones included whatever the purpose.
+    # -Panel with every eligible entry (no size), "weighty" and "light" ones included whatever the
+    # purpose.
     [switch]$PanelAll,
 
     # INTERNAL: set by -Panel for each member run (the member and the panel's parameters,
@@ -2750,7 +2754,8 @@ if ($panelRun) {
     if ($panelEntries.Count -eq 0) { Stop-WithError $panelSelection.Error }
     # (wave 26, D7) the required reviewers - -Require, else the roster's "require" for the purpose -
     # judged with the roster walk's verdict: one that is out (or not in this panel) refuses the
-    # panel before anything starts, exit 5; one that only the weighty gate held back takes part.
+    # panel before anything starts, exit 5; one that only the weighty (or light) gate held back
+    # takes part.
     $panelRequired = Resolve-RequiredReviewers -Roster $roster -Require $Require -Purpose $Purpose -Explicit:$requireGiven -UseRoster
     if ($panelRequired.Error) { Stop-WithError "$($panelRequired.Error)." }
     $requiredProblems = New-Object System.Collections.Generic.List[string]
@@ -2762,7 +2767,7 @@ if ($panelRun) {
             $requiredProblems.Add("#$reqPos $(if ($reqEntry.Model) { Format-ReviewerLineage -Provider $reqEntry.Provider -Model $reqEntry.Model -Engine $reqEntry.Engine } else { $reqEntry.Provider }) (not in this panel: $reqFilters)")
             continue
         }
-        if ($reqPm.State -eq 'skipped' -and [string]$reqPm.SkipKind -ne 'weighty') { $requiredProblems.Add((Format-RequiredOutage -Member $reqPm -UtcNow $panelClock.Now.UtcDateTime)) }
+        if ($reqPm.State -eq 'skipped' -and @('weighty', 'light') -notcontains [string]$reqPm.SkipKind) { $requiredProblems.Add((Format-RequiredOutage -Member $reqPm -UtcNow $panelClock.Now.UtcDateTime)) }
     }
     if ($requiredProblems.Count -gt 0) {
         Stop-WithError "required reviewer$(if ($requiredProblems.Count -ne 1) { 's' }) not available ($($panelRequired.Source)): $($requiredProblems.ToArray() -join '; '); nothing was started - wait for $(if ($requiredProblems.Count -ne 1) { 'them' } else { 'it' }), or run without $(if ($panelRequired.Source -eq '-Require') { 'that -Require' } else { 'the requirement (-Require none)' }) (exit 5)." -Code 5
@@ -2958,7 +2963,8 @@ if ($panelRun) {
         foreach ($pm in $panelEntries) {
             $slot = $slotOf[[int]$pm.Entry.Position]
             $roleShown = $(if ($panelRoleOf.ContainsKey([int]$pm.Entry.Position)) { ", role $($panelRoleOf[[int]$pm.Entry.Position])" } else { '' })
-            $stateShown = $(if ($pm.State -eq 'run') { "member, n=$($slot.N), handoff $($slot.Nn)$roleShown$(if ($pm.Required) { ', required' })" } elseif ($pm.State -eq 'not-picked') { "not picked: $($pm.Reason)" } else { "skipped: $($pm.Reason)" })
+            # (2026-10-07) a light entry standing in says for whom (its Reason)
+            $stateShown = $(if ($pm.State -eq 'run') { "member, n=$($slot.N), handoff $($slot.Nn)$roleShown$(if ($pm.Required) { ', required' })$(if ($pm.Reason) { ", $($pm.Reason)" })" } elseif ($pm.State -eq 'not-picked') { "not picked: $($pm.Reason)" } else { "skipped: $($pm.Reason)" })
             Write-Host ("  #{0} {1} - {2}" -f $pm.Entry.Position, $pm.Shown, $stateShown)
         }
         # (wave 26) the routing record, as the members' ledger entries carry it (panel.routing)

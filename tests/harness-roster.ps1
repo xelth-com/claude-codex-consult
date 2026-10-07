@@ -728,7 +728,11 @@ if (Want 'WEIGHT') {
     $ws = Consult $r $roster7 @('-DryRun', '-Prompt', 'x', '-Purpose', 'diff-review') @{ FAKE_CODEX_LOGIN = 'out' }
     Check 'WEIGHT' 'the single-reviewer walk ignores the weight (openai logged out -> mimo selected)' ($ws.Code -eq 0 -and $ws.Preview.reviewer.provider -eq 'mimo') (Line $ws.Out 'Roster:')
     $wb = Consult $r (Write-Roster 'weight-bad' '{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1","panel":"sometimes"}]}') @('-DryRun', '-Prompt', 'x')
-    Check 'WEIGHT' '"panel": "sometimes" -> the roster refusal naming the path and the entry' ($wb.Code -eq 1 -and $wb.First -match "^codex-consult: the reviewer roster '.*roster-weight-bad\.json' is not usable: entry 1: panel must be ""always"" or ""weighty"" \(got ""sometimes""\)") $wb.First
+    Check 'WEIGHT' '"panel": "sometimes" -> the roster refusal naming the path and the entry' ($wb.Code -eq 1 -and $wb.First -match "^codex-consult: the reviewer roster '.*roster-weight-bad\.json' is not usable: entry 1: panel must be ""always"", ""weighty"" or ""light"" \(got ""sometimes""\)") $wb.First
+    # (2026-10-07) "light" is a weight; a near miss is refused with the same message
+    $wl = Consult $r (Write-Roster 'weight-lite' '{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1","panel":"lite"}]}') @('-DryRun', '-Prompt', 'x')
+    $wk = Consult $r (Write-Roster 'weight-light' '{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1","panel":"light"}]}') @('-DryRun', '-Prompt', 'x')
+    Check 'WEIGHT' '"panel": "lite" -> refused (panel must be "always", "weighty" or "light" (got "lite")); "panel": "light" -> accepted (a dry run, exit 0)' ($wl.Code -eq 1 -and $wl.First -match "^codex-consult: the reviewer roster '.*roster-weight-lite\.json' is not usable: entry 1: panel must be ""always"", ""weighty"" or ""light"" \(got ""lite""\)" -and $wk.Code -eq 0 -and $wk.Preview.reviewer.provider -eq 'openai') "$($wl.First) | exit $($wk.Code)"
 
     # CHORE: plain text like -Raw, effort low, 400 words, the chore paragraph
     $c1 = Consult $r $noRoster @('-DryRun', '-Prompt', 'find x', '-Purpose', 'chore')

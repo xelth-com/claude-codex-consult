@@ -6768,10 +6768,13 @@ function Get-MachineRunningCount {
 #                 env_key/bearer token then passes the credential check; a table WITH
 #                 env_key still needs the variable). (wave 29) Engine claude: "subscription"
 #                 (the default - the claude.ai login) or "api-key" (ANTHROPIC_API_KEY)
-#   panel         optional, "always" (the default) or "weighty": with -Panel a weighty
+#   panel         optional, "always" (the default), "weighty" or "light": with -Panel a weighty
 #                 reviewer joins only on the weighty purposes (framing, decision,
-#                 core-contract, acceptance, stuck) or with -PanelAll. The single-reviewer
-#                 walk ignores it.
+#                 core-contract, acceptance, stuck) or with -PanelAll; a light one (2026-10-07)
+#                 joins on the light purposes and stands in on a weighty purpose only when no
+#                 other entry of its provider label runs (every one skipped - unavailable,
+#                 context, refused - or none), or with -PanelAll. The single-reviewer walk
+#                 ignores it.
 #   engine        optional (0.4.0), "codex" (the default) or "agy": the CLI that carries the
 #                 consultation. For agy the provider is a free label (the lineage's
 #                 provider, e.g. "gemini"), the model is REQUIRED (the full id with its
@@ -7460,7 +7463,7 @@ function Get-RosterPath {
 # 'subscription' | 'api-key' | (wave 29b) 'endpoint'); (wave 29b, E1) Endpoint ($null, or with auth
 # endpoint ConvertFrom-ClaudeEndpointValue's object: BaseUrl, Canonical, HostName, EnvKey,
 # TimeoutMs, Plan); (E5) Plan ('' or the entry's plan slug - any engine);
-# Panel ('always' | 'weighty'); Engine ('codex' | 'agy'); EngineDeclared (the entry names
+# Panel ('always' | 'weighty' | 'light'); Engine ('codex' | 'agy'); EngineDeclared (the entry names
 # its engine); (wave 26) Lab ('' = not given; canonical lowercase - D1); Roles (string[]: the
 # roles it is willing to take - D8) }); Parallel (hashtable, ordinal keys: provider label -> n
 # from the top-level "parallel"; empty when absent); (wave 26) Require (hashtable, ordinal keys:
@@ -7621,7 +7624,7 @@ function Read-ReviewerRoster {
             }
             $panelWeight = 'always'
             if ($item.PSObject.Properties['panel']) {
-                if (-not ($item.panel -is [string]) -or @('always', 'weighty') -cnotcontains $item.panel) { $why = "${at}: panel must be ""always"" or ""weighty"" (got $(ConvertTo-Json -InputObject $item.panel -Compress))"; break }
+                if (-not ($item.panel -is [string]) -or @('always', 'weighty', 'light') -cnotcontains $item.panel) { $why = "${at}: panel must be ""always"", ""weighty"" or ""light"" (got $(ConvertTo-Json -InputObject $item.panel -Compress))"; break }
                 $panelWeight = $item.panel
             }
             $engine = 'codex'
@@ -8062,23 +8065,28 @@ function Select-RosterReviewer {
     return $r
 }
 
-# The purposes on which a "weighty" roster entry joins a panel.
+# The purposes on which a "weighty" roster entry joins a panel (and a "light" one only stands in).
 $script:WeightyPurposes = @('framing', 'decision', 'core-contract', 'acceptance', 'stuck')
 
 # The members of a review panel (-Panel): the roster walked like Select-RosterReviewer
 # without stopping at the first available entry. Every entry whose preflight verdict is
 # available (with -SkipPreflight: every entry) runs, unless it is "weighty" and $Purpose is
 # light (not in $script:WeightyPurposes) and -All (-PanelAll) is not given, or its engine's
-# launch invariant refuses it (wave 23, D4 - with -SkipPreflight too). $Model: as for
+# launch invariant refuses it (wave 23, D4 - with -SkipPreflight too). (2026-10-07) A "light"
+# entry on a weighty $Purpose without -All is held back (SkipKind light) once it passed every
+# other check; after the whole roster is judged it stands in - State run, Reason "stands in for
+# #<p> (<that sibling's skip reason>)" or "stands in (no other entry of label <label>)" - when
+# no other member of its provider label (compared ordinally, as Get-PanelPlan groups) runs; in
+# roster order, so a second light entry of the label sees the first one run. $Model: as for
 # the walk. -NoNetwork (wave 24, D15): passed to every preflight (an engine's sign-in that
 # needs the network is then "not checked") - the availability view of the hook and the listing
 # (Get-RosterAvailability) judges EVERY entry this way. { Members (object[], roster order, of {
-# Entry; Identity; State 'run'|'skipped'; Reason ('' when it runs); Verdict (the preflight
-# verdict, $null under -SkipPreflight or a launch refusal); Health (the endpoint health, $null
-# when unresolved); Block ('' or the launch refusal); SkipKind (wave 26: '' | refused |
-# unavailable | weighty - why it is skipped) }); Error ('' or the refusal: nobody runs / no entry
-# for $Model) }. (wave 26) Select-PanelRouting then seats the panel among the members that run
-# (State 'not-picked' for the rest).
+# Entry; Identity; State 'run'|'skipped'; Reason ('' when it runs - a light stand-in's "stands
+# in ..."); Verdict (the preflight verdict, $null under -SkipPreflight or a launch refusal);
+# Health (the endpoint health, $null when unresolved); Block ('' or the launch refusal); SkipKind
+# (wave 26: '' | refused | unavailable | weighty | context | light - why it is skipped) }); Error
+# ('' or the refusal: nobody runs / no entry for $Model) }. (wave 26) Select-PanelRouting then
+# seats the panel among the members that run (State 'not-picked' for the rest).
 function Select-PanelMembers {
     param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null, [int]$EstimateTokens = 0)
     $members = New-Object System.Collections.Generic.List[object]
@@ -8115,8 +8123,30 @@ function Select-PanelMembers {
             $ctxSkip = Get-ContextSkip -Entry $e -EstimateTokens $EstimateTokens
             if ($ctxSkip) { $state = 'skipped'; $reason = $ctxSkip; $skipKind = 'context' }
         }
+        # (2026-10-07) a light entry on a weighty purpose: held back after every other check (a
+        # stand-in below needs none again)
+        if ($state -eq 'run' -and $e.Panel -eq 'light' -and -not $All -and $script:WeightyPurposes -contains $Purpose) {
+            $state = 'skipped'
+            $reason = "light reviewer; purpose $purposeLabel is weighty - it stands in only when no entry of its label runs"
+            $skipKind = 'light'
+        }
         $members.Add([pscustomobject]@{ Entry = $e; Identity = $id; State = $state; Reason = $reason; Verdict = $verdict; Health = $health; Block = [string]$block; SkipKind = $skipKind })
-        $listing.Add("#$($e.Position) $(Format-ReviewerLineage -Provider $id.Provider -Model $id.Model -Engine $entryEngine) ($(if ($state -eq 'run') { 'runs' } else { $reason }))")
+    }
+    # (2026-10-07) the stand-in: a held-back light entry runs when no other member of its provider
+    # label runs; the first skipped sibling that is not itself a held-back light entry is named
+    foreach ($m in $members) {
+        if ($m.State -ne 'skipped' -or $m.SkipKind -ne 'light') { continue }
+        $label = [string]$m.Entry.Provider
+        $siblings = @($members | Where-Object { -not [object]::ReferenceEquals($_, $m) -and [string]$_.Entry.Provider -ceq $label })
+        if (@($siblings | Where-Object { $_.State -eq 'run' }).Count -gt 0) { continue }
+        $named = @($siblings | Where-Object { $_.State -eq 'skipped' -and $_.SkipKind -ne 'light' }) | Select-Object -First 1
+        $m.State = 'run'
+        $m.SkipKind = ''
+        $m.Reason = $(if ($named) { "stands in for #$($named.Entry.Position) ($($named.Reason))" } elseif ($siblings.Count -eq 0) { "stands in (no other entry of label $label)" } else { "stands in (no other entry of label $label runs)" })
+    }
+    foreach ($m in $members) {
+        $mEngine = if ($m.Entry.PSObject.Properties['Engine'] -and $m.Entry.Engine) { [string]$m.Entry.Engine } else { 'codex' }
+        $listing.Add("#$($m.Entry.Position) $(Format-ReviewerLineage -Provider $m.Identity.Provider -Model $m.Identity.Model -Engine $mEngine) ($(if ($m.State -eq 'run') { 'runs' } else { $m.Reason }))")
     }
     $r.Members = [object[]]$members.ToArray()
     if ($members.Count -eq 0) {
@@ -8436,8 +8466,8 @@ function Invoke-PanelDraw {
 # The panel's routing (wave 26; D1, D4-D7): who of Select-PanelMembers' members takes a seat.
 #   eligible   State 'run' (available, the weighty gate passed, -Engine/-Model matched) - one set
 #              for the ranking, the draw and exploration (D1, D11); a REQUIRED entry that only the
-#              weighty gate held back is eligible too (the caller refuses a required entry that is
-#              out, exit 5)
+#              weighty gate (2026-10-07: or the light gate) held back is eligible too (the caller
+#              refuses a required entry that is out, exit 5)
 #   size       $Size (0 = every eligible member: -PanelAll, stuck), at least the required count,
 #              at most the eligible count; the size bounds the members STARTED - no backfill.
 #              (wave 26b, D2 / F19-1) size_asked = $Size as asked (0: the eligible count); a size
@@ -8462,7 +8492,7 @@ function Select-PanelRouting {
     $req = @($Required | ForEach-Object { [int]$_ })
     foreach ($m in @($Members | Where-Object { $_ })) {
         $isReq = ($req -contains [int]$m.Entry.Position)
-        if ($isReq -and $m.State -eq 'skipped' -and [string](Get-PropertyValue $m 'SkipKind' '') -eq 'weighty') { $m.State = 'run'; $m.Reason = '' }
+        if ($isReq -and $m.State -eq 'skipped' -and @('weighty', 'light') -contains [string](Get-PropertyValue $m 'SkipKind' '')) { $m.State = 'run'; $m.Reason = '' }
         $engine = [string]$m.Identity.Engine
         if (-not $engine) { $engine = [string]$m.Entry.Engine }
         if (-not $engine) { $engine = 'codex' }

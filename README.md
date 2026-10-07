@@ -648,7 +648,18 @@ first, with the expensive reviewer marked `weighty`:
 }
 ```
 
-A `weighty` entry joins a `-Panel` run only on the weighty purposes. `"auth": "none"` is
+A `weighty` entry joins a `-Panel` run only on the weighty purposes. A `light` entry
+(2026-10-07) joins on the other purposes and on a weighty one only stands in for an entry of its
+label that does not run. Two models of one plan split the work that way, e.g. Kimi Code:
+
+```json
+    { "provider": "kimi", "model": "k3", "context_tokens": 256000, "panel": "weighty" },
+    { "provider": "kimi", "model": "kimi-for-coding", "context_tokens": 1000000, "panel": "light" }
+```
+
+`k3` takes the architecture decisions, `kimi-for-coding` the code reviews and checkpoints and a
+weighty brief too large for `k3`'s 256K window - and one weighty panel never seats both, so the
+plan's 5-hour window is not spent twice. `"auth": "none"` is
 only for a table with neither `env_key` nor a bearer token (a local endpoint); it does
 nothing for a table that names an `env_key`. Every field and rule: "Reviewer roster and
 panel". An invalid roster refuses **every** run, dry runs included, so validate it at
@@ -2180,7 +2191,7 @@ a fabricated one is `examples/codex-consult-roster.json`.
 | `reviewers[].model` | optional: omit it to use the config's top-level `model` |
 | `reviewers[].codex_config` | optional array of `key=value` strings, `-CodexConfig` rules |
 | `reviewers[].auth` | optional `"none"`: the endpoint needs no credential, so a table with no `env_key` and no bearer token passes the check. No effect on a table that names an `env_key`, nor on `openai`/`requires_openai_auth` providers (always `codex login status`) (Wave 29) For the `claude` engine only: `"subscription"` (default; the Claude subscription signed in through Claude Code), `"api-key"` (`ANTHROPIC_API_KEY`) or (wave 29b) `"endpoint"` (a third-party Anthropic-compatible endpoint named by the entry's `endpoint`); `"none"` is refused for it. |
-| `reviewers[].panel` | `"always"` (default) or `"weighty"`: joins a `-Panel` run only on `framing`, `decision`, `core-contract`, `acceptance` and `stuck`, or under `-PanelAll` |
+| `reviewers[].panel` | `"always"` (default), `"weighty"` or (2026-10-07) `"light"`. `"weighty"`: joins a `-Panel` run only on `framing`, `decision`, `core-contract`, `acceptance` and `stuck`, or under `-PanelAll`. `"light"`: joins on the other purposes; on those five it is skipped (`light reviewer; purpose <p> is weighty - it stands in only when no entry of its label runs`) unless no other entry of its provider label runs once the whole roster is judged (every one skipped - unavailable, context, refused - or none): then it stands in, listed and recorded in `panel.members` as `stands in for #<n> (<that entry's skip reason>)` or `stands in (no other entry of label <label>)`; under `-PanelAll` or `-Require` it is seated like any entry. The single-reviewer walk ignores the weight |
 | `reviewers[].engine` | (0.4.0) `"codex"` (default), `"agy"` or (wave 23) `"muse"`: the CLI that carries it (see "Engines"). For `agy` and `muse`: `provider` is a free label, `model` is required, `codex_config` and `auth` are refused; one label names one engine across the roster (Wave 29) `"claude"`: Claude Code headless (`claude -p`): `provider` is a free label (default `anthropic`), `model` is REQUIRED and must be one of the engine's table (aliases `opus`, `sonnet`, `haiku`, `fable` and the ids listed in "Engines (wave 29)", each optionally ending in `[1m]`), `auth` is `subscription`, `api-key` or (wave 29b) `endpoint` (then the closed model table does not apply: the id as the provider publishes it - and (E11) an Anthropic model id, i.e. an id or alias of the table or any `claude-*` id, is refused: the init event's `apiKeySource` is `none` on this route as on the subscription, so only a model the subscription cannot serve proves the billing), `codex_config` is refused. |
 | `reviewers[].endpoint` | (wave 29b) object `{"base_url": "https://...", "env_key": "<VARIABLE NAME>", "timeout_ms": <optional>}`: REQUIRED with engine `claude` and `auth: "endpoint"`, REFUSED with `subscription` / `api-key` and on every other engine. `base_url` is an absolute https URL without credentials, query or fragment (sent as written as `ANTHROPIC_BASE_URL`); `env_key` is the NAME of the variable that holds the token (`^[A-Z][A-Z0-9_]{2,}$`; the operator sets it, the value is read at launch and never logged); `timeout_ms` is optional, 60000-7200000, default 3000000 (`API_TIMEOUT_MS`); an unknown key is refused. See "Endpoint mode" under "Engines (wave 29)" |
 | `reviewers[].plan` | (wave 29b) optional slug (`^[a-z][a-z0-9-]{1,31}$`), allowed on every entry of every engine: the entries that share one plan share one quota. A quota-class failure (usage limit, 429) on any of them marks every entry of the plan out until the same reset time, and the plan is one scheduling group across engines; auth, transport and capability failures stay with their own route. Without `plan` nothing propagates |
@@ -2235,7 +2246,7 @@ entries. `-MaxModelSteps` travels in the panel spec to the muse members (refused
 panel has none); a muse member whose billing guard refuses is skipped (`refused: ...`).
 Every member sees the findings that were open when the panel started, not a later
 member's answer; a later panel on the same task does see this panel's findings (members are
-not blind across waves). `-PanelAll` includes `weighty` entries whatever the purpose.
+not blind across waves). `-PanelAll` includes `weighty` and `light` entries whatever the purpose.
 `-Panel`/`-PanelAll` need a roster and are refused with `-Provider`, `-Thread` or
 `-Mode resume`.
 
@@ -2330,10 +2341,10 @@ findings across members (ROADMAP R9): compare the replies yourself.
 **Size by stakes.** A panel starts as many members as its purpose needs: `chore`, no purpose
 and `checkpoint` **1**, `diff-review` **2**, `framing` and `decision` **3**, `core-contract` and
 `acceptance` **4**, `stuck` **every eligible member**. `-PanelSize <n>` (n >= 1) overrides it;
-`-PanelAll` takes every eligible member, the `weighty` ones included (`-PanelSize` with
-`-PanelAll` is refused). *Eligible* = available by the roster walk's verdict, past the weighty
-gate, matching `-Engine`/`-Model` - one set for the size, the ranking, the draw and the
-exploration. The size bounds the members STARTED and is capped at the eligible count; there is
+`-PanelAll` takes every eligible member, the `weighty` and `light` ones included (`-PanelSize`
+with `-PanelAll` is refused). *Eligible* = available by the roster walk's verdict, past the
+weighty and light gates, matching `-Engine`/`-Model` - one set for the size, the ranking, the
+draw and the exploration. The size bounds the members STARTED and is capped at the eligible count; there is
 **no backfill** - a member that fails (or hits its peak window at launch) is not replaced. An
 eligible entry without a seat is listed `not picked: panel size k` (ledger member state
 `not-picked`) and is never reported as a skip. The first line says `2 of 5 roster entries
@@ -2407,8 +2418,8 @@ run: a usage limit without a reset time is out for its 60 minutes) - one that is
 run **before anything starts, exit 5**, naming who, why and when it is back (`required reviewer
 not available (-Require): #1 openai :: gpt-6-astra (usage limit until ...; back Sun 20:35, in
 2d 10h); nothing was started - ...`); the dry run does the same. In a panel the required take
-their seats first (a `weighty` one on a light purpose included), and a required member that
-produces no usable reply stops the panel at the next member (no further member starts), exit 5;
+their seats first (a `weighty` one on a light purpose and a `light` one on a weighty purpose
+included), and a required member that produces no usable reply stops the panel at the next member (no further member starts), exit 5;
 the ledger's `panel.routing.required` names them.
 
 **Roles.** `-Role <name>` gives a single run - or every member of a panel - a narrow role;

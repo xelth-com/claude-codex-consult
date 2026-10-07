@@ -269,7 +269,18 @@ wire_api = "responses"
   checkpoint with `k3` at `high` (the reviewer verified six prior findings with read-only tool
   calls) took 198 s and ~515k input tokens (410k cached), because Codex re-sends the context on
   every tool turn - budget the window in tokens, not in calls.
-- Roster entry: `{ "provider": "kimi", "model": "k3", "panel": "weighty" }` (or `"always"`).
+- `kimi-for-coding` is K2.8 Preview since 2026-09-11 (released under the unchanged id): a 1M
+  context window on the plan that holds `k3` at 256K, thinking `low | high | max`.
+- Roster entries - one model for the weighty purposes, the other for the rest (2026-10-07,
+  `"panel": "light"`, section 4):
+  `{ "provider": "kimi", "model": "k3", "context_tokens": 256000, "panel": "weighty" }` and
+  `{ "provider": "kimi", "model": "kimi-for-coding", "context_tokens": 1000000, "panel": "light" }`.
+  `k3` takes the architecture decisions (framing, decision, core-contract, acceptance, stuck),
+  `kimi-for-coding` the code reviews and checkpoints; on a weighty purpose `kimi-for-coding` only
+  stands in when `k3` is skipped (e.g. a brief too large for its 256K window), so one weighty
+  panel never spends the plan's 5-hour window on both. Keep `k3` first: the single-reviewer walk
+  ignores the weight, and its context skip moves on to `kimi-for-coding`. One Kimi model only:
+  `{ "provider": "kimi", "model": "k3", "panel": "weighty" }` (or `"always"`).
 
 ## 3e. Alibaba Cloud Model Studio Token Plan (Qwen; a Codex provider)
 
@@ -487,7 +498,10 @@ itself. Full contract: the README, "Engines (wave 29)".
   it, `=none` turns it off; nothing to set up.
 - `"panel": "weighty"` for the expensive reviewer: it joins a `-Panel` run only on
   `framing`, `decision`, `core-contract`, `acceptance` and `stuck` (or `-PanelAll`). The
-  default is `"always"`.
+  default is `"always"`. (2026-10-07) `"panel": "light"` for a second model of the same label
+  that should take the light purposes: it joins on the other purposes, and on those five only stands in when no other entry of its
+  label runs (listed `stands in for #<n> (<that entry's skip reason>)`) - or under `-PanelAll` /
+  `-Require` (the Kimi Code pair in section 3d). Any other value refuses the roster.
 - (0.5.0, companions) optional per entry: `"lab"` - the lab behind the model for a panel's lab
   diversity (e.g. `"moonshot"`; omitted, the bridge takes the vendor of the model id's prefix -
   qwen alibaba, deepseek, kimi/k3 moonshot, glm zhipu, dola/seed bytedance, mimo xiaomi, gemini
