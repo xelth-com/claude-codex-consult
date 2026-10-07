@@ -171,7 +171,8 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
   `.collab/companions-2026-09-26/handoffs/56-claude-wave28d-verdict.md`, closing mimo's F54-1..F54-4 and glm's
   note F53-1 of the wave 28d re-acceptance; built with wave 29 and reviewed with it; E18-E20 close astra's
   F27-1..F27-3 of the 0.6.0 acceptance, `.collab/claude-engine-2026-09-30/handoffs/27-codex-astra-0.6.0-delta.md`,
-  E23-E24 its second round's F30-1, F30-2, `handoffs/30-codex-astra-0.6.0-delta-2.md`):
+  E23-E24 its second round's F30-1, F30-2, `handoffs/30-codex-astra-0.6.0-delta-2.md`, E25-E26 its third
+  round's F32-1, F32-2, `handoffs/32-codex-astra-0.6.0-delta-3.md`):
   - E1 (F54-1) The recovery record keeps the descendants a kill could not verify: beside `survivors[]` a
     `survivors` record now carries `unverified[]` `{pid, why}` - the pids whose start time could not be read
     (the kill check's `Unverified` and its `Why`), written by the three places that record survivors (a turn,
@@ -228,8 +229,8 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
   - E23 (F30-1) A timeout kill that is NOT confirmed and names no pid (the children could not be enumerated and
     the tree-kill fallback failed) keeps the record too, at all three places: state `survivors`, `survivors: []`,
     `unverified: []` and `kill_unconfirmed: "<why>"` (`Get-KillUnconfirmedWhy`). The next run releases it only
-    after a clean scan - by parent pid under the recorded bridge and child, then (outside a panel) the
-    machine-wide rule - with `unknown tree after an unconfirmed kill: the scan found no codex-like process under
+    after a clean scan - by parent pid under the recorded bridge and child, then the machine-wide rule
+    (since E25 for a panel member's record too) - with `unknown tree after an unconfirmed kill: the scan found no codex-like process under
     pid <bridge>, <child> since <started> - released`; a scan that fails or finds a process refuses, and so do
     a host outside Windows and another host (the operator deletes the record; `codex-findings.ps1 -List` names it).
   - E24 (F30-2) `not_spooled_folded[]` entries are `{name, bytes}` - each file's length when the fold counted it
@@ -237,6 +238,18 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
     its complete lines beyond the recorded bytes counted as new (and `-Status` counts them meanwhile) before it
     is deleted, and a shorter one is another file under that name, folded afresh - an older bridge's legacy
     line appended after a crash is counted exactly once.
+  - E25 (F32-1) A PANEL member's record with `kill_unconfirmed` is released only when both scans are clean too -
+    by parent pid AND the machine-wide "looks like codex" check, which a reviewer living under a dead,
+    unrecorded intermediate cannot escape. A live sibling member's reviewer merely postpones the release
+    (`a codex-like process runs: pid N <name> (task not verifiable) - this panel member's unknown tree is
+    released only when no such process runs`).
+  - E26 (F32-2) The legacy file `telemetry-not-spooled.ndjson` is never counted or deleted under its own name:
+    under the telemetry lock the fold first renames it to a unique staged name
+    `telemetry-not-spooled-legacy-<utc ticks>.ndjson` (retried about 1 s while a writer holds it, then skipped
+    this flush with a note), so `{name, bytes}` names one generation exactly and an older bridge that recreates
+    the legacy name writes a new generation the next fold stages again. `-Status` counts the legacy file's lines
+    whole (an entry naming it, from an earlier build, is ignored); TEST HOOK (test mode only):
+    `CODEX_CONSULT_TEST_FOLD_CRASH=2` - the flush exits (88) between the deletes and the `.last` rewrite.
   - Tests: `tests/harness-fixes28e.ps1` (RECORD NOTSPOOLED MARKER ANCHOR DOCS GUARD), registered in
     `tests/run-all.ps1` between `harness-fixes28d` and `harness-claude`; `harness-fixes28d` follows E2 (its
     NOTSPOOLED case reads this process's own file) and E4 (the cut at 300), `harness-telemetry`'s "nothing
@@ -247,7 +260,10 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
     deletes, a read-only `.last`. E23-E24 (RC1, RC2 of handoff 30): RECORD - a denied enumeration with an orphan
     left (`CODEX_CONSULT_TEST_KILL_DENIED=1`): kept, refused while it runs, released once it is gone; outside
     Windows and from another host refused; NOTSPOOLED - a legacy line appended between the crash and the restart,
-    a shorter file under a recorded name, a bare name. Docs: README (the recovery record, the kill, the
+    a shorter file under a recorded name, a bare name. E25-E26 (RC1, RC2 of handoff 32): RECORD - a panel
+    member's tree launcher -> intermediate -> reviewer, the reviewer alive: refused, released once it is gone;
+    NOTSPOOLED - a crash after the deletes and the legacy name recreated with equal and longer contents, a legacy
+    file a writer holds. Docs: README (the recovery record, the kill, the
     not-spooled count, the forgetting marker, the ledger's `compactions` row), `codex-telemetry.ps1`'s help,
     `tests/README.md`.
 

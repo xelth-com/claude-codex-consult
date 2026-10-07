@@ -10047,8 +10047,9 @@ function Get-PendingOriginalNote {
 #      (wave 28e, E23 / F30-1) a record with kill_unconfirmed (a kill that was not confirmed
 #                          and named no pid): its tree is unknown - released only by a clean
 #                          scan by parent pid (the writer, the child, the other recorded pids)
-#                          and, outside a panel, the machine-wide rule; a failed scan, a find,
-#                          a host outside Windows or another host: active (fail-closed).
+#                          AND the machine-wide rule - (E25 / F32-1) a panel member's record
+#                          too (a live sibling's reviewer postpones its release); a failed
+#                          scan, a find, a host outside Windows or another host: active.
 #   3. The process scan: children of the recorded writer and of the recorded pids (Windows
 #      keeps an orphan's parent id), then - for a record OUTSIDE a panel only - the
 #      machine-wide "looks like codex" rule (Find-CodexProcesses; "task not verifiable").
@@ -10181,10 +10182,12 @@ function Test-PendingActive {
     if ($writerGone) { $recordedGone = $(if ($recordedGone) { "$writerGone; $recordedGone" } else { $writerGone }) }
     # (wave 28e, E23 / F30-1) a kill that was not confirmed and named no pid left an UNKNOWN tree
     # (`kill_unconfirmed`): only a clean scan by parent pid - the writer, the child, every other recorded
-    # pid (Windows keeps an orphan's parent id) - and, outside a panel, the machine-wide "looks like codex"
-    # rule releases the record; a scan that fails or finds a process refuses, and so does a host without
-    # the rule by parent pid (outside Windows orphans are reparented) or another host: the operator then
-    # deletes the record knowing none of it runs (fail-closed).
+    # pid (Windows keeps an orphan's parent id) - AND a clean machine-wide "looks like codex" check release
+    # the record ((E25 / F32-1) a panel member's too: a reviewer under a dead, unrecorded intermediate is
+    # invisible by parent; a live sibling member's codex merely postpones the release); a scan that fails or
+    # finds a process refuses, and so does a host without the rule by parent pid (outside Windows orphans
+    # are reparented) or another host: the operator then deletes the record knowing none of it runs
+    # (fail-closed).
     $killUnconfirmed = [string](Get-PropertyValue $Record 'kill_unconfirmed' '')
     if ($killUnconfirmed) {
         $kWhy = "the kill of its $cli run was not confirmed ($killUnconfirmed)"
@@ -10203,12 +10206,19 @@ function Test-PendingActive {
         if ($recordedGone) { $kChecks.Add($recordedGone) }
         $kScans = New-Object System.Collections.Generic.List[object]
         foreach ($parent in $kParents) { $kScans.Add($parent) }
-        # outside a panel the machine-wide rule too: a grandchild whose own parent died is invisible by parent
-        if (-not $isPanel) { $kScans.Add(0) }
+        # then the machine-wide rule, for EVERY record ((E25 / F32-1) a panel member's too): a grandchild
+        # whose own parent died is invisible by parent
+        $kScans.Add(0)
         foreach ($parent in $kScans) {
             $s = Find-CodexProcesses -Since $kSince -Launcher $launcher -BridgePid ([int]$parent)
             if ($s.Failed) { return (& $active "an interrupted consultation ($what) left an UNKNOWN process tree - $kWhy - and the scan for its processes failed: $($s.Check). $kRelease" "unknown tree after an unconfirmed kill; $($s.Check)") }
             if (@($s.Found).Count -gt 0) {
+                if ($isPanel -and [int]$parent -eq 0) {
+                    # (E25) the machine-wide rule cannot tell a sibling member's reviewer from this member's
+                    # orphan: either postpones the release
+                    $list = (@($s.Found) | ForEach-Object { "pid $($_.pid) $($_.name) (task not verifiable)" }) -join ', '
+                    return (& $active "an interrupted consultation ($what) left an UNKNOWN process tree - $kWhy - and a codex-like process runs: $list - this panel member's unknown tree is released only when no such process runs. Wait for it to exit or stop it, then retry (or delete $Path once you know it is unrelated)." "unknown tree after an unconfirmed kill; $($s.Check)")
+                }
                 $list = (@($s.Found) | ForEach-Object { "pid $($_.pid) $($_.name) [$($_.rule)]" }) -join ', '
                 return (& $active "an interrupted consultation ($what) left an UNKNOWN process tree - $kWhy - and a $cli-like process of it may still run: $list, found by $($s.Check). Wait for it to exit or stop it, then retry (or delete $Path once you know it is unrelated)." "unknown tree after an unconfirmed kill; $($s.Check)")
             }
@@ -11902,21 +11912,30 @@ function Add-TelemetryNotSpooled {
 
 # (wave 28e, E2) The not-spooled files of the codex home: the producers' files
 # telemetry-not-spooled-<pid>-<start ticks>.ndjson and the legacy single file
-# telemetry-not-spooled.ndjson (written before wave 28e). [object[]] of { Path; Name; Pid (0: legacy);
-# Ticks; Legacy }, sorted by name. Another name that starts the same way is not one of them.
+# telemetry-not-spooled.ndjson (written before wave 28e) - (E26 / F32-2) and the legacy file's STAGED
+# generations telemetry-not-spooled-legacy-<utc ticks>.ndjson (a flush renames the legacy file to such a
+# unique name before it counts it; no producer writes to one). [object[]] of { Path; Name; Pid (0: legacy
+# or staged); Ticks; Legacy; Staged }, sorted by name. Another name that starts the same way is not one of
+# them.
 function Get-TelemetryNotSpooledFiles {
     param($Paths = $null)
     $p = $(if ($Paths) { $Paths } else { Get-TelemetryPaths })
     $out = New-Object System.Collections.Generic.List[object]
     if (-not $p -or -not [IO.Directory]::Exists($p.Home)) { return , ([object[]]@()) }
     foreach ($f in @(Get-ChildItem -LiteralPath $p.Home -File -Force -Filter 'telemetry-not-spooled*.ndjson' -ErrorAction SilentlyContinue | Sort-Object Name)) {
-        if ($f.Name -eq 'telemetry-not-spooled.ndjson') { $out.Add([pscustomobject]@{ Path = $f.FullName; Name = $f.Name; Pid = 0; Ticks = [long]0; Legacy = $true }); continue }
+        if ($f.Name -eq 'telemetry-not-spooled.ndjson') { $out.Add([pscustomobject]@{ Path = $f.FullName; Name = $f.Name; Pid = 0; Ticks = [long]0; Legacy = $true; Staged = $false }); continue }
+        $ms = [regex]::Match($f.Name, '^telemetry-not-spooled-legacy-([0-9]{1,19})\.ndjson$')
+        if ($ms.Success) {
+            $st = [long]0
+            if ([long]::TryParse($ms.Groups[1].Value, [ref]$st)) { $out.Add([pscustomobject]@{ Path = $f.FullName; Name = $f.Name; Pid = 0; Ticks = $st; Legacy = $false; Staged = $true }) }
+            continue
+        }
         $m = [regex]::Match($f.Name, '^telemetry-not-spooled-([0-9]{1,10})-([0-9]{1,19})\.ndjson$')
         if (-not $m.Success) { continue }
         $fp = [long]0
         $ft = [long]0
         if (-not [long]::TryParse($m.Groups[1].Value, [ref]$fp) -or $fp -gt [int]::MaxValue -or -not [long]::TryParse($m.Groups[2].Value, [ref]$ft)) { continue }
-        $out.Add([pscustomobject]@{ Path = $f.FullName; Name = $f.Name; Pid = [int]$fp; Ticks = $ft; Legacy = $false })
+        $out.Add([pscustomobject]@{ Path = $f.FullName; Name = $f.Name; Pid = [int]$fp; Ticks = $ft; Legacy = $false; Staged = $false })
     }
     return , ([object[]]$out.ToArray())
 }
@@ -11974,10 +11993,14 @@ function Read-SharedTextFrom {
 # (wave 28e, E20 / F27-3; E24 / F30-2) A file that .last `not_spooled_folded[]` names counts only its
 # complete lines BEYOND the bytes recorded there (those are in a fold's note already - a flush that saved
 # .last but did not get to delete it; an older bridge may have appended since); one shorter than that is
-# another file under that name and counts whole; a bare name (bytes unknown) counts nothing.
+# another file under that name and counts whole; a bare name (bytes unknown) counts nothing. (E26 /
+# F32-2) The legacy file telemetry-not-spooled.ndjson counts WHOLE, always - a fold never counts it under
+# its own name (it stages it first), so no entry ever covers it (one an earlier build wrote is ignored).
+# LegacyLines: its complete lines (part of Total; the flush without the telemetry lock leaves them out
+# of not_spooled_seen).
 function Get-TelemetryNotSpooled {
     param([switch]$All)
-    $r = [pscustomobject]@{ Count = 0; Last = ''; When = ''; Total = 0; Files = 0 }
+    $r = [pscustomobject]@{ Count = 0; Last = ''; When = ''; Total = 0; Files = 0; LegacyLines = 0 }
     $p = Get-TelemetryPaths
     if (-not $p) { return $r }
     $files = Get-TelemetryNotSpooledFiles -Paths $p
@@ -11990,7 +12013,7 @@ function Get-TelemetryNotSpooled {
     foreach ($f in $files) {
         try {
             $text = $null
-            if ($folded.ContainsKey($f.Name)) {
+            if (-not $f.Legacy -and $folded.ContainsKey($f.Name)) {
                 $b = [long]$folded[$f.Name]
                 if ($b -lt 0) { continue }
                 $text = Read-SharedTextFrom -Path $f.Path -Offset $b
@@ -12002,6 +12025,7 @@ function Get-TelemetryNotSpooled {
             if ($named -and $lines.Count -eq 0) { continue }
             $r.Files++
             $r.Total += $lines.Count
+            if ($f.Legacy) { $r.LegacyLines += $lines.Count }
             foreach ($l in $lines) {
                 try {
                     $o = ConvertFrom-Json -InputObject $l
@@ -12025,6 +12049,14 @@ function Get-TelemetryNotSpooled {
 # (wave 28e, E20 / F27-3) NOTHING is deleted here: the flush first saves .last - the fold's note, the new
 # `not_spooled_seen` and `not_spooled_folded[]` - and only after that save deletes the files under the
 # handles kept open (Complete-TelemetryNotSpooledFold): a crash or a failed save never loses their count.
+# (E26 / F32-2) The legacy file telemetry-not-spooled.ndjson - the one name older bridges append to and
+# recreate - is never counted or deleted under its own name: before anything is counted it is RENAMED
+# (one atomic [IO.File]::Move) to a unique staged name telemetry-not-spooled-legacy-<utc ticks>.ndjson,
+# which no producer writes to and which never recurs, so {name, bytes} identifies that generation
+# exactly; an older bridge that recreates the legacy name afterwards writes a NEW generation the next fold
+# stages again. A rename that keeps failing (a writer holds the file; retried for about 1 s) skips the
+# legacy file this flush - neither counted nor seen - with a note (Note). A staged file is folded like a
+# gone producer's.
 # (E24 / F30-2) `not_spooled_folded[]` holds {name, bytes} - the length each file had when it was counted
 # (under its handle: nothing appended meanwhile). A file that $AlreadyFolded (Get-TelemetryFoldedMap of the
 # .last before) names was counted by an earlier flush that did not get to delete it: of the SAME length -
@@ -12035,20 +12067,35 @@ function Get-TelemetryNotSpooled {
 # gone simply leaves the list.
 # { Lines (the lines folded now); Producers (the files folded now); Seen (the complete lines of the files
 # kept - the flush's `not_spooled_seen`); Folded (a list of {name, bytes}: every file this fold covers -
-# the new `not_spooled_folded`); Open (the handles held: { Path; Name; Stream }); Home }. Never throws;
-# Complete-TelemetryNotSpooledFold closes the handles.
+# the new `not_spooled_folded`); Open (the handles held: { Path; Name; Stream }); Home; Note ('' or why
+# the legacy file was not staged) }. Never throws; Complete-TelemetryNotSpooledFold closes the handles.
 function Merge-TelemetryNotSpooled {
     param($Paths = $null, $AlreadyFolded = $null)
-    $r = [pscustomobject]@{ Lines = 0; Producers = 0; Seen = 0; Folded = (New-Object System.Collections.Generic.List[object]); Open = (New-Object System.Collections.Generic.List[object]); Home = '' }
+    $r = [pscustomobject]@{ Lines = 0; Producers = 0; Seen = 0; Folded = (New-Object System.Collections.Generic.List[object]); Open = (New-Object System.Collections.Generic.List[object]); Home = ''; Note = '' }
     $p = $(if ($Paths) { $Paths } else { Get-TelemetryPaths })
     if (-not $p) { return $r }
     $r.Home = [string]$p.Home
     $before = $(if ($AlreadyFolded -is [hashtable]) { $AlreadyFolded } else { @{} })
+    # (E26) the legacy file staged under a unique name first
+    $legacyPath = Join-Path $p.Home 'telemetry-not-spooled.ndjson'
+    if ([IO.File]::Exists($legacyPath)) {
+        $ticks = [DateTime]::UtcNow.Ticks
+        while ([IO.File]::Exists((Join-Path $p.Home "telemetry-not-spooled-legacy-$ticks.ndjson"))) { $ticks++ }
+        $stagedPath = Join-Path $p.Home "telemetry-not-spooled-legacy-$ticks.ndjson"
+        $moveErr = ''
+        $moved = $false
+        for ($i = 0; $i -lt 10 -and -not $moved; $i++) {
+            try { [IO.File]::Move($legacyPath, $stagedPath); $moved = $true } catch { $moveErr = ConvertTo-OneLine $_.Exception.Message; Start-Sleep -Milliseconds 100 }
+        }
+        if (-not $moved -and [IO.File]::Exists($legacyPath)) { $r.Note = "the legacy not-spooled file $legacyPath could not be staged ($moveErr) - not folded this flush" }
+    }
     foreach ($f in (Get-TelemetryNotSpooledFiles -Paths $p)) {
         try {
+            # (E26) the legacy file itself is never counted (nor seen): staged above, or busy - next flush
+            if ($f.Legacy) { continue }
             $rec = $null
             if ($before.ContainsKey($f.Name)) { $rec = [long]$before[$f.Name] }
-            $gone = ($null -ne $rec) -or $f.Legacy -or ((Get-PidIdentityTicks -ProcessId $f.Pid -StartTicks $f.Ticks) -eq 'gone')
+            $gone = ($null -ne $rec) -or $f.Staged -or ((Get-PidIdentityTicks -ProcessId $f.Pid -StartTicks $f.Ticks) -eq 'gone')
             if ($gone) {
                 $fs = $null
                 try { $fs = New-Object System.IO.FileStream($f.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Delete) } catch { $fs = $null }
@@ -12728,8 +12775,11 @@ function Invoke-TelemetryFlush {
                 $nsSeen = [long]$fold.Seen
                 $foldedNames = [object[]]$fold.Folded.ToArray()
                 if ($fold.Producers -gt 0) { $notes += "$(Get-IsoTimestamp) folded $($fold.Lines) not-spooled line(s) of $($fold.Producers) gone producer(s)" }
+                if ($fold.Note) { $notes += "$(Get-IsoTimestamp) $($fold.Note)" }
             } else {
-                $nsSeen = [long](Get-TelemetryNotSpooled -All).Total
+                # (E26) the legacy file's lines are never seen: they count until a fold stages them
+                $nsAll = Get-TelemetryNotSpooled -All
+                $nsSeen = [long]$nsAll.Total - [long]$nsAll.LegacyLines
                 # the entries an earlier fold counted stay while their files are there
                 $foldedNames = [object[]]@(foreach ($k in @($foldedBefore.Keys)) { if ([IO.File]::Exists((Join-Path $p.Home ([string]$k)))) { [pscustomobject]@{ name = [string]$k; bytes = [long]$foldedBefore[$k] } } })
             }
@@ -12744,9 +12794,12 @@ function Invoke-TelemetryFlush {
             }
             if ($saved -and $fold -and $fold.Folded.Count -gt 0) {
                 # TEST HOOK (test mode only): CODEX_CONSULT_TEST_FOLD_CRASH=1 - the process exits (code 87)
-                # between the save of .last and the deletes, as a crash would
-                if ((Get-TestHookValue 'CODEX_CONSULT_TEST_FOLD_CRASH').Trim() -eq '1') { [Environment]::Exit(87) }
+                # between the save of .last and the deletes, as a crash would; (E26) =2 - it exits (code 88)
+                # between the deletes and the rewrite of .last that drops their names
+                $foldCrash = (Get-TestHookValue 'CODEX_CONSULT_TEST_FOLD_CRASH').Trim()
+                if ($foldCrash -eq '1') { [Environment]::Exit(87) }
                 $left = Complete-TelemetryNotSpooledFold -Fold $fold -Delete
+                if ($foldCrash -eq '2') { [Environment]::Exit(88) }
                 if ($left.Count -ne $foldedNames.Count) {
                     $lastNew.not_spooled_folded = [object[]]$left
                     try { Write-JsonFile -Path $p.Last -Object $lastNew } catch { }

@@ -31,7 +31,11 @@
 # outside Windows or from another host such a record is refused (E23); NOTSPOOLED - not_spooled_folded[]
 # holds {name, bytes}: a legacy line appended between the crash and the restarted flush is counted exactly
 # once, a shorter file under a recorded name is folded afresh, a bare name of the E20 build is not counted
-# (E24).
+# (E24). The third round (handoff 32, F32-1, F32-2; E25, E26): RECORD - a PANEL member's unknown tree whose
+# reviewer lives under a dead, unrecorded intermediate is refused by the machine-wide check, released once
+# it is gone (E25); NOTSPOOLED - the legacy file is staged under a unique name before it is counted: a crash
+# after the deletes (CODEX_CONSULT_TEST_FOLD_CRASH=2) and the legacy name recreated with equal or longer
+# contents - every new line counted exactly once; a legacy file a writer holds is skipped with a note (E26).
 # FAKES ONLY: fake-codex3.cmd; CODEX_HOME points at scratch directories, CODEX_CONSULT_ROSTER at
 # scratch files, CODEX_CONSULT_HEALTH is 'none', telemetry off and the intake a closed loopback port
 # (http://127.0.0.1:9/ - nothing is ever sent anywhere); the host markers of the process that runs it
@@ -398,6 +402,60 @@ if (Want 'RECORD') {
     $vOh = Test-PendingActive -Record $recOh -Path 'x.json'
     $kw = @((Get-KillUnconfirmedWhy -Check ([pscustomobject]@{ Confirmed = $false; Why = 'w1'; Survivors = [int[]]@(); Unverified = [int[]]@() })), (Get-KillUnconfirmedWhy -Check ([pscustomobject]@{ Confirmed = $true; Why = ''; Survivors = [int[]]@(); Unverified = [int[]]@() })), (Get-KillUnconfirmedWhy -Check ([pscustomobject]@{ Confirmed = $false; Why = 'w2'; Survivors = [int[]]@(5); Unverified = [int[]]@() })), (Get-KillUnconfirmedWhy -Check ([pscustomobject]@{ Confirmed = $false; Why = 'w3'; Survivors = [int[]]@(); Unverified = [int[]]@(6) })), (Get-KillUnconfirmedWhy -Check ([pscustomobject]@{ Confirmed = $false; Why = ''; Survivors = [int[]]@(); Unverified = [int[]]@() })))
     Check 'RECORD' 'E23 outside Windows (no scan by parent pid) such a record is REFUSED - released only by the operator: "... left an UNKNOWN process tree - the kill of its codex run was not confirmed (...) - and this host cannot scan for its processes by parent pid (...). Make sure no codex process of that run still runs, then delete <record> to release it."; from another host likewise; Get-KillUnconfirmedWhy: the why only for an unconfirmed kill with neither survivors nor unverified pids' ($vNw.Active -and $vNw.Message -match 'left an UNKNOWN process tree - the kill of its codex run was not confirmed \(the children could not be enumerated \(test\)\) - and this host cannot scan for its processes by parent pid' -and $vNw.Message.Contains('then delete C:\r\.collab\t\.consult.pending.json to release it.') -and $vOh.Active -and $vOh.Message -match 'on host OTHER-HOST-28E .*left an UNKNOWN process tree' -and ($kw -join '|') -eq 'w1||||the kill was not confirmed') "$($vNw.Message) | $($vOh.Message) | [$($kw -join '|')]"
+    # (wave 28e, E25 / F32-1) a PANEL member's unknown tree: launcher -> intermediate -> reviewer (a hidden
+    # powershell chain; the reviewer's command line names the recorded launcher), the launcher and the
+    # intermediate stopped, the reviewer alive - its parent dead and unrecorded, invisible to the scan by
+    # parent pid: only the machine-wide check sees it
+    $rp = New-Repo 'record-panel-unknown'
+    $tdP = Join-Path $rp '.collab\t'
+    [void][IO.Directory]::CreateDirectory($tdP)
+    $pendP = Join-Path $tdP '.consult.pending-02.json'
+    $chainDir = Join-Path $work 'chain'
+    [void][IO.Directory]::CreateDirectory($chainDir)
+    $midPs = Join-Path $work 'chain-mid.ps1'
+    [IO.File]::WriteAllText($midPs, @'
+param([string]$Ps, [string]$Launcher, [string]$Dir)
+$r = Start-Process -FilePath $Ps -ArgumentList @('-NoProfile', '-Command', ('Start-Sleep 150 # ' + $Launcher)) -PassThru -WindowStyle Hidden
+[IO.File]::WriteAllText((Join-Path $Dir 'reviewer.pid'), [string]$r.Id)
+Start-Sleep 150
+'@, $u8)
+    $topPs = Join-Path $work 'chain-top.ps1'
+    [IO.File]::WriteAllText($topPs, @'
+param([string]$Ps, [string]$Mid, [string]$Launcher, [string]$Dir)
+$m = Start-Process -FilePath $Ps -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $Mid + '"'), ('"' + $Ps + '"'), ('"' + $Launcher + '"'), ('"' + $Dir + '"')) -PassThru -WindowStyle Hidden
+[IO.File]::WriteAllText((Join-Path $Dir 'mid.pid'), [string]$m.Id)
+Start-Sleep 150
+'@, $u8)
+    # (the record's started is cut to the second: the chain starts well after it)
+    $startedP = Get-IsoTimestamp
+    Start-Sleep -Milliseconds 1500
+    $top = Start-Process -FilePath $psExe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$topPs`"", "`"$psExe`"", "`"$midPs`"", "`"$fake`"", "`"$chainDir`"") -PassThru -WindowStyle Hidden
+    if ($PSVersionTable.PSVersion.Major -lt 6) { try { $null = $top.Handle } catch { } }
+    $sleepers.Add($top)
+    $wc = [Diagnostics.Stopwatch]::StartNew()
+    while (-not (Test-Path -LiteralPath (Join-Path $chainDir 'reviewer.pid')) -and $wc.Elapsed.TotalSeconds -lt 60) { Start-Sleep -Milliseconds 200 }
+    Start-Sleep -Milliseconds 300
+    $midId = 0; [void][int]::TryParse((Text (Join-Path $chainDir 'mid.pid')).Trim(), [ref]$midId)
+    $revId = 0; [void][int]::TryParse((Text (Join-Path $chainDir 'reviewer.pid')).Trim(), [ref]$revId)
+    foreach ($cp in @($midId, $revId)) { $pc = Get-Process -Id $cp -ErrorAction SilentlyContinue; if ($pc) { $sleepers.Add($pc) } }
+    $topStart = [string](Get-ProcessStartIso -ProcessId $top.Id)
+    foreach ($cp in @($top.Id, $midId)) { try { Stop-Process -Id $cp -Force -ErrorAction SilentlyContinue } catch { } }
+    try { $null = $top.WaitForExit(10000) } catch { }
+    $wc = [Diagnostics.Stopwatch]::StartNew()
+    while ((Get-Process -Id $midId -ErrorAction SilentlyContinue) -and $wc.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 100 }
+    $revAlive = [bool](Get-Process -Id $revId -ErrorAction SilentlyContinue)
+    $panelId = [guid]::NewGuid().ToString()
+    [IO.File]::WriteAllText($pendP, '{"state":"survivors","n":2,"nn":"02","reply":"handoffs/02-codex-m-openai.md","events":"","consult_id":"","started":"' + $startedP + '","pid":999998,"host":"' + [Environment]::MachineName + '","launcher":' + (ConvertTo-Json $fake) + ',"engine":"codex","child_pid":' + $top.Id + ',"child_start_time":"' + $topStart + '","survivors":[],"unverified":[],"kill_unconfirmed":"the children could not be enumerated (test)","note":"","panel":{"id":"' + $panelId + '","position":2,"of":2,"parent_pid":999997,"parent_start_time":""}}', $u8)
+    $textP = Text $pendP
+    $logP = Join-Path $work 'record-panel-exec.log'
+    $xp1 = Consult $rp '' @('-Prompt', 'x', '-ReplyName', 'p1') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $logP }
+    Check 'RECORD' 'E25 (F32-1) a PANEL member''s record with kill_unconfirmed, its tree launcher -> intermediate -> reviewer, the launcher and the intermediate stopped and the reviewer alive (its parent dead and unrecorded - the scan by parent pid finds nothing): the machine-wide check sees it - REFUSED (exit 1) "... left an UNKNOWN process tree - ... - and a codex-like process runs: pid <reviewer> powershell.exe (task not verifiable) - this panel member''s unknown tree is released only when no such process runs"; no reviewer launched, the record untouched' ($revAlive -and $midId -gt 0 -and -not (Get-Process -Id $midId -ErrorAction SilentlyContinue) -and $xp1.Code -eq 1 -and $xp1.Out -match 'left an UNKNOWN process tree - the kill of its codex run was not confirmed \(the children could not be enumerated \(test\)\)' -and $xp1.Out -match ("a codex-like process runs: (pid \d+ \S+ \(task not verifiable\), )*pid $revId \S+ \(task not verifiable\)(, pid \d+ \S+ \(task not verifiable\))* - this panel member's unknown tree is released only when no such process runs") -and -not (Test-Path -LiteralPath $logP) -and (Text $pendP) -ceq $textP) "reviewer $revId alive $revAlive (mid $midId, top $($top.Id)) | exit $($xp1.Code) | $($xp1.First)"
+    try { Stop-Process -Id $revId -Force -ErrorAction SilentlyContinue } catch { }
+    $wc = [Diagnostics.Stopwatch]::StartNew()
+    while ((Get-Process -Id $revId -ErrorAction SilentlyContinue) -and $wc.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 100 }
+    $xp2 = Consult $rp '' @('-Prompt', 'x', '-ReplyName', 'p2') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $logP }
+    $ep2 = @(Ledger $rp)[-1]
+    Check 'RECORD' 'E25 the reviewer stopped: both scans clean - the panel member''s record is RELEASED ("recovered reservation n=2, nn=02 (.consult.pending-02.json: state ''survivors'' of an interrupted run; ... unknown tree after an unconfirmed kill: the scan found no codex-like process under pid 999998, <launcher> since <started> - released (...))") and the run goes on (exit 0, a usable reply, the reviewer launched, the record gone)' ($xp2.Code -eq 0 -and $xp2.Out -match ("recovered reservation n=2, nn=02 \(\.consult\.pending-02\.json: state 'survivors' of an interrupted run; .*unknown tree after an unconfirmed kill: the scan found no codex-like process under pid 999998, $($top.Id) since " + [regex]::Escape($startedP) + ' - released \(') -and $ep2.bridge_outcome -eq 'usable reply' -and (Test-Path -LiteralPath $logP) -and -not (Test-Path -LiteralPath $pendP)) "exit $($xp2.Code) | $((($xp2.Out -split "`n") | Where-Object { $_ -match 'recovered' }) -join ' // ')"
     Check 'RECORD' 'E18, E23 the code: the three places keep the record (state survivors) for survivors OR unverified pids OR (E23) an unconfirmed kill with neither (Get-KillUnconfirmedWhy - kill_unconfirmed) - a turn, the main turn, the format repair; the main turn''s outcome says the refusal for the unverified group too' ($cs.Contains("if (`$surv.Count -gt 0 -or @(Get-PropertyValue `$turnKill 'Unverified' @()).Count -gt 0 -or `$turnUnconfirmed)") -and $cs.Contains("if (`$survivors.Count -gt 0 -or `$mainUnverified.Count -gt 0 -or `$mainUnconfirmed)") -and $cs.Contains("if (`$repairSurvivors.Count -gt 0 -or @(Get-PropertyValue `$repairKill 'Unverified' @()).Count -gt 0 -or `$repairUnconfirmed)") -and ([regex]::Matches($cs, [regex]::Escape("Add-Member -NotePropertyName 'kill_unconfirmed'"))).Count -eq 3 -and $cs.Contains('may still run; the next run for this task is refused until')) ''
 }
 
@@ -493,14 +551,17 @@ exit 0
     $legacyA = Join-Path $hf 'telemetry-not-spooled.ndjson'
     [IO.File]::WriteAllText($legacyA, '{"time":"2026-09-01T10:00:00+02:00","why":"legacy-a1"}' + "`n" + '{"time":"2026-09-01T10:01:00+02:00","why":"legacy-a2"}' + "`n", $u8)
     $nA = Get-TelemetryNotSpooled
+    $lenLegacyA = (Get-Item -LiteralPath $legacyA).Length
     $crashF = Run-Child $telemetryPs @('-Flush', '-Telemetry', 'on') $hf @{ CODEX_CONSULT_TEST_FOLD_CRASH = '1' }
+    # (E26) the legacy file was staged under a unique name before it was counted
+    $stagedA = @(Get-ChildItem -LiteralPath $hf -File -Filter 'telemetry-not-spooled-legacy-*.ndjson' | ForEach-Object { $_.Name })
     $lastC = $null; try { $lastC = ConvertFrom-Json (Text $lastF) } catch { }
     $notesC = LastNotes $hf
     $foldLinesC = @($notesC | Where-Object { $_ -match ' folded \d+ not-spooled' })
     $nC = Get-TelemetryNotSpooled
     $stC = Run-Child $telemetryPs @('-Status') $hf
-    $namesA = (@("$([IO.Path]::GetFileName($goneA))=$((Get-Item -LiteralPath $goneA).Length)", "telemetry-not-spooled.ndjson=$((Get-Item -LiteralPath $legacyA).Length)") | Sort-Object) -join ','
-    Check 'NOTSPOOLED' 'E20 (F27-3) a nonzero baseline (not_spooled_seen 2: this live producer''s two lines), two gone producers'' files (999999: 3 lines, the legacy file: 2 - 5 since the last flush), and a crash BETWEEN the save of .last and the deletes (test hook CODEX_CONSULT_TEST_FOLD_CRASH=1: the -Flush child exits 87 there): .last is SAVED - one note "folded 5 not-spooled line(s) of 2 gone producer(s)", not_spooled_seen 2, not_spooled_folded [both files as {name, bytes} - (E24) their lengths at the save] - and both files are still there' ($flA.Exit -eq 0 -and $seenA -eq 2 -and $nA.Count -eq 5 -and $crashF.Code -eq 87 -and $lastC -and [int]$lastC.not_spooled_seen -eq 2 -and ((@($lastC.not_spooled_folded | ForEach-Object { "$($_.name)=$($_.bytes)" }) | Sort-Object) -join ',') -eq $namesA -and $foldLinesC.Count -eq 1 -and $foldLinesC[0] -match '^\S+ folded 5 not-spooled line\(s\) of 2 gone producer\(s\)$' -and (Test-Path -LiteralPath $goneA) -and (Test-Path -LiteralPath $legacyA)) "baseline $seenA | before $($nA.Count) | exit $($crashF.Code) | folded [$(@($lastC.not_spooled_folded | ForEach-Object { "$($_.name)=$($_.bytes)" }) -join ',')] seen $($lastC.not_spooled_seen) | notes $($notesC -join ' // ')"
+    $namesA = (@("$([IO.Path]::GetFileName($goneA))=$((Get-Item -LiteralPath $goneA).Length)", "$(@($stagedA)[0])=$lenLegacyA") | Sort-Object) -join ','
+    Check 'NOTSPOOLED' 'E20 (F27-3) a nonzero baseline (not_spooled_seen 2: this live producer''s two lines), two gone producers'' files (999999: 3 lines, the legacy file: 2 - 5 since the last flush), and a crash BETWEEN the save of .last and the deletes (test hook CODEX_CONSULT_TEST_FOLD_CRASH=1: the -Flush child exits 87 there): .last is SAVED - one note "folded 5 not-spooled line(s) of 2 gone producer(s)", not_spooled_seen 2, not_spooled_folded [both files as {name, bytes} - (E24) their lengths at the save] - and both files are still there ((E26) the legacy file under its staged name telemetry-not-spooled-legacy-<utc ticks>.ndjson, the legacy name free)' ($flA.Exit -eq 0 -and $seenA -eq 2 -and $nA.Count -eq 5 -and $crashF.Code -eq 87 -and $lastC -and [int]$lastC.not_spooled_seen -eq 2 -and ((@($lastC.not_spooled_folded | ForEach-Object { "$($_.name)=$($_.bytes)" }) | Sort-Object) -join ',') -eq $namesA -and $foldLinesC.Count -eq 1 -and $foldLinesC[0] -match '^\S+ folded 5 not-spooled line\(s\) of 2 gone producer\(s\)$' -and (Test-Path -LiteralPath $goneA) -and $stagedA.Count -eq 1 -and -not (Test-Path -LiteralPath $legacyA)) "baseline $seenA | before $($nA.Count) | exit $($crashF.Code) | folded [$(@($lastC.not_spooled_folded | ForEach-Object { "$($_.name)=$($_.bytes)" }) -join ',')] seen $($lastC.not_spooled_seen) | notes $($notesC -join ' // ')"
     Check 'NOTSPOOLED' 'E20 meanwhile -Status leaves out the files .last names (their lines are in the note): "not spooled: none since the last flush (2 line(s) in 1 file(s), ...)"' ($nC.Count -eq 0 -and $nC.Total -eq 2 -and $nC.Files -eq 1 -and $stC.Out -match '(?m)^not spooled: none since the last flush \(2 line\(s\) in 1 file\(s\)') "$(StatusLine $stC.Out 'not spooled')"
     $restart = Run-Child $telemetryPs @('-Flush', '-Telemetry', 'on') $hf
     $lastR = $null; try { $lastR = ConvertFrom-Json (Text $lastF) } catch { }
@@ -508,7 +569,7 @@ exit 0
     $foldLinesR = @($notesR | Where-Object { $_ -match ' folded \d+ not-spooled' })
     $null = Add-TelemetryNotSpooled -Why 'live-3'
     $stR = Run-Child $telemetryPs @('-Status') $hf
-    Check 'NOTSPOOLED' 'E20 the restarted flush DELETES the files .last names WITHOUT counting them again: both gone, the folded note kept ONCE (the same line, no new fold note), not_spooled_seen 2, not_spooled_folded [] (a name leaves once its file is gone); one line appended after it: "not spooled: 1 event(s) since the last flush - the latest <t>: live-3 (3 line(s) in 1 file(s), ..."' ($restart.Code -eq 0 -and -not (Test-Path -LiteralPath $goneA) -and -not (Test-Path -LiteralPath $legacyA) -and $lastR -and [int]$lastR.not_spooled_seen -eq 2 -and $null -ne $lastR.PSObject.Properties['not_spooled_folded'] -and @($lastR.not_spooled_folded | Where-Object { $_ }).Count -eq 0 -and $foldLinesR.Count -eq 1 -and $foldLinesC.Count -eq 1 -and $foldLinesR[0] -ceq $foldLinesC[0] -and $stR.Out -match '(?m)^not spooled: 1 event\(s\) since the last flush - the latest \S+: live-3 \(3 line\(s\) in 1 file\(s\)') "exit $($restart.Code) $($restart.Out) | folded [$(@($lastR.not_spooled_folded) -join ',')] seen $($lastR.not_spooled_seen) | notes $($notesR -join ' // ') | $(StatusLine $stR.Out 'not spooled')"
+    Check 'NOTSPOOLED' 'E20 the restarted flush DELETES the files .last names WITHOUT counting them again: both gone, the folded note kept ONCE (the same line, no new fold note), not_spooled_seen 2, not_spooled_folded [] (a name leaves once its file is gone); one line appended after it: "not spooled: 1 event(s) since the last flush - the latest <t>: live-3 (3 line(s) in 1 file(s), ..."' ($restart.Code -eq 0 -and -not (Test-Path -LiteralPath $goneA) -and -not (Test-Path -LiteralPath $legacyA) -and @(Get-ChildItem -LiteralPath $hf -File -Filter 'telemetry-not-spooled-legacy-*.ndjson').Count -eq 0 -and $lastR -and [int]$lastR.not_spooled_seen -eq 2 -and $null -ne $lastR.PSObject.Properties['not_spooled_folded'] -and @($lastR.not_spooled_folded | Where-Object { $_ }).Count -eq 0 -and $foldLinesR.Count -eq 1 -and $foldLinesC.Count -eq 1 -and $foldLinesR[0] -ceq $foldLinesC[0] -and $stR.Out -match '(?m)^not spooled: 1 event\(s\) since the last flush - the latest \S+: live-3 \(3 line\(s\) in 1 file\(s\)') "exit $($restart.Code) $($restart.Out) | folded [$(@($lastR.not_spooled_folded) -join ',')] seen $($lastR.not_spooled_seen) | notes $($notesR -join ' // ') | $(StatusLine $stR.Out 'not spooled')"
     $goneB = Join-Path $hf 'telemetry-not-spooled-999999-639000000000000002.ndjson'
     [IO.File]::WriteAllText($goneB, '{"time":"2026-10-07T11:00:00+02:00","why":"gone-b1"}' + "`n" + '{"time":"2026-10-07T11:01:00+02:00","why":"gone-b2"}' + "`n", $u8)
     $beforeW = Text $lastF
@@ -540,26 +601,88 @@ exit 0
     # an older bridge appends one more line to the legacy file
     [IO.File]::AppendAllText($legacyG, '{"time":"' + (Get-IsoTimestamp ((Get-Date).AddMinutes(1))) + '","why":"legacy-g3 after the crash"}' + "`n", $u8)
     $nG = Get-TelemetryNotSpooled
-    Check 'NOTSPOOLED' 'E24 (F30-2) the crash replay with a legacy line appended between the crash (exit 87) and the restarted flush: .last named the legacy file WITH its length at the save ({name, bytes}: the 2 lines folded), and meanwhile -Status counts exactly the appended line ("since the last flush" 1, the latest legacy-g3 ...)' ($flG.Exit -eq 0 -and $crashG.Code -eq 87 -and $entG.Count -eq 1 -and [string]$entG[0].name -eq 'telemetry-not-spooled.ndjson' -and [long]$entG[0].bytes -eq $lenG -and $nG.Count -eq 1 -and $nG.Last -eq 'legacy-g3 after the crash') "exit $($crashG.Code) | entries $(ConvertTo-Json -Compress -InputObject $entG) (length at the save $lenG) | count $($nG.Count) '$($nG.Last)'"
+    Check 'NOTSPOOLED' 'E24 (F30-2) the crash replay with a legacy line appended between the crash (exit 87) and the restarted flush: .last named the legacy file ((E26) its staged generation) WITH its length at the save ({name, bytes}: the 2 lines folded), and meanwhile -Status counts exactly the appended line ("since the last flush" 1, the latest legacy-g3 ...)' ($flG.Exit -eq 0 -and $crashG.Code -eq 87 -and $entG.Count -eq 1 -and [string]$entG[0].name -match '^telemetry-not-spooled-legacy-\d+\.ndjson$' -and [long]$entG[0].bytes -eq $lenG -and $nG.Count -eq 1 -and $nG.Last -eq 'legacy-g3 after the crash') "exit $($crashG.Code) | entries $(ConvertTo-Json -Compress -InputObject $entG) (length at the save $lenG) | count $($nG.Count) '$($nG.Last)'"
     $restartG = Run-Child $telemetryPs @('-Flush', '-Telemetry', 'on') $hg
     $lastGR = $null; try { $lastGR = ConvertFrom-Json (Text $lastG) } catch { }
     $notesG = LastNotes $hg
     $nG2 = Get-TelemetryNotSpooled
-    Check 'NOTSPOOLED' 'E24 the restarted flush counts that line EXACTLY ONCE: the original note "folded 2 not-spooled line(s) of 1 gone producer(s)" unchanged (once), one new note "folded 1 not-spooled line(s) of 1 gone producer(s)" (the tail beyond the recorded bytes), the file gone, not_spooled_folded [], not_spooled_seen 1, none since the last flush' ($restartG.Code -eq 0 -and -not (Test-Path -LiteralPath $legacyG) -and @($notesG | Where-Object { $_ -match '^\S+ folded 2 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq 1 -and @($notesG | Where-Object { $_ -match '^\S+ folded 1 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq 1 -and @($notesG | Where-Object { $_ -match ' folded \d+ not-spooled' }).Count -eq 2 -and $lastGR -and $null -ne $lastGR.PSObject.Properties['not_spooled_folded'] -and @($lastGR.not_spooled_folded | Where-Object { $_ }).Count -eq 0 -and [int]$lastGR.not_spooled_seen -eq 1 -and $nG2.Count -eq 0) "exit $($restartG.Code) | notes $($notesG -join ' // ') | folded [$(ConvertTo-Json -Compress -InputObject @($lastGR.not_spooled_folded))] seen $($lastGR.not_spooled_seen) | count $($nG2.Count)"
-    # a name whose recorded bytes are MORE than its file holds (another file under that name), and a bare
-    # name of the E20 build (bytes unknown)
+    Check 'NOTSPOOLED' 'E24 the restarted flush counts that line EXACTLY ONCE: the original note "folded 2 not-spooled line(s) of 1 gone producer(s)" unchanged (once), one new note "folded 1 not-spooled line(s) of 1 gone producer(s)" ((E26) the new legacy generation, staged anew), the file gone, not_spooled_folded [], not_spooled_seen 1, none since the last flush' ($restartG.Code -eq 0 -and -not (Test-Path -LiteralPath $legacyG) -and @($notesG | Where-Object { $_ -match '^\S+ folded 2 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq 1 -and @($notesG | Where-Object { $_ -match '^\S+ folded 1 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq 1 -and @($notesG | Where-Object { $_ -match ' folded \d+ not-spooled' }).Count -eq 2 -and $lastGR -and $null -ne $lastGR.PSObject.Properties['not_spooled_folded'] -and @($lastGR.not_spooled_folded | Where-Object { $_ }).Count -eq 0 -and [int]$lastGR.not_spooled_seen -eq 1 -and $nG2.Count -eq 0) "exit $($restartG.Code) | notes $($notesG -join ' // ') | folded [$(ConvertTo-Json -Compress -InputObject @($lastGR.not_spooled_folded))] seen $($lastGR.not_spooled_seen) | count $($nG2.Count)"
+    # entries of an earlier build: one naming the LEGACY file is ignored (E26: the legacy file is always
+    # staged and counted whole) - shorter than recorded or of the recorded length alike; a bare name (bytes
+    # unknown, the E20 build) of a gone producer's file is deleted without counting
     $mkLast = { param($Folded) Write-JsonFile -Path $lastG -Object ([pscustomobject]@{ time = (Get-IsoTimestamp); result = 'seeded'; delivered = 0; kept = 0; dropped = 0; rejected = [object[]]@(); http = $null; not_spooled_seen = 1; not_spooled_folded = [object[]]$Folded; notes = [object[]]@() }) }
     [IO.File]::WriteAllText($legacyG, '{"time":"2026-09-03T10:00:00+02:00","why":"legacy-new"}' + "`n", $u8)
     & $mkLast @([pscustomobject]@{ name = 'telemetry-not-spooled.ndjson'; bytes = 99999 })
     $nS = Get-TelemetryNotSpooled
     $flS = Invoke-TelemetryFlush -FlushMs 20000
     $notesS = LastNotes $hg
-    [IO.File]::WriteAllText($legacyG, '{"time":"2026-09-04T10:00:00+02:00","why":"legacy-bare"}' + "`n", $u8)
-    & $mkLast @('telemetry-not-spooled.ndjson')
+    [IO.File]::WriteAllText($legacyG, '{"time":"2026-09-03T11:00:00+02:00","why":"legacy-same"}' + "`n", $u8)
+    & $mkLast @([pscustomobject]@{ name = 'telemetry-not-spooled.ndjson'; bytes = (Get-Item -LiteralPath $legacyG).Length })
+    $nE = Get-TelemetryNotSpooled
+    $flE = Invoke-TelemetryFlush -FlushMs 20000
+    $notesE = LastNotes $hg
+    $bareF = Join-Path $hg 'telemetry-not-spooled-999999-639000000000000009.ndjson'
+    [IO.File]::WriteAllText($bareF, '{"time":"2026-09-04T10:00:00+02:00","why":"bare"}' + "`n", $u8)
+    & $mkLast @([IO.Path]::GetFileName($bareF))
     $nB = Get-TelemetryNotSpooled
     $flB = Invoke-TelemetryFlush -FlushMs 20000
     $notesB = LastNotes $hg
-    Check 'NOTSPOOLED' 'E24 a named file SHORTER than its recorded bytes is another file under that name: -Status counts it whole (1) and the flush folds it afresh ("folded 1 not-spooled line(s) of 1 gone producer(s)"); a bare name of the E20 build (bytes unknown): counted nothing, deleted without a note' ($nS.Count -eq 1 -and $flS.Exit -eq 0 -and @($notesS | Where-Object { $_ -match '^\S+ folded 1 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq 1 -and $nB.Count -eq 0 -and $flB.Exit -eq 0 -and @($notesB | Where-Object { $_ -match ' folded \d+ not-spooled' }).Count -eq 0 -and -not (Test-Path -LiteralPath $legacyG)) "shorter: count $($nS.Count), notes $($notesS -join ' // ') | bare: count $($nB.Count), notes $($notesB -join ' // '), file left $(Test-Path -LiteralPath $legacyG)"
+    Check 'NOTSPOOLED' 'E24, E26 an entry naming the LEGACY file (an earlier build) is ignored - SHORTER than its recorded bytes or of the recorded length alike, -Status counts the legacy file whole (1) and the flush stages and folds it ("folded 1 not-spooled line(s) of 1 gone producer(s)"); a bare name (bytes unknown, the E20 build) of a gone producer''s file: counted nothing, deleted without a note' ($nS.Count -eq 1 -and $flS.Exit -eq 0 -and @($notesS | Where-Object { $_ -match '^\S+ folded 1 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq 1 -and $nE.Count -eq 1 -and $flE.Exit -eq 0 -and @($notesE | Where-Object { $_ -match '^\S+ folded 1 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq 1 -and $nB.Count -eq 0 -and $flB.Exit -eq 0 -and @($notesB | Where-Object { $_ -match ' folded \d+ not-spooled' }).Count -eq 0 -and -not (Test-Path -LiteralPath $legacyG) -and -not (Test-Path -LiteralPath $bareF)) "shorter: count $($nS.Count), notes $($notesS -join ' // ') | same length: count $($nE.Count), notes $($notesE -join ' // ') | bare: count $($nB.Count), notes $($notesB -join ' // '), files left $(Test-Path -LiteralPath $legacyG) $(Test-Path -LiteralPath $bareF)"
+    # (wave 28e, E26 / F32-2) the legacy file is STAGED under a unique name before it is counted: a crash
+    # AFTER the deletes and BEFORE the rewrite that drops their names (CODEX_CONSULT_TEST_FOLD_CRASH=2: exit
+    # 88), then an older bridge recreates the legacy name - (a) with contents of the SAME length as the
+    # folded generation, (b) LONGER: every new line is counted exactly once on the restarted flush
+    $legLine = { param([int]$I, [string]$Tag) '{"time":"2026-09-05T10:0' + $I + ':00+02:00","why":"legacy-' + $Tag + $I + '"}' + "`n" }
+    $rc2 = @{}
+    foreach ($case in @(@{ Tag = 'a'; New = 2 }, @{ Tag = 'b'; New = 3 })) {
+        $hk = New-Home "fold3$($case.Tag)"
+        $env:CODEX_HOME = $hk
+        $null = Add-TelemetryNotSpooled -Why "live-$($case.Tag)"
+        $sdk = Join-Path $hk 'telemetry-spool'
+        [void][IO.Directory]::CreateDirectory($sdk)
+        $lastK = Join-Path $sdk '.last'
+        $null = Invoke-TelemetryFlush -FlushMs 20000
+        $legacyK = Join-Path $hk 'telemetry-not-spooled.ndjson'
+        [IO.File]::WriteAllText($legacyK, (& $legLine 1 'o') + (& $legLine 2 'o'), $u8)
+        $lenK = (Get-Item -LiteralPath $legacyK).Length
+        $crashK = Run-Child $telemetryPs @('-Flush', '-Telemetry', 'on') $hk @{ CODEX_CONSULT_TEST_FOLD_CRASH = '2' }
+        $lastKC = $null; try { $lastKC = ConvertFrom-Json (Text $lastK) } catch { }
+        $entK = @($(if ($lastKC) { $lastKC.not_spooled_folded } else { @() }) | Where-Object { $_ })
+        $stagedLeft = @(Get-ChildItem -LiteralPath $hk -File -Filter 'telemetry-not-spooled-legacy-*.ndjson').Count
+        $legacyAfterCrash = Test-Path -LiteralPath $legacyK
+        $notesKC = LastNotes $hk
+        # the older bridge recreates the legacy name
+        [IO.File]::WriteAllText($legacyK, ((@(1..$case.New) | ForEach-Object { & $legLine $_ 'n' }) -join ''), $u8)
+        $lenNew = (Get-Item -LiteralPath $legacyK).Length
+        $nK = Get-TelemetryNotSpooled
+        $restartK = Run-Child $telemetryPs @('-Flush', '-Telemetry', 'on') $hk
+        $lastKR = $null; try { $lastKR = ConvertFrom-Json (Text $lastK) } catch { }
+        $rc2[$case.Tag] = [pscustomobject]@{ Crash = $crashK.Code; Ent = $entK; Len = $lenK; LenNew = $lenNew; StagedLeft = $stagedLeft; LegacyAfterCrash = $legacyAfterCrash; NotesCrash = $notesKC; Status = $nK; Restart = $restartK.Code; Notes = (LastNotes $hk); Last = $lastKR; After = (Get-TelemetryNotSpooled); Left = (NsNames $hk); Own = [IO.Path]::GetFileName((Get-TelemetryPaths).NotSpooledOwn) }
+    }
+    $ka = $rc2['a']
+    $kb = $rc2['b']
+    Check 'NOTSPOOLED' 'E26 (F32-2) a crash AFTER the deletes and BEFORE the rewrite that drops their names (test hook CODEX_CONSULT_TEST_FOLD_CRASH=2: the -Flush child exits 88 there): the legacy file had been STAGED as telemetry-not-spooled-legacy-<utc ticks>.ndjson, counted ("folded 2 not-spooled line(s) of 1 gone producer(s)") and deleted - .last still names that staged generation {name, bytes} - and the legacy name is free' ($ka.Crash -eq 88 -and $ka.Ent.Count -eq 1 -and [string]$ka.Ent[0].name -match '^telemetry-not-spooled-legacy-\d+\.ndjson$' -and [long]$ka.Ent[0].bytes -eq $ka.Len -and $ka.StagedLeft -eq 0 -and -not $ka.LegacyAfterCrash -and @($ka.NotesCrash | Where-Object { $_ -match '^\S+ folded 2 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq 1) "exit $($ka.Crash) | entries $(ConvertTo-Json -Compress -InputObject $ka.Ent) (length $($ka.Len)) | staged left $($ka.StagedLeft) | legacy name taken $($ka.LegacyAfterCrash) | notes $($ka.NotesCrash -join ' // ')"
+    foreach ($kk in @(@{ C = $ka; Tag = 'a'; What = 'the SAME length'; N = 2 }, @{ C = $kb; Tag = 'b'; What = 'LONGER'; N = 3 })) {
+        $c = $kk.C
+        $lenOk = $(if ($kk.Tag -eq 'a') { $c.LenNew -eq $c.Len } else { $c.LenNew -gt $c.Len })
+        Check 'NOTSPOOLED' "E26 ($($kk.Tag)) the legacy name recreated with $($kk.What) contents ($($kk.N) new lines): -Status counts them ($($kk.N) since the last flush), and the restarted flush stages that NEW generation and counts every line exactly once - the original note ""folded 2 ..."" once, a new note ""folded $($kk.N) not-spooled line(s) of 1 gone producer(s)""; nothing of it deleted uncounted: no legacy or staged file left, not_spooled_folded [], none since the last flush" ($lenOk -and $c.Status.Count -eq $kk.N -and $c.Restart -eq 0 -and @($c.Notes | Where-Object { $_ -match '^\S+ folded 2 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq $(if ($kk.N -eq 2) { 2 } else { 1 }) -and @($c.Notes | Where-Object { $_ -match "^\S+ folded $($kk.N) not-spooled line\(s\) of 1 gone producer\(s\)$" }).Count -eq $(if ($kk.N -eq 2) { 2 } else { 1 }) -and @($c.Notes | Where-Object { $_ -match ' folded \d+ not-spooled' }).Count -eq 2 -and $c.Left -ceq $c.Own -and $c.Last -and @($c.Last.not_spooled_folded | Where-Object { $_ }).Count -eq 0 -and $c.After.Count -eq 0) "length $($c.Len) -> $($c.LenNew) | status $($c.Status.Count) | exit $($c.Restart) | notes $($c.Notes -join ' // ') | left $($c.Left) | after $($c.After.Count)"
+    }
+    # a legacy file a writer holds (an older bridge appending): it cannot be staged - skipped this flush
+    # with a note, never counted as seen; the next flush stages it
+    $hb = New-Home 'fold4'
+    $env:CODEX_HOME = $hb
+    [void][IO.Directory]::CreateDirectory((Join-Path $hb 'telemetry-spool'))
+    $legacyB = Join-Path $hb 'telemetry-not-spooled.ndjson'
+    [IO.File]::WriteAllText($legacyB, (& $legLine 1 'h') + (& $legLine 2 'h'), $u8)
+    $holdB = New-Object System.IO.FileStream($legacyB, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+    try { $flBusy = Invoke-TelemetryFlush -FlushMs 20000 } finally { $holdB.Dispose() }
+    $notesBusy = LastNotes $hb
+    $nBusy = Get-TelemetryNotSpooled
+    $seenBusy = -1; try { $seenBusy = [int](ConvertFrom-Json (Text (Join-Path (Join-Path $hb 'telemetry-spool') '.last'))).not_spooled_seen } catch { }
+    $flFree = Invoke-TelemetryFlush -FlushMs 20000
+    $notesFree = LastNotes $hb
+    $nFree = Get-TelemetryNotSpooled
+    Check 'NOTSPOOLED' 'E26 a legacy file a writer holds cannot be staged (the rename retried about 1 s): the flush skips it - a note "the legacy not-spooled file <path> could not be staged (...) - not folded this flush", nothing folded, not_spooled_seen 0 (its lines are never seen) and -Status counts its 2 lines; released, the next flush stages and folds it ("folded 2 ...")' ($flBusy.Exit -eq 0 -and @($notesBusy | Where-Object { $_ -match ('^\S+ the legacy not-spooled file ' + [regex]::Escape($legacyB) + ' could not be staged \(.+\) - not folded this flush$') }).Count -eq 1 -and @($notesBusy | Where-Object { $_ -match ' folded \d+ not-spooled' }).Count -eq 0 -and $seenBusy -eq 0 -and $nBusy.Count -eq 2 -and $flFree.Exit -eq 0 -and @($notesFree | Where-Object { $_ -match '^\S+ folded 2 not-spooled line\(s\) of 1 gone producer\(s\)$' }).Count -eq 1 -and -not (Test-Path -LiteralPath $legacyB) -and $nFree.Count -eq 0 -and (NsNames $hb) -eq '') "busy: notes $($notesBusy -join ' // ') | seen $seenBusy | count $($nBusy.Count) | free: notes $($notesFree -join ' // ') | count $($nFree.Count) | left [$(NsNames $hb)]"
     $env:CODEX_HOME = $savedCodexHome
     $cm = Text $commonPs
     $fnN = $(if ($cm -match '(?s)\nfunction Add-TelemetryNotSpooled \{(.*?)\n\}\r?\n') { $Matches[1] } else { '' })
@@ -651,6 +774,9 @@ if (Want 'DOCS') {
     $miss3 = @(foreach ($k in @('`kill_unconfirmed`', 'unknown tree after an unconfirmed kill: the scan found no codex-like process under pid', '`{name, bytes}`')) { if ($readme.IndexOf($k, [StringComparison]::Ordinal) -lt 0) { $k } })
     Check 'DOCS' 'README: the unknown tree of an unconfirmed kill and its release (E23), not_spooled_folded[] {name, bytes} and the replay of a longer file (E24)' ($miss3.Count -eq 0) "missing: $($miss3 -join ', ')"
     Check 'DOCS' 'CHANGELOG [0.6.0] wave 28e bullet: E23 and E24 with their findings F30-1, F30-2' ($clSec -and $clSec -match '\bE23\b' -and $clSec -match '\bE24\b' -and $clSec -match '\bF30-1\b' -and $clSec -match '\bF30-2\b' -and $clSec.Contains('kill_unconfirmed') -and $clSec.Contains('{name, bytes}')) ''
+    $miss4 = @(foreach ($k in @('this panel member''s unknown tree is released only when no such process runs', '`telemetry-not-spooled-legacy-<utc ticks>.ndjson`', '`CODEX_CONSULT_TEST_FOLD_CRASH=2`')) { if ($readme.IndexOf($k, [StringComparison]::Ordinal) -lt 0) { $k } })
+    Check 'DOCS' 'README: a panel member''s unknown tree released only when the machine-wide check is clean too (E25), the legacy file staged under a unique name and the second crash point (E26)' ($miss4.Count -eq 0) "missing: $($miss4 -join ', ')"
+    Check 'DOCS' 'CHANGELOG [0.6.0] wave 28e bullet: E25 and E26 with their findings F32-1, F32-2' ($clSec -and $clSec -match '\bE25\b' -and $clSec -match '\bE26\b' -and $clSec -match '\bF32-1\b' -and $clSec -match '\bF32-2\b' -and $clSec.Contains('telemetry-not-spooled-legacy-<utc ticks>.ndjson')) ''
     Check 'DOCS' 'tests/README.md describes harness-fixes28e and run-all.ps1 registers it between harness-fixes28d and harness-claude' ($tr.Contains('harness-fixes28e') -and $runAll -match "'harness-fixes28d', 'harness-fixes28e', 'harness-claude'") ''
 }
 

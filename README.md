@@ -1746,14 +1746,19 @@ unless the bridge that wrote it or a codex process from it is still alive; never
   judged by its pid and that start time as before. (Wave 28e, E23 / F30-1) A record with
   `kill_unconfirmed` (a kill that named no pid and was not confirmed) is released only by a clean scan:
   by parent pid under the recorded bridge, then under the recorded child (Windows keeps an orphan's
-  parent id) and, outside a panel, by the machine-wide rule below - a scan that fails refuses (`… left an
+  parent id) and by the machine-wide rule below - a scan that fails refuses (`… left an
   UNKNOWN process tree - the kill of its codex run was not confirmed (<why>) - and the scan for its
   processes failed: …`), one that finds a process refuses naming it (`… and a codex-like process of it
   may still run: pid N … [child of the interrupted bridge (ppid M)], found by …`), and a clean one
   releases the record (`unknown tree after an unconfirmed kill: the scan found no codex-like process
   under pid <bridge>, <child> since <started> - released (…)`). Outside Windows (no scan by parent pid)
   and from another host the run is refused (`… Make sure no codex process of that run still runs, then
-  delete <record> to release it.`), and `codex-findings.ps1 -List` names the record and why.
+  delete <record> to release it.`), and `codex-findings.ps1 -List` names the record and why. (Wave 28e,
+  E25 / F32-1) A panel member's record needs BOTH scans clean as well: a reviewer that lives under a
+  dead, unrecorded intermediate is invisible by parent pid. The machine-wide rule cannot tell a live
+  sibling member's reviewer from this member's orphan, so either postpones the release (`… and a
+  codex-like process runs: pid N <name> (task not verifiable) - this panel member's unknown tree is
+  released only when no such process runs`).
   A dead recorded pid is not proof of a dead tree (it is usually the launcher shim), so
   when every recorded pid is gone, and for a `launching` record, the bridge scans for a
   child of the dead bridge or of a dead recorded pid (Windows keeps an orphan's parent
@@ -3288,14 +3293,21 @@ wrote. (Wave 28e, E20 / F27-3) In THIS order: `.last` is saved first - the note,
 `not_spooled_seen` and `not_spooled_folded[]` (the names of the files the fold covers) - and only after
 that save are the files deleted (then `.last` drops the names of the files now gone). A crash in between
 leaves files `.last` names: `-Status` leaves them out, and the next flush deletes them WITHOUT counting
-them again. (Wave 28e, E24 / F30-2) Each entry is `{name, bytes}` - the file's length when it was counted
-- so an older bridge's line appended to the legacy file after such a crash is counted exactly once: a
-named file of the recorded length is deleted uncounted, a LONGER one has its complete lines beyond the
-recorded bytes counted as new (`-Status` counts them too) and is then deleted, and a shorter one is
-another file under that name, folded afresh. A `.last` that cannot be written folds nothing - the files and the old baseline stay, and the
+them again. (Wave 28e, E24 / F30-2) Each entry is `{name, bytes}` - the file's length when it was
+counted: a named file of the recorded length is deleted uncounted, a LONGER one has its complete lines
+beyond the recorded bytes counted as new (`-Status` counts them too) and is then deleted, and a shorter
+one is another file under that name, folded afresh. (Wave 28e, E26 / F32-2) The legacy file
+`telemetry-not-spooled.ndjson` - the one name older bridges append to and recreate - is never counted or
+deleted under its own name: under the telemetry lock, before anything is counted, the fold renames it
+(one atomic move) to a unique staged name `telemetry-not-spooled-legacy-<utc ticks>.ndjson` that no
+producer writes to and that never recurs, so `{name, bytes}` identifies that generation exactly. An
+older bridge that recreates the legacy name afterwards writes a NEW generation the next fold stages again
+(a legacy file a writer holds is skipped for about 1 s of retries, then this flush, with a note; `-Status`
+always counts the legacy file's lines whole). A `.last` that cannot be written folds nothing - the files and the old baseline stay, and the
 flush's result ends `; warning: <spool>/.last could not be written (...) - nothing was folded: ...`
 (TEST HOOK, test mode only: `CODEX_CONSULT_TEST_FOLD_CRASH=1` - the flush exits between the save and the
-deletes). `-Forget -Local` removes every one of them. After the commit ONE
+deletes; (E26) `CODEX_CONSULT_TEST_FOLD_CRASH=2` - it exits between the deletes and the rewrite of `.last`
+that drops their names). `-Forget -Local` removes every one of them, the staged ones too. After the commit ONE
 detached sender starts - `codex-telemetry.ps1 -Flush`, the same PowerShell, hidden, not waited for
 (a panel starts one when every member is done).
 
@@ -3550,7 +3562,7 @@ Environment variables:
 | `CODEX_CONSULT_CLAUDE_EXE` | user | claude launcher path (the `claude` engine, wave 29) |
 | `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the bridge can read; required (wave 23b: without a readable oauth sign-in no muse run is launched, `-SkipPreflight` included); passed to muse unchanged |
 | `META_API_KEY`, `MODEL_API_KEY` | nobody, for the bridge | must NOT be set: a muse run is refused while either is (it would bill per token instead of the subscription) |
-| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV`, (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL`, `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`, `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`, `CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS`, (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE`, (wave 28d) `CODEX_CONSULT_TEST_TELEMETRY_REWRITE_CRASH`, (wave 28e) `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE`, `CODEX_CONSULT_TEST_FOLD_CRASH` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28; wave 28b) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of every variable of its environment; (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL=1`: the registration write of the engine process fails (D19); `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST=1`: the first endpoint update of a run fails (D13); `..._TELEMETRY_REQUEST_MS` / `..._FLUSH_MS`: the sender's bounds). (wave 28b, D10) A run that finds `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` on the console and in `warnings[]`; no ENGINE child (a turn, a launcher probe) gets `CODEX_CONSULT_TEST_MODE` or any `CODEX_CONSULT_TEST_*` variable - a panel member and the detached background (the bridge itself) keep them, the telemetry sender gets only the test mode and its own hooks. (wave 28c, D12) Where the line appears: the console of a committed run (after the commit) and its `warnings[]`, a dry run (with the other run warnings, and its preview's `warnings[]`), a -Panel run (the panel's lines, and each member's `warnings[]`), a detached run (its foreground's lines and the background's entry) - NOT on a refused run: a refusal stops before anything starts or is written. (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE=<pid>[,<pid>]`: these pids read as a process whose start time cannot be read (D8); `CODEX_CONSULT_TEST_KILL_DENIED=taskkill`: only `taskkill` is denied (`=1` denies the enumeration too); (wave 28e, E19) `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>]`: these pids read with a command line that cannot be read; (E20) `CODEX_CONSULT_TEST_FOLD_CRASH=1`: a flush exits (code 87) between the save of `.last` and the deletes of its fold. (Wave 29) `CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix>` (test mode only): lets the environment variables with that prefix through to a claude engine child (the harness's fake reads `FAKE_CLAUDE_*`); never a prefix of ANTHROPIC, CLAUDE or CODEX_CONSULT. |
+| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV`, (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL`, `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`, `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`, `CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS`, (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE`, (wave 28d) `CODEX_CONSULT_TEST_TELEMETRY_REWRITE_CRASH`, (wave 28e) `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE`, `CODEX_CONSULT_TEST_FOLD_CRASH` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28; wave 28b) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of every variable of its environment; (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL=1`: the registration write of the engine process fails (D19); `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST=1`: the first endpoint update of a run fails (D13); `..._TELEMETRY_REQUEST_MS` / `..._FLUSH_MS`: the sender's bounds). (wave 28b, D10) A run that finds `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` on the console and in `warnings[]`; no ENGINE child (a turn, a launcher probe) gets `CODEX_CONSULT_TEST_MODE` or any `CODEX_CONSULT_TEST_*` variable - a panel member and the detached background (the bridge itself) keep them, the telemetry sender gets only the test mode and its own hooks. (wave 28c, D12) Where the line appears: the console of a committed run (after the commit) and its `warnings[]`, a dry run (with the other run warnings, and its preview's `warnings[]`), a -Panel run (the panel's lines, and each member's `warnings[]`), a detached run (its foreground's lines and the background's entry) - NOT on a refused run: a refusal stops before anything starts or is written. (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE=<pid>[,<pid>]`: these pids read as a process whose start time cannot be read (D8); `CODEX_CONSULT_TEST_KILL_DENIED=taskkill`: only `taskkill` is denied (`=1` denies the enumeration too); (wave 28e, E19) `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>]`: these pids read with a command line that cannot be read; (E20) `CODEX_CONSULT_TEST_FOLD_CRASH=1`: a flush exits (code 87) between the save of `.last` and the deletes of its fold, (E26) `=2`: it exits (code 88) between the deletes and the rewrite of `.last`. (Wave 29) `CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix>` (test mode only): lets the environment variables with that prefix through to a claude engine child (the harness's fake reads `FAKE_CLAUDE_*`); never a prefix of ANTHROPIC, CLAUDE or CODEX_CONSULT. |
 | `CODEX_CONSULT_SCRIPTS_DIR` | tests only | (0.5.0, T4) the scripts directory `tests/run-all.ps1` and every harness test when `-ScriptsDir` is not given (e.g. an installed copy of the plugin); unset: the checkout's `plugins/codex-consult/scripts` |
 
 ---
