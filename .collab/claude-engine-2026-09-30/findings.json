@@ -6947,6 +6947,268 @@
                                                      "tree_sha256":  "5163053776612e8276e35d6a82bc02b0fb7a82b141c928f666ebc44998b73b84"
                                                  }
                                              ]
+                     },
+                     {
+                         "id":  "F27-1",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1892
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  4703
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  5318
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  6083
+                                           }
+                                       ],
+                         "claim":  "A kill with unverified descendants but no confirmed survivors does not retain its recovery record, so a subsequent consultation can start while an uncertain descendant still holds the previous thread.",
+                         "trigger":  "The root exits, Survivors is empty, and Unverified contains a descendant whose identity could not be confirmed.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1892,4703,5318",
+                                              "observation":  "The turn, main-turn and repair paths persist unverified entries only inside their nonempty-survivor branches."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:4692,5020,6073",
+                                              "observation":  "An unconfirmed main kill prevents immediate continuation, but does not set keepPending; commit cleanup removes the record when keepPending is false."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Recovery persistence and cleanup control flow",
+                                              "observation":  "The next invocation has no retained record through which to recheck the uncertain descendant. This pre-existing gap is explicitly retained by E1."
+                                          }
+                                      ],
+                         "verification":  "Run an end-to-end timeout fixture with Survivors empty and one live Unverified PID; require the recovery record to remain and the next consultation to refuse launch.",
+                         "remedy":  "Retain and populate the recovery record whenever Survivors or Unverified is nonempty, consistently across main, continuation, retry and repair paths.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  19,
+                                        "reply":  "handoffs/27-codex-astra-0.6.0-delta.md",
+                                        "thread":  "01a11723-f13a-74d0-b2b9-8bc2c4d45a40",
+                                        "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
+                                        "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T18:22:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
+                                             "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F27-2",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  9765
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  9831
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10110
+                                           }
+                                       ],
+                         "claim":  "The unverified-process recheck treats failure to recognize a process as proof that it is unrelated, allowing a generic-runtime reviewer with an unreadable command line to be dropped.",
+                         "trigger":  "A previously recorded unverified descendant now has a readable start after the consultation began, but its name is node and command-line inspection returns an empty string; no other recorded process remains alive.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:Get-ProcessInfo, Test-UnverifiedProcess",
+                                              "observation":  "Command-line inspection failures become an empty string. A nonmatching Get-CodexRule result then returns Alive=false rather than an unknown identity."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only PowerShell replay of Test-UnverifiedProcess and Test-PendingActive with mocked process inspection",
+                                              "observation":  "A live node PID with a post-start timestamp and empty command line returned Alive=false. With OnWindows=false, a panel recovery record containing that PID returned Active=false and explicitly reported it dropped."
+                                          }
+                                      ],
+                         "verification":  "Replay a recorded generic-runtime descendant with readable start time and failed command-line inspection through Test-PendingActive; require Active=true until exit or affirmative evidence of unrelated identity.",
+                         "remedy":  "Represent inspection failure separately from a successfully inspected nonmatch, and preserve unknown descendants as blocking. Do not infer unrelated identity solely from an unrecognized runtime name.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  19,
+                                        "reply":  "handoffs/27-codex-astra-0.6.0-delta.md",
+                                        "thread":  "01a11723-f13a-74d0-b2b9-8bc2c4d45a40",
+                                        "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
+                                        "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T18:22:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
+                                             "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F27-3",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  11881
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  12498
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  12505
+                                           }
+                                       ],
+                         "claim":  "Counter folding deletes source files before durably recording their counts and new baseline, so interruption or a .last write failure can lose diagnostic accounting and suppress subsequent since-flush counts.",
+                         "trigger":  "A flush deletes a previously counted producer file, then terminates or fails to replace .last, leaving the old not_spooled_seen value.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:11881,12498-12506",
+                                              "observation":  "Merge-TelemetryNotSpooled deletes files before returning. The caller subsequently writes .last, and silently catches failure."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only PowerShell replay of Get-TelemetryNotSpooled",
+                                              "observation":  "With stale not_spooled_seen=10 and one remaining new line, the function returned Total=1 and Count=0."
+                                          }
+                                      ],
+                         "verification":  "Inject a .last replacement failure after a fold deletes its source, restart and append one new line; verify the folded count survives and the new line is reported.",
+                         "remedy":  "Use a recoverable fold journal or staged files with idempotent commit and cleanup, and report persistence failures. Keep baseline updates consistent with the files whose counts they cover.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  19,
+                                        "reply":  "handoffs/27-codex-astra-0.6.0-delta.md",
+                                        "thread":  "01a11723-f13a-74d0-b2b9-8bc2c4d45a40",
+                                        "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
+                                        "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T18:22:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
+                                             "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F27-4",
+                         "status":  "wontfix",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-detached.ps1",
+                                               "line":  217
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  11160
+                                           }
+                                       ],
+                         "claim":  "The non-Windows one-second tolerance still identifies a recycled PID as the old forgetting-marker owner when the two starts differ by less than one second.",
+                         "trigger":  "A forgetting process exits and its PID is reused within the accepted start-time tolerance while its marker remains.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-detached.ps1:Get-PidIdentityTicks",
+                                              "observation":  "Non-Windows start values differing by less than TicksPerSecond return alive."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only PowerShell identity replay with mocked start ticks",
+                                              "observation":  "Non-Windows one-tick and half-second differences returned alive; the Windows one-tick difference returned gone."
+                                          }
+                                      ],
+                         "verification":  "On Linux, test the marker-owner check against distinct process identities whose reported starts fall within one second; require that a stable identity token distinguishes them.",
+                         "remedy":  "Use a stable platform process-start identity on Linux rather than a wall-clock tolerance, or explicitly retain this as an unresolved platform limitation instead of claiming full closure.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  19,
+                                        "reply":  "handoffs/27-codex-astra-0.6.0-delta.md",
+                                        "thread":  "01a11723-f13a-74d0-b2b9-8bc2c4d45a40",
+                                        "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
+                                        "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T18:22:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
+                                             "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T18:23:15+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "E21 (handoff 28): outside Windows .NET reports process start times at one-second resolution, so no finer identity exists there; the marker\u0027s owner check on those hosts is documented as pid + start second (the bridge\u0027s tested host is Windows; a recycled pid within the same second is accepted as the owner, and a -Forget -Local that did not finish is removed by the next -Forget -Local)",
+                                             "evidence":  "",
+                                             "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
+                                             "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
                      }
                  ],
     "ratings":  [
@@ -7220,6 +7482,23 @@
                         "note":  "fourth acceptance round: ACCEPT after A6, with independent replays of the health fix",
                         "when":  "2026-10-07T05:21:31+02:00",
                         "telemetry_sent":  1791343291
+                    },
+                    {
+                        "n":  19,
+                        "consult_id":  "2bbf23ea-b59d-444e-a9ac-3a1eeb3a507f",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-07T18:13:10+02:00",
+                        "useful":  "yes",
+                        "note":  "Two real blockers in E1\u0027s scope and re-check (the survivors-only record, the unreadable command line taken as unrelated), the fold\u0027s write order, the Linux tolerance; in-memory replays as evidence; RC1-RC3 concrete",
+                        "when":  "2026-10-07T18:23:11+02:00",
+                        "telemetry_sent":  1791390191
                     }
                 ]
 }
