@@ -997,7 +997,15 @@ if (Want 'ACCEPT') {
         }
         $xC2 = Consult $rC '' ($claudeArgs + @('-Prompt', 'x', '-ReplyName', 'e14-key')) @{ FAKE_CLAUDE_REPLY = $adviseF; FAKE_CLAUDE_INIT_DROP = 'apiKeySource' }
         $eC2 = Last-Entry $rC
-        Check 'ACCEPT' 'E14 (F20-3): an init without tools, mcp_servers, permissionMode or model -> FAILED "init event lacks <field> - the CLI''s schema changed; pin the version", class capability (never read as an empty array); an init without apiKeySource (an older CLI) stays usable, engine_run.api_key_source null' ($badC.Count -eq 0 -and $xC2.Code -eq 0 -and $eC2.bridge_outcome -eq 'usable reply' -and $eC2.engine_run.PSObject.Properties['api_key_source'] -and $null -eq $eC2.engine_run.api_key_source -and @($eC2.finding_ids).Count -eq 1) "$($badC -join ' | ') | key: $($eC2.bridge_outcome) $($eC2.engine_run.api_key_source)"
+        Check 'ACCEPT' 'E14 (F20-3, A4): an init without tools, mcp_servers, permissionMode or model -> FAILED "init event lacks <field> - the CLI''s schema changed; pin the version", class capability (never read as an empty array); an init without apiKeySource under the default auth subscription -> FAILED, class auth, nothing ingested (A4)' ($badC.Count -eq 0 -and $xC2.Code -eq 1 -and $eC2.bridge_outcome -eq 'failed: init event lacks apiKeySource - the billing proof of this auth mode; pin the CLI version' -and $eC2.provider_failure.class -eq 'auth' -and @($eC2.finding_ids).Count -eq 0) "$($badC -join ' | ') | key: $($eC2.bridge_outcome) $($eC2.provider_failure.class)"
+        $initNoKey = ($initA -replace ',"apiKeySource":"none"', '')
+        $resNoKey = '{"type":"result","subtype":"success","is_error":false,"num_turns":2,"result":"done","session_id":"' + $uA + '","usage":{"input_tokens":10,"output_tokens":5},"modelUsage":{"claude-sonnet-5-5":{"outputTokens":5}},"permission_denials":[],"structured_output":{"schema_version":"1"}}'
+        $nkEvents = Read-ClaudeEvents -Path (EvA 'acc-nokey.jsonl' @($initNoKey, $asstA, $resNoKey))
+        $nkMsg = 'failed: init event lacks apiKeySource - the billing proof of this auth mode; pin the CLI version'
+        $nkSub = Get-ClaudeTurnOutcome -Events $nkEvents -ExitCode 0 -Turn (New-EngineTurnOptions -Model 'sonnet' -NewThread $uA -Auth 'subscription')
+        $nkApi = Get-ClaudeTurnOutcome -Events $nkEvents -ExitCode 0 -Turn (New-EngineTurnOptions -Model 'sonnet' -NewThread $uA -Auth 'api-key')
+        $nkEp = Get-ClaudeTurnOutcome -Events $nkEvents -ExitCode 0 -Turn (New-EngineTurnOptions -Model 'claude-sonnet-5-5' -NewThread $uA -Auth 'endpoint')
+        Check 'ACCEPT' 'A4 (F22-4): an init without apiKeySource - auth subscription and auth api-key -> FAILED, class auth, "init event lacks apiKeySource - the billing proof of this auth mode; pin the CLI version"; auth endpoint -> usable, no key source recorded (engine_run.api_key_source null)' (-not $nkSub.Ok -and $nkSub.Class -eq 'auth' -and $nkSub.Outcome -eq $nkMsg -and -not $nkApi.Ok -and $nkApi.Class -eq 'auth' -and $nkApi.Outcome -eq $nkMsg -and $nkEp.Ok -and @($nkEvents.InitKeySources).Count -eq 0) "sub: $($nkSub.Outcome) | api: $($nkApi.Outcome) $($nkApi.Class) | ep: $($nkEp.Ok) $($nkEp.Outcome)"
 
         # ---- E15: a rejecting rate_limit_event, then a successful result - on the endpoint route of plan zai
         $hE15 = Join-Path $work 'health-accept-e15.json'

@@ -38,7 +38,7 @@ manifests are not bumped yet (the version stays 0.5.1 until the release).
   `message.model` must equal the pinned id after the `[1m]` strip (`a different model authored an assistant message:
   <id>`, class capability; a `modelUsage` key that authored nothing stays `other_models` with its warning); E14 the init
   must carry `model`, `permissionMode`, `tools` and `mcp_servers` (arrays) - else `init event lacks <field> - the CLI's
-  schema changed; pin the version`, class capability; a missing `apiKeySource` is recorded null; E15 a rejecting
+  schema changed; pin the version`, class capability; a missing `apiKeySource` is recorded null only under endpoint (A4: apiKeySource required under subscription and api-key); E15 a rejecting
   `rate_limit_event` beside a successful result keeps the reply usable, with the event raw in `engine_run.rate_limit`,
   the warning `a rate limit rejected a request during the turn: <raw>` and `engine_run.quota_mark` (the quota failure a
   failed turn would record), which the endpoint health, the plan (E5) and the machine-wide record read as a quota failure

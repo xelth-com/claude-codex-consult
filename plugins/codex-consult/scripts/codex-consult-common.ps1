@@ -4873,6 +4873,9 @@ function ConvertFrom-ClaudeResetTime {
 #                    absent, null, not a string or blank; tools and mcp_servers absent or not an
 #                    array (a missing field is never read as an empty one). A missing apiKeySource
 #                    is not listed: it adds nothing to InitKeySources (recorded null - older CLIs)
+#   InitKeyLacks     (A4) $true when any init's apiKeySource is absent, null or not a string; the
+#                    billing proof of subscription and api-key (Get-ClaudeInitProblem), tolerated
+#                    only under auth endpoint
 #   ResultCount      number of `result` events (exactly one is a well-formed stream)
 #   Malformed        '' or why the stream is malformed: a line that does not parse as a JSON object
 #                    (the LAST non-empty line may be partial only with -AllowPartialLast - a killed
@@ -4897,7 +4900,7 @@ function ConvertFrom-ClaudeResetTime {
 function Read-ClaudeEvents {
     param([string]$Path, [switch]$AllowPartialLast)
     $r = [pscustomobject]@{
-        InitCount = 0; InitThread = ''; InitModel = ''; InitThreads = [string[]]@(); InitModels = [string[]]@(); InitModes = [string[]]@(); InitKeySources = [string[]]@(); InitTools = [string[]]@(); InitMcp = [string[]]@(); InitCwd = ''; InitLacks = [string[]]@()
+        InitCount = 0; InitThread = ''; InitModel = ''; InitThreads = [string[]]@(); InitModels = [string[]]@(); InitModes = [string[]]@(); InitKeySources = [string[]]@(); InitKeyLacks = $false; InitTools = [string[]]@(); InitMcp = [string[]]@(); InitCwd = ''; InitLacks = [string[]]@()
         ResultCount = 0; Malformed = ''; HasResult = $false; Thread = ''; Subtype = ''; IsError = $false; Response = ''; Error = ''; HasStructured = $false; StructuredJson = ''
         CostUsd = $null; NumTurns = $null; StopReason = ''; Usage = $null; ModelUsage = [string[]]@(); MainModel = ''; AssistantModels = [string[]]@()
         Denials = [object[]]@(); DenialCount = 0; ToolName = ''; DeniedAction = ''
@@ -4952,8 +4955,9 @@ function Read-ClaudeEvents {
                 if ($null -eq $ap -or $null -eq $ap.Value -or -not ($ap.Value -is [array])) { & $addU $lacks $af }
             }
             # (E14) apiKeySource absent (older CLIs): nothing recorded - engine_run.api_key_source null
+            # (A4) ... but the billing proof of subscription and api-key: InitKeyLacks (absent, null or not a string)
             $ks = Get-PropertyValue $obj 'apiKeySource' $null
-            if ($null -ne $ks) { & $addU $keySources ([string]$ks) }
+            if ($ks -is [string]) { & $addU $keySources $ks } else { $r.InitKeyLacks = $true }
             foreach ($tn in @(Get-PropertyValue $obj 'tools' @())) { if ($null -ne $tn) { & $addU $tools ([string]$tn) } }
             foreach ($ms in @(Get-PropertyValue $obj 'mcp_servers' @())) {
                 if ($null -eq $ms) { continue }
@@ -5078,7 +5082,7 @@ function Read-ClaudeEvents {
 # and child_env_allowed. (wave 29b, E14) First of all every init must CARRY the capability fields -
 # model, permissionMode, tools (an array), mcp_servers (an array): one missing, null or of another
 # type fails the turn with class capability ("init event lacks <field> - the CLI's schema changed;
-# pin the version"); a missing apiKeySource is no failure (recorded null). (E12) The caller runs this
+# pin the version"); a missing apiKeySource fails (class auth) under subscription and api-key, is recorded null under endpoint (A4). (E12) The caller runs this
 # on EVERY turn's events, a turn the bridge killed on its timeout or stall included. { Problem (''
 # when proven or when there is no init - the caller decides); Class }.
 function Get-ClaudeInitProblem {
@@ -5097,6 +5101,11 @@ function Get-ClaudeInitProblem {
             $r.Problem = 'the init event names apiKeySource ANTHROPIC_API_KEY on an endpoint route - a competing credential reached the child (auth endpoint sends ANTHROPIC_AUTH_TOKEN only)'
             $r.Class = 'auth'
         }
+        return $r
+    }
+    if ([bool](Get-PropertyValue $Events 'InitKeyLacks' $false)) {
+        $r.Problem = 'init event lacks apiKeySource - the billing proof of this auth mode; pin the CLI version'
+        $r.Class = 'auth'
         return $r
     }
     $want = $(if ($Auth -eq 'api-key') { 'ANTHROPIC_API_KEY' } else { 'none' })

@@ -2793,7 +2793,7 @@ under review refuses the run.
 **What is proven on every turn.** The init event of EVERY turn must CARRY `model`, `permissionMode`, `tools` (an
 array) and `mcp_servers` (an array) - a missing, null or non-array field FAILS the turn with class `capability`
 (`init event lacks <field> - the CLI's schema changed; pin the version`; wave 29b, E14 - a missing field is never read
-as an empty one; a missing `apiKeySource`, as older CLIs write it, is recorded as `null`, not a failure). It must list
+as an empty one; a missing or non-string `apiKeySource` is the billing proof lacking: it FAILS the turn with class `auth` (`init event lacks apiKeySource - the billing proof of this auth mode; pin the CLI version`) under `subscription` and `api-key`, and is recorded as `null` only under `endpoint`, where the field proves nothing; A4). It must list
 no tool outside `Read`, `Grep`, `Glob` and `StructuredOutput` - the init lists `Read`, `Grep`, `Glob`, plus
 `StructuredOutput` only under the `native` schema transport (`--json-schema`); a prompt-only or raw/chore run lists
 three (E17) -, no MCP server, and `permissionMode` `dontAsk` - else the turn FAILS with class `permission`. (E12) A
