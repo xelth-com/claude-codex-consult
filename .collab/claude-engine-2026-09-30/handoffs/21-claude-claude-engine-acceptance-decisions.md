@@ -59,6 +59,11 @@ A5. (F22-5) E12's wording: an apiKeySource problem of a killed turn's init is cl
     note: a label that carries a `plan` is capped by `parallel.<plan>` (default 1), so raising D5's label limit
     needs `parallel.<plan>` raised as well; the README's roster table says so.
 
+A6. (F24-1, handoff 24 - astra's third round) The machine-wide health file's record identity includes the quota
+    mark's reset when a record carries one: a marked success and an unmarked success of the same route, repository
+    and second are two records, never one; replaying the identical marked record adds nothing. Commit 95eee6e; the
+    ACCEPT fixture of 24-RC1.
+
 Verification (the acceptance's RC1-RC3 of handoff 20): fake-stream fixtures in `tests/harness-claude.ps1` for
 E12-E15 (a prohibited init on a timed-out turn followed by a valid continuation stays FAILED; an Opus-authored
 assistant message under a pinned Sonnet fails; an init without `tools` fails; a rejecting rate-limit event

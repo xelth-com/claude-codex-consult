@@ -2,7 +2,7 @@ Write in English.
 
 # Handoff 14 - claude: acceptance of wave 29 + 29b (the `claude` engine, subscription / API key / third-party endpoint)
 
-Date: 2026-10-06. Base commit: `3ed1f6d` (the last code commit; collab commits follow it) (branch `wip/wave29-claude-engine`; the range under review is
+Date: 2026-10-06. Base commit: `95eee6e` (the last code commit; collab commits follow it).
 `main..HEAD`, `-Range` on the command: 41 files, about 8.8k insertions, of which about 3k are `.collab`
 handoffs and ledgers - skip those files, they are the record of this task, not code).
 
@@ -61,6 +61,13 @@ had happened before today).
   fallback to the login, the partial kept. Known limitation, not of this wave: a reply delivered by a continuation
   turn has ledger `usage` null (the killed main turn has no result event); the continuation's own tokens are in
   the handoff header.
+
+- **After handoff 24 (astra's third round, HOLD on F24-1 only):** A6 (95eee6e) - the machine-health record key
+  includes the quota mark's reset, so a marked and an unmarked success of one route, repository and second are two
+  records; the replay is idempotent; a second repository sees the route out until the reset and the same-plan codex
+  entry out through the plan. 24-RC1 fixture in ACCEPT: harness-claude -Only ACCEPT 12/12, harness-fixes26b -Only
+  HEALTH 6/6 (the full harnesses were last run complete before A4; the machine's memory guard stops long background
+  runs - the full rerun is pending the operator's go).
 
 ## CURRENT invariants claimed
 
@@ -136,6 +143,7 @@ yet - this acceptance is the verification. _(no `proposed` finding open)_
 | 09-RC3, 10-RC1 (fake env/init matrix, apiKeySource acceptance) | `tests/harness-claude.ps1` ENDPOINT | 431ab31 | 0 | the harness summary | 75/75 | completed |
 | 20-RC1 (fixtures E12-E15: prohibited init on a timed-out turn + valid continuation stays failed; foreign assistant model; init without tools; rejecting rate limit + success) | `tests/harness-claude.ps1` ACCEPT | 93c8463, 3ed1f6d | 0 | the harness summary | 85/85 full, 29/29 ACCEPT,BILLING,UNIT after A4 | completed |
 | 20-RC2 (a held codex route of plan zai makes a panel's same-plan claude member wait at limit 1) | `tests/harness-claude.ps1` ACCEPT (E16) | 93c8463 | 0 | the harness summary | waits, proceeds after the hold; the message names the plan | completed |
+| 24-RC1 (unmarked then marked success, same route/repo/second; read from a second repository; replay) | `tests/harness-claude.ps1 -Only ACCEPT` | 95eee6e | 0 | the harness summary | 2 records kept, route and plan out until the reset, replay adds nothing | completed |
 | 20-RC3 (per-provider native-schema consultation + invalid token with the login present) | the bridge, temporary roster: handoffs 22 (MiMo native), 23 (z.ai invalid token); z.ai native = handoff 11 / P8 | 11af9bc | 0 / 1 | handoffs 22, 23 | structured_output on MiMo and z.ai; 401 class auth, no fallback | completed (Kimi Code not run) |
 | 10-RC2 (plan propagation codex+claude, lineage separate) | `tests/harness-claude.ps1` ENDPOINT (quota on a codex entry marks the same-plan claude entry out; auth does not) | 431ab31 | 0 | the harness summary | passes | completed |
 | 10-RC3 (capability smoke per endpoint) | P8, P10 and the live run n=8 | 2.1.291 / 2.1.292 | 0 | handoff 13 | flags accepted, structured output, model reported, usage fields present | completed (z.ai, MiMo; Kimi Code not run) |

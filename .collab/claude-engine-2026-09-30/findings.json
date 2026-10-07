@@ -6004,7 +6004,7 @@
                      },
                      {
                          "id":  "F24-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -6067,6 +6067,15 @@
                                              "evidence":  "",
                                              "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
                                              "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T04:56:16+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A6 (95eee6e): the machine-health record key includes the quota mark\u0027s reset, so a marked and an unmarked success of one route/repository/second are two records; replay idempotent; harness-claude ACCEPT 12/12, fixes26b HEALTH 6/6",
+                                             "evidence":  "",
+                                             "base_commit":  "95eee6ea77aa9987d4b7486b83ba9a2825cee3f8",
+                                             "tree_sha256":  "dd1491f920f52514e0265b29d9a8dcf1b6b8be283caf269192f3aede1d4c102a"
                                          }
                                      ],
                          "reviewer_checks":  [
