@@ -26,7 +26,14 @@ harness-claude first run 55/55 after test fixes 55f5c0b).
 - 2026-10-07: astra alone (20) HOLD -> E12-E17 (21; 450fcf4/93c8463/4aca34d), RC3 smokes 22/23, amendments A1-A5 (3ed1f6d);
   all harnesses green; brief 14 updated for astra's third round.
 
+- 2026-10-07 05:00: astra's fourth round (25, n=18): **ACCEPT** - "no acceptance blockers remain". Rounds: panel 16-18
+  HOLD -> E11; astra 20 HOLD -> E12-E17 (21); MiMo smoke 22 -> A1-A5; astra 24 HOLD -> A6; 25 ACCEPT. 50 findings
+  verified with that evidence, 2 superseded. Code head 95eee6e.
+
 ## Open
+- The operator's decisions: a full suite rerun (the memory guard killed background harnesses; several harnesses
+  last ran complete before E12-E16), the merge to main + 0.6.0 + tag (with wave 28e), the operator's own roster
+  entries for the endpoint route, wave 29c (the paired A/B).
 - Astra's third round on brief 14 (fork) - her verdict decides the tag. Then: ROADMAP/CHANGELOG release notes, the
   operator's roster (endpoint entries are the operator's call), wave 29c (the paired A/B).
 - (old) Astra alone on brief 14 (fork her thread) once her limit resets (retry after 01:01); her verdict decides the tag.

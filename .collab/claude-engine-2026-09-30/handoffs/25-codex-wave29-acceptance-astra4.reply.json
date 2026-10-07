@@ -1,0 +1,285 @@
+{
+  "schema_version": "1",
+  "verdict": "ACCEPT",
+  "verdict_reason": "A6 fixes the last reproduced acceptance blocker, and the targeted replays found no regression in quota retention, ordering or idempotence.",
+  "reply_markdown": "**Q1.** The amended implementation is acceptable at `3f4d0e6`. Earlier verified fixes remain unchanged: prohibited init evidence blocks timeout continuation; foreign assistant models fail; required capability fields and subscription/API-key billing evidence are enforced; inherited routing, effort and persistence overrides are excluded. I found no new demonstrated bypass. E17 supersedes the brief’s stale unconditional four-tool wording; non-authoring auxiliary model usage remains permitted by amended D4.\n\n**Q2.** The endpoint checks remain sufficient for the admitted third-party model IDs under the tested CLI contract: E11 rejects subscription-servable Anthropic IDs, missing tokens refuse launch, and recorded invalid-token attempts fail without subscription fallback. This is bounded evidence for the tested routes and versions, not independent wire-level attribution for every provider.\n\n**Q3.** **F24-1 is fixed.** Independent read-only replays confirmed:\n\n- Unmarked then marked success retains two records and the quota reset.\n- Reversing insertion order preserves the same result.\n- Replaying an identical marked record adds nothing.\n- A different, longer reset remains distinct and governs health selection.\n- Legacy unmarked record keys are unchanged.\n\nThe added harness fixture also exercises actual persistence and second-repository route/plan availability; the brief reports it passing. Earlier quota classification and same-plan running-count checks remain applicable. No new non-quota propagation or intrinsic merged-group deadlock was found. Scheduling remains the documented panel-side check, not atomic admission for all processes; single runs do not wait.\n\n**Q4.** Roster validation is unchanged from the earlier successful mixed-roster and malformed-shape checks. Valid endpoint entries coexist with Codex entries; malformed entries intentionally refuse the entire roster with entry-specific diagnostics. Exhaustive validation of every possible JSON shape is not claimed.\n\n**Q5.** Telemetry code is unchanged. Previous sentinel tests support omission of endpoint URLs, labels and key names, host-first classification, unknown-host `other/other`, and `[1m]` normalization. Quota marks remain outside the telemetry details allowlist.\n\n**Q6.** Fake checks do not establish every provider’s authentication compatibility, actual billing attribution, real quota-event variants, arbitrary kill-point durability, sustained shared-state integrity or effects outside monitored paths. The previously inspected MiMo stream supplies native structured-output and continuation evidence; z.ai supplies invalid-token failure evidence. Full suites were not rerun here because they write files. The brief reports ACCEPT 12/12 and HEALTH 6/6 after A6; the complete rerun remains pending. Both changed PowerShell files passed independent syntax parsing.\n\n**Q7.** **ACCEPT wave 29/29b as the reviewed engine candidate. No acceptance blockers remain.** F07-4 and F10-5 remain nonblocking provider-qualification and retention work; this verdict does not qualify untested providers or establish the deferred cost/quality decision.\n\nThe large range was reviewed cumulatively. This round inspected all four changed non-collaboration files since `b5f1225`—34 insertions and three deletions—and replayed the affected health logic. No files were written.",
+  "findings": [],
+  "prior_findings": [
+    {
+      "id": "F02-1",
+      "status": "fixed",
+      "note": "Strict tree failure and WriteDisabled=false remain unchanged; monitored-write detection is not universal hook prevention."
+    },
+    {
+      "id": "F02-2",
+      "status": "fixed",
+      "note": "Previously verified child-environment allowlist remains unchanged."
+    },
+    {
+      "id": "F02-3",
+      "status": "fixed",
+      "note": "Shared model table, suffix normalization and tested alias resolution remain unchanged."
+    },
+    {
+      "id": "F02-4",
+      "status": "fixed",
+      "note": "Default panel serialization implements D5; broader shared-state guarantees remain limited."
+    },
+    {
+      "id": "F02-5",
+      "status": "fixed",
+      "note": "Explicit denial, quota and continuation rules remain implemented; A6 closes the identified quota-persistence defect."
+    },
+    {
+      "id": "F03-1",
+      "status": "fixed",
+      "note": "Claude retains strict tree failure rather than WriteDisabled attribution."
+    },
+    {
+      "id": "F03-2",
+      "status": "fixed",
+      "note": "API-key environment isolation remains unchanged from the verified implementation."
+    },
+    {
+      "id": "F03-3",
+      "status": "fixed",
+      "note": "Authentication probes and reviewer launches retain the shared environment builder."
+    },
+    {
+      "id": "F03-4",
+      "status": "fixed",
+      "note": "Inherited history-suppression variable remains excluded."
+    },
+    {
+      "id": "F03-5",
+      "status": "fixed",
+      "note": "Inherited effort override remains excluded."
+    },
+    {
+      "id": "F03-6",
+      "status": "fixed",
+      "note": "Previously replayed assistant-model drift fails with capability; enforcement is unchanged."
+    },
+    {
+      "id": "F03-7",
+      "status": "fixed",
+      "note": "Auth-mode/model-family health identities remain separate."
+    },
+    {
+      "id": "F03-8",
+      "status": "fixed",
+      "note": "MaxModelSteps retains its --max-turns mapping."
+    },
+    {
+      "id": "F03-9",
+      "status": "fixed",
+      "note": "Signed-out JSON handling remains ahead of exit-code uncertainty."
+    },
+    {
+      "id": "F04-1",
+      "status": "not-checked",
+      "note": "No sustained shared-state integrity test was performed; recorded successful concurrency remains bounded evidence."
+    },
+    {
+      "id": "F04-2",
+      "status": "not-checked",
+      "note": "Recorded successful interrupted-session resumes do not establish durability at arbitrary kill points."
+    },
+    {
+      "id": "F07-1",
+      "status": "fixed",
+      "note": "Credit-based measurement correction remains; account reconciliation is separate qualification work."
+    },
+    {
+      "id": "F07-2",
+      "status": "fixed",
+      "note": "Kimi Code and Moonshot endpoint/product distinctions remain documented."
+    },
+    {
+      "id": "F07-3",
+      "status": "fixed",
+      "note": "Canonical route/credential scope and separate plan identity remain implemented."
+    },
+    {
+      "id": "F07-4",
+      "status": "still-open",
+      "note": "Bearer-only compatibility is not qualified for every documented provider; this does not block the tested adapter scope."
+    },
+    {
+      "id": "F07-5",
+      "status": "fixed",
+      "note": "Previously executed endpoint telemetry fixtures remain applicable to unchanged code."
+    },
+    {
+      "id": "F07-6",
+      "status": "fixed",
+      "note": "Blanket eligibility assertion remains withdrawn; account-specific operator decisions are not verified here."
+    },
+    {
+      "id": "F07-7",
+      "status": "fixed",
+      "note": "Current claims concern inference/billing rather than guaranteed absence of all Anthropic traffic."
+    },
+    {
+      "id": "F08-1",
+      "status": "fixed",
+      "note": "Verified host-first telemetry classification remains unchanged."
+    },
+    {
+      "id": "F08-2",
+      "status": "fixed",
+      "note": "Verified universal model-suffix normalization remains unchanged."
+    },
+    {
+      "id": "F08-3",
+      "status": "fixed",
+      "note": "Route labels share plan health and scheduling; machine running records carry plan identity."
+    },
+    {
+      "id": "F08-4",
+      "status": "fixed",
+      "note": "Endpoint-local preflight and observed source semantics remain implemented, with recorded invalid-token failure evidence."
+    },
+    {
+      "id": "F08-5",
+      "status": "fixed",
+      "note": "Retention measurement uses credits rather than inferred prompt counts."
+    },
+    {
+      "id": "F08-6",
+      "status": "fixed",
+      "note": "Bounded API_TIMEOUT_MS injection remains implemented."
+    },
+    {
+      "id": "F09-1",
+      "status": "fixed",
+      "note": "Previously verified endpoint telemetry dispatch remains unchanged."
+    },
+    {
+      "id": "F09-2",
+      "status": "fixed",
+      "note": "Endpoint coordinator matching retains the documented route-label/model contract."
+    },
+    {
+      "id": "F09-3",
+      "status": "fixed",
+      "note": "Observed source semantics, E11 restrictions and invalid-token failure evidence address the original ambiguity."
+    },
+    {
+      "id": "F09-4",
+      "status": "fixed",
+      "note": "Endpoint suffix normalization remains implemented."
+    },
+    {
+      "id": "F10-1",
+      "status": "fixed",
+      "note": "Route lineage and plan quota identities remain distinct; A6 preserves marked health records."
+    },
+    {
+      "id": "F10-2",
+      "status": "fixed",
+      "note": "Endpoint environment injection and revised billing evidence remain implemented."
+    },
+    {
+      "id": "F10-3",
+      "status": "fixed",
+      "note": "Host-first classification, MiniMax coverage and suffix handling remain unchanged."
+    },
+    {
+      "id": "F10-4",
+      "status": "fixed",
+      "note": "E16 implements plan-aware panel counts across routes/repositories; atomic global admission and single-run waiting are not claimed."
+    },
+    {
+      "id": "F10-5",
+      "status": "still-open",
+      "note": "All-provider qualification and statistically supported retention remain deferred, outside this engine acceptance."
+    },
+    {
+      "id": "F16-1",
+      "status": "fixed",
+      "note": "E11 endpoint refusals for Anthropic IDs and aliases remain unchanged."
+    },
+    {
+      "id": "F18-1",
+      "status": "fixed",
+      "note": "E11 excludes the identified same-model subscription fallback scope; tested invalid-token behavior remains corroborating evidence."
+    },
+    {
+      "id": "F18-2",
+      "status": "fixed",
+      "note": "Assistant-model drift fails; non-authoring auxiliary usage remains intentionally permitted under amended D4."
+    },
+    {
+      "id": "F20-1",
+      "status": "fixed",
+      "note": "Verified ProofProblem handling and continuation refusal remain unchanged."
+    },
+    {
+      "id": "F20-2",
+      "status": "fixed",
+      "note": "The original foreign-assistant replay fails with capability; enforcement is unchanged."
+    },
+    {
+      "id": "F20-3",
+      "status": "fixed",
+      "note": "Required capability field presence/type checks remain unchanged."
+    },
+    {
+      "id": "F20-4",
+      "status": "fixed",
+      "note": "Recovered rejection retains warning and quota mark under A1; A6 closes the previously identified persistence loss."
+    },
+    {
+      "id": "F22-1",
+      "status": "fixed",
+      "note": "A1 explicitly amends D6 for successful recovery with warning and health mark."
+    },
+    {
+      "id": "F22-2",
+      "status": "fixed",
+      "note": "A2 specifies comparison against the init-resolved ID; previous alias replay passed."
+    },
+    {
+      "id": "F22-3",
+      "status": "fixed",
+      "note": "A3 documents reset-or-sixty-minute behavior and withdraws the burst-duration promise."
+    },
+    {
+      "id": "F22-4",
+      "status": "fixed",
+      "note": "A4 requires billing evidence under subscription/API-key; earlier missing-field replays passed."
+    },
+    {
+      "id": "F22-5",
+      "status": "fixed",
+      "note": "A5 corrects auth classification wording and documents the plan parallelism cap."
+    },
+    {
+      "id": "F24-1",
+      "status": "fixed",
+      "note": "Independent replays retained marked/unmarked records in both orders, preserved the longer reset, and deduplicated identical marked replays; legacy unmarked keys are unchanged."
+    }
+  ],
+  "unproven": [
+    "Full harness suites were not independently rerun; the brief reports targeted ACCEPT and HEALTH passes after A6, with a complete rerun pending.",
+    "Authentication headers, destination attribution and actual account billing across every documented provider and CLI version.",
+    "Kimi Code and other untested endpoints' bearer-authentication and native-schema compatibility.",
+    "Real quota-event variants and overlapping provider limits beyond recorded and synthetic cases.",
+    "Sustained shared-state integrity, arbitrary kill points, simultaneous panel admission and starvation freedom.",
+    "Managed-hook effects outside monitored paths and large-prompt behavior near the configured bound.",
+    "Account-specific terms decisions, dashboard credit reconciliation and statistically reliable route-retention results."
+  ],
+  "first_run_checklist": [
+    "Launcher version, auth mode, endpoint and route fingerprint match the selected roster entry.",
+    "Every init carries valid capability fields, dontAsk, no MCP servers and only permitted tools; native-schema runs expose StructuredOutput.",
+    "Assistant models match the init-resolved pin across main, continuation and repair turns.",
+    "A failed init/model proof remains a failed consultation, with continuation explicitly marked not attempted.",
+    "Subscription/API-key runs report the required apiKeySource; endpoint environment names show the intended routing variables without competing credentials.",
+    "Native-schema success contains validated structured_output; continuation returns the expected session ID and exposes its own usage.",
+    "Recovered quota rejection produces a warning and quota_mark; another repository observes the route and same-plan routes unavailable until the recorded reset.",
+    "Replaying a marked health record does not increase its count, while a same-second unmarked success does not erase it.",
+    "A pre-existing same-plan run on another route produces a panel waiting message, followed by progress after release.",
+    "The tree check is clean and telemetry contains closed classifications without URL, label, key name or secret."
+  ]
+}
