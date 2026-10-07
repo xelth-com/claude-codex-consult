@@ -236,7 +236,9 @@
         roster walk reads it beside the repository's ledgers (one record set, the newest
         decides), and a panel's endpoint parallel limit counts the runs of other repositories
         and panels on the endpoint ("panel member k of n waits: ..."). Optional: absent or
-        unreadable = as before
+        unreadable = as before. (wave 29b, E16) A running row carries the roster entry's plan;
+        a panel member counts every running row of its plan too, of any engine and repository
+        ("... use its plan <slug> ...", the plan's limit: "parallel" {"<plan>": n}, default 1)
       * the roster's "ext" (top level and per entry) is an object reserved for other
         implementations: validated as an object, never read, never written
     Exit codes: 0 usable (a panel: every member), 1 a refusal or a failure, 5 a required
@@ -385,7 +387,11 @@
         the adapter's class, the event error, the adapter's texts, a provider error payload on
         stderr - then only the DIAGNOSTIC stderr lines (ERROR level, or an HTTP status with its
         message; never a known informational engine message such as codex's models refresh),
-        through the one classifier). Never more than one per consultation; never after a
+        through the one classifier) - or (wave 29b, E12) a claude turn whose init or model
+        proof failed although the bridge killed it (an extra tool, an MCP server, another
+        permission mode or model, apiKeySource, a missing init field): that problem is the
+        outcome, "not attempted: the killed turn failed its proof (...)", the salvage is kept.
+        Never more than one per consultation; never after a
         quota, auth or billing failure (the launch guard - muse: auth.json - is re-read right
         before EVERY start of a turn, the main turn included: Start-EngineProcess, F08-1). On a
         prompt-only transport the continuation prompt carries the reply format and the schema
@@ -2901,13 +2907,18 @@ if ($panelRun) {
             $panelSlots.Add($slot)
             $slotOf[[int]$pm.Entry.Position] = $slot
         }
-        # (wave 26b, D13) the endpoint fingerprints of every endpoint group (the machine-wide count)
+        # (wave 26b, D13) the endpoint fingerprints of every endpoint group (the machine-wide count);
+        # (wave 29b, E16) and the plans of its members: a running row of the plan counts too
         $panelGroupFps = @{}
+        $panelGroupPlans = @{}
         foreach ($s in $panelSlots) {
             $gi = [int]$s.Group
             if (-not $panelGroupFps.ContainsKey($gi)) { $panelGroupFps[$gi] = [string[]]@() }
+            if (-not $panelGroupPlans.ContainsKey($gi)) { $panelGroupPlans[$gi] = [string[]]@() }
             $fpS = [string]$s.Pm.Identity.Fingerprint
             if ($fpS -and $panelGroupFps[$gi] -notcontains $fpS) { $panelGroupFps[$gi] = [string[]]@($panelGroupFps[$gi] + $fpS) }
+            $plS = [string](Get-PropertyValue $s.Pm.Entry 'Plan' '')
+            if ($plS -and $panelGroupPlans[$gi] -cnotcontains $plS) { $panelGroupPlans[$gi] = [string[]]@($panelGroupPlans[$gi] + $plS) }
         }
 
         # (wave 25, R12) -Detach: the panel's checks passed (D2: the launchers, the records, the
@@ -3070,14 +3081,20 @@ if ($panelRun) {
                 if (@($panelSlots | Where-Object { $_.Group -eq $slot.Group -and $_.State -eq 'running' }).Count -ge $grp.Limit) { continue }
                 # (wave 26b, D13) the runs of this machine OUTSIDE the panel on the group's endpoints
                 # (another repository's members, another panel, a single run - the machine-wide
-                # health file's running[]) count against the group's limit too
+                # health file's running[]) count against the group's limit too - (wave 29b, E16) and
+                # the runs of the group's PLANS on any route, engine and repository (the group's
+                # limit is never above its plans' "parallel" values, default 1)
                 if (-not $DryRun) {
-                    $extRun = Get-MachineRunningCount -Fingerprints $panelGroupFps[[int]$slot.Group] -ExcludePanel $panelId
+                    $grpPlans = [string[]]@($panelGroupPlans[[int]$slot.Group])
+                    $extRun = Get-MachineRunningCount -Fingerprints $panelGroupFps[[int]$slot.Group] -ExcludePanel $panelId -Plans $grpPlans
                     if ($extRun.Count -gt 0 -and (@($panelSlots | Where-Object { $_.Group -eq $slot.Group -and $_.State -eq 'running' }).Count + $extRun.Count) -ge $grp.Limit) {
                         if (-not $slot.ExternalWaitShown) {
                             $slot.ExternalWaitShown = $true
-                            $extWho = @($extRun.Rows | ForEach-Object { "$([string](Get-PropertyValue $_ 'label' '')) in $([string](Get-PropertyValue $_ 'repo' '')) task $([string](Get-PropertyValue $_ 'task' '')) handoff $([string](Get-PropertyValue $_ 'nn' '')) (pid $([string](Get-PropertyValue $_ 'pid' '')))" }) -join '; '
-                            Write-Host "  panel member $($slot.K) of $($panelRunners.Count) waits: $($extRun.Count) run(s) elsewhere on this machine use its endpoint (parallel limit $($grp.Limit)): $extWho"
+                            $byPlanPids = @(@($extRun.ByPlan) | ForEach-Object { [string](Get-PropertyValue $_ 'pid' '') })
+                            $extWho = @($extRun.Rows | ForEach-Object { $rowPlan = [string](Get-PropertyValue $_ 'plan' ''); "$([string](Get-PropertyValue $_ 'label' '')) in $([string](Get-PropertyValue $_ 'repo' '')) task $([string](Get-PropertyValue $_ 'task' '')) handoff $([string](Get-PropertyValue $_ 'nn' '')) ($(if ($rowPlan -and $byPlanPids -contains [string](Get-PropertyValue $_ 'pid' '')) { "plan $rowPlan, " })pid $([string](Get-PropertyValue $_ 'pid' '')))" }) -join '; '
+                            $usedPlans = @(@($extRun.ByPlan) | ForEach-Object { [string](Get-PropertyValue $_ 'plan' '') } | Where-Object { $_ } | Select-Object -Unique)
+                            $what = $(if (@($extRun.ByPlan).Count -eq 0) { 'its endpoint' } elseif (@($extRun.ByPlan).Count -eq $extRun.Count) { "its plan $($usedPlans -join ', ')" } else { "its endpoint or its plan $($usedPlans -join ', ')" })
+                            Write-Host "  panel member $($slot.K) of $($panelRunners.Count) waits: $($extRun.Count) run(s) elsewhere on this machine use $what (parallel limit $($grp.Limit)): $extWho"
                         }
                         continue
                     }
@@ -4341,7 +4358,7 @@ try {
             unchecked_prior_blockers        = [object[]]@()
             usage                           = $(if ($isCodex) { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n>'; output_tokens = '<n>'; reasoning_output_tokens = '<n>' } } elseif (-not $engineSpec.HasUsage) { $null } else { [pscustomobject]@{ input_tokens = '<n>'; cached_input_tokens = '<n (cache_read_tokens)>'; output_tokens = '<n>'; reasoning_output_tokens = '<n (thinking_tokens)>'; total_tokens = '<n>' } })
             compactions                     = $(if ($contextTokens -gt 0) { "<n (the compactions the engine's stream reported), else 'unknown'>" } else { '<null, or n when the engine''s stream reported a compaction>' })
-            engine_run                      = $(if ($isCodex) { $null } elseif ($engineName -eq 'claude') { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $null; auth = $engineAuth; init_tools = '<the tools the init events listed: Glob, Grep, Read, StructuredOutput>'; mcp_servers = '<0>'; permission_mode = '<dontAsk>'; api_key_source = $(if ($engineAuth -eq 'api-key') { '<ANTHROPIC_API_KEY>' } elseif ($engineAuth -eq 'endpoint') { '<none (recorded raw; ANTHROPIC_API_KEY fails the turn)>' } else { '<none>' }); model_resolved = $(if ($engineAuth -eq 'endpoint') { '<the model id the init event names - it must equal the pinned id>' } else { '<the model id the init event resolved>' }); other_models = '<[] or the other models a turn named>'; permission_denials = '<n>'; denied_tools = '<[] or the tools denied>'; rate_limit = '<null, or the most severe rate_limit_event as the CLI wrote it>'; cost_usd = '<the notional total_cost_usd>'; child_env_allowed = [object[]]@((Get-ClaudeChildEnvironment -Auth $engineAuth -Endpoint $engineEndpoint).Names); switched_off = [object[]]$script:ClaudeSwitchedOff } } else { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $(if ($engineSpec.PromptTransport -eq 'file') { '<the MSP schema_version of the stream: 1>' } else { $null }) } })
+            engine_run                      = $(if ($isCodex) { $null } elseif ($engineName -eq 'claude') { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $null; auth = $engineAuth; init_tools = '<the tools the init events listed: Glob, Grep, Read, StructuredOutput>'; mcp_servers = '<0>'; permission_mode = '<dontAsk>'; api_key_source = $(if ($engineAuth -eq 'api-key') { '<ANTHROPIC_API_KEY>' } elseif ($engineAuth -eq 'endpoint') { '<none (recorded raw; ANTHROPIC_API_KEY fails the turn)>' } else { '<none>' }); model_resolved = $(if ($engineAuth -eq 'endpoint') { '<the model id the init event names - it must equal the pinned id>' } else { '<the model id the init event resolved>' }); other_models = '<[] or the other models a turn named>'; permission_denials = '<n>'; denied_tools = '<[] or the tools denied>'; rate_limit = '<null, or the most severe rate_limit_event as the CLI wrote it>'; quota_mark = '<null, or {class quota, kind, code, message, when, retry_after, hint}: a usable reply whose turn saw a rejecting rate_limit_event - the route is out as after a failed quota turn>'; cost_usd = '<the notional total_cost_usd>'; child_env_allowed = [object[]]@((Get-ClaudeChildEnvironment -Auth $engineAuth -Endpoint $engineEndpoint).Names); switched_off = [object[]]$script:ClaudeSwitchedOff } } else { [pscustomobject]@{ turns = '<the turns started: 1, + a denial retry, + a format repair>'; max_model_steps = $(if ($MaxModelSteps -gt 0) { $MaxModelSteps } else { $null }); msp_schema_version = $(if ($engineSpec.PromptTransport -eq 'file') { '<the MSP schema_version of the stream: 1>' } else { $null }) } })
             wall_seconds                    = 0
             finished_at                     = '<written at the commit>'
             commit_wait_ms                  = '<ms the commit waited for the write lock>'
@@ -4601,7 +4618,8 @@ try {
             # (wave 25) a detached run: its member runs
             Set-DetachedMember -Position $detachMemberPosition -Values @{ state = 'running' }
             # (wave 26b, D13) running on the endpoint: counted by every panel of this machine
-            $null = Register-MachineRunning -Fingerprint ([string]$identity.Fingerprint) -Label ([string]$identity.Provider) -Repo $repoRoot -Task $Task -Nn $nn -Panel $(if ($panelMember) { [string]$panelMember.id } else { '' })
+            # (wave 29b, E16) with the roster entry's plan: a panel elsewhere counts it against the plan
+            $null = Register-MachineRunning -Fingerprint ([string]$identity.Fingerprint) -Label ([string]$identity.Provider) -Repo $repoRoot -Task $Task -Nn $nn -Panel $(if ($panelMember) { [string]$panelMember.id } else { '' }) -Plan $(if ($rosterEntry) { [string](Get-PropertyValue $rosterEntry 'Plan' '') } else { '' })
             # (wave 26b, D10, D12) the wait watches the timeout, the stall cut (-StallSec: no event
             # line for that long) and the operator's kick file
             $mainWait = Wait-EngineProcess -Process $proc -TimeoutSec $TimeoutSec -StallSec $StallSec -EventsPath $eventsPath -KickPath $script:KickPath -Engine $engineName
@@ -4957,6 +4975,10 @@ try {
         $continueThread = $(if ($threadId) { $threadId } elseif (-not $isCodex -and $agyTurn) { [string]$agyTurn.ThreadCandidate } else { '' })
         $continueSkip = ''
         if ($ContinueSec -le 0) { $continueSkip = '-ContinueSec 0' }
+        # (wave 29b, E12) the killed turn's init or model proof failed (claude: a prohibited tool, an
+        # MCP server, another permission mode or model, apiKeySource, a missing init field): a
+        # continuation would resume a session that ran outside the proven capability
+        elseif (-not $isCodex -and $agyTurn -and [string](Get-PropertyValue $agyTurn 'ProofProblem' '')) { $continueSkip = "the killed turn failed its proof (class $([string]$agyTurn.Class): $(ConvertTo-OneLine ([string]$agyTurn.ProofProblem)))" }
         elseif (-not $continueThread) { $continueSkip = 'the thread of the killed turn is not known' }
         elseif ($mainSurvivors -gt 0) { $continueSkip = "$mainSurvivors process(es) survived the kill" }
         elseif ($mainKillUnconfirmed) { $continueSkip = "the kill of the main turn was not confirmed ($($mainKill.Why)) - pid $($mainKill.RootPid) may still hold the thread" }
@@ -5425,6 +5447,7 @@ try {
                     @('permission_denials', [long]$claudeDenials.Count),
                     @('denied_tools', [object[]]@($claudeDenials | ForEach-Object { [string]$_.Tool } | Where-Object { $_ } | Select-Object -Unique)),
                     @('rate_limit', $claudeRate),
+                    @('quota_mark', $null),
                     @('cost_usd', $claudeCost),
                     @('child_env_allowed', [object[]]$claudeEnvNames),
                     @('switched_off', [object[]]$script:ClaudeSwitchedOff))) {
@@ -5483,6 +5506,19 @@ try {
     # (wave 24b) the operator's next step for a failure the bridge can explain (Get-FailureHint:
     # a context-window limit of the plan or the model) - the summary and the handoff header
     $failureHint = Get-FailureHint $providerFailure
+    # (wave 29b, E15) a usable reply whose turn saw a REJECTING rate-limit event: the route's health
+    # gets the mark a failed quota turn would get - the same classifier on the same quota text
+    # (New-ProviderFailure -Class quota: a usage window with its reset, a burst 10 minutes) -, kept in
+    # engine_run.quota_mark and in the machine-wide record; the roster walk, the listing and the
+    # plan (E5) read it as a quota failure right after the reply (Get-EndpointHealth)
+    $quotaMark = $null
+    if (-not $isCodex -and $engineRunRecord -and $engineRunRecord.PSObject.Properties['quota_mark'] -and (Test-UsableOutcome $bridgeOutcome)) {
+        $markText = [string](@(@($agyTurn, $retryOut, $contOut, $repairOut) | Where-Object { $null -ne $_ -and $_.PSObject.Properties['QuotaMark'] -and [string]$_.QuotaMark } | ForEach-Object { [string]$_.QuotaMark }) | Select-Object -First 1)
+        if ($markText) {
+            $quotaMark = New-ProviderFailure -Texts @($markText) -Class 'quota'
+            $engineRunRecord.quota_mark = $quotaMark
+        }
+    }
     # (wave 24) a reply of the timeout continuation says so everywhere (ledger, header, summary)
     if ($continued -and $bridgeOutcome -eq 'usable reply') { $bridgeOutcome = 'usable reply (after a timeout continuation)' }
     # (wave 26b, D13; wave 26c, D2 / F26-2) the run's outcome on the endpoint into the machine-wide
@@ -5494,7 +5530,7 @@ try {
     # the commit and into the retry after it (applying is idempotent)
     $machineHealthRetry = $false
     $machineHealthCause = ''
-    $machineHealthRecord = New-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot
+    $machineHealthRecord = New-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot -QuotaMark $quotaMark
     if ($machineHealthRecord -and -not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot -Record $machineHealthRecord) -and [string]$script:MachineHealthLastError) { $machineHealthRetry = $true; $machineHealthCause = [string]$script:MachineHealthLastError }
     # (wave 28c, D10 / F42-6, F44-1) a journal line that could not be applied was moved aside, never
     # dropped silently: said in warnings[] (the updates of this run so far - its registration, its outcome)

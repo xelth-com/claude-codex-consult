@@ -4868,6 +4868,11 @@ function ConvertFrom-ClaudeResetTime {
 #   InitThreads, InitModels, InitModes, InitKeySources   the distinct values over every init
 #   InitTools        the union of their tools; InitMcp the names of their MCP servers (any entry
 #                    counts); InitCwd the first init's cwd
+#   InitLacks        (wave 29b, E14) the capability fields an init event lacks, over every init, in
+#                    the order model, permissionMode, tools, mcp_servers: model and permissionMode
+#                    absent, null, not a string or blank; tools and mcp_servers absent or not an
+#                    array (a missing field is never read as an empty one). A missing apiKeySource
+#                    is not listed: it adds nothing to InitKeySources (recorded null - older CLIs)
 #   ResultCount      number of `result` events (exactly one is a well-formed stream)
 #   Malformed        '' or why the stream is malformed: a line that does not parse as a JSON object
 #                    (the LAST non-empty line may be partial only with -AllowPartialLast - a killed
@@ -4892,7 +4897,7 @@ function ConvertFrom-ClaudeResetTime {
 function Read-ClaudeEvents {
     param([string]$Path, [switch]$AllowPartialLast)
     $r = [pscustomobject]@{
-        InitCount = 0; InitThread = ''; InitModel = ''; InitThreads = [string[]]@(); InitModels = [string[]]@(); InitModes = [string[]]@(); InitKeySources = [string[]]@(); InitTools = [string[]]@(); InitMcp = [string[]]@(); InitCwd = ''
+        InitCount = 0; InitThread = ''; InitModel = ''; InitThreads = [string[]]@(); InitModels = [string[]]@(); InitModes = [string[]]@(); InitKeySources = [string[]]@(); InitTools = [string[]]@(); InitMcp = [string[]]@(); InitCwd = ''; InitLacks = [string[]]@()
         ResultCount = 0; Malformed = ''; HasResult = $false; Thread = ''; Subtype = ''; IsError = $false; Response = ''; Error = ''; HasStructured = $false; StructuredJson = ''
         CostUsd = $null; NumTurns = $null; StopReason = ''; Usage = $null; ModelUsage = [string[]]@(); MainModel = ''; AssistantModels = [string[]]@()
         Denials = [object[]]@(); DenialCount = 0; ToolName = ''; DeniedAction = ''
@@ -4913,6 +4918,7 @@ function Read-ClaudeEvents {
     $tools = New-Object System.Collections.Generic.List[string]
     $mcp = New-Object System.Collections.Generic.List[string]
     $amodels = New-Object System.Collections.Generic.List[string]
+    $lacks = New-Object System.Collections.Generic.List[string]
     $rlRank = -1
     $addU = { param($list, [string]$v) if (-not $list.Contains($v)) { $list.Add($v) } }
     for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -4935,8 +4941,19 @@ function Read-ClaudeEvents {
             & $addU $threads $sid
             & $addU $models $mdl
             & $addU $modes ([string](Get-PropertyValue $obj 'permissionMode' ''))
+            # (wave 29b, E14) the capability fields must be THERE: a string model and permission mode,
+            # an array of tools and of MCP servers - an absent field proves nothing
+            foreach ($sf in @('model', 'permissionMode')) {
+                $sp = $obj.PSObject.Properties[$sf]
+                if ($null -eq $sp -or -not ($sp.Value -is [string]) -or -not ([string]$sp.Value).Trim()) { & $addU $lacks $sf }
+            }
+            foreach ($af in @('tools', 'mcp_servers')) {
+                $ap = $obj.PSObject.Properties[$af]
+                if ($null -eq $ap -or $null -eq $ap.Value -or -not ($ap.Value -is [array])) { & $addU $lacks $af }
+            }
+            # (E14) apiKeySource absent (older CLIs): nothing recorded - engine_run.api_key_source null
             $ks = Get-PropertyValue $obj 'apiKeySource' $null
-            & $addU $keySources $(if ($null -eq $ks) { '' } else { [string]$ks })
+            if ($null -ne $ks) { & $addU $keySources ([string]$ks) }
             foreach ($tn in @(Get-PropertyValue $obj 'tools' @())) { if ($null -ne $tn) { & $addU $tools ([string]$tn) } }
             foreach ($ms in @(Get-PropertyValue $obj 'mcp_servers' @())) {
                 if ($null -eq $ms) { continue }
@@ -4979,6 +4996,7 @@ function Read-ClaudeEvents {
     $r.InitTools = [string[]]$tools.ToArray()
     $r.InitMcp = [string[]]$mcp.ToArray()
     $r.AssistantModels = [string[]]$amodels.ToArray()
+    $r.InitLacks = [string[]]@(@('model', 'permissionMode', 'tools', 'mcp_servers') | Where-Object { $lacks.Contains($_) })
     if (-not $r.Malformed -and $r.ResultCount -gt 1) { $r.Malformed = "$($r.ResultCount) result events (exactly one expected)" }
     if (-not $r.Malformed -and $afterResult) { $r.Malformed = "an event follows the result event (line $($resultLine + 1)); the result must be the last" }
     if (-not $r.Malformed -and @($r.InitThreads).Count -gt 1) { $r.Malformed = "the init events name $(@($r.InitThreads).Count) sessions ($(@($r.InitThreads) -join ', '))" }
@@ -5057,12 +5075,18 @@ function Read-ClaudeEvents {
 # another way); (wave 29b, E3) endpoint - apiKeySource is none on this route too (P8, P10), so it
 # proves nothing: it is recorded raw, and only ANTHROPIC_API_KEY fails the turn (class auth: a
 # competing credential reached the child) - the proof of the route is the init model (D4, -Exact)
-# and child_env_allowed. { Problem ('' when proven or when there is no init - the caller decides);
-# Class }.
+# and child_env_allowed. (wave 29b, E14) First of all every init must CARRY the capability fields -
+# model, permissionMode, tools (an array), mcp_servers (an array): one missing, null or of another
+# type fails the turn with class capability ("init event lacks <field> - the CLI's schema changed;
+# pin the version"); a missing apiKeySource is no failure (recorded null). (E12) The caller runs this
+# on EVERY turn's events, a turn the bridge killed on its timeout or stall included. { Problem (''
+# when proven or when there is no init - the caller decides); Class }.
 function Get-ClaudeInitProblem {
     param($Events, [string]$Auth = 'subscription')
     $r = [pscustomobject]@{ Problem = ''; Class = '' }
     if ([int]$Events.InitCount -le 0) { return $r }
+    $lack = @(@(Get-PropertyValue $Events 'InitLacks' @()) | Where-Object { $_ }) | Select-Object -First 1
+    if ($null -ne $lack) { $r.Problem = "init event lacks $lack - the CLI's schema changed; pin the version"; $r.Class = 'capability'; return $r }
     $extra = @(@($Events.InitTools) | Where-Object { $script:ClaudeTools -cnotcontains [string]$_ })
     if ($extra.Count -gt 0) { $r.Problem = "the init event lists tools outside $($script:ClaudeTools -join ', '): $($extra -join ', ') - the turn's read-only capability is not proven"; $r.Class = 'permission'; return $r }
     if (@($Events.InitMcp).Count -gt 0) { $r.Problem = "the init event lists MCP server(s) ($(@($Events.InitMcp) -join ', ')) - a reviewer runs without any"; $r.Class = 'permission'; return $r }
@@ -5086,6 +5110,27 @@ function Get-ClaudeInitProblem {
     return $r
 }
 
+# (wave 29b, E12, E13) What a turn's events prove about its MODEL against the pin ($Pinned: the id
+# or alias the turn asked for; -Exact: an endpoint route, equality only): every init event's model
+# must be the pinned one (D4: an alias takes an id of its family) - "model drift: asked <p>, served
+# <m>" -, and (E13) every assistant event's message.model must be the init's id after the [1m]
+# strip - "a different model authored an assistant message: <id>" (the largest-output heuristic of
+# modelUsage does not prove who answered). Class capability. { Problem ('' when proven or when
+# there is no init model); Class }. Run on every turn, a killed one included (E12).
+function Get-ClaudeServedModelProblem {
+    param($Events, [string]$Pinned = '', [switch]$Exact)
+    $r = [pscustomobject]@{ Problem = ''; Class = '' }
+    $served = [string]$Events.InitModel
+    if (-not $served) { return $r }
+    if ($Pinned) {
+        $drift = @(@($Events.InitModels) | Where-Object { -not (Test-ClaudeModelMatch -Pinned $Pinned -Served ([string]$_) -Exact:$Exact) }) | Select-Object -First 1
+        if ($null -ne $drift) { $r.Problem = "model drift: asked $Pinned, served $drift"; $r.Class = 'capability'; return $r }
+    }
+    $foreign = @(@($Events.AssistantModels) | Where-Object { -not (Test-ClaudeModelMatch -Pinned $served -Served ([string]$_) -Exact) }) | Select-Object -First 1
+    if ($null -ne $foreign) { $r.Problem = "a different model authored an assistant message: $foreign"; $r.Class = 'capability'; return $r }
+    return $r
+}
+
 # (item 3, D6) The wording of a usage limit and of a missing sign-in in claude's result text or
 # stderr ("Not logged in <middle dot> Please run /login" - obs; "... usage limit reached|<unix time>", "You've
 # hit your limit <middle dot> resets ...") - field names and wordings beyond the observed ones are assumed.
@@ -5097,11 +5142,16 @@ $script:ClaudeAuthRe = '(?i)not logged in|please run /login|invalid api key|oaut
 
 # The failure rules of one claude turn (the main turn, a denial retry, a format repair, a timeout
 # continuation) - the adapter contract of agy and muse plus -Turn (the turn's options: Mode, Thread,
-# NewThread, Model, Auth) and the fields ModelResolved and OtherModels:
-#   $Pre             a failure the bridge already knows (timeout, could not start) - it wins; a
-#                    rejecting rate_limit_event before it makes the class quota (no continuation)
-#   init proof       (item 4, item 6; evidence first, whatever the exit code) tools, MCP servers,
-#                    permission mode -> class permission; apiKeySource -> class auth
+# NewThread, Model, Auth) and the fields ModelResolved, OtherModels, ProofProblem and QuotaMark:
+#   $Pre             a failure the bridge already knows (timeout, could not start) - it wins over
+#                    everything but the proof of the turn's init and model (wave 29b, E12): a killed
+#                    turn whose init or model proof fails is FAILED with that problem and its class
+#                    ("<problem> (the turn was also stopped: <Pre>)"), ProofProblem set - the caller
+#                    runs no continuation on that session; otherwise a rejecting rate_limit_event
+#                    before the kill makes the class quota (no continuation)
+#   init proof       (item 4, item 6; evidence first, whatever the exit code) (E14) the capability
+#                    fields present -> else class capability; tools, MCP servers, permission mode ->
+#                    class permission; apiKeySource -> class auth; ProofProblem
 #   exit != 0        failed: claude exit <n> - <result text | stderr>; quota or auth wording -> that
 #                    class
 #   malformed        class transport; no init event (exit 0) -> class permission (not proven); no
@@ -5113,15 +5163,22 @@ $script:ClaudeAuthRe = '(?i)not logged in|please run /login|invalid api key|oaut
 #                    rejecting rate_limit_event or the limit wording - D6), auth (its wording),
 #                    capability (error_max_turns - D8 -, error_max_structured_output_retries)
 #   the model        (D4) the init model must be the pinned one (an alias: an id of its family);
-#                    modelUsage's main model must be it too - else class capability; a second key
-#                    is recorded (OtherModels) and warned about
+#                    (E13) every assistant event's message.model must be the init's id after the
+#                    [1m] strip ("a different model authored an assistant message: <id>");
+#                    modelUsage's main model must be it too - else class capability, ProofProblem; a
+#                    modelUsage key that authored no assistant message is recorded (OtherModels) and
+#                    warned about (a helper model of the CLI)
 #   empty reply      with permission denials: failed, class permission, DeniedEmpty (the denial
 #                    retry); otherwise failed: empty reply
 #   usable           denials beside the reply (the tools and paths), a warning rate-limit status and
-#                    other models become Warnings
+#                    other models become Warnings; (E15) a REJECTING rate_limit_event during a turn
+#                    whose result succeeded keeps the reply usable: the warning "a rate limit
+#                    rejected a request during the turn: <the event's info, raw>" and QuotaMark (the
+#                    quota text a failed turn would carry - the caller marks the route's health with
+#                    it, New-ProviderFailure -Class quota)
 function Get-ClaudeTurnOutcome {
     param($Events, [int]$ExitCode, [string]$StderrText = '', [string]$Pre = '', [string]$ExpectThread = '', [string]$ExpectModel = '', $Turn = $null)
-    $o = [pscustomobject]@{ Ok = $false; Outcome = ''; Class = ''; Texts = [string[]]@(); Thread = ''; ThreadCandidate = ''; Reply = ''; Structured = $false; DeniedEmpty = $false; DenialLine = ''; Permission = ''; NotFound = ''; Warnings = [string[]]@(); ModelResolved = ''; OtherModels = [string[]]@() }
+    $o = [pscustomobject]@{ Ok = $false; Outcome = ''; Class = ''; Texts = [string[]]@(); Thread = ''; ThreadCandidate = ''; Reply = ''; Structured = $false; DeniedEmpty = $false; DenialLine = ''; Permission = ''; NotFound = ''; Warnings = [string[]]@(); ModelResolved = ''; OtherModels = [string[]]@(); ProofProblem = ''; QuotaMark = '' }
     $lines = @(([string]$StderrText) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     $stderrTail = $(if ($lines.Count -gt 0) { [string]$lines[-1] } else { '' })
     $mode = [string](Get-PropertyValue $Turn 'Mode' '')
@@ -5172,6 +5229,19 @@ function Get-ClaudeTurnOutcome {
     }
     $detail = $(if ($errText.Trim()) { $errText } else { $stderrTail })
     if ($Pre) {
+        # (wave 29b, E12) a killed turn's init and model are judged too: a prohibited tool, an MCP
+        # server, another permission mode, apiKeySource, a missing capability field, another model -
+        # that problem is the reason (the stop is said after it), and no continuation may resume the
+        # session (ProofProblem); the salvage of the turn is still kept by the caller
+        $proofPre = Get-ClaudeInitProblem -Events $Events -Auth $auth
+        if (-not $proofPre.Problem) { $proofPre = Get-ClaudeServedModelProblem -Events $Events -Pinned $pinned -Exact:$exact }
+        if ($proofPre.Problem) {
+            $stopped = ConvertTo-OneLine ($Pre -replace '^failed:\s*', '')
+            & $fail "$($proofPre.Problem) (the turn was also stopped: $stopped)" $proofPre.Class @($quotaText, $errText, $stderrTail)
+            $o.ProofProblem = $proofPre.Problem
+            $o.ThreadCandidate = & $candidateOf $(if ($resId) { $resId } else { $initId })
+            return $o
+        }
         $o.Outcome = $Pre
         $o.Class = $(if ($quotaText) { 'quota' } else { '' })
         $o.Texts = [string[]]@(@($quotaText, $errText, $stderrTail, ($Pre -replace '^failed:\s*', '')) | Where-Object { $_ })
@@ -5188,6 +5258,7 @@ function Get-ClaudeTurnOutcome {
     $proof = Get-ClaudeInitProblem -Events $Events -Auth $auth
     if ($proof.Problem) {
         & $fail $proof.Problem $proof.Class
+        $o.ProofProblem = $proof.Problem
         $o.ThreadCandidate = & $candidateOf $(if ($resId) { $resId } else { $initId })
         return $o
     }
@@ -5246,16 +5317,17 @@ function Get-ClaudeTurnOutcome {
         $o.ThreadCandidate = $resId
         return $o
     }
-    if ($pinned) {
-        $drift = @(@($Events.InitModels) | Where-Object { -not (Test-ClaudeModelMatch -Pinned $pinned -Served ([string]$_) -Exact:$exact) }) | Select-Object -First 1
-        if ($null -ne $drift) {
-            & $fail "model drift: asked $pinned, served $drift" 'capability'
-            $o.ThreadCandidate = $resId
-            return $o
-        }
+    # (D4) the init model against the pin; (wave 29b, E13) every assistant message by the init's id
+    $modelProof = Get-ClaudeServedModelProblem -Events $Events -Pinned $pinned -Exact:$exact
+    if ($modelProof.Problem) {
+        & $fail $modelProof.Problem $modelProof.Class
+        $o.ProofProblem = $modelProof.Problem
+        $o.ThreadCandidate = $resId
+        return $o
     }
     if (@($Events.ModelUsage).Count -gt 0 -and $Events.MainModel -and -not (Test-ClaudeModelMatch -Pinned $served -Served ([string]$Events.MainModel) -Exact:$exact)) {
         & $fail "model drift: the init event names $served, the result's modelUsage names $($Events.MainModel) as the main model" 'capability'
+        $o.ProofProblem = [string]$o.Texts[-1]
         $o.ThreadCandidate = $resId
         return $o
     }
@@ -5279,6 +5351,13 @@ function Get-ClaudeTurnOutcome {
     $o.Outcome = 'usable reply'
     $w = New-Object System.Collections.Generic.List[string]
     if ([int]$Events.DenialCount -gt 0) { $w.Add("permission denials beside the reply: $($o.DenialLine)") }
+    # (wave 29b, E15) a rejecting rate_limit_event survives the successful result: the reply stays,
+    # the event is said raw, and the quota text a failed turn would carry marks the route (QuotaMark)
+    if ($Events.RateLimitRejected) {
+        $rawRl = $(try { ConvertTo-Json -InputObject $Events.RateLimit -Compress -Depth 6 } catch { [string]$Events.RateLimitStatus })
+        $w.Add("a rate limit rejected a request during the turn: $rawRl")
+        $o.QuotaMark = $quotaText
+    }
     if ($Events.RateLimitStatus -and $Events.RateLimitStatus -match '(?i)warn') { $w.Add("claude rate limit status $($Events.RateLimitStatus)$(if ($Events.RateLimitType) { " ($($Events.RateLimitType))" })$(if ($null -ne $Events.RateLimitReset) { "; resets at $(([DateTimeOffset]$Events.RateLimitReset).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant))" })") }
     if (@($o.OtherModels).Count -gt 0) { $w.Add("other models in the turn beside $($served): $(@($o.OtherModels) -join ', ') (engine_run.other_models; a helper model of the CLI?)") }
     foreach ($wl in @($lines | Where-Object { $_ -match '(?i)^warning:' })) { $w.Add((ConvertTo-OneLine $wl)) }
@@ -6083,6 +6162,11 @@ function Test-UsableOutcome {
 # its retry_after). -NoMachine: the ledgers alone.
 # (wave 29b, E5) -Fingerprints: several endpoints read as ONE record set (a plan's routes - only its
 # Quota is used: Get-PlanQuotaVerdict); every record carries its Fingerprint.
+# (wave 29b, E15) An entry that carries a quota mark - engine_run.quota_mark, the provider_failure a
+# failed quota turn would have recorded, on a usable reply whose turn saw a rejecting rate-limit
+# event - counts twice: as itself (a usable reply: RecentUsable, it clears older failures) and as that
+# quota failure 1 ms after it, so the route stays out until the mark's reset (or 60 minutes, 10 for a
+# burst) exactly as after a failed quota turn - and a later usable reply clears it as usual.
 function Get-EndpointHealth {
     param([object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow, [switch]$NoMachine, [string[]]$Fingerprints = @())
     $h = [pscustomobject]@{ Auth = $null; Quota = $null; QuotaKnown = $false; LastLimit = $null; LastFailure = $null; RecentUsable = $null }
@@ -6097,7 +6181,23 @@ function Get-EndpointHealth {
             $allConsults = @($allConsults) + @($machineEntries)
         }
     }
+    # (E15) the quota marks as entries of their own, 1 ms after the entry that carries them
+    $marked = New-Object System.Collections.Generic.List[object]
     foreach ($c in $allConsults) {
+        $marked.Add($c)
+        $qm = Get-PropertyValue (Get-PropertyValue $c 'engine_run' $null) 'quota_mark' $null
+        if ($null -eq $qm -or [string](Get-PropertyValue $qm 'class' '') -ne 'quota') { continue }
+        $mAt = ConvertTo-WhenOffset (Get-PropertyValue $c 'when' '')
+        if ($null -eq $mAt) { continue }
+        $mOrder = ConvertTo-WhenOffset (Get-PropertyValue $c 'finished_at' '')
+        if ($null -eq $mOrder) {
+            $mOrder = $mAt
+            $mws = 0.0
+            if ([double]::TryParse([string](Get-PropertyValue $c 'wall_seconds' ''), [System.Globalization.NumberStyles]::Float, $script:Invariant, [ref]$mws) -and $mws -gt 0) { $mOrder = $mAt.AddSeconds($mws) }
+        }
+        $marked.Add([pscustomobject]@{ n = (Get-PropertyValue $c 'n' 0); when = (Get-PropertyValue $c 'when' ''); finished_at = $mOrder.AddMilliseconds(1); bridge_outcome = 'failed: quota (a rate limit rejected a request during a usable turn)'; reviewer = (Get-PropertyValue $c 'reviewer' $null); provider_failure = $qm })
+    }
+    foreach ($c in $marked) {
         $rev = Get-PropertyValue $c 'reviewer' $null
         $fp = if ($null -eq $rev) { $script:BuiltinOpenAiFingerprint } else { [string](Get-PropertyValue $rev 'provider_fingerprint' '') }
         if (-not $fp -or $fpSet -notcontains $fp) { continue }
@@ -6221,10 +6321,13 @@ function Get-EndpointHealth {
 #     "endpoints": [ { "endpoint": "<provider fingerprint>", "class": "ok" | "<a provider failure
 #                      class>", "kind": "burst" | "", "until": "<iso>" | null, "retry_after": "<the
 #                      reset time the provider named>" | null, "repo": "<repository root>", "when":
-#                      "<iso>", "message": "<the failure's message, cut to 200>" } ],
+#                      "<iso>", "message": "<the failure's message, cut to 200>"[, "quota_mark": {
+#                      "class": "quota", "kind", "until", "retry_after", "message", "when" } - (wave
+#                      29b, E15) on an "ok" record whose turn saw a rejecting rate-limit event] } ],
 #     "running":   [ { "endpoint": "<fingerprint>", "label": "<provider label>", "pid": <the run's
 #                      bridge pid>, "start_time": "<its start>", "repo": "...", "task": "...", "nn":
-#                      "<NN>", "panel": "<panel id or ''>", "since": "<iso>" } ] }
+#                      "<NN>", "panel": "<panel id or ''>", "since": "<iso>"[, "plan": "<the roster
+#                      entry's plan> - (wave 29b, E16) only when the entry names one"] } ] }
 # Written under <file>.lock (exclusive open, retried up to 10 s; not acquired = not written) by
 # every run that records a provider failure (class operator excepted) or a usable reply
 # (Add-MachineHealthRecord: until = a quota's reset time, else the hit + 60 min (10 for a burst);
@@ -6233,7 +6336,8 @@ function Get-EndpointHealth {
 # older than 24 h whose until has passed; a running row whose pid + start time is gone. Read by
 # every endpoint-health question (Get-EndpointHealth: every roster walk, the panel selection,
 # codex-providers.ps1) and by the panel's scheduler (Get-MachineRunningCount: the endpoint
-# parallel limit counts the members of OTHER repositories and panels running on the endpoint).
+# parallel limit counts the members of OTHER repositories and panels running on the endpoint -
+# (wave 29b, E16) and on any route of the same plan, whatever their engine).
 # The file is optional: absent, unreadable or not parseable = as before wave 26b.
 
 $script:MachineHealthCache = $null
@@ -6288,7 +6392,16 @@ function ConvertTo-MachineHealthEntries {
         $cls = [string](Get-PropertyValue $e 'class' '')
         $repo = [string](Get-PropertyValue $e 'repo' '')
         if ($cls -eq 'ok') {
-            $out.Add([pscustomobject]@{ n = 0; when = $when; finished_at = $when; bridge_outcome = 'usable reply'; reviewer = [pscustomobject]@{ provider_fingerprint = $Fingerprint }; provider_failure = $null })
+            # (wave 29b, E15) a usable reply with a quota mark: the mark travels as engine_run.quota_mark
+            $okRun = $null
+            $mk = Get-PropertyValue $e 'quota_mark' $null
+            if ($null -ne $mk -and (Test-IsJsonObject $mk)) {
+                $mkReset = Get-PropertyValue $mk 'retry_after' $null
+                $mkUntil = Get-PropertyValue $mk 'until' $null
+                $mkWhen = Get-PropertyValue $mk 'when' $null
+                $okRun = [pscustomobject]@{ quota_mark = [pscustomobject]@{ class = 'quota'; kind = [string](Get-PropertyValue $mk 'kind' ''); code = ''; message = [string](Get-PropertyValue $mk 'message' ''); when = $(if ($null -ne (ConvertTo-WhenOffset $mkWhen)) { $mkWhen } else { $when }); retry_after = $(if ($null -ne (ConvertTo-WhenOffset $mkReset)) { $mkReset } else { $null }); until = $(if ($null -ne (ConvertTo-WhenOffset $mkUntil)) { $mkUntil } else { $null }) } }
+            }
+            $out.Add([pscustomobject]@{ n = 0; when = $when; finished_at = $when; bridge_outcome = 'usable reply'; reviewer = [pscustomobject]@{ provider_fingerprint = $Fingerprint }; provider_failure = $null; engine_run = $okRun })
             continue
         }
         if (-not $cls) { continue }
@@ -6460,6 +6573,8 @@ function Update-MachineHealth {
         $keepE = @($data.endpoints | Where-Object {
                 $w = ConvertTo-WhenOffset (Get-PropertyValue $_ 'when' '')
                 $u = ConvertTo-WhenOffset (Get-PropertyValue $_ 'until' '')
+                # (wave 29b, E15) an ok record stays while its quota mark still blocks
+                if ($null -eq $u) { $u = ConvertTo-WhenOffset (Get-PropertyValue (Get-PropertyValue $_ 'quota_mark' $null) 'until' '') }
                 ($null -ne $w) -and (($now - $w).TotalHours -le 24 -or ($null -ne $u -and $u -gt $now))
             })
         if ($keepE.Count -gt 500) { $keepE = @($keepE | Select-Object -Last 500) }
@@ -6523,26 +6638,38 @@ function Update-MachineHealth {
 # failure ($Failure: the ledger's provider_failure; class operator is not the endpoint's). No-op
 # without a fingerprint or a file.
 function Add-MachineHealthRecord {
-    param([string]$Fingerprint, [string]$Outcome, $Failure = $null, [string]$Repo = '', [int]$Attempts = 3, [double]$AttemptSec = 0, $Record = $null)
+    param([string]$Fingerprint, [string]$Outcome, $Failure = $null, [string]$Repo = '', [int]$Attempts = 3, [double]$AttemptSec = 0, $Record = $null, $QuotaMark = $null)
     # (wave 26c, D2) a record that is not written for another reason is no lock timeout
     $script:MachineHealthLastError = ''
     if (-not $Fingerprint -or -not (Get-MachineHealthPath)) { return $false }
     # (wave 28b, D13) the caller's record (the one it journaled), else built here
-    $rec = $(if ($null -ne $Record) { $Record } else { New-MachineHealthRecord -Fingerprint $Fingerprint -Outcome $Outcome -Failure $Failure -Repo $Repo })
+    $rec = $(if ($null -ne $Record) { $Record } else { New-MachineHealthRecord -Fingerprint $Fingerprint -Outcome $Outcome -Failure $Failure -Repo $Repo -QuotaMark $QuotaMark })
     if ($null -eq $rec) { return $false }
     return (Update-MachineHealth -AddEndpoint $rec -Attempts $Attempts -AttemptSec $AttemptSec)
 }
 
 # (wave 28b, D13) The endpoint record of a run's outcome (see Add-MachineHealthRecord), or $null when
 # there is none (no fingerprint, class operator, neither usable nor a provider failure). Its `when`
-# is fixed here, so the journaled record and the retried one are the same record.
+# is fixed here, so the journaled record and the retried one are the same record. (wave 29b, E15)
+# -QuotaMark (engine_run.quota_mark of a usable reply): the ok record carries it as quota_mark {class
+# quota, kind, until (its reset, else its time + 60 min, 10 for a burst), retry_after, message, when}.
 function New-MachineHealthRecord {
-    param([string]$Fingerprint, [string]$Outcome, $Failure = $null, [string]$Repo = '')
+    param([string]$Fingerprint, [string]$Outcome, $Failure = $null, [string]$Repo = '', $QuotaMark = $null)
     if (-not $Fingerprint) { return $null }
     $now = [DateTimeOffset]::Now
     $rec = $null
     if (Test-UsableOutcome $Outcome) {
         $rec = [pscustomobject]@{ endpoint = $Fingerprint; class = 'ok'; kind = ''; until = $null; retry_after = $null; repo = $Repo; when = (Format-OffsetIso $now); message = '' }
+        if ($null -ne $QuotaMark -and [string](Get-PropertyValue $QuotaMark 'class' '') -eq 'quota') {
+            $mWhen = ConvertTo-WhenOffset (Get-PropertyValue $QuotaMark 'when' '')
+            if ($null -eq $mWhen) { $mWhen = $now }
+            $mKind = [string](Get-PropertyValue $QuotaMark 'kind' '')
+            $mRa = ConvertTo-WhenOffset (Get-PropertyValue $QuotaMark 'retry_after' '')
+            $mUntil = $(if ($null -ne $mRa) { $mRa } else { $mWhen.AddMinutes($(if ($mKind -eq 'burst') { $script:BurstOutMinutes } else { $script:QuotaOutMinutes })) })
+            $mMsg = [string](Get-PropertyValue $QuotaMark 'message' '')
+            if ($mMsg.Length -gt 200) { $mMsg = $mMsg.Substring(0, 200) }
+            $rec | Add-Member -NotePropertyName 'quota_mark' -NotePropertyValue ([pscustomobject]@{ class = 'quota'; kind = $mKind; until = (Format-OffsetIso $mUntil); retry_after = $(if ($null -ne $mRa) { Format-OffsetIso $mRa } else { $null }); message = $mMsg; when = (Format-OffsetIso $mWhen) })
+        }
     } elseif ($null -ne $Failure) {
         $cls = [string](Get-PropertyValue $Failure 'class' '')
         if (-not $cls -or $cls -eq 'operator') { return $null }
@@ -6563,10 +6690,13 @@ function New-MachineHealthRecord {
 }
 
 # This run's row in running[] while its engine turns run (the bridge's pid and start time).
+# (wave 29b, E16) -Plan: the roster entry's plan - the row carries it when there is one, so a panel
+# elsewhere counts this run against the plan's limit too (Get-MachineRunningCount -Plans).
 function Register-MachineRunning {
-    param([string]$Fingerprint, [string]$Label = '', [string]$Repo = '', [string]$Task = '', [string]$Nn = '', [string]$Panel = '')
+    param([string]$Fingerprint, [string]$Label = '', [string]$Repo = '', [string]$Task = '', [string]$Nn = '', [string]$Panel = '', [string]$Plan = '')
     if (-not $Fingerprint -or -not (Get-MachineHealthPath)) { return $false }
     $row = [pscustomobject]@{ endpoint = $Fingerprint; label = $Label; pid = $PID; start_time = [string](Get-ProcessStartIso -ProcessId $PID); repo = $Repo; task = $Task; nn = $Nn; panel = $Panel; since = (Get-IsoTimestamp) }
+    if ($Plan) { $row | Add-Member -NotePropertyName 'plan' -NotePropertyValue $Plan }
     return (Update-MachineHealth -AddRunning $row -RemovePid $PID)
 }
 
@@ -6577,15 +6707,21 @@ function Unregister-MachineRunning {
 }
 
 # How many runs of the machine are running on these endpoints outside the panel $ExcludePanel
-# (another repository's members, another panel, a single run) - live rows only. { Count; Rows }.
+# (another repository's members, another panel, a single run) - live rows only. (wave 29b, E16)
+# -Plans: a row of one of these plans counts too, whatever its endpoint, engine and repository (a
+# codex ZAI run of plan zai for a claude ZAI-claude member). { Count; Rows; ByPlan (the rows that
+# count only through their plan) }.
 function Get-MachineRunningCount {
-    param([string[]]$Fingerprints, [string]$ExcludePanel = '')
+    param([string[]]$Fingerprints, [string]$ExcludePanel = '', [string[]]$Plans = @())
+    $planSet = @(@($Plans) | Where-Object { $_ })
     $rows = @((Read-MachineHealth).Running | Where-Object {
             $fp = [string](Get-PropertyValue $_ 'endpoint' '')
-            $fp -and @($Fingerprints) -contains $fp -and -not ($ExcludePanel -and [string](Get-PropertyValue $_ 'panel' '') -eq $ExcludePanel) -and
+            $rp = [string](Get-PropertyValue $_ 'plan' '')
+            (($fp -and @($Fingerprints) -contains $fp) -or ($rp -and $planSet -ccontains $rp)) -and -not ($ExcludePanel -and [string](Get-PropertyValue $_ 'panel' '') -eq $ExcludePanel) -and
             (Test-PidAlive -ProcessId ([int](Get-PropertyValue $_ 'pid' 0)) -StartTime (ConvertTo-StartIso (Get-PropertyValue $_ 'start_time' '')))
         })
-    return [pscustomobject]@{ Count = $rows.Count; Rows = [object[]]$rows }
+    $byPlan = @($rows | Where-Object { -not (@($Fingerprints) -contains [string](Get-PropertyValue $_ 'endpoint' '')) })
+    return [pscustomobject]@{ Count = $rows.Count; Rows = [object[]]$rows; ByPlan = [object[]]$byPlan }
 }
 
 # ----------------------------------------------------------------------------- reviewer roster
