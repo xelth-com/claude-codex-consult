@@ -2,7 +2,7 @@ Write in English.
 
 # Handoff 14 - claude: acceptance of wave 29 + 29b (the `claude` engine, subscription / API key / third-party endpoint)
 
-Date: 2026-10-06. Base commit: `d8fecd2` (branch `wip/wave29-claude-engine`; the range under review is
+Date: 2026-10-06. Base commit: `3ed1f6d` (the last code commit; collab commits follow it) (branch `wip/wave29-claude-engine`; the range under review is
 `main..HEAD`, `-Range` on the command: 41 files, about 8.8k insertions, of which about 3k are `.collab`
 handoffs and ledgers - skip those files, they are the record of this task, not code).
 
@@ -38,6 +38,29 @@ had happened before today).
   validator and the `-Model` check refuse any Anthropic model id (the closed table, the four aliases, any
   `claude-*` id), so the init-model equality is a billing proof on this route; harness-claude ENDPOINT 41/41,
   harness-roster 119/119. F17-1/F17-2 superseded by F02-4/F04-1 and F04-2 (D5, D6); F18-2 wontfix (D4).
+
+- **After handoff 20 (astra alone, HOLD: F20-1..4) - decisions E12-E17 in `handoffs/21-claude-claude-engine-acceptance-decisions.md`,
+  implemented in 450fcf4 (engine), 93c8463 (fixtures: the ACCEPT category), 4aca34d (docs), and the amendments A1-A5
+  of handoff 21 (after the RC3 smoke 22: F22-1..5) in 3ed1f6d (A4: apiKeySource required under subscription and
+  api-key, class auth when missing).** E12: a killed turn's init is judged, a failed proof blocks the continuation;
+  E13: every assistant message's model must equal the init-resolved id (F18-2 implemented by it); E14/A4: the init
+  fields model, permissionMode, tools, mcp_servers required, apiKeySource required except under endpoint; E15/A1:
+  D6 amended - a rejecting rate_limit_event with a successful result keeps the reply usable, is warned about and
+  marks the route's health (engine_run.quota_mark) so the plan propagation sees it; E16: the machine-wide running
+  record carries the plan, same-plan runs of any engine or repository count against parallel.<plan> (default 1;
+  a label with a plan needs parallel.<plan> raised too); E17: StructuredOutput only under the native transport.
+  Harnesses after E12-E16 (all 0 failures, Windows PowerShell 5.1, one at a time): claude 85, panel 54,
+  companions 42, detach 51, engines 97, visibility 122, roster 119, telemetry 112, fixes26b 51, host 65 (GREP/README
+  20 after the README edits); after A4: claude -Only ACCEPT,BILLING,UNIT 29/29 (the full run is repeated before this
+  brief's run).
+- **RC3 of handoff 20 through the bridge** (temporary roster, 2026-10-07): 22 `mimo-claude :: mimo-v2.6-pro [claude]`
+  checkpoint on handoff 21, schema transport native, structured reply (ADVISE, 5 wording findings on the decision
+  record, all taken: A1-A5) after a timeout continuation (the main turn killed at 900 s - the MiMo route is slow on
+  both engines); 23 `ZAI-bad` (an endpoint entry whose env_key holds an invalid token, the subscription login present):
+  `failed: claude exit 1 - Failed to authenticate. API Error: 401 token expired or incorrect`, class auth, 185 s, no
+  fallback to the login, the partial kept. Known limitation, not of this wave: a reply delivered by a continuation
+  turn has ledger `usage` null (the killed main turn has no result event); the continuation's own tokens are in
+  the handoff header.
 
 ## CURRENT invariants claimed
 
@@ -111,6 +134,9 @@ yet - this acceptance is the verification. _(no `proposed` finding open)_
 |---|---|---|---|---|---|---|
 | 07-RC1, 08-RC2, 09-RC1, 09-RC2 (init apiKeySource and model: straight id vs alias, z.ai and MiMo, invalid token) | `claude -p ... --model glm-5.3` / `--model sonnet + ANTHROPIC_DEFAULT_SONNET_MODEL` / `--model mimo-v2.6-pro` / a wrong token; `claude auth status` with the base URL (coordinator's scratch, 2026-10-06) | Claude Code 2.1.291 | 0/0/0/1 | handoff 12, P8-P12 | init model = the real id in every variant; apiKeySource `none`; wrong token -> 401, no fallback; auth status ignores the base URL | completed |
 | 09-RC3, 10-RC1 (fake env/init matrix, apiKeySource acceptance) | `tests/harness-claude.ps1` ENDPOINT | 431ab31 | 0 | the harness summary | 75/75 | completed |
+| 20-RC1 (fixtures E12-E15: prohibited init on a timed-out turn + valid continuation stays failed; foreign assistant model; init without tools; rejecting rate limit + success) | `tests/harness-claude.ps1` ACCEPT | 93c8463, 3ed1f6d | 0 | the harness summary | 85/85 full, 29/29 ACCEPT,BILLING,UNIT after A4 | completed |
+| 20-RC2 (a held codex route of plan zai makes a panel's same-plan claude member wait at limit 1) | `tests/harness-claude.ps1` ACCEPT (E16) | 93c8463 | 0 | the harness summary | waits, proceeds after the hold; the message names the plan | completed |
+| 20-RC3 (per-provider native-schema consultation + invalid token with the login present) | the bridge, temporary roster: handoffs 22 (MiMo native), 23 (z.ai invalid token); z.ai native = handoff 11 / P8 | 11af9bc | 0 / 1 | handoffs 22, 23 | structured_output on MiMo and z.ai; 401 class auth, no fallback | completed (Kimi Code not run) |
 | 10-RC2 (plan propagation codex+claude, lineage separate) | `tests/harness-claude.ps1` ENDPOINT (quota on a codex entry marks the same-plan claude entry out; auth does not) | 431ab31 | 0 | the harness summary | passes | completed |
 | 10-RC3 (capability smoke per endpoint) | P8, P10 and the live run n=8 | 2.1.291 / 2.1.292 | 0 | handoff 13 | flags accepted, structured output, model reported, usage fields present | completed (z.ai, MiMo; Kimi Code not run) |
 | 07-RC2 (plan terms) | the providers' pages read 2026-10-06 | - | - | handoff 12 (corrections) | z.ai token-weighted credits; Kimi Code endpoint api.kimi.ai/coding/; Alibaba "interactive ... only" | completed |

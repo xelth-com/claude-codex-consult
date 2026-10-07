@@ -23,8 +23,13 @@ harness-claude first run 55/55 after test fixes 55f5c0b).
   kimi/dola-seed/muse HOLD on one blocker -> E11 (d8fecd2): no Anthropic model id on the endpoint route. F16-1/F18-1
   implemented; F17-1/F17-2 superseded; F18-2 wontfix (D4).
 
+- 2026-10-07: astra alone (20) HOLD -> E12-E17 (21; 450fcf4/93c8463/4aca34d), RC3 smokes 22/23, amendments A1-A5 (3ed1f6d);
+  all harnesses green; brief 14 updated for astra's third round.
+
 ## Open
-- Astra alone on brief 14 (fork her thread) once her limit resets (retry after 01:01); her verdict decides the tag.
+- Astra's third round on brief 14 (fork) - her verdict decides the tag. Then: ROADMAP/CHANGELOG release notes, the
+  operator's roster (endpoint entries are the operator's call), wave 29c (the paired A/B).
+- (old) Astra alone on brief 14 (fork her thread) once her limit resets (retry after 01:01); her verdict decides the tag.
 - Wave 29b implementation (worker brief: handoff 12 + the recon map of 2026-10-06).
 - Wave 29c: the paired A/B run book (E8) - needs the operator's go (spends plan credits).
 - Ratings of n=4..7 given; the panel's findings F07..F10 to be moved by the worker's report.

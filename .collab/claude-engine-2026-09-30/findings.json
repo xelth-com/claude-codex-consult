@@ -5475,7 +5475,7 @@
                      },
                      {
                          "id":  "F22-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -5525,6 +5525,15 @@
                                              "evidence":  "",
                                              "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                              "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T04:37:51+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "A4 (3ed1f6d): a missing or non-string apiKeySource fails the turn (class auth) under subscription and api-key; tolerated (null) under endpoint only; harness-claude ACCEPT",
+                                             "evidence":  "",
+                                             "base_commit":  "3ed1f6d79a38d6faaea4ccbe50d77d76aad00b30",
+                                             "tree_sha256":  "4c3d5206cce3ace7ba1e86b5873b0e99e7f75052a2f93b3d3e8357e033db0247"
                                          }
                                      ],
                          "reviewer_checks":  [
