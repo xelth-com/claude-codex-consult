@@ -1030,6 +1030,28 @@ if (Want 'ACCEPT') {
         $cD2 = & $acRow $lD2.Json 'ZAI-claude'; $zD2 = & $acRow $lD2.Json 'ZAI'
         Check 'ACCEPT' 'E15: the machine-wide record of the run is class ok WITH quota_mark {class quota, until = R} - another repository (no ledger of its own) sees ZAI-claude "unavailable (usage limit until R)" and ZAI out through the plan' ($mrD -and $mrD.quota_mark.class -eq 'quota' -and (ConvertTo-WhenOffset $mrD.quota_mark.until).UtcDateTime -eq $resetIsoD.UtcDateTime -and [string]$cD2.verdict -match '^unavailable \(usage limit until ' -and [string]$zD2.verdict -match '^unavailable \(plan zai \(usage limit on ZAI-claude until ') "$(if ($mrD) { ConvertTo-Json -InputObject $mrD -Compress -Depth 4 }) | $($cD2.verdict) | $($zD2.verdict)"
 
+        # ---- A6 (F24-1): the machine-health identity includes the quota mark - an unmarked success first, then the marked one of the same route, repository and second
+        $hA6 = Join-Path $work 'health-accept-a6.json'
+        $unA6 = $null; $mkA6 = $null; $cntA6 = -1; $cntA6b = -1; $okA6 = $false
+        if ($mrD) {
+            $unA6 = $mrD | ConvertTo-Json -Depth 6 | ConvertFrom-Json
+            $unA6.PSObject.Properties.Remove('quota_mark')
+            $mkA6 = $mrD | ConvertTo-Json -Depth 6 | ConvertFrom-Json
+            $prevHealth = $env:CODEX_CONSULT_HEALTH
+            try {
+                $env:CODEX_CONSULT_HEALTH = $hA6
+                [void](Update-MachineHealth -AddEndpoint $unA6)
+                [void](Update-MachineHealth -AddEndpoint $mkA6)
+                $cntA6 = @((([IO.File]::ReadAllText($hA6, $u8) | ConvertFrom-Json).endpoints)).Count
+                [void](Update-MachineHealth -AddEndpoint ($mrD | ConvertTo-Json -Depth 6 | ConvertFrom-Json))
+                $cntA6b = @((([IO.File]::ReadAllText($hA6, $u8) | ConvertFrom-Json).endpoints)).Count
+            } catch { } finally { $env:CODEX_CONSULT_HEALTH = $prevHealth }
+        }
+        $rA6 = New-Repo 'accept-a6-other'
+        $lA6 = Providers $rA6 $rosterD @('-Json') @{ $acVar = $acToken; CODEX_CONSULT_HEALTH = $hA6 }
+        $cA6 = & $acRow $lA6.Json 'ZAI-claude'; $zA6 = & $acRow $lA6.Json 'ZAI'
+        Check 'ACCEPT' 'A6 (F24-1): an UNMARKED successful machine-health record written first, then a MARKED success with the same route, repository and second - both are kept (2 records, the marked one not discarded), a SECOND repository sees ZAI-claude "unavailable (usage limit until R)" and ZAI out through the plan, and replaying the identical marked record leaves the record count unchanged' ($unA6 -and $cntA6 -eq 2 -and $cntA6b -eq $cntA6 -and $lA6.Code -eq 0 -and [string]$cA6.verdict -match '^unavailable \(usage limit until ' -and (& $isoIn ([string]$cA6.verdict) 'usage limit until ') -eq $resetIsoD.UtcDateTime -and [string]$zA6.verdict -match '^unavailable \(plan zai \(usage limit on ZAI-claude until ') "records $cntA6 -> $cntA6b | $($cA6.verdict) | $($zA6.verdict)"
+
         # ---- E16 (RC2): a held codex run of plan zai in repository E makes repository F's panel member ZAI-claude (plan zai) wait at limit 1
         $hE16 = Join-Path $work 'health-accept-e16.json'
         $rE = New-Repo 'accept-e16-hold'

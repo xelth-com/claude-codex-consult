@@ -2879,7 +2879,7 @@ the same text: a usage window until its reset, without one 60 minutes; a burst 4
 reads that mark as a quota failure right after the reply, so the roster walk, `codex-providers.ps1` (`unavailable
 (usage limit until <reset>)`) and the plan (E5: `unavailable (plan zai (usage limit on ZAI-claude until <reset>))`)
 see it before the next request hits it; the machine-wide record (`class` `ok` with its `quota_mark`) carries it to
-the other repositories; a later usable reply on the route clears it as usual.
+the other repositories; a later usable reply on the route clears it as usual (A6: a record's identity in the machine-wide file includes its quota mark and the mark's reset, so a marked success and an unmarked success of the same route, repository and second are two records - the marked one is never dropped by the deduplication - and replaying the identical marked record adds nothing).
 
 **Read-only: flags plus evidence, and the STRICT tree check (D1).** `--tools Read,Grep,Glob` leaves no writing tool,
 but managed settings and their hooks still apply under `--restricted`, so the init event proves the tools, not the

@@ -47,7 +47,7 @@ manifests are not bumped yet (the version stays 0.5.1 until the release).
   documented init tools are Read, Grep, Glob, plus StructuredOutput only under the native schema transport. The fake
   CLI's empty `mcp_servers` is now `[]` as the real CLI's (it wrote `null`, which E14 refuses). harness-claude 85 (its
   new ACCEPT category 8 checks: the four fake-stream fixtures of RC1, the codex-providers views and the two-repository
-  wait of RC2).
+  wait of RC2) (A6: a quota mark survives the machine-health deduplication).
 - **First run: the operator's prompt and the interview** (2026-10-06). The plugin ships no
   subscription, so a fresh installation needs a conversation before a roster. README gains the
   section "First run: the prompt for the operator": one host-agnostic prompt the operator pastes

@@ -6481,7 +6481,16 @@ function Add-MachineHealthJournal {
 function Get-MachineHealthRecordKey {
     param($Record)
     $w = ConvertTo-WhenOffset (Get-PropertyValue $Record 'when' '')
-    return ((@('endpoint', 'class', 'kind', 'repo') | ForEach-Object { [string](Get-PropertyValue $Record $_ '') }) -join '|') + '|' + $(if ($w) { [string]$w.UtcTicks } else { '' })
+    # (wave 29b, A6 / F24-1) a record that carries a quota mark has another identity than the unmarked
+    # one of the same route, repository and second: the key gains the mark's reset, so a marked success is
+    # never discarded in favour of an unmarked one (the identical marked record replayed stays one)
+    $mk = Get-PropertyValue $Record 'quota_mark' $null
+    $mkId = ''
+    if ($null -ne $mk) {
+        $mu = ConvertTo-WhenOffset (Get-PropertyValue $mk 'until' '')
+        $mkId = '|mark:' + $(if ($mu) { [string]$mu.UtcTicks } else { '' })
+    }
+    return ((@('endpoint', 'class', 'kind', 'repo') | ForEach-Object { [string](Get-PropertyValue $Record $_ '') }) -join '|') + '|' + $(if ($w) { [string]$w.UtcTicks } else { '' }) + $mkId
 }
 
 # Changes the machine file under its lock - (wave 28b, D13) applies the journal first, then adds
