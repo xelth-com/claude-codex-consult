@@ -132,6 +132,14 @@
                                                      "note":  "Collab tracker marks implemented (D1 strict tree); not re-verified in this checkpoint.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Strict tree failure and WriteDisabled=false remain unchanged; this detects monitored writes rather than preventing all hooks.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -266,6 +274,14 @@
                                                      "note":  "Allowlist per D2; not re-read in this checkpoint.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Previously verified environment allowlist remains unchanged.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -395,6 +411,14 @@
                                                      "note":  "Shared model table/telemetry claim; not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Shared model table and suffix normalization remain; alias-resolution replay passed again.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -524,6 +548,14 @@
                                                      "note":  "Panel serialization (D5) plus machine-wide plan/fingerprint counting (E16) close the scheduling half; residual kill/concurrency durability under F04-1/2.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Default panel serialization is implemented; broader concurrency guarantees remain explicitly limited.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -653,6 +685,14 @@
                                                      "note":  "Quota half superseded by F20-4 and closed by E15; denial/resume rules per D6/P1/P6. Live boundary shapes remain unproven.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Denial, quota and continuation rules are now explicit; quota persistence has the narrower defect in finding #1.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -796,6 +836,14 @@
                                                      "note":  "Strict-tree attribution; carried from handoff 20, not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Claude still uses strict tree failure rather than WriteDisabled attribution.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -934,6 +982,14 @@
                                                      "note":  "Env allowlist for api-key mode; not re-read here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Previously verified API-key environment isolation remains unchanged.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -1081,6 +1137,14 @@
                                                      "note":  "Shared child-env builder for preflight; not re-read here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Authentication probes and reviewer launches still share the environment builder.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -1223,6 +1287,14 @@
                                                      "note":  "CLAUDE_CODE_SKIP_PROMPT_HISTORY exclusion; not re-read here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "History-suppression variable remains excluded.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -1365,6 +1437,14 @@
                                                      "note":  "CLAUDE_CODE_EFFORT_LEVEL exclusion; not re-read here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Inherited effort override remains excluded.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -1508,6 +1588,14 @@
                                                      "note":  "Superseded by F20-2; closed by E13\u0027s assistant-message model proof.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Foreign assistant-model replay now fails with capability; init and main usage checks remain.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -1642,6 +1730,14 @@
                                                      "note":  "Health key per auth mode/family (D7); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Auth-mode/model-family health identities remain separate.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -1776,6 +1872,14 @@
                                                      "note":  "MaxModelSteps -\u003e --max-turns (D8/P2); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "MaxModelSteps still maps to --max-turns.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -1910,6 +2014,14 @@
                                                      "note":  "Preflight loggedIn=false precedence (D3); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Signed-out JSON handling remains ahead of exit-code uncertainty.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -2036,6 +2148,14 @@
                                                      "note":  "Shared ~/.claude races; P7 observation only, no sustained integrity test.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "No sustained shared-state integrity test was run; P7 supplies a bounded successful-concurrency observation.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -2162,6 +2282,14 @@
                                                      "note":  "Kill-point transcript durability; P6 one observation only.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "New MiMo evidence confirms another successful timeout continuation, not durability at arbitrary kill points.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -2268,6 +2396,14 @@
                                                      "note":  "Token-weighted z.ai credits correction; not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Credit-based measurement correction remains; account reconciliation is separate.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -2375,6 +2511,14 @@
                                                      "note":  "Kimi endpoint correction; not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Kimi Code versus Moonshot endpoint distinction remains documented.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -2490,6 +2634,14 @@
                                                      "note":  "Route fingerprint vs plan key (E5); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Canonical route/credential scope and separate plan identity remain implemented.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -2601,6 +2753,14 @@
                                                      "note":  "AUTH_TOKEN-only contract is unproven for every documented provider; E12-E16 do not address it.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Bearer-only compatibility remains unqualified for every documented provider, including Kimi Code.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -2711,6 +2871,14 @@
                                                      "note":  "Endpoint telemetry classification (E6); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Previously executed vendor/model telemetry fixtures remain applicable to unchanged helpers.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -2818,6 +2986,14 @@
                                                      "note":  "Terms eligibility per account (E9); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Blanket eligibility assertion remains withdrawn; account-specific operator decisions are not verified here.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -2929,6 +3105,14 @@
                                                      "note":  "Non-inference egress claim; not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The claim remains scoped to inference/billing, without a zero-Anthropic-egress guarantee.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -3035,6 +3219,14 @@
                                                      "note":  "Telemetry host-first classification (E6); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Host-first telemetry remains unchanged.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -3141,6 +3333,14 @@
                                                      "note":  "[1m] strip for all vendors (E6); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Universal suffix normalization remains unchanged.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -3251,6 +3451,14 @@
                                                      "note":  "One plan on two routes (E5/E7); partially covered by E16 but not re-tested here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Route-specific labels share plan health and scheduling; machine running rows now carry plan too.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -3357,6 +3565,14 @@
                                                      "note":  "Endpoint mode is implemented (E1/E3/E4/E11: local preflight, apiKeySource none accepted, ANTHROPIC_API_KEY fails). Wire-level credential proof remains unproven (RC3).",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint-local preflight and observed source semantics remain implemented; new invalid-token evidence corroborates failure without fallback.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -3467,6 +3683,14 @@
                                                      "note":  "Prompt-count billing measurement; not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Retention measurement uses credits rather than inferred prompt counts.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -3573,6 +3797,14 @@
                                                      "note":  "API_TIMEOUT_MS in endpoint env (E4); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Bounded API_TIMEOUT_MS injection remains implemented.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -3674,6 +3906,14 @@
                                                      "note":  "Engine-vendor shortcut in telemetry; not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Previously verified endpoint telemetry dispatch remains unchanged.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -3771,6 +4011,14 @@
                                                      "note":  "Get-CoordinatorMatch hardcoded anthropic; not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint coordinator matching retains the documented route-label/model contract.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -3873,6 +4121,14 @@
                                                      "note":  "Closed by E11 (endpoint refuses Anthropic ids) plus observed apiKeySource none; wire capture still open in unproven.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Observed none, E11 restrictions and inspected invalid-token failure address the original ambiguity.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -3970,6 +4226,14 @@
                                                      "note":  "[1m] strip under vendor zai (E6); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint model suffix normalization remains implemented.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -4085,6 +4349,14 @@
                                                      "note":  "E5\u0027s two identities implemented (plan excluded from route fingerprint; plan propagation via Get-PlanQuotaVerdict).",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Route lineage and plan quota identities remain distinct; finding #1 concerns persistence rather than identity.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -4204,6 +4476,14 @@
                                                      "note":  "Endpoint env injection (E4) plus E11 model refusal close the auth-reuse hole; observed source none accepted.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Endpoint environment and revised billing evidence remain implemented.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -4319,6 +4599,14 @@
                                                      "note":  "Telemetry third-party coverage (E6); not re-verified here.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Host-first classification, MiniMax row and suffix handling remain unchanged.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -4447,6 +4735,14 @@
                                                      "note":  "E16 adds plan to running rows and Get-MachineRunningCount -Plans; engine-wide claude group kept (E7/D5). Residual: shared-state durability under F04-1.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E16 adds plan to running records and panel counts; cross-route counting replay passed. This is not atomic machine-wide admission or a single-run wait guarantee.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -4562,6 +4858,14 @@
                                                      "note":  "Retention-gate power and per-version/endpoint capability smoke are still deferred; E12-E16 do not address them.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Native MiMo evidence improved, but all-provider qualification and statistically supported retention remain deferred.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -4654,6 +4958,14 @@
                                                      "note":  "E11 refusal present in Get-ClaudeModelProblem (claude-* and closed-table ids refused on endpoint).",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E11 endpoint Anthropic-model refusals remain unchanged.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -4859,6 +5171,14 @@
                                                      "note":  "E11 removes subscription-servable ids from the endpoint scope; independent wire-level credential proof remains unproven.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "E11 excludes the identified same-model subscription fallback scope; new 401 evidence corroborates tested routing.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -4942,6 +5262,14 @@
                                                      "note":  "Assistant-message half closed by E13 (capability failure); the non-main modelUsage half is deliberately kept as a warning by E13 (helper model).",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Assistant-model drift now fails; non-authoring auxiliary usage remains intentionally permitted under amended D4.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -5029,6 +5357,14 @@
                                                      "note":  "E12 implemented: init/model proof runs in the Pre branch (5231-5244) and ProofProblem blocks continuation.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Prohibited-init timeout replay sets ProofProblem; caller explicitly prevents continuation.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -5107,6 +5443,14 @@
                                                      "note":  "E13 implemented: foreign assistant message.model fails with class capability (5129-5130).",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The original Sonnet-100/Opus-10 assistant-drift replay now fails with capability.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -5181,6 +5525,14 @@
                                                      "note":  "E14 implemented: InitLacks over model/permissionMode/tools/mcp_servers fails the turn (4944-4953, 5088-5089).",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Parser preserves missing/type-invalid capability evidence; missing-tools replay fails with capability.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -5227,7 +5579,7 @@
                                             "F02-5"
                                         ],
                          "superseded_by":  [
-
+                                               "F24-1"
                                            ],
                          "source":  {
                                         "consult":  14,
@@ -5264,6 +5616,14 @@
                                                      "note":  "E15 implemented: rejecting event warns, QuotaMark recorded, health quota_mark applied (5354-5360, 6663-6671). Decision-level conflict with D6 filed as finding #1.",
                                                      "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                                      "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                                 },
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Outcome warning and quota mark are fixed under amended A1, but end-to-end persistence remains incomplete; finding #1 replaces the claim with the deduplication defect.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                                  }
                                              ]
                      },
@@ -5336,7 +5696,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "A1 explicitly amends D6 to usable reply plus warning/health mark after successful recovery.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
+                                                 }
                                              ]
                      },
                      {
@@ -5403,7 +5770,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "A2 specifies the init-resolved ID; alias-resolution replay passed.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
+                                                 }
                                              ]
                      },
                      {
@@ -5470,7 +5844,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "A3 withdraws the ten-minute burst promise and documents reset-or-sixty-minute behavior.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
+                                                 }
                                              ]
                      },
                      {
@@ -5537,7 +5918,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "A4 is implemented; missing-key replays fail under subscription/API-key and pass only under endpoint.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
+                                                 }
                                              ]
                      },
                      {
@@ -5601,6 +5989,84 @@
                                              "evidence":  "",
                                              "base_commit":  "11af9bc1e6e56d66aabd362c83a0b2e5e6270429",
                                              "tree_sha256":  "5fccf28ff1a037e268bb4bbf003d3e38290c9f1daeaf00d4621d07a15c60b9ed"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  17,
+                                                     "when":  "2026-10-07T04:45:10+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "A5 corrects auth classification wording and documents the additional plan parallelism cap.",
+                                                     "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                                     "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F24-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6481
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6577
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6671
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6061
+                                           }
+                                       ],
+                         "claim":  "Machine-health deduplication can silently discard a quota mark added by E15: successful records with and without quota_mark have the same identity when their route, repository and second-resolution timestamp match.",
+                         "trigger":  "Two consultations on the same route in one repository complete within the same second, for example with parallelism raised. An unmarked successful record is stored before a successful record carrying a rejecting rate-limit mark.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:6061,6481,6577,6671",
+                                              "observation":  "Format-OffsetIso drops subsecond precision. Both successful record variants have class ok and empty kind; Get-MachineHealthRecordKey uses endpoint, class, kind, repo and timestamp, excluding quota_mark. Update-MachineHealth drops records whose key already exists."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only machine-health deduplication replay at b5f1225",
+                                              "observation":  "Constructed marked and unmarked successful records with the same timestamp and applied the production key/HashSet admission logic. Two submitted records became one retained record with zero quota marks; Get-EndpointHealth for another repository returned no blocking quota."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only standalone quota-mark health replay at b5f1225",
+                                              "observation":  "The marked record alone correctly preserved the quota and reset through machine-health conversion, isolating the loss to deduplication."
+                                          }
+                                      ],
+                         "verification":  "Run RC1 and require both correct cross-repository quota propagation and idempotence when the identical marked record is replayed.",
+                         "remedy":  "Give each consultation\u0027s health record a stable unique identity, or extend deduplication to distinguish quota-mark content and conservatively merge collisions. Preserve identical-record idempotence without dropping a newly observed or longer-lived quota mark.",
+                         "supersedes":  [
+                                            "F20-4"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  17,
+                                        "reply":  "handoffs/24-codex-wave29-acceptance-astra3.md",
+                                        "thread":  "01a11439-faa4-7962-9c20-84c2ee77571d",
+                                        "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                        "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T04:45:10+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "b5f12252eb1c509c778baaf13fcf53b89d060221",
+                                             "tree_sha256":  "654fa37be3abd3d0f3bdfb1d864a9b86873cd5c516cabb25e83d02a3e0e1cb0e"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -5843,6 +6309,24 @@
                         "note":  "RC3 smoke on the MiMo endpoint route (native schema, after a timeout continuation): five precise wording findings on the decision record",
                         "when":  "2026-10-07T04:29:47+02:00",
                         "telemetry_sent":  1791340188
+                    },
+                    {
+                        "n":  17,
+                        "consult_id":  "ba79de07-094c-4ed9-bb5f-00bc3f587aeb",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+                                       "engines",
+                                       "roster"
+                                   ],
+                        "consult_when":  "2026-10-07T04:38:24+02:00",
+                        "useful":  "yes",
+                        "note":  "third acceptance round: confirmed E12-E14/A4 by replay, one real residual (health dedup drops the quota mark) -\u003e A6",
+                        "when":  "2026-10-07T04:51:37+02:00",
+                        "telemetry_sent":  1791341497
                     }
                 ]
 }
