@@ -151,7 +151,9 @@
     shortens the 60 s write-lock wait; CODEX_CONSULT_TEST_COMMIT_PAUSE_MS=<ms> (or
     <model>=<ms>[|...]: the runs of that model only) pauses a commit between
     findings.json and sessions.json; CODEX_CONSULT_TEST_PANEL_GUARD_SEC=<s> replaces a
-    panel member's kill guard; CODEX_CONSULT_TEST_MEMBER_PAUSE_MS=<ms> pauses a panel
+    panel member's kill guard; CODEX_CONSULT_TEST_MEMBER_LAUNCH_MARK=<file> and
+    CODEX_CONSULT_TEST_MEMBER_LAUNCH_PAUSE_MS=<ms> mark and pause a panel member right
+    before its launch-time parent check; CODEX_CONSULT_TEST_MEMBER_PAUSE_MS=<ms> pauses a panel
     member between the rewrite of its record and the check of its parent;
     CODEX_CONSULT_TEST_LAUNCH_PAUSE_MS=<ms> (or <model>=<ms>[|...]) pauses between the
     main turn's `launching` record and its guarded start (wave 24b).
@@ -4543,6 +4545,15 @@ try {
     $engineCmd = [string]$engineSpec.Command
     # A panel member re-checks its panel run right before it starts anything (D1): when that
     # run is gone, the member stops here - nothing started, its record withdrawn.
+    # TEST HOOK: CODEX_CONSULT_TEST_MEMBER_LAUNCH_MARK=<file> is written (this pid) when a member
+    # reaches this point, and CODEX_CONSULT_TEST_MEMBER_LAUNCH_PAUSE_MS=<ms> pauses it here - the
+    # harness kills the panel run inside that pause (harness-panel SPEC, D1).
+    if ($panelMember) {
+        $launchMark = Get-TestHookValue 'CODEX_CONSULT_TEST_MEMBER_LAUNCH_MARK'
+        if ($launchMark) { try { [IO.File]::WriteAllText($launchMark, "$PID") } catch { } }
+        $launchPause = 0
+        if ([int]::TryParse((Get-TestHookValue 'CODEX_CONSULT_TEST_MEMBER_LAUNCH_PAUSE_MS'), [ref]$launchPause) -and $launchPause -gt 0) { Start-Sleep -Milliseconds $launchPause }
+    }
     if ($panelMember -and -not (Test-PidAlive -ProcessId $memberParentPid -StartTime $memberParentStart)) {
         $rmError = Remove-PendingFile -Path $pendingPath
         Stop-WithError "the review panel run that launched this member (pid $memberParentPid) is gone; this member stopped before starting $engineCmd - nothing was started$(if ($rmError) { " (its recovery record '$pendingPath' could not be removed: $rmError)" })."

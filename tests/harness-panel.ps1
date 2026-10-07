@@ -93,7 +93,7 @@ function Write-Roster {
     return $p
 }
 $fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_PIDFILE', 'FAKE_CODEX_PIDDIR', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_LOGIN_DELAY_MS', 'FAKE_CODEX_FAIL_ON', 'FAKE_CODEX_HANG_ON', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_REPLY_MAP', 'FAKE_CODEX_SLEEP', 'FAKE_AGY_REPLY', 'FAKE_AGY_WRITE', 'FAKE_AGY_DELAY_MS', 'FAKE_AGY_STATUS', 'FAKE_AGY_ERROR', 'FAKE_AGY_PIDFILE')
-$testVars = @('RT_ZAI_KEY', 'RT_MIMO_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_AGY_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_SURVIVORS', 'CODEX_CONSULT_TEST_WRITE_LOCK_SEC', 'CODEX_CONSULT_TEST_COMMIT_PAUSE_MS', 'CODEX_CONSULT_TEST_PANEL_GUARD_SEC', 'CODEX_CONSULT_TEST_MEMBER_PAUSE_MS')
+$testVars = @('RT_ZAI_KEY', 'RT_MIMO_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_AGY_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_SURVIVORS', 'CODEX_CONSULT_TEST_WRITE_LOCK_SEC', 'CODEX_CONSULT_TEST_COMMIT_PAUSE_MS', 'CODEX_CONSULT_TEST_PANEL_GUARD_SEC', 'CODEX_CONSULT_TEST_MEMBER_PAUSE_MS', 'CODEX_CONSULT_TEST_MEMBER_LAUNCH_MARK', 'CODEX_CONSULT_TEST_MEMBER_LAUNCH_PAUSE_MS')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     Get-ChildItem env: | Where-Object { $_.Name -like 'CODEX_CONSULT_PEAK_*' } | ForEach-Object { Remove-Item "env:$($_.Name)" -ErrorAction SilentlyContinue }
@@ -555,12 +555,20 @@ if (Want 'SPEC') {
     Start-Sleep -Milliseconds 500
     $pStart = Get-ProcessStartIso -ProcessId $parent.Id
     $recPath = Write-MemberRecord $r $parent.Id $pStart $gid
-    $bg = Start-Consult $r $roster2 @('-PanelSpec', (New-Spec $parent.Id $pStart $gid)) @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_PIDFILE = $pidFile; FAKE_CODEX_LOGIN_DELAY_MS = '6000' } -Member
+    # The parent is killed only once the member is provably past its early parent check and at its
+    # launch-time check (the test hook's mark, then a 6 s pause there). Before the mark the kill
+    # would land in the race between the record rewrite and the early check, whose refusal reads
+    # "was not started" (a member runs no login status of its own, and the launcher probe runs with
+    # the FAKE_* variables hidden - neither offers a window).
+    $launchMark = Join-Path $work 'spec-launch.mark'
+    Remove-Item $launchMark -ErrorAction SilentlyContinue
+    $bg = Start-Consult $r $roster2 @('-PanelSpec', (New-Spec $parent.Id $pStart $gid)) @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_PIDFILE = $pidFile; CODEX_CONSULT_TEST_MEMBER_LAUNCH_MARK = $launchMark; CODEX_CONSULT_TEST_MEMBER_LAUNCH_PAUSE_MS = '6000' } -Member
     $rewritten = Wait-For { $rd = Read-PendingFile -Path $recPath; $rd.Record -and [int]$rd.Record.pid -eq $bg.Proc.Id } 60
+    $inPreflight = Wait-For { Test-Path -LiteralPath $launchMark } 60
     Stop-Process -Id $parent.Id -Force
     [void]$bg.Proc.WaitForExit(90000)
     $out = Bg-Output $bg
-    Check 'SPEC' 'the member rewrites its record with its own pid first (D1); its panel run dies during its preflight -> it stops right before launching: "the review panel run that launched this member (pid N) is gone; this member stopped before starting codex - nothing was started", record withdrawn, no reviewer, no ledger' ($rewritten -and $bg.Proc.ExitCode -eq 1 -and $out -match "the review panel run that launched this member \(pid $($parent.Id)\) is gone; this member stopped before starting codex - nothing was started" -and -not (Test-Path $recPath) -and -not (Test-Path $pidFile) -and @(Ledger $r).Count -eq 0) (($out -split "`n" | Where-Object { $_ -match '^codex-consult' }) -join ' | ')
+    Check 'SPEC' 'the member rewrites its record with its own pid first (D1); its panel run dies during its preflight -> it stops right before launching: "the review panel run that launched this member (pid N) is gone; this member stopped before starting codex - nothing was started", record withdrawn, no reviewer, no ledger' ($rewritten -and $inPreflight -and $bg.Proc.ExitCode -eq 1 -and $out -match "the review panel run that launched this member \(pid $($parent.Id)\) is gone; this member stopped before starting codex - nothing was started" -and -not (Test-Path $recPath) -and -not (Test-Path $pidFile) -and @(Ledger $r).Count -eq 0) (($out -split "`n" | Where-Object { $_ -match '^codex-consult' }) -join ' | ')
     # F07-1 / F11-6: the panel run dies AFTER the member rewrote its record and BEFORE the member
     # checks it (TEST HOOK: a pause there). The record names the live member all the while, so a
     # new run is refused - no moment in which it reads inactive while the member runs; the
