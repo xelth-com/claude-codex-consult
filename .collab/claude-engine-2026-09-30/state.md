@@ -68,3 +68,14 @@ harness-claude first run 55/55 after test fixes 55f5c0b).
   the operator installs 0.6.0 (marketplace update) and `~/.codex/codex-consult-roster-0.6.json` goes live (the 0.5.1
   validator refuses `plan`/`light`); then wave 29c (A/B); then the website pass (memory).
 
+## 2026-10-08 ~02:00: v0.6.0 TAGGED
+- RC3 (the full suite on ab51d1f): 22 harnesses, 21 green; harness-fixes F04-10 failed only with the Codex desktop app
+  open -> E27 (7f5a7cc: the scan ignores the app's servers; Haiku 5.5 in the model table), astra HOLD (37, F37-1: escaped
+  quotes) -> E28 (67a0029: exec anywhere -> never excluded, proper Windows quoting, ambiguity counts as codex); astra
+  **ACCEPT (39, n=26)**; F39-1 (the conservative exec guard) wontfix. The recovery harnesses rerun with the app open.
+- Six astra rounds on the delta in all (26 -> 27 HOLD, 29 -> 30 HOLD, 31 -> 32 HOLD, 33 -> 34 limit / 35 ACCEPT,
+  36 -> 37 HOLD, 38 -> 39 ACCEPT). Decisions E18-E28 in handoff 28.
+- Tag v0.6.0; main fast-forwarded; pushed. Next: the operator installs 0.6.0 (marketplace update) and the 0.6 roster goes
+  live; wave 29c (the A/B, two worktrees); the website pass; 0.6.1 items in TECH_DEBT (the time-only reset wording,
+  the judge class in the rating event).
+

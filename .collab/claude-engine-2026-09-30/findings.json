@@ -7797,7 +7797,7 @@
                      },
                      {
                          "id":  "F37-1",
-                         "status":  "implemented",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -7870,6 +7870,89 @@
                                              "evidence":  "",
                                              "base_commit":  "e0cbafe188a10757ed8506b8ed4bd6047bf584e3",
                                              "tree_sha256":  "8e6cfd415e294f1ffee8d8c747036a72ed757c62da9e5f94d87f3313122b8cb0"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T01:19:30+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "verified by astra\u0027s sixth round",
+                                             "evidence":  "handoffs/39-codex-astra-0.6.0-e28.md (n=26, ACCEPT): read-only recovery replays Active=true for the orphan scenario, e\"x\"ec, an unreadable command line and ambiguous quoting; exec-server excluded; released after the reviewer disappeared; harness-fixes 56/56 with the app open",
+                                             "base_commit":  "e0d6168cb39f97c0983af303375236d9eb7372e8",
+                                             "tree_sha256":  "cc9644e6404150d365a94791960fddd48cc4684496cd2e3a7013a9513f1cf577"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  25,
+                                                     "when":  "2026-10-08T01:18:39+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The corrected tokenizer and exec guard protect both escaped encodings. Independent mocked recovery replay kept the original orphan scenario active; the added native-process fixtures also cover refusal, unchanged pending state, and release after exit.",
+                                                     "base_commit":  "e0d6168cb39f97c0983af303375236d9eb7372e8",
+                                                     "tree_sha256":  "cc9644e6404150d365a94791960fddd48cc4684496cd2e3a7013a9513f1cf577"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F39-1",
+                         "status":  "wontfix",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  9908
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  9910
+                                           }
+                                       ],
+                         "claim":  "E28\u0027s whole-word exec guard can keep recovery blocked by an unrelated, long-lived app server when exec appears in its executable path or configuration value. This is a conservative availability tradeoff, not an unsafe release.",
+                         "trigger":  "A machine-wide recovery scan encounters a qualifying process such as `\"C:\\tools\\exec\\codex.exe\" app-server`, started after the pending record, after the actual reviewer has exited.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:9908",
+                                              "observation":  "The raw command line and every parsed token are checked for exec before server-subcommand exclusion, including the executable path and option values."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only Get-CodexMatch and mocked Test-PendingActive checks",
+                                              "observation":  "The server-path example returned Rule=\u0027name codex\u0027, Excluded=\u0027\u0027, and Active=true. Removing the process returned Active=false. A normal exec-server command remained excluded."
+                                          }
+                                      ],
+                         "verification":  "Replay an unknown-tree pending record with the server-path example as its sole post-start process; confirm recovery remains active until that process disappears.",
+                         "remedy":  "Retain the conservative guard for this release, but document incidental path/configuration matches and clarify the refusal reason so operators can identify the unrelated process before taking recovery action.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  25,
+                                        "reply":  "handoffs/39-codex-astra-0.6.0-e28.md",
+                                        "thread":  "01a118a7-eee5-7943-8f20-c589977ce104",
+                                        "base_commit":  "e0d6168cb39f97c0983af303375236d9eb7372e8",
+                                        "tree_sha256":  "cc9644e6404150d365a94791960fddd48cc4684496cd2e3a7013a9513f1cf577"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T01:18:39+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e0d6168cb39f97c0983af303375236d9eb7372e8",
+                                             "tree_sha256":  "cc9644e6404150d365a94791960fddd48cc4684496cd2e3a7013a9513f1cf577"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T01:19:27+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "E28\u0027s deliberate tradeoff: a codex-named process with exec in its path or a configuration value counts as a reviewer and may hold an unknown-tree release while it lives; the refusal names it and the operator can delete the record once it is known unrelated. Safety over availability (operator: exclude errors)",
+                                             "evidence":  "",
+                                             "base_commit":  "e0d6168cb39f97c0983af303375236d9eb7372e8",
+                                             "tree_sha256":  "cc9644e6404150d365a94791960fddd48cc4684496cd2e3a7013a9513f1cf577"
                                          }
                                      ],
                          "reviewer_checks":  [

@@ -1,0 +1,56 @@
+{
+  "schema_version": "1",
+  "verdict": "ACCEPT",
+  "verdict_reason": "E28 fixes the demonstrated unsafe recovery release, with no remaining blocker found in this delta; its conservative server false positives are an availability tradeoff.",
+  "reply_markdown": "1. **F37-1 is fixed.** Both escaped configuration encodings now tokenize correctly and remain matched as reviewers. Read-only recovery replays returned `Active=true` for the original orphan scenario, `e\"x\"ec`, an unreadable command line, and ambiguous quoting. A normal `exec-server` was excluded, and recovery released after the reviewer disappeared. I found no additional unsafe exclusion in the reviewed bridge launch cases.\n\n   **An app process can still hold recovery indefinitely while it remains alive.** The whole-word guard also matches incidental text: `\"C:\\tools\\exec\\codex.exe\" app-server` counts as a reviewer, as does a server configuration value containing `exec`. I reproduced that behavior through recovery. This is E28’s deliberate conservative tradeoff, recorded as nonblocking finding #1. The hyphen rule correctly avoids matching `exec-server`. Known computer-use helpers retain their explicit name-based exception; unreadable ordinary `codex.exe` processes remain protected.\n\n2. **ACCEPT this delta for tagging; no blockers remain.** The production change and regression fixtures address the original failure at both matcher and recovery levels. Both changed PowerShell files parsed successfully, and the non-`.collab` diff passed whitespace checks. The reported five recovery-harness reruns, together with the earlier full-suite evidence, are sufficient for this bounded change; another complete suite is unnecessary.\n\n   I independently ran read-only matcher and mocked recovery checks. The native-process harness results are reported evidence from handoff 38, not runs performed during this review. The first-run checklist below specifies the observable acceptance signals.",
+  "findings": [
+    {
+      "severity": "note",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 9908
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 9910
+        }
+      ],
+      "claim": "E28's whole-word exec guard can keep recovery blocked by an unrelated, long-lived app server when exec appears in its executable path or configuration value. This is a conservative availability tradeoff, not an unsafe release.",
+      "trigger": "A machine-wide recovery scan encounters a qualifying process such as `\"C:\\tools\\exec\\codex.exe\" app-server`, started after the pending record, after the actual reviewer has exited.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:9908",
+          "observation": "The raw command line and every parsed token are checked for exec before server-subcommand exclusion, including the executable path and option values."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Read-only Get-CodexMatch and mocked Test-PendingActive checks",
+          "observation": "The server-path example returned Rule='name codex', Excluded='', and Active=true. Removing the process returned Active=false. A normal exec-server command remained excluded."
+        }
+      ],
+      "verification": "Replay an unknown-tree pending record with the server-path example as its sole post-start process; confirm recovery remains active until that process disappears.",
+      "remedy": "Retain the conservative guard for this release, but document incidental path/configuration matches and clarify the refusal reason so operators can identify the unrelated process before taking recovery action.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F37-1",
+      "status": "fixed",
+      "note": "The corrected tokenizer and exec guard protect both escaped encodings. Independent mocked recovery replay kept the original orphan scenario active; the added native-process fixtures also cover refusal, unchanged pending state, and release after exit."
+    }
+  ],
+  "unproven": [
+    "The native-process harnesses were not rerun during this read-only review; their passing results are reported in handoff 38.",
+    "Arbitrary launcher shims, future CLI argument layouts, and non-Windows command-line representations were not exhaustively tested."
+  ],
+  "first_run_checklist": [
+    "While an escaped-configuration reviewer survives beneath a dead intermediate, recovery refuses launch, names its PID, and retains the pending record unchanged.",
+    "Unreadable or ambiguous ordinary codex.exe command lines retain recovery protection.",
+    "After the reviewer exits, recovery reports release while ordinary app-server and exec-server processes remain alive and appear in the exclusion list.",
+    "No surviving reviewer PID appears in the exclusion list.",
+    "Any app server counted because of incidental exec text is identified as the process holding recovery; an exit code alone must not imply that recovery completed."
+  ]
+}
