@@ -7466,7 +7466,7 @@
                      },
                      {
                          "id":  "F32-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -7525,6 +7525,15 @@
                                              "evidence":  "",
                                              "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
                                              "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T21:22:27+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E25 (handoff 28): a panel record\u0027s unknown tree is released only when the by-parent scan AND the machine-wide codex-like check are both clean; a sibling\u0027s live process postpones the release; commit 7124348, harness-fixes28e RC1 (launcher -\u003e intermediate -\u003e reviewer chain)",
+                                             "evidence":  "",
+                                             "base_commit":  "ab51d1f1b7c1196df9edd8f54305aa474fe74d9a",
+                                             "tree_sha256":  "5c0591ba30bc130e4491d879e56550244dc0b0fbfc947a75dabeb31c85f12960"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7533,7 +7542,7 @@
                      },
                      {
                          "id":  "F32-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -7587,6 +7596,15 @@
                                              "evidence":  "",
                                              "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
                                              "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T21:22:30+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E26 (handoff 28): the legacy file is staged under a unique name before counting, never folded under its own name; -Status counts its lines as unflushed; commit 7124348, harness-fixes28e RC2 (crash point 2, equal-length and longer recreation)",
+                                             "evidence":  "",
+                                             "base_commit":  "ab51d1f1b7c1196df9edd8f54305aa474fe74d9a",
+                                             "tree_sha256":  "5c0591ba30bc130e4491d879e56550244dc0b0fbfc947a75dabeb31c85f12960"
                                          }
                                      ],
                          "reviewer_checks":  [
