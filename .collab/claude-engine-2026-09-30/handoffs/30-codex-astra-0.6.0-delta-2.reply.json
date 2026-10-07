@@ -1,0 +1,132 @@
+{
+  "schema_version": "1",
+  "verdict": "HOLD",
+  "verdict_reason": "E22(a) still releases recovery protection after an unconfirmed tree kill, allowing another consultation while an undiscovered descendant may remain alive.",
+  "reply_markdown": "1. **Q1 — The original E19 defect is fixed.** Read-only replays confirmed that both unverified and recorded-process checks retain unreadable command lines, bare runtimes and children of recorded PIDs. A readable, nonmatching process with an unrelated parent is dropped. E18 also retains unverified-only records at all three kill sites. Unknown identity can intentionally block until exit or informed operator intervention; elapsed time is not evidence of unrelated identity. These checks do not establish exhaustive correctness under real PID reuse or changing OS inspection permissions.\n\n2. **Q2 — E20 fixes the original save-order defect, but filename-only replay is insufficient for the legacy file.** Immutable, dead-producer files now have the correct order: save accounting, delete, then clear committed names. Failed initial saves preserve the sources. However, after a crash following the first save, an older producer can append to the legacy file before recovery. Its filename remains marked as folded, so status ignores the new lines and replay schedules the entire file for deletion without counting them. An in-memory replay with one accounted line plus one new line returned `StatusTotal=0`, `NewlyFoldedLines=0`, and held the legacy file for deletion (finding #2). This requires neither deletion nor failure of the second rewrite.\n\n3. **Q3 — E22(a) needs code before tagging.** Denied enumeration plus an unsuccessful tree-kill fallback is unknown tree state, not an empty tree. My replay returned `Confirmed=false`, empty survivor/unverified arrays, and a false E18 persistence predicate. A warning does not protect the next invocation (finding #1).\n\n   E22(b) understates the legacy limitation. Prefer a uniquely identified staged file or another generation-aware protocol. If diagnostic loss is deliberately accepted, document the broader crash-and-append case and narrow the unconditional crash-safety claim. This concerns dropped-event accounting, not loss of queued telemetry payloads. E21’s explicitly accepted non-Windows limitation is unchanged.\n\n4. **Q4 — HOLD on finding #1.** F27-1, F27-2 and the original F27-3 ordering defect are fixed within their stated triggers; the findings below describe remaining cases. All five changed PowerShell files parsed without errors, and `git diff --check` passed. I read the new fixtures but did not run writing harnesses. The reported targeted passes and pending final full-suite run remain distinct from my read-only checks.\n\n## Requested checks\n\n- **RC1:** Working directory: repository root; permission: workspace-write; procedure: add a timeout fixture with denied descendant enumeration, failed tree-kill fallback and a surviving hidden descendant; retry the same task. Require an explicit unknown-tree recovery record and no second reviewer launch until the uncertainty is resolved (finding #1). Budget: one fixture, 10 minutes execution.\n- **RC2:** Working directory: repository root; permission: workspace-write; procedure: extend the fold-crash fixture to append one legacy counter line after exit 87 but before the restarted flush. Require that additional line to be counted exactly once, with the original folded count unchanged (finding #2). Budget: one fixture, 5 minutes execution.\n- **RC3:** Working directory: repository root; permission: workspace-write; command: `powershell -NoProfile -File tests/run-all.ps1`. Require all 22 harnesses passing on the final candidate before tagging. Budget: one quiet-machine run, 45 minutes.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 10878
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 1897
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 4715
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 5332
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 6099
+        }
+      ],
+      "claim": "When descendant enumeration fails and tree termination cannot be confirmed, empty survivor and unverified arrays still cause recovery protection to be removed, allowing a subsequent consultation despite an unknown live descendant.",
+      "trigger": "The root exits, descendant enumeration is denied, and the tree-kill fallback fails or cannot establish that its children terminated.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:Stop-ProcessTreeChecked",
+          "observation": "Denied enumeration and failed taskkill produce Confirmed=false without necessarily populating Survivors or Unverified."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:1897,4715,5332,6099",
+          "observation": "Recovery retention tests only the two PID arrays; normal post-commit cleanup removes the pending record otherwise."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Read-only PowerShell replay of Stop-ProcessTreeChecked with mocked enumeration and taskkill",
+          "observation": "The result had Confirmed=false, Survivors=[], Unverified=[], and the E18 persistence predicate evaluated false."
+        }
+      ],
+      "verification": "Run a timeout fixture with denied enumeration and an unsuccessful tree-kill fallback; require persistent unknown-tree recovery state and refusal of the next consultation.",
+      "remedy": "Persist explicit unresolved-tree state whenever termination remains unconfirmed, even without identified descendant PIDs. Require a sufficient subsequent check or informed operator clearance before releasing it.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 11900
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 11944
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 11952
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 11978
+        },
+        {
+          "path": ".collab/claude-engine-2026-09-30/handoffs/28-claude-0.6.0-delta-decisions.md",
+          "line": null
+        }
+      ],
+      "claim": "Legacy counter lines appended after a fold's first committed save can be silently discarded during recovery because folded status identifies only the reusable filename, not the accounted contents or file generation.",
+      "trigger": "A flush crashes after saving not_spooled_folded but before deletion; an older producer appends to telemetry-not-spooled.ndjson before the next flush. Recreating that filename while its marker remains has the same problem.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:Get-TelemetryNotSpooled, Merge-TelemetryNotSpooled, Complete-TelemetryNotSpooledFold",
+          "observation": "Status skips marked filenames entirely. Merge assigns zero newly counted lines to an already-folded filename and holds its current contents for deletion."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Read-only PowerShell replay using an in-memory legacy file and mocked file enumeration",
+          "observation": "With one previously accounted line and one appended line, StatusCount and StatusTotal were zero, NewlyFoldedLines was zero, and the legacy filename was held for deletion."
+        },
+        {
+          "kind": "inferred",
+          "reference": "E20 crash replay and E22(b)",
+          "observation": "The loss can occur immediately after the first-save crash, so it is broader than the documented failed-final-rewrite scenario."
+        }
+      ],
+      "verification": "Append one legacy line between the existing exit-87 crash fixture and its restarted flush; require that line to be accounted exactly once.",
+      "remedy": "Give folded legacy contents a unique staged identity or track committed contents safely across appends and recreation. Alternatively, explicitly accept the broader diagnostic-loss limitation and withdraw the unconditional crash-safety claim.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F27-1",
+      "status": "fixed",
+      "note": "All three kill sites now retain records when Unverified is nonempty even without survivors; the new end-to-end fixture covers retention and next-run refusal. Finding #1 concerns denied enumeration with neither array populated."
+    },
+    {
+      "id": "F27-2",
+      "status": "fixed",
+      "note": "Both process recheck functions now retain unreadable command lines and bare runtimes; read-only replays confirmed these cases and recorded-parent handling."
+    },
+    {
+      "id": "F27-3",
+      "status": "fixed",
+      "note": "The original delete-before-save ordering is corrected, with committed folded names supporting replay. Finding #2 concerns mutable legacy contents under that filename-based protocol."
+    }
+  ],
+  "unproven": [
+    "The filesystem-writing harnesses and final full suite were not executed during this read-only review.",
+    "Actual denied-enumeration orphan survival was not exercised; the kill result and persistence decision were reproduced with mocks.",
+    "Concurrent legacy appends across a real fold crash were not exercised; the resulting replay state was reproduced in memory.",
+    "Real PID reuse, changing inspection permissions and non-Windows process reparenting were not exhaustively tested."
+  ],
+  "first_run_checklist": [
+    "The final candidate revision has a complete passing report for all 22 harnesses.",
+    "Unverified-only and unknown-tree kills retain recovery state; the next invocation names the uncertainty and produces no reviewer-launch event.",
+    "Unreadable command lines and bare runtimes remain blocking, while confirmed exits allow recovery to clear.",
+    "A failed initial .last save emits the warning and leaves counter files and the previous baseline intact.",
+    "Crash replay preserves the original folded count exactly once and accounts for a legacy line appended after the crash rather than deleting it silently."
+  ]
+}

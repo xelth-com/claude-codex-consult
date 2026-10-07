@@ -35,3 +35,17 @@ E22.  Documented limits, not code: (a) a kill whose root exited and whose child 
       rewrite that drops the deleted names fail, a later file with the LEGACY name would be deleted without being
       counted (the per-producer names carry a pid and start ticks and cannot recur). Astra's second round (29) is
       asked whether either needs code before the tag.
+
+Addendum 2 after astra's second round (30, F30-1 blocker, F30-2 minor; 2026-10-07 night):
+
+E23. (F30-1) **An unconfirmed kill keeps its record too.** E22(a) is withdrawn: a tree kill with `Confirmed=false` and
+     neither survivors nor unverified pids (child enumeration denied, the fallback failed) writes the record in
+     state `survivors` with empty `survivors[]` and `unverified[]` and `kill_unconfirmed: "<why>"`. The next run
+     scans with the existing by-parent rule (`Find-CodexProcesses -BridgePid <the record's writer> -Since <started>`,
+     the record's `child_pid` as a second parent): the scan fails -> refused (fail-closed); a codex-like process
+     found -> refused, named; a clean scan -> the record is released with a note. Where the by-parent rule is not
+     available (not Windows) the record is released only by the operator.
+E24. (F30-2) **The fold is generation-aware by length.** `not_spooled_folded[]` entries are `{name, bytes}`; on the
+     replay a named file of that length is deleted without counting, a longer one has its tail (complete lines)
+     counted as new, a shorter or missing one is dropped from the list; `-Status` counts only the tail of a named
+     file. E22(b) is withdrawn.

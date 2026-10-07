@@ -7025,7 +7025,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  20,
+                                                     "when":  "2026-10-07T19:39:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "All three kill sites now retain records when Unverified is nonempty even without survivors; the new end-to-end fixture covers retention and next-run refusal. Finding #1 concerns denied enumeration with neither array populated.",
+                                                     "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
+                                                     "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                                 }
                                              ]
                      },
                      {
@@ -7096,7 +7103,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  20,
+                                                     "when":  "2026-10-07T19:39:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Both process recheck functions now retain unreadable command lines and bare runtimes; read-only replays confirmed these cases and recorded-parent handling.",
+                                                     "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
+                                                     "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                                 }
                                              ]
                      },
                      {
@@ -7167,7 +7181,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  20,
+                                                     "when":  "2026-10-07T19:39:05+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The original delete-before-save ordering is corrected, with committed folded names supporting replay. Finding #2 concerns mutable legacy contents under that filename-based protocol.",
+                                                     "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
+                                                     "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                                 }
                                              ]
                      },
                      {
@@ -7231,6 +7252,156 @@
                                              "evidence":  "",
                                              "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
                                              "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F30-1",
+                         "status":  "proposed",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  10878
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  1897
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  4715
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  5332
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  6099
+                                           }
+                                       ],
+                         "claim":  "When descendant enumeration fails and tree termination cannot be confirmed, empty survivor and unverified arrays still cause recovery protection to be removed, allowing a subsequent consultation despite an unknown live descendant.",
+                         "trigger":  "The root exits, descendant enumeration is denied, and the tree-kill fallback fails or cannot establish that its children terminated.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:Stop-ProcessTreeChecked",
+                                              "observation":  "Denied enumeration and failed taskkill produce Confirmed=false without necessarily populating Survivors or Unverified."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:1897,4715,5332,6099",
+                                              "observation":  "Recovery retention tests only the two PID arrays; normal post-commit cleanup removes the pending record otherwise."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only PowerShell replay of Stop-ProcessTreeChecked with mocked enumeration and taskkill",
+                                              "observation":  "The result had Confirmed=false, Survivors=[], Unverified=[], and the E18 persistence predicate evaluated false."
+                                          }
+                                      ],
+                         "verification":  "Run a timeout fixture with denied enumeration and an unsuccessful tree-kill fallback; require persistent unknown-tree recovery state and refusal of the next consultation.",
+                         "remedy":  "Persist explicit unresolved-tree state whenever termination remains unconfirmed, even without identified descendant PIDs. Require a sufficient subsequent check or informed operator clearance before releasing it.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  20,
+                                        "reply":  "handoffs/30-codex-astra-0.6.0-delta-2.md",
+                                        "thread":  "01a1176d-eb75-7fe3-a490-aecbc326c0b1",
+                                        "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
+                                        "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T19:39:05+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
+                                             "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F30-2",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  11900
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  11944
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  11952
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  11978
+                                           },
+                                           {
+                                               "path":  ".collab/claude-engine-2026-09-30/handoffs/28-claude-0.6.0-delta-decisions.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "Legacy counter lines appended after a fold\u0027s first committed save can be silently discarded during recovery because folded status identifies only the reusable filename, not the accounted contents or file generation.",
+                         "trigger":  "A flush crashes after saving not_spooled_folded but before deletion; an older producer appends to telemetry-not-spooled.ndjson before the next flush. Recreating that filename while its marker remains has the same problem.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:Get-TelemetryNotSpooled, Merge-TelemetryNotSpooled, Complete-TelemetryNotSpooledFold",
+                                              "observation":  "Status skips marked filenames entirely. Merge assigns zero newly counted lines to an already-folded filename and holds its current contents for deletion."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only PowerShell replay using an in-memory legacy file and mocked file enumeration",
+                                              "observation":  "With one previously accounted line and one appended line, StatusCount and StatusTotal were zero, NewlyFoldedLines was zero, and the legacy filename was held for deletion."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "E20 crash replay and E22(b)",
+                                              "observation":  "The loss can occur immediately after the first-save crash, so it is broader than the documented failed-final-rewrite scenario."
+                                          }
+                                      ],
+                         "verification":  "Append one legacy line between the existing exit-87 crash fixture and its restarted flush; require that line to be accounted exactly once.",
+                         "remedy":  "Give folded legacy contents a unique staged identity or track committed contents safely across appends and recreation. Alternatively, explicitly accept the broader diagnostic-loss limitation and withdraw the unconditional crash-safety claim.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  20,
+                                        "reply":  "handoffs/30-codex-astra-0.6.0-delta-2.md",
+                                        "thread":  "01a1176d-eb75-7fe3-a490-aecbc326c0b1",
+                                        "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
+                                        "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T19:39:05+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "6b05d4c95ceb7a1892066cd074bfad91ddb59586",
+                                             "tree_sha256":  "de4f622a5cd4378530c36088ac499a7162a0c1adb86491d53dcb8596f8d08009"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7526,6 +7697,23 @@
                         "note":  "Two real blockers in E1\u0027s scope and re-check (the survivors-only record, the unreadable command line taken as unrelated), the fold\u0027s write order, the Linux tolerance; in-memory replays as evidence; RC1-RC3 concrete",
                         "when":  "2026-10-07T18:23:11+02:00",
                         "telemetry_sent":  1791390191
+                    },
+                    {
+                        "n":  20,
+                        "consult_id":  "3287f0d3-e596-4741-ab7d-e0625b864a0d",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-07T19:33:58+02:00",
+                        "useful":  "yes",
+                        "note":  "Confirmed E18/E19/E20 within their triggers by replay; the unknown-tree case (denied enumeration, unconfirmed kill) is a real blocker; the legacy-file append after the first save is a real gap of the name-only replay",
+                        "when":  "2026-10-07T19:40:12+02:00",
+                        "telemetry_sent":  1791394812
                     }
                 ]
 }
