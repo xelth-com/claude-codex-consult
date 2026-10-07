@@ -24096,7 +24096,7 @@
                      },
                      {
                          "id":  "F53-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "note",
                          "locations":  [
                                            {
@@ -24146,6 +24146,15 @@
                                              "evidence":  "",
                                              "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
                                              "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T13:18:58+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E2: the per-producer not-spooled files are folded and removed by the flush - they never grow between forgets; commit 119008b (wave 28e), harness-fixes28e 31/31",
+                                             "evidence":  "",
+                                             "base_commit":  "119008b0e14b90724f0fcb54e30729bc74ac01a2",
+                                             "tree_sha256":  "87d1c41b99e8758371327eba6b89f5cdad737bdc7408b400973a032945d25608"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -24154,7 +24163,7 @@
                      },
                      {
                          "id":  "F54-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -24195,6 +24204,15 @@
                                              "evidence":  "",
                                              "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
                                              "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T13:18:47+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E1 (handoff 56): the recovery record carries unverified[] {pid, why}; the next run names them, re-checks the readable ones, counts an unreadable one as running (fail-closed); commit 119008b (wave 28e), harness-fixes28e 31/31",
+                                             "evidence":  "",
+                                             "base_commit":  "119008b0e14b90724f0fcb54e30729bc74ac01a2",
+                                             "tree_sha256":  "87d1c41b99e8758371327eba6b89f5cdad737bdc7408b400973a032945d25608"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -24203,7 +24221,7 @@
                      },
                      {
                          "id":  "F54-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -24244,6 +24262,15 @@
                                              "evidence":  "",
                                              "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
                                              "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T13:18:50+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E2: one not-spooled file per producer process, appended without contention; -Status sums them; the flush folds the files of gone producers into one .last line and removes them; commit 119008b (wave 28e), harness-fixes28e 31/31",
+                                             "evidence":  "",
+                                             "base_commit":  "119008b0e14b90724f0fcb54e30729bc74ac01a2",
+                                             "tree_sha256":  "87d1c41b99e8758371327eba6b89f5cdad737bdc7408b400973a032945d25608"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -24252,7 +24279,7 @@
                      },
                      {
                          "id":  "F54-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -24293,6 +24320,15 @@
                                              "evidence":  "",
                                              "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
                                              "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T13:18:52+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E3: the forgetting marker records start_ticks; the owner is compared on pid and full-resolution start time (exact on Windows); commit 119008b (wave 28e), harness-fixes28e 31/31",
+                                             "evidence":  "",
+                                             "base_commit":  "119008b0e14b90724f0fcb54e30729bc74ac01a2",
+                                             "tree_sha256":  "87d1c41b99e8758371327eba6b89f5cdad737bdc7408b400973a032945d25608"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -24301,7 +24337,7 @@
                      },
                      {
                          "id":  "F54-4",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -24342,6 +24378,15 @@
                                              "evidence":  "",
                                              "base_commit":  "acdc218ee800cf9f3b830eeb2aa05406e2e9f62a",
                                              "tree_sha256":  "1f5563cf4a6b27a448fe005b4e1d365cede3d32cbbf8baea6ad65ff992884939"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T13:18:55+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E4: the inline anchor keeps the first line of a multi-line ask whole (300 characters) and names the count of the remaining lines; commit 119008b (wave 28e), harness-fixes28e 31/31",
+                                             "evidence":  "",
+                                             "base_commit":  "119008b0e14b90724f0fcb54e30729bc74ac01a2",
+                                             "tree_sha256":  "87d1c41b99e8758371327eba6b89f5cdad737bdc7408b400973a032945d25608"
                                          }
                                      ],
                          "reviewer_checks":  [
