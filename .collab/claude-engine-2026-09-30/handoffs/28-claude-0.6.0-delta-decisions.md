@@ -60,3 +60,15 @@ E26. (F32-2) **The legacy file is staged, never folded under its own name:** und
      (a move that fails on a held handle is retried briefly, then skipped this flush with a note); staged names never
      recur, so `{name, bytes}` identifies a file exactly; a writer that recreates the legacy name writes a new
      generation. `-Status` counts the legacy file's complete lines as not yet flushed.
+
+Addendum 4 after the final full suite (RC3, 2026-10-07 23:10; harness-fixes F04-10 failed with the Codex desktop app open):
+
+E27. **The "looks like codex" rule ignores the Codex desktop app's servers.** The machine-wide scan matched the app's
+     `codex.exe ... app-server`, `codex.exe exec-server --remote ...` and `codex-computer-use-swift.exe --parent-pid`
+     as "task not verifiable", so with the app open an interrupted consultation whose survivors are gone stayed
+     refused and (E23/E25) an unknown tree was never released. A reviewer run is always `codex exec` (or the launcher
+     shim): a codex-named process whose command line shows a subcommand `app-server`, `exec-server`, `mcp-server`,
+     `login` or `app`, or a `codex-computer-use*` executable, is not a reviewer; `codex exec`, the recorded launcher
+     path, `@openai/codex` and a codex-named process whose command line cannot be read still match (fail-closed).
+     The exclusion is named in the match text. Checks in harness-fixes; the recovery harnesses rerun with the app
+     open; astra's fifth round on the one-function diff decides.
