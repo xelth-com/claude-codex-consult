@@ -7797,7 +7797,7 @@
                      },
                      {
                          "id":  "F37-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -7861,6 +7861,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8083ae02170f4f543b25e4b6606099aa892dd843",
                                              "tree_sha256":  "2bf39b51a50df96a8557f15daa7dd53f3e4e064f404c6a2a8a4b169b735a0ebf"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T01:16:39+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E28 (handoff 28): a codex-named process whose command line carries the word exec anywhere (hyphen part of the word, so exec-server stays excluded) is never excluded; the tokenizer follows the Windows/Rust quoting rules (\\\" and \"\" literal); unbalanced quoting counts as codex; commit 67a0029, harness-fixes E27 block (both escaped encodings as real processes beneath a dead intermediate)",
+                                             "evidence":  "",
+                                             "base_commit":  "e0cbafe188a10757ed8506b8ed4bd6047bf584e3",
+                                             "tree_sha256":  "8e6cfd415e294f1ffee8d8c747036a72ed757c62da9e5f94d87f3313122b8cb0"
                                          }
                                      ],
                          "reviewer_checks":  [
