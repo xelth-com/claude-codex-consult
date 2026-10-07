@@ -3906,7 +3906,7 @@
                      },
                      {
                          "id":  "F08-4",
-                         "status":  "proposed",
+                         "status":  "verified",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -3965,6 +3965,15 @@
                                              "evidence":  "",
                                              "base_commit":  "8b115918d16f4d56f0e630b89984ce1e18322bbc",
                                              "tree_sha256":  "60b1ad75f290a53b94a4c48174006abb4111994539f72bc0ab7d65d34e3aadff"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T05:24:08+02:00",
+                                             "status":  "verified",
+                                             "by":  "coordinator",
+                                             "note":  "E3/E4 (wave 29b): endpoint preflight = the named variable set, no auth status; the child gets BASE_URL/AUTH_TOKEN/API_TIMEOUT_MS; proof = init model (E11 makes it a billing proof); the invalid-token smoke 23 -\u003e class auth",
+                                             "evidence":  "acceptance ACCEPT by openai :: gpt-6-astra, handoff 25; harness-claude ENDPOINT; live smokes 13, 22, 23",
+                                             "base_commit":  "89b439aa00b22897e310aae0f855eeb3b4d4c8b5",
+                                             "tree_sha256":  "9d0ffcb52bc85a0608fcee3d71fa2c5a7cb588b4859a8ff4c8c948e0d5963d74"
                                          }
                                      ],
                          "reviewer_checks":  [
