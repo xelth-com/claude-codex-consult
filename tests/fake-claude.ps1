@@ -42,13 +42,24 @@
 #                                 fable claude-fable-5-1 -, a full id as given without [1m])
 #   FAKE_CLAUDE_APIKEYSOURCE=<v>  the init's apiKeySource (default: ANTHROPIC_API_KEY when that
 #                                 variable reached the child, else none)
+#   (wave 29b, E12-E15)
+#   FAKE_CLAUDE_INIT_DROP=<csv>   these fields are left out of the init (tools, mcp_servers,
+#                                 apiKeySource, model, permissionMode - a CLI whose schema changed)
+#   FAKE_CLAUDE_ASSISTANT_MODEL=<m>  the message.model of every assistant event (default: the
+#                                 init's model) - another model authoring the answer
+#   FAKE_CLAUDE_INIT_SCOPE=new    INIT_TOOLS, INIT_MCP, INIT_DROP and ASSISTANT_MODEL apply only to
+#                                 a turn without --resume (a continuation then inits cleanly)
+#   FAKE_CLAUDE_RATE_RESET=<unix seconds>  the resetsAt of FAKE_CLAUDE_RATE_LIMIT's event (default:
+#                                 in an hour)
 #   FAKE_CLAUDE_MODEL_USAGE=<m>=<out>[,<m>=<out>...]  result.modelUsage (default: the init model)
 #   FAKE_CLAUDE_DENIALS=1         a denied Read outside the working directories beside the reply
 #                                 (a turn without --resume); =empty: ... and no reply; =all: every
 #                                 turn, with a reply
 #   FAKE_CLAUDE_RATE_LIMIT=rejected  a rejecting rate_limit_event (five_hour, resets in an hour)
 #                                 and an is_error "usage limit" result, exit 1; =warning: an
-#                                 allowed_warning event beside a normal answer
+#                                 allowed_warning event beside a normal answer; =rejected-success
+#                                 (wave 29b, E15): the rejecting event, then the normal successful
+#                                 answer (the CLI retried and got through)
 #   FAKE_CLAUDE_HANG=1            sleeps 60 s after init; =new: only on a turn without --resume;
 #                                 FAKE_CLAUDE_HANG_ON=<text>: only when the raw arguments hold it
 #   FAKE_CLAUDE_TEXT=1            before the hang point: a thinking block, a text block and a Read
@@ -177,20 +188,27 @@ $aliases = @{ opus = 'claude-opus-5-5'; sonnet = 'claude-sonnet-5-5'; haiku = 'c
 $endpointMode = [bool]([string]$env:ANTHROPIC_BASE_URL)
 $initModel = if ($env:FAKE_CLAUDE_INIT_MODEL) { [string]$env:FAKE_CLAUDE_INIT_MODEL } elseif ($endpointMode) { $base } elseif ($aliases.ContainsKey($base)) { $aliases[$base] } else { $base }
 $wrongToken = ($endpointMode -and [bool]$env:FAKE_CLAUDE_TOKEN_EXPECT -and ([string]$env:ANTHROPIC_AUTH_TOKEN -cne [string]$env:FAKE_CLAUDE_TOKEN_EXPECT))
-$tools = if ($env:FAKE_CLAUDE_INIT_TOOLS) { @($env:FAKE_CLAUDE_INIT_TOOLS.Split(',')) } else { @('Glob', 'Grep', 'Read', 'StructuredOutput') }
-$mcp = if ($env:FAKE_CLAUDE_INIT_MCP) { @([pscustomobject]@{ name = $env:FAKE_CLAUDE_INIT_MCP; status = 'connected' }) } else { @() }
+# (wave 29b) FAKE_CLAUDE_INIT_SCOPE=new: the init and assistant overrides on the first turn only
+$scoped = ($env:FAKE_CLAUDE_INIT_SCOPE -ne 'new') -or (-not $resume)
+$tools = if ($scoped -and $env:FAKE_CLAUDE_INIT_TOOLS) { @($env:FAKE_CLAUDE_INIT_TOOLS.Split(',')) } else { @('Glob', 'Grep', 'Read', 'StructuredOutput') }
+# (wrapped in @(): an `if` that yields @() yields nothing - the init must carry [] as the real CLI's does, never null)
+$mcp = @(if ($scoped -and $env:FAKE_CLAUDE_INIT_MCP) { [pscustomobject]@{ name = $env:FAKE_CLAUDE_INIT_MCP; status = 'connected' } })
+$initDrop = if ($scoped -and $env:FAKE_CLAUDE_INIT_DROP) { @($env:FAKE_CLAUDE_INIT_DROP.Split(',') | ForEach-Object { $_.Trim() }) } else { @() }
+$asstModel = if ($scoped -and $env:FAKE_CLAUDE_ASSISTANT_MODEL) { [string]$env:FAKE_CLAUDE_ASSISTANT_MODEL } else { $initModel }
 $pmode = if ($env:FAKE_CLAUDE_INIT_MODE) { [string]$env:FAKE_CLAUDE_INIT_MODE } else { Get-Flag '--permission-mode' }
 $keySource = if ($env:FAKE_CLAUDE_APIKEYSOURCE) { [string]$env:FAKE_CLAUDE_APIKEYSOURCE } elseif ($env:ANTHROPIC_API_KEY) { 'ANTHROPIC_API_KEY' } else { 'none' }
 $tag = if ($resume) { 'resume' } else { 'first' }
 if ($env:FAKE_CLAUDE_NOINIT -ne '1') {
-    Out-Bytes ((J ([pscustomobject]@{ type = 'system'; subtype = 'init'; cwd = (Get-Location).Path; session_id = $id; tools = [object[]]$tools; mcp_servers = [object[]]$mcp; model = $initModel; permissionMode = $pmode; slash_commands = @(); apiKeySource = $keySource; output_style = 'default'; agents = @('general-purpose'); skills = @(); plugins = @([pscustomobject]@{ name = 'cc-plugin-agents-md' }); uuid = [guid]::NewGuid().ToString() })) + "`n")
+    $initEv = [ordered]@{ type = 'system'; subtype = 'init'; cwd = (Get-Location).Path; session_id = $id; tools = [object[]]$tools; mcp_servers = [object[]]$mcp; model = $initModel; permissionMode = $pmode; slash_commands = @(); apiKeySource = $keySource; output_style = 'default'; agents = @('general-purpose'); skills = @(); plugins = @([pscustomobject]@{ name = 'cc-plugin-agents-md' }); uuid = [guid]::NewGuid().ToString() }
+    foreach ($dk in $initDrop) { if ($initEv.Contains($dk)) { $initEv.Remove($dk) } }
+    Out-Bytes ((J ([pscustomobject]$initEv)) + "`n")
 }
 if ($env:FAKE_CLAUDE_TEXT) {
-    Out-Bytes ((J ([pscustomobject]@{ type = 'assistant'; message = [pscustomobject]@{ model = $initModel; content = @([pscustomobject]@{ type = 'thinking'; thinking = "Planning the review ($tag turn)." }, [pscustomobject]@{ type = 'text'; text = "Reading the brief ($tag turn)." }, [pscustomobject]@{ type = 'tool_use'; id = "toolu_$tag"; name = 'Read'; input = [pscustomobject]@{ file_path = "app.txt" } }) }; session_id = $id })) + "`n")
+    Out-Bytes ((J ([pscustomobject]@{ type = 'assistant'; message = [pscustomobject]@{ model = $asstModel; content = @([pscustomobject]@{ type = 'thinking'; thinking = "Planning the review ($tag turn)." }, [pscustomobject]@{ type = 'text'; text = "Reading the brief ($tag turn)." }, [pscustomobject]@{ type = 'tool_use'; id = "toolu_$tag"; name = 'Read'; input = [pscustomobject]@{ file_path = "app.txt" } }) }; session_id = $id })) + "`n")
     Out-Bytes ((J ([pscustomobject]@{ type = 'user'; message = [pscustomobject]@{ content = @([pscustomobject]@{ type = 'tool_result'; tool_use_id = "toolu_$tag"; content = 'one' }) }; session_id = $id })) + "`n")
 }
 if ($env:FAKE_CLAUDE_TOOL_OPEN -eq '1') {
-    Out-Bytes ((J ([pscustomobject]@{ type = 'assistant'; message = [pscustomobject]@{ model = $initModel; content = @([pscustomobject]@{ type = 'tool_use'; id = 'toolu_open'; name = 'Grep'; input = [pscustomobject]@{ pattern = 'x' } }) }; session_id = $id })) + "`n")
+    Out-Bytes ((J ([pscustomobject]@{ type = 'assistant'; message = [pscustomobject]@{ model = $asstModel; content = @([pscustomobject]@{ type = 'tool_use'; id = 'toolu_open'; name = 'Grep'; input = [pscustomobject]@{ pattern = 'x' } }) }; session_id = $id })) + "`n")
 }
 if ($env:FAKE_CLAUDE_HANG -eq '1' -or ($env:FAKE_CLAUDE_HANG -eq 'new' -and -not $resume) -or ($env:FAKE_CLAUDE_HANG_ON -and $raw.Contains($env:FAKE_CLAUDE_HANG_ON))) { Start-Sleep -Seconds 60 }
 if ($env:FAKE_CLAUDE_DELAY_MS) { Start-Sleep -Milliseconds ([int]$env:FAKE_CLAUDE_DELAY_MS) }
@@ -213,8 +231,8 @@ if ($wrongToken) {
 if ($env:FAKE_CLAUDE_BADLINE -eq '1') { Out-Bytes "this is not json`n" }
 $rl = [string]$env:FAKE_CLAUDE_RATE_LIMIT
 if ($rl) {
-    $resets = [DateTimeOffset]::UtcNow.AddHours(1).ToUnixTimeSeconds()
-    $status = if ($rl -eq 'rejected') { 'rejected' } else { 'allowed_warning' }
+    $resets = if ($env:FAKE_CLAUDE_RATE_RESET) { [long]$env:FAKE_CLAUDE_RATE_RESET } else { [DateTimeOffset]::UtcNow.AddHours(1).ToUnixTimeSeconds() }
+    $status = if ($rl -like 'rejected*') { 'rejected' } else { 'allowed_warning' }
     Out-Bytes ((J ([pscustomobject]@{ type = 'rate_limit_event'; rate_limit_info = [pscustomobject]@{ status = $status; resetsAt = $resets; rateLimitType = 'five_hour'; utilization = 0.97 }; uuid = [guid]::NewGuid().ToString(); session_id = $id })) + "`n")
 }
 
@@ -240,11 +258,11 @@ if ($rl -eq 'rejected') { $isError = $true; $resultText = "Claude AI usage limit
 if ($env:FAKE_CLAUDE_IS_ERROR) { $isError = $true; $resultText = [string]$env:FAKE_CLAUDE_IS_ERROR; $structured = $null; $exitCode = 1 }
 $subtype = if ($env:FAKE_CLAUDE_SUBTYPE) { [string]$env:FAKE_CLAUDE_SUBTYPE } else { 'success' }
 if ($denied) {
-    Out-Bytes ((J ([pscustomobject]@{ type = 'assistant'; message = [pscustomobject]@{ model = $initModel; content = @([pscustomobject]@{ type = 'tool_use'; id = 'toolu_denied'; name = 'Read'; input = [pscustomobject]@{ file_path = 'C:\outside\secret.txt' } }) }; session_id = $id })) + "`n")
+    Out-Bytes ((J ([pscustomobject]@{ type = 'assistant'; message = [pscustomobject]@{ model = $asstModel; content = @([pscustomobject]@{ type = 'tool_use'; id = 'toolu_denied'; name = 'Read'; input = [pscustomobject]@{ file_path = 'C:\outside\secret.txt' } }) }; session_id = $id })) + "`n")
     Out-Bytes ((J ([pscustomobject]@{ type = 'user'; message = [pscustomobject]@{ content = @([pscustomobject]@{ type = 'tool_result'; tool_use_id = 'toolu_denied'; is_error = $true; content = 'C:\outside\secret.txt is outside the working directories' }) }; session_id = $id })) + "`n")
 }
 if ($resultText -and -not $isError) {
-    Out-Bytes ((J ([pscustomobject]@{ type = 'assistant'; message = [pscustomobject]@{ model = $initModel; content = @([pscustomobject]@{ type = 'text'; text = "Answer ($tag turn)." }) }; session_id = $id })) + "`n")
+    Out-Bytes ((J ([pscustomobject]@{ type = 'assistant'; message = [pscustomobject]@{ model = $asstModel; content = @([pscustomobject]@{ type = 'text'; text = "Answer ($tag turn)." }) }; session_id = $id })) + "`n")
 }
 if ($env:FAKE_CLAUDE_NORESULT -ne '1') {
     $mu = [ordered]@{}

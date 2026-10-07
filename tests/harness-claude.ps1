@@ -11,6 +11,10 @@
 # a third-party Anthropic-compatible endpoint (decisions E1-E7 of handoff 12 of that task): the roster
 # shapes, the child environment, the local preflight, the route and plan identities, telemetry and the
 # lab by host, the plan's scheduling group, the 401 and the model proof (the fake's endpoint mode).
+# (Wave 29b) ACCEPT: the acceptance decisions E12-E16 (handoff 21 of that task) - a killed turn's init
+# judged and no continuation after a failed proof, the assistant messages as the model proof, a missing
+# init field, a rejecting rate-limit event beside a successful result (the reply usable, the route's
+# health marked, the plan too), the machine-wide running records with the plan (two repositories).
 # FAKES ONLY: fake-claude.cmd (CODEX_CONSULT_CLAUDE_EXE) and fake-codex3.cmd. GUARD: the real claude is
 # never resolvable - every child gets a scratch USERPROFILE/HOME (no ~/.local/bin/claude.exe) and a
 # scratch LOCALAPPDATA, a PATH without any directory that holds a claude (or muse / agy) launcher, and
@@ -915,6 +919,144 @@ if (Want 'ENDPOINT') {
         Check 'ENDPOINT' 'E7 through the bridge: a dry-run panel of ZAI (codex), ZAI-claude (endpoint) and openai plans "at most 2 at a time" (the plan zai serializes its two routes); with "parallel": {"zai": 2} "at once"' ($pdE.Code -eq 0 -and $pdE.Out -match 'at most 2 at a time' -and $ppE.Code -eq 0 -and $ppE.Out -match 'at once') "$($pdE.First) | $($ppE.First)"
     } finally {
         $codexHome = $savedCodexHome
+    }
+}
+
+# =============================================================== ACCEPT: the acceptance decisions E12-E16 (handoff 21)
+# The defects the acceptance round found in the turn rules (handoff 20, RC1 and RC2): a killed turn's
+# init is judged too and no continuation resumes a session that ran outside the proof (E12); the
+# assistant messages prove the model (E13); a missing init field is a failure (E14); a rejecting
+# rate-limit event survives a successful result and marks the route's health (E15); the machine-wide
+# running records know the plan (E16). Fake streams only; the endpoint token is a made-up value.
+if (Want 'ACCEPT') {
+    $acVar = 'W29B_FAKE_ZAI_TOKEN'
+    $acToken = 'fake-token-w29b-0002'
+    $acUrl = 'https://api.z.ai/api/anthropic'
+    $acZaiClaude = '{"provider":"ZAI-claude","engine":"claude","model":"glm-5.3","auth":"endpoint","endpoint":{"base_url":"' + $acUrl + '","env_key":"' + $acVar + '"},"plan":"zai"}'
+    $acZai = '{"provider":"ZAI","model":"glm-5.3","plan":"zai"}'
+    $acOai = '{"provider":"openai","model":"gpt-5.1"}'
+    $acRoster = { param([string[]]$Items) '{"roster_version":1,"reviewers":[' + ($Items -join ',') + ']}' }
+    $acRow = { param($J, [string]$Name) @(@($J) | Where-Object { $_.name -ceq $Name })[0] }
+    function EvA { param([string]$Name, [string[]]$Lines) $p = Join-Path $work $Name; [IO.File]::WriteAllText($p, (($Lines -join "`n") + "`n"), $u8); return $p }
+    # a Codex home with the ZAI table: the codex route to the plan zai, the same token variable
+    $acHome = Join-Path $work 'codexhome-accept'
+    [void][IO.Directory]::CreateDirectory($acHome)
+    [IO.File]::WriteAllText((Join-Path $acHome 'config.toml'), "model = `"gpt-5.1`"`n[model_providers.ZAI]`nname = `"Z.ai GLM Coding Plan`"`nbase_url = `"https://api.z.ai/api/coding/paas/v4`"`nenv_key = `"$acVar`"`nwire_api = `"responses`"`n", $u8)
+    $acSavedHome = $codexHome
+    $codexHome = $acHome
+    try {
+        # ---- E12 in-process: every proof problem of a KILLED turn's init fails it (ProofProblem), a clean one keeps the timeout
+        $uA = Uuid
+        $initA = '{"type":"system","subtype":"init","cwd":"C:\\r","session_id":"' + $uA + '","tools":["Glob","Grep","Read","StructuredOutput"],"mcp_servers":[],"model":"claude-sonnet-5-5","permissionMode":"dontAsk","apiKeySource":"none"}'
+        $asstA = '{"type":"assistant","message":{"model":"claude-sonnet-5-5","content":[{"type":"text","text":"reading"}]},"session_id":"' + $uA + '"}'
+        $tA = New-EngineTurnOptions -Model 'sonnet' -NewThread $uA -Auth 'subscription'
+        $preA = 'failed: timeout after 5 s (process tree killed)'
+        $killedRules = [ordered]@{
+            'Bash'            = @(($initA -replace '"StructuredOutput"\]', '"StructuredOutput","Bash"]'), 'permission', '^failed: the init event lists tools outside Read, Grep, Glob, StructuredOutput: Bash ')
+            'an MCP server'   = @(($initA -replace '"mcp_servers":\[\]', '"mcp_servers":[{"name":"rogue","status":"connected"}]'), 'permission', '^failed: the init event lists MCP server\(s\) \(rogue\)')
+            'mode default'    = @(($initA -replace 'dontAsk', 'default'), 'permission', "^failed: the init event names the permission mode 'default', not dontAsk")
+            'apiKeySource'    = @(($initA -replace '"apiKeySource":"none"', '"apiKeySource":"ANTHROPIC_API_KEY"'), 'auth', '^failed: the init event names apiKeySource ANTHROPIC_API_KEY, not none')
+            'opus served'     = @(($initA -replace '"model":"claude-sonnet-5-5"', '"model":"claude-opus-5-5"'), 'capability', '^failed: model drift: asked sonnet, served claude-opus-5-5')
+            'no tools field'  = @(($initA -replace '"tools":\[[^\]]*\],', ''), 'capability', "^failed: init event lacks tools - the CLI's schema changed; pin the version")
+        }
+        $badK = @()
+        $kk = 0
+        foreach ($name in $killedRules.Keys) {
+            $kk++
+            $ok = Get-ClaudeTurnOutcome -Events (Read-ClaudeEvents -Path (EvA "acc-k$kk.jsonl" @($killedRules[$name][0], $asstA, '{"type":"assis')) -AllowPartialLast) -ExitCode -1 -Pre $preA -Turn $tA
+            if (-not (-not $ok.Ok -and $ok.Class -eq $killedRules[$name][1] -and $ok.Outcome -match $killedRules[$name][2] -and $ok.Outcome.EndsWith('(the turn was also stopped: timeout after 5 s (process tree killed))') -and [string]$ok.ProofProblem -and $ok.ThreadCandidate -eq $uA)) { $badK += "$name -> [$($ok.Outcome)] $($ok.Class) proof '$($ok.ProofProblem)'" }
+        }
+        $cleanK = Get-ClaudeTurnOutcome -Events (Read-ClaudeEvents -Path (EvA 'acc-k0.jsonl' @($initA, $asstA, '{"type":"assis')) -AllowPartialLast) -ExitCode -1 -Pre $preA -Turn $tA
+        Check 'ACCEPT' "E12 (F20-1): a turn KILLED on its timeout is judged by its init and model like any turn - $(@($killedRules.Keys) -join ', ') -> failed with that class, the problem first and the stop after it (""<problem> (the turn was also stopped: timeout after 5 s ...)""), ProofProblem set (no continuation), the minted id a candidate; a clean killed init keeps the timeout outcome, no ProofProblem, ModelResolved from the init" ($badK.Count -eq 0 -and $cleanK.Outcome -eq $preA -and -not $cleanK.ProofProblem -and $cleanK.ModelResolved -eq 'claude-sonnet-5-5') ($badK -join ' | ')
+
+        # ---- E12 end to end (RC1): Bash and an MCP server in the init of a turn killed on a short timeout, a valid continuation prepared
+        $rA = New-Repo 'accept-e12'
+        $xA = Consult $rA '' ($claudeArgs + @('-Prompt', 'x', '-ReplyName', 'e12', '-TimeoutSec', '8', '-ContinueSec', '60')) @{ FAKE_CLAUDE_REPLY = $adviseF; FAKE_CLAUDE_RESUME_REPLY = $advise; FAKE_CLAUDE_HANG = 'new'; FAKE_CLAUDE_TEXT = '1'; FAKE_CLAUDE_INIT_SCOPE = 'new'; FAKE_CLAUDE_INIT_TOOLS = 'Glob,Grep,Read,StructuredOutput,Bash'; FAKE_CLAUDE_INIT_MCP = 'rogue' }
+        $eA = Last-Entry $rA
+        $partA = Text (Td $rA ([string]$eA.partial_reply))
+        Check 'ACCEPT' 'E12 (RC1): the main turn''s init lists Bash and the MCP server rogue, the turn hangs and is killed at 8 s, a VALID continuation is prepared (a clean init and a reply on --resume) - the consultation stays FAILED with class permission: "failed: the init event lists tools outside Read, Grep, Glob, StructuredOutput: Bash - ... (the turn was also stopped: timeout after 8 s (process tree killed))", NO continuation started (one turn logged; timeout_continue "not attempted: the killed turn failed its proof (class permission: ..."), nothing ingested, the salvage kept (.partial.md with the first turn''s text and "Read: app.txt")' ($xA.Code -eq 1 -and $xA.GuardOk -and $eA.bridge_outcome -match '^failed: the init event lists tools outside Read, Grep, Glob, StructuredOutput: Bash - .*\(the turn was also stopped: timeout after 8 s \(process tree killed' -and $eA.provider_failure.class -eq 'permission' -and @(Turns $xA).Count -eq 1 -and $eA.engine_run.turns -eq 1 -and ([string]$eA.timeout_continue.outcome) -match '^not attempted: the killed turn failed its proof \(class permission: the init event lists tools outside' -and @($eA.finding_ids).Count -eq 0 -and $eA.partial_reply -match '\.partial\.md$' -and $partA.Contains('Reading the brief (first turn).') -and $partA.Contains('Read: app.txt') -and $eA.thread_candidate -match $uuidRe) "$($eA.bridge_outcome) | $($eA.timeout_continue.outcome)"
+
+        # ---- E13: another model authored the answer while the pinned one has the largest modelUsage
+        $rB = New-Repo 'accept-e13'
+        $pinSonnet = @('-Engine', 'claude', '-Model', 'claude-sonnet-5-5')
+        $xB = Consult $rB '' ($pinSonnet + @('-Prompt', 'x', '-ReplyName', 'e13')) @{ FAKE_CLAUDE_REPLY = $adviseF; FAKE_CLAUDE_ASSISTANT_MODEL = 'claude-opus-5-5'; FAKE_CLAUDE_MODEL_USAGE = 'claude-sonnet-5-5=100,claude-opus-5-5=10' }
+        $eB = Last-Entry $rB
+        $xB2 = Consult $rB '' ($pinSonnet + @('-Prompt', 'x', '-ReplyName', 'e13h')) @{ FAKE_CLAUDE_REPLY = $adviseF; FAKE_CLAUDE_MODEL_USAGE = 'claude-sonnet-5-5=100,claude-opus-5-5=10' }
+        $eB2 = Last-Entry $rB
+        Check 'ACCEPT' 'E13 (F20-2): an assistant event by claude-opus-5-5 under the pinned claude-sonnet-5-5, sonnet the largest modelUsage entry (100 to 10) -> FAILED "a different model authored an assistant message: claude-opus-5-5", class capability, nothing ingested; the same modelUsage with every assistant message by sonnet stays usable - opus a helper in engine_run.other_models with its warning' ($xB.Code -eq 1 -and $eB.bridge_outcome -eq 'failed: a different model authored an assistant message: claude-opus-5-5' -and $eB.provider_failure.class -eq 'capability' -and @($eB.finding_ids).Count -eq 0 -and $xB2.Code -eq 0 -and $eB2.bridge_outcome -eq 'usable reply' -and (@($eB2.engine_run.other_models) -join ',') -eq 'claude-opus-5-5' -and @($eB2.warnings | Where-Object { $_ -match '^other models in the turn beside claude-sonnet-5-5: claude-opus-5-5' }).Count -eq 1) "$($eB.bridge_outcome) | $($eB2.bridge_outcome)"
+
+        # ---- E14: a missing capability field fails; a missing apiKeySource is recorded null
+        $rC = New-Repo 'accept-e14'
+        $badC = @()
+        $kc = 0
+        foreach ($fld in @('tools', 'mcp_servers', 'permissionMode', 'model')) {
+            $kc++
+            $xC = Consult $rC '' ($claudeArgs + @('-Prompt', 'x', '-ReplyName', "e14-$kc")) @{ FAKE_CLAUDE_REPLY = $adviseF; FAKE_CLAUDE_INIT_DROP = $fld }
+            $eC = Last-Entry $rC
+            if (-not ($xC.Code -eq 1 -and $eC.bridge_outcome -eq "failed: init event lacks $fld - the CLI's schema changed; pin the version" -and $eC.provider_failure.class -eq 'capability' -and @($eC.finding_ids).Count -eq 0)) { $badC += "$fld -> [$($eC.bridge_outcome)] $($eC.provider_failure.class)" }
+        }
+        $xC2 = Consult $rC '' ($claudeArgs + @('-Prompt', 'x', '-ReplyName', 'e14-key')) @{ FAKE_CLAUDE_REPLY = $adviseF; FAKE_CLAUDE_INIT_DROP = 'apiKeySource' }
+        $eC2 = Last-Entry $rC
+        Check 'ACCEPT' 'E14 (F20-3): an init without tools, mcp_servers, permissionMode or model -> FAILED "init event lacks <field> - the CLI''s schema changed; pin the version", class capability (never read as an empty array); an init without apiKeySource (an older CLI) stays usable, engine_run.api_key_source null' ($badC.Count -eq 0 -and $xC2.Code -eq 0 -and $eC2.bridge_outcome -eq 'usable reply' -and $eC2.engine_run.PSObject.Properties['api_key_source'] -and $null -eq $eC2.engine_run.api_key_source -and @($eC2.finding_ids).Count -eq 1) "$($badC -join ' | ') | key: $($eC2.bridge_outcome) $($eC2.engine_run.api_key_source)"
+
+        # ---- E15: a rejecting rate_limit_event, then a successful result - on the endpoint route of plan zai
+        $hE15 = Join-Path $work 'health-accept-e15.json'
+        $rD = New-Repo 'accept-e15'
+        $rosterD = Write-Roster 'accept-e15' (& $acRoster @($acZai, $acZaiClaude))
+        $resetD = [DateTimeOffset]::UtcNow.AddHours(3).ToUnixTimeSeconds()
+        $resetIsoD = [DateTimeOffset]::FromUnixTimeSeconds($resetD)
+        $xD = Consult $rD $rosterD @('-Prompt', 'x', '-Provider', 'ZAI-claude', '-ReplyName', 'e15') @{ $acVar = $acToken; FAKE_CLAUDE_REPLY = $adviseF; FAKE_CLAUDE_RATE_LIMIT = 'rejected-success'; FAKE_CLAUDE_RATE_RESET = [string]$resetD; CODEX_CONSULT_HEALTH = $hE15 }
+        $eD = Last-Entry $rD
+        $qmD = $eD.engine_run.quota_mark
+        $qmRa = ConvertTo-WhenOffset $qmD.retry_after
+        $rlWarn = @($eD.warnings | Where-Object { $_ -match '^a rate limit rejected a request during the turn: \{' })
+        Check 'ACCEPT' 'E15 (F20-4): a rejecting rate_limit_event (five_hour, resetsAt R) followed by a successful result - the reply stays USABLE (the finding ingested), engine_run.rate_limit is the event raw (status rejected, resetsAt R), the warning "a rate limit rejected a request during the turn: {...}" carries it raw, engine_run.quota_mark {class quota, kind "", retry_after = R} - the mark a failed quota turn gets' ($xD.Code -eq 0 -and $xD.GuardOk -and $eD.bridge_outcome -eq 'usable reply' -and $null -eq $eD.provider_failure -and @($eD.finding_ids).Count -eq 1 -and $eD.engine_run.rate_limit.status -eq 'rejected' -and [long]$eD.engine_run.rate_limit.resetsAt -eq $resetD -and $rlWarn.Count -eq 1 -and $rlWarn[0].Contains('"status":"rejected"') -and $rlWarn[0].Contains([string]$resetD) -and $qmD.class -eq 'quota' -and [string]$qmD.kind -eq '' -and $null -ne $qmRa -and $qmRa.UtcDateTime -eq $resetIsoD.UtcDateTime) "$($eD.bridge_outcome) | $(@(Get-RealWarnings $eD.warnings) -join ' / ') | mark $(ConvertTo-Json -InputObject $qmD -Compress)"
+        $lD = Providers $rD $rosterD @('-Json') @{ $acVar = $acToken; CODEX_CONSULT_HEALTH = $hE15 }
+        $cD = & $acRow $lD.Json 'ZAI-claude'; $zD = & $acRow $lD.Json 'ZAI'
+        $isoIn = { param([string]$Text, [string]$Prefix) if ($Text -match ([regex]::Escape($Prefix) + '(?<t>\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d)')) { (ConvertTo-WhenOffset $Matches['t']).UtcDateTime } else { $null } }
+        Check 'ACCEPT' 'E15: codex-providers.ps1 in the same repository shows the route out until the reset - ZAI-claude "unavailable (usage limit until R)" - and the same-plan codex entry ZAI out through the plan: "unavailable (plan zai (usage limit on ZAI-claude until R))" (E5)' ($lD.Code -eq 0 -and [string]$cD.verdict -match '^unavailable \(usage limit until ' -and (& $isoIn ([string]$cD.verdict) 'usage limit until ') -eq $resetIsoD.UtcDateTime -and [string]$zD.verdict -match '^unavailable \(plan zai \(usage limit on ZAI-claude until ' -and (& $isoIn ([string]$zD.verdict) 'on ZAI-claude until ') -eq $resetIsoD.UtcDateTime) "$($cD.verdict) | $($zD.verdict)"
+        $hjD = $null; try { $hjD = [IO.File]::ReadAllText($hE15, $u8) | ConvertFrom-Json } catch { }
+        $mrD = @(@($hjD.endpoints) | Where-Object { $_.class -eq 'ok' })[0]
+        $rD2 = New-Repo 'accept-e15-other'
+        $lD2 = Providers $rD2 $rosterD @('-Json') @{ $acVar = $acToken; CODEX_CONSULT_HEALTH = $hE15 }
+        $cD2 = & $acRow $lD2.Json 'ZAI-claude'; $zD2 = & $acRow $lD2.Json 'ZAI'
+        Check 'ACCEPT' 'E15: the machine-wide record of the run is class ok WITH quota_mark {class quota, until = R} - another repository (no ledger of its own) sees ZAI-claude "unavailable (usage limit until R)" and ZAI out through the plan' ($mrD -and $mrD.quota_mark.class -eq 'quota' -and (ConvertTo-WhenOffset $mrD.quota_mark.until).UtcDateTime -eq $resetIsoD.UtcDateTime -and [string]$cD2.verdict -match '^unavailable \(usage limit until ' -and [string]$zD2.verdict -match '^unavailable \(plan zai \(usage limit on ZAI-claude until ') "$(if ($mrD) { ConvertTo-Json -InputObject $mrD -Compress -Depth 4 }) | $($cD2.verdict) | $($zD2.verdict)"
+
+        # ---- E16 (RC2): a held codex run of plan zai in repository E makes repository F's panel member ZAI-claude (plan zai) wait at limit 1
+        $hE16 = Join-Path $work 'health-accept-e16.json'
+        $rE = New-Repo 'accept-e16-hold'
+        $rF = New-Repo 'accept-e16-panel'
+        $rosterE = Write-Roster 'accept-e16-codex' (& $acRoster @($acZai))
+        $rosterF = Write-Roster 'accept-e16-panel' (& $acRoster @($acZaiClaude, $acOai))
+        Set-CaseEnv $rosterE @{ $acVar = $acToken; FAKE_CODEX_REPLY = $advise; FAKE_CODEX_DELAY_MS = '15000'; CODEX_CONSULT_HEALTH = $hE16 } (Join-Path $work 'argv-accept-hold.jsonl')
+        $holdOut = Join-Path $work 'accept-hold.out'
+        $holdArgs = (@('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $consultPs, '-Task', 't', '-Provider', 'ZAI', '-Prompt', 'x', '-ReplyName', 'hold') | ForEach-Object { if ([string]$_ -match '[\s"]') { '"' + ([string]$_ -replace '"', '\"') + '"' } else { [string]$_ } }) -join ' '
+        $hold = Start-Process -FilePath $psExe -ArgumentList $holdArgs -WorkingDirectory $rE -NoNewWindow -PassThru -RedirectStandardOutput $holdOut -RedirectStandardError "$holdOut.err"
+        if ($PSVersionTable.PSVersion.Major -lt 6) { try { $null = $hold.Handle } catch { } }
+        Restore-Env
+        # (Restore-Env leaves these two: the hold's delay must not reach the panel, the health file goes back to none)
+        Remove-Item env:FAKE_CODEX_DELAY_MS -ErrorAction SilentlyContinue
+        $env:CODEX_CONSULT_HEALTH = 'none'
+        $rowE = $null
+        $swE = [Diagnostics.Stopwatch]::StartNew()
+        while ($null -eq $rowE -and $swE.Elapsed.TotalSeconds -lt 40) {
+            try { $rowE = @(@(([IO.File]::ReadAllText($hE16, $u8) | ConvertFrom-Json).running) | Where-Object { $_.label -eq 'ZAI' })[0] } catch { $rowE = $null }
+            if ($null -eq $rowE) { Start-Sleep -Milliseconds 250 }
+        }
+        $pF = Consult $rF $rosterF @('-Panel', '-PanelAll', '-Prompt', 'x', '-ReplyName', 'pw') @{ $acVar = $acToken; FAKE_CLAUDE_REPLY = $advise; FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_HEALTH = $hE16 }
+        $holdDone = $hold.WaitForExit(60000)
+        if (-not $holdDone) { try { $null = Stop-ProcessTree -Process $hold } catch { } }
+        $env:CODEX_CONSULT_HEALTH = 'none'
+        $lE = @(Ledger $rE)[-1]
+        $lF = @(Ledger $rF | Where-Object { $_.reviewer.provider -eq 'ZAI-claude' })[0]
+        $eFin = ConvertTo-WhenOffset $lE.finished_at
+        $fStart = ConvertTo-WhenOffset $lF.when
+        $waitLine = [string](Line $pF.Out '  panel member 1 of 2 waits:')
+        $afterE16 = $null; try { $afterE16 = [IO.File]::ReadAllText($hE16, $u8) | ConvertFrom-Json } catch { }
+        Check 'ACCEPT' 'E16 (F10-4, RC2): two repositories sharing one machine-wide health file - repository E''s held codex run of ZAI (plan zai, another engine and fingerprint) holds a running row WITH plan zai; repository F''s panel member ZAI-claude (plan zai, limit 1) waits: "panel member 1 of 2 waits: 1 run(s) elsewhere on this machine use its plan zai (parallel limit 1): ZAI in <E> task t handoff 01 (plan zai, pid N)" and starts only after E finished; the openai member does not wait; all usable; running[] empty afterwards' ($null -ne $rowE -and $rowE.plan -eq 'zai' -and $holdDone -and $pF.Code -eq 0 -and $pF.GuardOk -and $waitLine -match '^  panel member 1 of 2 waits: 1 run\(s\) elsewhere on this machine use its plan zai \(parallel limit 1\): ZAI in \S*accept-e16-hold task t handoff 01 \(plan zai, pid \d+\)$' -and $lE.bridge_outcome -eq 'usable reply' -and $lF.bridge_outcome -eq 'usable reply' -and @(Ledger $rF | Where-Object { $_.bridge_outcome -ne 'usable reply' }).Count -eq 0 -and @(Ledger $rF).Count -eq 2 -and $null -ne $eFin -and $null -ne $fStart -and $fStart -ge $eFin.AddSeconds(-1) -and -not ($pF.Out -match 'panel member 2 of 2 waits') -and @($afterE16.running).Count -eq 0) "row plan '$(if ($rowE) { $rowE.plan })' | $waitLine | E finished $($lE.finished_at), F ZAI-claude when $($lF.when) | running after $(@($afterE16.running).Count)"
+    } finally {
+        $codexHome = $acSavedHome
+        $env:CODEX_CONSULT_HEALTH = 'none'
     }
 }
 
