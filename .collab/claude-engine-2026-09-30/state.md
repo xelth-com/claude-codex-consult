@@ -41,3 +41,18 @@ harness-claude first run 55/55 after test fixes 55f5c0b).
 - Wave 29c: the paired A/B run book (E8) - needs the operator's go (spends plan credits).
 - Ratings of n=4..7 given; the panel's findings F07..F10 to be moved by the worker's report.
 - TECH_DEBT: the Alibaba plans' "not for backend services" wording vs the codex route (operator's call).
+
+## 2026-10-07 (day): the 0.6.0 candidate assembled
+- The operator's decisions: full suite rerun (yes), merge + 0.6.0 + tag (yes), the endpoint entries in their roster (added:
+  `ZAI-claude`, `mimo-claude`, plan keys zai/mimo on the codex entries; 10 of 12 available), wave 29c (go; after the tag).
+- Full suite on 95d9be2 (run-all-20261007-094800): 21 harnesses, 20 green (harness-claude 87/87); harness-panel 53/54 - a
+  wall-clock timing check under load, later a SPEC race (the parent killed between the record rewrite and the early parent
+  check because the fake never implemented FAKE_CODEX_LOGIN_DELAY_MS); test fix: the fake's login mark + delay, the check
+  kills the parent only inside the preflight.
+- Wave 28e merged (119008b, opus worker; harness-fixes28e 31; F53-1, F54-1..4 implemented, e478f6b). Roster `panel: light`
+  merged (563043a / 0886bd3, opus worker; harness-panel LIGHT 8, harness-roster 120) - for Kimi K2.8 Preview
+  (`kimi-for-coding`, 1M window per the what's-new page; per tier unverified) beside `k3`. The operator's Kimi entry waits
+  for the 0.6.0 plugin install (the 0.5.1 validator would refuse `light` and with it every run).
+- 84644a7: manifests 0.6.0, CHANGELOG heading `[0.6.0] - 2026-10-07`, ROADMAP R10 shipped. Brief 26 (76076eb): astra's
+  acceptance of the delta (28e + light) - her verdict decides the tag; then the second full suite, the tag, the push,
+  wave 29c (driver and 12 briefs ready in the coordinator's scratchpad `ab/`).
