@@ -401,7 +401,8 @@ itself. Full contract: the README, "Engines (wave 29)".
 5. **The model - the USER decides:** `model` is REQUIRED and must be one of the engine's table: the aliases `opus`,
    `sonnet`, `haiku`, `fable` and the ids `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`,
    `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-5-5`, `claude-sonnet-5`,
-   `claude-sonnet-4-6`, `claude-haiku-4-5` - each may end with `[1m]` (the 1M context variant). Ask which one. An
+   `claude-sonnet-4-6`, `claude-haiku-5-5`, `claude-haiku-4-5` - each may end with `[1m]` (the 1M context
+   variant). Ask which one. An
    alias floats; the bridge pins each thread to the id it resolves to (the first turn's init event) and every later
    turn of the thread sends that id. Prefer an id in a roster when the operator wants a fixed reviewer.
 6. **Roster entry** (section 4): `{ "provider": "anthropic", "engine": "claude", "model": "claude-opus-5-5",

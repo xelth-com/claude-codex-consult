@@ -66,7 +66,9 @@
                          Test-PendingActive, Find-CodexProcesses, Get-PendingPaths,
                          Read-TaskPendingRecords (.consult.pending.json and the panel
                          members' .consult.pending-<NN>.json); (wave 28e)
-                         New-UnverifiedEntries, Test-UnverifiedProcess (E19: Get-CommandLineGap)
+                         New-UnverifiedEntries, Test-UnverifiedProcess (E19: Get-CommandLineGap);
+                         (wave 29, E27) Get-CodexRule / Get-CodexMatch, Get-CodexServerExclusion
+                         (the Codex app's servers and helpers), Split-CommandLineTokens
       * processes        Stop-ProcessTree, ConvertTo-ProcArg, Format-Argv
       * detached runs    (wave 25, R12) Write-DetachedStatus, Get-DetachedBudget (D4),
                          Complete-DetachedRecord (D3), ConvertTo-DetachArgs /
@@ -4346,15 +4348,15 @@ function Get-MuseTurnOutcome {
 # of the task claude-engine-2026-09-30 as amended by its decisions D1-D12)
 
 # (D4 / F02-3) THE model table of the claude engine: the aliases the CLI resolves itself (its help:
-# "an alias for the latest model") and the published model ids (2026-09-25). A roster entry of the
-# engine names one of them - optionally with the 1M-context suffix [1m], stripped before every
+# "an alias for the latest model") and the published model ids (2026-09-25; claude-haiku-5-5 added
+# 2026-10-07, the day it was released). A roster entry of the engine names one of them - optionally with the 1M-context suffix [1m], stripped before every
 # comparison - and the telemetry's closed model list of the vendor class anthropic IS this table.
 # Anything else is refused by the roster validator and reads `other` in telemetry; the ledger keeps
 # the real name. (wave 29b, E2) The table does NOT apply to auth endpoint (a third-party
 # Anthropic-compatible endpoint): its model is the id as the provider publishes it, matching
 # $script:ClaudeEndpointModelRe (an optional [1m] suffix), sent straight as --model <id>.
 $script:ClaudeModelAliases = @('opus', 'sonnet', 'haiku', 'fable')
-$script:ClaudeModels = @('opus', 'sonnet', 'haiku', 'fable', 'claude-fable-5-1', 'claude-fable-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-5-5', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5')
+$script:ClaudeModels = @('opus', 'sonnet', 'haiku', 'fable', 'claude-fable-5-1', 'claude-fable-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-5-5', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-5-5', 'claude-haiku-4-5')
 # The roster's `auth` of the engine (item 6): the subscription login (the default), an API key or
 # (wave 29b, E1) a third-party Anthropic-compatible endpoint spelled out in the roster entry's
 # `endpoint` object ({base_url, env_key, timeout_ms}) - ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN
@@ -9747,18 +9749,106 @@ function Remove-PendingFile {
 # for the agy engine, found by name AND by the recorded launcher path), or a command line
 # containing the recorded launcher path (the codex.cmd shim, -CodexExe, -EngineExe) or
 # @openai/codex (node running the npm package). It cannot tell WHICH task's consultation
-# a process belongs to.
+# a process belongs to. (wave 29, E27) A codex-named process whose command line shows it is one
+# of the Codex desktop app's (or an IDE extension's) servers or helpers never matches
+# (Get-CodexServerExclusion; Get-CodexMatch says what was left out); one whose command line
+# cannot be read still does (fail-closed).
 function Get-CodexRule {
     param([string]$Name, [string]$Cmd, [string]$Launcher = '')
-    if ($Name -match '^codex(\.exe)?$') { return 'name codex' }
-    if ($Launcher -and $Name) {
+    return [string](Get-CodexMatch -Name $Name -Cmd $Cmd -Launcher $Launcher).Rule
+}
+
+# (wave 29, E27) The "looks like codex" rule with what it left out: { Rule ('' or the reason, as
+# Get-CodexRule returns it); Excluded ('' or what the process was recognised as - "codex app-server" -
+# when a codex-named process is one of the Codex app's servers or helpers and is therefore NOT matched) }.
+# The exclusion is decided first: a codex-named server is left out even when its command line carries
+# the recorded launcher (the app's own codex.exe given as -CodexExe). Pure.
+function Get-CodexMatch {
+    param([string]$Name, [string]$Cmd, [string]$Launcher = '')
+    $why = Get-CodexServerExclusion -Name $Name -Cmd $Cmd
+    if ($why) { return [pscustomobject]@{ Rule = ''; Excluded = $why } }
+    $rule = ''
+    if ($Name -match '^codex(\.exe)?$') { $rule = 'name codex' }
+    if (-not $rule -and $Launcher -and $Name) {
         $ext = [IO.Path]::GetExtension($Launcher)
         $base = [IO.Path]::GetFileNameWithoutExtension($Launcher)
         $nameBase = $Name -replace '(?i)\.exe$', ''
-        if ($base -and ($ext -eq '' -or $ext -ieq '.exe') -and $nameBase.Equals($base, [StringComparison]::OrdinalIgnoreCase)) { return "name $base (the recorded launcher)" }
+        if ($base -and ($ext -eq '' -or $ext -ieq '.exe') -and $nameBase.Equals($base, [StringComparison]::OrdinalIgnoreCase)) { $rule = "name $base (the recorded launcher)" }
     }
-    if ($Launcher -and $Cmd -and $Cmd.IndexOf($Launcher, [StringComparison]::OrdinalIgnoreCase) -ge 0) { return 'launcher in command line' }
-    if ($Cmd -match '@openai[\\/]codex') { return '@openai/codex in command line' }
+    if (-not $rule -and $Launcher -and $Cmd -and $Cmd.IndexOf($Launcher, [StringComparison]::OrdinalIgnoreCase) -ge 0) { $rule = 'launcher in command line' }
+    if (-not $rule -and $Cmd -match '@openai[\\/]codex') { $rule = '@openai/codex in command line' }
+    return [pscustomobject]@{ Rule = $rule; Excluded = '' }
+}
+
+# (wave 29, E27) The Codex CLI subcommands that are never a reviewer run (a reviewer run of the bridge
+# is always `codex exec ...`, or the launcher shim that starts it): the long-running servers of the
+# Codex desktop app and of the IDE extensions (app-server, exec-server, mcp-server), the sign-in
+# (login) and the app launcher (app).
+$script:CodexServerSubcommands = @('app-server', 'exec-server', 'mcp-server', 'login', 'app')
+# The Codex CLI's global options that take their value as the next token (`-c key=value`): skipped
+# with that value while the first non-option token (the subcommand) is looked for. Case-sensitive.
+$script:CodexValueOptions = @('-c', '--config', '-m', '--model', '-p', '--profile', '-C', '--cd', '-s', '--sandbox', '-a', '--ask-for-approval', '-i', '--image', '--enable', '--disable', '--add-dir', '--local-provider')
+
+# (wave 29, E27) The tokens of a command line: split at blanks outside double quotes, the quotes
+# removed. Pure.
+function Split-CommandLineTokens {
+    param([string]$Cmd)
+    $tokens = New-Object System.Collections.Generic.List[string]
+    $sb = New-Object System.Text.StringBuilder
+    $quoted = $false
+    $has = $false
+    foreach ($ch in ([string]$Cmd).ToCharArray()) {
+        if ($ch -eq [char]'"') { $quoted = -not $quoted; $has = $true; continue }
+        if (-not $quoted -and ($ch -eq [char]' ' -or $ch -eq [char]"`t")) {
+            if ($has) { $tokens.Add($sb.ToString()); [void]$sb.Clear(); $has = $false }
+            continue
+        }
+        [void]$sb.Append($ch)
+        $has = $true
+    }
+    if ($has) { $tokens.Add($sb.ToString()) }
+    return , ([string[]]$tokens.ToArray())
+}
+
+# (wave 29, E27) '' or what a codex-named process (its name, without .exe, starts with codex) is when
+# its name or command line shows it is one of the Codex desktop app's servers or helpers - never a
+# reviewer run:
+#   an executable named codex-computer-use* (the app's computer-use helper): "<name> helper";
+#   a command line READ whose first non-option token after the executable (the value of a global
+#     option such as -c key=value skipped with it - $script:CodexValueOptions) is app-server,
+#     exec-server, mcp-server, login or app ($script:CodexServerSubcommands): "codex <subcommand>";
+#   a command line READ with --parent-pid and no exec token anywhere: "codex helper (--parent-pid, no exec)".
+# Anything else is '' and the rule decides as before - `codex exec ...` and `codex.exe exec ...` (exec
+# is the first token), a codex without arguments, and a command line that cannot be read
+# (Get-CommandLineGap: '' when access is denied, ps's "[name]") - unknown stays suspicious
+# (fail-closed). Pure.
+function Get-CodexServerExclusion {
+    param([string]$Name, [string]$Cmd)
+    $base = ([string]$Name -replace '(?i)\.exe$', '')
+    if ($base -notmatch '^codex') { return '' }
+    if ($base -match '^codex-computer-use') { return "$($base.ToLowerInvariant()) helper" }
+    if (Get-CommandLineGap -Name $Name -Cmd $Cmd) { return '' }
+    $tokens = Split-CommandLineTokens -Cmd $Cmd
+    $sub = ''
+    for ($i = 1; $i -lt $tokens.Count; $i++) {
+        $t = $tokens[$i]
+        if ($t -eq '--') { if ($i + 1 -lt $tokens.Count) { $sub = $tokens[$i + 1] }; break }
+        if ($t.Length -gt 1 -and $t.StartsWith('-')) {
+            if (-not $t.Contains('=') -and $script:CodexValueOptions -ccontains $t) { $i++ }
+            continue
+        }
+        $sub = $t
+        break
+    }
+    if ($sub -and $script:CodexServerSubcommands -contains $sub) { return "codex $($sub.ToLowerInvariant())" }
+    $parentPid = $false
+    $exec = $false
+    for ($i = 1; $i -lt $tokens.Count; $i++) {
+        $t = $tokens[$i]
+        if ($t -ieq 'exec') { $exec = $true }
+        if ($t -ieq '--parent-pid' -or $t -like '--parent-pid=*') { $parentPid = $true }
+    }
+    if ($parentPid -and -not $exec) { return 'codex helper (--parent-pid, no exec)' }
     return ''
 }
 
@@ -9886,13 +9976,16 @@ function Test-UnverifiedProcess {
     }
     $info = Get-ProcessInfo -ProcessId $ProcessId
     if (-not $info) { return [pscustomobject]@{ Alive = $false; How = 'gone' } }
-    $rule = Get-CodexRule -Name $info.name -Cmd $info.cmd -Launcher $Launcher
+    # (wave 29, E27) a codex-named server or helper of the Codex app is not codex-like; it still has to
+    # pass the command-line and parent checks below, and its drop says what it was recognised as
+    $match = Get-CodexMatch -Name $info.name -Cmd $info.cmd -Launcher $Launcher
+    $rule = [string]$match.Rule
     if ($rule) { return [pscustomobject]@{ Alive = $true; How = "start time readable now; $rule" } }
     $gap = Get-CommandLineGap -Name $info.name -Cmd $info.cmd
     if ($gap) { return [pscustomobject]@{ Alive = $true; How = "start time readable now; pid $ProcessId runs $($info.name)$(if ($gap -eq 'no arguments') { ' (a generic runtime, no arguments on its command line)' }); command line not readable - counted as running (fail-closed)" } }
     $ppid = [int](Get-PropertyValue $info 'ppid' 0)
     if ($ppid -gt 0 -and $ppid -ne $ProcessId -and @($RecordedPids) -contains $ppid) { return [pscustomobject]@{ Alive = $true; How = "start time readable now; pid $ProcessId runs $($info.name), a child of the recorded pid $ppid - counted as running" } }
-    return [pscustomobject]@{ Alive = $false; How = "start time readable now; pid $ProcessId runs $($info.name), not codex" }
+    return [pscustomobject]@{ Alive = $false; How = "start time readable now; pid $ProcessId runs $($info.name), not codex$(if ($match.Excluded) { " (excluded: $($match.Excluded))" })" }
 }
 
 # Is a process recorded in a pending record still that process? Returns { Alive; How }.
@@ -9926,14 +10019,25 @@ function Test-RecordedProcess {
 #     that pid (reused), only children created before it started count.
 #   otherwise (no bridge pid recorded, or not Windows, where orphans are reparented):
 #     the "looks like codex" rule (Get-CodexRule), which cannot tell which task a
-#     process belongs to - such matches are labelled "task not verifiable".
-# Returns { Found = [object[]] { pid; name; rule }; Check = <what was scanned>; Failed }.
+#     process belongs to - such matches are labelled "task not verifiable". (wave 29, E27)
+#     The Codex desktop app's servers and helpers (Get-CodexServerExclusion: codex app-server,
+#     exec-server, mcp-server, login, app, codex-computer-use*, --parent-pid without exec) are
+#     left out and named in Check ("excluded: pid N codex.exe [codex app-server]") and in
+#     Excluded; a codex process whose command line cannot be read still counts (fail-closed).
+#     TEST HOOK (test mode only): CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>] - these
+#     pids are scanned with the command line '' (as access denied makes it), as in Get-ProcessInfo.
+# Returns { Found = [object[]] { pid; name; rule }; Check = <what was scanned>; Failed;
+# Excluded = [object[]] { pid; name; why } }.
 function Find-CodexProcesses {
     param([datetime]$Since, [string]$Launcher = '', [int]$BridgePid = 0)
     $found = New-Object System.Collections.Generic.List[object]
+    $appServers = New-Object System.Collections.Generic.List[object]
     $sinceText = $Since.ToString('yyyy-MM-ddTHH:mm:ss', $script:Invariant)
     $byParent = ($script:OnWindows -and $BridgePid -gt 0)
-    $rules = if ($byParent) { "children of the interrupted bridge pid $BridgePid" } else { 'name codex*, or a command line containing the recorded launcher or @openai/codex' }
+    $rules = if ($byParent) { "children of the interrupted bridge pid $BridgePid" } else { 'name codex*, or a command line containing the recorded launcher or @openai/codex; not the Codex app''s servers and helpers' }
+    $unreadable = @()
+    $hook = Get-TestHookValue 'CODEX_CONSULT_TEST_CMDLINE_UNREADABLE'
+    if ($hook) { $unreadable = @($hook.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
@@ -9942,7 +10046,7 @@ function Find-CodexProcesses {
             $check = "Win32_Process scan ($rules; started at or after $sinceText)"
             $all = $null
             try { $all = @(Get-CimInstance -ClassName Win32_Process -Property ProcessId, ParentProcessId, Name, CommandLine, CreationDate -ErrorAction Stop) } catch {
-                return [pscustomobject]@{ Found = [object[]]@(); Check = "$check could not run: $(ConvertTo-OneLine $_.Exception.Message)"; Failed = $true }
+                return [pscustomobject]@{ Found = [object[]]@(); Check = "$check could not run: $(ConvertTo-OneLine $_.Exception.Message)"; Failed = $true; Excluded = [object[]]@() }
             }
             foreach ($p in $all) {
                 $procs.Add([pscustomobject]@{ pid = [int]$p.ProcessId; ppid = [int]$p.ParentProcessId; name = [string]$p.Name; cmd = [string]$p.CommandLine; created = $p.CreationDate })
@@ -9952,7 +10056,7 @@ function Find-CodexProcesses {
             $lines = $null
             try { $lines = @(& ps -eo 'pid=,ppid=,etimes=,comm=,args=' 2>$null) } catch { $lines = $null }
             if ($LASTEXITCODE -ne 0 -or $null -eq $lines) {
-                return [pscustomobject]@{ Found = [object[]]@(); Check = "$check could not run"; Failed = $true }
+                return [pscustomobject]@{ Found = [object[]]@(); Check = "$check could not run"; Failed = $true; Excluded = [object[]]@() }
             }
             $now = Get-Date
             foreach ($l in $lines) {
@@ -9987,11 +10091,19 @@ function Find-CodexProcesses {
             foreach ($p in $procs) {
                 if ($excluded.ContainsKey($p.pid)) { continue }
                 if ($null -eq $p.created -or $p.created -lt $Since) { continue }
-                $rule = Get-CodexRule -Name $p.name -Cmd $p.cmd -Launcher $Launcher
-                if ($rule) { $found.Add([pscustomobject]@{ pid = $p.pid; name = $p.name; rule = "$rule, task not verifiable" }) }
+                $pCmd = $(if ($unreadable.Count -gt 0 -and $unreadable -contains [string]$p.pid) { '' } else { $p.cmd })
+                $match = Get-CodexMatch -Name $p.name -Cmd $pCmd -Launcher $Launcher
+                if ($match.Rule) { $found.Add([pscustomobject]@{ pid = $p.pid; name = $p.name; rule = "$($match.Rule), task not verifiable" }) }
+                elseif ($match.Excluded) { $appServers.Add([pscustomobject]@{ pid = $p.pid; name = $p.name; why = [string]$match.Excluded }) }
+            }
+            # (wave 29, E27) what was left out, said where the scan is reported (at most 6 named)
+            if ($appServers.Count -gt 0) {
+                $shown = @($appServers | Select-Object -First 6 | ForEach-Object { "pid $($_.pid) $($_.name) [$($_.why)]" }) -join ', '
+                $more = $(if ($appServers.Count -gt 6) { " (+$($appServers.Count - 6) more)" } else { '' })
+                $check = $check.Substring(0, $check.Length - 1) + "; excluded: $shown$more)"
             }
         }
-        return [pscustomobject]@{ Found = [object[]]$found.ToArray(); Check = $check; Failed = $false }
+        return [pscustomobject]@{ Found = [object[]]$found.ToArray(); Check = $check; Failed = $false; Excluded = [object[]]$appServers.ToArray() }
     } finally {
         $ErrorActionPreference = $previous
     }

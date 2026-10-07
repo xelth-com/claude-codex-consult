@@ -1,4 +1,5 @@
-# Demonstrates the fixes for review findings F04-1..F04-11 against the CURRENT scripts.
+# Demonstrates the fixes for review findings F04-1..F04-11 (and, wave 29, decision E27: the Codex
+# desktop app's servers are no reviewer run) against the CURRENT scripts.
 # Every assertion prints "PASS" or "FAIL" with its evidence. Uses the fake codex only.
 param([string]$Only = '', [string]$ScriptsDir = '')
 $ErrorActionPreference = 'Stop'
@@ -395,6 +396,98 @@ if (Want 'F04-11') {
     try { $md = [IO.File]::ReadAllText($mdPath) } catch { $why += " | the handoff $mdPath could not be read ($($_.Exception.Message))" }
     Check 'F04-11' 'header shows the failure, no link to a reply.json' ($md -and $md -match 'Bridge outcome: failed: could not preserve' -and $md -notmatch 'Structured reply: `handoffs') "$(if (-not $md) { 'no handoff' })$why"
     if ($kept) { Remove-Item $kept -ErrorAction SilentlyContinue }
+}
+
+# =============================================================== E27 the Codex desktop app's servers are no reviewer run
+if (Want 'E27') {
+    # (wave 29, E27) The machine-wide "looks like codex" rule (Get-CodexRule, Find-CodexProcesses) leaves
+    # out a codex-named process whose command line shows it is one of the Codex desktop app's servers or
+    # helpers - they run whenever the app is open and kept an interrupted task blocked (F04-10 failed with
+    # the app open) - and still matches `codex exec ...` and a codex whose command line cannot be read.
+    # UNIT: Get-CodexMatch / Get-CodexRule on synthetic (name, command line) pairs - the app's real lines.
+    # SCAN: real processes NAMED codex.exe - copies of cmd.exe whose first arguments are the app's (cmd
+    # skips them and runs its /c ping) - started after a 'launching' recovery record of the task.
+    $unit = @(
+        @('codex.exe', 'C:\Users\u\AppData\Local\OpenAI\Codex\bin\5ea2\codex.exe -c features.code_mode_host=true app-server --analytics-default-enabled -c plugins.x=1', '', '', 'codex app-server'),
+        @('codex.exe', 'C:\Users\u\AppData\Local\OpenAI\Codex\bin\5ea2\codex.exe exec-server --remote https://codex-cloud-environments.chatgpt.com/api --environment-id e1', '', '', 'codex exec-server'),
+        @('codex-computer-use-swift.exe', 'C:\Users\u\AppData\Local\OpenAI\Codex\runtimes\cua_node\x\codex-computer-use-swift.exe --parent-pid 22140', '', '', 'codex-computer-use-swift helper'),
+        @('codex', 'codex mcp-server', '', '', 'codex mcp-server'),
+        @('codex', 'codex login status', '', '', 'codex login'),
+        @('codex.exe', '"C:\x y\codex.exe" app', '', '', 'codex app'),
+        @('codex.exe', '"C:\x\codex.exe" --parent-pid 7', '', '', 'codex helper (--parent-pid, no exec)'),
+        @('codex.exe', '"C:\t\codex.exe" app-server', 'C:\t\codex.exe', '', 'codex app-server'),
+        @('codex.exe', 'codex.exe exec --json -', '', 'name codex', ''),
+        @('codex', 'codex exec --sandbox read-only --color never --json -m m1 -c model_reasoning_effort="high" -o C:\t\last.txt -', '', 'name codex', ''),
+        @('codex.exe', '"C:\x\codex.exe" exec --parent-pid 7', '', 'name codex', ''),
+        @('codex.exe', 'codex.exe -c app-server=1 exec -', '', 'name codex', ''),
+        @('codex.exe', 'codex.exe', '', 'name codex', ''),
+        @('codex.exe', '', '', 'name codex', ''),
+        @('codex', '[codex]', '', 'name codex', ''),
+        @('node.exe', 'node C:\npm\node_modules\@openai\codex\bin\codex.js exec -', '', '@openai/codex in command line', ''),
+        @('cmd.exe', 'cmd /c "C:\t\fake-codex.cmd" exec -', 'C:\t\fake-codex.cmd', 'launcher in command line', '')
+    )
+    $unitBad = @(foreach ($u in $unit) {
+        $m = Get-CodexMatch -Name $u[0] -Cmd $u[1] -Launcher $u[2]
+        $rr = Get-CodexRule -Name $u[0] -Cmd $u[1] -Launcher $u[2]
+        if ([string]$m.Rule -cne $u[3] -or [string]$m.Excluded -cne $u[4] -or $rr -cne $u[3]) { "$($u[0]) '$($u[1])' -> rule '$($m.Rule)' / '$rr' excluded '$($m.Excluded)'" }
+    })
+    Check 'E27' 'UNIT Get-CodexMatch / Get-CodexRule: a codex-named app-server (after -c key=value), exec-server, mcp-server, login, app, codex-computer-use*, --parent-pid without exec - NOT matched, Excluded says what it is (the recorded launcher on it too); codex exec / codex.exe exec (also with --parent-pid, also -c app-server=1 before exec), a codex without arguments, an unreadable command line ('''' and ps''s [codex]), @openai/codex and the launcher in a command line - matched as before' ($unitBad.Count -eq 0) ($unitBad -join ' // ')
+
+    $r = New-Repo 'e27'
+    $td = Join-Path $r '.collab\t'
+    $pend = Join-Path $td '.consult.pending.json'
+    $simDir = Join-Path $work 'e27-sim'
+    [void][IO.Directory]::CreateDirectory($simDir)
+    $simExe = Join-Path $simDir 'codex.exe'
+    Copy-Item "$env:SystemRoot\System32\cmd.exe" $simExe -Force
+    $sims = New-Object System.Collections.Generic.List[int]
+    function Start-Sim { param([string]$Lead) $sp0 = Start-Process $simExe -ArgumentList "$Lead /d /c `"ping -n 90 127.0.0.1 >nul`"" -PassThru -WindowStyle Hidden; $sims.Add($sp0.Id); return $sp0 }
+    function Stop-Sim { param([int]$Id) $p0 = $ErrorActionPreference; $ErrorActionPreference = 'Continue'; & taskkill.exe /PID $Id /T /F 2>&1 | Out-Null; $ErrorActionPreference = $p0 }
+    function Seed-Launching { param([int]$N, [string]$Nn) [IO.File]::WriteAllText($pend, '{"state":"launching","n":' + $N + ',"nn":"' + $Nn + '","reply":"handoffs/' + $Nn + '-codex-old.md","started":"' + $e27Started + '","pid":1,"host":"' + [Environment]::MachineName + '","launcher":' + (ConvertTo-Json $fake) + ',"child_pid":null,"child_start_time":"","survivors":[],"note":""}', $u8) }
+    function Found-List { param([string]$Out) if ($Out -match 'may still have its codex process running: (.*?), found by ') { return $Matches[1] }; return '' }
+    try {
+        # (a) app-server and (b) exec-server: they run, the run proceeds and says what it left out. Every
+        # record of this case starts BEFORE them: each scan below sees them and leaves them out by the rule.
+        $scanStart = Get-Date
+        $e27Started = Get-IsoTimestamp ($scanStart.AddSeconds(-2))
+        Seed-Launching 4 '05'
+        $srv = Start-Sim '-c features.code_mode_host=true app-server --analytics-default-enabled'
+        $exs = Start-Sim 'exec-server --remote https://codex-cloud-environments.invalid/api --environment-id e27'
+        Start-Sleep -Milliseconds 800
+        $direct = Find-CodexProcesses -Since $scanStart.AddSeconds(-1) -Launcher $fake
+        $dFound = @(@($direct.Found) | Where-Object { $_.pid -eq $srv.Id -or $_.pid -eq $exs.Id }).Count
+        $dExcl = (@(@($direct.Excluded) | Where-Object { ($_.pid -eq $srv.Id -and $_.why -eq 'codex app-server') -or ($_.pid -eq $exs.Id -and $_.why -eq 'codex exec-server') }).Count -eq 2)
+        Check 'E27' '(a)(b) Find-CodexProcesses (machine-wide): a running codex.exe -c ... app-server and a codex.exe exec-server --remote ... are not found; Excluded names them ({pid, name, why}) and Check says "excluded: pid <n> codex.exe [codex app-server], ..."' (-not $direct.Failed -and $dFound -eq 0 -and $dExcl -and $direct.Check -match ("excluded: .*pid $($srv.Id) codex\.exe \[codex app-server\]") -and $direct.Check -match ("pid $($exs.Id) codex\.exe \[codex exec-server\]")) "found $dFound of ours | $($direct.Check)"
+        $x = Run-Consult $r @('-Prompt', 'x', '-ReplyName', 'servers') @{ FAKE_CODEX_REPLY = (Reply 'e27a.json' $advise) }
+        $bothAlive = [bool]((Get-Process -Id $srv.Id -ErrorAction SilentlyContinue) -and (Get-Process -Id $exs.Id -ErrorAction SilentlyContinue))
+        $rec = (($x.Out -split "`n") | Where-Object { $_ -match 'recovered reservation' }) -join ' '
+        Check 'E27' '(a)(b) launching record + the app''s servers running (still alive afterwards): the run PROCEEDS (exit 0) - "recovered reservation n=4, nn=05 (... Win32_Process scan (...; excluded: pid <n> codex.exe [codex app-server], pid <n> codex.exe [codex exec-server]): none found)" - the record gone' ($x.Code -eq 0 -and $bothAlive -and $rec -match "recovered reservation n=4, nn=05 \(state 'launching' of an interrupted run; .*excluded: .*pid $($srv.Id) codex\.exe \[codex app-server\].*\): none found" -and $rec -match "pid $($exs.Id) codex\.exe \[codex exec-server\]" -and -not (Test-Path -LiteralPath $pend)) "exit $($x.Code) alive $bothAlive | $rec"
+        # (c) codex.exe exec ...: refused while it runs, the servers still not counted
+        Seed-Launching 10 '12'
+        $ex = Start-Sim 'exec --json -'
+        Start-Sleep -Milliseconds 800
+        $y = Run-Consult $r @('-Prompt', 'x', '-ReplyName', 'exec') @{ FAKE_CODEX_REPLY = (Reply 'e27c.json' $advise) }
+        $yl = Found-List $y.Out
+        Check 'E27' '(c) a codex.exe exec --json - started after the record: REFUSED (exit 1) "may still have its codex process running: pid <n> codex.exe [name codex, task not verifiable], found by ... excluded: pid <n> codex.exe [codex app-server] ..."; the app-server and exec-server (started after the record too) not in that list but named as excluded; the record kept' ($y.Code -eq 1 -and $yl.Contains("pid $($ex.Id) codex.exe [name codex, task not verifiable]") -and -not $yl.Contains("pid $($srv.Id) ") -and -not $yl.Contains("pid $($exs.Id) ") -and $y.Out -match ("found by .*excluded: .*pid $($srv.Id) codex\.exe \[codex app-server\]") -and $y.Out -match ("pid $($exs.Id) codex\.exe \[codex exec-server\]") -and (Test-Path -LiteralPath $pend)) "exit $($y.Code) | found: $yl | $((($y.Out -split "`n") | Select-Object -First 1))"
+        Stop-Sim $ex.Id
+        Start-Sleep -Milliseconds 500
+        $y2 = Run-Consult $r @('-Prompt', 'x', '-ReplyName', 'exec2') @{ FAKE_CODEX_REPLY = (Reply 'e27c2.json' $advise) }
+        Check 'E27' '(c) that exec gone, the servers still running: the run proceeds (recovered reservation n=10, nn=12)' ($y2.Code -eq 0 -and $y2.Out -match 'recovered reservation n=10, nn=12' -and -not (Test-Path -LiteralPath $pend)) "exit $($y2.Code) | $((($y2.Out -split "`n") | Select-Object -First 1))"
+        # (d) the same app-server command line, but unreadable (the hook): counted (fail-closed)
+        Seed-Launching 20 '22'
+        $hid = Start-Sim 'app-server --analytics-default-enabled'
+        Start-Sleep -Milliseconds 800
+        $z = $null
+        try { $z = Run-Consult $r @('-Prompt', 'x', '-ReplyName', 'hidden') @{ FAKE_CODEX_REPLY = (Reply 'e27d.json' $advise); CODEX_CONSULT_TEST_CMDLINE_UNREADABLE = [string]$hid.Id } } finally { Remove-Item env:CODEX_CONSULT_TEST_CMDLINE_UNREADABLE -ErrorAction SilentlyContinue }
+        $zl = Found-List $z.Out
+        Check 'E27' '(d) a codex.exe app-server whose command line cannot be read (CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>, honoured by the scan too): REFUSED (exit 1) "pid <n> codex.exe [name codex, task not verifiable]" - unknown stays suspicious; the readable servers not in that list; the record kept' ($z.Code -eq 1 -and $zl.Contains("pid $($hid.Id) codex.exe [name codex, task not verifiable]") -and -not $zl.Contains("pid $($srv.Id) ") -and (Test-Path -LiteralPath $pend)) "exit $($z.Code) | found: $zl"
+        $w = Run-Consult $r @('-Prompt', 'x', '-ReplyName', 'readable') @{ FAKE_CODEX_REPLY = (Reply 'e27e.json' $advise) }
+        $wr = (($w.Out -split "`n") | Where-Object { $_ -match 'recovered reservation' }) -join ' '
+        Check 'E27' '(d) the same process with its command line read (no hook): excluded as codex app-server, with the other two - the run proceeds (recovered reservation n=20, nn=22)' ($w.Code -eq 0 -and $wr -match "recovered reservation n=20, nn=22 .*pid $($hid.Id) codex\.exe \[codex app-server\]" -and $wr -match "pid $($srv.Id) codex\.exe \[codex app-server\]" -and $wr -match "pid $($exs.Id) codex\.exe \[codex exec-server\]" -and -not (Test-Path -LiteralPath $pend)) "exit $($w.Code) | $wr"
+    } finally {
+        foreach ($id in $sims) { Stop-Sim $id }
+        Start-Sleep -Milliseconds 300
+    }
 }
 
 } finally {
