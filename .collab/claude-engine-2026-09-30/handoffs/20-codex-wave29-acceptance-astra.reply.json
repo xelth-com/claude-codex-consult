@@ -1,0 +1,381 @@
+{
+  "schema_version": "1",
+  "verdict": "HOLD",
+  "verdict_reason": "E11 closes the identified same-model endpoint ambiguity, but timeout recovery can bypass capability failures and model enforcement can accept a different model's answer.",
+  "reply_markdown": "**Q1.** No. At HEAD `c92c30e`, read-only, in-memory replays reproduced three invariant gaps:\n\n- A timed-out init advertising Bash and an MCP server returns no capability failure; continuation can subsequently make the consultation usable (finding #1).\n- An Opus assistant answer passes when Sonnet remains the largest-output `modelUsage` entry (finding #2). D4’s helper exception does not establish that a top-level assistant response is a helper.\n- Missing `tools` and `mcp_servers` fields pass as empty arrays (finding #3).\n\nThe environment allowlist, E11 refusal, strict-tree policy and distinct route identities are implemented. The brief’s unconditional requirement for four tools also needs correction: the recorded prompt-only smoke lists three; `StructuredOutput` should depend on the transport.\n\n**Q2.** E11 adequately addresses F16-1/F18-1 within the documented CLI contract: Anthropic IDs and aliases are refused, endpoint models require equality, missing tokens prevent launch, and P11 records invalid-token failure without fallback. I found no demonstrated subscription-fallback path for the admitted third-party IDs. However, `apiKeySource: none` and environment-name logging are not independent proof of the destination or credential sent. Qualification remains specific to the tested CLI/provider combinations.\n\n**Q3.** Recorded quota failures propagate through the plan’s route fingerprints; ordinary auth/transport/capability failures are excluded. A later successful record deliberately clears aggregated plan health. However, a rejecting rate-limit event followed by successful output loses its quota classification (finding #4).\n\nF10-4 remains open: machine-wide running records and counting use route fingerprints, without engine/plan keys. A panel does not count another route of its plan when that route is absent from its selected members. Within one panel, grouping terminates and preserves roster order; transitive merging conservatively serializes additional members. I found no intrinsic local deadlock, but did not establish starvation freedom under external load.\n\n**Q4.** Sampled validation passes: a valid mixed Codex/endpoint roster loads both entries; Anthropic endpoint models, missing endpoint objects, null auth, string timeouts and unknown endpoint keys produce entry-specific refusals. Invalid entries intentionally invalidate the whole roster. This is sampled coverage, not proof over every malformed shape.\n\n**Q5.** The inspected event builder uses closed classifications. Executed fixtures for z.ai, MiMo, Kimi, MiniMax and an unknown host emitted neither URL, label nor key-name sentinels. Unknown hosts produced `other/other`; `[1m]` normalization worked. Consultation and rating classification share the helper.\n\n**Q6.** Fake tests do not establish actual credential headers, provider billing, native schema compatibility, real quota/recovery sequences, managed-hook behavior, or durability across arbitrary kill points and concurrent sessions. Handoff 13’s actual result has no `structured_output`; it is not native-schema evidence. P6/P7 and P8–P11 provide bounded observations, not guarantees across versions. I did not run the write-producing harnesses. Statistical retention evidence remains deferred, and F10-5 remains open.\n\n**Q7.** **HOLD.** Acceptance blockers are findings #1 and #2. Address #3/#4 and resolve the claimed machine-wide scope in F10-4 before treating the listed invariants as verified. No files were written.\n\n## Requested checks\n\n- **RC1:** CWD repository root; **workspace-write**. Add fake-stream cases for findings #1–#4, including prohibited-init timeout followed by a valid continuation, then run `powershell -NoProfile -File tests/harness-claude.ps1`. Require invariant violations to remain failed and rejecting quota evidence to survive. Budget: four fixtures, 15 minutes.\n- **RC2:** CWD two disposable repositories sharing one roster/health store; **workspace-write**. Hold a fake Codex route active, then start a panel selecting only its same-plan Claude route at limit one. Require the second run to wait until the first unregisters, settling F10-4. Budget: two processes, five minutes.\n- **RC3:** CWD disposable repository; **workspace-write**. For each supported endpoint/CLI version, run one native-schema consultation and an invalid-token attempt with local login present, recording destination and credential-source labels without secret values. Require `structured_output` on success and endpoint-only authentication failure on rejection. Budget: two attempts per provider, ten minutes each.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5174
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5589
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 4976
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 5083
+        }
+      ],
+      "claim": "Timeout handling bypasses init capability validation, allowing a later successful continuation to erase evidence that an earlier turn advertised prohibited tools or MCP servers.",
+      "trigger": "The main turn emits an init containing Bash or an MCP server, makes no monitored tree changes, then times out; its continuation emits an otherwise valid answer.",
+      "evidence": [
+        {
+          "kind": "ran-command",
+          "reference": "In-memory Read-ClaudeEvents/Get-ClaudeTurnOutcome replay at c92c30e",
+          "observation": "An init with tools Read,Bash and MCP server rogue, evaluated with a timeout Pre value, returned an empty failure Class and a resumable ThreadCandidate."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:5174-5188",
+          "observation": "The Pre branch returns before Get-ClaudeInitProblem runs."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:4976-4981,5083-5087",
+          "observation": "Continuation eligibility uses the killed-turn classifier; successful continuation replaces the outcome and clears prior failure fields. That classifier explicitly preserves only auth/quota adapter classes."
+        }
+      ],
+      "verification": "Run RC1's prohibited-init timeout case and assert that no continuation launches and the consultation remains failed despite a prepared valid continuation response.",
+      "remedy": "Validate available init/model evidence before the timeout return, preserve invariant failures across turns, and explicitly prohibit continuation after permission, capability or credential-proof violations.",
+      "supersedes": []
+    },
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5030
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5257
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5265
+        }
+      ],
+      "claim": "The largest-output-token heuristic does not enforce one primary model per thread: a different model can produce the final assistant answer while the turn is accepted under the pinned model.",
+      "trigger": "Init names claude-sonnet-5-5, a top-level assistant answer names claude-opus-5-5, and result.modelUsage reports Sonnet outputTokens 100 and Opus outputTokens 10.",
+      "evidence": [
+        {
+          "kind": "ran-command",
+          "reference": "In-memory final-assistant-drift replay at c92c30e",
+          "observation": "Get-ClaudeTurnOutcome returned Ok=true, Outcome='usable reply', ModelResolved='claude-sonnet-5-5', and OtherModels containing claude-opus-5-5."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:5016-5032,5257-5283",
+          "observation": "MainModel is selected by maximum outputTokens; differing assistant models are only reported as possible helpers."
+        }
+      ],
+      "verification": "Replay a matching init followed by a different top-level assistant model with fewer output tokens and require a capability failure.",
+      "remedy": "Validate primary assistant events against the resolved pin. Permit helper models only when event provenance identifies them as helpers; do not infer primary-model identity from token volume.",
+      "supersedes": [
+        "F03-6"
+      ]
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 4940
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5066
+        }
+      ],
+      "claim": "Missing capability fields are accepted as proof of an allowed toolset and no MCP servers, so an incomplete or changed init schema can produce a usable consultation without the claimed evidence.",
+      "trigger": "An otherwise valid init omits tools and mcp_servers, followed by a successful result.",
+      "evidence": [
+        {
+          "kind": "ran-command",
+          "reference": "In-memory missing-capability-fields replay at c92c30e",
+          "observation": "Removing both fields produced Ok=true and Outcome='usable reply'."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:4940-4944,5066-5068",
+          "observation": "Missing fields default to empty arrays; validation checks only for extra tools and nonempty MCP lists."
+        }
+      ],
+      "verification": "Replay missing, null and wrongly typed capability fields on each init and require an explicit proof failure.",
+      "remedy": "Preserve field presence and types for every init, require valid capability arrays, and check the expected tools for the selected transport. Treat absent evidence differently from an explicitly empty MCP list.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5150
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5232
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5278
+        }
+      ],
+      "claim": "A rejecting rate-limit event is discarded from the outcome when the terminal result is successful, contrary to the stated rejection rule; the resulting usable record cannot propagate that quota rejection to its plan.",
+      "trigger": "A stream contains rate_limit_info.status='rejected' with a reset time, followed by subtype success, is_error=false and nonempty output.",
+      "evidence": [
+        {
+          "kind": "ran-command",
+          "reference": "In-memory rejecting-quota-success replay at c92c30e",
+          "observation": "The adapter returned Ok=true, an empty Class and 'usable reply' despite parsing the rejecting event."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:5145-5165,5232-5240,5278-5283",
+          "observation": "Quota evidence selects a failure class only on failure branches; the success branch neither fails nor warns for rejected status."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:6198-6203",
+          "observation": "Health selection treats the latest usable record as clearing quota evidence."
+        }
+      ],
+      "verification": "Replay the rejection-plus-success stream through outcome and health classification and assert the documented quota behavior, including its reset time.",
+      "remedy": "Either make rejecting events terminal as D6 specifies, or define and validate an explicit recovery rule while preserving unresolved quota evidence independently of reply usability.",
+      "supersedes": [
+        "F02-5"
+      ]
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F02-1",
+      "status": "fixed",
+      "note": "WriteDisabled is false; monitored tree changes fail. This is detection, not prevention of all hook writes."
+    },
+    {
+      "id": "F02-2",
+      "status": "fixed",
+      "note": "Allowlist replaces ambient inheritance; inspected and exercised relevant name filtering."
+    },
+    {
+      "id": "F02-3",
+      "status": "fixed",
+      "note": "Validator/telemetry share the Claude table and suffix handling; actual context capacity remains unproven."
+    },
+    {
+      "id": "F02-4",
+      "status": "fixed",
+      "note": "D5 panel serialization is implemented; broader machine-wide scope remains under F10-4."
+    },
+    {
+      "id": "F02-5",
+      "status": "still-open",
+      "note": "Denial and resume rules are implemented, but finding #4 replaces the broad quota concern with a reproduced defect; live boundary coverage remains incomplete."
+    },
+    {
+      "id": "F03-1",
+      "status": "fixed",
+      "note": "Claude uses strict tree failure rather than WriteDisabled attribution."
+    },
+    {
+      "id": "F03-2",
+      "status": "fixed",
+      "note": "API-key child environment excludes inherited endpoint tokens, base URLs and provider selectors."
+    },
+    {
+      "id": "F03-3",
+      "status": "fixed",
+      "note": "Authentication probes and reviewer launches use the shared child-environment builder."
+    },
+    {
+      "id": "F03-4",
+      "status": "fixed",
+      "note": "CLAUDE_CODE_SKIP_PROMPT_HISTORY is excluded; name-filter replay returned false."
+    },
+    {
+      "id": "F03-5",
+      "status": "fixed",
+      "note": "CLAUDE_CODE_EFFORT_LEVEL is excluded; name-filter replay returned false."
+    },
+    {
+      "id": "F03-6",
+      "status": "still-open",
+      "note": "Superseded by finding #2: modelUsage checking was added, but the token-volume heuristic still accepts primary-model drift."
+    },
+    {
+      "id": "F03-7",
+      "status": "fixed",
+      "note": "Subscription/API-key fingerprints distinguish auth mode and model family."
+    },
+    {
+      "id": "F03-8",
+      "status": "fixed",
+      "note": "MaxModelSteps maps to --max-turns; P2 records CLI support."
+    },
+    {
+      "id": "F03-9",
+      "status": "fixed",
+      "note": "Parsed loggedIn=false is handled before exit-code-based uncertainty."
+    },
+    {
+      "id": "F04-1",
+      "status": "not-checked",
+      "note": "P7 records two successful concurrent runs; no sustained shared-state integrity test was executed here."
+    },
+    {
+      "id": "F04-2",
+      "status": "not-checked",
+      "note": "P6 records one successful interrupted-session resume; arbitrary kill-point durability was not tested."
+    },
+    {
+      "id": "F07-1",
+      "status": "fixed",
+      "note": "Decisions and README use token-weighted credits; account-level reconciliation remains unproven."
+    },
+    {
+      "id": "F07-2",
+      "status": "fixed",
+      "note": "Documentation distinguishes api.kimi.ai/coding from Moonshot pay-as-you-go."
+    },
+    {
+      "id": "F07-3",
+      "status": "fixed",
+      "note": "Canonical URL, port and credential-variable name define route identity; plan is separate. Identity replay confirmed distinct fingerprints."
+    },
+    {
+      "id": "F07-4",
+      "status": "still-open",
+      "note": "AUTH_TOKEN-only implementation remains; recorded live qualification covers z.ai/MiMo, not every documented provider."
+    },
+    {
+      "id": "F07-5",
+      "status": "fixed",
+      "note": "Executed endpoint telemetry fixtures returned correct closed vendor/model classifications."
+    },
+    {
+      "id": "F07-6",
+      "status": "fixed",
+      "note": "Blanket eligibility claim is withdrawn; documentation requires an operator decision and excludes Alibaba examples."
+    },
+    {
+      "id": "F07-7",
+      "status": "fixed",
+      "note": "Current endpoint claim concerns inference/billing rather than guaranteed absence of all Anthropic traffic; egress was not measured."
+    },
+    {
+      "id": "F08-1",
+      "status": "fixed",
+      "note": "Host-first classification replay returned zai for Claude on api.z.ai."
+    },
+    {
+      "id": "F08-2",
+      "status": "fixed",
+      "note": "glm-5.3[1m] replay classified as zai/glm-5.3."
+    },
+    {
+      "id": "F08-3",
+      "status": "fixed",
+      "note": "Distinct route labels can share plan health and a local panel scheduling group."
+    },
+    {
+      "id": "F08-4",
+      "status": "fixed",
+      "note": "Endpoint preflight is local; P8/P10 establish observed source none, and E11 restricts the admitted model set."
+    },
+    {
+      "id": "F08-5",
+      "status": "fixed",
+      "note": "Retention measurement now uses token-weighted credits rather than inferring billed prompt counts from num_turns."
+    },
+    {
+      "id": "F08-6",
+      "status": "fixed",
+      "note": "Bounded endpoint.timeout_ms supplies API_TIMEOUT_MS; actual delayed-provider behavior was not exercised."
+    },
+    {
+      "id": "F09-1",
+      "status": "fixed",
+      "note": "Executed ledger-shaped telemetry fixture returned provider zai and model glm-5.3."
+    },
+    {
+      "id": "F09-2",
+      "status": "fixed",
+      "note": "Endpoint mode bypasses the hardcoded Anthropic branch and uses the documented exact route-label/model contract."
+    },
+    {
+      "id": "F09-3",
+      "status": "fixed",
+      "note": "Observed none replaces the incorrect token-source expectation; P11 and E11 address the identified fallback ambiguity."
+    },
+    {
+      "id": "F09-4",
+      "status": "fixed",
+      "note": "Suffix normalization applies to all vendor rows and passed replay."
+    },
+    {
+      "id": "F10-1",
+      "status": "fixed",
+      "note": "Route fingerprints remain distinct while plan quota aggregates their health records."
+    },
+    {
+      "id": "F10-2",
+      "status": "fixed",
+      "note": "Endpoint environment injection is implemented; observed source none is handled under the revised E11 model restriction."
+    },
+    {
+      "id": "F10-3",
+      "status": "fixed",
+      "note": "Host-first dispatch, MiniMax coverage and universal suffix normalization are implemented and sampled successfully."
+    },
+    {
+      "id": "F10-4",
+      "status": "still-open",
+      "note": "Local groups merge engine/plan keys, but machine running records store only route fingerprints and panels count only selected routes; external same-plan routes can escape the limit."
+    },
+    {
+      "id": "F10-5",
+      "status": "still-open",
+      "note": "E8 still uses a small empirical retention gate without uncertainty bounds; native-schema and versioned endpoint qualification remain incomplete."
+    },
+    {
+      "id": "F16-1",
+      "status": "fixed",
+      "note": "E11 rejects closed-table aliases and all claude-* endpoint IDs; direct and mixed-roster refusal replays passed."
+    },
+    {
+      "id": "F18-1",
+      "status": "fixed",
+      "note": "E11 removes subscription-servable model IDs from the admitted endpoint scope; independent wire-level credential verification remains unproven."
+    }
+  ],
+  "unproven": [
+    "Full harness results at c92c30e were not independently rerun because the harnesses write scratch files.",
+    "Actual destination, authentication header and account billing across every documented endpoint and CLI version.",
+    "Native structured_output compatibility: the inspected handoff 13 result contains no structured_output.",
+    "Real rejecting quota events, recovery sequences and reset-field variations beyond synthetic replay.",
+    "Managed-hook writes outside monitored paths, including ignored files, submodules and external directories.",
+    "Transcript integrity across varied hard-kill points and sustained concurrency with an external coordinator.",
+    "Large-prompt behavior near the 1 MiB bound and actual provider context capacity.",
+    "Account-specific plan eligibility, dashboard credit reconciliation and statistically reliable route-retention results."
+  ],
+  "first_run_checklist": [
+    "The launcher version, endpoint/auth mode and route fingerprint match the intended roster entry; no unexpected test-mode warning appears.",
+    "Every turn's init explicitly reports the expected tool array, an empty MCP array, dontAsk, the intended session and the pinned model.",
+    "Primary assistant events and terminal model usage agree with the pin; unexplained other_models prevents acceptance.",
+    "Endpoint child_env_allowed contains AUTH_TOKEN, BASE_URL and API_TIMEOUT_MS, excludes ANTHROPIC_API_KEY and model/effort/history overrides, and the provider-side request uses the intended account.",
+    "A native-schema run contains structured_output that passes reply validation; usable prose or exit code zero alone is insufficient.",
+    "The tree check is clean, denials are visible, and a timeout continuation cannot conceal an earlier invariant violation.",
+    "A quota rejection retains its class/reset and makes the other same-plan route unavailable; an auth failure remains route-local.",
+    "A competing same-plan run produces an observable waiting state until capacity is released, including across repositories.",
+    "The emitted telemetry contains only closed vendor/model classes and no endpoint URL, roster label, key name or secret."
+  ]
+}
