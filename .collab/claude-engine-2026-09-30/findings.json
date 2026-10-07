@@ -8316,6 +8316,23 @@
                         "note":  "A real hole in E27\u0027s tokenizer (Windows backslash-escaped quotes inside a -c value), demonstrated by a mocked scan releasing an unknown-tree record; the fix is a fail-closed \u0027exec anywhere -\u003e never excluded\u0027 rule plus proper quoting",
                         "when":  "2026-10-08T00:52:00+02:00",
                         "telemetry_sent":  1791413521
+                    },
+                    {
+                        "n":  25,
+                        "consult_id":  "9250759b-9754-45b2-b9e3-44206c3fb43f",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-08T01:16:59+02:00",
+                        "useful":  "yes",
+                        "note":  "ACCEPT after replaying both escaped encodings, e\"x\"ec, the unreadable and the ambiguous cases through recovery; the conservative exec guard named as a tradeoff, not a blocker",
+                        "when":  "2026-10-08T01:19:46+02:00",
+                        "telemetry_sent":  1791415187
                     }
                 ]
 }
