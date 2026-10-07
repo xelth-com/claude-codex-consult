@@ -56,3 +56,15 @@ harness-claude first run 55/55 after test fixes 55f5c0b).
 - 84644a7: manifests 0.6.0, CHANGELOG heading `[0.6.0] - 2026-10-07`, ROADMAP R10 shipped. Brief 26 (76076eb): astra's
   acceptance of the delta (28e + light) - her verdict decides the tag; then the second full suite, the tag, the push,
   wave 29c (driver and 12 briefs ready in the coordinator's scratchpad `ab/`).
+
+## 2026-10-07 night: the 0.6.0 delta accepted
+- Astra on brief 26: HOLD (27, F27-1..4) -> E18-E21; on brief 29: HOLD (30, F30-1/2) -> E23-E24; on brief 31: HOLD
+  (32, F32-1/2) -> E25-E26; brief 33: the ChatGPT limit (34), then **ACCEPT (35, n=23)** - F35-1 (a migration recount
+  from an unreleased intermediate build) wontfix. All of E18-E26 by the opus worker (119008b -> f215cdb, c74b297,
+  3869bbd, 7124348), harness-fixes28e 31 -> 65. Findings F27-1..3, F30-1/2, F32-1/2 verified against 35.
+- The bridge held OpenAI 60 min on "try again at 9:43 PM" (a time-only reset it cannot parse - TECH_DEBT, 0.6.1);
+  launched with -SkipPreflight on the operator's word.
+- Next: RC3 = the full suite on ab51d1f (22 harnesses) -> tag v0.6.0 on the code head -> merge to main -> push; then
+  the operator installs 0.6.0 (marketplace update) and `~/.codex/codex-consult-roster-0.6.json` goes live (the 0.5.1
+  validator refuses `plan`/`light`); then wave 29c (A/B); then the website pass (memory).
+

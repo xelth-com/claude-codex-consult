@@ -7040,6 +7040,14 @@
                                                      "note":  "Unverified-only kills retain recovery records at all three kill sites; E23 preserves that behavior.",
                                                      "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
                                                      "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                                 },
+                                                 {
+                                                     "consult":  23,
+                                                     "when":  "2026-10-07T21:47:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Unverified-only kills retain recovery records at all three kill sites; this delta preserves that behavior.",
+                                                     "base_commit":  "956f0de2e7080784ec635f5e861a58acf59d83f4",
+                                                     "tree_sha256":  "e43e33ad562ef698eadfa39d2dd3fe7cb6de4adc447eff2661d7306165feefdd"
                                                  }
                                              ]
                      },
@@ -7126,6 +7134,14 @@
                                                      "note":  "The previously verified fail-closed command-line checks remain unchanged in this delta.",
                                                      "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
                                                      "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                                 },
+                                                 {
+                                                     "consult":  23,
+                                                     "when":  "2026-10-07T21:47:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The previously verified fail-closed handling of unreadable command lines remains unchanged.",
+                                                     "base_commit":  "956f0de2e7080784ec635f5e861a58acf59d83f4",
+                                                     "tree_sha256":  "e43e33ad562ef698eadfa39d2dd3fe7cb6de4adc447eff2661d7306165feefdd"
                                                  }
                                              ]
                      },
@@ -7212,6 +7228,14 @@
                                                      "note":  "Accounting is still saved before source deletion; the remaining replacement-file defect is covered by finding #2.",
                                                      "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
                                                      "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                                 },
+                                                 {
+                                                     "consult":  23,
+                                                     "when":  "2026-10-07T21:47:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Accounting remains committed before deletion, with replay metadata retained across interruption.",
+                                                     "base_commit":  "956f0de2e7080784ec635f5e861a58acf59d83f4",
+                                                     "tree_sha256":  "e43e33ad562ef698eadfa39d2dd3fe7cb6de4adc447eff2661d7306165feefdd"
                                                  }
                                              ]
                      },
@@ -7370,6 +7394,14 @@
                                                      "note":  "Unknown-tree records are now persisted. Finding #1 replaces the original persistence concern with a reproduced unsafe-release case.",
                                                      "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
                                                      "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                                 },
+                                                 {
+                                                     "consult":  23,
+                                                     "when":  "2026-10-07T21:47:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Unconfirmed kills with empty PID arrays retain explicit unknown-tree recovery state.",
+                                                     "base_commit":  "956f0de2e7080784ec635f5e861a58acf59d83f4",
+                                                     "tree_sha256":  "e43e33ad562ef698eadfa39d2dd3fe7cb6de4adc447eff2661d7306165feefdd"
                                                  }
                                              ]
                      },
@@ -7461,6 +7493,14 @@
                                                      "note":  "Same-generation appends are handled, but equal-length and longer replacement generations still lose counts; finding #2 narrows and supersedes the earlier claim.",
                                                      "base_commit":  "2bd8dfb2396195fd4fc384063ff2b5dd1bd1f928",
                                                      "tree_sha256":  "49cd9281eb1d6ded87acbd1ce08f83f84c96939af22bb332ce9cd5642430d040"
+                                                 },
+                                                 {
+                                                     "consult":  23,
+                                                     "when":  "2026-10-07T21:47:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "New legacy writes receive a separate staged generation and cannot be deleted under an earlier generation’s marker.",
+                                                     "base_commit":  "956f0de2e7080784ec635f5e861a58acf59d83f4",
+                                                     "tree_sha256":  "e43e33ad562ef698eadfa39d2dd3fe7cb6de4adc447eff2661d7306165feefdd"
                                                  }
                                              ]
                      },
@@ -7537,7 +7577,14 @@
                                          }
                                      ],
                          "reviewer_checks":  [
-
+                                                 {
+                                                     "consult":  23,
+                                                     "when":  "2026-10-07T21:47:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The read-only panel-orphan replay now blocks through the machine-wide scan and releases only after the scans are clean.",
+                                                     "base_commit":  "956f0de2e7080784ec635f5e861a58acf59d83f4",
+                                                     "tree_sha256":  "e43e33ad562ef698eadfa39d2dd3fe7cb6de4adc447eff2661d7306165feefdd"
+                                                 }
                                              ]
                      },
                      {
@@ -7605,6 +7652,80 @@
                                              "evidence":  "",
                                              "base_commit":  "ab51d1f1b7c1196df9edd8f54305aa474fe74d9a",
                                              "tree_sha256":  "5c0591ba30bc130e4491d879e56550244dc0b0fbfc947a75dabeb31c85f12960"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  23,
+                                                     "when":  "2026-10-07T21:47:30+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Staging removes dependence on the recreated legacy file’s length; equal-length and longer replacements are separate generations.",
+                                                     "base_commit":  "956f0de2e7080784ec635f5e861a58acf59d83f4",
+                                                     "tree_sha256":  "e43e33ad562ef698eadfa39d2dd3fe7cb6de4adc447eff2661d7306165feefdd"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F35-1",
+                         "status":  "wontfix",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  12016
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  12079
+                                           }
+                                       ],
+                         "claim":  "Migration from an earlier build can count already-accounted legacy lines again because E26 ignores legacy fold markers and folds the unchanged contents under a fresh staged name.",
+                         "trigger":  "An earlier build commits a fold note and a marker naming telemetry-not-spooled.ndjson, then crashes before deleting that file; E26 runs against the unchanged file.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:Get-TelemetryNotSpooled and Merge-TelemetryNotSpooled",
+                                              "observation":  "Status ignores folded metadata for the legacy filename. Staging gives its contents a new name that does not match the earlier committed marker."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only PowerShell migration replay with MemoryStream-backed staged contents",
+                                              "observation":  "With one previously folded legacy line and its earlier-build marker, status reported one new line and the staged fold counted that line again. The fresh-protocol control correctly counted only the new generation."
+                                          }
+                                      ],
+                         "verification":  "Seed an earlier-build committed fold marker and note while retaining the unchanged legacy file; run the new flush and inspect whether another fold note counts those same lines.",
+                         "remedy":  "Document and surface the possible migration recount, and qualify exactly-once accounting as applying to staged generations. If exact historical totals are required, reconcile the ambiguous earlier-build state explicitly rather than guessing its generation.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  23,
+                                        "reply":  "handoffs/35-codex-astra-0.6.0-delta-4b.md",
+                                        "thread":  "01a117e5-a98b-79f0-8687-247a6f7beec6",
+                                        "base_commit":  "956f0de2e7080784ec635f5e861a58acf59d83f4",
+                                        "tree_sha256":  "e43e33ad562ef698eadfa39d2dd3fe7cb6de4adc447eff2661d7306165feefdd"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-07T21:47:30+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "956f0de2e7080784ec635f5e861a58acf59d83f4",
+                                             "tree_sha256":  "e43e33ad562ef698eadfa39d2dd3fe7cb6de4adc447eff2661d7306165feefdd"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T21:48:06+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "The legacy fold marker of \u0027an earlier build\u0027 (E20/E24, commits f215cdb/3869bbd) never shipped - it existed on wip/wave29-claude-engine for a few hours on 2026-10-07 and 0.6.0 is the first release with any not_spooled_folded entries - so no installation can carry such a marker; the recount cannot occur for a user. The README\u0027s exactly-once claim is scoped to the staged protocol (0.6.0 onward)",
+                                             "evidence":  "",
+                                             "base_commit":  "e77d65e9871db34b58be0a8476adc6d2f8b4f675",
+                                             "tree_sha256":  "d4ec617f96cfe9961e1e02940052e14370ac646e8ad81ff40d1e0a03ed01b26e"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7934,6 +8055,23 @@
                         "note":  "Mocked process-table replay showed the panel path\u0027s by-parent-only release misses a grandchild under a dead intermediate; the recreated-legacy-file case of the length marker is real",
                         "when":  "2026-10-07T20:31:18+02:00",
                         "telemetry_sent":  1791397878
+                    },
+                    {
+                        "n":  23,
+                        "consult_id":  "2b93fd3c-55f8-4f80-847c-386acf52a3fa",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "acceptance",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-07T21:44:47+02:00",
+                        "useful":  "yes",
+                        "note":  "ACCEPT after replaying the panel-orphan and recreated-file cases against E25/E26; the migration recount is nonblocking and only concerns an unreleased intermediate build",
+                        "when":  "2026-10-07T21:48:02+02:00",
+                        "telemetry_sent":  1791402482
                     }
                 ]
 }
