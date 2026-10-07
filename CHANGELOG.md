@@ -85,7 +85,8 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
     REQUIRED and one of the engine's table: the aliases `opus`, `sonnet`, `haiku`, `fable` and the ids
     `claude-fable-5-1`, `claude-fable-5`, `claude-opus-5-5`, `claude-opus-5`, `claude-opus-4-8`,
     `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-sonnet-4-6`,
-    `claude-haiku-4-5`, each optionally ending in `[1m]`. Roster `auth` for claude entries only:
+    `claude-haiku-5-5` (released 2026-10-07), `claude-haiku-4-5`, each optionally ending in `[1m]`. Roster
+    `auth` for claude entries only:
     `subscription` (default) or `api-key`; `codex_config` and `auth: none` are refused. Lab: `claude`, `opus`,
     `sonnet`, `haiku`, `fable` prefixes -> `anthropic`. Reply files `NN-claudecode-<slug>.*` (the prefix
     `claude` stays the coordinator's default brief prefix). Modes `new`, `resume` and `fork`; read-only sandbox
@@ -266,6 +267,16 @@ small items of the 0.5.0 verdict (under "Fixed") - and the roster value `panel: 
     file a writer holds. Docs: README (the recovery record, the kill, the
     not-spooled count, the forgetting marker, the ledger's `compactions` row), `codex-telemetry.ps1`'s help,
     `tests/README.md`.
+- **The recovery scan ignores the Codex desktop app's servers** (E27, 2026-10-07) - the machine-wide "looks
+  like codex" rule (`Get-CodexRule`, now `Get-CodexMatch` / `Get-CodexServerExclusion`) took the app's
+  long-running `codex.exe app-server` / `exec-server` processes for a reviewer, so while the app was open an
+  interrupted task whose survivors were gone stayed refused and an unknown tree was never released (F04-10 of
+  `harness-fixes` failed); a codex-named process whose command line shows `app-server`, `exec-server`,
+  `mcp-server`, `login` or `app` as its first non-option token, an executable named `codex-computer-use*`, or
+  `--parent-pid` without `exec` is now left out and named in the scan (`excluded: pid N codex.exe [codex
+  app-server]`). `codex exec …`, the launcher path or `@openai/codex` on a command line and a codex whose
+  command line cannot be read still count (fail-closed; `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE` is honoured
+  by the scan too), proven by `harness-fixes` E27 with real processes named `codex.exe` and with the app open.
 
 ## [0.5.1] - 2026-10-06
 
