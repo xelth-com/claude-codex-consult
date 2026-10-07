@@ -24,3 +24,14 @@ E21. (F27-4, minor) **Documented, not fixed:** outside Windows .NET reports a pr
 
 Verification: RC1 and RC2 of handoff 27 as fixtures of `tests/harness-fixes28e.ps1`; RC3 = the full suite on the
 final candidate (the second full suite of the day) before the tag; astra's second round on the delta decides.
+
+Addendum after the worker's report (f215cdb, 2026-10-07 evening):
+
+E19a. E19 covers EVERY re-check of a recorded pid: the survivors' `Test-RecordedProcess` (a survivor recorded
+      without a start time, or whose start time cannot be read now) applies the same keep/drop order and messages
+      as `Test-UnverifiedProcess` (the worker's follow-up commit).
+E22.  Documented limits, not code: (a) a kill whose root exited and whose child enumeration was denied has neither
+      survivors nor unverified pids and keeps no record - its warning names the denial; (b) should the final `.last`
+      rewrite that drops the deleted names fail, a later file with the LEGACY name would be deleted without being
+      counted (the per-producer names carry a pid and start ticks and cannot recur). Astra's second round (29) is
+      asked whether either needs code before the tag.

@@ -6950,7 +6950,7 @@
                      },
                      {
                          "id":  "F27-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -7013,6 +7013,15 @@
                                              "evidence":  "",
                                              "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
                                              "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T19:17:04+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E18 (handoff 28): the record is kept in state survivors when either survivors[] or unverified[] is non-empty; commit f215cdb, harness-fixes28e RECORD",
+                                             "evidence":  "",
+                                             "base_commit":  "90f274856c2c01e8a8e0d7d809c6b3a66e3574ab",
+                                             "tree_sha256":  "5172a3c6fb5f34fe24e69db3befad3650566b5090cb4bf0f959254f39fbc3a90"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7021,7 +7030,7 @@
                      },
                      {
                          "id":  "F27-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "blocker",
                          "locations":  [
                                            {
@@ -7075,6 +7084,15 @@
                                              "evidence":  "",
                                              "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
                                              "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T19:17:06+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E19 (handoff 28): fail-closed re-check - dropped only when gone, started before the record, or the command line was read and is not codex-like; an unreadable command line or a bare generic runtime counts as running; commit f215cdb (+ the survivors\u0027 re-check in the follow-up commit)",
+                                             "evidence":  "",
+                                             "base_commit":  "90f274856c2c01e8a8e0d7d809c6b3a66e3574ab",
+                                             "tree_sha256":  "5172a3c6fb5f34fe24e69db3befad3650566b5090cb4bf0f959254f39fbc3a90"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -7083,7 +7101,7 @@
                      },
                      {
                          "id":  "F27-3",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -7137,6 +7155,15 @@
                                              "evidence":  "",
                                              "base_commit":  "b49f23bdaa8e2600f4f3ba0556d14ae0c273f433",
                                              "tree_sha256":  "a7019d0b864554bc925ee5a3f330045b7177d24f7ef8065a71986a939eacdeaf"
+                                         },
+                                         {
+                                             "when":  "2026-10-07T19:17:08+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "E20 (handoff 28): .last saved first with the note, the baseline and not_spooled_folded[], the files deleted after; idempotent after a crash (CODEX_CONSULT_TEST_FOLD_CRASH fixture); a failed save leaves everything with a warning; commit f215cdb",
+                                             "evidence":  "",
+                                             "base_commit":  "90f274856c2c01e8a8e0d7d809c6b3a66e3574ab",
+                                             "tree_sha256":  "5172a3c6fb5f34fe24e69db3befad3650566b5090cb4bf0f959254f39fbc3a90"
                                          }
                                      ],
                          "reviewer_checks":  [
