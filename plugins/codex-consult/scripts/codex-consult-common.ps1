@@ -65,7 +65,8 @@
       * recovery record  Read-PendingFile, Write-PendingFile, Remove-PendingFile,
                          Test-PendingActive, Find-CodexProcesses, Get-PendingPaths,
                          Read-TaskPendingRecords (.consult.pending.json and the panel
-                         members' .consult.pending-<NN>.json)
+                         members' .consult.pending-<NN>.json); (wave 28e)
+                         New-UnverifiedEntries, Test-UnverifiedProcess
       * processes        Stop-ProcessTree, ConvertTo-ProcArg, Format-Argv
       * detached runs    (wave 25, R12) Write-DetachedStatus, Get-DetachedBudget (D4),
                          Complete-DetachedRecord (D3), ConvertTo-DetachArgs /
@@ -105,7 +106,9 @@
                          Show-TelemetryNotice, Invoke-TelemetryRequest / Invoke-TelemetrySend (the
                          8 s bound, the 429 rule), Enter-/Exit-TelemetryFlushLock,
                          Invoke-TelemetryFlush (the sender: 60 s, the D8 answers),
-                         Get-TelemetrySpoolCounts, Get-TelemetryNotSpooled, Read-TelemetryLast,
+                         Get-TelemetrySpoolCounts, Get-TelemetryNotSpooled (wave 28e: one file
+                         per producer - Get-TelemetryNotSpooledFiles, the flush's fold
+                         Merge-TelemetryNotSpooled), Read-TelemetryLast,
                          Invoke-TelemetryComplaint (-Complain), Invoke-TelemetryForget (-Forget);
                          the switch - Get-TelemetrySwitch - lives in
                          codex-consult-detached.ps1 (the hook prints it)
@@ -9305,7 +9308,7 @@ function Select-ParentThread {
 #                                 (Write-TextAtomic):
 #                                   { state, n, nn, reply, events, consult_id, started,
 #                                     pid, start_time, host, launcher, engine, child_pid,
-#                                     child_start_time, survivors, note [, reply_json,
+#                                     child_start_time, survivors, unverified, note [, reply_json,
 #                                     raw_reply, original, first_reply, panel] }
 #                                 state: reserved    numbers allocated, codex not started
 #                                        launching   about to start codex (the child may
@@ -9330,6 +9333,14 @@ function Select-ParentThread {
 #                                   entry without a start time (older records: a bare
 #                                   pid) counts only if that process looks like codex
 #                                   (Test-RecordedProcess) - never by pid alone.
+#                                 unverified[] (wave 28e, E1): { pid, why } per descendant
+#                                   whose start time could not be read at the kill (left
+#                                   alone by it: neither a survivor nor gone). The next
+#                                   run names them and checks them again
+#                                   (Test-UnverifiedProcess): gone - dropped; still
+#                                   unreadable - it blocks as a survivor (fail-closed);
+#                                   readable - started before the run: dropped, else it
+#                                   blocks only if it looks like codex.
 #                                 It is deleted when the run completed cleanly (after the
 #                                 ledger commit, under the write lock). A run that finds
 #                                 records decides from ALL of them BEFORE writing anything
@@ -9669,6 +9680,7 @@ function New-PendingRecord {
         child_pid        = $null
         child_start_time = ''
         survivors        = [object[]]@()
+        unverified       = [object[]]@()
         note             = ''
     }
     if ($null -ne $Panel) { $r | Add-Member -NotePropertyName 'panel' -NotePropertyValue $Panel }
@@ -9751,6 +9763,44 @@ function New-SurvivorEntries {
         $info = Get-ProcessInfo -ProcessId $id
         if ($info) { [pscustomobject]@{ pid = $id; start_time = $info.start; name = $info.name } }
     }
+}
+
+# (wave 28e, E1 / F54-1) The recovery record's unverified[] of a tree kill: { pid, why } per descendant
+# whose start time could not be read (the kill check's Unverified and its Why) - the kill left it alone,
+# it is neither a survivor nor gone; the next run checks it again (Test-UnverifiedProcess).
+function New-UnverifiedEntries {
+    param($Check)
+    $why = [string](Get-PropertyValue $Check 'Why' '')
+    foreach ($u in @(Get-PropertyValue $Check 'Unverified' @())) {
+        $id = 0
+        if ([int]::TryParse([string]$u, [ref]$id) -and $id -gt 0) { [pscustomobject]@{ pid = $id; why = $why } }
+    }
+}
+
+# (wave 28e, E1 / F54-1) A pid of the record's unverified[] - a descendant whose start time could not be
+# read at the kill, so no start time was recorded - checked again: { Alive; How }.
+#   gone (no process with that pid): not alive - dropped;
+#   its start time STILL cannot be read: ALIVE - fail-closed, it blocks the task as a survivor does
+#     until it exits (or the operator deletes the record knowing it is unrelated);
+#   readable now: a process that started before that run ($Since, the record's `started`) cannot be
+#     one of its descendants - not alive; else the "looks like codex" rule (Get-CodexRule) decides, as
+#     for a survivor recorded without a start time - never by pid alone.
+function Test-UnverifiedProcess {
+    param([int]$ProcessId, $Since = $null, [string]$Launcher = '')
+    $st = Get-ProcessStartIso -ProcessId $ProcessId
+    if ($null -eq $st) { return [pscustomobject]@{ Alive = $false; How = 'gone' } }
+    if (-not $st) { return [pscustomobject]@{ Alive = $true; How = 'its start time still cannot be read - counted as running (fail-closed)' } }
+    if ($null -ne $Since) {
+        $at = [DateTimeOffset]::MinValue
+        if ([DateTimeOffset]::TryParse($st, $script:Invariant, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$at) -and $at -lt $Since) {
+            return [pscustomobject]@{ Alive = $false; How = "started $st, before that run: not its process" }
+        }
+    }
+    $info = Get-ProcessInfo -ProcessId $ProcessId
+    if (-not $info) { return [pscustomobject]@{ Alive = $false; How = 'gone' } }
+    $rule = Get-CodexRule -Name $info.name -Cmd $info.cmd -Launcher $Launcher
+    if ($rule) { return [pscustomobject]@{ Alive = $true; How = "start time readable now; $rule" } }
+    return [pscustomobject]@{ Alive = $false; How = "start time readable now; pid $ProcessId runs $($info.name), not codex" }
 }
 
 # Is a process recorded in a pending record still that process? Returns { Alive; How }.
@@ -9890,9 +9940,12 @@ function Get-PendingOriginalNote {
 #      reserved            inactive: nothing was started under it;
 #      running / survivors / committing
 #                          active while child_pid (with its start time) or any survivor pid
-#                          is alive on this host; pids from another host: active (they
-#                          cannot be checked from here); all recorded pids gone: the
-#                          process scan below (a dead launcher is no proof of a dead tree);
+#                          is alive on this host - (wave 28e, E1) or an unverified pid
+#                          (Test-UnverifiedProcess: its start time still unreadable, or
+#                          readable and codex-like); every one of them is named; pids from
+#                          another host: active (they cannot be checked from here); all
+#                          recorded pids gone: the process scan below (a dead launcher is
+#                          no proof of a dead tree);
 #      launching           the child may or may not exist: the process scan below; from
 #                          another host (no pids to check): treated as dead.
 #   3. The process scan: children of the recorded writer and of the recorded pids (Windows
@@ -9937,6 +9990,20 @@ function Test-PendingActive {
         }
         if ($sp -gt 0) { $pids.Add([pscustomobject]@{ pid = $sp; start = $sStart; name = $sName }) }
     }
+    # (wave 28e, E1 / F54-1) unverified: { pid, why } entries - descendants whose start time could not
+    # be read at the kill; reported and checked again below (Test-UnverifiedProcess)
+    $unverified = New-Object System.Collections.Generic.List[object]
+    foreach ($u in @(Get-PropertyValue $Record 'unverified' @())) {
+        $up = 0
+        $uWhy = ''
+        if ($null -ne $u -and $u -is [psobject] -and $u.PSObject.Properties['pid']) {
+            [void][int]::TryParse([string]$u.pid, [ref]$up)
+            $uWhy = [string](Get-PropertyValue $u 'why' '')
+        } else {
+            [void][int]::TryParse([string]$u, [ref]$up)
+        }
+        if ($up -gt 0) { $unverified.Add([pscustomobject]@{ pid = $up; why = $uWhy }) }
+    }
     $originalNote = Get-PendingOriginalNote $Record
     $inactive = { param($c) [pscustomobject]@{ Active = $false; Message = ''; Check = $(if ($originalNote) { "$c; $originalNote" } else { $c }) } }
     $active = { param($m, $c) [pscustomobject]@{ Active = $true; Message = $(if ($originalNote) { $m.TrimEnd([char]'.') + "; $originalNote." } else { $m }); Check = $c } }
@@ -9958,8 +10025,8 @@ function Test-PendingActive {
     }
 
     if ($state -eq 'reserved') { return (& $inactive "reserved: $cli was never started$(if ($writerGone) { "; $writerGone" })") }
-    if ($pids.Count -gt 0 -and $state -ne 'launching') {
-        $pidList = (@($pids | ForEach-Object { $_.pid }) -join ', ')
+    if (($pids.Count -gt 0 -or $unverified.Count -gt 0) -and $state -ne 'launching') {
+        $pidList = (@(@($pids | ForEach-Object { $_.pid }) + @($unverified | ForEach-Object { $_.pid })) -join ', ')
         if ($otherHost) {
             return (& $active "an interrupted consultation on host $recHost left $cli process(es) pid $pidList ($what); they cannot be checked from this host. Delete $Path only after making sure they are gone." "pids on host $recHost")
         }
@@ -9970,14 +10037,38 @@ function Test-PendingActive {
             $verdict = Test-RecordedProcess -ProcessId $entry.pid -StartTime $entry.start -Name $entry.name -Launcher $launcher
             if ($verdict.Alive) { $alive.Add("$($entry.pid)"); $aliveHow.Add("$($entry.pid) [$($verdict.How)]") } else { $gone.Add("$($entry.pid) [$($verdict.How)]") }
         }
-        if ($alive.Count -gt 0) {
-            return (& $active "a previous consultation's $cli process (pid $($alive -join ', ')) is still running ($what). Wait for it to exit or stop it, then retry; $Path keeps its record until then." "pid $($aliveHow -join ', ') alive")
+        # (wave 28e, E1 / F54-1) the descendants the kill could not verify, checked again now: one still
+        # unreadable, or readable and codex-like, blocks like a survivor; a gone one is dropped - said
+        $uAlive = New-Object System.Collections.Generic.List[string]
+        $uGone = New-Object System.Collections.Generic.List[string]
+        if ($unverified.Count -gt 0) {
+            $uSince = $null
+            try { $uSince = [DateTimeOffset]::Parse((ConvertTo-JsonText (Get-PropertyValue $Record 'started' '')), $script:Invariant) } catch { $uSince = $null }
+            foreach ($entry in $unverified) {
+                $verdict = Test-UnverifiedProcess -ProcessId $entry.pid -Since $uSince -Launcher $launcher
+                if ($verdict.Alive) { $uAlive.Add("$($entry.pid) [$($verdict.How)$(if ($entry.why) { "; at the kill: $($entry.why)" })]") } else { $uGone.Add("$($entry.pid) [$($verdict.How)]") }
+            }
+        }
+        $uDropped = $(if ($uGone.Count -gt 0) { "unverified pid(s) $($uGone -join ', ') dropped" } else { '' })
+        if ($alive.Count -gt 0 -or $uAlive.Count -gt 0) {
+            $parts = New-Object System.Collections.Generic.List[string]
+            $checkParts = New-Object System.Collections.Generic.List[string]
+            if ($alive.Count -gt 0) { $parts.Add("a previous consultation's $cli process (pid $($alive -join ', ')) is still running ($what)"); $checkParts.Add("pid $($aliveHow -join ', ') alive") }
+            if ($uAlive.Count -gt 0) {
+                $parts.Add($(if ($alive.Count -gt 0) { "a process its kill could not verify blocks too: pid $($uAlive -join ', ')" } else { "a previous consultation's $cli run left a process its kill could not verify ($what): pid $($uAlive -join ', ') - it blocks the task as a survivor does" }))
+                $checkParts.Add("unverified pid $($uAlive -join ', ') counted as running")
+            }
+            if ($uDropped) { $parts.Add($uDropped); $checkParts.Add($uDropped) }
+            return (& $active "$($parts -join '; '). Wait for it to exit or stop it, then retry; $Path keeps its record until then." ($checkParts -join '; '))
         }
         # Every RECORDED pid is gone - but the record names the launcher (the npm shim on
         # Windows) and the survivors the kill could see; the real codex may be a
         # descendant that outlived them. A dead launcher is not proof of a dead tree:
         # fall through to the descendant scan below (F04-10).
-        $recordedGone = "$cli pid(s) $($gone -join ', ') no longer running"
+        $goneParts = New-Object System.Collections.Generic.List[string]
+        if ($gone.Count -gt 0) { $goneParts.Add("$cli pid(s) $($gone -join ', ') no longer running") }
+        if ($uDropped) { $goneParts.Add($uDropped) }
+        $recordedGone = $goneParts -join '; '
     } else {
         $recordedGone = ''
     }
@@ -9999,6 +10090,8 @@ function Test-PendingActive {
     $bridgePid = 0
     if ([int]::TryParse([string](Get-PropertyValue $Record 'pid' ''), [ref]$bridgePid) -and $bridgePid -gt 0) { $parentPids.Add($bridgePid) }
     foreach ($entry in $pids) { if ($entry.pid -gt 0 -and -not $parentPids.Contains([int]$entry.pid)) { $parentPids.Add([int]$entry.pid) } }
+    # (wave 28e, E1) and every unverified pid (its orphans keep its parent id too)
+    foreach ($entry in $unverified) { if ($entry.pid -gt 0 -and -not $parentPids.Contains([int]$entry.pid)) { $parentPids.Add([int]$entry.pid) } }
     $scan = $null
     $checks = New-Object System.Collections.Generic.List[string]
     if ($recordedGone) { $checks.Add($recordedGone) }
@@ -10919,24 +11012,38 @@ function Get-BridgeVersion {
 
 # Where telemetry keeps its files, under the Codex home; $null without one. { Home; Spool (the
 # directory); Salt; Last (the last flush's result); Lock (the sender's lock); Notice (the marker of
-# the notice for this plugin version); NotSpooled (wave 28b, D6: the events not spooled since the
-# last flush, one NDJSON line each); (wave 28c, D3) TelLock (THE telemetry lock of the producers, the
-# salt's creation and -Forget) and Forgetting (the marker -Forget writes while it deletes) }.
+# the notice for this plugin version); NotSpooled (wave 28b, D6: the events not spooled, one NDJSON
+# line each - (wave 28e, E2) the LEGACY single file, still counted and folded); NotSpooledOwn (wave
+# 28e, E2: THIS process's file of them, telemetry-not-spooled-<pid>-<start ticks>.ndjson); (wave 28c,
+# D3) TelLock (THE telemetry lock of the producers, the salt's creation and -Forget) and Forgetting (the
+# marker -Forget writes while it deletes) }.
 function Get-TelemetryPaths {
     $h = Get-CodexHome
     if (-not $h) { return $null }
     $spool = Join-Path $h 'telemetry-spool'
     return [pscustomobject]@{
-        Home       = $h
-        Spool      = $spool
-        Salt       = (Join-Path $h 'telemetry-salt')
-        Last       = (Join-Path $spool '.last')
-        Lock       = (Join-Path $spool '.flush.lock')
-        Notice     = (Join-Path $h ('telemetry-notice-' + (Get-BridgeVersion)))
-        NotSpooled = (Join-Path $h 'telemetry-not-spooled.ndjson')
-        TelLock    = (Join-Path $h 'telemetry.lock')
-        Forgetting = (Join-Path $h 'telemetry-forgetting')
+        Home          = $h
+        Spool         = $spool
+        Salt          = (Join-Path $h 'telemetry-salt')
+        Last          = (Join-Path $spool '.last')
+        Lock          = (Join-Path $spool '.flush.lock')
+        Notice        = (Join-Path $h ('telemetry-notice-' + (Get-BridgeVersion)))
+        NotSpooled    = (Join-Path $h 'telemetry-not-spooled.ndjson')
+        NotSpooledOwn = (Join-Path $h "telemetry-not-spooled-$PID-$(Get-TelemetryOwnStartTicks).ndjson")
+        TelLock       = (Join-Path $h 'telemetry.lock')
+        Forgetting    = (Join-Path $h 'telemetry-forgetting')
     }
+}
+
+# (wave 28e, E2) This process's start time in ticks (Get-ProcessStartTicks), read once; 0 when it
+# cannot be read (its not-spooled file then names no start: its identity counts as unknown).
+$script:TelemetryOwnStartTicks = $null
+function Get-TelemetryOwnStartTicks {
+    if ($null -eq $script:TelemetryOwnStartTicks) {
+        $t = Get-ProcessStartTicks -ProcessId $PID
+        $script:TelemetryOwnStartTicks = $(if ($null -ne $t -and $t -gt 0) { [long]$t } else { [long]0 })
+    }
+    return $script:TelemetryOwnStartTicks
 }
 
 # (wave 28c, D3 / F42-3) THE telemetry lock <codex home>/telemetry.lock - taken by every spool append
@@ -10945,7 +11052,8 @@ function Get-TelemetryPaths {
 # empty file stays). While -Forget holds it, the marker <codex home>/telemetry-forgetting says so; a
 # producer that meets the marker (or a lock that stays busy past its short wait) drops its event -
 # counted - instead of recreating the salt or the spool. (wave 28d, D2 / F48-2) The marker HEALS
-# itself: it names its owner {pid, start_time, since}; -Forget removes it in `finally`; a marker whose
+# itself: it names its owner {pid, start_time, (wave 28e, E3) start_ticks, since}; -Forget removes it
+# in `finally`; a marker whose
 # owner lives (Test-PidAlive - an identity that cannot be confirmed counts as living) refuses as
 # before, and one whose owner is gone - or that names none: -Forget writes it under this lock, so no
 # -Forget is writing it while it is held - is REMOVED under the lock (one line in <spool>/.last
@@ -11004,6 +11112,10 @@ function Exit-TelemetryLock {
 # (wave 28d, D2 / F48-2) The forgetting marker as it is - read only: { There; Pid; Since; Alive (its
 # owner - pid and start time - lives, or its identity cannot be confirmed: Test-PidAlive, never
 # removed on a guess; a marker that names no owner is not alive); Why (the refusal while it lives) }.
+# (wave 28e, E3 / F54-3) A marker that records `start_ticks` (the owner's start time in ticks, 100 ns -
+# what -Forget writes since wave 28e) is judged on pid AND those ticks (Get-PidIdentityTicks: exactly
+# equal on Windows; 'unknown' counts as alive); an older marker without them by its start_time string
+# as before.
 function Get-TelemetryForgettingOwner {
     param([string]$Path)
     $m = [pscustomobject]@{ There = $false; Pid = 0; Since = ''; Alive = $false; Why = '' }
@@ -11014,7 +11126,9 @@ function Get-TelemetryForgettingOwner {
     $n = Get-TelemetryCount (Get-PropertyValue $o 'pid' $null)
     if ($null -ne $n -and $n -le [int]::MaxValue) { $m.Pid = [int]$n }
     $m.Since = [string](ConvertTo-JsonText (Get-PropertyValue $o 'since' ''))
-    if ($m.Pid -gt 0) { $m.Alive = [bool](Test-PidAlive -ProcessId $m.Pid -StartTime ([string](ConvertTo-StartIso (Get-PropertyValue $o 'start_time' '')))) }
+    $ticks = Get-TelemetryCount (Get-PropertyValue $o 'start_ticks' $null)
+    if ($m.Pid -gt 0 -and $null -ne $ticks -and $ticks -gt 0) { $m.Alive = [bool]((Get-PidIdentityTicks -ProcessId $m.Pid -StartTicks ([long]$ticks)) -ne 'gone') }
+    elseif ($m.Pid -gt 0) { $m.Alive = [bool](Test-PidAlive -ProcessId $m.Pid -StartTime ([string](ConvertTo-StartIso (Get-PropertyValue $o 'start_time' '')))) }
     $m.Why = "codex-telemetry.ps1 -Forget -Local is deleting the local telemetry data (pid $($m.Pid)$(if ($m.Since) { ", since $($m.Since)" }); the marker $Path)"
     return $m
 }
@@ -11623,43 +11737,126 @@ function Start-TelemetrySender {
     }
 }
 
-# (wave 28b, D6) An event that could not be spooled: one line {time, why} in <codex home>/
-# telemetry-not-spooled.ndjson - codex-telemetry.ps1 -Status counts them. (wave 28d, D4 / F49-2) The
-# file is APPEND-ONLY and written WITHOUT the telemetry lock (a busy lock or a -Forget in flight never
-# loses a count; concurrent appends are serialized by the file's own sharing, retried up to 5 s; best
-# effort); no flush empties it - each flush records in .last `not_spooled_seen` how many lines it saw.
+# (wave 28b, D6) An event that could not be spooled: one line {time, why} - codex-telemetry.ps1 -Status
+# counts them. (wave 28d, D4 / F49-2) APPEND-ONLY and written WITHOUT the telemetry lock (a busy lock or
+# a -Forget in flight never loses a count). (wave 28e, E2 / F54-2) ONE FILE PER PRODUCER PROCESS:
+# <codex home>/telemetry-not-spooled-<pid>-<start ticks>.ndjson (NotSpooledOwn) - no other process
+# appends to it, so no append waits for another producer's; the retry (up to 1 s) only covers a reader
+# of this very file. A flush folds the files of producers that are gone into one line of <spool>/.last
+# and removes them (Merge-TelemetryNotSpooled), so no file grows past what one process wrote. '' when
+# the line is written, else why not (best effort: the callers carry on).
 function Add-TelemetryNotSpooled {
     param([string]$Why)
     $p = Get-TelemetryPaths
-    if (-not $p) { return }
+    if (-not $p) { return 'no codex home (CODEX_HOME, else ~/.codex)' }
     $line = (ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ time = (Get-IsoTimestamp); why = (ConvertTo-OneLine $Why) })) + "`n"
-    for ($i = 0; $i -lt 100; $i++) {
-        try { [void][IO.Directory]::CreateDirectory($p.Home); [IO.File]::AppendAllText($p.NotSpooled, $line, $script:Utf8NoBom); return } catch { Start-Sleep -Milliseconds 50 }
+    $err = ''
+    for ($i = 0; $i -lt 20; $i++) {
+        try { [void][IO.Directory]::CreateDirectory($p.Home); [IO.File]::AppendAllText($p.NotSpooledOwn, $line, $script:Utf8NoBom); return '' } catch { $err = ConvertTo-OneLine $_.Exception.Message; Start-Sleep -Milliseconds 50 }
     }
+    return "the not-spooled count $($p.NotSpooledOwn) could not be written ($err)"
 }
 
-# The events not spooled since the last flush - (wave 28d, D4) the lines of the append-only file after
-# the first `not_spooled_seen` of <spool>/.last (the count that flush saw when it took its lock; every
-# line when no flush recorded one). Complete lines only (an append in progress has no line end yet).
-# { Count; Last (the latest why, '' when none); When; Total (every line of the file) }. -All: every line
-# counts (the flush's own count).
+# (wave 28e, E2) The not-spooled files of the codex home: the producers' files
+# telemetry-not-spooled-<pid>-<start ticks>.ndjson and the legacy single file
+# telemetry-not-spooled.ndjson (written before wave 28e). [object[]] of { Path; Name; Pid (0: legacy);
+# Ticks; Legacy }, sorted by name. Another name that starts the same way is not one of them.
+function Get-TelemetryNotSpooledFiles {
+    param($Paths = $null)
+    $p = $(if ($Paths) { $Paths } else { Get-TelemetryPaths })
+    $out = New-Object System.Collections.Generic.List[object]
+    if (-not $p -or -not [IO.Directory]::Exists($p.Home)) { return , ([object[]]@()) }
+    foreach ($f in @(Get-ChildItem -LiteralPath $p.Home -File -Force -Filter 'telemetry-not-spooled*.ndjson' -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        if ($f.Name -eq 'telemetry-not-spooled.ndjson') { $out.Add([pscustomobject]@{ Path = $f.FullName; Name = $f.Name; Pid = 0; Ticks = [long]0; Legacy = $true }); continue }
+        $m = [regex]::Match($f.Name, '^telemetry-not-spooled-([0-9]{1,10})-([0-9]{1,19})\.ndjson$')
+        if (-not $m.Success) { continue }
+        $fp = [long]0
+        $ft = [long]0
+        if (-not [long]::TryParse($m.Groups[1].Value, [ref]$fp) -or $fp -gt [int]::MaxValue -or -not [long]::TryParse($m.Groups[2].Value, [ref]$ft)) { continue }
+        $out.Add([pscustomobject]@{ Path = $f.FullName; Name = $f.Name; Pid = [int]$fp; Ticks = $ft; Legacy = $false })
+    }
+    return , ([object[]]$out.ToArray())
+}
+
+# (wave 28e, E2) The lines of a not-spooled text: complete lines only (an append in progress has no line
+# end yet); -Tail: a last piece without one counts too (the file of a producer that is gone - it will
+# never end it).
+function Get-TelemetryNotSpooledLines {
+    param([string]$Text, [switch]$Tail)
+    $t = [string]$Text
+    if (-not $Tail) { $end = $t.LastIndexOf("`n"); $t = $(if ($end -ge 0) { $t.Substring(0, $end) } else { '' }) }
+    return , ([string[]]@($t -split "`n" | Where-Object { $_.Trim() }))
+}
+
+# The events not spooled since the last flush - (wave 28e, E2) the complete lines of EVERY not-spooled
+# file (Get-TelemetryNotSpooledFiles: one per producer, and the legacy file), summed, less the
+# `not_spooled_seen` of <spool>/.last (the lines of the files that flush KEPT after its fold - the
+# folded files are gone with their lines; an older .last's count of the legacy file means the same);
+# every line when no flush recorded one. { Count; Last (the latest why by time, '' when none since the
+# last flush); When; Total (every line of every file); Files }. -All: every line counts.
 function Get-TelemetryNotSpooled {
     param([switch]$All)
-    $r = [pscustomobject]@{ Count = 0; Last = ''; When = ''; Total = 0 }
+    $r = [pscustomobject]@{ Count = 0; Last = ''; When = ''; Total = 0; Files = 0 }
     $p = Get-TelemetryPaths
-    if (-not $p -or -not [IO.File]::Exists($p.NotSpooled)) { return $r }
+    if (-not $p) { return $r }
+    $files = Get-TelemetryNotSpooledFiles -Paths $p
+    if ($files.Count -eq 0) { return $r }
     $seen = [long]0
     if (-not $All) { $sv = Get-TelemetryCount (Get-PropertyValue (Read-TelemetryLast) 'not_spooled_seen' $null); if ($null -ne $sv) { $seen = [long]$sv } }
-    try {
-        $text = [string](Read-SharedText -Path $p.NotSpooled)
-        $end = $text.LastIndexOf("`n")
-        $lines = @(if ($end -ge 0) { $text.Substring(0, $end) -split "`n" | Where-Object { $_.Trim() } })
-        $r.Total = $lines.Count
-        for ($i = [int][Math]::Min($seen, [long]$lines.Count); $i -lt $lines.Count; $i++) {
-            $r.Count++
-            try { $o = ConvertFrom-Json -InputObject $lines[$i]; $r.Last = [string](Get-PropertyValue $o 'why' ''); $r.When = [string](ConvertTo-JsonText (Get-PropertyValue $o 'time' '')) } catch { }
-        }
-    } catch { }
+    $latest = $null
+    foreach ($f in $files) {
+        try {
+            $lines = Get-TelemetryNotSpooledLines -Text ([string](Read-SharedText -Path $f.Path))
+            $r.Files++
+            $r.Total += $lines.Count
+            foreach ($l in $lines) {
+                try {
+                    $o = ConvertFrom-Json -InputObject $l
+                    $w = ConvertTo-WhenOffset (Get-PropertyValue $o 'time' $null)
+                    if ($null -eq $latest -or ($null -ne $w -and ($null -eq $latest.At -or $w -ge $latest.At))) { $latest = [pscustomobject]@{ At = $w; Why = [string](Get-PropertyValue $o 'why' ''); When = [string](ConvertTo-JsonText (Get-PropertyValue $o 'time' '')) } }
+                } catch { }
+            }
+        } catch { }
+    }
+    $r.Count = [int][Math]::Max([long]0, [long]$r.Total - $seen)
+    if ($r.Count -gt 0 -and $latest) { $r.Last = $latest.Why; $r.When = $latest.When }
+    return $r
+}
+
+# (wave 28e, E2 / F54-2, F53-1) The flush's fold, UNDER the telemetry lock: every not-spooled file whose
+# producer is gone (Get-PidIdentityTicks 'gone': no process with its pid, or one with another start) -
+# and the legacy single file, whose writers are older bridges - is read under an exclusive handle that
+# still lets it be deleted (an appender meanwhile waits and then starts the file anew: nothing is
+# lost), its lines counted (a last piece without a line end too: its producer will never end it) and
+# the file DELETED. A producer that lives - or whose identity cannot be confirmed - keeps its file.
+# { Lines (the lines folded); Producers (the files folded); Seen (the complete lines of the files kept -
+# the flush's `not_spooled_seen`) }. Never throws.
+function Merge-TelemetryNotSpooled {
+    param($Paths = $null)
+    $r = [pscustomobject]@{ Lines = 0; Producers = 0; Seen = 0 }
+    $p = $(if ($Paths) { $Paths } else { Get-TelemetryPaths })
+    if (-not $p) { return $r }
+    foreach ($f in (Get-TelemetryNotSpooledFiles -Paths $p)) {
+        try {
+            $gone = $f.Legacy -or ((Get-PidIdentityTicks -ProcessId $f.Pid -StartTicks $f.Ticks) -eq 'gone')
+            if ($gone) {
+                $n = -1
+                $fs = $null
+                try { $fs = New-Object System.IO.FileStream($f.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Delete) } catch { $fs = $null }
+                if ($fs) {
+                    try {
+                        $sr = New-Object System.IO.StreamReader($fs, $script:Utf8NoBom, $false, 4096, $true)
+                        try { $text = $sr.ReadToEnd() } finally { $sr.Dispose() }
+                        $cnt = (Get-TelemetryNotSpooledLines -Text $text -Tail).Count
+                        [IO.File]::Delete($f.Path)
+                        $n = $cnt
+                    } catch { $n = -1 } finally { $fs.Dispose() }
+                }
+                if ($n -ge 0) { $r.Lines += $n; $r.Producers++; continue }
+            }
+            $r.Seen += (Get-TelemetryNotSpooledLines -Text ([string](Read-SharedText -Path $f.Path))).Count
+        } catch { }
+    }
     return $r
 }
 
@@ -11694,7 +11891,8 @@ function Add-TelemetryEvent {
             }
         }
     } catch { $r.Why = ConvertTo-OneLine $_.Exception.Message } finally { if ($held) { Exit-TelemetryLock } }
-    if ($r.Why -and $Count) { try { Add-TelemetryNotSpooled -Why $r.Why } catch { } }
+    # (wave 28e, E2) a count that could not be written is said with the event's why
+    if ($r.Why -and $Count) { try { $nsWhy = Add-TelemetryNotSpooled -Why $r.Why; if ($nsWhy) { $r.Why += "; $nsWhy" } } catch { } }
     return $r
 }
 
@@ -12110,7 +12308,8 @@ function Get-TelemetryHookMs {
 # (Remove-TelemetrySpoolLines); (D2) a forgetting marker whose owner lives stops the flush, one whose
 # owner is gone is removed.
 # Writes <spool>/.last {time, result, delivered, kept, dropped, rejected, http, (wave 28d) not_spooled_seen,
-# notes}. { Exit (0 done or
+# notes} - (wave 28e, E2) after folding the not-spooled files of gone producers into one of its notes
+# (Merge-TelemetryNotSpooled). { Exit (0 done or
 # nothing to send, 1 something not delivered or the URL refused, 2 another sender holds the lock);
 # Result; Delivered; Kept; Dropped; Rejected (string[]); Http; TookOver }.
 $script:TelemetryRewriteReserveMs = 1000
@@ -12135,9 +12334,10 @@ function Invoke-TelemetryFlush {
     $leftMs = { [long]$FlushMs - $watch.ElapsedMilliseconds }
     $lost = $false
     try {
-        # (D6; wave 28d, D4) the count of events not spooled starts again with every flush: the lines
-        # the append-only file holds now are recorded (.last not_spooled_seen) - nothing is deleted
-        $nsSeen = [int](Get-TelemetryNotSpooled -All).Total
+        # (D6; wave 28d, D4; wave 28e, E2) the count of events not spooled starts again with every flush:
+        # at its end (under the telemetry lock, with .last) the files of gone producers are folded into
+        # one line of .last notes and removed, and the lines of the files kept are recorded (.last
+        # not_spooled_seen) - Merge-TelemetryNotSpooled below
         $url = Get-TelemetryUrl
         $stop = ''
         if ($url.Error) { $stop = $url.Error }
@@ -12257,10 +12457,21 @@ function Invoke-TelemetryFlush {
         if ($res.TookOver) { $res.Result += " (a stale sender lock was taken over: $($res.TookOver))" }
         # (wave 28d, D2, D3, D4) .last keeps its notes (a stuck sender's line goes: this sender holds
         # the lock now) and records the not-spooled lines seen; written under the telemetry lock, so a
-        # note added meanwhile is not lost
+        # note added meanwhile is not lost. (wave 28e, E2 / F54-2, F53-1) Under that lock the files of
+        # not-spooled events whose producers are gone are folded - ONE note line "folded <n> not-spooled
+        # line(s) of <m> gone producer(s)" - and removed; not_spooled_seen counts the lines of the files
+        # kept (live producers). Without the lock nothing is folded and every line counts as seen.
         $lkLast = Enter-TelemetryLock -WaitMs 1000 -IgnoreMarker
         try {
-            $notes = @(@(Get-PropertyValue (Read-TelemetryLast) 'notes' @()) | Where-Object { $_ -and ([string]$_) -notmatch '^\S+ sender stuck since ' } | ForEach-Object { [string]$_ } | Select-Object -Last $script:TelemetryLastNotesMax)
+            $notes = @(@(Get-PropertyValue (Read-TelemetryLast) 'notes' @()) | Where-Object { $_ -and ([string]$_) -notmatch '^\S+ sender stuck since ' } | ForEach-Object { [string]$_ })
+            if ($lkLast.Ok) {
+                $fold = Merge-TelemetryNotSpooled -Paths $p
+                $nsSeen = [long]$fold.Seen
+                if ($fold.Producers -gt 0) { $notes += "$(Get-IsoTimestamp) folded $($fold.Lines) not-spooled line(s) of $($fold.Producers) gone producer(s)" }
+            } else {
+                $nsSeen = [long](Get-TelemetryNotSpooled -All).Total
+            }
+            $notes = @($notes | Select-Object -Last $script:TelemetryLastNotesMax)
             Write-JsonFile -Path $p.Last -Object ([pscustomobject]@{ time = (Get-IsoTimestamp); result = $res.Result; delivered = $res.Delivered; kept = $res.Kept; dropped = $res.Dropped; rejected = [object[]]$res.Rejected.ToArray(); http = $res.Http; not_spooled_seen = $nsSeen; notes = [object[]]$notes })
         } catch { } finally { if ($lkLast.Ok) { Exit-TelemetryLock } }
     } finally { Exit-TelemetryFlushLock -Path $p.Lock -Token $lock.Token }
@@ -12388,7 +12599,8 @@ function Invoke-TelemetryComplaint {
 #     -Forget -PublicRef <ref> BEFORE -Local - the instance id dies with the salt), then asks
 #     `remove locally? [y/N]` unless -Yes.
 #   * The local deletion is atomic against producers (D3): under the telemetry lock, with the marker
-#     <codex home>/telemetry-forgetting {pid, start_time, since} written first and removed LAST, and
+#     <codex home>/telemetry-forgetting {pid, start_time, (wave 28e, E3) start_ticks, since} written
+#     first and removed LAST, and
 #     under the sender's lock (refused while a sender holds it). (wave 28d, D2 / F48-2) The marker is
 #     removed in `finally` - a deletion that fails halfway says so (run -Forget -Local again to finish
 #     it) and blocks nothing; a -Forget that is killed leaves a marker whose owner is gone, which the
@@ -12438,7 +12650,10 @@ function Invoke-TelemetryForget {
     try {
         try {
             $markerOwned = $true
-            Write-Utf8NoBom -Path $p.Forgetting -Text ((ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ pid = $PID; start_time = [string](Get-ProcessStartIso -ProcessId $PID); since = (Get-IsoTimestamp) })) + "`n")
+            # (wave 28e, E3) the owner's start time in ticks too (full resolution); start_time stays for
+            # the readers of older versions
+            $ownTicks = Get-ProcessStartTicks -ProcessId $PID
+            Write-Utf8NoBom -Path $p.Forgetting -Text ((ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ pid = $PID; start_time = [string](Get-ProcessStartIso -ProcessId $PID); start_ticks = $(if ($null -ne $ownTicks -and $ownTicks -gt 0) { [long]$ownTicks } else { $null }); since = (Get-IsoTimestamp) })) + "`n")
 
         } catch { Write-Host "codex-telemetry: nothing was $(if ($ref) { 'sent or ' })removed - the marker $($p.Forgetting) could not be written ($(ConvertTo-OneLine $_.Exception.Message))." -ForegroundColor Red; return 1 }
         if ([IO.Directory]::Exists($p.Spool)) {
@@ -12465,7 +12680,9 @@ function Invoke-TelemetryForget {
         if ($flush) { Exit-TelemetryFlushLock -Path $p.Lock -Token $flush.Token; $flush = $null }
         try { if ([IO.Directory]::Exists($p.Spool)) { Remove-Item -LiteralPath $p.Spool -Recurse -Force -ErrorAction Stop } } catch { }
         $aside = @(Get-ChildItem -LiteralPath $p.Home -File -Filter 'telemetry-salt.bad-*' -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
-        foreach ($f in @(@($p.Salt, $p.NotSpooled) + $aside)) { if ([IO.File]::Exists($f)) { Remove-Item -LiteralPath $f -Force -ErrorAction Stop; $removed.Add([IO.Path]::GetFileName($f)) } }
+        # (wave 28e, E2) every not-spooled file: each producer's and the legacy one
+        $nsFiles = @(foreach ($nf in (Get-TelemetryNotSpooledFiles -Paths $p)) { $nf.Path })
+        foreach ($f in @(@($p.Salt) + $nsFiles + $aside)) { if ([IO.File]::Exists($f)) { Remove-Item -LiteralPath $f -Force -ErrorAction Stop; $removed.Add([IO.Path]::GetFileName($f)) } }
         # the marker LAST
         [IO.File]::Delete($p.Forgetting)
         Write-Host "codex-telemetry: removed locally - $(if ($removed.Count -gt 0) { $removed -join ', ' } else { 'nothing (there was no spool and no salt)' }); the next event makes a new instance id."

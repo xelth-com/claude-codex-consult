@@ -9,8 +9,8 @@
     Contents: a few small helpers the readers need (Read-SharedText, Get-PropertyValue,
     ConvertTo-OneLine, Test-IsJsonObject, ConvertTo-JsonText, ConvertTo-WhenOffset,
     Get-GitOutput, Resolve-RepoRoot, Resolve-CollabRoot, Get-ProcessStartIso,
-    Test-SameStartTime, Test-PidAlive, wave 28c: Get-PidIdentity; wave 28: Get-TelemetrySwitch,
-    the switch the hook prints)
+    Test-SameStartTime, Test-PidAlive, wave 28c: Get-PidIdentity; wave 28e: Get-ProcessStartTicks,
+    Get-PidIdentityTicks; wave 28: Get-TelemetrySwitch, the switch the hook prints)
     and the readers of a detached run's status file
     (Get-DetachedPaths, New-DetachedMember, ConvertTo-DetachedTime, ConvertTo-DetachedRecord,
     Read-DetachedStatus, Read-DetachedRuns, Format-DetachedSpan, Get-DetachedJudgement,
@@ -186,6 +186,35 @@ function Test-PidAlive {
     if ($null -eq $live) { return $false }
     if ($StartTime -and $live -and -not (Test-SameStartTime -A $live -B $StartTime)) { return $false }
     return $true
+}
+
+# (wave 28e, E3 / F54-3) A process's start time as a whole number of ticks (UTC, 100 ns - the full
+# resolution Windows reports; read through Get-ProcessStartIso, so its test hook applies): $null - no
+# such process; -1 - the process exists but its start time cannot be read; else the ticks.
+function Get-ProcessStartTicks {
+    param([int]$ProcessId)
+    if ($ProcessId -le 0) { return $null }
+    $iso = Get-ProcessStartIso -ProcessId $ProcessId
+    if ($null -eq $iso) { return $null }
+    $t = [DateTimeOffset]::MinValue
+    if ($iso -and [DateTimeOffset]::TryParse($iso, $script:Invariant, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$t)) { return [long]$t.UtcTicks }
+    return [long]-1
+}
+
+# (wave 28e, E3, E2) The identity of a pid against the start ticks recorded for it (Get-ProcessStartTicks):
+# 'alive' (a process with this pid runs with EXACTLY those ticks - outside Windows within the same
+# second, the jitter Test-SameStartTime explains), 'gone' (no such process, or one with another start:
+# the pid was handed to another process), 'unknown' (no ticks were recorded, or the start time cannot
+# be read now). A holder counts as alive on 'unknown' - never removed on a guess.
+function Get-PidIdentityTicks {
+    param([int]$ProcessId, [long]$StartTicks = 0)
+    if ($ProcessId -le 0) { return 'gone' }
+    $live = Get-ProcessStartTicks -ProcessId $ProcessId
+    if ($null -eq $live) { return 'gone' }
+    if ($StartTicks -le 0 -or $live -lt 0) { return 'unknown' }
+    if ($live -eq $StartTicks) { return 'alive' }
+    if (-not $script:OnWindows -and [math]::Abs($live - $StartTicks) -lt [TimeSpan]::TicksPerSecond) { return 'alive' }
+    return 'gone'
 }
 
 # (wave 28, R17) The telemetry switch - shared with the SessionStart hook, which prints it. A run's

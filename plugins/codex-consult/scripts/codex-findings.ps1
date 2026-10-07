@@ -513,8 +513,10 @@ if ($rating) {
         try {
             $spooled = -not $telemetryFirst.Why
             if (-not $spooled -and $telemetryFirst.Forgetting) {
-                try { Add-TelemetryNotSpooled -Why $telemetryFirst.Why } catch { }
-                Write-Host "codex-findings: warning: telemetry rating event not spooled ($($telemetryFirst.Why)) - dropped" -ForegroundColor Yellow
+                # (wave 28e, E2) a count that could not be written is said too
+                $nsWhy = ''
+                try { $nsWhy = [string](Add-TelemetryNotSpooled -Why $telemetryFirst.Why) } catch { $nsWhy = ConvertTo-OneLine $_.Exception.Message }
+                Write-Host "codex-findings: warning: telemetry rating event not spooled ($($telemetryFirst.Why)) - dropped$(if ($nsWhy) { "; $nsWhy" })" -ForegroundColor Yellow
             } elseif (-not $spooled) {
                 $telemetryRetry = Add-TelemetryEvent -Entry $ratedEntry -Switch $telemetrySwitch -WaitMs $script:TelemetrySpoolWaitMs -Count -RatingMark $Useful
                 if ($telemetryRetry.Why) {

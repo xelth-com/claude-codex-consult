@@ -1889,6 +1889,8 @@ function Invoke-EngineTurn {
                     try {
                         $pendingRecord.state = 'survivors'
                         $pendingRecord.survivors = [object[]]@(New-SurvivorEntries -Pids $surv)
+                        # (wave 28e, E1 / F54-1) the descendants the kill could not verify, beside them
+                        $pendingRecord | Add-Member -NotePropertyName 'unverified' -NotePropertyValue ([object[]]@(New-UnverifiedEntries -Check $turnKill)) -Force
                         Write-PendingFile -Path $pendingPath -Record $pendingRecord
                     } catch { }
                 }
@@ -4112,13 +4114,18 @@ try {
     # (wave 28c, D11 / F43-3, F44-6) a member with a context window (context_tokens) may compact it
     # mid-review, and a summary may lose the brief: its prompt ends by naming the brief again - the
     # last line before the consultation id (which stays last). (wave 28d, D7 / F50-2) Without a brief
-    # file the one-line ask itself is repeated there (whitespace folded to one line; an ask longer
-    # than 500 characters is cut and points to the top of the prompt).
+    # file the one-line ask itself is repeated there. (wave 28e, E4 / F54-4) A multi-line ask is not
+    # folded into one line: its FIRST line is repeated whole (whitespace inside it folded; longer than
+    # 300 characters it is cut and points to the top of the prompt), followed by the count of the
+    # remaining (non-blank) lines - " (+<n> more lines)"; a one-line ask as before, cut at 300.
     $rereadLine = ''
     if ($contextTokens -gt 0 -and $briefRef) { $rereadLine = "Before you answer, re-read the brief: ``$briefRef``." }
     elseif ($contextTokens -gt 0 -and $Prompt -and $Prompt.Trim()) {
-        $askLine = ConvertTo-OneLine $Prompt
-        if ($askLine.Length -gt 500) { $askLine = $askLine.Substring(0, 500) + '... (cut here: the whole ask is at the top of this prompt)' }
+        $askLines = @(([string]$Prompt).Trim() -split "\r?\n" | Where-Object { $_.Trim() })
+        $askLine = ConvertTo-OneLine $askLines[0]
+        if ($askLine.Length -gt 300) { $askLine = $askLine.Substring(0, 300) + '... (cut here: the whole ask is at the top of this prompt)' }
+        $askMore = $askLines.Count - 1
+        if ($askMore -gt 0) { $askLine += " (+$askMore more $(if ($askMore -eq 1) { 'line' } else { 'lines' }))" }
         $rereadLine = "Before you answer, re-read the ask: $askLine"
     }
     if ($rereadLine) { [void]$promptParts.Add($rereadLine) }
@@ -4633,6 +4640,16 @@ try {
                 # (wave 27c, D16) the kill CONFIRMED: an unconfirmed one is never "(process tree
                 # killed)" and no continuation follows it (the orphan may still hold the thread)
                 $mainKill = Stop-ProcessTreeChecked -Process $proc
+                # (wave 28e, E1) TEST HOOK (test mode only): CODEX_CONSULT_TEST_UNVERIFIED=<pid>[,<pid>] -
+                # these pids, when alive, are reported as descendants of this kill whose start time could
+                # not be read (no test can make that happen to a fake's tree on cue). Only ever adds
+                # unverified pids: a stricter outcome.
+                $hookUnverified = @(foreach ($hu in @(((Get-TestHookValue 'CODEX_CONSULT_TEST_UNVERIFIED')).Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[0-9]+$' })) { if ((Get-Process -Id ([int]$hu) -ErrorAction SilentlyContinue) -and (@($mainKill.Unverified) -notcontains [int]$hu)) { [int]$hu } })
+                if ($hookUnverified.Count -gt 0) {
+                    $mainKill.Unverified = [int[]]@(@($mainKill.Unverified) + $hookUnverified)
+                    $mainKill.Confirmed = $false
+                    if (-not $mainKill.Why -or $mainKill.Why -match '^start time of pid ') { $mainKill.Why = "start time of pid $(@($mainKill.Unverified) -join ', ') unreadable" }
+                }
                 Add-KillCheck -Check $mainKill -Turn 'main turn'
                 $survivors = [int[]]$mainKill.Survivors
                 # TEST HOOK: CODEX_CONSULT_TEST_SURVIVORS=<pid>[,<pid>] - these pids, when
@@ -4676,6 +4693,8 @@ try {
                         # mistaken for the survivor later (New-SurvivorEntries streams
                         # objects; @() is correct here - it does not return ", $array").
                         $pendingRecord.survivors = [object[]]@(New-SurvivorEntries -Pids $survivors)
+                        # (wave 28e, E1 / F54-1) the descendants the kill could not verify, beside them
+                        $pendingRecord | Add-Member -NotePropertyName 'unverified' -NotePropertyValue ([object[]]@(New-UnverifiedEntries -Check $mainKill)) -Force
                         Write-PendingFile -Path $pendingPath -Record $pendingRecord
                     } catch {
                         $bridgeOutcome += "; WARNING: the survivors could not be recorded ($(ConvertTo-OneLine $_.Exception.Message)) - $pendingPath still names only child pid $($proc.Id)"
@@ -5283,6 +5302,8 @@ try {
                             try {
                                 $pendingRecord.state = 'survivors'
                                 $pendingRecord.survivors = [object[]]@(New-SurvivorEntries -Pids $repairSurvivors)
+                                # (wave 28e, E1 / F54-1) the descendants the kill could not verify, beside them
+                                $pendingRecord | Add-Member -NotePropertyName 'unverified' -NotePropertyValue ([object[]]@(New-UnverifiedEntries -Check $repairKill)) -Force
                                 Write-PendingFile -Path $pendingPath -Record $pendingRecord
                             } catch { }
                         }
@@ -6069,8 +6090,10 @@ try {
     # run's status record) and counted as not spooled (codex-telemetry.ps1 -Status)
     if ($telemetryFirst) {
         if ($telemetryFirst.Forgetting) {
-            try { Add-TelemetryNotSpooled -Why $telemetryFirst.Why } catch { }
-            $telemetryLine = "warning    : telemetry event not spooled ($($telemetryFirst.Why)) - dropped"
+            # (wave 28e, E2) a count that could not be written is said too
+            $nsWhy = ''
+            try { $nsWhy = [string](Add-TelemetryNotSpooled -Why $telemetryFirst.Why) } catch { $nsWhy = ConvertTo-OneLine $_.Exception.Message }
+            $telemetryLine = "warning    : telemetry event not spooled ($($telemetryFirst.Why)) - dropped$(if ($nsWhy) { "; $nsWhy" })"
         } else {
             $telemetryRetry = Add-TelemetryEvent -Entry $entry -Switch $telemetrySwitch -WaitMs $script:TelemetrySpoolWaitMs -Count
             if ($telemetryRetry.Why) { $telemetryLine = "warning    : telemetry event not spooled ($($telemetryRetry.Why)) - at the commit ($($telemetryFirst.Why)) and for $([Math]::Round($script:TelemetrySpoolWaitMs / 1000.0, 1)) s after it" }

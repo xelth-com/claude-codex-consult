@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The first wave of the 0.6.0 candidate: wave 29, the `claude` engine - ROADMAP R10 with R22. Design:
 `.collab/claude-engine-2026-09-30/handoffs/01-claude-claude-engine-design.md`; decisions D1-D12 of
-`.collab/claude-engine-2026-09-30/handoffs/05-claude-claude-engine-decisions.md`. The plugin and marketplace
-manifests are not bumped yet (the version stays 0.5.1 until the release).
+`.collab/claude-engine-2026-09-30/handoffs/05-claude-claude-engine-decisions.md`. With it, wave 28e - the four
+small items of the 0.5.0 verdict (under "Fixed"). The plugin and marketplace manifests are not bumped yet (the
+version stays 0.5.1 until the release).
 
 ### Added
 
@@ -147,6 +148,51 @@ manifests are not bumped yet (the version stays 0.5.1 until the release).
 - Docs: README (the section "Engines (wave 29)", the roster, ledger, effort, options and environment tables, the
   telemetry vendor table, "Tested on" - the live verification is pending), the `setup-providers` skill (section 3g),
   `tests/README.md`.
+
+### Fixed
+
+- **Wave 28e - the four small items of the 0.5.0 verdict** (2026-10-07) (decisions E1-E4 of
+  `.collab/companions-2026-09-26/handoffs/56-claude-wave28d-verdict.md`, closing mimo's F54-1..F54-4 and glm's
+  note F53-1 of the wave 28d re-acceptance; built with wave 29 and reviewed with it):
+  - E1 (F54-1) The recovery record keeps the descendants a kill could not verify: beside `survivors[]` a
+    `survivors` record now carries `unverified[]` `{pid, why}` - the pids whose start time could not be read
+    (the kill check's `Unverified` and its `Why`), written by the three places that record survivors (a turn,
+    the main turn, the format repair; `New-UnverifiedEntries`); a new record carries `unverified: []`. The next
+    run names each of them and checks it again (`Test-UnverifiedProcess`): gone - dropped (`unverified pid(s)
+    <n> [gone] dropped` in the line that recovers or clears the record); its start time STILL unreadable - it
+    blocks the task as a survivor does (`... [its start time still cannot be read - counted as running
+    (fail-closed)]`); readable now - a process that started before that run is not its descendant (dropped),
+    any other blocks only when it looks like codex (`Get-CodexRule`), never by pid alone. A record from another
+    host names them among the pids it cannot check; their orphans are looked for like a survivor's. TEST HOOK
+    (test mode only): `CODEX_CONSULT_TEST_UNVERIFIED=<pid>[,<pid>]` - at the main turn's kill these pids, when
+    alive, are reported as such descendants (beside `CODEX_CONSULT_TEST_SURVIVORS`; only ever stricter).
+  - E2 (F54-2, F53-1) The not-spooled count is ONE FILE PER PRODUCER PROCESS:
+    `<codex home>/telemetry-not-spooled-<pid>-<start ticks>.ndjson` (`NotSpooledOwn`), which no other process
+    appends to - no append waits for another producer's, and `Add-TelemetryNotSpooled` now returns why a line
+    could not be written (said in the run's or the rating's warning). `-Status` sums the complete lines of every
+    such file and of the legacy single file `telemetry-not-spooled.ndjson` (`Get-TelemetryNotSpooledFiles`) and
+    names the count of files. A flush, under the telemetry lock where it writes `.last`, FOLDS the files whose
+    producer is gone (no process with that pid and start ticks; the legacy file too, under an exclusive handle
+    an appender waits for) into ONE line of `.last` `notes` - `folded <n> not-spooled line(s) of <m> gone
+    producer(s)` - and deletes them (`Merge-TelemetryNotSpooled`); `not_spooled_seen` now counts the lines of
+    the files it kept (live producers), so `-Status`'s "since the last flush" stays right, and no file grows
+    past what one process wrote. `-Forget -Local` removes every one of them.
+  - E3 (F54-3) The forgetting marker records its owner's start time in ticks too
+    (`{pid, start_time, start_ticks, since}`, `Get-ProcessStartTicks`), and a marker that has `start_ticks` is
+    judged on its pid AND those ticks (`Get-PidIdentityTicks`: exactly equal on Windows, within the same second
+    elsewhere - the jitter of .NET's start time there; a start time that cannot be read counts as alive, never
+    removed on a guess). An older marker without `start_ticks` is judged by its `start_time` as before.
+  - E4 (F54-4) The inline re-read anchor of a member with `context_tokens` keeps the FIRST line of a multi-line
+    ask whole (whitespace inside it folded; longer than 300 characters it is cut with `... (cut here: the whole
+    ask is at the top of this prompt)`) and appends the count of the remaining non-blank lines -
+    `Before you answer, re-read the ask: <first line> (+<n> more lines)`; a one-line ask is cut at 300
+    characters (500 before).
+  - Tests: `tests/harness-fixes28e.ps1` (RECORD NOTSPOOLED MARKER ANCHOR DOCS GUARD), registered in
+    `tests/run-all.ps1` between `harness-fixes28d` and `harness-claude`; `harness-fixes28d` follows E2 (its
+    NOTSPOOLED case reads this process's own file) and E4 (the cut at 300), `harness-telemetry`'s "nothing
+    counted" check looks for every not-spooled file. Docs: README (the recovery record, the kill, the
+    not-spooled count, the forgetting marker, the ledger's `compactions` row), `codex-telemetry.ps1`'s help,
+    `tests/README.md`.
 
 ## [0.5.1] - 2026-10-06
 

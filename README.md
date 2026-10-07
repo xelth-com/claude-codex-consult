@@ -937,7 +937,8 @@ that pid). (Wave 28d, D5 / F49-1) When the same kill also leaves survivors, both
 the outcome `(process tree killed; <n> processes survived: pid <a>, <b>; start time of pid <u>
 unreadable; pid <u> may still run)` and the warning `kill not confirmed (<turn>): <n> processes survived:
 pid <a>, <b>; start time of pid <u> unreadable; pid <u> may still run - check them, and stop them by
-hand if they do`. On Windows `taskkill /PID <root> /T /F`, which walks the root's live tree itself, still
+hand if they do`; (wave 28e, E1 / F54-1) the recovery record keeps that group too (`unverified[]`
+beside `survivors[]`), so the next run checks it again. On Windows `taskkill /PID <root> /T /F`, which walks the root's live tree itself, still
 runs. The outcome says `(process tree
 killed)` ONLY when the kill is confirmed; otherwise `(kill not confirmed: <why>; pid <n> may still
 run)`, the ledger's `kill_confirmed` is `false`, `warnings[]` says `kill not confirmed (<turn>): ...`
@@ -1382,7 +1383,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `prior_findings` | the reviewer's reports on earlier ids: `{id, status}` with `fixed`, `still-open`, `not-checked` or `unknown-id` |
 | `unchecked_prior_blockers` | open prior blockers the reviewer did not check while answering `ACCEPT` |
 | `usage` / `wall_seconds` | token counts from the event stream (agy: `cache_read_tokens` -> `cached_input_tokens`, `thinking_tokens` -> `reasoning_output_tokens`, plus `total_tokens`; muse: `null` - its records carry no usage); wall time |
-| `compactions` | (wave 28c, D11 / F43-3, F44-6; right after `usage`) how often the reviewer compacted its context during the run, as its ENGINE REPORTED it in the event streams of the run's turns (`Get-CompactionCount`: a `context_compacted` / `compacted` / `thread.compacted` event, or an `item.completed` whose item is a `context_compaction` / `contextCompaction` / `compaction` - the names of the Codex CLI's protocol): a number n > 0 - and the warning `the reviewer compacted its context <n> time(s) - the reply may rest on a summary of the brief`; `unknown` for a member with `context_tokens` when none was reported - the installed codex-cli 0.155.1's `exec --json` stream reports no compaction at all (its item types, read from the binary: agent_message, reasoning, command_execution, file_change, mcp_tool_call, collab_tool_call, web_search, todo_list), so "none seen" is not "none happened"; `null` otherwise. The prompt of a member with `context_tokens` (and a `-Brief`) names the brief again as its last line before the consultation id: ``Before you answer, re-read the brief: `<path>`.``; (wave 28d, D7 / F50-2) without a brief file (an inline `-Prompt`) the one-line ask itself is repeated there - `Before you answer, re-read the ask: <the ask, whitespace folded to one line>` (an ask longer than 500 characters is cut there and points to the top of the prompt). (D8 / F48-4) The line is bridge text: no hash of the prompt exists, and the line takes no part in the context estimate that decides whether a fork or resume continues its thread (`mode_fallback`) |
+| `compactions` | (wave 28c, D11 / F43-3, F44-6; right after `usage`) how often the reviewer compacted its context during the run, as its ENGINE REPORTED it in the event streams of the run's turns (`Get-CompactionCount`: a `context_compacted` / `compacted` / `thread.compacted` event, or an `item.completed` whose item is a `context_compaction` / `contextCompaction` / `compaction` - the names of the Codex CLI's protocol): a number n > 0 - and the warning `the reviewer compacted its context <n> time(s) - the reply may rest on a summary of the brief`; `unknown` for a member with `context_tokens` when none was reported - the installed codex-cli 0.155.1's `exec --json` stream reports no compaction at all (its item types, read from the binary: agent_message, reasoning, command_execution, file_change, mcp_tool_call, collab_tool_call, web_search, todo_list), so "none seen" is not "none happened"; `null` otherwise. The prompt of a member with `context_tokens` (and a `-Brief`) names the brief again as its last line before the consultation id: ``Before you answer, re-read the brief: `<path>`.``; (wave 28d, D7 / F50-2) without a brief file (an inline `-Prompt`) the one-line ask itself is repeated there - `Before you answer, re-read the ask: <the ask, whitespace folded to one line>` (an ask longer than 300 characters - 500 before wave 28e - is cut there and points to the top of the prompt: `... (cut here: the whole ask is at the top of this prompt)`); (wave 28e, E4 / F54-4) a multi-line ask is not folded into one line: its FIRST line is repeated whole (whitespace inside it folded, cut at 300 characters the same way) and the count of its remaining non-blank lines follows - `Before you answer, re-read the ask: <first line> (+<n> more lines)`. (D8 / F48-4) The line is bridge text: no hash of the prompt exists, and the line takes no part in the context estimate that decides whether a fork or resume continues its thread (`mode_fallback`) |
 | `engine_run` | (wave 23) `null` for codex; for an engine `{turns, max_model_steps, msp_schema_version}`: the engine turns started (the main turn, a denial retry, a format repair - each muse turn spends one Muse Code subscription prompt), `-MaxModelSteps` as sent (`null` when not), the MSP `schema_version` of a muse stream (`null` for agy); right after `compactions` (wave 28c; before: `usage`) (Wave 29) For the claude engine `{turns, max_model_steps, msp_schema_version (null), auth, init_tools, mcp_servers, permission_mode, api_key_source, model_resolved, other_models, permission_denials, denied_tools, rate_limit, quota_mark, cost_usd, child_env_allowed, switched_off}`: the init event's proof of every turn, the ONE resolved model of the thread, the raw most-severe `rate_limit_event` info, (wave 29b, E15) `quota_mark` - `null`, or the `provider_failure` a failed quota turn would record, when a rejecting `rate_limit_event` came beside a successful result (the endpoint health reads it as a quota failure right after the reply) -, `total_cost_usd` (local only; notional on a subscription), the NAMES (never values) of the environment variables the child received, and what R22 switched off. |
 | `finished_at` | (0.4.x wave 21) when the entry was committed (`when` is the reviewer's start). The endpoint health's "newest wins" orders by it (older entries: `when` + `wall_seconds`), ties by `n` - a panel's members finish in any order |
 | `commit_wait_ms` | (0.4.x wave 21) how long the commit waited for the write lock because another commit of the task held it (`0`: it was free); the console says `write lock : waited N ms for another commit of this task` when it waited |
@@ -1707,7 +1708,13 @@ unless the bridge that wrote it or a codex process from it is still alive; never
   its prompt, running its reviewer or committing (`a consultation of this task is still
   running: its bridge (pid N) wrote <record>…`). `running`/`survivors`/`committing` with a
   recorded pid alive on this host: refused (`a previous consultation's codex process (pid N)
-  is still running…`).
+  is still running…`). (Wave 28e, E1 / F54-1) A `survivors` record also keeps `unverified[]`
+  `{pid, why}` - the descendants whose start time the kill could not read (it left them alone) -
+  and the next run names each one and checks it again: gone - dropped (`unverified pid(s) N
+  [gone] dropped`); its start time still unreadable - it blocks the task as a survivor does
+  (`… its start time still cannot be read - counted as running (fail-closed)`); readable now - a
+  process that started before that run is not its descendant (dropped), any other blocks only
+  when it looks like codex (the rule below), never by pid alone.
   A dead recorded pid is not proof of a dead tree (it is usually the launcher shim), so
   when every recorded pid is gone, and for a `launching` record, the bridge scans for a
   child of the dead bridge or of a dead recorded pid (Windows keeps an orphan's parent
@@ -3228,11 +3235,17 @@ the write lock is released, and only then warns - on the console and in a detach
 record: `warning    : telemetry event not spooled (<why>) - at the commit (<why>) and for 5 s after
 it` (the entry is already committed, so its `warnings[]` no longer carries this line). An event
 that is not spooled is never lost silently: `codex-telemetry.ps1 -Status` counts the events not
-spooled since the last flush (`<codex home>/telemetry-not-spooled.ndjson`). (Wave 28d, D4 / F49-2) That
-file is append-only and written without the telemetry lock (retried up to 5 s against another
-append), so a busy lock or a `-Forget` in flight never loses a count; no flush empties it - each flush
-records in `.last` `not_spooled_seen` how many lines it saw, and `-Status` counts the complete lines
-after them (only `-Forget -Local` removes the file). After the commit ONE
+spooled since the last flush. (Wave 28d, D4 / F49-2) The count is append-only and written without the
+telemetry lock, so a busy lock or a `-Forget` in flight never loses a count. (Wave 28e, E2 / F54-2,
+F53-1) It is ONE FILE PER PRODUCER PROCESS - `<codex home>/telemetry-not-spooled-<pid>-<start
+ticks>.ndjson`, which no other process appends to (no append waits for another producer's; a line
+that cannot be written is said in the warning) - and `-Status` sums the complete lines of every such
+file and of the legacy single file `telemetry-not-spooled.ndjson` of older versions. Each flush, under
+the telemetry lock, folds the files whose producer is gone (no process with that pid and start time;
+the legacy file too) into ONE line of `.last` `notes` (`folded <n> not-spooled line(s) of <m> gone
+producer(s)`) and removes them, and records in `.last` `not_spooled_seen` the lines of the files it
+kept (live producers): `-Status` counts the lines beyond them, and no file grows past what one process
+wrote. `-Forget -Local` removes every one of them. After the commit ONE
 detached sender starts - `codex-telemetry.ps1 -Flush`, the same PowerShell, hidden, not waited for
 (a panel starts one when every member is done).
 
@@ -3240,7 +3253,10 @@ detached sender starts - `codex-telemetry.ps1 -Flush`, the same PowerShell, hidd
 handle, which the OS releases when its holder dies, so it is never stale; the empty file stays - by
 every spool append of a producer (a consultation's event, a complaint kept), by the salt's creation
 and by `-Forget -Local`. While `-Forget -Local` deletes, it also writes the marker
-`<codex home>/telemetry-forgetting` `{pid, start_time, since}` (removed last). A producer that meets the
+`<codex home>/telemetry-forgetting` `{pid, start_time, start_ticks, since}` (removed last; wave 28e, E3
+/ F54-3: `start_ticks` is the owner's start time in ticks of 100 ns, and a marker that has it is judged
+on its pid AND exactly those ticks - outside Windows within the same second, the jitter of .NET's start
+time there; an older marker without it by its `start_time` as before). A producer that meets the
 marker - or a lock that stays busy past its short wait (1 s at the commit, 5 s after it) - DROPS its
 event and counts it instead of recreating the salt or the spool: `telemetry event not spooled
 (codex-telemetry.ps1 -Forget -Local is deleting the local telemetry data (pid <n>, since <t>; the

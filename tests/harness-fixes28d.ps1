@@ -327,23 +327,24 @@ if (Want 'LOCK') {
 if (Want 'NOTSPOOLED') {
     $h = New-Home 'ns'
     $env:CODEX_HOME = $h
-    $nsF = Join-Path $h 'telemetry-not-spooled.ndjson'
+    # (wave 28e, E2) the count is this producer's own file telemetry-not-spooled-<pid>-<start ticks>.ndjson
+    $nsF = (Get-TelemetryPaths).NotSpooledOwn
     $holdT = New-Object System.IO.FileStream((Join-Path $h 'telemetry.lock'), [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
     $wn = [Diagnostics.Stopwatch]::StartNew()
-    try { Add-TelemetryNotSpooled -Why 'w1 (the telemetry lock held)' } finally { $holdT.Dispose() }
+    try { $null = Add-TelemetryNotSpooled -Why 'w1 (the telemetry lock held)' } finally { $holdT.Dispose() }
     $wn.Stop()
     $n1 = Get-TelemetryNotSpooled
     Check 'NOTSPOOLED' 'D4 (F49-2) the count is written WITHOUT the telemetry lock: with the lock held by another handle (a -Forget in flight, a slow append) the line is appended at once - nothing is lost; -Status''s count 1' ((Lines $nsF).Count -eq 1 -and (Text $nsF) -match 'w1 \(the telemetry lock held\)' -and $wn.Elapsed.TotalSeconds -lt 1 -and $n1.Count -eq 1 -and $n1.Total -eq 1) "$((Lines $nsF).Count) line(s) in $([Math]::Round($wn.Elapsed.TotalSeconds, 2)) s | count $($n1.Count)"
-    Add-TelemetryNotSpooled -Why 'w2'
+    $null = Add-TelemetryNotSpooled -Why 'w2'
     [void][IO.Directory]::CreateDirectory((Join-Path $h 'telemetry-spool'))
     [IO.File]::WriteAllText((Join-Path (Join-Path $h 'telemetry-spool') '2026-09-30.ndjson'), (Spool-Line 'ns') + "`n", $u8)
     $fl = Invoke-TelemetryFlush -FlushMs 20000
     $last = ConvertFrom-Json (Text (Join-Path (Join-Path $h 'telemetry-spool') '.last'))
     $n2 = Get-TelemetryNotSpooled
-    Add-TelemetryNotSpooled -Why 'w3 after the flush'
+    $null = Add-TelemetryNotSpooled -Why 'w3 after the flush'
     $n3 = Get-TelemetryNotSpooled
     $st = Run-Child $telemetryPs @('-Status') $h
-    Check 'NOTSPOOLED' 'D4 the file is APPEND-ONLY: a flush deletes nothing (both lines stay) and records how many lines it saw (.last not_spooled_seen 2); the count since the last flush is 0 ("none since the last flush"), a line added after it counts 1 (-Status "not spooled: 1 event(s) since the last flush - the latest <t>: w3 after the flush"), the file holds 3' ($fl.Exit -eq 1 -and [int]$last.not_spooled_seen -eq 2 -and $n2.Count -eq 0 -and $n2.Total -eq 2 -and $n3.Count -eq 1 -and $n3.Last -eq 'w3 after the flush' -and $n3.Total -eq 3 -and (Lines $nsF).Count -eq 3 -and $st.Out -match '(?m)^not spooled: 1 event\(s\) since the last flush - the latest \S+: w3 after the flush') "seen $($last.not_spooled_seen) | after flush $($n2.Count)/$($n2.Total) | then $($n3.Count)/$($n3.Total) | $((($st.Out -split "`n") | Where-Object { $_ -like 'not spooled*' }) -join '')"
+    Check 'NOTSPOOLED' 'D4 the file is APPEND-ONLY: a flush deletes nothing of a LIVE producer (this process; wave 28e, E2: the files of gone producers are folded - harness-fixes28e) - both lines stay - and records how many lines it saw (.last not_spooled_seen 2); the count since the last flush is 0 ("none since the last flush"), a line added after it counts 1 (-Status "not spooled: 1 event(s) since the last flush - the latest <t>: w3 after the flush"), the file holds 3' ($fl.Exit -eq 1 -and [int]$last.not_spooled_seen -eq 2 -and $n2.Count -eq 0 -and $n2.Total -eq 2 -and $n3.Count -eq 1 -and $n3.Last -eq 'w3 after the flush' -and $n3.Total -eq 3 -and (Lines $nsF).Count -eq 3 -and $st.Out -match '(?m)^not spooled: 1 event\(s\) since the last flush - the latest \S+: w3 after the flush') "seen $($last.not_spooled_seen) | after flush $($n2.Count)/$($n2.Total) | then $($n3.Count)/$($n3.Total) | $((($st.Out -split "`n") | Where-Object { $_ -like 'not spooled*' }) -join '')"
     [IO.File]::AppendAllText($nsF, '{"time":"2026-09-30T10:00:00+02:00","why":"half', $u8)
     $n4 = Get-TelemetryNotSpooled
     Check 'NOTSPOOLED' 'D4 only complete lines count: an append in progress (no line end yet) is not counted' ($n4.Count -eq 1 -and $n4.Total -eq 3) "count $($n4.Count) total $($n4.Total)"
@@ -351,7 +352,7 @@ if (Want 'NOTSPOOLED') {
     $cm = Text $commonPs
     $fnN = $(if ($cm -match '(?s)\nfunction Add-TelemetryNotSpooled \{(.*?)\n\}\r?\n') { $Matches[1] } else { '' })
     $fnF = $(if ($cm -match '(?s)\nfunction Invoke-TelemetryFlush \{(.*?)\n\}\r?\n') { $Matches[1] } else { '' })
-    Check 'NOTSPOOLED' 'D4 the code: Add-TelemetryNotSpooled takes no lock (no Enter-TelemetryLock) and appends; the flush no longer deletes the file' ($fnN -and $fnN -notmatch 'Enter-TelemetryLock' -and $fnN.Contains('AppendAllText') -and $fnF -and $fnF -notmatch 'Delete\(\$p\.NotSpooled\)') ''
+    Check 'NOTSPOOLED' 'D4 the code: Add-TelemetryNotSpooled takes no lock (no Enter-TelemetryLock) and appends; the flush never deletes by the legacy path (wave 28e: it folds only the files of gone producers, Merge-TelemetryNotSpooled)' ($fnN -and $fnN -notmatch 'Enter-TelemetryLock' -and $fnN.Contains('AppendAllText') -and $fnF -and $fnF -notmatch 'Delete\(\$p\.NotSpooled\)') ''
 }
 
 # =============================================================== KILL: both groups named (D5)
@@ -401,7 +402,7 @@ if (Want 'REREAD') {
     $x2 = Consult $r $rosterCt @('-Provider', 'openai', '-Prompt', $longAsk, '-ReplyName', 'rb') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $log2 }
     $pl2 = @(((Text $log2) -split "PROMPT:`n", 2)[-1] -split "`r?`n" | Where-Object { $_.Trim() })
     $re2 = @($pl2 | Select-Object -Last 2)[0]
-    Check 'REREAD' 'D7 an ask longer than 500 characters is repeated cut at 500 and points to the top of the prompt ("... (cut here: the whole ask is at the top of this prompt)")' ($x2.Code -eq 0 -and $re2 -ceq ('Before you answer, re-read the ask: ' + $longAsk.Substring(0, 500) + '... (cut here: the whole ask is at the top of this prompt)')) "exit $($x2.Code) | $($re2.Length) chars"
+    Check 'REREAD' 'D7 an ask longer than 300 characters (500 before wave 28e, E4) is repeated cut at 300 and points to the top of the prompt ("... (cut here: the whole ask is at the top of this prompt)")' ($x2.Code -eq 0 -and $re2 -ceq ('Before you answer, re-read the ask: ' + $longAsk.Substring(0, 300) + '... (cut here: the whole ask is at the top of this prompt)')) "exit $($x2.Code) | $($re2.Length) chars"
     $log3 = Join-Path $work 'reread-args3.txt'
     $x3 = Consult $r '' @('-Prompt', 'Check app.txt', '-ReplyName', 'rc') @{ FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $log3 }
     Check 'REREAD' 'D7 a member WITHOUT context_tokens gets no re-read line' ($x3.Code -eq 0 -and (Text $log3) -notmatch 'Before you answer, re-read') "exit $($x3.Code)"

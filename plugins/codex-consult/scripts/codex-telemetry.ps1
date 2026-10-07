@@ -22,7 +22,9 @@
                    wave 28b, D2; a 429 with Retry-After of at most 60 s that fits the deadline is
                    waited for and sent once more), removes what was delivered, keeps the rest and
                    writes <codex home>/telemetry-spool/.last {time, result, delivered, kept, dropped,
-                   rejected, http}. Delivered = a 2xx answer that is a JSON object with "ok": true.
+                   rejected, http, not_spooled_seen, notes} - (wave 28e, E2) after folding the
+                   not-spooled files of gone producers into one line of its notes and removing them.
+                   Delivered = a 2xx answer that is a JSON object with "ok": true.
                    (D8) A batch refused with 400 "events[i]: reason" drops event i (a line in
                    `rejected`) and resends the rest - at most three times per flush; 413 halves the
                    batch; 403 stops the flush and keeps the spool; any other failure (another 4xx,
@@ -49,11 +51,16 @@
                    sent and asks `remove locally? [y/N]` unless -Yes. (D3) The local deletion holds
                    the telemetry lock and writes the marker telemetry-forgetting (removed last,
                    (wave 28d, D2) in `finally`; one a killed -Forget left is removed by the next
-                   producer or sender): a consultation that commits meanwhile drops its event
+                   producer or sender - (wave 28e, E3) its owner judged on pid AND its start time in
+                   ticks): a consultation that commits meanwhile drops its event
                    (counted). Exit 0 done, 1 refused or not confirmed, 3 the intake did not confirm
                    the deletion.
       -Status      the switch and where it comes from, the intake URL, the spool's counts, (wave
-                   28b, D6) the events not spooled since the last flush, (wave 28d) the forgetting
+                   28b, D6) the events not spooled since the last flush ((wave 28e, E2) summed over
+                   the files telemetry-not-spooled-<pid>-<start ticks>.ndjson - one per producer
+                   process, appended without contention - and the legacy single file
+                   telemetry-not-spooled.ndjson; a flush folds the files of producers that are gone
+                   into one line of .last `notes` and removes them), (wave 28d) the forgetting
                    marker and its owner, the sender's lock (busy, stuck for 30 minutes, stale), the
                    last flush's result and the notes of .last, the instance id (not secret: a
                    salted hash), the notice's state, and test mode when it is on. Reads only; exit 0.
@@ -220,9 +227,11 @@ if (-not $p) {
 $c = Get-TelemetrySpoolCounts
 $oldest = $(if ($null -ne $c.Oldest) { '; oldest queued ' + [DateTimeOffset]::FromUnixTimeSeconds([long]$c.Oldest).ToLocalTime().ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant) } else { '' })
 Write-Host "spool      : $($p.Spool) - $($c.Events) event(s), $($c.Complaints) complaint(s)$(if ($c.Invalid -gt 0) { ", $($c.Invalid) unreadable line(s)" }) in $($c.Files) file(s)$oldest"
-# (wave 28b, D6) the events that could not be spooled since the last flush
+# (wave 28b, D6) the events that could not be spooled since the last flush - (wave 28e, E2) summed over
+# the files of every producer (and the legacy single file)
 $ns = Get-TelemetryNotSpooled
-Write-Host "not spooled: $(if ($ns.Count -gt 0) { "$($ns.Count) event(s) since the last flush - the latest $($ns.When): $($ns.Last)" } else { 'none since the last flush' })"
+$nsFilesText = $(if ($ns.Files -gt 0) { " ($($ns.Total) line(s) in $($ns.Files) file(s), one per producer - a flush folds those of gone producers into .last)" } else { '' })
+Write-Host "not spooled: $(if ($ns.Count -gt 0) { "$($ns.Count) event(s) since the last flush - the latest $($ns.When): $($ns.Last)" } else { 'none since the last flush' })$nsFilesText"
 # (wave 28c, D3) a -Forget -Local that runs, or that died halfway; (wave 28d, D2) its owner named
 $fm = Get-TelemetryForgettingOwner -Path $p.Forgetting
 if ($fm.There) {
