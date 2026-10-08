@@ -1,0 +1,288 @@
+{
+  "schema_version": "1",
+  "verdict": "HOLD",
+  "verdict_reason": "Rating provenance and ordering are not preserved through recovery, and the reset parser can incorrectly hold an endpoint for another day.",
+  "reply_markdown": "**Q1. Judge.** I found no raw roster-label, host, or coordinator-string escape through the new judge serialization. `ConvertTo-TelemetryJudge` rebuilds the object from closed lists; an in-memory hostile-input probe produced only `other/other/rating_actor`.\n\n`rating_actor` correctly takes precedence. However, it is never saved with the mark. If both spool attempts fail, backfill substitutes the consultation coordinator, even for a new 0.6.1 rating whose actor was known. **R1 / finding #1** narrows the remaining F02-3 defect. The site's weighting must also distinguish an actual rating actor from consultation provenance; the latter is not proof of who judged.\n\n**Q2. consult_ref.** Independent GUID generation avoids deriving task or person information from the token. Consultation/rating serialization shares the token correctly, legacy entries omit it, and the complaint-details exclusion worked in my probe.\n\nThis is pseudonymous linkage, not unconditional anonymity: the ledger stores the exact token alongside task context. Sharing that ledger permits an exact join with telemetry; existing instance identifiers also remain linkable (**R6**, informational).\n\nThe identifier alone does not finish latest-rating semantics. Live ratings and retries use event-construction time rather than the committed mark's time, and timestamps lose subsecond precision. A delayed retry can appear newer than its replacement; two distinct rating times also serialized identically in my probe. **R2 / finding #2** replaces the remaining F02-4 concern.\n\n**Q3. Reset.** Read-only Windows PowerShell 5.1 probes reproduced:\n\n- **R3:** `9:43 PM` parsed at `21:43:00.500` becomes tomorrow: nearly 24 hours of hold from half a second of delay.\n- **R4:** Berlin's repeated hour, reference `2026-10-25T02:15+01:00`, reset `2:30 AM`: returns October 26, although October 25's second 02:30 is 15 minutes away.\n- **R5:** `resets at 21:43 UTC` on a +02:00 machine becomes 21:43 local, two hours early. The regex silently accepts the clock prefix and ignores its timezone.\n\nEnglish PM and the spaced `p. m.` variant worked. Other localized designators remain unproven. The added tests cover ordinary rollover and a nonambiguous time across DST; they explicitly bless rollover 30 seconds after a displayed minute and do not cover the repeated-hour case.\n\n**Q4. Verdict: HOLD.** Release blockers: **R1–R4**. Address R5 by parsing supported suffixes or declining unsupported qualified times. The relevant delta after the requested exclusions is 18 files, 654 insertions and 87 deletions. I inspected the implementation and tests and ran pure-function probes; I did not rerun filesystem-writing harnesses or inspect the site implementation. Site-only prior findings therefore remain unverified.\n\n## Requested checks\n\n- **RC1:** Working directory: repository root; permission: workspace-write. In an isolated telemetry fixture, consult under A, rate under B, force both spool attempts to fail, then backfill under C. The emitted judge must remain B with `rating_actor`, and the saved mark must retain that sanitized identity. Settles finding #1; budget: one fixture, 10 minutes, no external network.\n- **RC2:** Working directory: repository root; permission: workspace-write. Pause rating A after its failed initial spool and lock release; commit replacement B; resume A's retry, then replay both events in both delivery orders through the aggregation fixture. B must always remain current, including same-second marks. Settles finding #2; budget: one consultation, two marks, 15 minutes, no external network.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 467
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 486
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 13601
+        }
+      ],
+      "claim": "R1: A known rating actor is discarded when the mark is persisted, so recovering an unspooled 0.6.1 rating changes its judge to the consultation coordinator or unknown.",
+      "trigger": "Coordinator A starts a consultation, actor B rates it, both telemetry spool attempts fail, and a later backfill sends the retained mark.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-findings.ps1:467-488",
+          "observation": "The persisted mark contains no judge. The resolved telemetry judge exists only in a process variable passed to the immediate send and retry."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:13595-13609",
+          "observation": "Backfill unconditionally resolves the judge from the consultation entry without a saved rating actor."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Read-only PowerShell probe of Resolve-TelemetryJudge and ConvertTo-TelemetryRatingDetails",
+          "observation": "The immediate path produced anthropic/claude-opus-5-5/rating_actor; the backfill-equivalent path for the same entry produced openai/gpt-6-astra/consult_coordinator."
+        },
+        {
+          "kind": "read-code",
+          "reference": "tests/harness-telemetry.ps1:932-974",
+          "observation": "The backfill fixture tests legacy-style marks without a saved actor, not recovery of a newly rated mark after spool failure."
+        }
+      ],
+      "verification": "Execute RC1 and compare the persisted mark and backfilled judge with the rating-time actor.",
+      "remedy": "Persist the sanitized judge with the mark under the rating commit and reuse it for retries and backfill; use consultation provenance only for older marks without a recorded judge.",
+      "supersedes": [
+        "F02-3"
+      ]
+    },
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 487
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 537
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 12075
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 12086
+        }
+      ],
+      "claim": "R2: consult_ref supplies identity but not reliable replacement ordering: delayed retries acquire a fresh timestamp, and distinct ratings within one second become indistinguishable by client_time.",
+      "trigger": "An earlier rating retries after a newer rating has committed, or two replacements occur within the same serialized second and delivery order differs from commit order.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-findings.ps1:479,487,515-537",
+          "observation": "The mark has its own when, but neither live telemetry call passes RatedAt. The retry runs after both task and store locks have been released."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:12075-12086",
+          "observation": "A missing RatedAt becomes UtcNow, and client_time is serialized only to whole seconds."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:13508-13522",
+          "observation": "The retry checks whether the mark was replaced only when setting telemetry_sent, after the event has already been spooled."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Read-only New-TelemetryRatingEvent probe with RatedAt 2026-10-08T12:00:00.100Z and 2026-10-08T12:00:00.900Z",
+          "observation": "Both events serialized client_time as 2026-10-08T12:00:00Z."
+        }
+      ],
+      "verification": "Execute RC2 and confirm the aggregation retains the last committed mark regardless of retry or delivery order.",
+      "remedy": "Persist an ordering token with each mark, preferably a monotonic per-consultation revision allocated under the lock, and preserve it across every send path. Pass the original rating timestamp as well; define the intake's replacement rule explicitly.",
+      "supersedes": [
+        "F02-4"
+      ]
+    },
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 6045
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 6058
+        },
+        {
+          "path": "tests/harness-roster.ps1",
+          "line": 234
+        }
+      ],
+      "claim": "R3: Comparing a minute-resolution reset with a full-resolution parsing clock can turn a just-reached reset into an almost 24-hour endpoint hold.",
+      "trigger": "A message displaying 9:43 PM is parsed shortly after 21:43:00 because of output delivery, scheduling delay, or minute-resolution formatting.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:6045-6058",
+          "observation": "Omitted seconds become zero, and any candidate strictly earlier than Reference is moved forward a full day."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Get-RetryAfter for 'try again at 9:43 PM.' at 2026-10-07T21:43:00.500+02:00 in W. Europe Standard Time",
+          "observation": "Returned 2026-10-08T21:43:00+02:00, a hold of approximately 1439.992 minutes."
+        },
+        {
+          "kind": "read-code",
+          "reference": "tests/harness-roster.ps1:234",
+          "observation": "The added test explicitly expects next-day rollover 30 seconds after a minute-resolution reset, so the green suite preserves this problematic policy."
+        }
+      ],
+      "verification": "Add a boundary fixture around the displayed reset minute, including parsing at +500 milliseconds and +30 seconds, and assert it does not impose a day-long hold.",
+      "remedy": "Account for displayed precision and a documented short lateness allowance before rolling to tomorrow; treat a just-reached reset as expired or eligible for a short retry.",
+      "supersedes": []
+    },
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5976
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 6057
+        }
+      ],
+      "claim": "R4: During the repeated DST hour, the time-only parser can skip a valid upcoming reset on the same day and hold the endpoint until tomorrow.",
+      "trigger": "The reference falls in the second occurrence of a repeated hour and the requested reset time still lies ahead in that occurrence.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:5971-5978,6057-6058",
+          "observation": "Ambiguous wall times always use the pre-transition offset. If that instant is past, the new time-only branch immediately advances a day without considering the second occurrence."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Get-RetryAfter for 'try again at 2:30 AM' at 2026-10-25T02:15:00+01:00 in W. Europe Standard Time",
+          "observation": "Returned 2026-10-26T02:30:00+01:00, 1455 minutes away, instead of the same day's second 02:30, 15 minutes away."
+        },
+        {
+          "kind": "read-code",
+          "reference": "tests/harness-roster.ps1:236",
+          "observation": "The added DST rollover case targets 03:30, which is outside the repeated hour and cannot expose this failure."
+        }
+      ],
+      "verification": "Add a time-only reset test at the second 02:15 on Berlin's fall-back day and assert the result is the second 02:30 that day.",
+      "remedy": "For ambiguous time-only candidates, evaluate both valid offsets and choose the earliest candidate not before the reference before considering the next day.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5904
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 6055
+        }
+      ],
+      "claim": "R5: The new time-only matcher silently ignores explicit timezone suffixes and interprets the matched clock as machine-local time.",
+      "trigger": "A provider message includes a qualified reset such as 'resets at 21:43 UTC' on a machine outside UTC.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:5904-5905,6055-6057",
+          "observation": "The regex accepts a clock prefix without consuming or rejecting a timezone qualifier, and conversion uses the supplied local zone."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Get-RetryAfter for 'resets at 21:43 UTC' at 2026-10-07T21:00:00+02:00 in W. Europe Standard Time",
+          "observation": "Returned 21:43+02:00, a 43-minute hold; the explicitly stated UTC reset is 163 minutes away."
+        }
+      ],
+      "verification": "Test UTC and numeric-offset suffixes in a non-UTC zone, requiring either the correct instant or a null result for unsupported qualification.",
+      "remedy": "Parse supported timezone qualifiers explicitly and reject unsupported qualified clock forms rather than accepting only their prefix.",
+      "supersedes": []
+    },
+    {
+      "severity": "note",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult.ps1",
+          "line": 5971
+        },
+        {
+          "path": "README.md",
+          "line": 3233
+        }
+      ],
+      "claim": "R6: A randomly generated consult_ref is still an exact linkage key to task context whenever its ledger entry is shared; randomness does not make that association anonymous.",
+      "trigger": "Someone with access to telemetry also obtains a published, attached, or otherwise shared sessions.json containing the same consult_ref.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult.ps1:5968-5975",
+          "observation": "The ledger stores consult_ref beside consult_id, reviewer, lineage, and coordinator context."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:11990-11992,12061-12062",
+          "observation": "The exact ledger token is copied into both consultation and rating telemetry."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Shared ledger token and outbound event token",
+          "observation": "An equality join identifies the corresponding ledger entry without needing to reverse or predict the GUID."
+        }
+      ],
+      "verification": "Using a synthetic ledger and its serialized events, join on consult_ref and confirm that sharing the ledger exposes the association.",
+      "remedy": "Document consult_ref as a pseudonymous correlation identifier and redact it from public ledger exports; avoid promising unlinkability after ledger disclosure.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F02-1",
+      "status": "not-checked",
+      "note": "U1/U2 specify an unweighted main score and an experimental weighted column, but the site implementation and empirical behavior were outside this inspected range."
+    },
+    {
+      "id": "F02-2",
+      "status": "fixed",
+      "note": "The raw-model regex proposal was rejected. Reviewer model allowlists remain, and the new judge serializer emits only closed-list values; a hostile judge probe was sanitized."
+    },
+    {
+      "id": "F02-3",
+      "status": "still-open",
+      "note": "Immediate rating-time precedence is implemented, but the known actor is not persisted for recovery. Finding #1 replaces the original broad claim with this remaining path."
+    },
+    {
+      "id": "F02-4",
+      "status": "still-open",
+      "note": "consult_ref fixes missing identity for new entries, but replacement ordering is not reliable through retries or timestamp ties. Finding #2 replaces the original claim with that remaining defect."
+    },
+    {
+      "id": "F02-5",
+      "status": "not-checked",
+      "note": "U6 describes complete window reads or disclosed truncation; the xelth.com implementation and 5001-event fixture were not inspected."
+    },
+    {
+      "id": "F02-6",
+      "status": "still-open",
+      "note": "The dedicated coordinator classifier fixes the missing-provider_config path for supported identities. The original finding's separate concern remains: model recognition is still vendor-gated, so known public models behind unknown endpoints become other; this is retained by the chosen policy."
+    },
+    {
+      "id": "F03-1",
+      "status": "not-checked",
+      "note": "U2 explicitly rejects recursive reviewer-derived weights, but the site's implementation was not reviewed."
+    }
+  ],
+  "unproven": [
+    "Full filesystem-writing harnesses were not rerun; the reported green runs came from the handoff.",
+    "Recovery and retry interleavings were traced in source and partially exercised through pure functions, not reproduced through full process fixtures.",
+    "The live intake's additive-field acceptance, replacement ordering, public-field exposure, aggregation window, and scoring behavior were not inspected.",
+    "Localized time designators beyond the tested English and spaced p. m. forms, spring DST gaps, and cross-machine historical reparsing remain unproven.",
+    "No actual public disclosure of a ledger-to-telemetry association was established; finding #6 describes the conditional linkage risk."
+  ],
+  "first_run_checklist": []
+}

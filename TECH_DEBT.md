@@ -109,3 +109,11 @@ seven-wave task with three consultations. Ordered by the damage they did.
   (`try again at 21:43 UTC`); a dated or ISO wording with a trailing qualifier (`until 2026-10-08
   21:43 UTC`) keeps the dated rule and the machine's zone - a hold off by the zone difference. No
   provider has been seen printing that form; fix when one does (parse the qualifier on every wording).
+
+- **T10 - A rating event may be delivered more than once; the retry's diagnostic conflates "already sent" with
+  "replaced".** (0.6.1, F10-1 of `.collab/telemetry-usefulness-2026-10-08/handoffs/10`) When the first spool
+  attempt fails and `-BackfillRatings` sends the committed mark while the post-lock retry waits, the retry sends the
+  same revision again and `Set-RatingTelemetrySent` then reports "rated again meanwhile" although the same
+  revision is current. Duplicates carry one committed revision, judge and time, so the intake's replacement rule
+  collapses them (no ordering harm). Fix later: recheck `telemetry_sent` under the store lock before the retry
+  publishes, and a separate wording for an already-sent mark; delivery stays at-least-once by design.

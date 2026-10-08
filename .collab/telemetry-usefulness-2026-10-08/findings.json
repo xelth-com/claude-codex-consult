@@ -3,7 +3,7 @@
     "findings":  [
                      {
                          "id":  "F02-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -53,6 +53,15 @@
                                              "evidence":  "",
                                              "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                              "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T12:55:37+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "site side, xelth.com 776cc3a: Dirichlet p05 score (U1), allow-list for unknown models (U2), windowed query with window_cut (U6), judge tiers from a versioned hand-kept table not from the usefulness table itself (U4)",
+                                             "evidence":  "",
+                                             "base_commit":  "ee5c4aba65041fc875038b2e1b4c0b7244dcfdb3",
+                                             "tree_sha256":  "f02414bf2f8a758631ad57abcd91e13c0d2927a9256038d9ff825c60bb4f5c25"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -63,12 +72,36 @@
                                                      "note":  "Brief unchanged; ranking still risks encoding ordering. Reinforced in Q1/Q2 answers: no positive weight on volume metrics, no self-sourced weights.",
                                                      "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                                      "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 },
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-10-08T13:03:24+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "U1/U2 specify an unweighted main score and an experimental weighted column, but the site implementation and empirical behavior were outside this inspected range.",
+                                                     "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                                     "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "The site ranking implementation and judge-weight calibration were not inspected; the previously read decisions specify an unweighted primary score.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "The site ranking implementation and empirical judge calibration were not inspected in this bridge review.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F02-2",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -114,6 +147,15 @@
                                              "evidence":  "",
                                              "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                              "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T12:55:39+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "site side, xelth.com 776cc3a: Dirichlet p05 score (U1), allow-list for unknown models (U2), windowed query with window_cut (U6), judge tiers from a versioned hand-kept table not from the usefulness table itself (U4)",
+                                             "evidence":  "",
+                                             "base_commit":  "ee5c4aba65041fc875038b2e1b4c0b7244dcfdb3",
+                                             "tree_sha256":  "f02414bf2f8a758631ad57abcd91e13c0d2927a9256038d9ff825c60bb4f5c25"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -124,12 +166,36 @@
                                                      "note":  "Option (b) still transmits the raw label client-side before any server threshold; regex admits private aliases. Recommended (c) or a consent flag instead.",
                                                      "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                                      "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 },
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-10-08T13:03:24+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The raw-model regex proposal was rejected. Reviewer model allowlists remain, and the new judge serializer emits only closed-list values; a hostile judge probe was sanitized.",
+                                                     "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                                     "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The raw-model regex proposal remains rejected; outbound reviewer and judge model values remain constrained to closed lists.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The raw-model regex proposal remains rejected; the previously inspected closed-list serialization is unchanged.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F02-3",
-                         "status":  "proposed",
+                         "status":  "superseded",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -165,7 +231,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F06-1"
                                            ],
                          "source":  {
                                         "consult":  1,
@@ -183,6 +249,24 @@
                                              "evidence":  "",
                                              "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                              "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T12:55:32+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "bridge 0.6.1 (50054a9): consult_ref minted per consultation, the rating judge resolved at rating time through Get-TelemetryJudgeClass (classes only), decisions U3/U5 of handoff 04",
+                                             "evidence":  "",
+                                             "base_commit":  "ee5c4aba65041fc875038b2e1b4c0b7244dcfdb3",
+                                             "tree_sha256":  "f02414bf2f8a758631ad57abcd91e13c0d2927a9256038d9ff825c60bb4f5c25"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T13:04:33+02:00",
+                                             "status":  "superseded",
+                                             "by":  "coordinator",
+                                             "note":  "replaced by F06-3 (handoff 06): the remaining path only",
+                                             "evidence":  "",
+                                             "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                             "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -193,12 +277,20 @@
                                                      "note":  "Confirmed by reading codex-findings.ps1:475 and ConvertTo-TelemetryRatingDetails: the rating event is built from the ledger entry (consult-time coordinator), not the rating actor.",
                                                      "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                                      "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 },
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-10-08T13:03:24+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Immediate rating-time precedence is implemented, but the known actor is not persisted for recovery. Finding #1 replaces the original broad claim with this remaining path.",
+                                                     "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                                     "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F02-4",
-                         "status":  "proposed",
+                         "status":  "superseded",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -234,7 +326,7 @@
 
                                         ],
                          "superseded_by":  [
-
+                                               "F06-2"
                                            ],
                          "source":  {
                                         "consult":  1,
@@ -252,6 +344,24 @@
                                              "evidence":  "",
                                              "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                              "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T12:55:34+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "bridge 0.6.1 (50054a9): consult_ref minted per consultation, the rating judge resolved at rating time through Get-TelemetryJudgeClass (classes only), decisions U3/U5 of handoff 04",
+                                             "evidence":  "",
+                                             "base_commit":  "ee5c4aba65041fc875038b2e1b4c0b7244dcfdb3",
+                                             "tree_sha256":  "f02414bf2f8a758631ad57abcd91e13c0d2927a9256038d9ff825c60bb4f5c25"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T13:04:35+02:00",
+                                             "status":  "superseded",
+                                             "by":  "coordinator",
+                                             "note":  "replaced by F06-4 (handoff 06): the remaining path only",
+                                             "evidence":  "",
+                                             "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                             "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -262,12 +372,20 @@
                                                      "note":  "Confirmed: local store replaces the mark per consult_id (latest wins) while telemetry spools one event per rating including re-ratings; site must dedupe by consultation.",
                                                      "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                                      "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 },
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-10-08T13:03:24+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "consult_ref fixes missing identity for new entries, but replacement ordering is not reliable through retries or timestamp ties. Finding #2 replaces the original claim with that remaining defect.",
+                                                     "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                                     "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F02-5",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "minor",
                          "locations":  [
                                            {
@@ -313,6 +431,15 @@
                                              "evidence":  "",
                                              "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                              "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T12:55:40+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "site side, xelth.com 776cc3a: Dirichlet p05 score (U1), allow-list for unknown models (U2), windowed query with window_cut (U6), judge tiers from a versioned hand-kept table not from the usefulness table itself (U4)",
+                                             "evidence":  "",
+                                             "base_commit":  "ee5c4aba65041fc875038b2e1b4c0b7244dcfdb3",
+                                             "tree_sha256":  "f02414bf2f8a758631ad57abcd91e13c0d2927a9256038d9ff825c60bb4f5c25"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -323,12 +450,36 @@
                                                      "note":  "5000-event cap remains in the brief\u0027s constraints; window completeness and paging stability unaddressed.",
                                                      "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                                      "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 },
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-10-08T13:03:24+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "U6 describes complete window reads or disclosed truncation; the xelth.com implementation and 5001-event fixture were not inspected.",
+                                                     "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                                     "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "The site\u0027s window aggregation and overflow fixture were not inspected in this bridge-only range.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "The site\u0027s aggregation window, overflow behavior, and truncation reporting were not independently checked.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F02-6",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -387,6 +538,15 @@
                                              "evidence":  "",
                                              "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                              "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T12:55:35+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "bridge 0.6.1 (50054a9): consult_ref minted per consultation, the rating judge resolved at rating time through Get-TelemetryJudgeClass (classes only), decisions U3/U5 of handoff 04",
+                                             "evidence":  "",
+                                             "base_commit":  "ee5c4aba65041fc875038b2e1b4c0b7244dcfdb3",
+                                             "tree_sha256":  "f02414bf2f8a758631ad57abcd91e13c0d2927a9256038d9ff825c60bb4f5c25"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -397,12 +557,36 @@
                                                      "note":  "Confirmed: coordinator record (codex-consult-common.ps1:7305) has no provider_config, and Get-TelemetryVendor/Get-TelemetryModelToken yield \u0027other\u0027/\u0027other\u0027 for it; judge classification needs a provider-name-based path.",
                                                      "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                                      "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 },
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-10-08T13:03:24+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "The dedicated coordinator classifier fixes the missing-provider_config path for supported identities. The original finding\u0027s separate concern remains: model recognition is still vendor-gated, so known public models behind unknown endpoints become other; this is retained by the chosen policy.",
+                                                     "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                                     "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "The dedicated coordinator classifier addresses missing provider_config, but endpoint-independent public model recognition remains absent by policy. A read-only probe still returned other for gpt-6-astra with no recognized vendor.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "The dedicated coordinator classifier addresses missing provider_config. Public model recognition behind unknown endpoints remains vendor-gated by the chosen policy; this is not a regression or blocker for this delta.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
                                                  }
                                              ]
                      },
                      {
                          "id":  "F03-1",
-                         "status":  "proposed",
+                         "status":  "implemented",
                          "severity":  "major",
                          "locations":  [
                                            {
@@ -448,6 +632,839 @@
                                              "evidence":  "",
                                              "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
                                              "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T12:55:42+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "site side, xelth.com 776cc3a: Dirichlet p05 score (U1), allow-list for unknown models (U2), windowed query with window_cut (U6), judge tiers from a versioned hand-kept table not from the usefulness table itself (U4)",
+                                             "evidence":  "",
+                                             "base_commit":  "ee5c4aba65041fc875038b2e1b4c0b7244dcfdb3",
+                                             "tree_sha256":  "f02414bf2f8a758631ad57abcd91e13c0d2927a9256038d9ff825c60bb4f5c25"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  3,
+                                                     "when":  "2026-10-08T13:03:24+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "U2 explicitly rejects recursive reviewer-derived weights, but the site\u0027s implementation was not reviewed.",
+                                                     "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                                     "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                                 },
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "The decisions reject recursively derived judge weights, but the site implementation was not independently checked.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "The decisions reject recursively derived judge weights, but the site implementation was not inspected.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F06-1",
+                         "status":  "implemented",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  467
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  486
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  13601
+                                           }
+                                       ],
+                         "claim":  "R1: A known rating actor is discarded when the mark is persisted, so recovering an unspooled 0.6.1 rating changes its judge to the consultation coordinator or unknown.",
+                         "trigger":  "Coordinator A starts a consultation, actor B rates it, both telemetry spool attempts fail, and a later backfill sends the retained mark.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-findings.ps1:467-488",
+                                              "observation":  "The persisted mark contains no judge. The resolved telemetry judge exists only in a process variable passed to the immediate send and retry."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:13595-13609",
+                                              "observation":  "Backfill unconditionally resolves the judge from the consultation entry without a saved rating actor."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only PowerShell probe of Resolve-TelemetryJudge and ConvertTo-TelemetryRatingDetails",
+                                              "observation":  "The immediate path produced anthropic/claude-opus-5-5/rating_actor; the backfill-equivalent path for the same entry produced openai/gpt-6-astra/consult_coordinator."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-telemetry.ps1:932-974",
+                                              "observation":  "The backfill fixture tests legacy-style marks without a saved actor, not recovery of a newly rated mark after spool failure."
+                                          }
+                                      ],
+                         "verification":  "Execute RC1 and compare the persisted mark and backfilled judge with the rating-time actor.",
+                         "remedy":  "Persist the sanitized judge with the mark under the rating commit and reuse it for retries and backfill; use consultation provenance only for older marks without a recorded judge.",
+                         "supersedes":  [
+                                            "F02-3"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/06-codex-0.6.1-diff-review.md",
+                                        "thread":  "01a11b28-ab5f-7891-ad09-8087331d938a",
+                                        "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                        "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T13:03:24+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                             "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T14:36:01+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "19f3888: judge saved in the mark and reused by retry and backfill (F06-1); rating_rev per mark under the lock, client_time = the mark\u0027s when, intake rule highest rev then created (F06-2; site 4ca4894); 5-minute allowance, yesterday/today/tomorrow candidates (F06-3); both DST offsets, spring gap -\u003e first valid instant (F06-4); UTC/GMT/Z and numeric offsets parsed, other zone words refuse the time-only parse (F06-5); README documents consult_ref as a pseudonymous correlation key (F06-6)",
+                                             "evidence":  "",
+                                             "base_commit":  "19f3888475a3b4450f4135ef274792ad7b142fae",
+                                             "tree_sha256":  "e206c9832bb9088d5e6ff5f0dde21445a28835ddc2687147017bb734a1ab8fce"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The mark now saves the sanitized judge even with telemetry off; retries and backfill use that saved value. Source inspection, the added RC1 fixture, and a read-only serialization probe support the fix.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The committed mark retains its sanitized judge, and retry/backfill continue using that saved identity.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F06-2",
+                         "status":  "superseded",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  487
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  537
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  12075
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  12086
+                                           }
+                                       ],
+                         "claim":  "R2: consult_ref supplies identity but not reliable replacement ordering: delayed retries acquire a fresh timestamp, and distinct ratings within one second become indistinguishable by client_time.",
+                         "trigger":  "An earlier rating retries after a newer rating has committed, or two replacements occur within the same serialized second and delivery order differs from commit order.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-findings.ps1:479,487,515-537",
+                                              "observation":  "The mark has its own when, but neither live telemetry call passes RatedAt. The retry runs after both task and store locks have been released."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:12075-12086",
+                                              "observation":  "A missing RatedAt becomes UtcNow, and client_time is serialized only to whole seconds."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:13508-13522",
+                                              "observation":  "The retry checks whether the mark was replaced only when setting telemetry_sent, after the event has already been spooled."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only New-TelemetryRatingEvent probe with RatedAt 2026-10-08T12:00:00.100Z and 2026-10-08T12:00:00.900Z",
+                                              "observation":  "Both events serialized client_time as 2026-10-08T12:00:00Z."
+                                          }
+                                      ],
+                         "verification":  "Execute RC2 and confirm the aggregation retains the last committed mark regardless of retry or delivery order.",
+                         "remedy":  "Persist an ordering token with each mark, preferably a monotonic per-consultation revision allocated under the lock, and preserve it across every send path. Pass the original rating timestamp as well; define the intake\u0027s replacement rule explicitly.",
+                         "supersedes":  [
+                                            "F02-4"
+                                        ],
+                         "superseded_by":  [
+                                               "F08-1"
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/06-codex-0.6.1-diff-review.md",
+                                        "thread":  "01a11b28-ab5f-7891-ad09-8087331d938a",
+                                        "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                        "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T13:03:24+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                             "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T14:36:03+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "19f3888: judge saved in the mark and reused by retry and backfill (F06-1); rating_rev per mark under the lock, client_time = the mark\u0027s when, intake rule highest rev then created (F06-2; site 4ca4894); 5-minute allowance, yesterday/today/tomorrow candidates (F06-3); both DST offsets, spring gap -\u003e first valid instant (F06-4); UTC/GMT/Z and numeric offsets parsed, other zone words refuse the time-only parse (F06-5); README documents consult_ref as a pseudonymous correlation key (F06-6)",
+                                             "evidence":  "",
+                                             "base_commit":  "19f3888475a3b4450f4135ef274792ad7b142fae",
+                                             "tree_sha256":  "e206c9832bb9088d5e6ff5f0dde21445a28835ddc2687147017bb734a1ab8fce"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T14:45:54+02:00",
+                                             "status":  "superseded",
+                                             "by":  "coordinator",
+                                             "note":  "replaced by F08-1 (handoff 08): the remaining path only",
+                                             "evidence":  "",
+                                             "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                             "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Successful commits, delayed retries, and backfill now preserve revisions and mark timestamps. Finding #1 narrows the remaining defect to publication before durable commit and consequent revision reuse.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F06-3",
+                         "status":  "implemented",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6045
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6058
+                                           },
+                                           {
+                                               "path":  "tests/harness-roster.ps1",
+                                               "line":  234
+                                           }
+                                       ],
+                         "claim":  "R3: Comparing a minute-resolution reset with a full-resolution parsing clock can turn a just-reached reset into an almost 24-hour endpoint hold.",
+                         "trigger":  "A message displaying 9:43 PM is parsed shortly after 21:43:00 because of output delivery, scheduling delay, or minute-resolution formatting.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:6045-6058",
+                                              "observation":  "Omitted seconds become zero, and any candidate strictly earlier than Reference is moved forward a full day."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-RetryAfter for \u0027try again at 9:43 PM.\u0027 at 2026-10-07T21:43:00.500+02:00 in W. Europe Standard Time",
+                                              "observation":  "Returned 2026-10-08T21:43:00+02:00, a hold of approximately 1439.992 minutes."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-roster.ps1:234",
+                                              "observation":  "The added test explicitly expects next-day rollover 30 seconds after a minute-resolution reset, so the green suite preserves this problematic policy."
+                                          }
+                                      ],
+                         "verification":  "Add a boundary fixture around the displayed reset minute, including parsing at +500 milliseconds and +30 seconds, and assert it does not impose a day-long hold.",
+                         "remedy":  "Account for displayed precision and a documented short lateness allowance before rolling to tomorrow; treat a just-reached reset as expired or eligible for a short retry.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/06-codex-0.6.1-diff-review.md",
+                                        "thread":  "01a11b28-ab5f-7891-ad09-8087331d938a",
+                                        "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                        "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T13:03:24+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                             "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T14:36:04+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "19f3888: judge saved in the mark and reused by retry and backfill (F06-1); rating_rev per mark under the lock, client_time = the mark\u0027s when, intake rule highest rev then created (F06-2; site 4ca4894); 5-minute allowance, yesterday/today/tomorrow candidates (F06-3); both DST offsets, spring gap -\u003e first valid instant (F06-4); UTC/GMT/Z and numeric offsets parsed, other zone words refuse the time-only parse (F06-5); README documents consult_ref as a pseudonymous correlation key (F06-6)",
+                                             "evidence":  "",
+                                             "base_commit":  "19f3888475a3b4450f4135ef274792ad7b142fae",
+                                             "tree_sha256":  "e206c9832bb9088d5e6ff5f0dde21445a28835ddc2687147017bb734a1ab8fce"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The five-minute allowance preserves just-passed resets, including across midnight. The original half-second case and all 52 reset samples passed read-only execution.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The minute-boundary allowance remains intact; the half-second, 30-second, and midnight cases passed direct execution.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F06-4",
+                         "status":  "implemented",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5976
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6057
+                                           }
+                                       ],
+                         "claim":  "R4: During the repeated DST hour, the time-only parser can skip a valid upcoming reset on the same day and hold the endpoint until tomorrow.",
+                         "trigger":  "The reference falls in the second occurrence of a repeated hour and the requested reset time still lies ahead in that occurrence.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5971-5978,6057-6058",
+                                              "observation":  "Ambiguous wall times always use the pre-transition offset. If that instant is past, the new time-only branch immediately advances a day without considering the second occurrence."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-RetryAfter for \u0027try again at 2:30 AM\u0027 at 2026-10-25T02:15:00+01:00 in W. Europe Standard Time",
+                                              "observation":  "Returned 2026-10-26T02:30:00+01:00, 1455 minutes away, instead of the same day\u0027s second 02:30, 15 minutes away."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-roster.ps1:236",
+                                              "observation":  "The added DST rollover case targets 03:30, which is outside the repeated hour and cannot expose this failure."
+                                          }
+                                      ],
+                         "verification":  "Add a time-only reset test at the second 02:15 on Berlin\u0027s fall-back day and assert the result is the second 02:30 that day.",
+                         "remedy":  "For ambiguous time-only candidates, evaluate both valid offsets and choose the earliest candidate not before the reference before considering the next day.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/06-codex-0.6.1-diff-review.md",
+                                        "thread":  "01a11b28-ab5f-7891-ad09-8087331d938a",
+                                        "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                        "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T13:03:24+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                             "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T14:36:06+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "19f3888: judge saved in the mark and reused by retry and backfill (F06-1); rating_rev per mark under the lock, client_time = the mark\u0027s when, intake rule highest rev then created (F06-2; site 4ca4894); 5-minute allowance, yesterday/today/tomorrow candidates (F06-3); both DST offsets, spring gap -\u003e first valid instant (F06-4); UTC/GMT/Z and numeric offsets parsed, other zone words refuse the time-only parse (F06-5); README documents consult_ref as a pseudonymous correlation key (F06-6)",
+                                             "evidence":  "",
+                                             "base_commit":  "19f3888475a3b4450f4135ef274792ad7b142fae",
+                                             "tree_sha256":  "e206c9832bb9088d5e6ff5f0dde21445a28835ddc2687147017bb734a1ab8fce"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Both offsets are considered in the repeated hour. The original second-02:15 case now returns the same day\u0027s second 02:30; the spring-gap sample also passed.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The repeated-hour candidate handling remains intact; the second-occurrence and spring-gap cases passed direct execution.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F06-5",
+                         "status":  "superseded",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5904
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6055
+                                           }
+                                       ],
+                         "claim":  "R5: The new time-only matcher silently ignores explicit timezone suffixes and interprets the matched clock as machine-local time.",
+                         "trigger":  "A provider message includes a qualified reset such as \u0027resets at 21:43 UTC\u0027 on a machine outside UTC.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5904-5905,6055-6057",
+                                              "observation":  "The regex accepts a clock prefix without consuming or rejecting a timezone qualifier, and conversion uses the supplied local zone."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Get-RetryAfter for \u0027resets at 21:43 UTC\u0027 at 2026-10-07T21:00:00+02:00 in W. Europe Standard Time",
+                                              "observation":  "Returned 21:43+02:00, a 43-minute hold; the explicitly stated UTC reset is 163 minutes away."
+                                          }
+                                      ],
+                         "verification":  "Test UTC and numeric-offset suffixes in a non-UTC zone, requiring either the correct instant or a null result for unsupported qualification.",
+                         "remedy":  "Parse supported timezone qualifiers explicitly and reject unsupported qualified clock forms rather than accepting only their prefix.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+                                               "F08-2"
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/06-codex-0.6.1-diff-review.md",
+                                        "thread":  "01a11b28-ab5f-7891-ad09-8087331d938a",
+                                        "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                        "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T13:03:24+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                             "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T14:36:07+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "19f3888: judge saved in the mark and reused by retry and backfill (F06-1); rating_rev per mark under the lock, client_time = the mark\u0027s when, intake rule highest rev then created (F06-2; site 4ca4894); 5-minute allowance, yesterday/today/tomorrow candidates (F06-3); both DST offsets, spring gap -\u003e first valid instant (F06-4); UTC/GMT/Z and numeric offsets parsed, other zone words refuse the time-only parse (F06-5); README documents consult_ref as a pseudonymous correlation key (F06-6)",
+                                             "evidence":  "",
+                                             "base_commit":  "19f3888475a3b4450f4135ef274792ad7b142fae",
+                                             "tree_sha256":  "e206c9832bb9088d5e6ff5f0dde21445a28835ddc2687147017bb734a1ab8fce"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T14:45:56+02:00",
+                                             "status":  "superseded",
+                                             "by":  "coordinator",
+                                             "note":  "replaced by F08-2 (handoff 08): the remaining path only",
+                                             "evidence":  "",
+                                             "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                             "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "The original UTC case and supported complete numeric offsets now work. Finding #2 replaces the broad claim with the narrower malformed-qualifier prefix acceptance issue.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F06-6",
+                         "status":  "implemented",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult.ps1",
+                                               "line":  5971
+                                           },
+                                           {
+                                               "path":  "README.md",
+                                               "line":  3233
+                                           }
+                                       ],
+                         "claim":  "R6: A randomly generated consult_ref is still an exact linkage key to task context whenever its ledger entry is shared; randomness does not make that association anonymous.",
+                         "trigger":  "Someone with access to telemetry also obtains a published, attached, or otherwise shared sessions.json containing the same consult_ref.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult.ps1:5968-5975",
+                                              "observation":  "The ledger stores consult_ref beside consult_id, reviewer, lineage, and coordinator context."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:11990-11992,12061-12062",
+                                              "observation":  "The exact ledger token is copied into both consultation and rating telemetry."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Shared ledger token and outbound event token",
+                                              "observation":  "An equality join identifies the corresponding ledger entry without needing to reverse or predict the GUID."
+                                          }
+                                      ],
+                         "verification":  "Using a synthetic ledger and its serialized events, join on consult_ref and confirm that sharing the ledger exposes the association.",
+                         "remedy":  "Document consult_ref as a pseudonymous correlation identifier and redact it from public ledger exports; avoid promising unlinkability after ledger disclosure.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  3,
+                                        "reply":  "handoffs/06-codex-0.6.1-diff-review.md",
+                                        "thread":  "01a11b28-ab5f-7891-ad09-8087331d938a",
+                                        "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                        "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T13:03:24+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                             "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T14:36:09+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "19f3888: judge saved in the mark and reused by retry and backfill (F06-1); rating_rev per mark under the lock, client_time = the mark\u0027s when, intake rule highest rev then created (F06-2; site 4ca4894); 5-minute allowance, yesterday/today/tomorrow candidates (F06-3); both DST offsets, spring gap -\u003e first valid instant (F06-4); UTC/GMT/Z and numeric offsets parsed, other zone words refuse the time-only parse (F06-5); README documents consult_ref as a pseudonymous correlation key (F06-6)",
+                                             "evidence":  "",
+                                             "base_commit":  "19f3888475a3b4450f4135ef274792ad7b142fae",
+                                             "tree_sha256":  "e206c9832bb9088d5e6ff5f0dde21445a28835ddc2687147017bb734a1ab8fce"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  4,
+                                                     "when":  "2026-10-08T14:45:39+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "README now explicitly describes consult_ref as pseudonymous, explains the ledger join, and disclaims unlinkability after ledger sharing; this implements the requested documentation remedy.",
+                                                     "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                                     "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                                 },
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The documentation continues to describe consult_ref as pseudonymous and explicitly acknowledges linkage through a shared ledger.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F08-1",
+                         "status":  "implemented",
+                         "severity":  "blocker",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  477
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  505
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  527
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  13620
+                                           }
+                                       ],
+                         "claim":  "R1: A rating revision can be published before its mark is durably committed and then reused after a failed save, defeating revision-based replacement ordering.",
+                         "trigger":  "The initial telemetry spool append succeeds, but Complete-StoreCommit fails or the process terminates before persisting the new mark; a subsequent rating allocates from the unchanged findings store.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-findings.ps1:477-527",
+                                              "observation":  "The revision is calculated from committed ratings, the event is spooled at line 505, and the replacement mark is not saved until line 527."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:9737-9741,13620-13631",
+                                              "observation":  "Complete-StoreCommit performs the findings write. Get-NextRatingRev derives the successor exclusively from stored marks; no durable reservation precedes publication."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only Get-NextRatingRev probe with one committed mark at revision 4",
+                                              "observation":  "Two allocations against the unchanged committed state both returned 5, modeling the state retained when the intervening save does not persist."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "README.md:3314-3319",
+                                              "observation":  "The documented intake rule selects the highest revision and breaks equal revisions by receipt time, so conflicting reused revisions are delivery-order dependent."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-telemetry.ps1:1058-1148",
+                                              "observation":  "RC1 and RC2 cover failed spool writes and delayed retries after successful local commits; they do not cover a successful spool append followed by a failed local commit."
+                                          }
+                                      ],
+                         "verification":  "Execute RC1 with fault injection between the successful spool append and the findings save, then inspect revision reuse and aggregation under both delivery orders.",
+                         "remedy":  "Durably commit the mark, judge, timestamp, and revision before making its event available to the sender. Publish afterward and record telemetry_sent separately; an interrupted publish can be recovered from the committed mark through backfill.",
+                         "supersedes":  [
+                                            "F06-2"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/08-codex-0.6.1-round2.md",
+                                        "thread":  "01a11b84-6379-7950-bfcd-ff2d560415fd",
+                                        "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                        "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T14:45:39+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                             "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T16:43:28+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "e17197d: the mark is committed under both locks before its event is spooled, telemetry_sent written under the same lock, an abort hook proves no uncommitted revision is published (F08-1); Get-TimeOnlyZone validates the whole qualifier token, 17 table cases (F08-2)",
+                                             "evidence":  "",
+                                             "base_commit":  "e17197de42cc292eca0c0c0880b5442570ab5a20",
+                                             "tree_sha256":  "b10bef07a8257120af8757eee94999f8a20dadcd355e4089cfa0550cfd2adc19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "The initial store commit now precedes publication. The supplied-commit marker path preserves lock ownership, and the added fixtures cover interrupted publication and failed initial persistence.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F08-2",
+                         "status":  "implemented",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  5922
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  6060
+                                           }
+                                       ],
+                         "claim":  "R2: Time-only timezone parsing can accept a valid prefix of a malformed qualifier and silently compute a reset using a different offset.",
+                         "trigger":  "A time-only message contains an incomplete or malformed offset continuation, such as UTC+05:3, +02:000, or UTC+oops.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:5917-5924,6060-6083",
+                                              "observation":  "The optional offset groups and terminal alphanumeric boundary allow matching to stop before a colon or plus sign. Get-TimeOnlyZone accepts the captured prefix without validating the remaining qualifier."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only Get-RetryAfter probes in W. Europe Standard Time, reference 2026-10-07T12:00:00+02:00",
+                                              "observation":  "\u0027resets at 21:43 UTC+05:3\u0027 returned 18:43+02:00, interpreting +05; \u0027+02:000\u0027 returned 21:43+02:00; \u0027UTC+oops\u0027 returned 23:43+02:00, interpreting plain UTC."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "tests/harness-roster.ps1:245-260",
+                                              "observation":  "The qualifier samples test complete supported offsets and uppercase unknown zone words, but not malformed numeric continuations."
+                                          }
+                                      ],
+                         "verification":  "Add table-driven malformed-qualifier cases and require a null result for each, while retaining the existing supported-offset results.",
+                         "remedy":  "Validate the entire qualifier token before accepting it; reject dangling signs, incomplete minutes, excess digits, and trailing offset syntax rather than falling back to a shorter prefix.",
+                         "supersedes":  [
+                                            "F06-5"
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/08-codex-0.6.1-round2.md",
+                                        "thread":  "01a11b84-6379-7950-bfcd-ff2d560415fd",
+                                        "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                        "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T14:45:39+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                             "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T16:43:30+02:00",
+                                             "status":  "implemented",
+                                             "by":  "coordinator",
+                                             "note":  "e17197d: the mark is committed under both locks before its event is spooled, telemetry_sent written under the same lock, an abort hook proves no uncommitted revision is published (F08-1); Get-TimeOnlyZone validates the whole qualifier token, 17 table cases (F08-2)",
+                                             "evidence":  "",
+                                             "base_commit":  "e17197de42cc292eca0c0c0880b5442570ab5a20",
+                                             "tree_sha256":  "b10bef07a8257120af8757eee94999f8a20dadcd355e4089cfa0550cfd2adc19"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  5,
+                                                     "when":  "2026-10-08T16:48:54+02:00",
+                                                     "status":  "fixed",
+                                                     "note":  "Whole-token offset validation rejects the reported malformed prefixes while preserving supported forms; all 69 reset samples passed read-only execution.",
+                                                     "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                                     "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F10-1",
+                         "status":  "wontfix",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  577
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  585
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  13723
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  13830
+                                           }
+                                       ],
+                         "claim":  "A post-lock retry can duplicate an event already published by backfill, and its marker update then incorrectly reports that the consultation was re-rated even when the same revision remains current.",
+                         "trigger":  "The first spool attempt fails; while the retry waits outside the task/store locks, backfill sends the committed mark and saves telemetry_sent; the retry resumes without rechecking that marker.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-findings.ps1:571-585",
+                                              "observation":  "The retry spools before acquiring the store lock through Set-RatingTelemetrySent and does not first check whether backfill already sent the mark."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:13723-13732,13830-13836",
+                                              "observation":  "Backfill can spool and mark the same committed revision. Set-RatingTelemetrySent skips marks already carrying telemetry_sent, then returns the same reason used for a replaced mark."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "Read-only Set-RatingTelemetrySent -Commit probe with mocked store writes and lock release",
+                                              "observation":  "The first call succeeded and retained the caller\u0027s lock. A second call for the unchanged, already-marked revision returned \u0027the mark is no longer in findings.json (rated again meanwhile)\u0027."
+                                          }
+                                      ],
+                         "verification":  "Use the existing retry gate to pause a rating after its first spool failure, run backfill for that mark, then release the retry; inspect duplicate revisions and the resulting diagnostic.",
+                         "remedy":  "Document delivery as at least once and distinguish an already-sent mark from a replaced mark in the diagnostic. Optionally recheck the marker under the store lock before retry publication; retain intake idempotency for interruption windows regardless.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  5,
+                                        "reply":  "handoffs/10-codex-0.6.1-round3.md",
+                                        "thread":  "01a11bf9-73b8-7dd1-aa90-eebf46e14499",
+                                        "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                        "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T16:48:54+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                             "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246"
+                                         },
+                                         {
+                                             "when":  "2026-10-08T17:15:48+02:00",
+                                             "status":  "wontfix",
+                                             "by":  "coordinator",
+                                             "note":  "documented as TECH_DEBT T10: delivery is at least once, duplicates carry one committed revision and collapse at the intake; the diagnostic wording and the pre-retry recheck are a 0.6.2 item",
+                                             "evidence":  "",
+                                             "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                             "tree_sha256":  "af8d0d7e09efbea34ad8f2910c23243a80e7904929ceb743cb70c9b5b874e625"
                                          }
                                      ],
                          "reviewer_checks":  [
@@ -489,6 +1506,69 @@
                         "note":  "Stratify-by-judge-tier and inter-rater reliability as unlisted options; the Beta-prior shrinkage with k~10; confirmed F02-3 (the rating actor vs the consult coordinator) and F02-4 (one event per rating vs the local latest) with line references; the feedback-loop finding on self-derived weights",
                         "when":  "2026-10-08T10:51:58+02:00",
                         "telemetry_sent":  1791449518
+                    },
+                    {
+                        "n":  3,
+                        "consult_id":  "1382c105-c8e4-4dba-9e78-c83de548557f",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "diff-review",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-08T12:56:50+02:00",
+                        "useful":  "yes",
+                        "note":  "HOLD with four concrete blockers, each reproduced by a pure-function probe (judge lost on backfill, no replacement ordering, minute-precision rollover, DST repeated hour) plus the timezone-suffix gap; precise remedies and two fixtures",
+                        "when":  "2026-10-08T13:04:57+02:00",
+                        "telemetry_sent":  1791457497
+                    },
+                    {
+                        "n":  4,
+                        "consult_id":  "c10d9ddd-178c-4943-97c0-9c3507a41e3c",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "diff-review",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-08T14:37:01+02:00",
+                        "useful":  "yes",
+                        "note":  "second HOLD, narrower: one real ordering gap (the event spooled before the mark\u0027s commit lets a revision escape and be reused after a failed save) and a prefix-acceptance gap in the zone qualifier; ran all 52 reset samples itself",
+                        "when":  "2026-10-08T14:45:52+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "claude-fable-5-1",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791463552
+                    },
+                    {
+                        "n":  5,
+                        "consult_id":  "1372d8e7-7f1d-45c9-8ad9-500d7aa3fc44",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "diff-review",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-08T16:44:53+02:00",
+                        "useful":  "yes",
+                        "note":  "ACCEPT after executing all 69 reset samples and probing the lock path; one fair note on at-least-once delivery and a misleading diagnostic",
+                        "when":  "2026-10-08T17:15:45+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "claude-fable-5-1",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791472546
                     }
                 ]
 }

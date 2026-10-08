@@ -1,0 +1,164 @@
+{
+  "schema_version": "1",
+  "verdict": "HOLD",
+  "verdict_reason": "The ordinary recovery paths are fixed, but publishing before the local rating commit allows an uncommitted revision to escape and subsequently be reused.",
+  "reply_markdown": "**Q1. Judge, time, and revisions.** The normal paths now preserve the mark's sanitized judge, revision, and timestamp. Two successful `-Rate` processes serialize allocation under the task/store locks. Backfill reads the saved mark under the store lock and does not allocate a revision or adopt its process's coordinator. The new RC1/RC2 fixtures exercise the previously identified recovery paths.\n\nOne durability gap remains: `Add-TelemetryEvent` spools the new revision **before** `Complete-StoreCommit` saves the mark. If that save fails or the process stops between those operations, the spool contains an event absent from the committed store. The next rating reads the old revision and allocates the same successor. Locks do not prevent this across a failed commit. With the documented receipt-time tiebreaker, delivery order can then select the wrong mark. **R1 / finding #1** replaces the remaining F06-2 concern.\n\nMy read-only allocation probe confirmed that an unchanged committed revision 4 produces revision 5 for both attempts. The actual interruption path still needs the fault-injection check below.\n\n**Q2. Reset rule.** I executed all **52 existing reset samples directly**, without running the filesystem-writing harness; all passed. Separate probes confirmed the half-second boundary, previous-day midnight allowance, second DST occurrence, spring gap, UTC, and numeric-offset handling. I found no additional candidate-selection failure in those cases.\n\nThe qualifier parser still accepts incomplete prefixes: `UTC+05:3` becomes `UTC+05`, `+02:000` becomes `+02`, and `UTC+oops` becomes UTC. These should be declined rather than interpreted as valid qualified resets. **R2 / finding #2** is a smaller remaining F06-5 issue. The tests cover supported offsets and uppercase unknown abbreviations, but not malformed offset continuations.\n\nThe five-minute allowance is now an explicit policy rather than an accidental precision error. Dated qualifiers remain the separately documented T9 limitation.\n\n**Q3. Verdict: HOLD on R1.** F06-1, F06-3, F06-4, and the documentation remedy for F06-6 are fixed on the inspected evidence. F06-2 remains open at the publication/commit boundary; F06-5 has the narrower parsing remainder above. Site-only findings remain unverified because the intake implementation was not part of this checkout review. I inspected the changed implementation and tests and ran read-only function probes; the reported full harness and intake runs were not independently rerun.\n\n## Requested checks\n\n- **RC1:** Working directory: repository root; permission: workspace-write. In an isolated telemetry fixture, seed committed revision 4, allow rating A's revision-5 spool append, then inject failure immediately before its findings save. Rate B from the unchanged store and replay captured events in both orders through the intake fixture. Observe whether revision 5 is reused and an uncommitted mark can win; after the fix, no uncommitted mark may be published. Settles finding #1. Budget: one consultation, two attempts, 15 minutes; local fixtures only.",
+  "findings": [
+    {
+      "severity": "blocker",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 477
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 505
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 527
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 13620
+        }
+      ],
+      "claim": "R1: A rating revision can be published before its mark is durably committed and then reused after a failed save, defeating revision-based replacement ordering.",
+      "trigger": "The initial telemetry spool append succeeds, but Complete-StoreCommit fails or the process terminates before persisting the new mark; a subsequent rating allocates from the unchanged findings store.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-findings.ps1:477-527",
+          "observation": "The revision is calculated from committed ratings, the event is spooled at line 505, and the replacement mark is not saved until line 527."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:9737-9741,13620-13631",
+          "observation": "Complete-StoreCommit performs the findings write. Get-NextRatingRev derives the successor exclusively from stored marks; no durable reservation precedes publication."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Read-only Get-NextRatingRev probe with one committed mark at revision 4",
+          "observation": "Two allocations against the unchanged committed state both returned 5, modeling the state retained when the intervening save does not persist."
+        },
+        {
+          "kind": "read-code",
+          "reference": "README.md:3314-3319",
+          "observation": "The documented intake rule selects the highest revision and breaks equal revisions by receipt time, so conflicting reused revisions are delivery-order dependent."
+        },
+        {
+          "kind": "read-code",
+          "reference": "tests/harness-telemetry.ps1:1058-1148",
+          "observation": "RC1 and RC2 cover failed spool writes and delayed retries after successful local commits; they do not cover a successful spool append followed by a failed local commit."
+        }
+      ],
+      "verification": "Execute RC1 with fault injection between the successful spool append and the findings save, then inspect revision reuse and aggregation under both delivery orders.",
+      "remedy": "Durably commit the mark, judge, timestamp, and revision before making its event available to the sender. Publish afterward and record telemetry_sent separately; an interrupted publish can be recovered from the committed mark through backfill.",
+      "supersedes": [
+        "F06-2"
+      ]
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 5922
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 6060
+        }
+      ],
+      "claim": "R2: Time-only timezone parsing can accept a valid prefix of a malformed qualifier and silently compute a reset using a different offset.",
+      "trigger": "A time-only message contains an incomplete or malformed offset continuation, such as UTC+05:3, +02:000, or UTC+oops.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:5917-5924,6060-6083",
+          "observation": "The optional offset groups and terminal alphanumeric boundary allow matching to stop before a colon or plus sign. Get-TimeOnlyZone accepts the captured prefix without validating the remaining qualifier."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Read-only Get-RetryAfter probes in W. Europe Standard Time, reference 2026-10-07T12:00:00+02:00",
+          "observation": "'resets at 21:43 UTC+05:3' returned 18:43+02:00, interpreting +05; '+02:000' returned 21:43+02:00; 'UTC+oops' returned 23:43+02:00, interpreting plain UTC."
+        },
+        {
+          "kind": "read-code",
+          "reference": "tests/harness-roster.ps1:245-260",
+          "observation": "The qualifier samples test complete supported offsets and uppercase unknown zone words, but not malformed numeric continuations."
+        }
+      ],
+      "verification": "Add table-driven malformed-qualifier cases and require a null result for each, while retaining the existing supported-offset results.",
+      "remedy": "Validate the entire qualifier token before accepting it; reject dangling signs, incomplete minutes, excess digits, and trailing offset syntax rather than falling back to a shorter prefix.",
+      "supersedes": [
+        "F06-5"
+      ]
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F02-1",
+      "status": "not-checked",
+      "note": "The site ranking implementation and judge-weight calibration were not inspected; the previously read decisions specify an unweighted primary score."
+    },
+    {
+      "id": "F02-2",
+      "status": "fixed",
+      "note": "The raw-model regex proposal remains rejected; outbound reviewer and judge model values remain constrained to closed lists."
+    },
+    {
+      "id": "F02-5",
+      "status": "not-checked",
+      "note": "The site's window aggregation and overflow fixture were not inspected in this bridge-only range."
+    },
+    {
+      "id": "F02-6",
+      "status": "still-open",
+      "note": "The dedicated coordinator classifier addresses missing provider_config, but endpoint-independent public model recognition remains absent by policy. A read-only probe still returned other for gpt-6-astra with no recognized vendor."
+    },
+    {
+      "id": "F03-1",
+      "status": "not-checked",
+      "note": "The decisions reject recursively derived judge weights, but the site implementation was not independently checked."
+    },
+    {
+      "id": "F06-1",
+      "status": "fixed",
+      "note": "The mark now saves the sanitized judge even with telemetry off; retries and backfill use that saved value. Source inspection, the added RC1 fixture, and a read-only serialization probe support the fix."
+    },
+    {
+      "id": "F06-2",
+      "status": "still-open",
+      "note": "Successful commits, delayed retries, and backfill now preserve revisions and mark timestamps. Finding #1 narrows the remaining defect to publication before durable commit and consequent revision reuse."
+    },
+    {
+      "id": "F06-3",
+      "status": "fixed",
+      "note": "The five-minute allowance preserves just-passed resets, including across midnight. The original half-second case and all 52 reset samples passed read-only execution."
+    },
+    {
+      "id": "F06-4",
+      "status": "fixed",
+      "note": "Both offsets are considered in the repeated hour. The original second-02:15 case now returns the same day's second 02:30; the spring-gap sample also passed."
+    },
+    {
+      "id": "F06-5",
+      "status": "still-open",
+      "note": "The original UTC case and supported complete numeric offsets now work. Finding #2 replaces the broad claim with the narrower malformed-qualifier prefix acceptance issue."
+    },
+    {
+      "id": "F06-6",
+      "status": "fixed",
+      "note": "README now explicitly describes consult_ref as pseudonymous, explains the ledger join, and disclaims unlinkability after ledger sharing; this implements the requested documentation remedy."
+    }
+  ],
+  "unproven": [
+    "The successful-spool/failed-local-commit path was established by source order and an allocation probe, not a full process-level fault-injection run.",
+    "Filesystem-writing harnesses and the reported intake tests were not independently rerun; only the 52 reset samples and additional pure-function probes were executed.",
+    "The deployed intake's grouping key, revision comparison, tiebreakers, and additive-field handling were not independently inspected.",
+    "Dated timezone qualifiers remain documented as T9; this review did not establish a fix for that separate limitation."
+  ],
+  "first_run_checklist": []
+}

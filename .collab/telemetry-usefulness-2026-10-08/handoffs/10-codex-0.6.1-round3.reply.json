@@ -1,0 +1,115 @@
+{
+  "schema_version": "1",
+  "verdict": "ACCEPT",
+  "verdict_reason": "The reviewed bridge delta fixes both remaining findings; the residual duplicate-delivery caveat does not invalidate committed revision ordering.",
+  "reply_markdown": "**Q1. Commit and publication.** F08-1 is fixed. The mark is saved before the first spool attempt, and the store lock remains held through that attempt and the subsequent `telemetry_sent` write. A failed initial commit therefore publishes nothing. An interruption after commit leaves a recoverable mark; subsequent ratings allocate above its saved revision. Backfill preserves the saved judge, revision, and timestamp.\n\nThe new fixtures cover interruption before spooling, both backfill/re-rating orders, and an initial store-write failure. A read-only probe of `Set-RatingTelemetrySent -Commit`, with storage operations mocked, confirmed that it writes the marker without releasing the caller's lock.\n\n**Physical delivery remains at least once.** After a failed first spool attempt, backfill can publish the mark while the post-lock retry waits; that retry then publishes the same revision again. An interruption between spooling and saving `telemetry_sent` can likewise permit a duplicate. These are duplicate events for one committed mark, not conflicting revision allocations. Modern `consult_ref` aggregation should collapse them under the documented rule. Finding #1 records the nonblocking caveat and a misleading diagnostic in this race.\n\n**Q2. Qualifiers.** F08-2 is fixed for the specified grammar. I directly executed all **69 reset samples** read-only: all passed. Additional direct probes accepted the listed supported forms, including `UTC +02:00`, `(GMT+2)`, compact offsets, and negative half-hour offsets, while rejecting the previously accepted malformed prefixes and the added invalid forms. I found no regression in those forms. This does not establish support for arbitrary localized or named timezone syntax; dated qualifiers remain the documented T9 limitation.\n\n**Q3. Verdict: ACCEPT** for the bridge delta `94283c3..4061dda`. Neither F08-1 nor F08-2 remains a release blocker. The filesystem-writing crash/concurrency harnesses were inspected, not independently rerun; their reported results come from the handoff. Site ranking, aggregation, and deployment are outside this acceptance. Their prior findings remain explicitly unverified rather than silently closed.",
+  "findings": [
+    {
+      "severity": "note",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 577
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 585
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 13723
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 13830
+        }
+      ],
+      "claim": "A post-lock retry can duplicate an event already published by backfill, and its marker update then incorrectly reports that the consultation was re-rated even when the same revision remains current.",
+      "trigger": "The first spool attempt fails; while the retry waits outside the task/store locks, backfill sends the committed mark and saves telemetry_sent; the retry resumes without rechecking that marker.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-findings.ps1:571-585",
+          "observation": "The retry spools before acquiring the store lock through Set-RatingTelemetrySent and does not first check whether backfill already sent the mark."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:13723-13732,13830-13836",
+          "observation": "Backfill can spool and mark the same committed revision. Set-RatingTelemetrySent skips marks already carrying telemetry_sent, then returns the same reason used for a replaced mark."
+        },
+        {
+          "kind": "ran-command",
+          "reference": "Read-only Set-RatingTelemetrySent -Commit probe with mocked store writes and lock release",
+          "observation": "The first call succeeded and retained the caller's lock. A second call for the unchanged, already-marked revision returned 'the mark is no longer in findings.json (rated again meanwhile)'."
+        }
+      ],
+      "verification": "Use the existing retry gate to pause a rating after its first spool failure, run backfill for that mark, then release the retry; inspect duplicate revisions and the resulting diagnostic.",
+      "remedy": "Document delivery as at least once and distinguish an already-sent mark from a replaced mark in the diagnostic. Optionally recheck the marker under the store lock before retry publication; retain intake idempotency for interruption windows regardless.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "F02-1",
+      "status": "not-checked",
+      "note": "The site ranking implementation and empirical judge calibration were not inspected in this bridge review."
+    },
+    {
+      "id": "F02-2",
+      "status": "fixed",
+      "note": "The raw-model regex proposal remains rejected; the previously inspected closed-list serialization is unchanged."
+    },
+    {
+      "id": "F02-5",
+      "status": "not-checked",
+      "note": "The site's aggregation window, overflow behavior, and truncation reporting were not independently checked."
+    },
+    {
+      "id": "F02-6",
+      "status": "still-open",
+      "note": "The dedicated coordinator classifier addresses missing provider_config. Public model recognition behind unknown endpoints remains vendor-gated by the chosen policy; this is not a regression or blocker for this delta."
+    },
+    {
+      "id": "F03-1",
+      "status": "not-checked",
+      "note": "The decisions reject recursively derived judge weights, but the site implementation was not inspected."
+    },
+    {
+      "id": "F06-1",
+      "status": "fixed",
+      "note": "The committed mark retains its sanitized judge, and retry/backfill continue using that saved identity."
+    },
+    {
+      "id": "F06-3",
+      "status": "fixed",
+      "note": "The minute-boundary allowance remains intact; the half-second, 30-second, and midnight cases passed direct execution."
+    },
+    {
+      "id": "F06-4",
+      "status": "fixed",
+      "note": "The repeated-hour candidate handling remains intact; the second-occurrence and spring-gap cases passed direct execution."
+    },
+    {
+      "id": "F06-6",
+      "status": "fixed",
+      "note": "The documentation continues to describe consult_ref as pseudonymous and explicitly acknowledges linkage through a shared ledger."
+    },
+    {
+      "id": "F08-1",
+      "status": "fixed",
+      "note": "The initial store commit now precedes publication. The supplied-commit marker path preserves lock ownership, and the added fixtures cover interrupted publication and failed initial persistence."
+    },
+    {
+      "id": "F08-2",
+      "status": "fixed",
+      "note": "Whole-token offset validation rejects the reported malformed prefixes while preserving supported forms; all 69 reset samples passed read-only execution."
+    }
+  ],
+  "unproven": [
+    "The full filesystem-writing telemetry, crash, and concurrency harnesses were not independently rerun; their green results are reported by the handoff.",
+    "The retry-versus-backfill duplicate sequence was inferred from source; its diagnostic behavior was reproduced with a read-only mocked-store probe.",
+    "The deployed intake's deduplication and revision ordering, and the site's ranking and aggregation behavior, were not independently inspected.",
+    "Arbitrary localized timezone syntax and the documented T9 dated-qualifier limitation are outside the demonstrated parser coverage."
+  ],
+  "first_run_checklist": []
+}

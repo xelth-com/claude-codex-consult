@@ -368,6 +368,611 @@
                                        "wall_seconds":  312.2,
                                        "finished_at":  "2026-10-08T10:48:13+02:00",
                                        "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  3,
+                                       "when":  "2026-10-08T12:56:50+02:00",
+                                       "purpose":  "diff-review",
+                                       "topics":  [
+
+                                                  ],
+                                       "role":  "",
+                                       "consult_id":  "1382c105-c8e4-4dba-9e78-c83de548557f",
+                                       "consult_ref":  "788af059-8524-4b93-ba9c-0a60062678f1",
+                                       "reviewer":  {
+                                                        "provider":  "openai",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "gpt-6-astra",
+                                                        "model_source":  "roster",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "56d97b6ece36e75295a290d931ca6bbe2dd0b1f0807454b21a63a6fd17b32d7c",
+                                                        "provider_config":  {
+                                                                                "builtin":  "openai"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "openai :: gpt-6-astra",
+                                       "coordinator":  {
+                                                           "provider":  "anthropic",
+                                                           "model":  "claude-fable-5-1",
+                                                           "engine":  "codex",
+                                                           "host":  "claude-code",
+                                                           "host_by":  "markers",
+                                                           "source":  "explicit",
+                                                           "in_roster":  false,
+                                                           "unresolved":  null
+                                                       },
+                                       "preflight":  "ok: Logged in using ChatGPT",
+                                       "preflight_warning":  "",
+                                       "roster":  {
+                                                      "path":  "C:/Users/Dmytro/.codex/codex-consult-roster-0.6.json",
+                                                      "position":  1,
+                                                      "skipped":  [
+
+                                                                  ],
+                                                      "applied":  [
+                                                                      "model"
+                                                                  ]
+                                                  },
+                                       "panel":  null,
+                                       "parent_thread":  "01a11aa9-58b4-7523-af1b-f515a6f605f5",
+                                       "thread":  "01a11b28-ab5f-7891-ad09-8087331d938a",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "fork",
+                                       "mode_fallback":  null,
+                                       "command":  "codex exec --sandbox read-only --color never --json -m gpt-6-astra -c model_reasoning_effort=\"high\" -c model_provider=\"openai\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-d15a4078252c4476aa14eb5fed3ed5ba.md --output-schema C:\\Users\\Dmytro\\claude-codex-consult\\plugins\\codex-consult\\schemas\\consult-reply.schema.json fork 01a11aa9-58b4-7523-af1b-f515a6f605f5 -",
+                                       "child_env_scrubbed":  [
+                                                                  "AI_AGENT",
+                                                                  "CLAUDECODE",
+                                                                  "CLAUDE_CODE_BRIDGE_SESSION_ID",
+                                                                  "CLAUDE_CODE_CHILD_SESSION",
+                                                                  "CLAUDE_CODE_ENTRYPOINT",
+                                                                  "CLAUDE_CODE_EXECPATH",
+                                                                  "CLAUDE_CODE_MESSAGING_SOCKET",
+                                                                  "CLAUDE_CODE_MESSAGING_TOKEN",
+                                                                  "CLAUDE_CODE_SESSION_ATTENDED",
+                                                                  "CLAUDE_CODE_SESSION_ID",
+                                                                  "CLAUDE_EFFORT",
+                                                                  "CLAUDE_PID"
+                                                              ],
+                                       "brief":  ".collab/telemetry-usefulness-2026-10-08/handoffs/05-claude-0.6.1-diff-review.md",
+                                       "range":  {
+                                                     "spec":  "890fc9e..e4b687f",
+                                                     "files":  208,
+                                                     "insertions":  153973,
+                                                     "deletions":  87,
+                                                     "lines":  154060
+                                                 },
+                                       "prompt_chars":  9180,
+                                       "reply":  "handoffs/06-codex-0.6.1-diff-review.md",
+                                       "reply_json":  "handoffs/06-codex-0.6.1-diff-review.reply.json",
+                                       "events":  "handoffs/06-codex-0.6.1-diff-review.events.jsonl",
+                                       "partial_reply":  "",
+                                       "model":  "gpt-6-astra",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "openai",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  700,
+                                       "sandbox":  "read-only",
+                                       "timeout_sec":  2400,
+                                       "timeout_source":  "purpose",
+                                       "continue_sec":  900,
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "context_window":  null,
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-10-08T12:56:50+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "output-schema",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "timeout_continue":  null,
+                                       "stall":  null,
+                                       "kill_confirmed":  null,
+                                       "base_commit":  "e4b687f45ff4d6a4e1ba27c5167e87e8f8828b15",
+                                       "reviewed_revision":  "e4b687f",
+                                       "tree_sha256":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8",
+                                       "tree_sha256_after":  "007bed01049888915b0f3d6e4f0e99de78d63a9e740f8cdd2445ca4e3d3487c8",
+                                       "tree_changed_during_review":  false,
+                                       "revision_moved":  null,
+                                       "changed_files":  0,
+                                       "brief_sha256":  "5273e2a3976acdaf0b14dc6437e8a47b8002190888280dfce97bea0309a977e4",
+                                       "brief_sha256_after":  "5273e2a3976acdaf0b14dc6437e8a47b8002190888280dfce97bea0309a977e4",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (2 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "tree_check":  null,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "HOLD",
+                                       "verdict_reason":  "Rating provenance and ordering are not preserved through recovery, and the reset parser can incorrectly hold an endpoint for another day.",
+                                       "findings":  {
+                                                        "blocker":  4,
+                                                        "major":  1,
+                                                        "minor":  0,
+                                                        "note":  1
+                                                    },
+                                       "finding_ids":  [
+                                                           "F06-1",
+                                                           "F06-2",
+                                                           "F06-3",
+                                                           "F06-4",
+                                                           "F06-5",
+                                                           "F06-6"
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F02-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-3",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-4",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-5",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-6",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-1",
+                                                                  "status":  "not-checked"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  1119871,
+                                                     "cached_input_tokens":  938624,
+                                                     "output_tokens":  14270,
+                                                     "reasoning_output_tokens":  3061
+                                                 },
+                                       "compactions":  null,
+                                       "engine_run":  null,
+                                       "wall_seconds":  392.7,
+                                       "finished_at":  "2026-10-08T13:03:24+02:00",
+                                       "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  4,
+                                       "when":  "2026-10-08T14:37:01+02:00",
+                                       "purpose":  "diff-review",
+                                       "topics":  [
+
+                                                  ],
+                                       "role":  "",
+                                       "consult_id":  "c10d9ddd-178c-4943-97c0-9c3507a41e3c",
+                                       "consult_ref":  "7e596945-b639-4830-98ad-75dbebd69a47",
+                                       "reviewer":  {
+                                                        "provider":  "openai",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "gpt-6-astra",
+                                                        "model_source":  "roster",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "56d97b6ece36e75295a290d931ca6bbe2dd0b1f0807454b21a63a6fd17b32d7c",
+                                                        "provider_config":  {
+                                                                                "builtin":  "openai"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "openai :: gpt-6-astra",
+                                       "coordinator":  {
+                                                           "provider":  "anthropic",
+                                                           "model":  "claude-fable-5-1",
+                                                           "engine":  "codex",
+                                                           "host":  "claude-code",
+                                                           "host_by":  "markers",
+                                                           "source":  "explicit",
+                                                           "in_roster":  false,
+                                                           "unresolved":  null
+                                                       },
+                                       "preflight":  "ok: Logged in using ChatGPT",
+                                       "preflight_warning":  "",
+                                       "roster":  {
+                                                      "path":  "C:/Users/Dmytro/.codex/codex-consult-roster-0.6.json",
+                                                      "position":  1,
+                                                      "skipped":  [
+
+                                                                  ],
+                                                      "applied":  [
+                                                                      "model"
+                                                                  ]
+                                                  },
+                                       "panel":  null,
+                                       "parent_thread":  "01a11b28-ab5f-7891-ad09-8087331d938a",
+                                       "thread":  "01a11b84-6379-7950-bfcd-ff2d560415fd",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "fork",
+                                       "mode_fallback":  null,
+                                       "command":  "codex exec --sandbox read-only --color never --json -m gpt-6-astra -c model_reasoning_effort=\"high\" -c model_provider=\"openai\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-9f944ff9e5b14037b7f9829ae8ed89fb.md --output-schema C:\\Users\\Dmytro\\claude-codex-consult\\plugins\\codex-consult\\schemas\\consult-reply.schema.json fork 01a11b28-ab5f-7891-ad09-8087331d938a -",
+                                       "child_env_scrubbed":  [
+                                                                  "AI_AGENT",
+                                                                  "CLAUDECODE",
+                                                                  "CLAUDE_CODE_BRIDGE_SESSION_ID",
+                                                                  "CLAUDE_CODE_CHILD_SESSION",
+                                                                  "CLAUDE_CODE_ENTRYPOINT",
+                                                                  "CLAUDE_CODE_EXECPATH",
+                                                                  "CLAUDE_CODE_MESSAGING_SOCKET",
+                                                                  "CLAUDE_CODE_MESSAGING_TOKEN",
+                                                                  "CLAUDE_CODE_SESSION_ATTENDED",
+                                                                  "CLAUDE_CODE_SESSION_ID",
+                                                                  "CLAUDE_EFFORT",
+                                                                  "CLAUDE_PID"
+                                                              ],
+                                       "brief":  ".collab/telemetry-usefulness-2026-10-08/handoffs/07-claude-0.6.1-round2.md",
+                                       "range":  {
+                                                     "spec":  "e4b687f..94283c3",
+                                                     "files":  12,
+                                                     "insertions":  557,
+                                                     "deletions":  111,
+                                                     "lines":  668
+                                                 },
+                                       "prompt_chars":  11499,
+                                       "reply":  "handoffs/08-codex-0.6.1-round2.md",
+                                       "reply_json":  "handoffs/08-codex-0.6.1-round2.reply.json",
+                                       "events":  "handoffs/08-codex-0.6.1-round2.events.jsonl",
+                                       "partial_reply":  "",
+                                       "model":  "gpt-6-astra",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "openai",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  700,
+                                       "sandbox":  "read-only",
+                                       "timeout_sec":  2400,
+                                       "timeout_source":  "purpose",
+                                       "continue_sec":  900,
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "context_window":  null,
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-10-08T14:37:01+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "output-schema",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "timeout_continue":  null,
+                                       "stall":  null,
+                                       "kill_confirmed":  null,
+                                       "base_commit":  "94283c3236cc593f105d99fc4bb5c27e84bb6ca0",
+                                       "reviewed_revision":  "94283c3",
+                                       "tree_sha256":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74",
+                                       "tree_sha256_after":  "d80d90a305099c3e6866439cbc0ebd1d549e81cc55d4de909843b526b93a4f74",
+                                       "tree_changed_during_review":  false,
+                                       "revision_moved":  null,
+                                       "changed_files":  0,
+                                       "brief_sha256":  "d0ce23290cf7ebde83157f58910a36639330ddd29ab6f66ee420aee78933cd79",
+                                       "brief_sha256_after":  "d0ce23290cf7ebde83157f58910a36639330ddd29ab6f66ee420aee78933cd79",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (7 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "tree_check":  null,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "HOLD",
+                                       "verdict_reason":  "The ordinary recovery paths are fixed, but publishing before the local rating commit allows an uncommitted revision to escape and subsequently be reused.",
+                                       "findings":  {
+                                                        "blocker":  1,
+                                                        "major":  0,
+                                                        "minor":  1,
+                                                        "note":  0
+                                                    },
+                                       "finding_ids":  [
+                                                           "F08-1",
+                                                           "F08-2"
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F02-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-5",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-6",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F06-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F06-2",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F06-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F06-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F06-5",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F06-6",
+                                                                  "status":  "fixed"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  3226870,
+                                                     "cached_input_tokens":  2706304,
+                                                     "output_tokens":  22934,
+                                                     "reasoning_output_tokens":  5494
+                                                 },
+                                       "compactions":  null,
+                                       "engine_run":  null,
+                                       "wall_seconds":  516.6,
+                                       "finished_at":  "2026-10-08T14:45:39+02:00",
+                                       "commit_wait_ms":  0
+                                   },
+                                   {
+                                       "n":  5,
+                                       "when":  "2026-10-08T16:44:53+02:00",
+                                       "purpose":  "diff-review",
+                                       "topics":  [
+
+                                                  ],
+                                       "role":  "",
+                                       "consult_id":  "1372d8e7-7f1d-45c9-8ad9-500d7aa3fc44",
+                                       "consult_ref":  "3216f76d-cd3c-4d16-b68b-5720a4fd7689",
+                                       "reviewer":  {
+                                                        "provider":  "openai",
+                                                        "provider_source":  "-Provider",
+                                                        "model":  "gpt-6-astra",
+                                                        "model_source":  "roster",
+                                                        "engine":  "codex",
+                                                        "harness":  "codex-cli 0.155.1",
+                                                        "provider_fingerprint":  "56d97b6ece36e75295a290d931ca6bbe2dd0b1f0807454b21a63a6fd17b32d7c",
+                                                        "provider_config":  {
+                                                                                "builtin":  "openai"
+                                                                            },
+                                                        "identity_note":  ""
+                                                    },
+                                       "lineage":  "openai :: gpt-6-astra",
+                                       "coordinator":  {
+                                                           "provider":  "anthropic",
+                                                           "model":  "claude-fable-5-1",
+                                                           "engine":  "codex",
+                                                           "host":  "claude-code",
+                                                           "host_by":  "markers",
+                                                           "source":  "explicit",
+                                                           "in_roster":  false,
+                                                           "unresolved":  null
+                                                       },
+                                       "preflight":  "ok: Logged in using ChatGPT",
+                                       "preflight_warning":  "",
+                                       "roster":  {
+                                                      "path":  "C:/Users/Dmytro/.codex/codex-consult-roster-0.6.json",
+                                                      "position":  1,
+                                                      "skipped":  [
+
+                                                                  ],
+                                                      "applied":  [
+                                                                      "model"
+                                                                  ]
+                                                  },
+                                       "panel":  null,
+                                       "parent_thread":  "01a11b84-6379-7950-bfcd-ff2d560415fd",
+                                       "thread":  "01a11bf9-73b8-7dd1-aa90-eebf46e14499",
+                                       "thread_source":  "events",
+                                       "thread_candidate":  "",
+                                       "mode":  "fork",
+                                       "mode_fallback":  null,
+                                       "command":  "codex exec --sandbox read-only --color never --json -m gpt-6-astra -c model_reasoning_effort=\"high\" -c model_provider=\"openai\" -o C:\\Users\\Dmytro\\AppData\\Local\\Temp\\codex-consult-last-2a57aabb126440df9fea94d2f93e137e.md --output-schema C:\\Users\\Dmytro\\claude-codex-consult\\plugins\\codex-consult\\schemas\\consult-reply.schema.json fork 01a11b84-6379-7950-bfcd-ff2d560415fd -",
+                                       "child_env_scrubbed":  [
+                                                                  "AI_AGENT",
+                                                                  "CLAUDECODE",
+                                                                  "CLAUDE_CODE_BRIDGE_SESSION_ID",
+                                                                  "CLAUDE_CODE_CHILD_SESSION",
+                                                                  "CLAUDE_CODE_ENTRYPOINT",
+                                                                  "CLAUDE_CODE_EXECPATH",
+                                                                  "CLAUDE_CODE_MESSAGING_SOCKET",
+                                                                  "CLAUDE_CODE_MESSAGING_TOKEN",
+                                                                  "CLAUDE_CODE_SESSION_ATTENDED",
+                                                                  "CLAUDE_CODE_SESSION_ID",
+                                                                  "CLAUDE_EFFORT",
+                                                                  "CLAUDE_PID"
+                                                              ],
+                                       "brief":  ".collab/telemetry-usefulness-2026-10-08/handoffs/09-claude-0.6.1-round3.md",
+                                       "range":  {
+                                                     "spec":  "94283c3..4061dda",
+                                                     "files":  8,
+                                                     "insertions":  292,
+                                                     "deletions":  65,
+                                                     "lines":  357
+                                                 },
+                                       "prompt_chars":  11554,
+                                       "reply":  "handoffs/10-codex-0.6.1-round3.md",
+                                       "reply_json":  "handoffs/10-codex-0.6.1-round3.reply.json",
+                                       "events":  "handoffs/10-codex-0.6.1-round3.events.jsonl",
+                                       "partial_reply":  "",
+                                       "model":  "gpt-6-astra",
+                                       "effort":  "high",
+                                       "effort_requested":  "high",
+                                       "effort_sent":  "high",
+                                       "effort_mapping":  "openai",
+                                       "effort_caps":  "caps-v1",
+                                       "effort_confirmed":  null,
+                                       "max_words":  700,
+                                       "sandbox":  "read-only",
+                                       "timeout_sec":  2400,
+                                       "timeout_source":  "purpose",
+                                       "continue_sec":  900,
+                                       "extra_config":  [
+
+                                                        ],
+                                       "extra_config_source":  "",
+                                       "context_window":  null,
+                                       "peak":  null,
+                                       "peak_schedule":  "",
+                                       "peak_source":  "none",
+                                       "peak_evaluated_at":  "2026-10-08T16:44:53+02:00",
+                                       "structured":  true,
+                                       "schema":  "consult-reply v1",
+                                       "schema_transport":  "output-schema",
+                                       "schema_transport_source":  "caps-v1",
+                                       "validation_error":  "",
+                                       "format_retry":  null,
+                                       "denial_retry":  null,
+                                       "timeout_continue":  null,
+                                       "stall":  null,
+                                       "kill_confirmed":  null,
+                                       "base_commit":  "4061ddab2d81c562b6cfc2c9ee6dcfd1ebed5e96",
+                                       "reviewed_revision":  "4061dda",
+                                       "tree_sha256":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246",
+                                       "tree_sha256_after":  "2bf14bdd3ec30ab09a3daf0dcab5c480c762690fb39795a15ab27d83ff64f246",
+                                       "tree_changed_during_review":  false,
+                                       "revision_moved":  null,
+                                       "changed_files":  0,
+                                       "brief_sha256":  "c71f3951f8d8d845bf9fa829e2c5f09cc872782308283f28cff4473c11ba170f",
+                                       "brief_sha256_after":  "c71f3951f8d8d845bf9fa829e2c5f09cc872782308283f28cff4473c11ba170f",
+                                       "brief_changed_during_review":  false,
+                                       "fingerprint_note":  "collab dir \u0027.collab\u0027 excluded (11 entries); ignored files excluded; untracked file modes not recorded; submodules not recursed",
+                                       "artifacts":  [
+
+                                                     ],
+                                       "artifacts_changed_during_review":  false,
+                                       "tree_check":  null,
+                                       "bridge_outcome":  "usable reply",
+                                       "provider_failure":  null,
+                                       "warnings":  [
+
+                                                    ],
+                                       "verdict":  "ACCEPT",
+                                       "verdict_reason":  "The reviewed bridge delta fixes both remaining findings; the residual duplicate-delivery caveat does not invalidate committed revision ordering.",
+                                       "findings":  {
+                                                        "blocker":  0,
+                                                        "major":  0,
+                                                        "minor":  0,
+                                                        "note":  1
+                                                    },
+                                       "finding_ids":  [
+                                                           "F10-1"
+                                                       ],
+                                       "prior_findings":  [
+                                                              {
+                                                                  "id":  "F02-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-2",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-5",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F02-6",
+                                                                  "status":  "still-open"
+                                                              },
+                                                              {
+                                                                  "id":  "F03-1",
+                                                                  "status":  "not-checked"
+                                                              },
+                                                              {
+                                                                  "id":  "F06-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F06-3",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F06-4",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F06-6",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F08-1",
+                                                                  "status":  "fixed"
+                                                              },
+                                                              {
+                                                                  "id":  "F08-2",
+                                                                  "status":  "fixed"
+                                                              }
+                                                          ],
+                                       "unchecked_prior_blockers":  [
+
+                                                                    ],
+                                       "usage":  {
+                                                     "input_tokens":  4561060,
+                                                     "cached_input_tokens":  3836288,
+                                                     "output_tokens":  27668,
+                                                     "reasoning_output_tokens":  7009
+                                                 },
+                                       "compactions":  null,
+                                       "engine_run":  null,
+                                       "wall_seconds":  240.5,
+                                       "finished_at":  "2026-10-08T16:48:54+02:00",
+                                       "commit_wait_ms":  0
                                    }
                                ]
               }
