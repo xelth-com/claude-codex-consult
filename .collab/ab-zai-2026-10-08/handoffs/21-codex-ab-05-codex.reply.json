@@ -1,0 +1,73 @@
+{
+  "schema_version": "1",
+  "reply_markdown": "## Answers\n\n**Q1.** Without network the bridge infers: credential *presence* only — `env_key` set and non-empty or `experimental_bearer_token`; builtin/`requires_openai_auth` via local `codex login status` (15 s); engines via `agy models` (45 s, skipped after a usable reply ≤ 60 min), claude/muse local checks. Everything else comes from records: per-`provider_fingerprint` health from all task ledgers **plus the machine-wide health file/journal** — auth failure ≤ 24 h, quota with reset ahead, quota without reset hit < 60 min (burst < 10 min), cross-route plan quotas (wave 29b E5), and `engine_run.quota_mark` on usable replies (E15). The ledger stores `preflight`, `preflight_warning`, `provider_failure {class, kind, code, message ≤200, when, retry_after, hint}`; a dead provider refuses the next run until a newer usable reply clears it — the coordinator cannot count on it twice.\n\n**Q2.** I do not know MiMo's exact credit-exhaustion/invalid-key wording; this repository's 24 MiMo ledger entries contain no such failure (only feature-not-supported, timeout, model-name errors). Confirmed: MiMo rejects via SSE `data:{\"error\":{code,message,...}}`, which `ConvertFrom-ProviderErrorText` lifts (common.ps1:5805). It is then caught only if the message matches the quota/auth regexes; other wording → `unknown`.\n\n**Q3.** Today: `bridge_outcome = \"failed: codex exit N - <tail>\"`; `provider_failure = New-ProviderFailure` over (last SSE data line, event error, stderr tail, outcome) at codex-consult.ps1:5564, written to `sessions.json` and the machine-wide record before commit (journal + retry). Next preflight reads all of that and refuses on auth/quota. It is enough **iff** the text classifies; a bare exit code with no payload classifies `unknown`, which `Get-EndpointHealth` ignores — the endpoint silently stays \"available\" (finding #1).\n\n**Q4.** ACCEPT as a diff, no blockers. Ordering holds (effort at :3591, preflight :3634–3650, peak/lock after; refusal exits before any ledger entry). Drift vs the brief: the scan is no longer \"this repository's ledgers within 24 h\" (machine-wide + plan quotas; exit 1 added); a usage limit is no longer \"warning only\" — it refuses unless `-SkipPreflight` (finding #2/#3). Unproven: real MiMo quota/auth wording; no harness run (read-only). First real run should show `preflight \"ok: ...\"`, the MiMo lineage, effort mapping, extra_config, usage, and a parsed JSON reply.",
+  "findings": [
+    {
+      "severity": "minor",
+      "locations": [
+        { "path": "plugins/codex-consult/scripts/codex-consult.ps1", "line": 5564 },
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 5758 }
+      ],
+      "claim": "A first-request rejection whose evidence matches none of the failure-class patterns (e.g. a bare non-zero exit with no SSE payload, no event error, no diagnostic stderr) is recorded as provider_failure class 'unknown', which Get-EndpointHealth ignores, so the next preflight still reports the endpoint available — the silent-failure case the review asks about.",
+      "trigger": "Provider rejects a key with wording outside the quota/auth regexes and no JSON error payload.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult.ps1:5549-5566", "observation": "provider_failure is built only from SSE data lines, eventError, stderrTail and bridge_outcome via New-ProviderFailure." },
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:6264-6290", "observation": "Get-EndpointHealth only marks Auth (class auth) and Quota (class quota) records; 'unknown' never makes the endpoint out." }
+      ],
+      "verification": "Force a fake codex to exit 1 printing only a plain line, then run codex-providers.ps1 -Provider <name> and confirm the verdict stays available with last_failure.class unknown.",
+      "remedy": "Keep the newest 'unknown' failure per endpoint in the machine-wide health as a soft signal surfaced by preflight/codex-providers (a warning, not a refusal), so an unclassifiable dead provider is at least visible.",
+      "supersedes": []
+    },
+    {
+      "severity": "note",
+      "locations": [
+        { "path": ".collab/ab-zai-2026-10-08/handoffs/05-claude-ab-mimo-preflight-review.md", "line": 26 },
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 7926 }
+      ],
+      "claim": "The brief's claim that a usage limit hit within the last hour yields 'warning only' is stale: since wave 24b (F08-7) every still-blocking usage limit refuses the run; Format-QuotaWarning emits a warning only under -SkipPreflight.",
+      "trigger": "Preflight with a recorded usage limit still in force and no -SkipPreflight.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:7922-7934", "observation": "Format-QuotaWarning returns '' unless SkipPreflight; Get-PreflightVerdict refuses on a blocking quota." }
+      ],
+      "verification": "Record a quota failure in a test ledger and run without -SkipPreflight: the run is refused, not warned.",
+      "remedy": "Update the handoff wording to the current fail-closed behavior.",
+      "supersedes": []
+    },
+    {
+      "severity": "note",
+      "locations": [
+        { "path": ".collab/ab-zai-2026-10-08/handoffs/05-claude-ab-mimo-preflight-review.md", "line": 21 },
+        { "path": "plugins/codex-consult/scripts/codex-consult-common.ps1", "line": 6186 },
+        { "path": "plugins/codex-consult/scripts/codex-providers.ps1", "line": 120 }
+      ],
+      "claim": "The brief's claim that the usage-limit scan reads 'this repository's ledgers within 24 h' is stale: Get-EndpointHealth also merges the machine-wide health file/journal (all repositories, wave 26b D13) and cross-route plan quotas (wave 29b E5), and codex-providers adds exit code 1 for usage errors.",
+      "trigger": "A quota recorded in the machine-wide health or on another route of the same plan.",
+      "evidence": [
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:6186-6205", "observation": "Get-EndpointHealth appends ConvertTo-MachineHealthEntries for every fingerprint; plan quotas via Get-PlanQuotaVerdict." },
+        { "kind": "read-code", "reference": "plugins/codex-consult/scripts/codex-providers.ps1:119-121", "observation": "Exit codes now document 1 usage error in addition to 0/2/3." }
+      ],
+      "verification": "Record a quota only in the machine-wide health file and confirm codex-providers -Provider reports it.",
+      "remedy": "Refresh the handoff description to the current sources and exit codes.",
+      "supersedes": []
+    }
+  ],
+  "verdict": "ADVISE",
+  "verdict_reason": "Checkpoint preflight review: the mechanism is sound and fail-closed, with two documentation drifts and one inherent silent-unknown edge reported as findings.",
+  "prior_findings": [
+    { "id": "F13-1", "status": "still-open", "note": "22 harness-*.ps1 files counted; harness-fixes28d still has exactly 40 Check calls." },
+    { "id": "F13-2", "status": "still-open", "note": "Open-TelemetrySpoolFile returns $null for a missing FileMode.Open file; Remove-TelemetrySpoolLines still reports 'stayed busy'." },
+    { "id": "F14-1", "status": "still-open", "note": "The flush still calls Remove-TelemetrySpoolLines with Math.Max(100, remaining) after only the lock check; no literal deadline check before the rewrite." },
+    { "id": "F15-1", "status": "still-open", "note": "Wait-EngineProcess still cuts after 2 x StallSec without stream growth while a tool is open (D12 ToolOpen/OpenTools), contradicting the stale 'never cut' invariant." },
+    { "id": "F16-1", "status": "still-open", "note": "-Kick still waits only on <kick file>.ack {id, result} for up to 10 s; no 'kicked' pending-record state exists." },
+    { "id": "F16-2", "status": "still-open", "note": "The old literal warning is gone; the cause-bearing commit/retry texts are present at codex-consult.ps1:6076 and :6122." },
+    { "id": "F16-3", "status": "still-open", "note": "The Wait-EngineProcess header still says 'never cut' five lines above the wave-28b D12 note describing the 2 x StallSec cut." },
+    { "id": "F17-1", "status": "still-open", "note": "Add/Get/Merge-TelemetryNotSpooled per-producer files still exist (12096/12196/12267); the old handoff's D4/D7 single-file wording remains stale." },
+    { "id": "F17-2", "status": "still-open", "note": "tests/README.md line 23 still calls harness-claude the twentieth harness while 22 exist." },
+    { "id": "F19-1", "status": "still-open", "note": "harness-visibility.ps1 has 122 Check calls, not 76." }
+  ],
+  "unproven": [
+    "Exact Xiaomi MiMo credit-exhaustion and invalid-key error wording was not verifiable from this repository's ledgers or code comments.",
+    "No harness or preflight script was executed (read-only consultation); code paths were verified by reading only."
+  ],
+  "first_run_checklist": []
+}
