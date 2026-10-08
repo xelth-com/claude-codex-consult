@@ -88,3 +88,11 @@ harness-claude first run 55/55 after test fixes 55f5c0b).
 - Next after that: the website pass (memory), 0.6.1 (TECH_DEBT items, the judge class in the rating event), the driver
   and analyser committed under tests/ab/.
 
+## 2026-10-08 10:45: wave 29c CLOSED (handoff 40 final)
+- MiMo 12/12 pairs: credits 0.17x, wall 1.16x (narrow), structured 12/12 both, blind marks 5.0 vs 3.08, preference 12:0 -
+  **the endpoint route stays for MiMo too** (wall caveat). ab/mimo merged into main; the driver and analyser under
+  tests/ab/. E8 decided for both plans.
+- Next: the operator installs 0.6.0 and the 0.6 roster goes live (+ Haiku 5.5 chore entry, the Kimi two-entry pattern);
+  the website pass (memory: shorter intro, the prompt button, the usefulness table top-10 / paging / judge coefficients,
+  the judge class in the rating event = 0.6.1); 0.6.1 also the time-only reset wording (TECH_DEBT).
+

@@ -3064,8 +3064,10 @@ endpoint out; it is never derived from a Codex `[model_providers]` table:
 - **Whether the route stays (E8, wave 29c).** Decided by evidence, not by this implementation: paired, order-randomised
   runs of the same briefs through both routes, at least 12 pairs per provider; keep the route when the median credits are
   at most 0.8x the codex route AND the first-turn structured rate is not lower AND the median wall time is at most 1.25x
-  AND the blind `-Rate` marks are not worse. One pair so far (P13: credits 0.30x, wall 0.51x, both structured) is an
-  anecdote.
+  AND the blind `-Rate` marks are not worse. **Decided 2026-10-08 (wave 29c, 12 pairs per plan, handoff 40 of
+  `.collab/claude-engine-2026-09-30/`): the route STAYS for z.ai (credits 0.27x, wall 0.46x, structured 12/12 on both
+  routes, blind marks 4.33 vs 4.08) and for MiMo (credits 0.17x, wall 1.16x - no faster than codex on that plan,
+  structured 12/12 both, blind marks 5.0 vs 3.08).** The driver and the analyser: `tests/ab/`.
 
 **Not done, on purpose.** The Agent tool and subagents, MCP servers, web tools, Bash and every write tool,
 `workspace-write`; `--bare` (API-key only: it ignores the subscription login); routing through an INHERITED gateway

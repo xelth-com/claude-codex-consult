@@ -1,4 +1,4 @@
-# Handoff 40 - wave 29c: the paired A/B of the endpoint route (E8) - z.ai complete, MiMo half done
+# Handoff 40 - wave 29c: the paired A/B of the endpoint route (E8) - z.ai and MiMo complete
 
 Date: 2026-10-08 (night). Coordinator: Claude Code (Fable 5.1). Code under test: v0.6.0 (890fc9e). The question of
 E8 (handoff 12): does the `claude` engine's endpoint route (Claude Code headless against a plan's Anthropic-compatible
@@ -48,7 +48,7 @@ endpoint) earn its place in the roster beside the codex route of the same plan?
   findings as filed) and were not weighted.
 - **Decision E8 for z.ai: the endpoint route STAYS** - all four gates pass, with a wide margin on credits and wall time.
 
-## MiMo (mimo-v2.6-pro) - 6 of 12 pairs complete, 01:21-03:40 (chain interrupted)
+## MiMo (mimo-v2.6-pro) - 12 of 12 pairs, 01:21-03:40 and 08:48-10:26 (resumed after the memory guard)
 
 | pair | codex: wall s / credits (M) | claude: wall s / credits (M) | credits ratio | wall ratio |
 |---|---|---|---|---|
@@ -58,19 +58,36 @@ endpoint) earn its place in the roster beside the codex route of the same plan?
 | 04 | 399 / 268 | 697 / 37 | 0.14 | 1.75 |
 | 05 | 574 / 203 | 585 / 35 | 0.17 | 1.02 |
 | 06 | 559 / 274 | 603 / 48 | 0.18 | 1.08 |
+| 07 | 383 / 148 | 490 / 38 | 0.26 | 1.28 |
+| 08 | 555 / 161 | 619 / 30 | 0.18 | 1.11 |
+| 09 | 789 / 398 | 450 / 35 | 0.09 | 0.57 |
+| 10 | 215 / 97 | 620 / 42 | 0.44 | 2.88 |
+| 11 | 389 / 247 | 465 / 36 | 0.15 | 1.20 |
+| 12 | 498 / 272 | 717 / 47 | 0.17 | 1.44 |
 
-- Usable 6/6 both; structured 6/6 both. Median credits ratio **0.16** (gate <= 0.8); median wall ratio **1.05** (gate <=
-  1.25; two pairs above 1.25 - the MiMo endpoint is slower through Claude Code than through codex, unlike z.ai).
-- The chain was killed at 03:40 by Claude Code's memory guard (a peer session's cargo build, `link.exe` at 7.6 GB on a
-  16 GB machine) during pair 7's codex arm (the claude arm of pair 7 is usable, n=13); the orphaned pending record of that
-  arm (n=14, bridge pid dead) is left for the bridge's own recovery on the next run. The driver resumes from pair 7
-  when restarted (the operator's word is needed: the guard forbids a restart on the coordinator's initiative).
-- Blind marks for MiMo: pending the full 12 pairs (the same judge, the same bar).
-- **Decision for MiMo: PENDING** the remaining 6 pairs and the blind marks; the preliminary numbers pass three gates.
+- Usable 12/12 both; structured on the first turn 12/12 both.
+- Median credits ratio **0.17** (gate <= 0.8). Median wall ratio **1.16** (gate <= 1.25 - passed, but narrowly: five pairs
+  above 1.25, the MiMo Anthropic endpoint answers slower through Claude Code than its Responses endpoint through codex).
+- Blind marks (the same opus judge, routes hidden, key 2027): codex mean **3.08** (median 3; useful yes 3 / partly 9),
+  claude mean **5.0** (12 x yes); preference claude 12 pairs, codex 0. Gate "not worse": **PASS**. The judge saw no
+  fabrication; the gap is one of shape: in nine pairs the codex-route reply carried an EMPTY findings list and pointed
+  at ids already in the task's store (the prompt-only schema transport of the Responses route lets the reviewer answer
+  by reference; the native `--json-schema` transport of the Claude Code route always yields a filled findings list with
+  file:line evidence) - read alone, such a reply is worth less to a coordinator, which is exactly what the mark measures.
+  The chain's interruption at 03:40 (the memory guard, a peer's cargo build) cost nothing: the orphaned pending record
+  of pair 7's codex arm was recovered by the bridge on the resume (E18-E28 in action) and the arm re-ran.
+- **Decision E8 for MiMo: the endpoint route STAYS**, with the wall-time caveat documented (prefer it for credits and
+  reply quality, expect it to be no faster than codex on this plan).
+
+## Decision (E8, both plans)
+
+The endpoint route of the `claude` engine stays in the roster beside the codex route for z.ai and for MiMo, as the
+documented examples of the README and the setup-providers skill (3g). Kimi Code's endpoint (`api.kimi.ai/coding/`)
+remains documented as the third example without a live A/B (the operator's Kimi plan was not part of this run).
 
 ## What the A/B also showed
 
-- The claude engine's endpoint route ran 36 consultations (24 z.ai, 13 MiMo - 7 claude arms) without a single failure,
+- The claude engine's endpoint route ran 24 consultations (12 per plan) and the codex route 24 (+1 re-run) without a single failure,
   quota hold or format repair; every reply was structured on the first turn (the native `--json-schema` transport),
   while the codex route's structured rate was also 100% on these briefs.
 - Credits: the codex route re-sends the whole context on every tool turn (2-3 M input tokens per MiMo consultation,
@@ -81,6 +98,5 @@ endpoint) earn its place in the roster beside the codex route of the same plan?
 ## Files
 
 - `.collab/ab-zai-2026-10-08/` (branch `ab/zai`, merged into main): the 12 briefs, 24 replies, the ledger with 24 ratings.
-- `.collab/ab-mimo-2026-10-08/` (branch `ab/mimo`, merged when complete): the 12 briefs, 13 replies so far.
-- The driver and the analyser: the coordinator's scratchpad `ab/ab-driver.ps1`, `ab/ab-analyze.py` (to be committed under
-  `tests/ab/` with wave 29c's close).
+- `.collab/ab-mimo-2026-10-08/` (branch `ab/mimo`, merged into main): the 12 briefs, 24 replies (+1 orphaned arm), the ledger with 24 ratings.
+- The driver and the analyser: `tests/ab/ab-driver.ps1`, `tests/ab/ab-analyze.py` (+ `tests/ab/README.md`).

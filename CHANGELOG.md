@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- **Wave 29c, the paired A/B of the endpoint route (E8), decided** (2026-10-08): 12 pairs per plan through the codex
+  route and the Claude Code endpoint route on the same briefs, order random; z.ai credits 0.27x / wall 0.46x, MiMo
+  credits 0.17x / wall 1.16x, structured on the first turn 12/12 on every arm, the blind marks of an opus judge not
+  worse (z.ai 4.33 vs 4.08, MiMo 5.0 vs 3.08) - the route stays for both plans (handoff 40 of
+  `.collab/claude-engine-2026-09-30/`; the driver and the analyser under `tests/ab/`). Documentation only, no code.
+
 ## [0.6.0] - 2026-10-08
 
 Wave 29, the `claude` engine - ROADMAP R10 with R22: Claude Code headless as a reviewer for the Claude
