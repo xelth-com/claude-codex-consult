@@ -35,14 +35,32 @@ for (a ChatGPT plan behind the Codex CLI, a coding plan behind a `[model_provide
 Antigravity CLI, Meta's Muse Code CLI, Claude Code); the bridge only launches them and reads the roster. So the
 first thing a fresh installation needs is a conversation: what the machine has, what the operator
 subscribes to, and which of it to wire. The `setup-providers` skill runs that conversation from its
-step 0. The operator starts it by pasting this prompt into their agent host, right after the install
-commands of their host under "Install" - Claude Code, Codex CLI, Z Code, Kimi Code, Qwen Code,
-OpenCode, Muse Code or a plain shell alike:
+step 0. The operator starts it by pasting ONE prompt into their agent host - Claude Code, Codex CLI,
+Z Code, Kimi Code, Qwen Code, OpenCode, Muse Code or a plain shell alike - before or after the install
+commands of their host under "Install": the prompt lets the operator choose between trying a single
+consultation and installing for good, and gives the install commands when the plugin is missing
+(the same text is downloadable from the maintainer's page, https://xelth.com/C3/first-run-prompt.txt):
 
 ```text
-The codex-consult plugin is installed. Wire my reviewers by following its setup-providers skill
-from step 0 (codex-consult:setup-providers; a host without skills prints it with the plugin's own
-script: powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/scripts/codex-consult.ps1"
+I want to use the claude-codex-consult bridge: either TRY one consultation now, or INSTALL it for
+good and wire my reviewers. Ask me which - and which host I am in (Claude Code, Codex CLI, Z Code,
+Kimi Code, Qwen Code, OpenCode, Muse Code or a plain shell) when you cannot tell.
+
+If the plugin is not installed yet, give me the install commands for my host (README "Install" of
+github.com/xelth-com/claude-codex-consult - in Claude Code: /plugin marketplace add
+xelth-com/claude-codex-consult, then /plugin install codex-consult@claude-codex-consult) and wait:
+installing is my action, in my own terminal. Never install software yourself.
+
+TRY: one consultation needs one signed-in reviewer - the Codex CLI with a ChatGPT plan (codex login)
+is enough, no roster. Check it with codex-providers.ps1 -Short; write a one-page brief about
+something in this repository (the consult-codex skill's brief template); run codex-consult.ps1
+-Task try-<date> -Purpose checkpoint -Brief <file> -Prompt "<one-line ask>" -ReplyName try; show
+me the reply file and the findings it filed; tell me that telemetry is on by default and how to
+switch it off (CODEX_CONSULT_TELEMETRY=off).
+
+INSTALL: wire my reviewers by following the setup-providers skill from step 0
+(codex-consult:setup-providers; a host without skills prints it with the plugin's own script:
+powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/scripts/codex-consult.ps1"
 -Explain providers - pwsh -NoProfile -File on macOS and Linux; the plugin directory is in this
 session's start line or under "Install" in the repository README).
 
