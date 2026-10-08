@@ -1,6 +1,6 @@
 # claude-codex-consult (CCC)
 
-A plugin (`codex-consult`, version 0.6.0) for the agent that coordinates the work - the
+A plugin (`codex-consult`, version 0.6.1) for the agent that coordinates the work - the
 **coordinator**, the judge of every reply - to consult reviewers and record every
 consultation as files. This README is written for the AI coding agent that installs, wires
 and uses the plugin; humans can follow the same steps. The host is a parameter (0.5.0, wave

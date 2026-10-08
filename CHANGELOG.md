@@ -4,7 +4,13 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.1] - 2026-10-08
+
+The bridge half of the public usefulness table (`.collab/telemetry-usefulness-2026-10-08`, decisions U1-U7; the
+intake and the page at xelth.com/C3/ already read both new keys) and one parse fix. Compatible with 0.6.0 rosters
+and ledgers: an entry without `consult_ref` sends no such key.
+
+### Changed
 
 - **Wave 29c, the paired A/B of the endpoint route (E8), decided** (2026-10-08): 12 pairs per plan through the codex
   route and the Claude Code endpoint route on the same briefs, order random; z.ai credits 0.27x / wall 0.46x, MiMo
