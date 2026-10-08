@@ -1,0 +1,204 @@
+{
+  "schema_version": "1",
+  "verdict": "ADVISE",
+  "verdict_reason": "Define what the ranking measures, preserve closed-list privacy, and resolve rating provenance and counting semantics before adding judge weights.",
+  "reply_markdown": "**Q1. Ranking.** First choose the objective: observed satisfaction, correctness, operational reliability, or value for money. These columns support observed satisfaction; they cannot establish that several cheap reviewers equal one expensive reviewer. Missing options include separate satisfaction/reliability rankings, purpose-specific views, and a provisional section. I would need rating coverage, installation concentration, task mix, and independently adjudicated outcomes to choose confidently.\n\nStart with one satisfaction score: let `(pU,pP,pN) ~ Dirichlet(U+1,P+1,N+1)` and rank by `100 × fifth_percentile(pU + 0.5pP)`. This supplies shrinkage and an uncertainty penalty. Require at least 10 distinct rated consultations for ranked eligibility; otherwise show “provisional.” A statistical correction alone cannot guarantee that two ratings never beat sixty. Existing rating events cannot establish that distinct count reliably (finding #4); until resolved, label an event-based preview explicitly.\n\nKeep usable rate, failures, findings, blockers, latency, and rating coverage alongside the score. Do not reward finding volume or multiply unmatched consultation and rating denominators. Page globally, ten rows at a time, ordered by score descending, sample count descending, then vendor/model ascending. Bind links to the cached snapshot and scoring version; vendor views are optional. Disclose window truncation (finding #5).\n\n**Q2. Judge coefficients.** The goal must allow Gemini—or any model—to rise when credible evidence supports it. Preserving the maintainer’s existing ordering would prejudge the result. Missing options are equal weights, calibration against independently adjudicated reviews, and a separate maintainer cohort.\n\nUse equal weights initially. External general rankings do not establish review-judging accuracy; reviewer-derived weights are circular; hand-kept tiers encode an editorial preference. If coefficients are mandatory, publish a versioned table as an experimental view alongside unweighted results, pending calibration on shared cases.\n\nDisplay `Σw·(yes + 0.5·partial)/Σw` as “judge-weighted rating utility,” with raw counts, unknown-judge share, and weight version. Legacy/unknown judges get neutral weight 1, not zero or an assumed premium identity. For weighted uncertainty, account for unequal weights and clustering; `n_eff=(Σw)²/Σw²` addresses only unequal weights.\n\n**Q3. Judge field.** The consultation’s coordinator is not necessarily the later rater (finding #3). Capture the rating actor when rating occurs and persist it locally for backfill. Otherwise name the field `consult_coordinator`, not `judge`.\n\nUse an optional closed object: `judge:{provider,model,source}`, with `source` from `rating_actor|consult_coordinator|unknown`. Distinguish absent identity (`unknown`) from an unrecognized supplied identity (`other`). Never copy the ledger’s provider label. Current vendor classification requires endpoint metadata that the coordinator record does not contain; use a dedicated conservative classifier. Host is optional diagnostic context, not authority; omit it from the main table. Reject neither old events nor ratings with missing identity.\n\n**Q4. Unknown models.** Prefer **(c)**, optionally supplemented by **(a)**. Another option is a versioned, reviewed public catalog distributed to clients, with local exact matching before transmission; recognize public model IDs independently of unknown endpoint vendors.\n\n(a) Emit only fixed family tokens: sending matched suffixes leaks private labels; rare combinations still expose usage. (b) Reject: `acme-prod-secret` passes the regex, and server suppression occurs after collection. Installation counts do not prove independent users. (c) Review additions against public identifiers; private aliases admitted through PRs defeat the boundary, and rare-model usage remains observable. (d) Adds no model-name disclosure, but retains existing metadata exposure and hides client diversity.\n\n**Q5. Order of work.** Before either half, decide score meaning, counting unit/re-rating policy, actor provenance, unknown semantics, privacy boundary, and model-versus-endpoint identity. Before bridge release, verify intake compatibility with additive fields and sanitized backfill. The site can ship descriptive paging now. Later change thresholds, priors, coefficients, columns, and paging through documented scoring versions. Catalog growth needs compatible unknown handling; changing field meaning or exposing raw strings is not merely an additive change.",
+  "findings": [
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+          "line": 22
+        },
+        {
+          "path": ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+          "line": 43
+        }
+      ],
+      "claim": "The proposed ranking can encode the desired model ordering rather than measure reviewer usefulness: neither judge prestige nor finding volume establishes correctness, and aggregate satisfaction does not control for task mix or installation concentration.",
+      "trigger": "Judge coefficients are selected to prevent a currently lower-ranked model from rising, or finding/blocker counts receive positive ranking bonuses without adjudication.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md:22-26",
+          "observation": "The stated motivation explicitly says a cheaper coordinator's positive rating must not lift Gemini because it is not a leader in the maintainer's table."
+        },
+        {
+          "kind": "inferred",
+          "reference": ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md:7-8,43-50",
+          "observation": "The listed aggregates contain marks and finding counts, but no independent correctness adjudication or demonstrated judge calibration."
+        }
+      ],
+      "verification": "Evaluate candidate weighting schemes on the same independently adjudicated review cases, checking whether they improve correctness prediction over equal weights.",
+      "remedy": "Define the metric as observational rating utility, retain diagnostic columns separately, and use equal weights until calibration supports a different scheme; publish editorial weighting only as an explicitly labeled alternative.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+          "line": 55
+        }
+      ],
+      "claim": "The proposed raw-model regex and public-display threshold cannot preserve the existing prohibition on collecting private deployment labels.",
+      "trigger": "A private model alias such as acme-prod-secret matches the allowed character pattern and is transmitted before the display threshold is evaluated.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md:32-34,55-59",
+          "observation": "The brief prohibits identifying private deployments but proposes sending matching raw strings and suppressing only their public display."
+        },
+        {
+          "kind": "inferred",
+          "reference": "Proposed pattern ^[a-z0-9][a-z0-9.-]{2,40}$",
+          "observation": "Character shape cannot distinguish a published model identifier from a private deployment alias; the example satisfies the pattern."
+        }
+      ],
+      "verification": "Run the proposed classifier against private-looking aliases that satisfy its regex and inspect the serialized outbound event before any server suppression.",
+      "remedy": "Perform exact matching against a reviewed public catalog locally, emitting only canonical catalog entries or fixed family/other tokens.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 7294
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 475
+        },
+        {
+          "path": ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+          "line": 52
+        }
+      ],
+      "claim": "Copying the consultation ledger's coordinator into a field presented as the rating judge can attribute a rating to the wrong actor.",
+      "trigger": "A consultation is started by one coordinator and later rated or re-rated by another model or a human.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:7294-7309",
+          "observation": "Coordinator identity is resolved once at the start of a run and retained in the ledger."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-findings.ps1:475",
+          "observation": "The rating telemetry call receives the original consultation entry and the mark; it does not pass a separately captured rating actor."
+        }
+      ],
+      "verification": "Start a consultation under coordinator A, rate it under coordinator B, and check whether the proposed judge serialization identifies B or explicitly labels A as consultation provenance.",
+      "remedy": "Capture and persist rating-time identity with each mark, or expose the existing identity as consult_coordinator with explicit provenance and no claim that it identifies the rater.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 37
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-findings.ps1",
+          "line": 475
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 11818
+        }
+      ],
+      "claim": "Rating telemetry cannot reliably reproduce the local latest-rating-per-consultation semantics, so event counts cannot safely be treated as distinct rated consultations for ranking confidence.",
+      "trigger": "The same consultation is rated more than once, including a correction from yes to no.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-findings.ps1:37-48,475,483-489",
+          "observation": "Local re-rating replaces the previous mark, but telemetry is emitted for every rating, including re-ratings."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:11811-11857",
+          "observation": "The event deliberately omits consultation identity and contains no replacement reference that distinguishes a correction from a separate consultation."
+        }
+      ],
+      "verification": "Rate one consultation yes and then no in a telemetry fixture, and compare the one retained local mark with the emitted events and the site's sample count.",
+      "remedy": "Choose explicit event-based semantics or design a privacy-reviewed replacement mechanism before claiming distinct-consultation confidence; do not silently reinterpret existing events as unique ratings.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [
+        {
+          "path": ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+          "line": 35
+        }
+      ],
+      "claim": "The 5000-event aggregation cap can make a nominal time-window ranking incomplete and sensitive to event selection order.",
+      "trigger": "More than 5000 eligible events occur within the requested window.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md:35-36",
+          "observation": "The aggregation is described as cached and limited to at most 5000 events."
+        },
+        {
+          "kind": "inferred",
+          "reference": "The handoff's event cap and requested time-window ranking",
+          "observation": "A capped subset cannot represent all events in an overflowing window without an additional aggregation or sampling policy; that policy is not specified."
+        }
+      ],
+      "verification": "Feed the site aggregation a fixture with 5001 eligible events and inspect selection order, effective coverage, truncation metadata, and paging stability.",
+      "remedy": "Expose effective coverage and truncation, use deterministic cached snapshots for paging, and adopt complete rollups or a documented sampling policy if the cap becomes material.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 7318
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 11660
+        },
+        {
+          "path": "plugins/codex-consult/scripts/codex-consult-common.ps1",
+          "line": 11689
+        }
+      ],
+      "claim": "The existing reviewer classifier cannot be reused blindly for coordinator identities or public models behind unknown endpoints: it depends on endpoint metadata absent from the coordinator record and suppresses model identity when vendor resolution fails.",
+      "trigger": "A Codex coordinator record without provider_config is passed to Get-TelemetryVendor, or a recognized public model is served through an unrecognized endpoint.",
+      "evidence": [
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:7318",
+          "observation": "The coordinator record stores provider, model, engine, host and provenance fields, but not provider_config."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:11660-11670",
+          "observation": "Vendor resolution uses provider_config.base_url or provider_config.builtin for Codex; the raw provider field is not a substitute."
+        },
+        {
+          "kind": "read-code",
+          "reference": "plugins/codex-consult/scripts/codex-consult-common.ps1:11689-11698",
+          "observation": "Model classification returns other whenever Vendor is absent, before checking model names."
+        }
+      ],
+      "verification": "Exercise classification fixtures for a known model through an unknown endpoint and for a coordinator record lacking provider_config; inspect provider and model separately.",
+      "remedy": "Separate public model recognition from endpoint vendor classification, define the meaning of judge.provider explicitly, and sanitize through a dedicated closed-list classifier without transmitting provider labels.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [],
+  "unproven": [
+    "The xelth.com aggregation implementation, intake validation, deduplication, cap selection order, and cache behavior were not inspected.",
+    "No empirical judge-calibration data, installation distribution, rating coverage, or task-mix analysis was supplied.",
+    "No runtime fixtures were executed; implementation observations are based on read-only source inspection."
+  ],
+  "first_run_checklist": []
+}

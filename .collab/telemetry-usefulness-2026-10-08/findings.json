@@ -1,0 +1,494 @@
+{
+    "task_id":  "telemetry-usefulness-2026-10-08",
+    "findings":  [
+                     {
+                         "id":  "F02-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+                                               "line":  22
+                                           },
+                                           {
+                                               "path":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+                                               "line":  43
+                                           }
+                                       ],
+                         "claim":  "The proposed ranking can encode the desired model ordering rather than measure reviewer usefulness: neither judge prestige nor finding volume establishes correctness, and aggregate satisfaction does not control for task mix or installation concentration.",
+                         "trigger":  "Judge coefficients are selected to prevent a currently lower-ranked model from rising, or finding/blocker counts receive positive ranking bonuses without adjudication.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md:22-26",
+                                              "observation":  "The stated motivation explicitly says a cheaper coordinator\u0027s positive rating must not lift Gemini because it is not a leader in the maintainer\u0027s table."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md:7-8,43-50",
+                                              "observation":  "The listed aggregates contain marks and finding counts, but no independent correctness adjudication or demonstrated judge calibration."
+                                          }
+                                      ],
+                         "verification":  "Evaluate candidate weighting schemes on the same independently adjudicated review cases, checking whether they improve correctness prediction over equal weights.",
+                         "remedy":  "Define the metric as observational rating utility, retain diagnostic columns separately, and use equal weights until calibration supports a different scheme; publish editorial weighting only as an explicitly labeled alternative.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-astra-usefulness-framing.md",
+                                        "thread":  "01a11aa9-58b4-7523-af1b-f515a6f605f5",
+                                        "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                        "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T10:41:02+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                             "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  2,
+                                                     "when":  "2026-10-08T10:48:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Brief unchanged; ranking still risks encoding ordering. Reinforced in Q1/Q2 answers: no positive weight on volume metrics, no self-sourced weights.",
+                                                     "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                                     "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F02-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+                                               "line":  55
+                                           }
+                                       ],
+                         "claim":  "The proposed raw-model regex and public-display threshold cannot preserve the existing prohibition on collecting private deployment labels.",
+                         "trigger":  "A private model alias such as acme-prod-secret matches the allowed character pattern and is transmitted before the display threshold is evaluated.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md:32-34,55-59",
+                                              "observation":  "The brief prohibits identifying private deployments but proposes sending matching raw strings and suppressing only their public display."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Proposed pattern ^[a-z0-9][a-z0-9.-]{2,40}$",
+                                              "observation":  "Character shape cannot distinguish a published model identifier from a private deployment alias; the example satisfies the pattern."
+                                          }
+                                      ],
+                         "verification":  "Run the proposed classifier against private-looking aliases that satisfy its regex and inspect the serialized outbound event before any server suppression.",
+                         "remedy":  "Perform exact matching against a reviewed public catalog locally, emitting only canonical catalog entries or fixed family/other tokens.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-astra-usefulness-framing.md",
+                                        "thread":  "01a11aa9-58b4-7523-af1b-f515a6f605f5",
+                                        "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                        "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T10:41:02+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                             "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  2,
+                                                     "when":  "2026-10-08T10:48:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Option (b) still transmits the raw label client-side before any server threshold; regex admits private aliases. Recommended (c) or a consent flag instead.",
+                                                     "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                                     "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F02-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7294
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  475
+                                           },
+                                           {
+                                               "path":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+                                               "line":  52
+                                           }
+                                       ],
+                         "claim":  "Copying the consultation ledger\u0027s coordinator into a field presented as the rating judge can attribute a rating to the wrong actor.",
+                         "trigger":  "A consultation is started by one coordinator and later rated or re-rated by another model or a human.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:7294-7309",
+                                              "observation":  "Coordinator identity is resolved once at the start of a run and retained in the ledger."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-findings.ps1:475",
+                                              "observation":  "The rating telemetry call receives the original consultation entry and the mark; it does not pass a separately captured rating actor."
+                                          }
+                                      ],
+                         "verification":  "Start a consultation under coordinator A, rate it under coordinator B, and check whether the proposed judge serialization identifies B or explicitly labels A as consultation provenance.",
+                         "remedy":  "Capture and persist rating-time identity with each mark, or expose the existing identity as consult_coordinator with explicit provenance and no claim that it identifies the rater.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-astra-usefulness-framing.md",
+                                        "thread":  "01a11aa9-58b4-7523-af1b-f515a6f605f5",
+                                        "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                        "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T10:41:02+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                             "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  2,
+                                                     "when":  "2026-10-08T10:48:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Confirmed by reading codex-findings.ps1:475 and ConvertTo-TelemetryRatingDetails: the rating event is built from the ledger entry (consult-time coordinator), not the rating actor.",
+                                                     "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                                     "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F02-4",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  37
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-findings.ps1",
+                                               "line":  475
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  11818
+                                           }
+                                       ],
+                         "claim":  "Rating telemetry cannot reliably reproduce the local latest-rating-per-consultation semantics, so event counts cannot safely be treated as distinct rated consultations for ranking confidence.",
+                         "trigger":  "The same consultation is rated more than once, including a correction from yes to no.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-findings.ps1:37-48,475,483-489",
+                                              "observation":  "Local re-rating replaces the previous mark, but telemetry is emitted for every rating, including re-ratings."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:11811-11857",
+                                              "observation":  "The event deliberately omits consultation identity and contains no replacement reference that distinguishes a correction from a separate consultation."
+                                          }
+                                      ],
+                         "verification":  "Rate one consultation yes and then no in a telemetry fixture, and compare the one retained local mark with the emitted events and the site\u0027s sample count.",
+                         "remedy":  "Choose explicit event-based semantics or design a privacy-reviewed replacement mechanism before claiming distinct-consultation confidence; do not silently reinterpret existing events as unique ratings.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-astra-usefulness-framing.md",
+                                        "thread":  "01a11aa9-58b4-7523-af1b-f515a6f605f5",
+                                        "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                        "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T10:41:02+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                             "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  2,
+                                                     "when":  "2026-10-08T10:48:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Confirmed: local store replaces the mark per consult_id (latest wins) while telemetry spools one event per rating including re-ratings; site must dedupe by consultation.",
+                                                     "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                                     "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F02-5",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+                                               "line":  35
+                                           }
+                                       ],
+                         "claim":  "The 5000-event aggregation cap can make a nominal time-window ranking incomplete and sensitive to event selection order.",
+                         "trigger":  "More than 5000 eligible events occur within the requested window.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md:35-36",
+                                              "observation":  "The aggregation is described as cached and limited to at most 5000 events."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "The handoff\u0027s event cap and requested time-window ranking",
+                                              "observation":  "A capped subset cannot represent all events in an overflowing window without an additional aggregation or sampling policy; that policy is not specified."
+                                          }
+                                      ],
+                         "verification":  "Feed the site aggregation a fixture with 5001 eligible events and inspect selection order, effective coverage, truncation metadata, and paging stability.",
+                         "remedy":  "Expose effective coverage and truncation, use deterministic cached snapshots for paging, and adopt complete rollups or a documented sampling policy if the cap becomes material.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-astra-usefulness-framing.md",
+                                        "thread":  "01a11aa9-58b4-7523-af1b-f515a6f605f5",
+                                        "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                        "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T10:41:02+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                             "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  2,
+                                                     "when":  "2026-10-08T10:48:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "5000-event cap remains in the brief\u0027s constraints; window completeness and paging stability unaddressed.",
+                                                     "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                                     "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F02-6",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  7318
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  11660
+                                           },
+                                           {
+                                               "path":  "plugins/codex-consult/scripts/codex-consult-common.ps1",
+                                               "line":  11689
+                                           }
+                                       ],
+                         "claim":  "The existing reviewer classifier cannot be reused blindly for coordinator identities or public models behind unknown endpoints: it depends on endpoint metadata absent from the coordinator record and suppresses model identity when vendor resolution fails.",
+                         "trigger":  "A Codex coordinator record without provider_config is passed to Get-TelemetryVendor, or a recognized public model is served through an unrecognized endpoint.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:7318",
+                                              "observation":  "The coordinator record stores provider, model, engine, host and provenance fields, but not provider_config."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:11660-11670",
+                                              "observation":  "Vendor resolution uses provider_config.base_url or provider_config.builtin for Codex; the raw provider field is not a substitute."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "plugins/codex-consult/scripts/codex-consult-common.ps1:11689-11698",
+                                              "observation":  "Model classification returns other whenever Vendor is absent, before checking model names."
+                                          }
+                                      ],
+                         "verification":  "Exercise classification fixtures for a known model through an unknown endpoint and for a coordinator record lacking provider_config; inspect provider and model separately.",
+                         "remedy":  "Separate public model recognition from endpoint vendor classification, define the meaning of judge.provider explicitly, and sanitize through a dedicated closed-list classifier without transmitting provider labels.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  1,
+                                        "reply":  "handoffs/02-codex-astra-usefulness-framing.md",
+                                        "thread":  "01a11aa9-58b4-7523-af1b-f515a6f605f5",
+                                        "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                        "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T10:41:02+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                             "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  2,
+                                                     "when":  "2026-10-08T10:48:13+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Confirmed: coordinator record (codex-consult-common.ps1:7305) has no provider_config, and Get-TelemetryVendor/Get-TelemetryModelToken yield \u0027other\u0027/\u0027other\u0027 for it; judge classification needs a provider-name-based path.",
+                                                     "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                                     "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F03-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md",
+                                               "line":  43
+                                           }
+                                       ],
+                         "claim":  "Sourcing judge coefficients from the bridge\u0027s own usefulness table is not only circular but a positive feedback loop: the weights change the weighted ranking, and the changed ranking changes the next weights, so a once-top model can entrench itself and a rising model can be suppressed without any external evidence.",
+                         "trigger":  "Judge weights are recomputed periodically from the site\u0027s own weighted usefulness ranking, which was itself produced with the previous weights.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/telemetry-usefulness-2026-10-08/handoffs/01-claude-usefulness-table-framing.md Q2",
+                                              "observation":  "The brief lists the bridge\u0027s own usefulness list as a candidate source of judge weights with the circularity question raised but the dynamical feedback (weight -\u003e ranking -\u003e weight) not addressed."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "F02-1 claim",
+                                              "observation":  "F02-1 already warns the ranking can encode rather than measure ordering; self-sourced weights mechanize exactly that over time."
+                                          }
+                                      ],
+                         "verification":  "Simulate two rating periods where model B\u0027s true marks exceed A\u0027s, seed weights from period 1\u0027s weighted table, recompute weights from the weighted result, and check whether B can ever overtake A.",
+                         "remedy":  "Exclude the self-referential source; use a hand-kept tier table versioned with the site, or agreement-with-maintainer reliability weights computed on overlapping cases.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-kimi-usefulness-framing.md",
+                                        "thread":  "01a11aac-e081-7111-b449-c43d3dbb9ac7",
+                                        "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                        "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-08T10:48:13+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "bc8219fd723e04403ce245614dda370699404ad9",
+                                             "tree_sha256":  "7dfac4050e6a8df5c9db2784b3e67af4af5616eac442ed9c81a2921dd9f5ac42"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     }
+                 ],
+    "ratings":  [
+                    {
+                        "n":  1,
+                        "consult_id":  "66352bbd-3b83-4586-aee5-2feacdc22f69",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-08T10:37:47+02:00",
+                        "useful":  "yes",
+                        "note":  "A real framing: the Dirichlet lower-bound score with a 10-rating eligibility floor, equal judge weights first (external ranks do not measure judging accuracy, reviewer-derived weights are circular), the judge object with a source field, option (c) for unknown models with the privacy failure of each, and the re-rating / distinct-count problem of the current events",
+                        "when":  "2026-10-08T10:41:21+02:00",
+                        "telemetry_sent":  1791448881
+                    },
+                    {
+                        "n":  2,
+                        "consult_id":  "4d2c929a-5aff-48c8-96fa-07810b919b3b",
+                        "lineage":  "kimi :: k3",
+                        "provider":  "kimi",
+                        "model":  "k3",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-08T10:41:38+02:00",
+                        "useful":  "yes",
+                        "note":  "Stratify-by-judge-tier and inter-rater reliability as unlisted options; the Beta-prior shrinkage with k~10; confirmed F02-3 (the rating actor vs the consult coordinator) and F02-4 (one event per rating vs the local latest) with line references; the feedback-loop finding on self-derived weights",
+                        "when":  "2026-10-08T10:51:58+02:00",
+                        "telemetry_sent":  1791449518
+                    }
+                ]
+}
