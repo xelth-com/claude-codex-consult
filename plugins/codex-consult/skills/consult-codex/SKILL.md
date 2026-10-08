@@ -430,7 +430,9 @@ quota) killed it - resume it instead (see "Run one command").
 consultation's random `consult_ref` and a `judge` - who rated, as classes only (the vendor class
 and a closed-list model, never a label or a host): `CODEX_CONSULT_COORDINATOR` of the session that
 runs `-Rate` (source `rating_actor`), else the coordinator the consultation recorded
-(`consult_coordinator`), else `unknown`. Keep the variable set in the session that rates.
+(`consult_coordinator`), else `unknown`. Keep the variable set in the session that rates. The mark saves that judge and its
+`rating_rev` (1, 2, ... per re-rating), so an event sent later - a retry, `-BackfillRatings` - keeps
+the judge, and the intake counts the mark with the highest `rating_rev` of a consultation.
 
 ## Role split: the operator's council
 

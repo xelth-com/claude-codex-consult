@@ -746,7 +746,7 @@ if (Want 'SCOREBOARD') {
     $st = Run-Tool $findingsPs $r @('-Task', 't', '-Stats')
     $ra = Run-Tool $findingsPs $r @('-Task', 't', '-Rate', '1', '-Useful', 'yes')
     $fs = [IO.File]::ReadAllText((Join-Path $r '.collab\t\findings.json'), $u8) | ConvertFrom-Json
-    Check 'SCOREBOARD' 'codex-findings -Stats board line "gemini :: <model> [agy]"; -Rate records lineage "... [agy]" (same rating fields)' ($st.Code -eq 0 -and $st.Out -match '(?m)^gemini :: gemini-3\.8-flash-high \[agy\]\s+1\s+' -and $ra.Code -eq 0 -and $ra.First -eq "codex-findings: consult n=1 (gemini :: $model [agy], framing) rated yes." -and $fs.ratings[0].lineage -eq "gemini :: $model [agy]" -and (($fs.ratings[0].PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'n,consult_id,lineage,provider,model,engine,purpose,topics,consult_when,useful,note,when' -and $fs.ratings[0].engine -eq 'agy') $ra.First
+    Check 'SCOREBOARD' 'codex-findings -Stats board line "gemini :: <model> [agy]"; -Rate records lineage "... [agy]" (same rating fields; 0.6.1 F06-1/F06-2: rating_rev and judge)' ($st.Code -eq 0 -and $st.Out -match '(?m)^gemini :: gemini-3\.8-flash-high \[agy\]\s+1\s+' -and $ra.Code -eq 0 -and $ra.First -eq "codex-findings: consult n=1 (gemini :: $model [agy], framing) rated yes." -and $fs.ratings[0].lineage -eq "gemini :: $model [agy]" -and (($fs.ratings[0].PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'n,consult_id,lineage,provider,model,engine,purpose,topics,consult_when,useful,note,when,rating_rev,judge' -and $fs.ratings[0].rating_rev -eq 1 -and $fs.ratings[0].engine -eq 'agy') $ra.First
 }
 
 } finally {

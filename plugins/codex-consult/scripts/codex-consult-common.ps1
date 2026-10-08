@@ -40,7 +40,8 @@
                          Format-ReviewerLineage
       * availability     Resolve-CodexLauncher, Get-CodexLoginStatus (UTF-8),
                          Get-ProviderCredential, Get-ProviderFailureClass,
-                         Get-RetryAfter (a provider's named reset time),
+                         Get-RetryAfter (a provider's named reset time; 0.6.1 a time only -
+                         Select-TimeOnlyReset, Get-WallClockCandidates, Get-TimeOnlyZone),
                          New-ProviderFailure, Get-EndpointHealth (usage limits with a
                          known reset time block until then), Get-ConsultClock,
                          Test-ContextOverflow and Get-FailureHint (wave 24b: a context-
@@ -104,7 +105,9 @@
                          New-TelemetryRatingEvent (codex-findings.ps1 -Rate; 0.6.1: the judge -
                          Get-TelemetryRatingActor, Resolve-TelemetryJudge, the coordinator classifier
                          Get-TelemetryJudgeClass with Find-TelemetryRosterEntry /
-                         Get-TelemetryRosterVendor, ConvertTo-TelemetryJudge), Add-TelemetrySpoolLine,
+                         Get-TelemetryRosterVendor, ConvertTo-TelemetryJudge; F06-1/F06-2: the mark's
+                         saved judge Get-RatingMarkJudge and its revision ConvertTo-RatingRev /
+                         Get-NextRatingRev), Add-TelemetrySpoolLine,
                          Add-TelemetryEvent (the bridge's call AT a commit; -RatingMark: the rating
                          event), (R24) the rating backfill - Find-RatingLedgerEntry,
                          Set-RatingTelemetrySent, Invoke-TelemetryBackfillRatings (codex-telemetry.ps1
@@ -5862,8 +5865,19 @@ function ConvertFrom-ProviderErrorText {
 #      21:43" (also "resets at", "available at", "until"; seconds and AM/PM optional, no AM/PM =
 #      a 24-hour clock; tried after 1 and 2, so a dated form always wins): TODAY at that
 #      wall-clock time - the reference's date in the zone (-TimeZone, or with -ReferenceOffset
-#      the reference's offset) - or TOMORROW when that time is already past at the reference
-#      (the moment of parsing: New-ProviderFailure's clock, a read-time reparse's failure `when`).
+#      the reference's offset) - unless that moment is MORE than 5 minutes
+#      ($script:TimeOnlyLateMinutes) before the reference (the moment of parsing:
+#      New-ProviderFailure's clock, a read-time reparse's failure `when`); only then TOMORROW. A
+#      reset that has just passed (within those 5 minutes - the message shows minutes, its delivery
+#      takes time) stays passed: the hold ends at once (F06-3). Exactly: of the candidates on the
+#      day before, the day of and the day after, the earliest not before (reference - 5 minutes)
+#      (Select-TimeOnlyReset) - so just after midnight a reset of 23:59 is yesterday's, passed.
+#      DST (F06-4, the zone's rules; not with -ReferenceOffset): a wall time the zone repeats (the
+#      fall-back hour) is tried with BOTH offsets, a wall time inside the spring-forward gap is the
+#      first valid instant after the gap (Get-WallClockCandidates). A zone qualifier right after
+#      the clock (F06-5, Get-TimeOnlyZone): UTC, GMT or Z - that time in UTC; a numeric offset
+#      (+02:00, -0500, +2; also UTC+2) - that time at that offset; any other zone-like word (two
+#      to five capital letters: PST, CET, BST) - NOT parsed (the default hold applies).
 #   2. an ISO-8601 timestamp after try again / retry / reset / until / available: with an
 #      offset it is an instant; without one it is a wall-clock time like 1.
 #   3. a duration: "retry after 30" / "Retry-After: 30s" (no unit = seconds), "retry after
@@ -5885,9 +5899,9 @@ function ConvertFrom-ProviderErrorText {
 #     time is read with the rules of -TimeZone (default [TimeZoneInfo]::Local), so a reset
 #     on the far side of a daylight-saving change gets the offset valid THEN (Berlin: a
 #     failure at 2026-10-25T01:00+02:00 saying "Oct 26th, 2026 8:35 PM" ->
-#     2026-10-26T20:35:00+01:00). A time that does not exist (the spring gap) takes the
+#     2026-10-26T20:35:00+01:00). A dated time that does not exist (the spring gap) takes the
 #     offset after the transition, an ambiguous one (the autumn overlap) the offset before
-#     it. Instants are shown in that zone.
+#     it; a time-only reset (1b) has its own DST rule above. Instants are shown in that zone.
 #   read time (-ReferenceOffset: a ledger entry recorded without retry_after): the reader's
 #     zone may not be the recorder's, so the offset of $Reference (the failure's `when`) is
 #     used for a wall-clock time and for display.
@@ -5903,6 +5917,11 @@ $script:RetryAfterRe = @{
     # (0.6.1) 1b - a time without a date: "try again at 9:43 PM.", "try again at 21:43"
     TimeOnly = [regex]('(?i)(?:try\s+again\s+(?:at|after)|resets?\s+at|available\s+(?:again\s+)?(?:at|after)|until)\s+' +
         '(?<hour>[0-9]{1,2}):(?<min>[0-9]{2})(?::(?<sec>[0-9]{2}))?(?![0-9:])(?:\s*(?<ampm>[ap])\.?\s?m\b\.?)?')
+    # (0.6.1, F06-5) what directly follows such a clock (spaces or an opening parenthesis between):
+    # UTC / GMT (any case) or Z, optionally with a numeric offset, or a numeric offset alone
+    TimeOnlyZone = [regex]'^[ \t]*\(?[ \t]*(?:(?<utc>(?i:UTC|GMT)|Z)[ \t]*)?(?:(?<s>[+-])(?<oh>[0-9]{1,2})(?::?(?<om>[0-9]{2}))?)?(?![A-Za-z0-9])'
+    # ... or another zone-like word: two to five capital letters (PST, CET, CEST), case-sensitive
+    TimeOnlyOtherZone = [regex]'^[ \t]*\(?[ \t]*(?<w>[A-Z]{2,5})(?![A-Za-z0-9])'
     After = [regex]('(?i)retry[- ]after[:\s]\s*(?<n>[0-9]+)(?![0-9:.\-])(?:\s*(?<u>' + $script:DurationUnit + '))?')
     In    = [regex]('(?i)(?:try\s+again|resets?)\s+in\s+(?<parts>[0-9]+\s*' + $script:DurationUnit + '(?:(?:\s*,\s*|\s+and\s+|\s+)[0-9]+\s*' + $script:DurationUnit + ')*)')
     Part  = [regex]('(?i)(?<n>[0-9]+)\s*(?<u>' + $script:DurationUnit + ')')
@@ -5985,6 +6004,85 @@ function ConvertTo-ZoneTime {
     return [TimeZoneInfo]::ConvertTime($At, $TimeZone)
 }
 
+# (0.6.1, F06-3) How late a time-only reset may be parsed and still be TODAY's (passed): the message
+# shows whole minutes, and its delivery and parsing take time.
+$script:TimeOnlyLateMinutes = 5
+
+# (0.6.1, F06-4) Every instant a wall-clock time can mean in $TimeZone (with -ReferenceOffset or no
+# zone: the reference's offset - one instant): an ambiguous time (the repeated hour of a fall-back
+# night) BOTH instants, earliest first; a time inside a spring-forward gap the FIRST valid instant
+# after the gap (the gap's first valid minute, with the offset after the transition); else the one.
+function Get-WallClockCandidates {
+    param([datetime]$Wall, [DateTimeOffset]$Reference, [TimeZoneInfo]$TimeZone = $null, [switch]$ReferenceOffset)
+    $w = [datetime]::SpecifyKind($Wall, [DateTimeKind]::Unspecified)
+    if ($ReferenceOffset -or $null -eq $TimeZone) { return (New-Object DateTimeOffset -ArgumentList $w, $Reference.Offset) }
+    if ($TimeZone.IsAmbiguousTime($w)) {
+        return @($TimeZone.GetAmbiguousTimeOffsets($w) | ForEach-Object { New-Object DateTimeOffset -ArgumentList $w, $_ } | Sort-Object -Property UtcTicks)
+    }
+    if ($TimeZone.IsInvalidTime($w)) {
+        $c = $w.AddTicks(-($w.Ticks % [TimeSpan]::TicksPerMinute))
+        for ($i = 0; $i -lt 1440 -and $TimeZone.IsInvalidTime($c); $i++) { $c = $c.AddMinutes(1) }
+        return (New-Object DateTimeOffset -ArgumentList $c, $TimeZone.GetUtcOffset($c))
+    }
+    return (New-Object DateTimeOffset -ArgumentList $w, $TimeZone.GetUtcOffset($w))
+}
+
+# (0.6.1, F06-3, F06-4) The instant of a time-only reset ($TimeOfDay): of the candidates on the day
+# before, the day of and the day after the reference's date - at -FixedOffset when the message named
+# one (Get-TimeOnlyZone), else in the zone (Get-WallClockCandidates; with -ReferenceOffset or no zone
+# the reference's offset) - the EARLIEST that is not more than $script:TimeOnlyLateMinutes before the
+# reference. So: today, unless today's is more than 5 minutes past (then tomorrow); a reset that has
+# just passed stays passed (the hold ends at once); in the repeated hour the second instant when the
+# first is past; just after midnight yesterday's when it passed within the 5 minutes.
+function Select-TimeOnlyReset {
+    param([TimeSpan]$TimeOfDay, [DateTimeOffset]$Reference, [TimeZoneInfo]$TimeZone = $null, [switch]$ReferenceOffset, $FixedOffset = $null)
+    $floorTicks = $Reference.AddMinutes(-$script:TimeOnlyLateMinutes).UtcTicks
+    if ($null -ne $FixedOffset) { $day = $Reference.ToOffset([TimeSpan]$FixedOffset).DateTime.Date }
+    else { $day = (ConvertTo-ZoneTime -At $Reference -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset).DateTime.Date }
+    $best = $null
+    foreach ($d in @(-1, 0, 1)) {
+        $wall = $day.AddDays($d).Add($TimeOfDay)
+        if ($null -ne $FixedOffset) { $cands = @(New-Object DateTimeOffset -ArgumentList $wall, ([TimeSpan]$FixedOffset)) }
+        else { $cands = @(Get-WallClockCandidates -Wall $wall -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset) }
+        foreach ($c in $cands) {
+            if ($c.UtcTicks -lt $floorTicks) { continue }
+            if ($null -eq $best -or $c.UtcTicks -lt $best.UtcTicks) { $best = $c }
+        }
+    }
+    return $best
+}
+
+# (0.6.1, F06-5) The zone qualifier right after a time-only clock ($Match: the TimeOnly match in
+# $Text; spaces or an opening parenthesis between - after a period that ends the sentence, "9:43 PM.",
+# nothing more is read; the period of "p.m." is the abbreviation's): UTC, GMT (any case) or Z ->
+# offset 00:00; a numeric offset (+02:00, -0500, +2; also after UTC / GMT: UTC+2) -> that offset
+# (beyond 14 hours: declined); another zone-like word - two to five capital letters (PST, CET, CEST,
+# BST) other than AND / OR - -> declined: the bridge does not guess what an abbreviation means, the
+# time-only wording is not parsed. A comma, "and", a period or the end stays fine (no qualifier: the
+# zone's local time). { Offset (a TimeSpan, or $null: none); Declined }.
+function Get-TimeOnlyZone {
+    param([string]$Text, $Match)
+    $r = [pscustomobject]@{ Offset = $null; Declined = $false }
+    $v = [string]$Match.Value
+    if ($v.EndsWith('.') -and $v -notmatch '(?i)[ap]\.\s?m\.$') { return $r }
+    $rest = $Text.Substring($Match.Index + $Match.Length)
+    $z = $script:RetryAfterRe.TimeOnlyZone.Match($rest)
+    if ($z.Success -and ($z.Groups['utc'].Success -or $z.Groups['s'].Success)) {
+        if (-not $z.Groups['s'].Success) { $r.Offset = [TimeSpan]::Zero; return $r }
+        $h = [int]$z.Groups['oh'].Value
+        $mm = 0
+        if ($z.Groups['om'].Success) { $mm = [int]$z.Groups['om'].Value }
+        if ($h -gt 14 -or $mm -gt 59 -or ($h * 60 + $mm) -gt 840) { $r.Declined = $true; return $r }
+        $span = New-Object TimeSpan -ArgumentList $h, $mm, 0
+        if ($z.Groups['s'].Value -eq '-') { $span = $span.Negate() }
+        $r.Offset = $span
+        return $r
+    }
+    $w = $script:RetryAfterRe.TimeOnlyOtherZone.Match($rest)
+    if ($w.Success -and @('AND', 'OR') -cnotcontains $w.Groups['w'].Value) { $r.Declined = $true }
+    return $r
+}
+
 function Get-RetryAfter {
     param([string]$Message, [DateTimeOffset]$Reference, [TimeZoneInfo]$TimeZone = [TimeZoneInfo]::Local, [switch]$ReferenceOffset)
     if (-not $Message) { return $null }
@@ -6035,8 +6133,10 @@ function Get-RetryAfter {
             }
         }
     }
-    # (0.6.1) 1b - a time without a date: today at that wall-clock time in the zone, or tomorrow when
-    # it is already past at the reference (the moment of parsing)
+    # (0.6.1) 1b - a time without a date: today at that time unless that moment is more than 5 minutes
+    # before the reference (the moment of parsing) - then tomorrow; a reset just passed stays passed
+    # (F06-3); both instants of a repeated wall time, the first after a spring gap (F06-4); a UTC / GMT
+    # / Z or numeric-offset qualifier is honoured, another zone word declines the wording (F06-5)
     $m = $script:RetryAfterRe.TimeOnly.Match($text)
     if ($m.Success) {
         try {
@@ -6051,12 +6151,19 @@ function Get-RetryAfter {
                 if ($hour -eq 12) { $hour = 0 }
                 if ($pm) { $hour += 12 }
             } elseif ($hour -gt 23) { $ok = $false }
+            $zone = $null
             if ($ok) {
-                $today = (ConvertTo-ZoneTime -At $Reference -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset).DateTime.Date
-                $wall = $today.AddHours($hour).AddMinutes($minute).AddSeconds($second)
-                $at = ConvertFrom-WallClock -Wall $wall -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset
-                if ($at -lt $Reference) { $at = ConvertFrom-WallClock -Wall ($wall.AddDays(1)) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset }
-                return $at
+                $zone = Get-TimeOnlyZone -Text $text -Match $m
+                if ($zone.Declined) { $ok = $false }
+            }
+            if ($ok) {
+                $tod = New-Object TimeSpan -ArgumentList $hour, $minute, $second
+                $at = Select-TimeOnlyReset -TimeOfDay $tod -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset -FixedOffset $zone.Offset
+                if ($null -ne $at) {
+                    # a qualified time is an instant: shown in the zone, as an ISO instant is
+                    if ($null -ne $zone.Offset) { return (ConvertTo-ZoneTime -At $at -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset) }
+                    return $at
+                }
             }
         } catch { }
     }
@@ -11383,8 +11490,9 @@ $script:TelemetryEventKeys = @('app_id', 'app_version', 'instance_id', 'event_ty
 # one (Get-TelemetryConsultRef; an entry recorded before 0.6.1 has none, and its event no such key)
 $script:TelemetryDetailKeys = @('engine', 'provider', 'model', 'purpose', 'outcome', 'wall_seconds', 'tokens', 'findings', 'structured', 'format_retry', 'denial_retry', 'timeout_continue', 'panel_size', 'ps_version', 'os', 'bridge_version', 'consult_ref')
 # (R24) the details of a `rating` event (codex-findings.ps1 -Rate) and its marks; (0.6.1, U3) the judge
-# object {provider, model, source} always, (U5) consult_ref when the rated entry has one
-$script:TelemetryRatingDetailKeys = @('engine', 'provider', 'model', 'purpose', 'mark', 'age_days', 'bridge_version', 'os', 'ps_version', 'judge', 'consult_ref')
+# object {provider, model, source} always, (F06-2) rating_rev when the mark has one (every mark rated
+# since 0.6.1), (U5) consult_ref when the rated entry has one
+$script:TelemetryRatingDetailKeys = @('engine', 'provider', 'model', 'purpose', 'mark', 'age_days', 'bridge_version', 'os', 'ps_version', 'judge', 'rating_rev', 'consult_ref')
 $script:TelemetryRatingMarks = @('yes', 'partly', 'no')
 # (0.6.1, U3) where a rating event's judge came from (Resolve-TelemetryJudge)
 $script:TelemetryJudgeKeys = @('provider', 'model', 'source')
@@ -11905,9 +12013,10 @@ function Get-TelemetryRatingActor {
 # (Get-TelemetryRatingActor - -Rate with CODEX_CONSULT_COORDINATOR set), else the ledger entry's own
 # `coordinator` - the consult-time identity - when it names anyone (Test-TelemetryCoordinatorNamed),
 # classified by Get-TelemetryJudgeClass -> source consult_coordinator, else { other, other, unknown }
-# (an entry recorded before wave 27 has no coordinator). -BackfillRatings passes no actor: it cannot
-# know who gave an earlier mark. -Roster: Read-ReviewerRoster's object (read here when a label needs
-# it and none is given). { provider; model; source }. Never throws.
+# (an entry recorded before wave 27 has no coordinator). -BackfillRatings passes no actor: it sends the
+# judge the mark saved (F06-1, Get-RatingMarkJudge) and calls this only for a mark without one (rated
+# before that), whose actor it cannot know. -Roster: Read-ReviewerRoster's object (read here when a
+# label needs it and none is given). { provider; model; source }. Never throws.
 function Resolve-TelemetryJudge {
     param($Entry, $Actor = $null, $Roster = $null)
     if ($Actor) { return $Actor }
@@ -12037,11 +12146,13 @@ function Get-TelemetryAgeDays {
 # else other), the consultation's age in whole days (Get-TelemetryAgeDays), the plugin version, the
 # OS and the PowerShell version; (0.6.1, U3) the judge {provider, model, source} - $Judge as the caller
 # resolved it at rating time (Resolve-TelemetryJudge; $null: resolved here without a rating actor),
-# through its own allowlist (ConvertTo-TelemetryJudge); (U5) last, the entry's consult_ref when it has
-# one (Get-TelemetryConsultRef). Nothing else of the entry or the mark is read: never the note, the
+# through its own allowlist (ConvertTo-TelemetryJudge); (F06-2) rating_rev - the mark's own revision
+# among its consultation's marks ($RatingRev through ConvertTo-RatingRev: a whole number >= 1, else no
+# key - a mark rated before 0.6.1 has none); (U5) last, the entry's consult_ref when it has one
+# (Get-TelemetryConsultRef). Nothing else of the entry or the mark is read: never the note, the
 # topics, the task, the consultation's id, n or lineage, never a coordinator's label or host.
 function ConvertTo-TelemetryRatingDetails {
-    param($Entry, [string]$Mark, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow, $ConsultWhen = $null, $Judge = $null)
+    param($Entry, [string]$Mark, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow, $ConsultWhen = $null, $Judge = $null, $RatingRev = $null)
     $rc = Get-TelemetryReviewerClass $Entry
     $m = ([string]$Mark).Trim().ToLowerInvariant()
     if ($script:TelemetryRatingMarks -cnotcontains $m) { $m = 'other' }
@@ -12058,6 +12169,8 @@ function ConvertTo-TelemetryRatingDetails {
         ps_version     = (Get-TelemetryToken -Value ([string]$PSVersionTable.PSVersion) -Pattern '^[0-9][0-9A-Za-z.+-]{0,31}$')
         judge          = (ConvertTo-TelemetryJudge $Judge)
     }
+    $rev = ConvertTo-RatingRev $RatingRev
+    if ($null -ne $rev) { $d | Add-Member -NotePropertyName 'rating_rev' -NotePropertyValue $rev }
     $ref = Get-TelemetryConsultRef $Entry
     if ($ref) { $d | Add-Member -NotePropertyName 'consult_ref' -NotePropertyValue $ref }
     return $d
@@ -12066,14 +12179,16 @@ function ConvertTo-TelemetryRatingDetails {
 # (R24) The event of one rating (the judge's mark of a consultation, codex-findings.ps1 -Rate): the
 # top level exactly as a consultation event's ($script:TelemetryEventKeys order), event_type rating,
 # severity info, the mark as its title, tags [provider, model]. -RatedAt (a DateTimeOffset; null:
-# now) is when the mark was given - client_time and the age are taken from it; -ConsultWhen the
-# consultation's time as the mark recorded it (Get-TelemetryAgeDays) - both for
-# codex-telemetry.ps1 -BackfillRatings, which sends marks given earlier. (0.6.1) -Judge: the judge the
-# caller resolved at rating time (Resolve-TelemetryJudge; $null: the consultation's coordinator).
+# now) is when the mark was given - client_time and the age are taken from it: (0.6.1, F06-2) every
+# caller passes the MARK's own `when` (-Rate's send at the commit and its retry, -BackfillRatings), so
+# a late retry never looks newer than a later mark; -ConsultWhen the consultation's time as the mark
+# recorded it (Get-TelemetryAgeDays). (0.6.1) -Judge: the judge resolved at rating time and saved in
+# the mark (Resolve-TelemetryJudge, Get-RatingMarkJudge; $null: the consultation's coordinator);
+# -RatingRev: the mark's rating_rev (none: no key).
 function New-TelemetryRatingEvent {
-    param($Entry, [string]$Mark, [string]$InstanceId, $RatedAt = $null, $ConsultWhen = $null, $Judge = $null)
+    param($Entry, [string]$Mark, [string]$InstanceId, $RatedAt = $null, $ConsultWhen = $null, $Judge = $null, $RatingRev = $null)
     $at = $(if ($null -ne $RatedAt) { [DateTimeOffset]$RatedAt } else { [DateTimeOffset]::UtcNow })
-    $d = ConvertTo-TelemetryRatingDetails -Entry $Entry -Mark $Mark -RatedAt $at -ConsultWhen $ConsultWhen -Judge $Judge
+    $d = ConvertTo-TelemetryRatingDetails -Entry $Entry -Mark $Mark -RatedAt $at -ConsultWhen $ConsultWhen -Judge $Judge -RatingRev $RatingRev
     return [pscustomobject]@{
         app_id      = $script:TelemetryAppId
         app_version = (Get-BridgeVersion)
@@ -12591,9 +12706,10 @@ function Complete-TelemetryNotSpooledFold {
 # telemetry off); Forgetting }. Never throws. (R24) -RatingMark yes|partly|no: the event is the
 # RATING event of $Entry (New-TelemetryRatingEvent - codex-findings.ps1 -Rate at the mark's commit,
 # codex-telemetry.ps1 -BackfillRatings with the mark's -RatedAt and -ConsultWhen), else the
-# consultation event. (0.6.1) -Judge: the rating's judge as the caller resolved it (Resolve-TelemetryJudge).
+# consultation event. (0.6.1) -Judge: the rating's judge - the one saved in the mark (F06-1);
+# -RatingRev: the mark's rating_rev (F06-2); -RatedAt: the mark's `when`.
 function Add-TelemetryEvent {
-    param($Entry, $Switch, [int]$WaitMs = 1000, [switch]$Count, [string]$RatingMark = '', $RatedAt = $null, $ConsultWhen = $null, $Judge = $null)
+    param($Entry, $Switch, [int]$WaitMs = 1000, [switch]$Count, [string]$RatingMark = '', $RatedAt = $null, $ConsultWhen = $null, $Judge = $null, $RatingRev = $null)
     $r = [pscustomobject]@{ Why = ''; Forgetting = $false }
     if (-not $Switch -or -not $Switch.On) { return $r }
     $held = $false
@@ -12606,7 +12722,7 @@ function Add-TelemetryEvent {
             $id = Get-TelemetryInstanceId -Create
             if (-not $id) { $r.Why = 'no instance id (the salt could not be created)' }
             else {
-                $ev = $(if ($RatingMark) { New-TelemetryRatingEvent -Entry $Entry -Mark $RatingMark -InstanceId $id -RatedAt $RatedAt -ConsultWhen $ConsultWhen -Judge $Judge } else { New-TelemetryEvent -Entry $Entry -InstanceId $id })
+                $ev = $(if ($RatingMark) { New-TelemetryRatingEvent -Entry $Entry -Mark $RatingMark -InstanceId $id -RatedAt $RatedAt -ConsultWhen $ConsultWhen -Judge $Judge -RatingRev $RatingRev } else { New-TelemetryEvent -Entry $Entry -InstanceId $id })
                 $r.Why = Add-TelemetrySpoolLine -Kind 'event' -BodyJson (ConvertTo-Json -Compress -Depth 6 -InputObject $ev) -WaitMs ([int][Math]::Max(50, $WaitMs - $watch.ElapsedMilliseconds))
             }
         }
@@ -13487,14 +13603,56 @@ function Find-RatingLedgerEntry {
     return $found
 }
 
-# Do two marks name the same rating: the same consultation (consult_id when both have one, else n)
-# and the same `when` (the instant)?
+# (0.6.1, F06-2) A mark's `rating_rev` as a value: a whole number >= 1 (a JSON number, or its digits),
+# else $null - a mark rated before 0.6.1 has none, and its event carries no rating_rev.
+function ConvertTo-RatingRev {
+    param($Value)
+    if ($null -eq $Value -or $Value -is [bool]) { return $null }
+    $n = [long]0
+    if ([long]::TryParse(([string]$Value), [System.Globalization.NumberStyles]::None, $script:Invariant, [ref]$n) -and $n -ge 1) { return $n }
+    return $null
+}
+
+# (0.6.1, F06-2) The `rating_rev` of a NEW mark: 1 + the highest rating_rev among the existing marks
+# of the same consultation in $Ratings (the same rule as -Rate's replacement: the consult_id when both
+# have one, else n; a mark without a rating_rev counts as 0). -Rate calls it under the task lock, in
+# the store commit that writes the mark - one revision per commit, never re-allocated on a send path.
+function Get-NextRatingRev {
+    param($Ratings, [string]$ConsultId, $N)
+    $max = [long]0
+    foreach ($old in @($Ratings)) {
+        if ($null -eq $old) { continue }
+        $oldId = [string](Get-PropertyValue $old 'consult_id' '')
+        $same = $(if ($ConsultId -and $oldId) { $oldId -ieq $ConsultId } else { [string](Get-PropertyValue $old 'n' '') -eq [string]$N })
+        if (-not $same) { continue }
+        $r = ConvertTo-RatingRev (Get-PropertyValue $old 'rating_rev' $null)
+        if ($null -ne $r -and $r -gt $max) { $max = $r }
+    }
+    return ($max + 1)
+}
+
+# (0.6.1, F06-1) The judge a mark carries - saved by -Rate in the rating commit, the classes-only object
+# its event carried; read back through ConvertTo-TelemetryJudge (closed values only) - or $null for a
+# mark without one (rated before 0.6.1's fix): the caller then takes the consultation's coordinator.
+function Get-RatingMarkJudge {
+    param($Mark)
+    $j = Get-PropertyValue $Mark 'judge' $null
+    if ($null -eq $j -or $j -is [string] -or $null -eq $j.PSObject.Properties['source']) { return $null }
+    return (ConvertTo-TelemetryJudge $j)
+}
+
+# Do two marks name the same rating: the same consultation (consult_id when both have one, else n),
+# (0.6.1, F06-2) the same rating_rev (none counts as 0 - two marks of one second differ by it) and the
+# same `when` (the instant)?
 function Test-RatingMarkSame {
     param($A, $B)
     $ia = [string](Get-PropertyValue $A 'consult_id' '')
     $ib = [string](Get-PropertyValue $B 'consult_id' '')
     $same = $(if ($ia -and $ib) { $ia -ieq $ib } else { [string](Get-PropertyValue $A 'n' '') -eq [string](Get-PropertyValue $B 'n' '') })
     if (-not $same) { return $false }
+    $ra = ConvertTo-RatingRev (Get-PropertyValue $A 'rating_rev' $null)
+    $rb = ConvertTo-RatingRev (Get-PropertyValue $B 'rating_rev' $null)
+    if ($(if ($null -eq $ra) { 0 } else { $ra }) -ne $(if ($null -eq $rb) { 0 } else { $rb })) { return $false }
     $wa = ConvertTo-WhenOffset (Get-PropertyValue $A 'when' $null)
     $wb = ConvertTo-WhenOffset (Get-PropertyValue $B 'when' $null)
     if ($null -eq $wa -or $null -eq $wb) { return ([string](Get-PropertyValue $A 'when' '') -ceq [string](Get-PropertyValue $B 'when' '')) }
@@ -13502,9 +13660,11 @@ function Test-RatingMarkSame {
 }
 
 # Writes `telemetry_sent` = $Sent into the mark of <task>/findings.json that is $Mark (the same
-# consultation and `when`, Test-RatingMarkSame) and has none yet - through the task's store commit
-# (the write lock, findings.json re-read under it). '' when written, else why not. For -Rate's
-# event spooled only by the retry after the locks.
+# consultation, rating_rev and `when`, Test-RatingMarkSame) and has none yet - through the task's store
+# commit (the write lock, findings.json re-read under it). '' when written, else why not -
+# $script:RatingMarkReplacedWhy when the mark is gone (rated again meanwhile). For -Rate's event
+# spooled only by the retry after the locks.
+$script:RatingMarkReplacedWhy = 'the mark is no longer in findings.json (rated again meanwhile)'
 function Set-RatingTelemetrySent {
     param([string]$TaskDir, [string]$Task, $Mark, [long]$Sent)
     $commit = $null
@@ -13519,7 +13679,7 @@ function Set-RatingTelemetrySent {
                 return ''
             }
         }
-        return 'the mark is no longer in findings.json (rated again meanwhile)'
+        return $script:RatingMarkReplacedWhy
     } catch { return (ConvertTo-OneLine $_.Exception.Message) } finally { $null = Exit-StoreCommit -Commit $commit }
 }
 
@@ -13531,9 +13691,12 @@ function Set-RatingTelemetrySent {
 # `when` as -RatedAt (client_time) and its consult_when (age_days), spooled with up to 5 s, and
 # `telemetry_sent` written into the mark - per task under the task's store commit (the write lock,
 # findings.json re-read under it, written once at the end). A spool failure stops that task's
-# remaining marks (they stay unsent: the next run sends them). (0.6.1, U3) The judge of such an event
-# is the consultation's own coordinator (source consult_coordinator) or unknown - the actor of an
-# earlier mark is not known (Resolve-TelemetryJudge without an actor). -DryRun reads without a lock,
+# remaining marks (they stay unsent: the next run sends them). (0.6.1, U3 / F06-1) The judge of such an
+# event is the one the mark saved at rating time (Get-RatingMarkJudge - a rating actor stays
+# rating_actor); a mark without one (rated before that) takes the consultation's own coordinator
+# (source consult_coordinator) or unknown - its actor is not known (Resolve-TelemetryJudge without an
+# actor); never this process's CODEX_CONSULT_COORDINATOR. (F06-2) Its rating_rev is the mark's own
+# (none for a mark without one), client_time the mark's `when`. -DryRun reads without a lock,
 # prints per event the vendor class, the model, the mark, the age and the judge's classes (never a
 # text) and writes nothing.
 # Telemetry off: refused, nothing read or written. One line per task that has marks, then the total;
@@ -13592,21 +13755,27 @@ function Invoke-TelemetryBackfillRatings {
                 $entry = Find-RatingLedgerEntry -Consults $consults -Mark $m
                 if ($null -eq $entry -or $script:TelemetryRatingMarks -cnotcontains $useful -or $null -eq $ratedAt) { $skipped++; continue }
                 $cw = Get-PropertyValue $m 'consult_when' $null
-                # (0.6.1, U3) the actor of an earlier mark is not known: the consultation's coordinator
+                # (0.6.1, U3 / F06-1) the judge the mark saved at rating time; a mark without one (rated
+                # before that): its actor is not known - the consultation's coordinator
                 # (consult_coordinator) or unknown - never this process's CODEX_CONSULT_COORDINATOR
-                if ($null -eq $judgeRoster) {
-                    $judgeRoster = Read-ReviewerRoster
-                    if ($judgeRoster.Error) { $judgeRoster = [pscustomobject]@{ Exists = $false; Entries = [object[]]@() } }
+                $judge = Get-RatingMarkJudge $m
+                if ($null -eq $judge) {
+                    if ($null -eq $judgeRoster) {
+                        $judgeRoster = Read-ReviewerRoster
+                        if ($judgeRoster.Error) { $judgeRoster = [pscustomobject]@{ Exists = $false; Entries = [object[]]@() } }
+                    }
+                    $judge = Resolve-TelemetryJudge -Entry $entry -Roster $judgeRoster
                 }
-                $judge = Resolve-TelemetryJudge -Entry $entry -Roster $judgeRoster
+                # (F06-2) the mark's own revision - never re-allocated here
+                $rev = ConvertTo-RatingRev (Get-PropertyValue $m 'rating_rev' $null)
                 if ($DryRun) {
-                    $d = ConvertTo-TelemetryRatingDetails -Entry $entry -Mark $useful -RatedAt $ratedAt -ConsultWhen $cw -Judge $judge
+                    $d = ConvertTo-TelemetryRatingDetails -Entry $entry -Mark $useful -RatedAt $ratedAt -ConsultWhen $cw -Judge $judge -RatingRev $rev
                     Write-Host "codex-telemetry: would send: $($d.provider) / $($d.model) ($($d.engine)), purpose $($d.purpose), mark $($d.mark), age_days $($d.age_days), client_time $($ratedAt.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant)), judge $($d.judge.provider) / $($d.judge.model) ($($d.judge.source))"
                     $sent++
                     continue
                 }
                 if ($why) { $failed++; continue }
-                $r = Add-TelemetryEvent -Entry $entry -Switch $Switch -WaitMs $script:TelemetrySpoolWaitMs -RatingMark $useful -RatedAt $ratedAt -ConsultWhen $cw -Judge $judge
+                $r = Add-TelemetryEvent -Entry $entry -Switch $Switch -WaitMs $script:TelemetrySpoolWaitMs -RatingMark $useful -RatedAt $ratedAt -ConsultWhen $cw -Judge $judge -RatingRev $rev
                 if ($r.Why) { $why = $r.Why; $failed++; continue }
                 $m | Add-Member -NotePropertyName 'telemetry_sent' -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -Force
                 $changed = $true

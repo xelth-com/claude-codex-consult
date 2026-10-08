@@ -377,7 +377,8 @@ default (every existing ledger uses it), another slug through `-BriefPrefix` or
 (0.6.1) The same variable names the JUDGE of your ratings: `codex-findings.ps1 -Rate` reads
 `CODEX_CONSULT_COORDINATOR` of the process that rates (parsed exactly as above) and sends only its
 classes - the vendor class and a closed-list model - in the rating event's `judge` (README
-"Telemetry", the rating event). Set it in the session that rates, too.
+"Telemetry", the rating event); the mark saves the same classes, so a rating event sent later (the
+retry, `-BackfillRatings`) keeps that judge. Set it in the session that rates, too.
 
 The `coordinate` skill also carries the idle watchdog (its rule 3): one recurring wake every 30
 minutes, armed at your first delegation or wait and kept while any running work exists (a worker,
@@ -1612,8 +1613,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$P/scripts/codex-findings.p
 - **`-Rate <n>`** records the judge's usefulness mark for consultation `n` (a ledger entry
   number, not a finding id) in the top-level `ratings` array of `findings.json`:
   `{n, consult_id, lineage, provider, model, engine, purpose, topics, consult_when, useful,
-  note, when}` (R24: and `telemetry_sent`, unix seconds, once its telemetry event was spooled),
-  copied from that ledger entry so the row survives pruning. (0.5.0, wave 26) The
+  note, when, rating_rev, judge}` (R24: and `telemetry_sent`, unix seconds, once its telemetry event was spooled),
+  copied from that ledger entry so the row survives pruning. (0.6.1, F06-2) `rating_rev` is the
+  mark's revision among the marks of its consultation - 1 + the highest of the existing ones (a mark
+  without one counts as 0), allocated under the task lock in the commit that writes the mark; (F06-1)
+  `judge` is `{provider, model, source}` - who gave the mark, resolved at rating time as classes only
+  (README "Telemetry", the judge; never a label, a host or the raw `CODEX_CONSULT_COORDINATOR`
+  value) - saved with telemetry on or off. A mark rated before 0.6.1 has neither. (0.5.0, wave 26) The
   mark is keyed by the consultation's `consult_id` (`n` is only unique within a task - kept for
   display): rating the same consultation again replaces its record, and everything a routed
   panel needs is on the record itself - the reviewer, the purpose, the `topics` and the
@@ -2071,9 +2077,24 @@ confirmed; its keywords are a best guess.
 **`retry_after`** is a quota failure's reset time, parsed from the message and never
 guessed: Codex's wording (`try again at Sep 28th, 2026 8:35 PM.`), (0.6.1) the same wording
 with a time only (`try again at 9:43 PM.`, `try again at 21:43`; also after `resets at`,
-`available at`, `until`) - TODAY at that local time, or TOMORROW when that time is already past at
-the moment of parsing (the failure's time; in test mode `CODEX_CONSULT_NOW`), so the hold ends then
-instead of 60 minutes after the hit - a bare ISO-8601
+`available at`, `until`) - TODAY at that local time unless that moment is MORE than 5 minutes before
+the moment of parsing (the failure's time; in test mode `CODEX_CONSULT_NOW`); only then TOMORROW, so
+the hold ends then instead of 60 minutes after the hit. (F06-3) The 5-minute allowance covers the
+displayed minute and the message's delivery: a reset parsed 30 s or 4 minutes after `21:43` is
+today's - already passed, so the hold ends at once - and one parsed 6 minutes after it is
+tomorrow's (exactly: of the candidates on the day before, the day of and the day after, the
+earliest not before the moment of parsing minus 5 minutes - just after midnight a reset of `23:59`
+is yesterday's, passed). (F06-4) Daylight saving: a wall time the zone repeats (the hour of a
+fall-back night) is tried with BOTH offsets - parsed at the second 02:15 of Berlin's 2026-10-25,
+`2:30 AM` is the second 02:30 of that day (`+01:00`, 15 minutes away), not tomorrow's; a wall time
+inside a spring-forward gap is the first valid instant after the gap (Berlin 2026-03-29, `2:30 AM`
+-> `03:00+02:00`). (F06-5) A zone qualifier right after the clock (a space or a parenthesis between):
+`UTC`, `GMT` or `Z` - that time in UTC (`resets at 21:43 UTC` on a `+02:00` machine is
+`23:43+02:00`); a numeric offset (`+02:00`, `-0500`, `+2`, also `UTC+2`) - that time at that offset;
+any OTHER zone-like word (two to five capital letters: `PST`, `CET`, `PDT`, `BST`) - the time-only
+wording is NOT parsed and the 60-minute default applies (the bridge does not guess what an
+abbreviation means). A trailing comma, `and`, a period or the end of the message stays fine - after
+a sentence-ending period (`9:43 PM.`) nothing more is read. Also: a bare ISO-8601
 timestamp, a duration (`retry after 30`, `retry after 2h`, `resets in 2 days`, `try again
 in 3 days 1 hour 7 minutes`), or Google's wordings (`retry in 32s`, `retry in 1m5.3s`,
 `retry in 90 seconds`, the gRPC `"retryDelay":{"seconds":N}` / `"retryDelay": "32s"` - a
@@ -2082,8 +2103,8 @@ available in (agy's `Individual quota reached. ... Resets in 68h58m18s.`; also `
 `in 45m`, `in 30s`), or a rolling window (Kimi Code's `Your quota will reset when the current
 5-hour window ends.` -> the failure time + 5 h: an UPPER BOUND, since the window ends at the
 latest 5 h after the failure). A wall-clock time is interpreted with the recording machine's time-zone rules
-at write time, DST included (a spring-forward gap takes the post-transition offset, a
-fall-back overlap the pre-transition one), and stored as an instant with its offset. An
+at write time, DST included (for a DATED time a spring-forward gap takes the post-transition offset, a
+fall-back overlap the pre-transition one; a time-only reset follows F06-4 above), and stored as an instant with its offset. An
 entry written before that fix has no `retry_after`; reading it reparses the message with
 the failure's own `when` offset, which can be off by a zone difference when read on a
 machine in another zone.
@@ -3230,7 +3251,7 @@ vendor table below):
 | `details.structured`, `format_retry`, `denial_retry`, `timeout_continue` | booleans: a valid structured reply; a format repair, a denial retry, a timeout continuation turn attempted |
 | `details.panel_size` | the members of the panel this consultation belonged to; `0` for a single run |
 | `details.ps_version`, `os`, `runtime` | `$PSVersionTable.PSVersion`; the OS family and version; `powershell 5.1` or `pwsh 7.x` |
-| `details.consult_ref` | (0.6.1, U5) a random id that links a consultation to its ratings, derived from nothing: a guid the bridge mints for each consultation (`[guid]::NewGuid()` - not the `consult_id` the reviewer sees in the prompt, not a hash of anything local), kept in the ledger entry as `consult_ref` and sent in this event and in every rating event of the same consultation, so the intake can count the latest rating per consultation. An entry recorded before 0.6.1 has none, and its events carry no such key; a complaint's context never carries it |
+| `details.consult_ref` | (0.6.1, U5) a random id that links a consultation to its ratings, derived from nothing: a guid the bridge mints for each consultation (`[guid]::NewGuid()` - not the `consult_id` the reviewer sees in the prompt, not a hash of anything local), kept in the ledger entry as `consult_ref` and sent in this event and in every rating event of the same consultation, so the intake can count the latest rating per consultation. An entry recorded before 0.6.1 has none, and its events carry no such key; a complaint's context never carries it. (F06-6) It is a PSEUDONYMOUS correlation key, not an anonymous one: whoever holds both the telemetry and a shared ledger (`sessions.json`, which keeps `consult_ref` beside the task's context) can join them on it - the bridge promises no unlinkability once a ledger is shared; keep a ledger you publish free of it, or accept the link |
 | `tags`, `client_time` | (wave 28b) `[provider, model]` - the same two closed values as `details`; when the event was built, UTC (an instant, not a day) |
 
 **The vendor table** (wave 28b, D1 - `$script:TelemetryVendors` in `codex-consult-common.ps1`, ONE
@@ -3279,14 +3300,23 @@ SPOOL check exactly that, on a synthetic entry and a real run).
   consultation event's (`app_id` ... `runtime`, `tags` `[provider, model]`) with `severity` `info`
   and `title` the mark; `details` are exactly `engine`, `provider`, `model`, `purpose`, `mark`
   (`yes`, `partly`, `no`), `age_days` (the whole days from the consultation's `when` to the rating,
-  `0` the same day), `bridge_version`, `os`, `ps_version`, (0.6.1) `judge` and - when the rated
-  ledger entry has one - `consult_ref` (the same random id its consultation event carried) - the
+  `0` the same day), `bridge_version`, `os`, `ps_version`, (0.6.1) `judge`, (F06-2) `rating_rev` -
+  the mark's own revision (above; a mark rated before 0.6.1 has none and its event no such key) - and
+  - when the rated ledger entry has one - `consult_ref` (the same random id its consultation event carried) - the
   reviewer through the consultation event's own code path (`Get-TelemetryReviewerClass`: the vendor
   class and the closed-list model, `other` / `unknown` exactly as there). Never in it: the `-Note`
   text, the topics, the task, the consultation's `n`, `consult_id` or lineage, the roster label.
   Example `details`:
-  `{"engine":"codex","provider":"zai","model":"glm-5.3","purpose":"acceptance","mark":"partly","age_days":0,"bridge_version":"0.6.1","os":"windows 10.0.26200","ps_version":"7.6.6","judge":{"provider":"anthropic","model":"claude-opus-5-5","source":"rating_actor"},"consult_ref":"6f1c2a9e-4b7d-4e2a-9c3f-0d8e5b7a1c24"}`.
-  The intake aggregates consultations and ratings per vendor class and model.
+  `{"engine":"codex","provider":"zai","model":"glm-5.3","purpose":"acceptance","mark":"partly","age_days":0,"bridge_version":"0.6.1","os":"windows 10.0.26200","ps_version":"7.6.6","judge":{"provider":"anthropic","model":"claude-opus-5-5","source":"rating_actor"},"rating_rev":2,"consult_ref":"6f1c2a9e-4b7d-4e2a-9c3f-0d8e5b7a1c24"}`.
+  (F06-2) Its `client_time` is the MARK's own `when` on every path - the send at the commit, the retry
+  after the locks, `-BackfillRatings` - never the moment a late retry happens to spool it, and its
+  `judge` and `rating_rev` are the mark's own, never resolved or allocated again.
+  The intake aggregates consultations and ratings per vendor class and model. **The replacement
+  rule** (the intake's, F06-2): per (`instance_id`, `consult_ref`) one rating counts - the one with
+  the highest `rating_rev` (a missing one counts as `0`); a tie falls to the latest `created` (the
+  intake's own receipt time). So a re-rating replaces the earlier mark whatever the delivery order:
+  a late retry of the earlier mark (a lower `rating_rev`) never overtakes it, and two marks given
+  within one second (the same `client_time`) are still ordered.
 - **The judge** (0.6.1, U3). `judge` is `{provider, model, source}` - WHO gave the mark, resolved AT
   RATING TIME, as classes only:
   - `source` `rating_actor`: `CODEX_CONSULT_COORDINATOR` of the process that runs `-Rate`, parsed
@@ -3305,9 +3335,13 @@ SPOOL check exactly that, on a synthetic entry and a real run).
   host hint only) -> `anthropic` for the host `claude-code`, else `other` - the host is a hint, read
   only when no provider is named. The model goes through the same closed lists as a reviewer's
   (`[1m]` stripped), else `other`. Privacy: classes only - never the label, never the host, never a
-  model name outside the lists; the label stays in your ledger. `-BackfillRatings` cannot know who
-  gave an earlier mark: its events take `consult_coordinator` or `unknown`, never the backfilling
-  process's own `CODEX_CONSULT_COORDINATOR`.
+  model name outside the lists; the label stays in your ledger. (F06-1) The mark SAVES this judge
+  object (the same classes, in `findings.json`), and every later send of its event takes it from
+  the mark: the retry after the locks and `-BackfillRatings` - a rating actor stays `rating_actor`
+  even when both spool attempts failed and a backfill under another coordinator sends it.
+  `-BackfillRatings` cannot know who gave a mark rated before that (it has no saved judge): such an
+  event takes `consult_coordinator` or `unknown`, never the backfilling process's own
+  `CODEX_CONSULT_COORDINATOR`.
 - **Backfilling earlier marks** (R24, 2026-10-06). Marks given before the rating event existed have
   no `telemetry_sent`; one command in the repository sends each of them ONCE:
 
@@ -3322,8 +3356,9 @@ SPOOL check exactly that, on a synthetic entry and a real run).
   for a mark older than wave 26). A mark whose entry is not there is SKIPPED and counted - a
   reviewer is never guessed - and so is a mark that is not `yes`/`partly`/`no` or has no `when`.
   Every other mark goes out as the same `rating` event `-Rate` sends, with `client_time` = the
-  mark's own `when` (when the rating happened; the intake keeps its own receipt time) and
-  `age_days` from the mark's `consult_when`, and `telemetry_sent` (unix seconds) is written into
+  mark's own `when` (when the rating happened; the intake keeps its own receipt time),
+  `age_days` from the mark's `consult_when`, (0.6.1) the mark's saved `judge` and its `rating_rev`
+  (none for a mark rated before 0.6.1), and `telemetry_sent` (unix seconds) is written into
   the mark under the task's store commit - so a second run sends nothing (`already`), and nor do
   marks `-Rate` spooled itself. It prints `codex-telemetry: <task>: sent N, already M, skipped K`
   per task with marks, then `codex-telemetry: total: ...`, and starts the detached sender when it
@@ -3635,7 +3670,7 @@ Environment variables:
 | `CODEX_CONSULT_CLAUDE_EXE` | user | claude launcher path (the `claude` engine, wave 29) |
 | `TBH_CREDENTIAL_BACKEND` | the user (Muse Code's own variable) | `file` keeps the Muse sign-in in `~/.config/muse/auth.json`, which the bridge can read; required (wave 23b: without a readable oauth sign-in no muse run is launched, `-SkipPreflight` included); passed to muse unchanged |
 | `META_API_KEY`, `MODEL_API_KEY` | nobody, for the bridge | must NOT be set: a muse run is refused while either is (it would bill per token instead of the subscription) |
-| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV`, (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL`, `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`, `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`, `CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS`, (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE`, (wave 28d) `CODEX_CONSULT_TEST_TELEMETRY_REWRITE_CRASH`, (wave 28e) `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE`, `CODEX_CONSULT_TEST_FOLD_CRASH` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28; wave 28b) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of every variable of its environment; (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL=1`: the registration write of the engine process fails (D19); `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST=1`: the first endpoint update of a run fails (D13); `..._TELEMETRY_REQUEST_MS` / `..._FLUSH_MS`: the sender's bounds). (wave 28b, D10) A run that finds `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` on the console and in `warnings[]`; no ENGINE child (a turn, a launcher probe) gets `CODEX_CONSULT_TEST_MODE` or any `CODEX_CONSULT_TEST_*` variable - a panel member and the detached background (the bridge itself) keep them, the telemetry sender gets only the test mode and its own hooks. (wave 28c, D12) Where the line appears: the console of a committed run (after the commit) and its `warnings[]`, a dry run (with the other run warnings, and its preview's `warnings[]`), a -Panel run (the panel's lines, and each member's `warnings[]`), a detached run (its foreground's lines and the background's entry) - NOT on a refused run: a refusal stops before anything starts or is written. (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE=<pid>[,<pid>]`: these pids read as a process whose start time cannot be read (D8); `CODEX_CONSULT_TEST_KILL_DENIED=taskkill`: only `taskkill` is denied (`=1` denies the enumeration too); (wave 28e, E19) `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>]`: these pids read with a command line that cannot be read ((wave 29, E27) in the machine-wide process scan too); (E20) `CODEX_CONSULT_TEST_FOLD_CRASH=1`: a flush exits (code 87) between the save of `.last` and the deletes of its fold, (E26) `=2`: it exits (code 88) between the deletes and the rewrite of `.last`. (Wave 29) `CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix>` (test mode only): lets the environment variables with that prefix through to a claude engine child (the harness's fake reads `FAKE_CLAUDE_*`); never a prefix of ANTHROPIC, CLAUDE or CODEX_CONSULT. |
+| `CODEX_CONSULT_NOW`, `CODEX_CONSULT_TEST_SURVIVORS`, `CODEX_CONSULT_TEST_DETACH_GUIDS`, `CODEX_CONSULT_TEST_PANEL_SEED`, `CODEX_CONSULT_TEST_TELEMETRY_ENV`, (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL`, `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST`, `CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS`, `CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS`, (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE`, (wave 28d) `CODEX_CONSULT_TEST_TELEMETRY_REWRITE_CRASH`, (wave 28e) `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE`, `CODEX_CONSULT_TEST_FOLD_CRASH`, (0.6.1) `CODEX_CONSULT_TEST_RATE_RETRY_GATE` | tests only | test hooks; never set them in normal use - (wave 27c, D14) they are honoured ONLY while `CODEX_CONSULT_TEST_MODE=1` is set too (every harness and `run-all.ps1` set it); without it they are ignored and a run warns once: `test hook(s) ignored - CODEX_CONSULT_TEST_MODE=1 is not set: <names>` (`CODEX_CONSULT_TEST_PANEL_SEED`: the routing seed's nonce when `-PanelSeed` is not given; (wave 28; wave 28b) `CODEX_CONSULT_TEST_TELEMETRY_ENV=<path>`: the telemetry sender writes there the NAMES of every variable of its environment; (wave 28b) `CODEX_CONSULT_TEST_REGISTER_FAIL=1`: the registration write of the engine process fails (D19); `CODEX_CONSULT_TEST_HEALTH_FAIL_FIRST=1`: the first endpoint update of a run fails (D13); `..._TELEMETRY_REQUEST_MS` / `..._FLUSH_MS`: the sender's bounds). (wave 28b, D10) A run that finds `CODEX_CONSULT_TEST_MODE=1` says `test mode is ON: test hooks are honoured` on the console and in `warnings[]`; no ENGINE child (a turn, a launcher probe) gets `CODEX_CONSULT_TEST_MODE` or any `CODEX_CONSULT_TEST_*` variable - a panel member and the detached background (the bridge itself) keep them, the telemetry sender gets only the test mode and its own hooks. (wave 28c, D12) Where the line appears: the console of a committed run (after the commit) and its `warnings[]`, a dry run (with the other run warnings, and its preview's `warnings[]`), a -Panel run (the panel's lines, and each member's `warnings[]`), a detached run (its foreground's lines and the background's entry) - NOT on a refused run: a refusal stops before anything starts or is written. (wave 28c) `CODEX_CONSULT_TEST_START_UNREADABLE=<pid>[,<pid>]`: these pids read as a process whose start time cannot be read (D8); `CODEX_CONSULT_TEST_KILL_DENIED=taskkill`: only `taskkill` is denied (`=1` denies the enumeration too); (wave 28e, E19) `CODEX_CONSULT_TEST_CMDLINE_UNREADABLE=<pid>[,<pid>]`: these pids read with a command line that cannot be read ((wave 29, E27) in the machine-wide process scan too); (E20) `CODEX_CONSULT_TEST_FOLD_CRASH=1`: a flush exits (code 87) between the save of `.last` and the deletes of its fold, (E26) `=2`: it exits (code 88) between the deletes and the rewrite of `.last`. (Wave 29) `CODEX_CONSULT_TEST_CHILD_ENV_PASS=<prefix>` (test mode only): lets the environment variables with that prefix through to a claude engine child (the harness's fake reads `FAKE_CLAUDE_*`); never a prefix of ANTHROPIC, CLAUDE or CODEX_CONSULT. (0.6.1, F06-2) `CODEX_CONSULT_TEST_RATE_RETRY_GATE=<path>`: `codex-findings.ps1 -Rate`'s telemetry retry after the locks waits (at most 60 s) until that file exists - a harness commits a newer mark of the same consultation meanwhile. |
 | `CODEX_CONSULT_SCRIPTS_DIR` | tests only | (0.5.0, T4) the scripts directory `tests/run-all.ps1` and every harness test when `-ScriptsDir` is not given (e.g. an installed copy of the plugin); unset: the checkout's `plugins/codex-consult/scripts` |
 
 ---
@@ -3872,7 +3907,13 @@ half of the usefulness table (U3 the judge, U5 `consult_ref`) and the time-only 
 harness at a time: `harness-telemetry` 127 (+15: UNIT 4 - consult_ref, the coordinator classifier, the judge object,
 the rating actor; SPOOL 3; RATE 5; BACKFILL 2; DOCS 1), `harness-roster` 124 (+4: TIMEONLY; seven more UNIT
 samples), `harness-claude` 87, `harness-0.3` 229, `harness-engines` 97, `harness-muse` 74 and `harness-companions` 42
-(the ledger field order with `consult_ref`), `harness-visibility` 122.)
+(the ledger field order with `consult_ref`), `harness-visibility` 122. Then the six findings of the 0.6.1 diff review
+(F06-1..F06-6), the same tools and host: `harness-telemetry` 137 (+10: RATE 3 - the mark's `rating_rev` and `judge`,
+revisions with telemetry on and off, the three ratings' revisions; BACKFILL 6 - no `rating_rev` for older marks, RC1 2,
+RC2 3; DOCS 1), `harness-roster` 125 (+1 TIMEONLY - a reset parsed 30 s late ends the hold at once; UNIT 52 samples,
++21 net: the 5-minute allowance, the repeated hour and the spring gap, the zone qualifiers), `harness-companions` 42,
+`harness-engines` 97 (the new mark shape), `harness-0.3` 229, `harness-visibility` 122,
+`harness-claude` 87.)
 Many cases wait on real timeouts and time a fake
 reviewer: on a loaded machine (another heavy application or build, a disk that runs full) the
 timing cases of `harness-panel` (RUN, GUARD), `harness-detach` (PANEL) and `harness-visibility`

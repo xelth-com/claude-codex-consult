@@ -30,12 +30,17 @@
     -Rate <n> -Useful yes|partly|no [-Note <why>] records the judge's mark for
     consultation n of the task (n must be a ledger entry; -Note is required for no):
     findings.json gets a top-level `ratings` array of { n, consult_id, lineage,
-    provider, model, engine, purpose, topics, consult_when, useful, note, when } -
+    provider, model, engine, purpose, topics, consult_when, useful, note, when,
+    rating_rev, judge } -
     (wave 26, D2) keyed by the consultation's consult_id (n is kept for display), with
     everything routing needs copied from that ledger entry: the reviewer (provider, model,
     engine), the purpose, the topics and the consultation's own time (consult_when; `when`
     is the time of the mark). Rating the same consultation again replaces its record (the
-    latest mark wins). It takes the task lock like a status change.
+    latest mark wins). (0.6.1, F06-2) rating_rev: the mark's revision among its
+    consultation's marks - 1 + the highest of the existing ones (none counts as 0),
+    allocated under the task lock in the commit that writes it; (F06-1) judge: the
+    judge resolved at rating time (below), saved with the mark - classes only - whether
+    telemetry is on or off. It takes the task lock like a status change.
     (R24) Telemetry on (CODEX_CONSULT_TELEMETRY, or -Telemetry on|off for this rating; README
     "Telemetry (on by default)"): ONE anonymised `rating` event goes to <codex home>/telemetry-spool
     (Add-TelemetryEvent -RatingMark) at the mark's commit, inside the write lock with at most 1 s -
@@ -47,8 +52,10 @@
     (Get-TelemetryReviewerClass) -, (0.6.1, U3) judge {provider, model, source}: the RATING ACTOR -
     CODEX_CONSULT_COORDINATOR of this process, parsed as the bridge parses it (source rating_actor) -,
     when that is unset the consultation's own coordinator from the ledger (consult_coordinator), else
-    other/other (unknown) - classes only (Get-TelemetryJudgeClass), and (U5) the ledger entry's
-    consult_ref when it has one (the random id its consultation event carried too); never the note,
+    other/other (unknown) - classes only (Get-TelemetryJudgeClass) - the judge the mark saved,
+    (F06-2) rating_rev - the mark's own revision - and (U5) the ledger entry's
+    consult_ref when it has one (the random id its consultation event carried too); client_time is
+    the mark's `when` - the retry after the locks sends the same judge, rating_rev and time; never the note,
     the topics, the task, the consultation's id, n or lineage, nor a roster label or the coordinator's
     host. Telemetry never fails the rating: an event that is not spooled
     prints one warning line and is counted (codex-telemetry.ps1 -Status); off writes nothing.
@@ -411,12 +418,13 @@ if ($rating) {
         Stop-WithError "no consultations recorded for task '$Task' ($sessionsPath does not exist); -Rate takes the n of a ledger entry."
     }
     $telemetrySwitch = Get-TelemetrySwitch -Override $Telemetry
-    # (0.6.1, U3 / F02-3) the rating event's judge is resolved AT RATING TIME: the rating actor -
+    # (0.6.1, U3 / F02-3) the rating's judge is resolved AT RATING TIME: the rating actor -
     # CODEX_CONSULT_COORDINATOR of THIS process (the roster and the Codex config read here, before any
-    # lock) - else, inside the commit, the rated entry's own coordinator (Resolve-TelemetryJudge)
-    $telemetryActor = $null
-    if ($telemetrySwitch.On) { $telemetryActor = Get-TelemetryRatingActor }
-    $telemetryJudge = $null
+    # lock) - else, inside the commit, the rated entry's own coordinator (Resolve-TelemetryJudge);
+    # (F06-1) whatever the switch, it is SAVED in the mark (classes only), so the retry below and a
+    # later codex-telemetry.ps1 -BackfillRatings send this judge, not the consultation's
+    $ratingActor = Get-TelemetryRatingActor
+    $ratedAt = $null
     $lock = Enter-TaskLock -TaskDir $taskDir -Task $Task
     if (-not $lock.Acquired) { Stop-WithError $lock.Message }
     $commit = $null
@@ -464,6 +472,13 @@ if ($rating) {
         }
         $consultWhen = Get-PropertyValue $entry 'when' $null
         if ($null -ne $consultWhen -and -not ($consultWhen -is [string])) { $wo = ConvertTo-WhenOffset $consultWhen; if ($wo) { $consultWhen = $wo.ToString('yyyy-MM-ddTHH:mm:sszzz', $script:Invariant) } }
+        # (0.6.1, F06-2) the mark's revision among its consultation's marks - 1 + the highest of the
+        # FRESH store's (a mark without one counts as 0), allocated here under the task lock in the
+        # commit that writes the mark; every send of its event carries exactly this value
+        $ratingRev = Get-NextRatingRev -Ratings (Get-PropertyValue $commit.Findings 'ratings' @()) -ConsultId $consultId -N $Rate
+        # (F06-1) the judge as the event carries it - classes only, never a label, a host or the raw
+        # CODEX_CONSULT_COORDINATOR value
+        $markJudge = ConvertTo-TelemetryJudge (Resolve-TelemetryJudge -Entry $entry -Actor $ratingActor)
         $mark = [pscustomobject]@{
             n            = $Rate
             consult_id   = $consultId
@@ -477,14 +492,17 @@ if ($rating) {
             useful       = $Useful
             note         = $Note.Trim()
             when         = (Get-IsoTimestamp)
+            rating_rev   = $ratingRev
+            judge        = $markJudge
         }
+        # (F06-2) client_time of every send of this mark's event is the mark's own `when`
+        $ratedAt = ConvertTo-WhenOffset $mark.when
         # (R24) telemetry on: the rating event goes into the spool NOW, inside the write lock, waiting
         # at most 1 s (as a consultation's event at its commit); spooled, the mark carries
         # telemetry_sent (unix seconds) - codex-telemetry.ps1 -BackfillRatings never sends it again.
         # A failure is retried for up to 5 s after both locks are released (below).
         if ($telemetrySwitch.On) {
-            $telemetryJudge = Resolve-TelemetryJudge -Entry $entry -Actor $telemetryActor
-            try { $telemetryFirst = Add-TelemetryEvent -Entry $entry -Switch $telemetrySwitch -WaitMs 1000 -RatingMark $Useful -Judge $telemetryJudge } catch { $telemetryFirst = [pscustomobject]@{ Why = (ConvertTo-OneLine $_.Exception.Message); Forgetting = $false } }
+            try { $telemetryFirst = Add-TelemetryEvent -Entry $entry -Switch $telemetrySwitch -WaitMs 1000 -RatingMark $Useful -RatedAt $ratedAt -Judge $mark.judge -RatingRev $mark.rating_rev } catch { $telemetryFirst = [pscustomobject]@{ Why = (ConvertTo-OneLine $_.Exception.Message); Forgetting = $false } }
             if (-not $telemetryFirst.Why) { $mark | Add-Member -NotePropertyName 'telemetry_sent' -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) }
         }
         # (created on the first mark; a findings.json that exists but does not parse is refused)
@@ -518,9 +536,10 @@ if ($rating) {
     }
     # (R24) telemetry on: the mark is committed and both task locks are released. ONE anonymised
     # rating event of the rated ledger entry (New-TelemetryRatingEvent: the consultation event's
-    # vendor class and closed-list model, the purpose, the mark, the age in days, the judge resolved
-    # before the commit, the consult_ref) went into the spool
-    # at the commit; one that did not is retried now with up to 5 s - spooled, telemetry_sent is
+    # vendor class and closed-list model, the purpose, the mark, the age in days, the judge and the
+    # rating_rev the mark saved, client_time the mark's `when`, the consult_ref) went into the spool
+    # at the commit; one that did not is retried now with up to 5 s - the SAME event (the mark's
+    # judge, rating_rev and `when`, never re-resolved or re-allocated) - spooled, telemetry_sent is
     # written into the mark (Set-RatingTelemetrySent, the store commit again); not spooled, it is
     # warned about and counted (codex-telemetry.ps1 -Status) and -BackfillRatings sends it later; met
     # by a running -Forget, it is dropped and counted. Then the detached sender starts (not waited
@@ -534,13 +553,21 @@ if ($rating) {
                 try { $nsWhy = [string](Add-TelemetryNotSpooled -Why $telemetryFirst.Why) } catch { $nsWhy = ConvertTo-OneLine $_.Exception.Message }
                 Write-Host "codex-findings: warning: telemetry rating event not spooled ($($telemetryFirst.Why)) - dropped$(if ($nsWhy) { "; $nsWhy" })" -ForegroundColor Yellow
             } elseif (-not $spooled) {
-                $telemetryRetry = Add-TelemetryEvent -Entry $ratedEntry -Switch $telemetrySwitch -WaitMs $script:TelemetrySpoolWaitMs -Count -RatingMark $Useful -Judge $telemetryJudge
+                # TEST HOOK (test mode only; 0.6.1, F06-2): CODEX_CONSULT_TEST_RATE_RETRY_GATE=<path> - the
+                # retry after the locks waits (at most 60 s) until that file exists, so a harness can
+                # commit a newer mark of the same consultation before this late event is spooled
+                $retryGate = (Get-TestHookValue 'CODEX_CONSULT_TEST_RATE_RETRY_GATE').Trim()
+                if ($retryGate) { $gw = [System.Diagnostics.Stopwatch]::StartNew(); while (-not [IO.File]::Exists($retryGate) -and $gw.Elapsed.TotalSeconds -lt 60) { Start-Sleep -Milliseconds 100 } }
+                $telemetryRetry = Add-TelemetryEvent -Entry $ratedEntry -Switch $telemetrySwitch -WaitMs $script:TelemetrySpoolWaitMs -Count -RatingMark $Useful -RatedAt $ratedAt -Judge $mark.judge -RatingRev $mark.rating_rev
                 if ($telemetryRetry.Why) {
                     Write-Host "codex-findings: warning: telemetry rating event not spooled ($($telemetryRetry.Why)) - at the commit ($($telemetryFirst.Why)) and for $([Math]::Round($script:TelemetrySpoolWaitMs / 1000.0, 1)) s after it; codex-telemetry.ps1 -BackfillRatings sends it later" -ForegroundColor Yellow
                 } else {
                     $spooled = $true
                     $markWhy = Set-RatingTelemetrySent -TaskDir $taskDir -Task $Task -Mark $mark -Sent ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
-                    if ($markWhy) { Write-Host "codex-findings: warning: the rating event was spooled, but telemetry_sent could not be written into the mark ($markWhy) - codex-telemetry.ps1 -BackfillRatings would send it once more" -ForegroundColor Yellow }
+                    # (0.6.1, F06-2) rated again meanwhile: this late event carries the older rating_rev -
+                    # the newer mark's event supersedes it at the intake, and no mark is left to backfill
+                    if ($markWhy -ceq $script:RatingMarkReplacedWhy) { Write-Host "codex-findings: the rating event (rating_rev $($mark.rating_rev)) was spooled after the consultation was rated again - the newer mark's event (a higher rating_rev) supersedes it" }
+                    elseif ($markWhy) { Write-Host "codex-findings: warning: the rating event was spooled, but telemetry_sent could not be written into the mark ($markWhy) - codex-telemetry.ps1 -BackfillRatings would send it once more" -ForegroundColor Yellow }
                 }
             }
             if ($spooled) {

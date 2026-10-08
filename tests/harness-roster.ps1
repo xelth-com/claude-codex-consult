@@ -230,7 +230,32 @@ if (Want 'UNIT') {
         # (0.6.1) a time WITHOUT a date: today at that local time, tomorrow when it is already past at the reference
         @{ Name = 'time only, still ahead today -> today'; Msg = "You${apos}ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 9:43 PM."; Ref = [DateTimeOffset]::Parse('2026-10-07T21:00:00+02:00', $inv); Want = '2026-10-07T21:43:00+02:00' },
         @{ Name = 'time only, already past -> tomorrow (the day rollover)'; Msg = "You${apos}ve hit your usage limit. ... or try again at 9:43 PM."; Ref = [DateTimeOffset]::Parse('2026-10-07T22:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
-        @{ Name = 'time only, 24-hour clock, 30 s past -> tomorrow'; Msg = 'try again at 21:43'; Ref = [DateTimeOffset]::Parse('2026-10-07T21:43:30+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        # (0.6.1, F06-3) the displayed minute and a 5-minute allowance: parsed 0.5 s, 30 s or 4 min after
+        # 21:43 it is TODAY's 21:43 - passed, the hold ends at once; 6 min after it is tomorrow's
+        @{ Name = 'F06-3 time only, 24-hour clock, parsed 0.5 s after the minute -> today (passed)'; Msg = 'try again at 21:43'; Ref = [DateTimeOffset]::Parse('2026-10-07T21:43:00.500+02:00', $inv); Want = '2026-10-07T21:43:00+02:00' },
+        @{ Name = 'F06-3 time only, 24-hour clock, 30 s past -> today (passed)'; Msg = 'try again at 21:43'; Ref = [DateTimeOffset]::Parse('2026-10-07T21:43:30+02:00', $inv); Want = '2026-10-07T21:43:00+02:00' },
+        @{ Name = 'F06-3 time only, 9:43 PM, 4 min past -> today (passed)'; Msg = 'try again at 9:43 PM.'; Ref = [DateTimeOffset]::Parse('2026-10-07T21:47:00+02:00', $inv); Want = '2026-10-07T21:43:00+02:00' },
+        @{ Name = 'F06-3 time only, 6 min past -> tomorrow'; Msg = 'try again at 21:43'; Ref = [DateTimeOffset]::Parse('2026-10-07T21:49:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        @{ Name = 'F06-3 time only, 23:59 parsed at 00:02 -> yesterday''s (passed 3 min ago), not tonight''s'; Msg = 'try again at 23:59'; Ref = [DateTimeOffset]::Parse('2026-10-08T00:02:00+02:00', $inv); Want = '2026-10-07T23:59:00+02:00' },
+        # (0.6.1, F06-4) DST: the repeated hour tried with both offsets, the spring gap -> the first instant after it
+        @{ Name = 'F06-4 Berlin fall-back 2026-10-25, reference the SECOND 02:15 (+01:00), "2:30 AM" -> the second 02:30 that day (+01:00), 15 min away'; Msg = 'try again at 2:30 AM'; Ref = [DateTimeOffset]::Parse('2026-10-25T02:15:00+01:00', $inv); Want = '2026-10-25T02:30:00+01:00' },
+        @{ Name = 'F06-4 Berlin fall-back, reference the FIRST 02:15 (+02:00), "2:30 AM" -> the first 02:30 (+02:00)'; Msg = 'try again at 2:30 AM'; Ref = [DateTimeOffset]::Parse('2026-10-25T02:15:00+02:00', $inv); Want = '2026-10-25T02:30:00+02:00' },
+        @{ Name = 'F06-4 Berlin spring-forward 2026-03-29, reference 01:50 (+01:00), "2:30 AM" (inside the gap) -> 03:00 (+02:00)'; Msg = 'try again at 2:30 AM'; Ref = [DateTimeOffset]::Parse('2026-03-29T01:50:00+01:00', $inv); Want = '2026-03-29T03:00:00+02:00' },
+        # (0.6.1, F06-5) zone qualifiers, the reference at +02:00 (Berlin, October)
+        @{ Name = 'F06-5 "resets at 21:43 UTC" -> 21:43Z (23:43+02:00), not 21:43 local'; Msg = 'Limit reached; resets at 21:43 UTC.'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T23:43:00+02:00' },
+        @{ Name = 'F06-5 "9:43 PM GMT." -> 21:43Z'; Msg = 'try again at 9:43 PM GMT.'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T23:43:00+02:00' },
+        @{ Name = 'F06-5 "21:43Z" -> 21:43Z'; Msg = 'try again at 21:43Z'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T23:43:00+02:00' },
+        @{ Name = 'F06-5 "23:30 UTC" parsed at 01:00+02:00 (23:00Z) -> the UTC day''s 23:30Z, 30 min away'; Msg = 'resets at 23:30 UTC'; Ref = [DateTimeOffset]::Parse('2026-10-08T01:00:00+02:00', $inv); Want = '2026-10-08T01:30:00+02:00' },
+        @{ Name = 'F06-5 "21:43 +02:00" -> that offset'; Msg = 'try again at 21:43 +02:00'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        @{ Name = 'F06-5 "21:43 -0500" -> 02:43Z next day (04:43+02:00)'; Msg = 'until 21:43 -0500'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-09T04:43:00+02:00' },
+        @{ Name = 'F06-5 "23:43 +2" -> that offset'; Msg = 'available at 23:43 +2'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T23:43:00+02:00' },
+        @{ Name = 'F06-5 "9:43 PM PST" -> null (another zone word: not parsed)'; Msg = 'try again at 9:43 PM PST'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F06-5 "21:43 CET." -> null'; Msg = 'until 21:43 CET.'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F06-5 "9:43 PM PDT" -> null'; Msg = 'try again at 9:43 PM PDT'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F06-5 "21:43 (BST)" -> null'; Msg = 'resets at 21:43 (BST)'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F06-5 a trailing comma, "and", a period and the end stay fine (local)'; Msg = 'try again at 21:43, or upgrade'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        @{ Name = 'F06-5 "... 21:43 and ..." -> local'; Msg = 'try again at 21:43 and retry'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        @{ Name = 'F06-5 "9:43 PM. API keys ..." - the period ends the sentence -> local'; Msg = 'try again at 9:43 PM. API keys are not affected.'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
         @{ Name = 'time only, 12:05 AM after 23:00 -> tomorrow 00:05'; Msg = 'Limit reached; resets at 12:05 AM.'; Ref = [DateTimeOffset]::Parse('2026-10-07T23:00:00+02:00', $inv); Want = '2026-10-08T00:05:00+02:00' },
         @{ Name = 'time only, tomorrow across the DST change -> the offset then (+01:00)'; Msg = 'try again at 3:30 AM'; Ref = [DateTimeOffset]::Parse('2026-10-24T23:00:00+02:00', $inv); Want = '2026-10-25T03:30:00+01:00' },
         @{ Name = 'time only, read time (-ReferenceOffset): the reference''s day and offset, rolled over'; Msg = 'try again at 9:43 PM.'; Ref = [DateTimeOffset]::Parse('2026-10-07T22:00:00-05:00', $inv); Want = '2026-10-08T21:43:00-05:00'; RefOffset = $true },
@@ -243,7 +268,7 @@ if (Want 'UNIT') {
         $gotText = if ($null -eq $got) { '' } else { Iso $got }
         if ($gotText -ne $c.Want) { $bad += "$($c.Name): got '$gotText', want '$($c.Want)'" }
     }
-    Check 'UNIT' "Get-RetryAfter: $($cases.Count) samples in zone $($berlin.Id) (Codex wording, curly apostrophe, DST change/gap/overlap, read-time reference offset, missing year, ISO, durations, nothing; 0.6.1: a time only - today, tomorrow once past, across DST, at read time, not a clock time)" ($bad.Count -eq 0) ($bad -join ' | ')
+    Check 'UNIT' "Get-RetryAfter: $($cases.Count) samples in zone $($berlin.Id) (Codex wording, curly apostrophe, DST change/gap/overlap, read-time reference offset, missing year, ISO, durations, nothing; 0.6.1: a time only - today, tomorrow once past, across DST, at read time, not a clock time; F06-3 the 5-minute allowance, F06-4 the repeated hour and the spring gap, F06-5 the zone qualifiers)" ($bad.Count -eq 0) ($bad -join ' | ')
 
     $pf = New-ProviderFailure -Texts @($codexLimit)
     $pfWall = New-Object DateTime(2026, 9, 28, 20, 35, 0)
@@ -646,6 +671,15 @@ if (Want 'TIMEONLY') {
     Check 'TIMEONLY' 'the hold ends at the parsed time, not after 60 minutes: at 21:40 local the next day (CODEX_CONSULT_NOW) the next consultation on that endpoint is still refused "... lasts until <tomorrow 21:43>"' ($yb.Code -eq 1 -and $yb.First -match ('^codex-consult: provider openai is not usable: its usage limit \(hit at .*\) lasts until ' + [regex]::Escape($wantB))) $yb.First
     $zb = Consult $rb $noRoster @('-Prompt', 'x', '-ReplyName', 'after') @{ FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_NOW = (Iso (& $localAt 8 21 44)) }
     Check 'TIMEONLY' '... and at 21:44 local it runs again (exit 0)' ($zb.Code -eq 0) $zb.First
+    # (0.6.1, F06-3) parsed 30 s after the displayed minute: TODAY's 21:43 - passed, so the hold ends at
+    # once (not a day-long hold): the next consultation right after runs
+    $rc = New-Repo 'timeonly-justpassed'
+    $nowC = (& $localAt 7 21 43).AddSeconds(30)
+    $xc = Consult $rc $noRoster @('-Prompt', 'x', '-ReplyName', 'limit') @{ FAKE_CODEX_STDERR = $toMsg; FAKE_CODEX_EXIT = '1'; CODEX_CONSULT_NOW = (Iso $nowC) }
+    $ec = Last-Entry $rc
+    $wantC = Iso (& $localAt 7 21 43)
+    $yc = Consult $rc $noRoster @('-Prompt', 'x', '-ReplyName', 'again') @{ FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_NOW = (Iso $nowC.AddSeconds(10)) }
+    Check 'TIMEONLY' 'F06-3 the same wording parsed at 21:43:30 local - 30 s after the displayed minute: retry_after = TODAY 21:43 (passed - no day-long hold), and the next consultation 10 s later runs (exit 0)' ($xc.Code -eq 1 -and $ec.provider_failure.class -eq 'quota' -and [string]$ec.provider_failure.retry_after -eq $wantC -and $yc.Code -eq 0) "retry_after $($ec.provider_failure.retry_after) want $wantC | next exit $($yc.Code): $($yc.First)"
 }
 
 # =============================================================== PANEL: -Panel runs every available reviewer
@@ -800,10 +834,10 @@ if (Want 'BOARD') {
     $ra = Run-Tool $findingsPs $r @('-Task', 't', '-Rate', '1', '-Useful', 'yes')
     $fs1 = [IO.File]::ReadAllText((Join-Path $td 'findings.json'), $u8) | ConvertFrom-Json
     $mk = @($fs1.ratings)
-    Check 'RATE' '-Rate 1 -Useful yes -> findings.json ratings [{n, consult_id, lineage, provider, model, engine, purpose, topics, consult_when, useful, note, when}] (wave 26: engine, topics, consult_when) copied from ledger entry 1; findings untouched' ($ra.Code -eq 0 -and $ra.First -eq 'codex-findings: consult n=1 (openai :: gpt-5.1, decision) rated yes.' -and $mk.Count -eq 1 -and (($mk[0].PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'n,consult_id,lineage,provider,model,engine,purpose,topics,consult_when,useful,note,when' -and $mk[0].n -eq 1 -and $mk[0].lineage -eq 'openai :: gpt-5.1' -and $mk[0].provider -eq 'openai' -and $mk[0].model -eq 'gpt-5.1' -and $mk[0].purpose -eq 'decision' -and $mk[0].useful -eq 'yes' -and @($fs1.findings).Count -eq 8) $ra.First
+    Check 'RATE' '-Rate 1 -Useful yes -> findings.json ratings [{n, consult_id, lineage, provider, model, engine, purpose, topics, consult_when, useful, note, when, rating_rev, judge}] (wave 26: engine, topics, consult_when; 0.6.1 F06-1/F06-2: rating_rev 1 and the judge {provider, model, source} saved with telemetry off too) copied from ledger entry 1; findings untouched' ($ra.Code -eq 0 -and $ra.First -eq 'codex-findings: consult n=1 (openai :: gpt-5.1, decision) rated yes.' -and $mk.Count -eq 1 -and (($mk[0].PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'n,consult_id,lineage,provider,model,engine,purpose,topics,consult_when,useful,note,when,rating_rev,judge' -and $mk[0].rating_rev -eq 1 -and (($mk[0].judge.PSObject.Properties | ForEach-Object { $_.Name }) -join ',') -eq 'provider,model,source' -and $mk[0].n -eq 1 -and $mk[0].lineage -eq 'openai :: gpt-5.1' -and $mk[0].provider -eq 'openai' -and $mk[0].model -eq 'gpt-5.1' -and $mk[0].purpose -eq 'decision' -and $mk[0].useful -eq 'yes' -and @($fs1.findings).Count -eq 8) $ra.First
     $rb = Run-Tool $findingsPs $r @('-Task', 't', '-Rate', '1', '-Useful', 'partly', '-Note', 'half of it')
     $mk2 = @(([IO.File]::ReadAllText((Join-Path $td 'findings.json'), $u8) | ConvertFrom-Json).ratings)
-    Check 'RATE' 're-rating n=1 replaces its record ("re-rated partly (was yes)")' ($rb.Code -eq 0 -and $rb.First -eq 'codex-findings: consult n=1 (openai :: gpt-5.1, decision) re-rated partly (was yes).' -and $mk2.Count -eq 1 -and $mk2[0].useful -eq 'partly' -and $mk2[0].note -eq 'half of it') $rb.First
+    Check 'RATE' 're-rating n=1 replaces its record ("re-rated partly (was yes)"); (0.6.1, F06-2) its rating_rev is 2 - 1 + the replaced mark''s' ($rb.Code -eq 0 -and $rb.First -eq 'codex-findings: consult n=1 (openai :: gpt-5.1, decision) re-rated partly (was yes).' -and $mk2.Count -eq 1 -and $mk2[0].useful -eq 'partly' -and $mk2[0].note -eq 'half of it' -and $mk2[0].rating_rev -eq 2) $rb.First
     $rc = Run-Tool $findingsPs $r @('-Task', 't', '-Rate', '2', '-Useful', 'no')
     $rd = Run-Tool $findingsPs $r @('-Task', 't', '-Rate', '99', '-Useful', 'yes')
     $re = Run-Tool $findingsPs $r @('-Task', 't', '-Rate', '1', '-Useful', 'maybe')

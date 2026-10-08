@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.1] - 2026-10-08
 
 The bridge half of the public usefulness table (`.collab/telemetry-usefulness-2026-10-08`, decisions U1-U7; the
-intake and the page at xelth.com/C3/ already read both new keys) and one parse fix. Compatible with 0.6.0 rosters
-and ledgers: an entry without `consult_ref` sends no such key.
+intake and the page at xelth.com/C3/ already read both new keys) and one parse fix, with the six findings of the
+0.6.1 diff review (F06-1..F06-6, `.collab/telemetry-usefulness-2026-10-08/handoffs/06-...`) fixed before the tag.
+Compatible with 0.6.0 rosters, ledgers and `findings.json`: an entry without `consult_ref` sends no such key, a mark
+without `rating_rev` or `judge` (rated before 0.6.1) is sent without a `rating_rev` and with the consultation's
+coordinator as its judge.
 
 ### Changed
 
@@ -28,15 +31,36 @@ and ledgers: an entry without `consult_ref` sends no such key.
   every rating event of that consultation (`codex-findings.ps1 -Rate`, `codex-telemetry.ps1 -BackfillRatings`), so the
   intake can keep the latest rating per consultation and link ratings to consultations. An entry recorded before
   0.6.1 has none and its events carry no such key; a complaint's context never carries it
-  (`ConvertTo-TelemetryDetails -NoConsultRef`). README (the ledger table, "Telemetry": the payload, the key table,
-  "Never sent").
+  (`ConvertTo-TelemetryDetails -NoConsultRef`). (F06-6) It is a PSEUDONYMOUS correlation key: whoever holds both the
+  telemetry and a shared ledger (`sessions.json`) can join them on it - the bridge promises no unlinkability once a
+  ledger is shared. README (the ledger table, "Telemetry": the payload, the key table, "Never sent").
+- **`rating_rev` - the order of a consultation's marks** (0.6.1; F06-2, which supersedes F02-4). Every mark
+  `codex-findings.ps1 -Rate` writes gets `rating_rev` - 1 + the highest `rating_rev` among the consultation's existing
+  marks (a mark without one counts as 0), allocated under the task lock in the same store commit as the mark
+  (`Get-NextRatingRev`) - and the rating event's details gain `rating_rev` (after `judge`, before `consult_ref`) on
+  every path: the send at the commit, the retry after the locks and `-BackfillRatings`, always the mark's own value,
+  never allocated again. `client_time` is the mark's own `when` on every path too (the retry and the backfill pass it
+  as `-RatedAt`; before, the send at the commit and the retry took "now", so a late retry of an earlier mark could
+  look newer than its replacement). A mark rated before 0.6.1 has no `rating_rev`, and its backfilled event carries
+  none. The intake's replacement rule (the site's side, documented in README "Telemetry"): per (`instance_id`,
+  `consult_ref`) the highest `rating_rev` wins, a missing one counts as 0, a tie falls to the latest `created`. The
+  retry's late write of `telemetry_sent` into a mark that was rated again meanwhile now says so instead of warning
+  that a backfill would send it again (`Test-RatingMarkSame` compares `rating_rev` too). Test hook (test mode only):
+  `CODEX_CONSULT_TEST_RATE_RETRY_GATE=<path>` holds that retry until the file exists. README (the mark, "Telemetry":
+  the rating event, the replacement rule, the backfill, the test hooks), `codex-findings.ps1` and
+  `codex-telemetry.ps1` help.
 - **The rating event's `judge`** (0.6.1; U3, F02-3, F02-6). The rating event's details gain
   `judge: {provider, model, source}`, resolved AT RATING TIME: the rating actor - `CODEX_CONSULT_COORDINATOR` of the
   process that runs `-Rate`, parsed exactly as the bridge parses it for the coordinator warning
   (`Get-TelemetryRatingActor`; a value the bridge would refuse still rates, as `other`/`other`) - with source
   `rating_actor`; when it is unset the ledger entry's consult-time `coordinator` (`consult_coordinator`); else
-  `{other, other, unknown}`. `-BackfillRatings` never takes its own process's coordinator (`consult_coordinator` or
-  `unknown`), and its `-DryRun` line names the judge's classes. A dedicated classifier for coordinator identities,
+  `{other, other, unknown}`. (F06-1, which supersedes F02-3) The rating commit SAVES that judge object in the mark
+  (`judge {provider, model, source}` in `findings.json` - the same classes-only object the event carries, never a
+  label, a host or the raw `CODEX_CONSULT_COORDINATOR` value; with telemetry on or off), and the retry after the
+  locks and `-BackfillRatings` send the mark's judge (`Get-RatingMarkJudge`): a rating actor whose event lost both
+  spool attempts stays `rating_actor` when a backfill under another coordinator sends it. Only a mark without a saved
+  judge (rated before this fix) takes the consultation's coordinator (`consult_coordinator`) or `unknown` -
+  `-BackfillRatings` never takes its own process's coordinator - and its `-DryRun` line names the judge's classes. A dedicated classifier for coordinator identities,
   `Get-TelemetryJudgeClass` (a coordinator record has no endpoint): the provider by NAME - `openai` -> openai,
   `anthropic` -> anthropic, a roster label -> the vendor class of that entry's endpoint (`Get-TelemetryRosterVendor`:
   its `[model_providers.<label>]` table's host, a claude endpoint entry's base URL, else its engine), another name ->
@@ -47,18 +71,41 @@ and ledgers: an entry without `consult_ref` sends no such key.
 - Tests: `harness-telemetry` (UNIT: consult_ref's shape, the classifier's table, the judge object, the rating actor;
   SPOOL: the consult_ref of a single, a failed and a panel run; RATE: the same consult_ref in every rating, three judge
   sources in real `-Rate` runs, no label or host in the events; BACKFILL: the judge of a backfill and its dry-run line;
-  DOCS); the ledger field order in `harness-0.3`, `harness-engines`, `harness-muse` and `harness-companions`.
+  DOCS); the ledger field order in `harness-0.3`, `harness-engines`, `harness-muse` and `harness-companions`. (F06-1,
+  F06-2) `harness-telemetry` RATE - the mark's `rating_rev` and saved `judge`, the event's exact details key order
+  `...,judge,rating_rev,consult_ref`, `client_time` = the mark's `when`, revisions with telemetry on and off;
+  BACKFILL - no `rating_rev` for older marks, RC1 (consulted under A, rated under B with both spool attempts failing,
+  backfilled under C without the roster: the event's judge is B's `rating_actor` from the mark) and RC2 (A's retry
+  held at the test gate while B re-rates: A's late event keeps `rating_rev` 1 and A's `when`, the replacement rule
+  keeps B in both delivery orders); DOCS. The mark shape with `rating_rev` and `judge` in `harness-roster`,
+  `harness-companions` and `harness-engines`.
 
 ### Fixed
 
 - **A reset time without a date** (0.6.1; TECH_DEBT, 2026-10-07). `You've hit your usage limit ... or try again at
   9:43 PM.` (also `try again at 21:43`, and after `resets at`, `available at`, `until`) was not parsed, so the endpoint
   was held for the 60-minute default although the limit lifted at 21:43. `Get-RetryAfter` (wording 1b) now reads it as
-  TODAY at that local time, or TOMORROW when that time is already past at the moment of parsing; the dated form still
-  wins, a read-time reparse uses the failure's own `when`. `provider_failure.retry_after` carries it and the hold ends
-  there. The moment of parsing is the failure's time - in test mode `CODEX_CONSULT_NOW` (the consult clock), so the
-  day rollover is testable. README (`retry_after`); `harness-roster` UNIT (seven samples) and TIMEONLY (the real run,
-  the rollover, the hold ending at the parsed time). The TECH_DEBT entry is removed.
+  TODAY at that local time unless that moment is more than 5 minutes before the moment of parsing - only then
+  TOMORROW; the dated form still wins, a read-time reparse uses the failure's own `when`.
+  `provider_failure.retry_after` carries it and the hold ends there. The moment of parsing is the failure's time - in
+  test mode `CODEX_CONSULT_NOW` (the consult clock), so the day rollover is testable. (F06-3) The 5-minute allowance
+  (`$script:TimeOnlyLateMinutes`): the message shows whole minutes and its delivery takes time, so a reset parsed half
+  a second, 30 s or 4 minutes after the displayed minute is today's - passed, the hold ends at once - instead of
+  tomorrow's (an almost 24-hour hold); 6 minutes after it is tomorrow's. Exactly: of the candidates on the day before,
+  the day of and the day after, the earliest not before (the moment of parsing - 5 minutes) (`Select-TimeOnlyReset`),
+  so just after midnight a reset of 23:59 is yesterday's, passed. (F06-4) Daylight saving: an ambiguous wall time (the
+  repeated hour of a fall-back night) is evaluated with BOTH offsets - Berlin 2026-10-25 at the second 02:15, `2:30 AM`
+  is the second 02:30 that day (`+01:00`, 15 minutes away), not the next day's; a wall time inside a spring-forward
+  gap is the first valid instant after the gap (Berlin 2026-03-29 at 01:50, `2:30 AM` -> `03:00+02:00`)
+  (`Get-WallClockCandidates`; the dated forms keep their rule). (F06-5) A zone qualifier after the clock
+  (`Get-TimeOnlyZone`): `UTC`, `GMT` or `Z` - that time in UTC (`resets at 21:43 UTC` on a `+02:00` machine is
+  `23:43+02:00`, not `21:43+02:00`); a numeric offset (`+02:00`, `-0500`, `+2`, `UTC+2`) - that time at that offset;
+  any other zone-like word (two to five capital letters: `PST`, `CET`, `PDT`, `BST`) - the wording is NOT parsed and
+  the default hold applies; a trailing comma, `and`, a sentence-ending period or the end stays fine. README
+  (`retry_after`); `harness-roster` UNIT (seven samples; F06-3..F06-5: the 30-second sample that blessed the rollover
+  replaced, the allowance, the repeated hour, the spring gap, the qualifiers - the zone by id, `W. Europe Standard
+  Time`) and TIMEONLY (the real run, the rollover, the hold ending at the parsed time; F06-3 a reset parsed 30 s late
+  ends the hold at once). The TECH_DEBT entry is removed.
 
 ## [0.6.0] - 2026-10-08
 

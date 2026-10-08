@@ -75,9 +75,11 @@
                    looked up in that task's sessions.json as -Rate recorded it (consult_id, else n;
                    no entry: skipped and counted - never a guessed reviewer), its `rating` event is
                    built through the same allowlist as -Rate's (client_time = the mark's `when`,
-                   age_days from its consult_when; 0.6.1: the judge is the consultation's own
-                   coordinator - source consult_coordinator - or unknown, never this process's
-                   CODEX_CONSULT_COORDINATOR) and spooled, and `telemetry_sent` (unix seconds)
+                   age_days from its consult_when; 0.6.1, F06-1: the judge the mark saved at
+                   rating time - a rating actor stays rating_actor -, for a mark without one the
+                   consultation's own coordinator - source consult_coordinator - or unknown, never
+                   this process's CODEX_CONSULT_COORDINATOR; F06-2: rating_rev the mark's own, none
+                   for a mark without one) and spooled, and `telemetry_sent` (unix seconds)
                    is written into the mark under the task's store commit - so a second run sends
                    nothing (codex-findings.ps1 -Rate sets the field itself). One line per task
                    `<task>: sent N, already M, skipped K`, then the total; the detached sender starts

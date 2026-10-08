@@ -33,6 +33,11 @@
 # source}: the rating actor (CODEX_CONSULT_COORDINATOR of the -Rate process), else the consultation's
 # coordinator, else unknown; the coordinator classifier Get-TelemetryJudgeClass; -BackfillRatings never
 # takes its own process's coordinator; no label or host in an event.
+# (0.6.1, F06-1, F06-2) the mark saves its judge and its rating_rev (1 + the consultation's highest,
+# allocated in the rating commit); every send - the commit, the retry after the locks, the backfill -
+# carries the mark's judge, rating_rev and `when` (client_time): RC1 (a rating actor survives a lost
+# spool through -BackfillRatings) and RC2 (a late retry of an older mark keeps its rating_rev 1 and its
+# time; the intake's replacement rule keeps the newer mark in either delivery order).
 # FAKES ONLY: fake-codex3.cmd; the intake is a LOCAL System.Net.HttpListener on 127.0.0.1 (a free
 # port) or a closed loopback port - CODEX_CONSULT_TELEMETRY_URL always names one of them, never the
 # real intake; CODEX_HOME is a scratch directory per case, CODEX_CONSULT_ROSTER a scratch file or
@@ -116,7 +121,7 @@ function Write-Roster {
     return $p
 }
 $fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_STDERR', 'FAKE_CODEX_EXIT', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_ENV_DUMP')
-$testVars = @('RT_ZAI_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_PANEL_SEED', 'CODEX_CONSULT_COORDINATOR', 'CODEX_CONSULT_BRIEF_PREFIX', 'CODEX_CONSULT_TELEMETRY', 'CODEX_CONSULT_TEST_TELEMETRY_ENV', 'RT_ACME_KEY', 'CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS', 'CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS')
+$testVars = @('RT_ZAI_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_PANEL_SEED', 'CODEX_CONSULT_COORDINATOR', 'CODEX_CONSULT_BRIEF_PREFIX', 'CODEX_CONSULT_TELEMETRY', 'CODEX_CONSULT_TEST_TELEMETRY_ENV', 'RT_ACME_KEY', 'CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS', 'CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS', 'CODEX_CONSULT_TEST_RATE_RETRY_GATE')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     foreach ($k in (Get-HostMarkerNames)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
@@ -288,8 +293,17 @@ function Names { param($Obj) if ($null -eq $Obj) { return '' }; return (@($Obj.P
 $eventKeys = 'app_id,app_version,instance_id,event_type,severity,title,details,tags,client_time,os,runtime'
 $detailKeys = 'engine,provider,model,purpose,outcome,wall_seconds,tokens,findings,structured,format_retry,denial_retry,timeout_continue,panel_size,ps_version,os,bridge_version'
 # (R24) the details of a rating event (codex-findings.ps1 -Rate) - exactly these, in this order;
-# (0.6.1, U3) the judge object always, last before the optional consult_ref
+# (0.6.1, U3) the judge object always; (F06-2) then rating_rev (a mark rated since 0.6.1 has one; a
+# builder call or an older mark's backfill without one: no key), then the optional consult_ref
 $ratingDetailKeys = 'engine,provider,model,purpose,mark,age_days,bridge_version,os,ps_version,judge'
+$ratingDetailVariants = @($ratingDetailKeys, "$ratingDetailKeys,rating_rev", "$ratingDetailKeys,consult_ref", "$ratingDetailKeys,rating_rev,consult_ref")
+# (0.6.1, F06-2) a time as the event's client_time spells it (UTC, whole seconds) - from a mark's `when`
+# (a string, or the date PowerShell 7's ConvertFrom-Json makes of it)
+function Format-ClientTime {
+    param($When)
+    $o = $(if ($When -is [datetime]) { [DateTimeOffset]$When } elseif ($When -is [DateTimeOffset]) { $When } else { [DateTimeOffset]::Parse([string]$When, [Globalization.CultureInfo]::InvariantCulture) })
+    return $o.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture)
+}
 # (0.6.1, U5) consult_ref closes the details of both events when the ledger entry has one: a random
 # guid, lower case
 $consultRefRe = '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -301,7 +315,9 @@ function Test-EventAllowlist {
     if ([string]$Ev.app_id -cne 'codex-consult') { $v.Add("fixed value $($Ev.app_id)") }
     if ([string]$Ev.event_type -ceq 'rating') {
         # (R24) the rating event: its own details; severity info, the mark as the title, a whole age
-        if ((Names $Ev.details) -ne $ratingDetailKeys -and (Names $Ev.details) -ne "$ratingDetailKeys,consult_ref") { $v.Add("rating details: $(Names $Ev.details)") }
+        if ($ratingDetailVariants -cnotcontains (Names $Ev.details)) { $v.Add("rating details: $(Names $Ev.details)") }
+        # (0.6.1, F06-2) rating_rev: a whole number >= 1 when present
+        if ($null -ne $Ev.details.PSObject.Properties['rating_rev']) { $rv = $Ev.details.rating_rev; if (-not ($rv -is [int] -or $rv -is [long]) -or $rv -lt 1) { $v.Add("rating_rev not a whole number >= 1: $rv") } }
         # (0.6.1, U3) the judge: exactly {provider, model, source}, closed values (a vendor class and an
         # entry of its list, or other; an unknown judge other/other)
         $j = $Ev.details.judge
@@ -812,7 +828,14 @@ if (Want 'RATE') {
     $iid = ''; $env:CODEX_HOME = $hr; $iid = Get-TelemetryInstanceId; $env:CODEX_HOME = $savedCodexHome
     Check 'RATE' '(a) the values: provider zai - the VENDOR CLASS of api.z.ai, never the roster label RateLabel-GLM - model glm-5.3 (the closed list), engine codex, purpose acceptance, age_days 0 (a whole number: rated the same day), tags [zai, glm-5.3]; engine/provider/model EQUAL the consultation event''s for the same ledger entry (one code path); instance_id this home''s, client_time UTC, app_version, bridge_version, os, ps_version and runtime of this host' ($d -and $d.engine -ceq 'codex' -and $d.provider -ceq 'zai' -and $d.model -ceq 'glm-5.3' -and $d.purpose -ceq 'acceptance' -and ($d.age_days -is [int] -or $d.age_days -is [long]) -and $d.age_days -eq 0 -and (@($ev.tags) -join ',') -ceq 'zai,glm-5.3' -and $d.engine -ceq $cd.engine -and $d.provider -ceq $cd.provider -and $d.model -ceq $cd.model -and $iid -and $ev.instance_id -eq $iid -and [string]$sl.body -match '"client_time":"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ"' -and $ev.app_version -eq $version -and $d.bridge_version -eq $version -and $d.os -eq (Get-TelemetryOs) -and $ev.os -eq (Get-TelemetryOs) -and $ev.runtime -eq (Get-TelemetryRuntime) -and $d.ps_version -eq [string]$PSVersionTable.PSVersion) $(if ($sl) { [string]$sl.body } else { '' })
     $wantJ1 = Resolve-TelemetryJudge -Entry $e1 -Roster ([pscustomobject]@{ Exists = $false; Entries = [object[]]@() })
-    Check 'RATE' '(a) (0.6.1, U5) the rating event carries the rated entry''s consult_ref - the ledger''s random id, the one its consultation event carries (ConvertTo-TelemetryDetails of the same entry) - as the last key; (U3) its judge is the consultation''s coordinator as the ledger recorded it (no CODEX_CONSULT_COORDINATOR in the rating process: never rating_actor)' ($d -and [string]$e1.consult_ref -cmatch $consultRefRe -and [string]$d.consult_ref -ceq [string]$e1.consult_ref -and [string]$d.consult_ref -ceq [string]$cd.consult_ref -and (Names $d) -eq "$ratingDetailKeys,consult_ref" -and "$($d.judge.provider)/$($d.judge.model)/$($d.judge.source)" -ceq "$($wantJ1.provider)/$($wantJ1.model)/$($wantJ1.source)" -and [string]$d.judge.source -cne 'rating_actor') "ledger $($e1.consult_ref) | event $(if ($d) { "$($d.consult_ref) judge $($d.judge.provider)/$($d.judge.model)/$($d.judge.source)" }) | want judge $($wantJ1.provider)/$($wantJ1.model)/$($wantJ1.source)"
+    Check 'RATE' '(a) (0.6.1, U5) the rating event carries the rated entry''s consult_ref - the ledger''s random id, the one its consultation event carries (ConvertTo-TelemetryDetails of the same entry) - as the last key (the details exactly engine,provider,model,purpose,mark,age_days,bridge_version,os,ps_version,judge,rating_rev,consult_ref); (U3) its judge is the consultation''s coordinator as the ledger recorded it (no CODEX_CONSULT_COORDINATOR in the rating process: never rating_actor)' ($d -and [string]$e1.consult_ref -cmatch $consultRefRe -and [string]$d.consult_ref -ceq [string]$e1.consult_ref -and [string]$d.consult_ref -ceq [string]$cd.consult_ref -and (Names $d) -ceq "$ratingDetailKeys,rating_rev,consult_ref" -and "$($d.judge.provider)/$($d.judge.model)/$($d.judge.source)" -ceq "$($wantJ1.provider)/$($wantJ1.model)/$($wantJ1.source)" -and [string]$d.judge.source -cne 'rating_actor') "ledger $($e1.consult_ref) | event $(if ($d) { "$($d.consult_ref) judge $($d.judge.provider)/$($d.judge.model)/$($d.judge.source)" }) | want judge $($wantJ1.provider)/$($wantJ1.model)/$($wantJ1.source)"
+    # (0.6.1, F06-1, F06-2) the mark saves the judge the event carried and its rating_rev 1 (the first mark
+    # of the consultation); the event's rating_rev is the mark's and its client_time the mark's `when`
+    $mkNames = $(if ($mk.Count) { Names $mk[0] } else { '' })
+    $mkJudge = $(if ($mk.Count -and $mk[0].judge) { "$($mk[0].judge.provider)/$($mk[0].judge.model)/$($mk[0].judge.source)" } else { '(none)' })
+    $evJudge = $(if ($d) { "$($d.judge.provider)/$($d.judge.model)/$($d.judge.source)" } else { '(none)' })
+    $wantCt = $(if ($mk.Count) { Format-ClientTime $mk[0].when } else { '' })
+    Check 'RATE' '(a) (0.6.1, F06-1, F06-2) the mark is {n, consult_id, lineage, provider, model, engine, purpose, topics, consult_when, useful, note, when, rating_rev, judge, telemetry_sent}: rating_rev 1 (the consultation''s first mark), judge {provider, model, source} - the SAME classes the event carried; the event''s rating_rev is 1 and its client_time the mark''s own `when` (UTC)' ($mkNames -ceq 'n,consult_id,lineage,provider,model,engine,purpose,topics,consult_when,useful,note,when,rating_rev,judge,telemetry_sent' -and $mk[0].rating_rev -eq 1 -and (Names $mk[0].judge) -ceq 'provider,model,source' -and $mkJudge -ceq $evJudge -and $d -and $d.rating_rev -eq 1 -and $sl -and ([string]$sl.body).Contains('"client_time":"' + $wantCt + '"')) "mark $mkNames rev $(if ($mk.Count) { $mk[0].rating_rev }) judge $mkJudge | event judge $evJudge rev $(if ($d) { $d.rating_rev }) | want client_time $wantCt"
     $keyNames = $(if ($ev) { Get-KeyNames $ev } else { @() })
     $badKeys = @($keyNames | Where-Object { @('note', 'task', 'task_id', 'topics', 'consult_id', 'lineage', 'n', 'useful', 'consult_when', 'when', 'reviewer', 'thread') -ccontains $_ })
     $leaks = @(); if ($ev) { $leaks = Find-Leaks (Get-Leaves $ev) @($taskName, 'note-secret', 'missed the retry', $topicSecret, 'prompt-secret', [string]$e1.consult_id, [string]$e1.thread, 'RateLabel', 'secret', $rr) }
@@ -845,6 +868,7 @@ if (Want 'RATE') {
     $null = Wait-Last $hr $t2
     $bad1 = Rate $rr $hr $dead $taskName @('-Rate', '1', '-Useful', 'yes', '-Telemetry', 'maybe')
     $bad2 = Rate $rr $hr $dead $taskName @('-List', '-Telemetry', 'off')
+    Check 'RATE' '(b) (0.6.1, F06-1, F06-2) telemetry off saves the judge and the revision too: the re-ratings with telemetry off left rating_rev 3 (1 + the replaced mark''s 2) and a judge {provider, model, source}; the next re-ratings count on (4 in another codex home, 5 with -Telemetry on: its event carries rating_rev 5)' ($mk2.Count -eq 1 -and $mk2[0].rating_rev -eq 3 -and (Names $mk2[0].judge) -ceq 'provider,model,source' -and $ev4 -and $ev4.details.rating_rev -eq 5) "rev $($mk2[0].rating_rev) judge $(Names $mk2[0].judge) | event rev $(if ($ev4) { $ev4.details.rating_rev })"
     Check 'RATE' '(b) CODEX_CONSULT_TELEMETRY=off with -Telemetry on: the rating''s switch wins - one line (mark partly); -Telemetry maybe is refused (exit 1, "-Telemetry must be on or off"), -Telemetry without -Rate too ("-Telemetry only goes with -Rate.")' ($ob4.Code -eq 0 -and $l4.Count -eq 1 -and $ev4 -and $ev4.details.mark -ceq 'partly' -and $bad1.Code -eq 1 -and $bad1.First -match '-Telemetry must be on or off' -and $bad2.Code -eq 1 -and $bad2.First -ceq 'codex-findings: -Telemetry only goes with -Rate.') "$($ob4.Code) $($l4.Count) | $($bad1.First) | $($bad2.First)"
 
     # (c) reviewers the vendor table does not know, from a seeded ledger
@@ -907,6 +931,9 @@ if (Want 'RATE') {
     $jt = { param($E) if ($E) { "$($E.details.judge.provider)/$($E.details.judge.model)/$($E.details.judge.source)" } else { '(none)' } }
     $jViol = @(@($evj1, $evj2, $evj3) | Where-Object { $_ } | ForEach-Object { foreach ($vv in (Test-EventAllowlist $_)) { $vv } })
     Check 'RATE' '(d) (0.6.1, U3) three ratings of one consultation (its coordinator openai :: gpt-6-astra in the ledger): CODEX_CONSULT_COORDINATOR="JudgeLabel-Kimi :: k3" in the -Rate process (a roster label on api.kimi.ai) -> judge moonshot/k3/rating_actor; unset -> openai/gpt-6-astra/consult_coordinator; a value the bridge would refuse ("a :: b [x] [y]") -> other/other/rating_actor and the rating still recorded (exit 0) - three lines, allowlist clean' ($cj.Code -eq 0 -and $j1.Code -eq 0 -and $j2.Code -eq 0 -and $j3.Code -eq 0 -and $lj1.Count -eq 1 -and $lj2.Count -eq 2 -and $lj3.Count -eq 3 -and (& $jt $evj1) -ceq 'moonshot/k3/rating_actor' -and (& $jt $evj2) -ceq 'openai/gpt-6-astra/consult_coordinator' -and (& $jt $evj3) -ceq 'other/other/rating_actor' -and $jViol.Count -eq 0 -and [string]$ej.coordinator.provider -ceq 'openai') "exits $($cj.Code)/$($j1.Code)/$($j2.Code)/$($j3.Code) lines $($lj3.Count) | $(& $jt $evj1) | $(& $jt $evj2) | $(& $jt $evj3) | $($jViol -join ' || ')"
+    $mkj = @((ConvertFrom-Json (Text (Join-Path $rjr ".collab\$taskName\findings.json"))).ratings)
+    $jRevs = @(@($evj1, $evj2, $evj3) | ForEach-Object { if ($_) { [string]$_.details.rating_rev } else { '-' } }) -join ','
+    Check 'RATE' '(d) (0.6.1, F06-1, F06-2) the three ratings carry rating_rev 1, 2, 3 (each 1 + the replaced mark''s); the remaining mark is the third - rating_rev 3, its judge saved as its event carried it (other/other/rating_actor), never the refused value' ($jRevs -ceq '1,2,3' -and $mkj.Count -eq 1 -and $mkj[0].rating_rev -eq 3 -and "$($mkj[0].judge.provider)/$($mkj[0].judge.model)/$($mkj[0].judge.source)" -ceq 'other/other/rating_actor' -and (Text (Join-Path $rjr ".collab\$taskName\findings.json")) -notmatch '\[x\]') "revs $jRevs | mark rev $(if ($mkj.Count) { $mkj[0].rating_rev }) judge $(if ($mkj.Count) { "$($mkj[0].judge.provider)/$($mkj[0].judge.model)/$($mkj[0].judge.source)" })"
     $jKeys = @(@($evj1, $evj2, $evj3) | Where-Object { $_ } | ForEach-Object { Get-KeyNames $_ } | Where-Object { @('host', 'host_by', 'label', 'coordinator', 'unresolved', 'in_roster', 'lineage') -ccontains $_ })
     $jRaw = ($lj3 -join "`n")
     $jRefs = @(@($evj1, $evj2, $evj3) | Where-Object { $_ } | ForEach-Object { [string]$_.details.consult_ref } | Select-Object -Unique)
@@ -971,6 +998,7 @@ if (Want 'BACKFILL') {
     $bjA = $(if ($evA) { "$($evA.details.judge.provider)/$($evA.details.judge.model)/$($evA.details.judge.source)/$($evA.details.consult_ref)" } else { '(none)' })
     $bjC = $(if ($evC) { "$($evC.details.judge.provider)/$($evC.details.judge.model)/$($evC.details.judge.source)/$($null -ne $evC.details.PSObject.Properties['consult_ref'])" } else { '(none)' })
     Check 'BACKFILL' '(0.6.1, U3, U5) the backfilled events'' judge is the consultation''s coordinator - A: anthropic/claude-fable-5-1, source consult_coordinator, although CODEX_CONSULT_COORDINATOR=openai :: gpt-6-astra was set for the backfill (it cannot know who gave an earlier mark); C (no coordinator recorded): other/other/unknown - and A carries its entry''s consult_ref, C (none recorded) no consult_ref' ($bjA -ceq "anthropic/claude-fable-5-1/consult_coordinator/$bfRef1" -and $bjC -ceq 'other/other/unknown/False') "A $bjA | C $bjC"
+    Check 'BACKFILL' '(0.6.1, F06-2) marks rated before rating_rev existed: their backfilled events carry NO rating_rev (the intake counts it as 0) - A''s details exactly engine,provider,model,purpose,mark,age_days,bridge_version,os,ps_version,judge,consult_ref, C''s the same without consult_ref' ($evA -and $evC -and (Names $evA.details) -ceq "$ratingDetailKeys,consult_ref" -and (Names $evC.details) -ceq $ratingDetailKeys) "A $(if ($evA) { Names $evA.details }) | C $(if ($evC) { Names $evC.details })"
     $m1 = & $bfMarks $rb 'bf-task-one'
     $m2 = & $bfMarks $rb 'bf-task-two'
     $isUnix = { param($v) ($v -is [int] -or $v -is [long]) -and $v -gt 1700000000 }
@@ -1030,6 +1058,91 @@ if (Want 'BACKFILL') {
     $bo2 = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings', '-Telemetry', 'off') $rd $hd $dead '')
     $bo3 = Wait-Script (Start-Script $telemetryPs @('-Status', '-DryRun') $rd $hd $dead '')
     $oWritten = @(Get-ChildItem -LiteralPath $hd -Force | Where-Object { $_.Name -like 'telemetry*' } | ForEach-Object { $_.Name })
+    # RC1 (0.6.1, F06-1) a rating actor survives a lost spool: consulted under coordinator A (openai ::
+    # gpt-6-astra), rated under B (JudgeLabel-Kimi :: k3, a roster label on api.kimi.ai) with the day's
+    # spool file held for the WHOLE -Rate (the 1 s at the commit and the 5 s retry after the locks both
+    # fail), then -BackfillRatings under C (anthropic :: claude-opus-5-5) and WITHOUT the roster: the
+    # event's judge is B's classes from the mark, never C's, A's or a re-resolved label
+    $hk = New-Home 'rc1'
+    [IO.File]::AppendAllText((Join-Path $hk 'config.toml'), "`n[model_providers.JudgeLabel-Kimi]`nbase_url = `"https://api.kimi.ai/coding/v1`"`nenv_key = `"RT_KIMI_KEY`"`nwire_api = `"responses`"`n", $u8)
+    $rosterK = Write-Roster 'rc1' '{"roster_version":1,"reviewers":[{"provider":"JudgeLabel-Kimi","model":"k3"}]}'
+    $rk = New-Repo 'rc1'
+    $ck = Consult $rk $hk $dead $taskName @('-Purpose', 'diff-review', '-Prompt', 'x', '-ReplyName', 'k1', '-Telemetry', 'off') -Env @{ FAKE_CODEX_REPLY = $reply; CODEX_CONSULT_COORDINATOR = 'openai :: gpt-6-astra' }
+    $ek = @(Ledger $rk $taskName)[-1]
+    $kdir = Join-Path $hk 'telemetry-spool'
+    [void][IO.Directory]::CreateDirectory($kdir)
+    $holdK = New-Object System.IO.FileStream((Join-Path $kdir (Get-TelemetrySpoolName)), [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    try { $rk1 = Rate $rk $hk $dead $taskName @('-Rate', '1', '-Useful', 'partly') -Roster $rosterK -Env @{ CODEX_CONSULT_COORDINATOR = 'JudgeLabel-Kimi :: k3' } } finally { $holdK.Dispose() }
+    $fk = Join-Path $rk ".collab\$taskName\findings.json"
+    $mkK = @((ConvertFrom-Json (Text $fk)).ratings)
+    $kSpool = (Spool-Lines $hk).Count
+    $kJudge = $(if ($mkK.Count -and $mkK[0].judge) { "$($mkK[0].judge.provider)/$($mkK[0].judge.model)/$($mkK[0].judge.source)" } else { '(none)' })
+    Check 'BACKFILL' 'RC1 (0.6.1, F06-1) -Rate under B with the spool held for the whole run: exit 0, the warning "telemetry rating event not spooled ... -BackfillRatings sends it later", no spool line; the mark is committed WITHOUT telemetry_sent and WITH judge moonshot/k3/rating_actor (B''s classes - never the label JudgeLabel-Kimi) and rating_rev 1' ($ck.Code -eq 0 -and [string]$ek.coordinator.provider -ceq 'openai' -and $rk1.Code -eq 0 -and $rk1.Out -match 'codex-findings: warning: telemetry rating event not spooled \(.*\) - at the commit \(.*\) and for 5(\.0)? s after it; codex-telemetry\.ps1 -BackfillRatings sends it later' -and $kSpool -eq 0 -and $mkK.Count -eq 1 -and $null -eq $mkK[0].PSObject.Properties['telemetry_sent'] -and $kJudge -ceq 'moonshot/k3/rating_actor' -and $mkK[0].rating_rev -eq 1 -and (Text $fk) -notmatch 'JudgeLabel') "consult $($ck.Code) rate $($rk1.Code) spool $kSpool judge $kJudge rev $(if ($mkK.Count) { $mkK[0].rating_rev }) | $($rk1.Out)"
+    $tk = Get-Date
+    $bk = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings') $rk $hk $dead '' -Env @{ CODEX_CONSULT_COORDINATOR = 'anthropic :: claude-opus-5-5' })
+    $null = Wait-Last $hk $tk
+    $kl = Spool-Lines $hk
+    $kBody = $(if ($kl.Count) { [string](ConvertFrom-Json $kl[-1]).body } else { '' })
+    $kEv = $null; try { $kEv = ConvertFrom-Json $kBody } catch { }
+    $mkK2 = @((ConvertFrom-Json (Text $fk)).ratings)
+    $kEvJudge = $(if ($kEv) { "$($kEv.details.judge.provider)/$($kEv.details.judge.model)/$($kEv.details.judge.source)" } else { '(none)' })
+    $kWantCt = $(if ($mkK.Count) { Format-ClientTime $mkK[0].when } else { '' })
+    Check 'BACKFILL' 'RC1 (0.6.1, F06-1, F06-2) then -BackfillRatings under C without the roster: exit 0, ONE event - judge moonshot/k3/rating_actor (the mark''s; not C''s anthropic, not A''s consult_coordinator), rating_rev 1, client_time the mark''s own `when`, the entry''s consult_ref, details in the exact order engine,...,judge,rating_rev,consult_ref, allowlist clean; the mark now has telemetry_sent and keeps that judge' ($bk.Code -eq 0 -and $kl.Count -eq 1 -and $kEv -and $kEvJudge -ceq 'moonshot/k3/rating_actor' -and $kEv.details.rating_rev -eq 1 -and $kBody.Contains('"client_time":"' + $kWantCt + '"') -and [string]$kEv.details.consult_ref -ceq [string]$ek.consult_ref -and (Names $kEv.details) -ceq "$ratingDetailKeys,rating_rev,consult_ref" -and (Test-EventAllowlist $kEv).Count -eq 0 -and $mkK2.Count -eq 1 -and $null -ne $mkK2[0].PSObject.Properties['telemetry_sent'] -and "$($mkK2[0].judge.provider)/$($mkK2[0].judge.model)/$($mkK2[0].judge.source)" -ceq 'moonshot/k3/rating_actor' -and (Names $mkK2[0]) -ceq 'n,consult_id,lineage,provider,model,engine,purpose,topics,consult_when,useful,note,when,rating_rev,judge,telemetry_sent') "exit $($bk.Code) lines $($kl.Count) judge $kEvJudge rev $(if ($kEv) { $kEv.details.rating_rev }) want client_time $kWantCt | $kBody | mark $(if ($mkK2.Count) { Names $mkK2[0] })"
+
+    # RC2 (0.6.1, F06-2) the bridge half: A rated with the spool held - its 1 s at the commit fails, the
+    # mark (rating_rev 1) is committed and the locks released; its retry waits at the test gate
+    # (CODEX_CONSULT_TEST_RATE_RETRY_GATE) - then B rated (rating_rev 2, spooled at its commit), then A's
+    # retry released: the late event of A still carries rating_rev 1 and A's own `when`; the replacement
+    # rule (per consult_ref the highest rating_rev, none = 0, a tie to the later arrival) keeps B in both
+    # delivery orders
+    $h2 = New-Home 'rc2'
+    $r2 = New-Repo 'rc2'
+    $c2 = Consult $r2 $h2 $dead $taskName @('-Prompt', 'x', '-ReplyName', 'q1', '-Telemetry', 'off') -Env @{ FAKE_CODEX_REPLY = $reply }
+    $e2 = @(Ledger $r2 $taskName)[-1]
+    $d2 = Join-Path $h2 'telemetry-spool'
+    [void][IO.Directory]::CreateDirectory($d2)
+    $gate2 = Join-Path $work ('rc2-gate-' + [guid]::NewGuid().ToString('N'))
+    $f2 = Join-Path $r2 ".collab\$taskName\findings.json"
+    $markA = $null
+    $sA = $null
+    $hold2 = New-Object System.IO.FileStream((Join-Path $d2 (Get-TelemetrySpoolName)), [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    try {
+        $sA = Start-Script $findingsPs @('-Task', $taskName, '-Rate', '1', '-Useful', 'no', '-Note', 'n') $r2 $h2 $dead '' -Env @{ CODEX_CONSULT_TEST_RATE_RETRY_GATE = $gate2 }
+        $w2 = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($w2.Elapsed.TotalSeconds -lt 60 -and -not $sA.Proc.HasExited) {
+            $mm = @()
+            try { $mm = @(@((ConvertFrom-Json (Read-SharedText -Path $f2)).ratings) | Where-Object { $_.useful -eq 'no' }) } catch { }
+            if ($mm.Count -eq 1) { $markA = $mm[0]; break }
+            Start-Sleep -Milliseconds 100
+        }
+    } finally { $hold2.Dispose() }
+    # A releases both locks right after its commit; then B
+    Start-Sleep -Milliseconds 500
+    $rB = Rate $r2 $h2 $dead $taskName @('-Rate', '1', '-Useful', 'yes')
+    $linesB = (Spool-Lines $h2).Count
+    [IO.File]::WriteAllText($gate2, 'go', $u8)
+    $xA = Wait-Script $sA
+    $null = Wait-Last $h2 (Get-Date).AddSeconds(-30) 20
+    $l2 = Spool-Lines $h2
+    $b2s = @($l2 | ForEach-Object { [string](ConvertFrom-Json $_).body })
+    $ev2 = @($b2s | ForEach-Object { try { ConvertFrom-Json $_ } catch { } })
+    $evA2 = @($ev2 | Where-Object { $_.details.mark -ceq 'no' }) | Select-Object -First 1
+    $evB2 = @($ev2 | Where-Object { $_.details.mark -ceq 'yes' }) | Select-Object -First 1
+    $bodyA2 = [string](@($b2s | Where-Object { $_.Contains('"mark":"no"') }) | Select-Object -First 1)
+    $bodyB2 = [string](@($b2s | Where-Object { $_.Contains('"mark":"yes"') }) | Select-Object -First 1)
+    $mkB = @((ConvertFrom-Json (Text $f2)).ratings)
+    $ctA = $(if ($markA) { Format-ClientTime $markA.when } else { '' })
+    $ctB = $(if ($mkB.Count) { Format-ClientTime $mkB[0].when } else { '' })
+    Check 'BACKFILL' 'RC2 (0.6.1, F06-2) A''s mark committed with rating_rev 1 while its event waited (the retry gated); B re-rated meanwhile: exit 0, "re-rated yes (was no)", its event spooled at its commit (rating_rev 2, client_time = B''s `when`), the mark now B''s - rating_rev 2, telemetry_sent' ($c2.Code -eq 0 -and $markA -and $markA.rating_rev -eq 1 -and $null -eq $markA.PSObject.Properties['telemetry_sent'] -and $rB.Code -eq 0 -and $rB.Out -match 're-rated yes \(was no\)' -and $linesB -eq 1 -and $evB2 -and $evB2.details.rating_rev -eq 2 -and $bodyB2.Contains('"client_time":"' + $ctB + '"') -and $mkB.Count -eq 1 -and $mkB[0].useful -eq 'yes' -and $mkB[0].rating_rev -eq 2 -and $null -ne $mkB[0].PSObject.Properties['telemetry_sent']) "A $(if ($markA) { "rev $($markA.rating_rev) when $($markA.when)" } else { '(not seen)' }) | B exit $($rB.Code) lines $linesB rev $(if ($evB2) { $evB2.details.rating_rev }) | $bodyB2 | want $ctB"
+    $order2 = @($ev2 | ForEach-Object { [string]$_.details.mark }) -join ','
+    Check 'BACKFILL' 'RC2 (0.6.1, F06-2) then A''s retry released: exit 0, no warning - "the rating event (rating_rev 1) was spooled after the consultation was rated again - the newer mark''s event (a higher rating_rev) supersedes it"; the spool holds B''s event FIRST, then A''s late one - rating_rev 1 and client_time = A''s own `when` (never the retry''s time), the same consult_ref as B''s, details in the exact order engine,...,judge,rating_rev,consult_ref, allowlist clean; B''s mark untouched (no telemetry_sent written over it)' ($xA.Code -eq 0 -and $xA.Out -notmatch 'warning' -and $xA.Out -match 'the rating event \(rating_rev 1\) was spooled after the consultation was rated again' -and $l2.Count -eq 2 -and $order2 -ceq 'yes,no' -and $evA2 -and $evA2.details.rating_rev -eq 1 -and $bodyA2.Contains('"client_time":"' + $ctA + '"') -and $ctA -ne $ctB -and [string]$evA2.details.consult_ref -ceq [string]$e2.consult_ref -and [string]$evB2.details.consult_ref -ceq [string]$e2.consult_ref -and (Names $evA2.details) -ceq "$ratingDetailKeys,rating_rev,consult_ref" -and (Names $evB2.details) -ceq "$ratingDetailKeys,rating_rev,consult_ref" -and (Test-EventAllowlist $evA2).Count -eq 0 -and (Test-EventAllowlist $evB2).Count -eq 0 -and $mkB[0].rating_rev -eq 2) "exit $($xA.Code) | $($xA.Out) | order $order2 | A rev $(if ($evA2) { $evA2.details.rating_rev }) $bodyA2 want $ctA"
+    # the intake's replacement rule as README "Telemetry" states it - per (instance, consult_ref) the
+    # highest rating_rev wins (a missing one counts as 0), a tie falls to the later arrival
+    $current2 = { param($Evs) $best = $null; foreach ($e in $Evs) { $rv = $(if ($null -ne $e.details.PSObject.Properties['rating_rev']) { [long]$e.details.rating_rev } else { [long]0 }); if ($null -eq $best -or $rv -ge $best.Rev) { $best = [pscustomobject]@{ Rev = $rv; Mark = [string]$e.details.mark } } }; $(if ($best) { $best.Mark } else { '' }) }
+    $inOrder = $(if ($evA2 -and $evB2) { & $current2 @($evA2, $evB2) } else { '' })
+    $reversed = $(if ($evA2 -and $evB2) { & $current2 @($evB2, $evA2) } else { '' })
+    Check 'BACKFILL' 'RC2 (0.6.1, F06-2) the replacement rule over the two events: B (yes, rating_rev 2) stays current whether A''s late event arrives after B''s (as here) or before it' ($inOrder -ceq 'yes' -and $reversed -ceq 'yes') "A then B: $inOrder | B then A: $reversed"
+
     Check 'BACKFILL' 'telemetry off (CODEX_CONSULT_TELEMETRY=off, and -Telemetry off): -BackfillRatings is REFUSED - exit 1, "telemetry is off (...): -BackfillRatings sends nothing and writes nothing"; no spool line, no salt, both findings.json untouched; -DryRun without -BackfillRatings is refused too' ($bo.Code -eq 1 -and $bo.Out -match '^codex-telemetry: telemetry is off \(CODEX_CONSULT_TELEMETRY\): -BackfillRatings sends nothing and writes nothing' -and $bo2.Code -eq 1 -and $bo2.Out -match '^codex-telemetry: telemetry is off \(-Telemetry\)' -and $oWritten.Count -eq 0 -and (& $bfHashes $rd) -eq $hashD -and $bo3.Code -eq 1) "$($bo.Code): $(($bo.Out -split "`n")[0]) | $($bo2.Code) | $($bo3.Code): $(($bo3.Out -split "`n")[0]) | written [$($oWritten -join ',')]"
 }
 
@@ -1486,6 +1599,11 @@ if (Want 'DOCS') {
     $u35Docs = @('`consult_ref`', 'derived from nothing', '`judge`', '`rating_actor`', '`consult_coordinator`', '`unknown`', 'Get-TelemetryJudgeClass', 'CODEX_CONSULT_COORDINATOR', 'never the label', 'classes only', 'a complaint''s context')
     $u35Missing = @($u35Docs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
     Check 'DOCS' '(0.6.1, U3, U5) README "Telemetry": consult_ref (a random id derived from nothing, in the consultation and every rating event, not in a complaint''s context), the judge object {provider, model, source} with its three sources (rating_actor from CODEX_CONSULT_COORDINATOR, consult_coordinator, unknown), its classifier Get-TelemetryJudgeClass, classes only - never the label or the host' ($u35Missing.Count -eq 0) "missing: $($u35Missing -join ' | ')"
+    # (0.6.1, F06-1, F06-2, F06-6) the saved judge, rating_rev and the intake's replacement rule, client_time
+    # from the mark on every path, consult_ref a pseudonymous key
+    $f06Docs = @('`rating_rev`', '**The replacement rule**', 'the highest `rating_rev` (a missing one counts as `0`)', 'a tie falls to the latest `created`', '`client_time` is the MARK''s own `when`', 'The mark SAVES this judge', 'PSEUDONYMOUS correlation key', 'promises no unlinkability')
+    $f06Missing = @($f06Docs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
+    Check 'DOCS' '(0.6.1, F06-1, F06-2, F06-6) README "Telemetry": rating_rev in the rating event, the intake''s replacement rule (per consult_ref the highest rating_rev, a missing one 0, a tie to the latest created), client_time = the mark''s own when on every path, the judge saved in the mark, consult_ref a pseudonymous correlation key (no unlinkability once a ledger is shared)' ($f06Missing.Count -eq 0) "missing: $($f06Missing -join ' | ')"
     $bfDocs = @('**Backfilling earlier marks**', 'codex-telemetry.ps1" -BackfillRatings -DryRun', '`telemetry_sent`', 'a second run sends nothing', 'SKIPPED and counted', '`client_time` = the mark''s own `when`', 'codex-telemetry: <task>: sent N, already M, skipped K', 'refused with exit `1`')
     $bfMissing = @($bfDocs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
     Check 'DOCS' '(R24) README "Telemetry": the backfill - the commands (-DryRun first), the marker telemetry_sent and the idempotency, an unfindable entry skipped, client_time = the mark''s when, the per-task line, refused when off' ($bfMissing.Count -eq 0) "missing: $($bfMissing -join ' | ')"
