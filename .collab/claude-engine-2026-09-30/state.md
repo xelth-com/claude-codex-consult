@@ -96,3 +96,5 @@ harness-claude first run 55/55 after test fixes 55f5c0b).
   the website pass (memory: shorter intro, the prompt button, the usefulness table top-10 / paging / judge coefficients,
   the judge class in the rating event = 0.6.1); 0.6.1 also the time-only reset wording (TECH_DEBT).
 
+
+- 2026-10-08 19:45: v0.6.1 tagged (e1f4576, Astra ACCEPT after three rounds, suite 22/22), site deployed; idle since 19:10 - waiting for the operator (install 0.6.1, roster-0.6 rename).
