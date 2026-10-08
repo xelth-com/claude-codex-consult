@@ -513,8 +513,8 @@ if (Want 'ROLE') {
     $bad3 = Consult $r '' @('-Panel', '-Role', 'docs', '-Roles', 'tests', '-DryRun', '-Prompt', 'x')
     $bad4 = Consult $r '' @('-Topic', 'a/b', '-DryRun', '-Prompt', 'x')
     Check 'ROLE' 'D8 single run: -Role Edge-Cases (canonical edge-cases) - the plugin''s block after the ask and before the brief, never before the output contract; ledger role "edge-cases"; -Topic canonical (security,tests); "../brief", an unknown role, -Role with -Roles and a topic "a/b" refused (exit 1)' ($o.Code -eq 0 -and $iContract -ge 0 -and $iAsk -gt $iContract -and $iRole -gt $iAsk -and $iBrief -gt $iRole -and $pv.role -eq 'edge-cases' -and (@($pv.topics) -join ',') -eq 'security,tests' -and $t -match '(?m)^role        : edge-cases \(plugin: .*role-edge-cases\.md\) - in the prompt after the ask$' -and $bad1.Code -eq 1 -and $bad1.First -like "*-Role: role '../brief' is not a slug*" -and $bad2.Code -eq 1 -and $bad2.First -like "*-Role: unknown role 'nope'*" -and $bad3.Code -eq 1 -and $bad3.First -like '*-Role and -Roles exclude each other*' -and $bad4.Code -eq 1 -and $bad4.First -like "*-Topic 'a/b' is not a slug*") "$($o.Code) $iContract<$iAsk<$iRole<$iBrief | $($bad1.First) | $($bad2.First)"
-    $names = ($o.Previews[0].PSObject.Properties | Select-Object -First 7 | ForEach-Object { $_.Name }) -join ','
-    Check 'ROLE' 'the ledger field order: n, when, purpose, topics, role, consult_id, reviewer' ($names -eq 'n,when,purpose,topics,role,consult_id,reviewer') $names
+    $names = ($o.Previews[0].PSObject.Properties | Select-Object -First 8 | ForEach-Object { $_.Name }) -join ','
+    Check 'ROLE' 'the ledger field order: n, when, purpose, topics, role, consult_id, (0.6.1) consult_ref, reviewer' ($names -eq 'n,when,purpose,topics,role,consult_id,consult_ref,reviewer') $names
 }
 
 # =============================================================== RATE: -Rate keyed by consult_id; the scoreboard

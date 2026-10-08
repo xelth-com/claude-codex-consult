@@ -3747,6 +3747,12 @@ $peakLabel = if ($null -eq $peak.Peak) { "unknown ($(if ($peak.Variable) { "$($p
 # panel member's comes from its panel run, which wrote it into the member's record.)
 $consultId = [guid]::NewGuid().ToString()
 if ($panelMember -and [string](Get-PropertyValue $panelMember 'consult_id' '') -match '^[0-9a-fA-F-]{36}$') { $consultId = [string]$panelMember.consult_id }
+# (0.6.1, U5) consult_ref: a SECOND random 128-bit id of this consultation, derived from nothing (not
+# from the consult_id, which the reviewer sees in the prompt, nor from anything local) - the telemetry
+# events carry it: the consultation event and every rating event of this ledger entry
+# (Get-TelemetryConsultRef), so the intake can link them. Minted by the process that commits the entry
+# (a panel member its own).
+$consultRef = [guid]::NewGuid().ToString()
 
 # ----------------------------------------------------------------------------- brief, artifacts, schema
 
@@ -4304,6 +4310,7 @@ try {
             topics                          = [object[]]@($topicList)
             role                            = $(if ($roleInfo) { $roleInfo.Name } else { '' })
             consult_id                      = $consultId
+            consult_ref                     = $consultRef
             reviewer                        = $reviewerRecord
             lineage                         = $lineage
             coordinator                     = $coordinatorRecord
@@ -5961,6 +5968,7 @@ try {
         topics                          = [object[]]@($topicList)
         role                            = $(if ($roleInfo) { $roleInfo.Name } else { '' })
         consult_id                      = $consultId
+        consult_ref                     = $consultRef
         reviewer                        = $reviewerRecord
         lineage                         = $lineage
         coordinator                     = $coordinatorRecord
