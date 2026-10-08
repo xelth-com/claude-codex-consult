@@ -79,3 +79,12 @@ harness-claude first run 55/55 after test fixes 55f5c0b).
   live; wave 29c (the A/B, two worktrees); the website pass; 0.6.1 items in TECH_DEBT (the time-only reset wording,
   the judge class in the rating event).
 
+## 2026-10-08 03:50: wave 29c half done (handoff 40)
+- z.ai: 12/12 pairs, all four E8 gates pass (credits 0.27x, wall 0.46x, structured 12/12 both, blind marks 4.33 vs 4.08,
+  preference 7:4:1) - **the endpoint route stays for z.ai**. Ratings recorded (24), branch ab/zai merged into main.
+- MiMo: 6/12 pairs (credits 0.16x, wall 1.05x, structured 6/6 both) - the chain was killed by the memory guard at 03:40
+  (a peer's cargo build); resume with the driver (it skips usable arms) on the operator's word; then the blind marks and
+  the decision; branch ab/mimo to merge after.
+- Next after that: the website pass (memory), 0.6.1 (TECH_DEBT items, the judge class in the rating event), the driver
+  and analyser committed under tests/ab/.
+
