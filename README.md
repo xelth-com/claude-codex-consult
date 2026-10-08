@@ -374,6 +374,11 @@ default (every existing ledger uses it), another slug through `-BriefPrefix` or
 
 (Wave 29) A Claude Code coordinator sets `CODEX_CONSULT_COORDINATOR="anthropic :: <its model id>"` (a trailing `[1m]` is stripped). For a reviewer of the `claude` engine the ENGINE fixes the vendor: the coordinator's provider is compared with `anthropic` (case-insensitive) whatever the roster label, and the models after normalising (`[1m]` stripped, an alias equal to any id of its family); after the run the resolved model is compared again and a warning is added when the answer changed - always a warning, never a refusal ("Engines (wave 29)").
 
+(0.6.1) The same variable names the JUDGE of your ratings: `codex-findings.ps1 -Rate` reads
+`CODEX_CONSULT_COORDINATOR` of the process that rates (parsed exactly as above) and sends only its
+classes - the vendor class and a closed-list model - in the rating event's `judge` (README
+"Telemetry", the rating event). Set it in the session that rates, too.
+
 The `coordinate` skill also carries the idle watchdog (its rule 3): one recurring wake every 30
 minutes, armed at your first delegation or wait and kept while any running work exists (a worker,
 a detached panel, a shell job, another session's window, the operator's announced step, a
@@ -1271,6 +1276,7 @@ its place, so the highest `n` of a lineage is always its newest thread). A refus
   "topics": [],
   "role": "",
   "consult_id": "8f6a1e2d-…",
+  "consult_ref": "3c9e07b4-…",
   "reviewer": {
     "provider": "ZAI",
     "provider_source": "-Provider",
@@ -1371,6 +1377,7 @@ This is the only place field meanings are listed; other sections refer to them b
 | `topics` | (0.5.0, wave 26) the `-Topic` slugs (lowercase, deduplicated), `[]` without; copied onto a rating, scored by a routed panel ("Companions") |
 | `role` | (0.5.0, wave 26) the role the reviewer was given (`-Role`, or a panel's `-Roles`/`-Role`), `""` without one ("Companions") |
 | `consult_id` | a fresh guid per run; also the prompt's last line `Consultation id: <guid>` and the key that verifies a rollout-file thread id |
+| `consult_ref` | (0.6.1; right after `consult_id`) a SECOND fresh guid per run, derived from nothing - not from the `consult_id` the reviewer sees, nor from anything local; the telemetry events carry it (the consultation event and every rating event of this entry, README "Telemetry"). An entry recorded before 0.6.1 has none |
 | `reviewer.provider` / `reviewer.provider_source` | the provider that answered; how it was decided: `-Provider`, `config`, `codex default`, `roster`, `-Thread` or `unknown` |
 | `reviewer.model` / `reviewer.model_source` | the model that answered (`unknown` when unresolvable); `-Model`, `config`, `roster`, `-Thread` or `unknown` |
 | `reviewer.engine` | (0.4.0) the CLI that carried the run: `codex`, `agy` or (wave 23) `muse` (see "Engines"); an entry without it is `codex`. A thread never mixes engines |
@@ -2062,7 +2069,11 @@ bridge lifts the message from there. MiMo's exact wording for exhausted credits 
 confirmed; its keywords are a best guess.
 
 **`retry_after`** is a quota failure's reset time, parsed from the message and never
-guessed: Codex's wording (`try again at Sep 28th, 2026 8:35 PM.`), a bare ISO-8601
+guessed: Codex's wording (`try again at Sep 28th, 2026 8:35 PM.`), (0.6.1) the same wording
+with a time only (`try again at 9:43 PM.`, `try again at 21:43`; also after `resets at`,
+`available at`, `until`) - TODAY at that local time, or TOMORROW when that time is already past at
+the moment of parsing (the failure's time; in test mode `CODEX_CONSULT_NOW`), so the hold ends then
+instead of 60 minutes after the hit - a bare ISO-8601
 timestamp, a duration (`retry after 30`, `retry after 2h`, `resets in 2 days`, `try again
 in 3 days 1 hour 7 minutes`), or Google's wordings (`retry in 32s`, `retry in 1m5.3s`,
 `retry in 90 seconds`, the gRPC `"retryDelay":{"seconds":N}` / `"retryDelay": "32s"` - a
@@ -3199,7 +3210,8 @@ vendor table below):
     "panel_size": 4,
     "ps_version": "7.6.6",
     "os": "windows 10.0.26200",
-    "bridge_version": "0.5.0"
+    "bridge_version": "0.5.0",
+    "consult_ref": "6f1c2a9e-4b7d-4e2a-9c3f-0d8e5b7a1c24"
   },
   "tags": ["zai", "glm-5.3"],
   "client_time": "2026-09-29T14:14:33Z",
@@ -3218,6 +3230,7 @@ vendor table below):
 | `details.structured`, `format_retry`, `denial_retry`, `timeout_continue` | booleans: a valid structured reply; a format repair, a denial retry, a timeout continuation turn attempted |
 | `details.panel_size` | the members of the panel this consultation belonged to; `0` for a single run |
 | `details.ps_version`, `os`, `runtime` | `$PSVersionTable.PSVersion`; the OS family and version; `powershell 5.1` or `pwsh 7.x` |
+| `details.consult_ref` | (0.6.1, U5) a random id that links a consultation to its ratings, derived from nothing: a guid the bridge mints for each consultation (`[guid]::NewGuid()` - not the `consult_id` the reviewer sees in the prompt, not a hash of anything local), kept in the ledger entry as `consult_ref` and sent in this event and in every rating event of the same consultation, so the intake can count the latest rating per consultation. An entry recorded before 0.6.1 has none, and its events carry no such key; a complaint's context never carries it |
 | `tags`, `client_time` | (wave 28b) `[provider, model]` - the same two closed values as `details`; when the event was built, UTC (an instant, not a day) |
 
 **The vendor table** (wave 28b, D1 - `$script:TelemetryVendors` in `codex-consult-common.ps1`, ONE
@@ -3266,12 +3279,35 @@ SPOOL check exactly that, on a synthetic entry and a real run).
   consultation event's (`app_id` ... `runtime`, `tags` `[provider, model]`) with `severity` `info`
   and `title` the mark; `details` are exactly `engine`, `provider`, `model`, `purpose`, `mark`
   (`yes`, `partly`, `no`), `age_days` (the whole days from the consultation's `when` to the rating,
-  `0` the same day), `bridge_version`, `os`, `ps_version` - the reviewer through the consultation
-  event's own code path (`Get-TelemetryReviewerClass`: the vendor class and the closed-list model,
-  `other` / `unknown` exactly as there). Never in it: the `-Note` text, the topics, the task, the
-  consultation's `n`, `consult_id` or lineage, the roster label. Example `details`:
-  `{"engine":"codex","provider":"zai","model":"glm-5.3","purpose":"acceptance","mark":"partly","age_days":0,"bridge_version":"0.5.0","os":"windows 10.0.26200","ps_version":"7.6.6"}`.
+  `0` the same day), `bridge_version`, `os`, `ps_version`, (0.6.1) `judge` and - when the rated
+  ledger entry has one - `consult_ref` (the same random id its consultation event carried) - the
+  reviewer through the consultation event's own code path (`Get-TelemetryReviewerClass`: the vendor
+  class and the closed-list model, `other` / `unknown` exactly as there). Never in it: the `-Note`
+  text, the topics, the task, the consultation's `n`, `consult_id` or lineage, the roster label.
+  Example `details`:
+  `{"engine":"codex","provider":"zai","model":"glm-5.3","purpose":"acceptance","mark":"partly","age_days":0,"bridge_version":"0.6.1","os":"windows 10.0.26200","ps_version":"7.6.6","judge":{"provider":"anthropic","model":"claude-opus-5-5","source":"rating_actor"},"consult_ref":"6f1c2a9e-4b7d-4e2a-9c3f-0d8e5b7a1c24"}`.
   The intake aggregates consultations and ratings per vendor class and model.
+- **The judge** (0.6.1, U3). `judge` is `{provider, model, source}` - WHO gave the mark, resolved AT
+  RATING TIME, as classes only:
+  - `source` `rating_actor`: `CODEX_CONSULT_COORDINATOR` of the process that runs `-Rate`, parsed
+    exactly as the bridge parses it for the coordinator warning ("For the coordinator"); a value the
+    bridge would refuse still rates, with `other` / `other`;
+  - `source` `consult_coordinator`: that variable is unset - the ledger entry's `coordinator`, the
+    identity the consultation recorded (the coordinator then is not necessarily the rater);
+  - `source` `unknown`: neither - `{"provider":"other","model":"other","source":"unknown"}` (an entry
+    recorded before wave 27, or one whose coordinator named nothing).
+  The classifier (`Get-TelemetryJudgeClass`, its own code path: a coordinator record has no endpoint)
+  maps the provider by NAME: `openai` (Codex's built-in provider, any case) -> `openai`; `anthropic`
+  -> `anthropic`; a label of your reviewer roster -> the vendor class of that entry's endpoint (the
+  host of its `[model_providers.<label>]` table's `base_url`, a `claude` endpoint entry's base URL,
+  else its engine: `agy` `google`, `muse` `meta`, `claude` `anthropic`); a name outside the roster ->
+  its engine's class when it names `agy`, `muse` or `claude`, else `other`; no provider at all (a
+  host hint only) -> `anthropic` for the host `claude-code`, else `other` - the host is a hint, read
+  only when no provider is named. The model goes through the same closed lists as a reviewer's
+  (`[1m]` stripped), else `other`. Privacy: classes only - never the label, never the host, never a
+  model name outside the lists; the label stays in your ledger. `-BackfillRatings` cannot know who
+  gave an earlier mark: its events take `consult_coordinator` or `unknown`, never the backfilling
+  process's own `CODEX_CONSULT_COORDINATOR`.
 - **Backfilling earlier marks** (R24, 2026-10-06). Marks given before the rating event existed have
   no `telemetry_sent`; one command in the repository sends each of them ONCE:
 
@@ -3292,14 +3328,16 @@ SPOOL check exactly that, on a synthetic entry and a real run).
   marks `-Rate` spooled itself. It prints `codex-telemetry: <task>: sent N, already M, skipped K`
   per task with marks, then `codex-telemetry: total: ...`, and starts the detached sender when it
   spooled something. `-DryRun` prints one `would send: <vendor class> / <model> (<engine>),
-  purpose .., mark .., age_days .., client_time ..` line per event - never a note or a topic -
+  purpose .., mark .., age_days .., client_time .., judge <class> / <model> (<source>)` line per
+  event - never a note or a topic -
   and writes nothing (no spool, no salt, no marker). Telemetry off (`CODEX_CONSULT_TELEMETRY=off`
   or `-Telemetry off`): refused with exit `1`, nothing written. Exit `1` also when a spool append
   failed (those marks stay unsent; run it again).
 
-**Never sent:** task names, briefs, prompts, replies, paths, thread ids, consultation ids,
-finding texts or ids, messages, warnings, keys, provider labels as typed, user names, the machine
-name in clear, a rating's note or topics. A unit test walks every key AND value of real events and
+**Never sent:** task names, briefs, prompts, replies, paths, thread ids, consultation ids
+(`consult_id`; the `consult_ref` that is sent is a separate random id), finding texts or ids,
+messages, warnings, keys, provider labels as typed (a reviewer's or a coordinator's), the
+coordinator's host, user names, the machine name in clear, a rating's note or topics. A unit test walks every key AND value of real events and
 of an event built from a hostile entry (`tests/harness-telemetry.ps1` UNIT, SPOOL, RATE, BACKFILL).
 
 **How it travels.** Never in a consultation's critical path. (Wave 28b, D6) At the ledger commit
@@ -3829,7 +3867,12 @@ wave 28d). (2026-10-06, R24 - the bridge's half: `harness-telemetry` 103 (+11: R
 also on PowerShell 7.6.6; `harness-roster` and `harness-companions`, which rate with telemetry off, unchanged. Then
 the backfill: `harness-telemetry` 112 (+9: BACKFILL - `codex-telemetry.ps1 -BackfillRatings`, the mark's
 `telemetry_sent` - and its README check) on Windows PowerShell 5.1, UNIT, RATE, BACKFILL and DOCS also on PowerShell
-7.6.6; `harness-roster` 119, `harness-companions` 42, `harness-panel` 54 unchanged.)
+7.6.6; `harness-roster` 119, `harness-companions` 42, `harness-panel` 54 unchanged.) (2026-10-08, 0.6.1 - the bridge
+half of the usefulness table (U3 the judge, U5 `consult_ref`) and the time-only reset, Windows PowerShell 5.1, one
+harness at a time: `harness-telemetry` 127 (+15: UNIT 4 - consult_ref, the coordinator classifier, the judge object,
+the rating actor; SPOOL 3; RATE 5; BACKFILL 2; DOCS 1), `harness-roster` 124 (+4: TIMEONLY; seven more UNIT
+samples), `harness-claude` 87, `harness-0.3` 229, `harness-engines` 97, `harness-muse` 74 and `harness-companions` 42
+(the ledger field order with `consult_ref`), `harness-visibility` 122.)
 Many cases wait on real timeouts and time a fake
 reviewer: on a loaded machine (another heavy application or build, a disk that runs full) the
 timing cases of `harness-panel` (RUN, GUARD), `harness-detach` (PANEL) and `harness-visibility`

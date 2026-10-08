@@ -75,12 +75,14 @@
                    looked up in that task's sessions.json as -Rate recorded it (consult_id, else n;
                    no entry: skipped and counted - never a guessed reviewer), its `rating` event is
                    built through the same allowlist as -Rate's (client_time = the mark's `when`,
-                   age_days from its consult_when) and spooled, and `telemetry_sent` (unix seconds)
+                   age_days from its consult_when; 0.6.1: the judge is the consultation's own
+                   coordinator - source consult_coordinator - or unknown, never this process's
+                   CODEX_CONSULT_COORDINATOR) and spooled, and `telemetry_sent` (unix seconds)
                    is written into the mark under the task's store commit - so a second run sends
                    nothing (codex-findings.ps1 -Rate sets the field itself). One line per task
                    `<task>: sent N, already M, skipped K`, then the total; the detached sender starts
                    when something was spooled. -DryRun prints per event the vendor class, the model,
-                   the mark and the age - never a text - and writes nothing. Telemetry off (-Telemetry
+                   the mark, the age and the judge's classes - never a text - and writes nothing. Telemetry off (-Telemetry
                    off, else CODEX_CONSULT_TELEMETRY): refused, nothing written. Exit 0 done, 1
                    refused or something not spooled (run it again).
 
@@ -134,7 +136,7 @@ param(
     # without telemetry_sent) as rating events, once.
     [switch]$BackfillRatings,
 
-    # With -BackfillRatings: print what would be sent (vendor class, model, mark, age), write nothing.
+    # With -BackfillRatings: print what would be sent (vendor class, model, mark, age, judge), write nothing.
     [switch]$DryRun,
 
     # (wave 28b, D9) Delete my data: with -PublicRef <ref> at the intake, with -Local here.

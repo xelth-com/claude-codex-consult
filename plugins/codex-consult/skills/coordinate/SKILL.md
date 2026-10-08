@@ -109,7 +109,8 @@ execute, reviewers advise, you decide. These rules hold on every host; the means
    the operator agreed.
 10. **Name your own model.** Set `CODEX_CONSULT_COORDINATOR` to `<provider> :: <model>` (or a
     roster position `#<n>`): the bridge then warns when it seats your own model as a reviewer - a
-    second opinion from the coordinator's own model is not an independent one.
+    second opinion from the coordinator's own model is not an independent one. (0.6.1) It also names
+    the judge of your ratings (the rating event's `judge`, classes only) - keep it set when you rate.
 
 ## The bridge's own means (every host)
 

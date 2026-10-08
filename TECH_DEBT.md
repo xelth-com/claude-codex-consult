@@ -103,10 +103,3 @@ seven-wave task with three consultations. Ordered by the damage they did.
   reviewer (a read-only, non-interactive `codex exec` run) is within those terms is the operator's call; the bridge
   neither checks nor enforces it. Fix (not designed): none in code - the operator records the decision in the task's
   `state.md`.
-
-- **A time-only reset in Codex's limit wording is not parsed (2026-10-07).** `You've hit your usage limit ... or try
-  again at 9:43 PM.` names a time without a date; the classifier knows `try again at Sep 28th, 2026 8:35 PM.` and
-  `resets at ...` but not this form, so the endpoint was held for the default 60 minutes (until 22:22) although the
-  limit lifted at 21:43, and the operator had to pass `-SkipPreflight` on their own word. Fix (small, 0.6.1): a
-  time-only wording means today at that local time, or tomorrow when that time is already past; `retry_after` then
-  carries it and the hold ends there.

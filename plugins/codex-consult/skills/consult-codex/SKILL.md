@@ -426,6 +426,11 @@ across every task of the repository. A **failed** consultation may be rated too:
 failure was the reviewer's (a refusal, an invented finding, a reply it could not put in the
 format); **skip the rating** when the bridge's timeout or a plan limit (a usage limit, a
 quota) killed it - resume it instead (see "Run one command").
+(0.6.1) With telemetry on, each rating also sends one anonymised `rating` event carrying the
+consultation's random `consult_ref` and a `judge` - who rated, as classes only (the vendor class
+and a closed-list model, never a label or a host): `CODEX_CONSULT_COORDINATOR` of the session that
+runs `-Rate` (source `rating_actor`), else the coordinator the consultation recorded
+(`consult_coordinator`), else `unknown`. Keep the variable set in the session that rates.
 
 ## Role split: the operator's council
 

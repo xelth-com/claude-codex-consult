@@ -28,6 +28,11 @@
 # CODEX_CONSULT_TELEMETRY=off and -Telemetry off write nothing; an unknown reviewer -> other/unknown;
 # the mark's telemetry_sent. BACKFILL: codex-telemetry.ps1 -BackfillRatings [-DryRun] sends the marks
 # given before, once (an unfindable ledger entry skipped, client_time = the mark's when), refused off.
+# (0.6.1, U3, U5) consult_ref - minted per consultation, in the ledger, in the consultation event and
+# every rating event of it (never in a complaint) - and the rating event's judge {provider, model,
+# source}: the rating actor (CODEX_CONSULT_COORDINATOR of the -Rate process), else the consultation's
+# coordinator, else unknown; the coordinator classifier Get-TelemetryJudgeClass; -BackfillRatings never
+# takes its own process's coordinator; no label or host in an event.
 # FAKES ONLY: fake-codex3.cmd; the intake is a LOCAL System.Net.HttpListener on 127.0.0.1 (a free
 # port) or a closed loopback port - CODEX_CONSULT_TELEMETRY_URL always names one of them, never the
 # real intake; CODEX_HOME is a scratch directory per case, CODEX_CONSULT_ROSTER a scratch file or
@@ -147,8 +152,8 @@ function Consult {
 }
 # (R24) One codex-findings.ps1 run (synchronous) in $Repo with a case's environment: { Code; Out; First }
 function Rate {
-    param([string]$Repo, [string]$CodexHome, [string]$Url, [string]$Task, [string[]]$ArgList, [string]$Switch = '')
-    Set-CaseEnv $CodexHome $Url $Switch
+    param([string]$Repo, [string]$CodexHome, [string]$Url, [string]$Task, [string[]]$ArgList, [string]$Switch = '', [string]$Roster = '', [hashtable]$Env = @{})
+    Set-CaseEnv $CodexHome $Url $Switch $Roster $Env
     Push-Location $Repo
     $p = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $out = & $psExe -NoProfile -ExecutionPolicy Bypass -File $findingsPs -Task $Task @ArgList 2>&1
@@ -282,8 +287,13 @@ function Names { param($Obj) if ($null -eq $Obj) { return '' }; return (@($Obj.P
 # must be the contract's, in its order; returns the violations (empty: clean).
 $eventKeys = 'app_id,app_version,instance_id,event_type,severity,title,details,tags,client_time,os,runtime'
 $detailKeys = 'engine,provider,model,purpose,outcome,wall_seconds,tokens,findings,structured,format_retry,denial_retry,timeout_continue,panel_size,ps_version,os,bridge_version'
-# (R24) the details of a rating event (codex-findings.ps1 -Rate) - exactly these, in this order
-$ratingDetailKeys = 'engine,provider,model,purpose,mark,age_days,bridge_version,os,ps_version'
+# (R24) the details of a rating event (codex-findings.ps1 -Rate) - exactly these, in this order;
+# (0.6.1, U3) the judge object always, last before the optional consult_ref
+$ratingDetailKeys = 'engine,provider,model,purpose,mark,age_days,bridge_version,os,ps_version,judge'
+# (0.6.1, U5) consult_ref closes the details of both events when the ledger entry has one: a random
+# guid, lower case
+$consultRefRe = '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+$judgeSources = @('rating_actor', 'consult_coordinator', 'unknown')
 function Test-EventAllowlist {
     param($Ev)
     $v = New-Object System.Collections.Generic.List[string]
@@ -291,7 +301,18 @@ function Test-EventAllowlist {
     if ([string]$Ev.app_id -cne 'codex-consult') { $v.Add("fixed value $($Ev.app_id)") }
     if ([string]$Ev.event_type -ceq 'rating') {
         # (R24) the rating event: its own details; severity info, the mark as the title, a whole age
-        if ((Names $Ev.details) -ne $ratingDetailKeys) { $v.Add("rating details: $(Names $Ev.details)") }
+        if ((Names $Ev.details) -ne $ratingDetailKeys -and (Names $Ev.details) -ne "$ratingDetailKeys,consult_ref") { $v.Add("rating details: $(Names $Ev.details)") }
+        # (0.6.1, U3) the judge: exactly {provider, model, source}, closed values (a vendor class and an
+        # entry of its list, or other; an unknown judge other/other)
+        $j = $Ev.details.judge
+        if ((Names $j) -ne 'provider,model,source') { $v.Add("judge: $(Names $j)") }
+        elseif ($judgeSources -cnotcontains [string]$j.source) { $v.Add("judge source $($j.source)") }
+        else {
+            $jv = @($script:TelemetryVendors | Where-Object { $_.Class -ceq [string]$j.provider }) | Select-Object -First 1
+            if (-not $jv -and [string]$j.provider -cne 'other') { $v.Add("judge provider $($j.provider)") }
+            if ([string]$j.model -cne 'other' -and -not ($jv -and @(@($jv.Models) | ForEach-Object { [string]$_ }) -ccontains [string]$j.model)) { $v.Add("judge model $($j.model)") }
+            if ([string]$j.source -ceq 'unknown' -and ([string]$j.provider -cne 'other' -or [string]$j.model -cne 'other')) { $v.Add("unknown judge $($j.provider)/$($j.model)") }
+        }
         if (@('yes', 'partly', 'no') -cnotcontains [string]$Ev.details.mark) { $v.Add("mark $($Ev.details.mark)") }
         if ([string]$Ev.severity -cne 'info') { $v.Add("rating severity $($Ev.severity)") }
         if ([string]$Ev.title -cne [string]$Ev.details.mark) { $v.Add("rating title $($Ev.title)") }
@@ -300,7 +321,7 @@ function Test-EventAllowlist {
         if ((@($Ev.tags) -join ',') -cne ([string]$Ev.details.provider + ',' + [string]$Ev.details.model)) { $v.Add("rating tags $(@($Ev.tags) -join ',')") }
     } else {
         if ([string]$Ev.event_type -cne 'consultation') { $v.Add("fixed value $($Ev.event_type)") }
-        if ((Names $Ev.details) -ne $detailKeys) { $v.Add("details: $(Names $Ev.details)") }
+        if ((Names $Ev.details) -ne $detailKeys -and (Names $Ev.details) -ne "$detailKeys,consult_ref") { $v.Add("details: $(Names $Ev.details)") }
         if ((Names $Ev.details.tokens) -ne 'in,cached,out') { $v.Add("tokens: $(Names $Ev.details.tokens)") }
         if ((Names $Ev.details.findings) -ne 'blocker,major,minor,note') { $v.Add("findings: $(Names $Ev.details.findings)") }
         if (@('info', 'warning', 'error') -notcontains [string]$Ev.severity) { $v.Add("severity $($Ev.severity)") }
@@ -308,6 +329,7 @@ function Test-EventAllowlist {
         foreach ($k in @('blocker', 'major', 'minor', 'note')) { $x = $Ev.details.findings.$k; if (-not ($x -is [int] -or $x -is [long])) { $v.Add("findings.$k not a number") } }
         foreach ($k in @('structured', 'format_retry', 'denial_retry', 'timeout_continue')) { if (-not ($Ev.details.$k -is [bool])) { $v.Add("$k not a boolean") } }
     }
+    if ($null -ne $Ev.details.PSObject.Properties['consult_ref'] -and [string]$Ev.details.consult_ref -cnotmatch $consultRefRe) { $v.Add("consult_ref $($Ev.details.consult_ref)") }
     if (@($Ev.tags).Count -ne 2) { $v.Add("tags: $(@($Ev.tags).Count)") }
     if ([string]$Ev.instance_id -cnotmatch '^[0-9a-f]{64}$') { $v.Add("instance_id $($Ev.instance_id)") }
     return , ([string[]]$v.ToArray())
@@ -550,6 +572,77 @@ if (Want 'UNIT') {
     $env:CODEX_HOME = $savedCodexHome
     Check 'UNIT' 'D3 (wave 28c, F42-3) the forgetting marker <codex home>/telemetry-forgetting: a producer DROPS its event (Forgetting, "-Forget -Local is deleting ... or did not finish"), -Create makes no salt, a spool append is refused - no salt and no spool appear; the telemetry lock held elsewhere: the producer gives up after its short wait ("the telemetry lock ... stayed busy", about 0.7 s), still no salt or spool; the lock free and no marker: the event is spooled' ($a7.Forgetting -and $a7.Why -match 'Forget -Local is deleting' -and -not $id7 -and $sp7 -match 'Forget -Local is deleting' -and $left7.Count -eq 0 -and -not $b7.Forgetting -and $b7.Why -match 'telemetry lock .* stayed busy' -and -not $bId7 -and $left7b.Count -eq 0 -and $w7.Elapsed.TotalSeconds -lt 3 -and -not $c7.Why -and $spooled7 -eq 1) "marker: '$($a7.Why)' id '$id7' spool '$sp7' left [$($left7 -join ',')] | lock: '$($b7.Why)' in $([Math]::Round($w7.Elapsed.TotalSeconds, 1)) s left [$($left7b -join ',')] | free: '$($c7.Why)' spooled $spooled7"
     Check 'UNIT' 'D3 the sender''s environment is an ALLOW list (Get-TelemetrySenderEnvironment, the start info''s block cleared and filled from it): LC_ALL, HTTPS_PROXY, PATH, SystemRoot, CODEX_HOME, CODEX_CONSULT_TELEMETRY_URL in; no provider key (RT_ZAI_KEY), no host marker (CLAUDECODE), no CODEX_CONSULT_ROSTER, no CODEX_CONSULT_TEST_PANEL_SEED; in test mode CODEX_CONSULT_TEST_MODE and the sender''s own hook CODEX_CONSULT_TEST_TELEMETRY_ENV - without test mode neither; the bridge''s own environment unchanged' ($sNames -contains 'LC_ALL' -and $sNames -contains 'HTTPS_PROXY' -and ($sNames -contains 'PATH' -or $sNames -contains 'Path') -and $sNames -contains 'SystemRoot' -and $sNames -contains 'CODEX_CONSULT_TELEMETRY_URL' -and $sNames -notcontains 'RT_ZAI_KEY' -and $sNames -notcontains 'CLAUDECODE' -and $sNames -notcontains 'CODEX_CONSULT_ROSTER' -and $sNames -notcontains 'CODEX_CONSULT_TEST_PANEL_SEED' -and $sNames -contains 'CODEX_CONSULT_TEST_MODE' -and $sNames -contains 'CODEX_CONSULT_TEST_TELEMETRY_ENV' -and @($senvOff.Keys | Where-Object { ([string]$_) -like 'CODEX_CONSULT_TEST_*' }).Count -eq 0 -and $bad.Count -eq 0 -and (($blockNames | ForEach-Object { $_.ToLowerInvariant() }) -join ',') -eq ((@($sNames | ForEach-Object { $_.ToLowerInvariant() } | Sort-Object)) -join ',') -and $bridgeKept) "sender: $($sNames -join ',') | block $($blockNames.Count)"
+    # (0.6.1, U5) consult_ref: the entry's random id closes the details of the consultation event - lower
+    # case, only with the shape of a guid; none (an entry before 0.6.1) or anything else: no key; a
+    # complaint's context never carries it
+    $refE = { param($Ref) $o = [pscustomobject]@{ bridge_outcome = 'usable reply'; reviewer = [pscustomobject]@{ engine = 'codex'; model = 'gpt-5.1'; provider_config = [pscustomobject]@{ builtin = 'openai' } } }; if ($null -ne $Ref) { $o | Add-Member -NotePropertyName 'consult_ref' -NotePropertyValue $Ref }; $o }
+    $refGot = @(foreach ($rv0 in @('AB12CD34-0000-4000-8000-00000000000F', $null, 'not-a-guid', "C:\Users\$([Environment]::UserName)\x", '11111111-2222-3333-4444-5555555555555')) {
+            $dd = ConvertTo-TelemetryDetails (& $refE $rv0)
+            "$(if ($dd.PSObject.Properties['consult_ref']) { [string]$dd.consult_ref } else { '-' })/$((Names $dd) -eq $detailKeys -or (Names $dd) -eq "$detailKeys,consult_ref")"
+        })
+    $refNo = ConvertTo-TelemetryDetails (& $refE '0a0b0c0d-0000-4000-8000-000000000001') -NoConsultRef
+    Check 'UNIT' '(0.6.1, U5) consult_ref: an entry''s consult_ref closes the consultation event''s details lower-cased (AB12CD34-... -> ab12cd34-...); an entry without one, a non-guid, a path and a guid with an extra digit -> no key (the details exactly the 16 keys); -NoConsultRef (the complaint''s context) leaves it out' (($refGot -join ' ') -eq 'ab12cd34-0000-4000-8000-00000000000f/True -/True -/True -/True -/True' -and (Names $refNo) -eq $detailKeys) "$($refGot -join ' ') | $(Names $refNo)"
+    # (0.6.1, U3 / F02-6) THE coordinator classifier (Get-TelemetryJudgeClass): the provider by NAME,
+    # a roster label by its entry's endpoint, the model through the closed lists - never a label or host
+    $hj = New-Home 'judge-unit'
+    [IO.File]::AppendAllText((Join-Path $hj 'config.toml'), "`n[model_providers.JudgeLabel-Kimi]`nbase_url = `"https://api.kimi.ai/coding/v1`"`nenv_key = `"RT_KIMI_KEY`"`nwire_api = `"responses`"`n`n[model_providers.AcmeCorp-Legal]`nbase_url = `"https://llm.acmecorp-internal.example/v1`"`nenv_key = `"RT_ACME_KEY`"`nwire_api = `"responses`"`n", $u8)
+    $rosJ = Write-Roster 'judge-unit' '{"roster_version":1,"reviewers":[{"provider":"JudgeLabel-Kimi","model":"k3"},{"provider":"AcmeCorp-Legal","model":"acmecorp-contracts-7b"},{"provider":"ZAI-claude","engine":"claude","model":"glm-5.3[1m]","auth":"endpoint","endpoint":{"base_url":"https://api.z.ai/api/anthropic","env_key":"RT_ZAI_KEY"}},{"provider":"gem","engine":"agy","model":"gemini-3.1-pro-high"}]}'
+    $rosterJ = Read-ReviewerRoster -Location ([pscustomobject]@{ Path = $rosJ; FromEnv = $false; Disabled = $false })
+    $cfgJ = Read-CodexConfigSubset -Path (Join-Path $hj 'config.toml')
+    $co = { param($P, $M, $E = $null, $H = 'unknown') [pscustomobject]@{ provider = $P; model = $M; engine = $E; host = $H; host_by = 'none'; source = $(if ($P) { 'explicit' } elseif ($H -ne 'unknown') { 'inferred' } else { 'none' }); in_roster = $null; unresolved = $null } }
+    $jcases = @(
+        @((& $co 'openai' 'gpt-6-astra' 'codex'), 'openai/gpt-6-astra', 'a codex coordinator (openai :: gpt-6-astra)'),
+        @((& $co 'OpenAI' 'gpt-9-unreleased' 'codex'), 'openai/other', 'openai by name in any case, a model outside the list'),
+        @((& $co 'anthropic' 'claude-opus-5-5[1m]' 'codex' 'claude-code'), 'anthropic/claude-opus-5-5', 'anthropic, [1m] stripped'),
+        @((& $co 'JudgeLabel-Kimi' 'k3' 'codex'), 'moonshot/k3', 'a roster label - its table''s host api.kimi.ai'),
+        @((& $co 'AcmeCorp-Legal' 'acmecorp-contracts-7b' 'codex'), 'other/other', 'a roster label on an unknown host'),
+        @((& $co 'ZAI-claude' 'glm-5.3[1m]' 'claude'), 'zai/glm-5.3', 'a claude endpoint entry - its base URL''s host'),
+        @((& $co 'gem' 'gemini-3.1-pro-high' 'agy'), 'google/gemini-3.1-pro-high', 'an agy entry - the engine''s row'),
+        @((& $co 'mystery-judge' 'k3' 'codex' 'claude-code'), 'other/other', 'an unknown label (no roster entry): other - the host is not read when a provider is named'),
+        @((& $co 'claude' 'opus' 'claude'), 'anthropic/opus', 'a label outside the roster of the claude engine'),
+        @((& $co $null $null $null 'claude-code'), 'anthropic/other', 'no provider, the host claude-code'),
+        @((& $co $null $null $null 'codex'), 'other/other', 'no provider, another host')
+    )
+    $jgot = @(foreach ($jc in $jcases) { $jr = Get-TelemetryJudgeClass -Coordinator $jc[0] -Roster $rosterJ -Config $cfgJ; "$($jr.provider)/$($jr.model)" })
+    $jwant = @($jcases | ForEach-Object { $_[1] })
+    $jbad = @(for ($i = 0; $i -lt $jgot.Count; $i++) { if ($jgot[$i] -cne $jwant[$i]) { "$($jcases[$i][2]): got $($jgot[$i]), want $($jwant[$i])" } })
+    $jnames = @(foreach ($jc in $jcases) { Names (Get-TelemetryJudgeClass -Coordinator $jc[0] -Roster $rosterJ -Config $cfgJ) }) | Select-Object -Unique
+    Check 'UNIT' '(0.6.1, U3 / F02-6) the coordinator classifier Get-TelemetryJudgeClass: openai :: gpt-6-astra -> openai/gpt-6-astra (a codex coordinator); OpenAI -> openai by name; anthropic + [1m] -> anthropic/claude-opus-5-5; the roster label JudgeLabel-Kimi -> moonshot/k3 (its table''s host); AcmeCorp-Legal (unknown host) -> other/other; a claude endpoint label -> zai/glm-5.3; an agy label -> google; an unknown label -> other/other even under the claude-code host; claude engine -> anthropic; no provider + host claude-code -> anthropic/other, another host -> other/other; only {provider, model} returned' ($jbad.Count -eq 0 -and (@($jnames) -join '|') -eq 'provider,model') (($jbad + @($jnames)) -join ' | ')
+    # the judge as the event carries it: closed values only; the actor first, then the consultation's
+    # coordinator, else unknown
+    $sj = @(
+        (ConvertTo-TelemetryJudge ([pscustomobject]@{ provider = 'JudgeLabel-Kimi'; model = 'k3'; source = 'rating_actor' })),
+        (ConvertTo-TelemetryJudge ([pscustomobject]@{ provider = 'moonshot'; model = 'acmecorp-secret-model'; source = 'consult_coordinator' })),
+        (ConvertTo-TelemetryJudge ([pscustomobject]@{ provider = 'moonshot'; model = 'k3'; source = 'host claude-code' })),
+        (ConvertTo-TelemetryJudge ([pscustomobject]@{ provider = 'zai'; model = 'glm-5.3'; source = 'consult_coordinator' })),
+        (ConvertTo-TelemetryJudge $null)) | ForEach-Object { "$($_.provider)/$($_.model)/$($_.source)" }
+    $eCo = [pscustomobject]@{ when = '2026-10-07T10:00:00+02:00'; coordinator = (& $co 'JudgeLabel-Kimi' 'k3' 'codex') }
+    $eNone = [pscustomobject]@{ when = '2026-10-07T10:00:00+02:00'; coordinator = (& $co $null $null $null 'unknown') }
+    $eUnres = [pscustomobject]@{ when = '2026-10-07T10:00:00+02:00'; coordinator = [pscustomobject]@{ provider = $null; model = $null; engine = $null; host = 'unknown'; host_by = 'none'; source = 'explicit'; in_roster = $false; unresolved = '#7' } }
+    $actorJ = [pscustomobject]@{ provider = 'openai'; model = 'gpt-6-astra'; source = 'rating_actor' }
+    # (the label's table is read from the Codex config of CODEX_HOME - this case's scratch home)
+    $env:CODEX_HOME = $hj
+    $rj = @(
+        (Resolve-TelemetryJudge -Entry $eCo -Actor $actorJ -Roster $rosterJ),
+        (Resolve-TelemetryJudge -Entry $eCo -Roster $rosterJ),
+        (Resolve-TelemetryJudge -Entry $eNone -Roster $rosterJ),
+        (Resolve-TelemetryJudge -Entry ([pscustomobject]@{ when = '2026-10-07T10:00:00+02:00' }) -Roster $rosterJ),
+        (Resolve-TelemetryJudge -Entry $eUnres -Roster $rosterJ)) | ForEach-Object { "$($_.provider)/$($_.model)/$($_.source)" }
+    $env:CODEX_HOME = $savedCodexHome
+    Check 'UNIT' '(0.6.1, U3) the judge object: ConvertTo-TelemetryJudge keeps closed values only (a label as provider -> other, a model outside the class''s list -> other, a source outside rating_actor|consult_coordinator|unknown -> unknown with other/other); Resolve-TelemetryJudge: the rating actor wins over the entry''s coordinator, else the coordinator (consult_coordinator), a coordinator naming nothing and none at all -> other/other/unknown, an unresolved #n -> other/other/consult_coordinator (named, not recognised)' (($sj -join ' ') -eq 'other/other/rating_actor moonshot/other/consult_coordinator other/other/unknown zai/glm-5.3/consult_coordinator other/other/unknown' -and ($rj -join ' ') -eq 'openai/gpt-6-astra/rating_actor moonshot/k3/consult_coordinator other/other/unknown other/other/unknown other/other/consult_coordinator') "$($sj -join ' ') | $($rj -join ' ')"
+    # the rating actor: CODEX_CONSULT_COORDINATOR of THIS process, parsed as the bridge parses it
+    $savedRoster = $env:CODEX_CONSULT_ROSTER
+    $env:CODEX_HOME = $hj
+    $env:CODEX_CONSULT_ROSTER = $rosJ
+    $ra0 = @(foreach ($cv in @('JudgeLabel-Kimi :: k3', '#1', 'JudgeLabel-Kimi', 'anthropic :: claude-fable-5-1[1m]', 'openai :: gpt-6-astra', 'a :: b [x] [y]', 'nobody :: k3', '')) {
+            $env:CODEX_CONSULT_COORDINATOR = $cv
+            $ax = Get-TelemetryRatingActor
+            $(if ($null -eq $ax) { 'null' } else { "$($ax.provider)/$($ax.model)/$($ax.source)" })
+        })
+    Remove-Item env:CODEX_CONSULT_COORDINATOR -ErrorAction SilentlyContinue
+    $env:CODEX_CONSULT_ROSTER = $savedRoster
+    $env:CODEX_HOME = $savedCodexHome
+    Check 'UNIT' '(0.6.1, U3) the rating actor (Get-TelemetryRatingActor) is CODEX_CONSULT_COORDINATOR parsed by Resolve-CoordinatorIdentity with the roster: "JudgeLabel-Kimi :: k3", "#1" and the bare label -> moonshot/k3; anthropic + [1m] -> anthropic/claude-fable-5-1; openai :: gpt-6-astra -> openai/gpt-6-astra; a value that does not parse and an unknown label -> other/other - all rating_actor; unset -> none (the consultation''s coordinator decides)' (($ra0 -join ' ') -eq 'moonshot/k3/rating_actor moonshot/k3/rating_actor moonshot/k3/rating_actor anthropic/claude-fable-5-1/rating_actor openai/gpt-6-astra/rating_actor other/other/rating_actor other/other/rating_actor null') ($ra0 -join ' ')
 }
 
 # =============================================================== SPOOL: the event after a usable and a failed run; off writes nothing; a panel
@@ -569,6 +662,8 @@ if (Want 'SPOOL') {
     Check 'SPOOL' 'a usable run with telemetry on (unset): exit 0, ONE line in <codex home>/telemetry-spool/<local yyyy-mm-dd>.ndjson - {v 1, kind event, queued_unix, body: the event as a JSON string}' ($ok.Code -eq 0 -and $lines.Count -eq 1 -and (Test-Path -LiteralPath (Join-Path (Join-Path $h 'telemetry-spool') $spoolName)) -and (Names $sl) -eq 'v,kind,queued_unix,body' -and $sl.v -eq 1 -and $sl.kind -eq 'event' -and $null -ne $ev) "$($ok.Code) $($lines.Count) $(if ($lines.Count) { $lines[0].Substring(0, [Math]::Min(120, $lines[0].Length)) })"
     $viol = @(); if ($ev) { $viol = Test-EventAllowlist $ev }
     Check 'SPOOL' 'the REAL event passes the allowlist walk (every key at every level the contract''s, in order)' ($ev -and $viol.Count -eq 0) ($viol -join ' || ')
+    # (0.6.1, U5) the consult_ref: minted per consultation, kept in the ledger, the last key of details
+    Check 'SPOOL' '(0.6.1, U5) the ledger entry has consult_ref (right after consult_id) - a random lower-case guid, NOT the consult_id the reviewer sees in the prompt - and the consultation event carries exactly it as the last key of details' ($ev -and [string]$e.consult_ref -cmatch $consultRefRe -and [string]$e.consult_ref -ne [string]$e.consult_id -and [string]$ev.details.consult_ref -ceq [string]$e.consult_ref -and (Names $ev.details) -eq "$detailKeys,consult_ref" -and ((Names $e) -split ',')[6] -ceq 'consult_ref' -and ((Names $e) -split ',')[5] -ceq 'consult_id') "ledger $($e.consult_ref) (id $($e.consult_id)) | event $(if ($ev) { $ev.details.consult_ref })"
     $iid = ''; $env:CODEX_HOME = $h; $iid = Get-TelemetryInstanceId; $env:CODEX_HOME = $savedCodexHome
     $d = $(if ($ev) { $ev.details } else { $null })
     Check 'SPOOL' 'the event is the committed entry''s: engine codex, provider openai, model gpt-5.1, purpose checkpoint, outcome usable (severity info, title usable), findings = the ledger''s (1 major), tokens = the ledger''s usage, structured true, wall_seconds = the ledger''s, panel_size 0, (wave 28b, D1) provider openai = the vendor class of the built-in provider, tags [openai, gpt-5.1], instance_id = this home''s, client_time UTC, runtime/os/bridge_version of this host' ($d -and $d.engine -eq 'codex' -and $d.provider -eq 'openai' -and $d.model -eq 'gpt-5.1' -and $d.purpose -eq 'checkpoint' -and $d.outcome -eq 'usable' -and $ev.severity -eq 'info' -and $ev.title -eq 'usable' -and $d.findings.major -eq $e.findings.major -and $d.findings.major -eq 1 -and $d.tokens.in -eq $e.usage.input_tokens -and $d.tokens.out -eq $e.usage.output_tokens -and $d.structured -eq $true -and [Math]::Abs($d.wall_seconds - [double]$e.wall_seconds) -le 1 -and $d.panel_size -eq 0 -and (@($ev.tags) -join ',') -eq 'openai,gpt-5.1' -and $ev.instance_id -eq $iid -and [string]$sl.body -match '"client_time":"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ"' -and $ev.runtime -eq (Get-TelemetryRuntime) -and $ev.os -eq (Get-TelemetryOs) -and $d.bridge_version -eq $version) $(if ($ev) { [string]$sl.body } else { '' })
@@ -586,6 +681,7 @@ if (Want 'SPOOL') {
     $ef = (Ledger $rf $taskName)[-1]
     $ev2 = $null; try { $ev2 = ConvertFrom-Json ([string](ConvertFrom-Json $lines[-1]).body) } catch { }
     Check 'SPOOL' 'a FAILED run (a quota failure) spools its event too: exit 1, a second line - severity warning, title and outcome failed:quota (the ledger''s provider_failure.class), allowlist clean' ($fl.Code -eq 1 -and $lines.Count -eq 2 -and $ef.provider_failure.class -eq 'quota' -and $ev2 -and $ev2.severity -eq 'warning' -and $ev2.title -eq 'failed:quota' -and $ev2.details.outcome -eq 'failed:quota' -and (Test-EventAllowlist $ev2).Count -eq 0) "$($fl.Code) lines=$($lines.Count) $($ef.bridge_outcome) | $(if ($ev2) { $ev2.title })"
+    Check 'SPOOL' '(0.6.1, U5) the failed run''s event carries ITS entry''s consult_ref - a different random id than the first consultation''s' ($ev2 -and [string]$ef.consult_ref -cmatch $consultRefRe -and [string]$ev2.details.consult_ref -ceq [string]$ef.consult_ref -and [string]$ef.consult_ref -ne [string]$e.consult_ref) "$($ef.consult_ref) | $(if ($ev2) { $ev2.details.consult_ref }) | first $($e.consult_ref)"
     $null = Wait-Last $h $t1
     $ro = New-Repo 'spool-off'
     $off1 = Consult $ro $h $dead $taskName @('-Prompt', 'x', '-ReplyName', 'o1', '-Telemetry', 'off') -Env @{ FAKE_CODEX_REPLY = $reply }
@@ -609,6 +705,9 @@ if (Want 'SPOOL') {
     $provs = @($pl | ForEach-Object { $_.details.provider } | Sort-Object) -join ','
     Check 'SPOOL' 'a -Panel of two members: two lines, one per member (wave 28b, D1: the vendor classes openai and zai - the label ZAI never), each panel_size 2, outcome usable, allowlist clean' ($pn.Code -eq 0 -and $pl.Count -eq 2 -and $provs -ceq 'openai,zai' -and @($pl | Where-Object { $_.details.panel_size -eq 2 -and $_.details.outcome -eq 'usable' -and (Test-EventAllowlist $_).Count -eq 0 }).Count -eq 2) "$($pn.Code) $($pl.Count) $provs"
     Check 'SPOOL' 'the panel started its sender once every member was done (.last written after the panel)' (Wait-Last $h3 $t3) "$((Last $h3).result)"
+    $pRefs = @(@(Ledger $rp $taskName) | ForEach-Object { [string]$_.consult_ref } | Sort-Object)
+    $pevRefs = @($pl | ForEach-Object { [string]$_.details.consult_ref } | Sort-Object)
+    Check 'SPOOL' '(0.6.1, U5) each panel member mints its own consult_ref: two different random ids in the ledger, and the two events carry exactly them' ($pRefs.Count -eq 2 -and $pRefs[0] -ne $pRefs[1] -and @($pRefs | Where-Object { $_ -cmatch $consultRefRe }).Count -eq 2 -and ($pevRefs -join ',') -ceq ($pRefs -join ',')) "ledger $($pRefs -join ',') | events $($pevRefs -join ',')"
     # (wave 28b, D1 / F36-1) a REAL run of a roster entry whose label and model look like a company
     $hc = New-Home 'spool-corp'
     [IO.File]::AppendAllText((Join-Path $hc 'config.toml'), "`n[model_providers.AcmeCorp-Legal]`nbase_url = `"https://llm.acmecorp-internal.example/v1`"`nenv_key = `"RT_ACME_KEY`"`nwire_api = `"responses`"`n", $u8)
@@ -681,7 +780,9 @@ if (Want 'RATE') {
     $hrl = Find-Leaks (Get-Leaves $hrp) @($taskName, 'secret', '11111111-2222', 'acmecorp')
     $ageWant = [long][Math]::Floor(([DateTimeOffset]::UtcNow - [DateTimeOffset]::Parse('2026-09-29T10:00:00+02:00', [Globalization.CultureInfo]::InvariantCulture)).TotalDays)
     $ages = @((Get-TelemetryAgeDays -Entry ([pscustomobject]@{ when = [DateTimeOffset]::Now.AddDays(2).ToString('o') })), (Get-TelemetryAgeDays -Entry ([pscustomobject]@{ when = 'not a time' })), (Get-TelemetryAgeDays -Entry ([pscustomobject]@{ n = 1 })), (Get-TelemetryAgeDays -Entry ([pscustomobject]@{ when = [DateTimeOffset]::Now.AddHours(-47).ToString('o') })))
-    Check 'RATE' 'the builder (New-TelemetryRatingEvent) on a hostile entry: the allowlist walk as a rating event is clean (top level a consultation event''s, details exactly engine,provider,model,purpose,mark,age_days,bridge_version,os,ps_version); mark " No " -> no (title no, severity info); a path-shaped provider and model on an unknown host -> other/other, an unknown purpose -> other; age_days = the whole days since the entry''s when; no leaf carries the note, the topics, the lineage, the thread, the consultation id, the task, a path, the user or the machine name; mark maybe -> other; age_days 0 for a future when, an unparseable when and none, 1 after 47 h' ($hrv.Count -eq 0 -and $hrl.Count -eq 0 -and $hrp.details.mark -ceq 'no' -and $hrp.title -ceq 'no' -and $hrp.details.provider -ceq 'other' -and $hrp.details.model -ceq 'other' -and $hrp.details.purpose -ceq 'other' -and $hrp.details.age_days -eq $ageWant -and (ConvertTo-TelemetryRatingDetails -Entry $hostileR -Mark 'maybe').mark -ceq 'other' -and ($ages -join ',') -eq '0,0,0,1') "$(($hrv + $hrl) -join ' || ') | ages $($ages -join ',') | $hrj"
+    Check 'RATE' 'the builder (New-TelemetryRatingEvent) on a hostile entry: the allowlist walk as a rating event is clean (top level a consultation event''s, details exactly engine,provider,model,purpose,mark,age_days,bridge_version,os,ps_version,judge); mark " No " -> no (title no, severity info); a path-shaped provider and model on an unknown host -> other/other, an unknown purpose -> other; age_days = the whole days since the entry''s when; no leaf carries the note, the topics, the lineage, the thread, the consultation id, the task, a path, the user or the machine name; mark maybe -> other; age_days 0 for a future when, an unparseable when and none, 1 after 47 h' ($hrv.Count -eq 0 -and $hrl.Count -eq 0 -and $hrp.details.mark -ceq 'no' -and $hrp.title -ceq 'no' -and $hrp.details.provider -ceq 'other' -and $hrp.details.model -ceq 'other' -and $hrp.details.purpose -ceq 'other' -and $hrp.details.age_days -eq $ageWant -and (ConvertTo-TelemetryRatingDetails -Entry $hostileR -Mark 'maybe').mark -ceq 'other' -and ($ages -join ',') -eq '0,0,0,1') "$(($hrv + $hrl) -join ' || ') | ages $($ages -join ',') | $hrj"
+
+    Check 'RATE' '(0.6.1) the hostile entry''s rating event: judge {provider other, model other, source unknown} (no coordinator recorded), no consult_ref key (the entry has none: an entry before 0.6.1 sends none)' ((Names $hrp.details.judge) -eq 'provider,model,source' -and "$($hrp.details.judge.provider)/$($hrp.details.judge.model)/$($hrp.details.judge.source)" -ceq 'other/other/unknown' -and $null -eq $hrp.details.PSObject.Properties['consult_ref']) (ConvertTo-Json -Compress -InputObject $hrp.details.judge)
 
     $dead = Get-DeadUrl
     $hr = New-Home 'rate'
@@ -710,6 +811,8 @@ if (Want 'RATE') {
     $cd = ConvertTo-TelemetryDetails $e1
     $iid = ''; $env:CODEX_HOME = $hr; $iid = Get-TelemetryInstanceId; $env:CODEX_HOME = $savedCodexHome
     Check 'RATE' '(a) the values: provider zai - the VENDOR CLASS of api.z.ai, never the roster label RateLabel-GLM - model glm-5.3 (the closed list), engine codex, purpose acceptance, age_days 0 (a whole number: rated the same day), tags [zai, glm-5.3]; engine/provider/model EQUAL the consultation event''s for the same ledger entry (one code path); instance_id this home''s, client_time UTC, app_version, bridge_version, os, ps_version and runtime of this host' ($d -and $d.engine -ceq 'codex' -and $d.provider -ceq 'zai' -and $d.model -ceq 'glm-5.3' -and $d.purpose -ceq 'acceptance' -and ($d.age_days -is [int] -or $d.age_days -is [long]) -and $d.age_days -eq 0 -and (@($ev.tags) -join ',') -ceq 'zai,glm-5.3' -and $d.engine -ceq $cd.engine -and $d.provider -ceq $cd.provider -and $d.model -ceq $cd.model -and $iid -and $ev.instance_id -eq $iid -and [string]$sl.body -match '"client_time":"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ"' -and $ev.app_version -eq $version -and $d.bridge_version -eq $version -and $d.os -eq (Get-TelemetryOs) -and $ev.os -eq (Get-TelemetryOs) -and $ev.runtime -eq (Get-TelemetryRuntime) -and $d.ps_version -eq [string]$PSVersionTable.PSVersion) $(if ($sl) { [string]$sl.body } else { '' })
+    $wantJ1 = Resolve-TelemetryJudge -Entry $e1 -Roster ([pscustomobject]@{ Exists = $false; Entries = [object[]]@() })
+    Check 'RATE' '(a) (0.6.1, U5) the rating event carries the rated entry''s consult_ref - the ledger''s random id, the one its consultation event carries (ConvertTo-TelemetryDetails of the same entry) - as the last key; (U3) its judge is the consultation''s coordinator as the ledger recorded it (no CODEX_CONSULT_COORDINATOR in the rating process: never rating_actor)' ($d -and [string]$e1.consult_ref -cmatch $consultRefRe -and [string]$d.consult_ref -ceq [string]$e1.consult_ref -and [string]$d.consult_ref -ceq [string]$cd.consult_ref -and (Names $d) -eq "$ratingDetailKeys,consult_ref" -and "$($d.judge.provider)/$($d.judge.model)/$($d.judge.source)" -ceq "$($wantJ1.provider)/$($wantJ1.model)/$($wantJ1.source)" -and [string]$d.judge.source -cne 'rating_actor') "ledger $($e1.consult_ref) | event $(if ($d) { "$($d.consult_ref) judge $($d.judge.provider)/$($d.judge.model)/$($d.judge.source)" }) | want judge $($wantJ1.provider)/$($wantJ1.model)/$($wantJ1.source)"
     $keyNames = $(if ($ev) { Get-KeyNames $ev } else { @() })
     $badKeys = @($keyNames | Where-Object { @('note', 'task', 'task_id', 'topics', 'consult_id', 'lineage', 'n', 'useful', 'consult_when', 'when', 'reviewer', 'thread') -ccontains $_ })
     $leaks = @(); if ($ev) { $leaks = Find-Leaks (Get-Leaves $ev) @($taskName, 'note-secret', 'missed the retry', $topicSecret, 'prompt-secret', [string]$e1.consult_id, [string]$e1.thread, 'RateLabel', 'secret', $rr) }
@@ -758,6 +861,7 @@ if (Want 'RATE') {
     [void][IO.Directory]::CreateDirectory((Join-Path $sdir 'handoffs'))
     Write-JsonFile -Path (Join-Path $sdir 'sessions.json') -Object ([pscustomobject]@{ task_id = 't'; cwd = $rs; codex = [pscustomobject]@{ tool = 'x'; consults = [object[]]$seed } })
     $got = @()
+    $gotJ = @()
     $counts = @()
     foreach ($k in 1..3) {
         $tk = Get-Date
@@ -766,12 +870,47 @@ if (Want 'RATE') {
         $counts += "$($x.Code)/$($ls.Count)"
         $e = $null; try { $e = ConvertFrom-Json ([string](ConvertFrom-Json $ls[-1]).body) } catch { }
         $cdk = ConvertTo-TelemetryDetails $seed[$k - 1]
+        $gotJ += "$($k):$(if ($e) { "$($e.details.judge.provider)/$($e.details.judge.model)/$($e.details.judge.source)/$($null -ne $e.details.PSObject.Properties['consult_ref'])" })"
         $got += "$($k):$(if ($e) { "$($e.details.engine)/$($e.details.provider)/$($e.details.model)/$($e.details.purpose)/$($e.details.age_days)/$((Test-EventAllowlist $e).Count)" })=$($cdk.engine)/$($cdk.provider)/$($cdk.model)/$($cdk.purpose)"
         $null = Wait-Last $hs $tk
     }
     $want = @('1:codex/other/unknown/none/3/0=codex/other/unknown/none', '2:codex/other/other/checkpoint/0/0=codex/other/other/checkpoint', '3:codex/other/unknown/framing/1/0=codex/other/unknown/framing')
     $seedSpool = (Spool-Lines $hs) -join "`n"
     Check 'RATE' '(c) reviewers the vendor table does not know (a seeded ledger): an unknown endpoint without a model -> provider other, model unknown; AcmeCorp-Legal on llm.acmecorp-internal.example with acmecorp-contracts-7b -> other/other; an entry without a reviewer (unknown provenance) -> other/unknown - each EXACTLY as the consultation event (ConvertTo-TelemetryDetails) has it for the same entry; purpose none without one; age_days 3, 0, 1 (whole days from the entry''s when); one line per rating (exit 0), allowlist clean, neither acmecorp nor mystery in the spool' (($counts -join ' ') -eq '0/1 0/2 0/3' -and ($got -join ' ') -eq ($want -join ' ') -and $seedSpool -inotmatch 'acmecorp|mystery') "$($counts -join ' ') | $($got -join ' ')"
+    Check 'RATE' '(c) (0.6.1, U3) entries recorded before wave 27 (no coordinator) and before 0.6.1 (no consult_ref): the judge is {other, other, unknown} and the details carry no consult_ref' (($gotJ -join ' ') -ceq '1:other/other/unknown/False 2:other/other/unknown/False 3:other/other/unknown/False') ($gotJ -join ' ')
+
+    # (d) (0.6.1, U3 / F02-3) the judge is resolved AT RATING TIME: the rating actor (CODEX_CONSULT_COORDINATOR
+    # of the -Rate process), else the consultation's coordinator; classes only - never a label or a host
+    $hjr = New-Home 'rate-judge'
+    [IO.File]::AppendAllText((Join-Path $hjr 'config.toml'), "`n[model_providers.JudgeLabel-Kimi]`nbase_url = `"https://api.kimi.ai/coding/v1`"`nenv_key = `"RT_KIMI_KEY`"`nwire_api = `"responses`"`n", $u8)
+    $rosterJR = Write-Roster 'rate-judge' '{"roster_version":1,"reviewers":[{"provider":"JudgeLabel-Kimi","model":"k3"}]}'
+    $rjr = New-Repo 'rate-judge'
+    # the consultation: its coordinator openai :: gpt-6-astra is recorded in the ledger (telemetry off)
+    $cj = Consult $rjr $hjr $dead $taskName @('-Purpose', 'diff-review', '-Prompt', 'x', '-ReplyName', 'j1', '-Telemetry', 'off') -Env @{ FAKE_CODEX_REPLY = $reply; CODEX_CONSULT_COORDINATOR = 'openai :: gpt-6-astra' }
+    $ej = @(Ledger $rjr $taskName)[-1]
+    $judgeOf = { param($L) $x = $null; try { $x = ConvertFrom-Json ([string](ConvertFrom-Json $L).body) } catch { }; $x }
+    $tj = Get-Date
+    $j1 = Rate $rjr $hjr $dead $taskName @('-Rate', '1', '-Useful', 'yes') -Roster $rosterJR -Env @{ CODEX_CONSULT_COORDINATOR = 'JudgeLabel-Kimi :: k3' }
+    $null = Wait-Last $hjr $tj
+    $lj1 = Spool-Lines $hjr
+    $evj1 = $(if ($lj1.Count) { & $judgeOf $lj1[-1] } else { $null })
+    $tj = Get-Date
+    $j2 = Rate $rjr $hjr $dead $taskName @('-Rate', '1', '-Useful', 'partly')
+    $null = Wait-Last $hjr $tj
+    $lj2 = Spool-Lines $hjr
+    $evj2 = $(if ($lj2.Count) { & $judgeOf $lj2[-1] } else { $null })
+    $tj = Get-Date
+    $j3 = Rate $rjr $hjr $dead $taskName @('-Rate', '1', '-Useful', 'no', '-Note', 'n') -Roster $rosterJR -Env @{ CODEX_CONSULT_COORDINATOR = 'a :: b [x] [y]' }
+    $null = Wait-Last $hjr $tj
+    $lj3 = Spool-Lines $hjr
+    $evj3 = $(if ($lj3.Count) { & $judgeOf $lj3[-1] } else { $null })
+    $jt = { param($E) if ($E) { "$($E.details.judge.provider)/$($E.details.judge.model)/$($E.details.judge.source)" } else { '(none)' } }
+    $jViol = @(@($evj1, $evj2, $evj3) | Where-Object { $_ } | ForEach-Object { foreach ($vv in (Test-EventAllowlist $_)) { $vv } })
+    Check 'RATE' '(d) (0.6.1, U3) three ratings of one consultation (its coordinator openai :: gpt-6-astra in the ledger): CODEX_CONSULT_COORDINATOR="JudgeLabel-Kimi :: k3" in the -Rate process (a roster label on api.kimi.ai) -> judge moonshot/k3/rating_actor; unset -> openai/gpt-6-astra/consult_coordinator; a value the bridge would refuse ("a :: b [x] [y]") -> other/other/rating_actor and the rating still recorded (exit 0) - three lines, allowlist clean' ($cj.Code -eq 0 -and $j1.Code -eq 0 -and $j2.Code -eq 0 -and $j3.Code -eq 0 -and $lj1.Count -eq 1 -and $lj2.Count -eq 2 -and $lj3.Count -eq 3 -and (& $jt $evj1) -ceq 'moonshot/k3/rating_actor' -and (& $jt $evj2) -ceq 'openai/gpt-6-astra/consult_coordinator' -and (& $jt $evj3) -ceq 'other/other/rating_actor' -and $jViol.Count -eq 0 -and [string]$ej.coordinator.provider -ceq 'openai') "exits $($cj.Code)/$($j1.Code)/$($j2.Code)/$($j3.Code) lines $($lj3.Count) | $(& $jt $evj1) | $(& $jt $evj2) | $(& $jt $evj3) | $($jViol -join ' || ')"
+    $jKeys = @(@($evj1, $evj2, $evj3) | Where-Object { $_ } | ForEach-Object { Get-KeyNames $_ } | Where-Object { @('host', 'host_by', 'label', 'coordinator', 'unresolved', 'in_roster', 'lineage') -ccontains $_ })
+    $jRaw = ($lj3 -join "`n")
+    $jRefs = @(@($evj1, $evj2, $evj3) | Where-Object { $_ } | ForEach-Object { [string]$_.details.consult_ref } | Select-Object -Unique)
+    Check 'RATE' '(d) (0.6.1) no label and no host in the events: no key host, host_by, label, coordinator, unresolved, in_roster or lineage at any level, the raw spool lines hold neither JudgeLabel nor the refused value; every rating of the consultation carries the SAME consult_ref - its ledger entry''s' ($jKeys.Count -eq 0 -and $jRaw -notmatch 'JudgeLabel' -and $jRaw -notmatch '\[x\]' -and $jRefs.Count -eq 1 -and $jRefs[0] -ceq [string]$ej.consult_ref -and $jRefs[0] -cmatch $consultRefRe) "keys [$($jKeys -join ',')] refs [$($jRefs -join ',')] ledger $($ej.consult_ref)"
 }
 
 # =============================================================== BACKFILL: (R24) codex-telemetry.ps1 -BackfillRatings sends the earlier marks once
@@ -784,6 +923,7 @@ if (Want 'BACKFILL') {
     $bfE1When = & $bfIso $bfNow.AddDays(-5)
     $bfAWhen = & $bfIso $bfNow.AddDays(-2)
     $bfCWhen = & $bfIso $bfNow.AddDays(-1)
+    $bfRef1 = '0b0b0b0b-1111-4000-8000-0000000b0001'
     # two tasks, three marks given BEFORE the rating event existed (no telemetry_sent): A (task one,
     # consult_id of entry 1), B (task one, a consult_id no ledger entry has - never guessed), C (task
     # two, a pre-wave-26 mark: no consult_id, no consult_when - found by n)
@@ -792,7 +932,8 @@ if (Want 'BACKFILL') {
         $one = Join-Path $Repo '.collab\bf-task-one'
         $two = Join-Path $Repo '.collab\bf-task-two'
         foreach ($d in @($one, $two)) { [void][IO.Directory]::CreateDirectory((Join-Path $d 'handoffs')) }
-        $e1 = [pscustomobject]@{ n = 1; when = $bfE1When; purpose = 'acceptance'; topics = [object[]]@('topic-secret-bf'); consult_id = '00000000-0000-4000-8000-0000000b0001'; reviewer = $bfGlm; model = 'glm-5.3' }
+        # (0.6.1) entry 1 as 0.6.1 records it: its consult_ref and its coordinator (anthropic, by the claude-code host)
+        $e1 = [pscustomobject]@{ n = 1; when = $bfE1When; purpose = 'acceptance'; topics = [object[]]@('topic-secret-bf'); consult_id = '00000000-0000-4000-8000-0000000b0001'; consult_ref = $bfRef1; reviewer = $bfGlm; coordinator = [pscustomobject]@{ provider = 'anthropic'; model = 'claude-fable-5-1'; engine = 'codex'; host = 'claude-code'; host_by = 'markers'; source = 'explicit'; in_roster = $null; unresolved = $null }; model = 'glm-5.3' }
         $e2 = [pscustomobject]@{ n = 2; when = (& $bfIso $bfNow.AddHours(-1)); purpose = 'checkpoint'; topics = [object[]]@(); consult_id = '00000000-0000-4000-8000-0000000b0002'; reviewer = $bfGlm; model = 'glm-5.3' }
         Write-JsonFile -Path (Join-Path $one 'sessions.json') -Object ([pscustomobject]@{ task_id = 'bf-task-one'; cwd = $Repo; codex = [pscustomobject]@{ tool = 'x'; consults = [object[]]@($e1, $e2) } })
         $mA = [pscustomobject]@{ n = 1; consult_id = $e1.consult_id; lineage = 'MyGLM-Plan :: glm-5.3'; provider = 'MyGLM-Plan'; model = 'glm-5.3'; engine = 'codex'; purpose = 'acceptance'; topics = [object[]]@('topic-secret-bf'); consult_when = $bfE1When; useful = 'partly'; note = 'note-secret-bf missed the cache path'; when = $bfAWhen }
@@ -812,7 +953,8 @@ if (Want 'BACKFILL') {
     $hb = New-Home 'backfill'
     & $seedBackfill $rb
     $tb1 = Get-Date
-    $b1 = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings') $rb $hb $dead '')
+    # (0.6.1) a CODEX_CONSULT_COORDINATOR in the backfill's environment is NOT the actor of the earlier marks
+    $b1 = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings') $rb $hb $dead '' -Env @{ CODEX_CONSULT_COORDINATOR = 'openai :: gpt-6-astra' })
     $bl = Spool-Lines $hb
     $null = Wait-Last $hb $tb1
     $bevs = @(foreach ($l in $bl) { try { ConvertFrom-Json ([string](ConvertFrom-Json $l).body) } catch { } })
@@ -826,6 +968,9 @@ if (Want 'BACKFILL') {
     foreach ($e in $bevs) { foreach ($vl in (Test-EventAllowlist $e)) { $bviol.Add($vl) } }
     Check 'BACKFILL' 'the first -BackfillRatings (telemetry on): exit 0, "bf-task-one: sent 1, already 0, skipped 1", "bf-task-two: sent 1, already 0, skipped 0", "total: sent 2, already 0, skipped 1 in 2 task(s) ..."; the spool holds exactly 2 lines (kind event), both allowlist-clean rating events' ($b1.Code -eq 0 -and $b1.Out -match '(?m)^codex-telemetry: bf-task-one: sent 1, already 0, skipped 1\r?$' -and $b1.Out -match '(?m)^codex-telemetry: bf-task-two: sent 1, already 0, skipped 0\r?$' -and $b1.Out -match '(?m)^codex-telemetry: total: sent 2, already 0, skipped 1 in 2 task\(s\)' -and $bl.Count -eq 2 -and @($bl | Where-Object { (ConvertFrom-Json $_).kind -ceq 'event' }).Count -eq 2 -and $bevs.Count -eq 2 -and $bviol.Count -eq 0 -and @($bevs | Where-Object { $_.event_type -ceq 'rating' }).Count -eq 2) "exit $($b1.Code) | $(& $bfLine $b1.Out 'codex-telemetry:') | spool $($bl.Count) | $($bviol -join ' || ')"
     Check 'BACKFILL' 'the events are the marks'': A - zai / glm-5.3 (the vendor class of api.z.ai, never the label MyGLM-Plan), purpose acceptance, mark partly, age_days 3 (consult_when 5 days ago, the mark 2 days ago), client_time = the mark''s when (UTC); C - google / gemini-3.8-flash-high (engine agy), purpose framing, mark yes, age_days 9 (found by n; the ledger entry''s when 10 days ago, the mark 1 day ago), client_time = its when; nothing of the note, the topics, the label or the task names in the spool' ($evA -and $evA.details.model -ceq 'glm-5.3' -and $evA.details.engine -ceq 'codex' -and $evA.details.purpose -ceq 'acceptance' -and $evA.details.mark -ceq 'partly' -and $evA.title -ceq 'partly' -and $evA.details.age_days -eq 3 -and $bodyA.Contains('"client_time":"' + (& $bfUtc $bfAWhen) + '"') -and $evC -and $evC.details.model -ceq 'gemini-3.8-flash-high' -and $evC.details.engine -ceq 'agy' -and $evC.details.purpose -ceq 'framing' -and $evC.details.mark -ceq 'yes' -and $evC.details.age_days -eq 9 -and $bodyC.Contains('"client_time":"' + (& $bfUtc $bfCWhen) + '"') -and ($bl -join "`n") -notmatch 'note-secret|topic-secret|MyGLM|bf-task') "$(if ($evA) { "A $($evA.details.provider)/$($evA.details.model) $($evA.details.mark) age $($evA.details.age_days) $(if ($bodyA -match '"client_time":"[^"]*"') { $Matches[0] }) want $(& $bfUtc $bfAWhen)" }) | $(if ($evC) { "C $($evC.details.provider)/$($evC.details.model) $($evC.details.mark) age $($evC.details.age_days) $(if ($bodyC -match '"client_time":"[^"]*"') { $Matches[0] }) want $(& $bfUtc $bfCWhen)" })"
+    $bjA = $(if ($evA) { "$($evA.details.judge.provider)/$($evA.details.judge.model)/$($evA.details.judge.source)/$($evA.details.consult_ref)" } else { '(none)' })
+    $bjC = $(if ($evC) { "$($evC.details.judge.provider)/$($evC.details.judge.model)/$($evC.details.judge.source)/$($null -ne $evC.details.PSObject.Properties['consult_ref'])" } else { '(none)' })
+    Check 'BACKFILL' '(0.6.1, U3, U5) the backfilled events'' judge is the consultation''s coordinator - A: anthropic/claude-fable-5-1, source consult_coordinator, although CODEX_CONSULT_COORDINATOR=openai :: gpt-6-astra was set for the backfill (it cannot know who gave an earlier mark); C (no coordinator recorded): other/other/unknown - and A carries its entry''s consult_ref, C (none recorded) no consult_ref' ($bjA -ceq "anthropic/claude-fable-5-1/consult_coordinator/$bfRef1" -and $bjC -ceq 'other/other/unknown/False') "A $bjA | C $bjC"
     $m1 = & $bfMarks $rb 'bf-task-one'
     $m2 = & $bfMarks $rb 'bf-task-two'
     $isUnix = { param($v) ($v -is [int] -or $v -is [long]) -and $v -gt 1700000000 }
@@ -877,6 +1022,7 @@ if (Want 'BACKFILL') {
     $bd = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings', '-DryRun') $rd $hd $dead '')
     $dWritten = @(Get-ChildItem -LiteralPath $hd -Force | Where-Object { $_.Name -like 'telemetry*' } | ForEach-Object { $_.Name })
     $dLocks = @(Get-ChildItem -LiteralPath (Join-Path $rd '.collab') -Recurse -Force -File | Where-Object { $_.Name -like '.consult*' } | ForEach-Object { $_.Name })
+    Check 'BACKFILL' '(0.6.1) -BackfillRatings -DryRun names each event''s judge by its classes: "..., client_time <utc>, judge anthropic / claude-fable-5-1 (consult_coordinator)" for A, "..., judge other / other (unknown)" for C' ($bd.Out -match '(?m)^codex-telemetry: would send: zai / glm-5\.3 \(codex\), purpose acceptance, mark partly, age_days 3, client_time \S+, judge anthropic / claude-fable-5-1 \(consult_coordinator\)\r?$' -and $bd.Out -match '(?m)^codex-telemetry: would send: google / gemini-3\.8-flash-high \(agy\), purpose framing, mark yes, age_days 9, client_time \S+, judge other / other \(unknown\)\r?$') (& $bfLine $bd.Out 'codex-telemetry: would send:')
     Check 'BACKFILL' '-BackfillRatings -DryRun on fresh marks: exit 0, one "would send: <vendor> / <model> (<engine>), purpose .., mark .., age_days .., client_time .." line per event (zai / glm-5.3 partly 3, google / gemini-3.8-flash-high yes 9), "total: would send 2, already 0, skipped 1", "dry run - nothing was spooled or written"; no text of a mark in the output; nothing written - no spool, no salt, no lock file, both findings.json byte-identical' ($bd.Code -eq 0 -and $bd.Out -match '(?m)^codex-telemetry: would send: zai / glm-5\.3 \(codex\), purpose acceptance, mark partly, age_days 3, client_time ' -and $bd.Out -match '(?m)^codex-telemetry: would send: google / gemini-3\.8-flash-high \(agy\), purpose framing, mark yes, age_days 9, client_time ' -and $bd.Out -match '(?m)^codex-telemetry: total: would send 2, already 0, skipped 1 in 2 task\(s\)' -and $bd.Out -match '(?m)^codex-telemetry: dry run - nothing was spooled or written\.' -and $bd.Out -notmatch 'note-secret|topic-secret|MyGLM' -and $dWritten.Count -eq 0 -and $dLocks.Count -eq 0 -and (& $bfHashes $rd) -eq $hashD) "exit $($bd.Code) | $(& $bfLine $bd.Out 'codex-telemetry:') | written [$($dWritten -join ',')] locks [$($dLocks -join ',')]"
 
     # telemetry off: refused, nothing written
@@ -1336,6 +1482,10 @@ if (Want 'DOCS') {
     $ratingDocs = @('**The rating event**', 'codex-findings.ps1 -Task <task> -Rate <n> -Useful yes|partly|no', '`event_type` `rating`', '`-Telemetry on|off`', 'Never in it: the `-Note` text, the topics', 'a re-rating too', 'Get-TelemetryReviewerClass') + @($ratingDetailKeys -split ',' | ForEach-Object { "``$_``" })
     $ratingMissing = @($ratingDocs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
     Check 'DOCS' '(R24) README "Telemetry": the rating event - sent by codex-findings.ps1 -Rate (a re-rating too), its switch (-Telemetry on|off), every details key, the shared reviewer code path, what is never in it (the note, the topics)' ($ratingMissing.Count -eq 0) "missing: $($ratingMissing -join ' | ')"
+    # (0.6.1, U3, U5) the consult_ref and the judge: what they are, where they come from, classes only
+    $u35Docs = @('`consult_ref`', 'derived from nothing', '`judge`', '`rating_actor`', '`consult_coordinator`', '`unknown`', 'Get-TelemetryJudgeClass', 'CODEX_CONSULT_COORDINATOR', 'never the label', 'classes only', 'a complaint''s context')
+    $u35Missing = @($u35Docs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
+    Check 'DOCS' '(0.6.1, U3, U5) README "Telemetry": consult_ref (a random id derived from nothing, in the consultation and every rating event, not in a complaint''s context), the judge object {provider, model, source} with its three sources (rating_actor from CODEX_CONSULT_COORDINATOR, consult_coordinator, unknown), its classifier Get-TelemetryJudgeClass, classes only - never the label or the host' ($u35Missing.Count -eq 0) "missing: $($u35Missing -join ' | ')"
     $bfDocs = @('**Backfilling earlier marks**', 'codex-telemetry.ps1" -BackfillRatings -DryRun', '`telemetry_sent`', 'a second run sends nothing', 'SKIPPED and counted', '`client_time` = the mark''s own `when`', 'codex-telemetry: <task>: sent N, already M, skipped K', 'refused with exit `1`')
     $bfMissing = @($bfDocs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
     Check 'DOCS' '(R24) README "Telemetry": the backfill - the commands (-DryRun first), the marker telemetry_sent and the idempotency, an unfindable entry skipped, client_time = the mark''s when, the per-task line, refused when off' ($bfMissing.Count -eq 0) "missing: $($bfMissing -join ' | ')"

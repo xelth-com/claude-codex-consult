@@ -226,7 +226,15 @@ if (Want 'UNIT') {
         @{ Name = 'resets in 2 days'; Msg = 'Your quota resets in 2 days.'; Ref = $ref; Want = '2026-09-26T12:54:23+02:00' },
         @{ Name = 'retry after 1 week'; Msg = 'Plan exhausted - retry after 1 week'; Ref = $ref; Want = '2026-10-01T12:54:23+02:00' },
         @{ Name = 'try again in 2 weeks, 1 day'; Msg = 'try again in 2 weeks, 1 day'; Ref = $ref; Want = '2026-10-09T12:54:23+02:00' },
-        @{ Name = 'no reset time named -> null'; Msg = "You've hit your usage limit. Upgrade to Pro or try again later."; Ref = $ref; Want = '' }
+        @{ Name = 'no reset time named -> null'; Msg = "You've hit your usage limit. Upgrade to Pro or try again later."; Ref = $ref; Want = '' },
+        # (0.6.1) a time WITHOUT a date: today at that local time, tomorrow when it is already past at the reference
+        @{ Name = 'time only, still ahead today -> today'; Msg = "You${apos}ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 9:43 PM."; Ref = [DateTimeOffset]::Parse('2026-10-07T21:00:00+02:00', $inv); Want = '2026-10-07T21:43:00+02:00' },
+        @{ Name = 'time only, already past -> tomorrow (the day rollover)'; Msg = "You${apos}ve hit your usage limit. ... or try again at 9:43 PM."; Ref = [DateTimeOffset]::Parse('2026-10-07T22:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        @{ Name = 'time only, 24-hour clock, 30 s past -> tomorrow'; Msg = 'try again at 21:43'; Ref = [DateTimeOffset]::Parse('2026-10-07T21:43:30+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        @{ Name = 'time only, 12:05 AM after 23:00 -> tomorrow 00:05'; Msg = 'Limit reached; resets at 12:05 AM.'; Ref = [DateTimeOffset]::Parse('2026-10-07T23:00:00+02:00', $inv); Want = '2026-10-08T00:05:00+02:00' },
+        @{ Name = 'time only, tomorrow across the DST change -> the offset then (+01:00)'; Msg = 'try again at 3:30 AM'; Ref = [DateTimeOffset]::Parse('2026-10-24T23:00:00+02:00', $inv); Want = '2026-10-25T03:30:00+01:00' },
+        @{ Name = 'time only, read time (-ReferenceOffset): the reference''s day and offset, rolled over'; Msg = 'try again at 9:43 PM.'; Ref = [DateTimeOffset]::Parse('2026-10-07T22:00:00-05:00', $inv); Want = '2026-10-08T21:43:00-05:00'; RefOffset = $true },
+        @{ Name = 'time only, not a clock time (13:43 PM) -> null'; Msg = 'try again at 13:43 PM'; Ref = $ref; Want = '' }
     )
     $bad = @()
     foreach ($c in $cases) {
@@ -235,7 +243,7 @@ if (Want 'UNIT') {
         $gotText = if ($null -eq $got) { '' } else { Iso $got }
         if ($gotText -ne $c.Want) { $bad += "$($c.Name): got '$gotText', want '$($c.Want)'" }
     }
-    Check 'UNIT' "Get-RetryAfter: $($cases.Count) samples in zone $($berlin.Id) (Codex wording, curly apostrophe, DST change/gap/overlap, read-time reference offset, missing year, ISO, durations, nothing)" ($bad.Count -eq 0) ($bad -join ' | ')
+    Check 'UNIT' "Get-RetryAfter: $($cases.Count) samples in zone $($berlin.Id) (Codex wording, curly apostrophe, DST change/gap/overlap, read-time reference offset, missing year, ISO, durations, nothing; 0.6.1: a time only - today, tomorrow once past, across DST, at read time, not a clock time)" ($bad.Count -eq 0) ($bad -join ' | ')
 
     $pf = New-ProviderFailure -Texts @($codexLimit)
     $pfWall = New-Object DateTime(2026, 9, 28, 20, 35, 0)
@@ -614,6 +622,30 @@ if (Want 'UTF8') {
     $loginLine = 'Logged in using ChatGPT ' + [char]0x2013 + ' J' + [char]0x00FC + 'rgen' + $apos + 's plan'
     $zp = if ($z.Code -eq 0) { [string](Last-Entry $rl).preflight } else { $z.First }
     Check 'UTF8' '`codex login status` output decoded as UTF-8 (en dash, u-umlaut, curly apostrophe survive into the ledger preflight)' ($z.Code -eq 0 -and $zp -eq "ok: $loginLine") ('ASCII-escaped: ' + (($zp.ToCharArray() | ForEach-Object { if ([int]$_ -gt 126) { 'U+{0:X4}' -f [int]$_ } else { [string]$_ } }) -join ''))
+}
+
+# =============================================================== TIMEONLY: (0.6.1) "try again at 9:43 PM." - a reset time without a date
+if (Want 'TIMEONLY') {
+    # the moment of parsing is the consult clock: CODEX_CONSULT_NOW (test mode) at a local wall time
+    # in this machine's zone on that date; the expectation in the same zone
+    $localAt = { param([int]$D, [int]$H, [int]$M) $w = New-Object DateTime(2026, 10, $D, $H, $M, 0); New-Object DateTimeOffset($w, [TimeZoneInfo]::Local.GetUtcOffset($w)) }
+    $toMsg = "You${apos}ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 9:43 PM."
+    $ra = New-Repo 'timeonly-today'
+    $nowA = & $localAt 7 21 0
+    $xa = Consult $ra $noRoster @('-Prompt', 'x', '-ReplyName', 'limit') @{ FAKE_CODEX_STDERR = $toMsg; FAKE_CODEX_EXIT = '1'; CODEX_CONSULT_NOW = (Iso $nowA) }
+    $ea = Last-Entry $ra
+    $wantA = Iso (& $localAt 7 21 43)
+    Check 'TIMEONLY' 'a codex usage limit worded with a time only ("... or try again at 9:43 PM."), parsed at 21:00 local (CODEX_CONSULT_NOW): class quota, retry_after = TODAY 21:43 in the local offset - not the 60-minute default (null)' ($xa.Code -eq 1 -and $ea.provider_failure.class -eq 'quota' -and [string]$ea.provider_failure.retry_after -eq $wantA) "class $($ea.provider_failure.class) retry_after $($ea.provider_failure.retry_after) want $wantA"
+    $rb = New-Repo 'timeonly-rollover'
+    $nowB = & $localAt 7 22 0
+    $xb = Consult $rb $noRoster @('-Prompt', 'x', '-ReplyName', 'limit') @{ FAKE_CODEX_STDERR = $toMsg; FAKE_CODEX_EXIT = '1'; CODEX_CONSULT_NOW = (Iso $nowB) }
+    $eb = Last-Entry $rb
+    $wantB = Iso (& $localAt 8 21 43)
+    Check 'TIMEONLY' 'the day rollover: the same wording parsed at 22:00 local - 9:43 PM is already past today - retry_after = TOMORROW 21:43' ($xb.Code -eq 1 -and $eb.provider_failure.class -eq 'quota' -and [string]$eb.provider_failure.retry_after -eq $wantB) "retry_after $($eb.provider_failure.retry_after) want $wantB"
+    $yb = Consult $rb $noRoster @('-Prompt', 'x', '-ReplyName', 'again') @{ FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_NOW = (Iso (& $localAt 8 21 40)) }
+    Check 'TIMEONLY' 'the hold ends at the parsed time, not after 60 minutes: at 21:40 local the next day (CODEX_CONSULT_NOW) the next consultation on that endpoint is still refused "... lasts until <tomorrow 21:43>"' ($yb.Code -eq 1 -and $yb.First -match ('^codex-consult: provider openai is not usable: its usage limit \(hit at .*\) lasts until ' + [regex]::Escape($wantB))) $yb.First
+    $zb = Consult $rb $noRoster @('-Prompt', 'x', '-ReplyName', 'after') @{ FAKE_CODEX_REPLY = $advise; CODEX_CONSULT_NOW = (Iso (& $localAt 8 21 44)) }
+    Check 'TIMEONLY' '... and at 21:44 local it runs again (exit 0)' ($zb.Code -eq 0) $zb.First
 }
 
 # =============================================================== PANEL: -Panel runs every available reviewer

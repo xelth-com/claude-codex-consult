@@ -12,6 +12,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   worse (z.ai 4.33 vs 4.08, MiMo 5.0 vs 3.08) - the route stays for both plans (handoff 40 of
   `.collab/claude-engine-2026-09-30/`; the driver and the analyser under `tests/ab/`). Documentation only, no code.
 
+### Added
+
+- **`consult_ref` - one rating per consultation on the site** (0.6.1; U5 of
+  `.collab/telemetry-usefulness-2026-10-08/handoffs/04-claude-usefulness-decisions.md`, F02-4). Every consultation
+  mints a SECOND random 128-bit id (`[guid]::NewGuid()`, derived from nothing - not from the `consult_id` the reviewer
+  sees in the prompt, not from anything local), stored in the ledger entry as `consult_ref` (right after
+  `consult_id`; a panel member mints its own) and sent as the last key of the consultation event's `details` and of
+  every rating event of that consultation (`codex-findings.ps1 -Rate`, `codex-telemetry.ps1 -BackfillRatings`), so the
+  intake can keep the latest rating per consultation and link ratings to consultations. An entry recorded before
+  0.6.1 has none and its events carry no such key; a complaint's context never carries it
+  (`ConvertTo-TelemetryDetails -NoConsultRef`). README (the ledger table, "Telemetry": the payload, the key table,
+  "Never sent").
+- **The rating event's `judge`** (0.6.1; U3, F02-3, F02-6). The rating event's details gain
+  `judge: {provider, model, source}`, resolved AT RATING TIME: the rating actor - `CODEX_CONSULT_COORDINATOR` of the
+  process that runs `-Rate`, parsed exactly as the bridge parses it for the coordinator warning
+  (`Get-TelemetryRatingActor`; a value the bridge would refuse still rates, as `other`/`other`) - with source
+  `rating_actor`; when it is unset the ledger entry's consult-time `coordinator` (`consult_coordinator`); else
+  `{other, other, unknown}`. `-BackfillRatings` never takes its own process's coordinator (`consult_coordinator` or
+  `unknown`), and its `-DryRun` line names the judge's classes. A dedicated classifier for coordinator identities,
+  `Get-TelemetryJudgeClass` (a coordinator record has no endpoint): the provider by NAME - `openai` -> openai,
+  `anthropic` -> anthropic, a roster label -> the vendor class of that entry's endpoint (`Get-TelemetryRosterVendor`:
+  its `[model_providers.<label>]` table's host, a claude endpoint entry's base URL, else its engine), another name ->
+  its engine's class (agy, muse, claude) or `other`; no provider -> `anthropic` for the host `claude-code`, else
+  `other`; the model through the same closed lists (`[1m]` stripped) else `other`. Classes only: never the label,
+  never the host (`ConvertTo-TelemetryJudge` re-checks every value). README ("For the coordinator", "Telemetry": the
+  judge), `codex-findings.ps1` and `codex-telemetry.ps1` help.
+- Tests: `harness-telemetry` (UNIT: consult_ref's shape, the classifier's table, the judge object, the rating actor;
+  SPOOL: the consult_ref of a single, a failed and a panel run; RATE: the same consult_ref in every rating, three judge
+  sources in real `-Rate` runs, no label or host in the events; BACKFILL: the judge of a backfill and its dry-run line;
+  DOCS); the ledger field order in `harness-0.3`, `harness-engines`, `harness-muse` and `harness-companions`.
+
+### Fixed
+
+- **A reset time without a date** (0.6.1; TECH_DEBT, 2026-10-07). `You've hit your usage limit ... or try again at
+  9:43 PM.` (also `try again at 21:43`, and after `resets at`, `available at`, `until`) was not parsed, so the endpoint
+  was held for the 60-minute default although the limit lifted at 21:43. `Get-RetryAfter` (wording 1b) now reads it as
+  TODAY at that local time, or TOMORROW when that time is already past at the moment of parsing; the dated form still
+  wins, a read-time reparse uses the failure's own `when`. `provider_failure.retry_after` carries it and the hold ends
+  there. The moment of parsing is the failure's time - in test mode `CODEX_CONSULT_NOW` (the consult clock), so the
+  day rollover is testable. README (`retry_after`); `harness-roster` UNIT (seven samples) and TIMEONLY (the real run,
+  the rollover, the hold ending at the parsed time). The TECH_DEBT entry is removed.
+
 ## [0.6.0] - 2026-10-08
 
 Wave 29, the `claude` engine - ROADMAP R10 with R22: Claude Code headless as a reviewer for the Claude

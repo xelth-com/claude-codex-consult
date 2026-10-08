@@ -99,8 +99,12 @@
                          ConvertTo-TelemetryDetails (THE allowlist; wave 28b: the vendor table
                          $script:TelemetryVendors, Get-TelemetryVendor, Get-TelemetryModelToken;
                          R24: Get-TelemetryReviewerClass, Get-TelemetryPurpose - shared with the
-                         rating event), New-TelemetryEvent, (R24) ConvertTo-TelemetryRatingDetails /
-                         New-TelemetryRatingEvent (codex-findings.ps1 -Rate), Add-TelemetrySpoolLine,
+                         rating event; 0.6.1: Get-TelemetryConsultRef - the consult_ref of both
+                         events), New-TelemetryEvent, (R24) ConvertTo-TelemetryRatingDetails /
+                         New-TelemetryRatingEvent (codex-findings.ps1 -Rate; 0.6.1: the judge -
+                         Get-TelemetryRatingActor, Resolve-TelemetryJudge, the coordinator classifier
+                         Get-TelemetryJudgeClass with Find-TelemetryRosterEntry /
+                         Get-TelemetryRosterVendor, ConvertTo-TelemetryJudge), Add-TelemetrySpoolLine,
                          Add-TelemetryEvent (the bridge's call AT a commit; -RatingMark: the rating
                          event), (R24) the rating backfill - Find-RatingLedgerEntry,
                          Set-RatingTelemetrySent, Invoke-TelemetryBackfillRatings (codex-telemetry.ps1
@@ -5854,6 +5858,12 @@ function ConvertFrom-ProviderErrorText {
 #      clock; no year = the reference's year, or the next one when that date lies more
 #      than a day before the reference). Codex prints a WALL-CLOCK time of the machine it
 #      runs on (ConvertFrom-WallClock).
+#   1b. (0.6.1) the same wording with a TIME ONLY - "try again at 9:43 PM.", "try again at
+#      21:43" (also "resets at", "available at", "until"; seconds and AM/PM optional, no AM/PM =
+#      a 24-hour clock; tried after 1 and 2, so a dated form always wins): TODAY at that
+#      wall-clock time - the reference's date in the zone (-TimeZone, or with -ReferenceOffset
+#      the reference's offset) - or TOMORROW when that time is already past at the reference
+#      (the moment of parsing: New-ProviderFailure's clock, a read-time reparse's failure `when`).
 #   2. an ISO-8601 timestamp after try again / retry / reset / until / available: with an
 #      offset it is an instant; without one it is a wall-clock time like 1.
 #   3. a duration: "retry after 30" / "Retry-After: 30s" (no unit = seconds), "retry after
@@ -5890,6 +5900,9 @@ $script:RetryAfterRe = @{
         '(?<day>[0-9]{1,2})(?:st|nd|rd|th)?\b,?\s*(?:(?<year>[0-9]{4})\b,?\s*)?(?:at\s+)?' +
         '(?<hour>[0-9]{1,2}):(?<min>[0-9]{2})(?::(?<sec>[0-9]{2}))?(?:\s*(?<ampm>[ap])\.?\s?m\b\.?)?')
     Iso   = [regex]'(?i)(?:try\s+again|retry|resets?|until|available)[^0-9\r\n]{0,24}?(?<date>[0-9]{4}-[0-9]{2}-[0-9]{2})[T ](?<time>[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\.[0-9]+)?)?)(?<tz>Z|[+-][0-9]{2}:?[0-9]{2})?'
+    # (0.6.1) 1b - a time without a date: "try again at 9:43 PM.", "try again at 21:43"
+    TimeOnly = [regex]('(?i)(?:try\s+again\s+(?:at|after)|resets?\s+at|available\s+(?:again\s+)?(?:at|after)|until)\s+' +
+        '(?<hour>[0-9]{1,2}):(?<min>[0-9]{2})(?::(?<sec>[0-9]{2}))?(?![0-9:])(?:\s*(?<ampm>[ap])\.?\s?m\b\.?)?')
     After = [regex]('(?i)retry[- ]after[:\s]\s*(?<n>[0-9]+)(?![0-9:.\-])(?:\s*(?<u>' + $script:DurationUnit + '))?')
     In    = [regex]('(?i)(?:try\s+again|resets?)\s+in\s+(?<parts>[0-9]+\s*' + $script:DurationUnit + '(?:(?:\s*,\s*|\s+and\s+|\s+)[0-9]+\s*' + $script:DurationUnit + ')*)')
     Part  = [regex]('(?i)(?<n>[0-9]+)\s*(?<u>' + $script:DurationUnit + ')')
@@ -6022,6 +6035,31 @@ function Get-RetryAfter {
             }
         }
     }
+    # (0.6.1) 1b - a time without a date: today at that wall-clock time in the zone, or tomorrow when
+    # it is already past at the reference (the moment of parsing)
+    $m = $script:RetryAfterRe.TimeOnly.Match($text)
+    if ($m.Success) {
+        try {
+            $hour = [int]$m.Groups['hour'].Value
+            $minute = [int]$m.Groups['min'].Value
+            $second = 0
+            if ($m.Groups['sec'].Success) { $second = [int]$m.Groups['sec'].Value }
+            $ok = ($minute -le 59 -and $second -le 59)
+            if ($m.Groups['ampm'].Success) {
+                if ($hour -lt 1 -or $hour -gt 12) { $ok = $false }
+                $pm = ($m.Groups['ampm'].Value -ieq 'p')
+                if ($hour -eq 12) { $hour = 0 }
+                if ($pm) { $hour += 12 }
+            } elseif ($hour -gt 23) { $ok = $false }
+            if ($ok) {
+                $today = (ConvertTo-ZoneTime -At $Reference -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset).DateTime.Date
+                $wall = $today.AddHours($hour).AddMinutes($minute).AddSeconds($second)
+                $at = ConvertFrom-WallClock -Wall $wall -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset
+                if ($at -lt $Reference) { $at = ConvertFrom-WallClock -Wall ($wall.AddDays(1)) -Reference $Reference -TimeZone $TimeZone -ReferenceOffset:$ReferenceOffset }
+                return $at
+            }
+        } catch { }
+    }
     $m = $script:RetryAfterRe.After.Match($text)
     if ($m.Success) {
         $unit = if ($m.Groups['u'].Success) { $m.Groups['u'].Value } else { 's' }
@@ -6092,10 +6130,15 @@ function New-ProviderFailure {
     if (-not $chosen) { $chosen = [pscustomobject]@{ Code = ''; Message = '' } }
     $msg = [string]$chosen.Message
     $now = Get-Date
-    $retryAfter = Get-RetryAfter -Message $msg -Reference ([DateTimeOffset]$now)
+    # (0.6.1) the moment of parsing - the reference of a duration and of a reset time without a date
+    # ("try again at 9:43 PM.": today, or tomorrow once past): the system clock; TEST HOOK (test mode
+    # only): CODEX_CONSULT_NOW, the consult clock (Get-ConsultClock -Peek) - `when` stays the system's
+    $parseAt = [DateTimeOffset]$now
+    try { $clk = Get-ConsultClock -Peek; if ($clk.FromEnv -and $null -ne $clk.Now) { $parseAt = [DateTimeOffset]$clk.Now } } catch { }
+    $retryAfter = Get-RetryAfter -Message $msg -Reference $parseAt
     # A gRPC error payload (Google, the agy engine) names its reset time in the details
     # (RetryInfo.retryDelay), outside error.message.
-    if ($null -eq $retryAfter -and $chosenRaw -and $chosenRaw -match '(?i)retryDelay') { $retryAfter = Get-RetryAfter -Message $chosenRaw -Reference ([DateTimeOffset]$now) }
+    if ($null -eq $retryAfter -and $chosenRaw -and $chosenRaw -match '(?i)retryDelay') { $retryAfter = Get-RetryAfter -Message $chosenRaw -Reference $parseAt }
     if ($msg.Length -gt 200) { $msg = $msg.Substring(0, 200) }
     $evidence = "$($chosen.Code) $($chosen.Message)"
     $cls = $(if ($Class) { $Class } else { (Get-ProviderFailureClass $evidence) })
@@ -11271,9 +11314,10 @@ function ConvertFrom-DetachArgs {
 # New-TelemetryEvent): the engine, (wave 28b, D1) the VENDOR CLASS of the endpoint and the model name
 # only when it equals an entry of that vendor's closed list (wave 28c; $script:TelemetryVendors - never the roster
 # label), the purpose, the outcome class, wall seconds, token and finding counts, a few booleans,
-# the panel size, the PowerShell version, the OS, the plugin version and a salted instance id -
-# never a task name, a brief, a prompt, a path, a thread id, a finding text, a key, a provider label
-# the operator typed, a user name or the machine name in clear.
+# the panel size, the PowerShell version, the OS, the plugin version, a salted instance id and (0.6.1,
+# U5) the consultation's consult_ref - a random id minted for it, derived from nothing, that links it to
+# its rating events - never a task name, a brief, a prompt, a path, a thread id, a consultation id, a
+# finding text, a key, a provider label the operator typed, a user name or the machine name in clear.
 #
 # A spool line: {"v":1,"kind":"event"|"complaint","queued_unix":<s>,"body":"<the JSON sent>"} - the
 # body travels as a JSON STRING, so the sender posts exactly the bytes that were built (no
@@ -11335,10 +11379,16 @@ $script:TelemetryVendors = @(
 )
 # The closed sets of the event (anything else becomes 'other' / 'unknown')
 $script:TelemetryEventKeys = @('app_id', 'app_version', 'instance_id', 'event_type', 'severity', 'title', 'details', 'tags', 'client_time', 'os', 'runtime')
-$script:TelemetryDetailKeys = @('engine', 'provider', 'model', 'purpose', 'outcome', 'wall_seconds', 'tokens', 'findings', 'structured', 'format_retry', 'denial_retry', 'timeout_continue', 'panel_size', 'ps_version', 'os', 'bridge_version')
-# (R24) the details of a `rating` event (codex-findings.ps1 -Rate) and its marks
-$script:TelemetryRatingDetailKeys = @('engine', 'provider', 'model', 'purpose', 'mark', 'age_days', 'bridge_version', 'os', 'ps_version')
+# (0.6.1, U5) `consult_ref` closes the details of a consultation event - only when its ledger entry has
+# one (Get-TelemetryConsultRef; an entry recorded before 0.6.1 has none, and its event no such key)
+$script:TelemetryDetailKeys = @('engine', 'provider', 'model', 'purpose', 'outcome', 'wall_seconds', 'tokens', 'findings', 'structured', 'format_retry', 'denial_retry', 'timeout_continue', 'panel_size', 'ps_version', 'os', 'bridge_version', 'consult_ref')
+# (R24) the details of a `rating` event (codex-findings.ps1 -Rate) and its marks; (0.6.1, U3) the judge
+# object {provider, model, source} always, (U5) consult_ref when the rated entry has one
+$script:TelemetryRatingDetailKeys = @('engine', 'provider', 'model', 'purpose', 'mark', 'age_days', 'bridge_version', 'os', 'ps_version', 'judge', 'consult_ref')
 $script:TelemetryRatingMarks = @('yes', 'partly', 'no')
+# (0.6.1, U3) where a rating event's judge came from (Resolve-TelemetryJudge)
+$script:TelemetryJudgeKeys = @('provider', 'model', 'source')
+$script:TelemetryJudgeSources = @('rating_actor', 'consult_coordinator', 'unknown')
 $script:TelemetryFailureClasses = @('auth', 'quota', 'capability', 'transport', 'permission', 'operator', 'unknown', 'timeout', 'stalled', 'bridge')
 $script:BridgeVersion = $null
 
@@ -11725,13 +11775,180 @@ function Get-TelemetryPurpose {
     return $purpose
 }
 
+# (0.6.1, U5) The `consult_ref` of a ledger entry as an event carries it: the random id the bridge
+# minted for that consultation ([guid]::NewGuid() - derived from nothing local, and never the
+# consult_id the reviewer sees in the prompt), lower case, only when it has the shape of one; '' for an
+# entry without one (recorded before 0.6.1) or with anything else - such an event carries no key.
+function Get-TelemetryConsultRef {
+    param($Entry)
+    $v = ([string](Get-PropertyValue $Entry 'consult_ref' '')).Trim().ToLowerInvariant()
+    if ($v -cmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') { return $v }
+    return ''
+}
+
+# (0.6.1, U3) The roster entry a coordinator's provider LABEL names (ordinal, as the roster compares
+# labels): of several, the one of the identity's engine, then the one of its model; $null without a
+# roster or an entry of that label.
+function Find-TelemetryRosterEntry {
+    param($Roster, [string]$Provider, [string]$Model = '', [string]$Engine = '')
+    if (-not $Roster -or -not (Get-PropertyValue $Roster 'Exists' $false)) { return $null }
+    $hits = @(@(Get-PropertyValue $Roster 'Entries' @()) | Where-Object { $_ -and [string]$_.Provider -ceq $Provider })
+    if ($hits.Count -eq 0) { return $null }
+    if ($Engine) {
+        $byEngine = @($hits | Where-Object { $(if ([string]$_.Engine) { [string]$_.Engine } else { 'codex' }) -ceq $Engine })
+        if ($byEngine.Count -gt 0) { $hits = $byEngine }
+    }
+    if ($Model) {
+        $exact = @($hits | Where-Object { [string]$_.Model -ceq $Model })
+        if ($exact.Count -gt 0) { return $exact[0] }
+    }
+    return $hits[0]
+}
+
+# (0.6.1, U3) The vendor row of a roster ENTRY's endpoint - the reviewer's own rule (Get-TelemetryVendor)
+# on what that entry would talk to: a codex entry the base_url of its [model_providers.<label>] table in
+# the Codex config (Resolve-ReviewerIdentity's provider_config; the label openai without a table: the
+# built-in provider), another engine its endpoint's base URL (a claude endpoint entry), else that
+# engine's row. $null (other) for an unknown host, a label without a table or a config that cannot be
+# read. -Config: Read-CodexConfigSubset's object ($null: read here when a codex entry needs it).
+function Get-TelemetryRosterVendor {
+    param($Entry, $Config = $null)
+    $engine = [string](Get-PropertyValue $Entry 'Engine' '')
+    if (-not $engine) { $engine = 'codex' }
+    $pc = New-Object PSObject
+    if ($engine -ne 'codex') {
+        $bu = [string](Get-PropertyValue (Get-PropertyValue $Entry 'Endpoint' $null) 'BaseUrl' '')
+        if ($bu) { $pc | Add-Member -NotePropertyName 'base_url' -NotePropertyValue $bu }
+    } else {
+        if ($null -eq $Config) { $Config = Read-CodexConfigSubset -Path (Get-CodexConfigPath) }
+        $id = Resolve-ReviewerIdentity -Config $Config -Provider ([string]$Entry.Provider) -Model 'unknown'
+        if ($id.ProviderConfig) { $pc = $id.ProviderConfig }
+    }
+    return (Get-TelemetryVendor ([pscustomobject]@{ engine = $engine; provider_config = $pc }))
+}
+
+# (0.6.1, U3 / F02-6) THE classifier of a COORDINATOR identity - the judge of a rating event. Its own
+# code path, not the reviewer's: a coordinator record {provider, model, engine, host} (the ledger's
+# `coordinator`, or what Resolve-CoordinatorIdentity makes of CODEX_CONSULT_COORDINATOR) has no
+# provider_config, so its provider NAME decides, in this order: `openai` (Codex's built-in provider,
+# any case) -> openai; `anthropic` (any case) -> anthropic; a LABEL of the reviewer roster -> the vendor
+# class of that entry's endpoint (Get-TelemetryRosterVendor: the host of its table's base_url, a claude
+# endpoint entry's base URL, else its engine's row); any other name -> the row of the engine the
+# identity names (agy google, muse meta, claude anthropic), else other. An identity without a provider
+# (a host hint only, or an unresolved `#n`): the claude engine or the host claude-code -> anthropic,
+# else other - the host is a hint, read only when no provider is named. The model through the same
+# closed lists as a reviewer's (Get-TelemetryModelToken: equal after lower-casing, [1m] stripped);
+# `other` outside its vendor's list, without a model or without a vendor. { provider (a vendor class
+# or other); model (an entry of that class's list or other) } - never the label, never the host, never
+# the model as typed. -Roster: Read-ReviewerRoster's object ($null: no roster); -Config: the Codex config
+# (Read-CodexConfigSubset; $null: read when a codex roster entry needs it).
+function Get-TelemetryJudgeClass {
+    param($Coordinator, $Roster = $null, $Config = $null)
+    $p = ([string](Get-PropertyValue $Coordinator 'provider' '')).Trim()
+    $m = ([string](Get-PropertyValue $Coordinator 'model' '')).Trim()
+    $e = [string](Get-PropertyValue $Coordinator 'engine' '')
+    $h = [string](Get-PropertyValue $Coordinator 'host' '')
+    $rowOf = { param([string]$Class) @($script:TelemetryVendors | Where-Object { $_.Class -ceq $Class }) | Select-Object -First 1 }
+    $engineRow = { param([string]$Engine) if ($Engine -and $Engine -ne 'codex') { @($script:TelemetryVendors | Where-Object { $_.Engine -and $_.Engine -ceq $Engine }) | Select-Object -First 1 } }
+    $vendor = $null
+    if ($p) {
+        if ($p -ieq 'openai') { $vendor = & $rowOf 'openai' }
+        elseif ($p -ieq 'anthropic') { $vendor = & $rowOf 'anthropic' }
+        else {
+            $entry = Find-TelemetryRosterEntry -Roster $Roster -Provider $p -Model $m -Engine $e
+            if ($entry) { $vendor = Get-TelemetryRosterVendor -Entry $entry -Config $Config }
+            else { $vendor = & $engineRow $e }
+        }
+    } elseif ($e -eq 'claude' -or $h -ceq 'claude-code') {
+        $vendor = & $rowOf 'anthropic'
+    }
+    $model = 'other'
+    if ($vendor -and $m) {
+        $model = Get-TelemetryModelToken -Vendor $vendor -Model $m
+        if ($model -ceq 'unknown') { $model = 'other' }
+    }
+    return [pscustomobject]@{ provider = $(if ($vendor) { [string]$vendor.Class } else { 'other' }); model = $model }
+}
+
+# (0.6.1, U3) Whether a ledger entry's `coordinator` record names anyone: a provider, an unresolved `#n`
+# or a host hint other than unknown. A record that names nothing (source none) is an ABSENT judge
+# (unknown), not an unrecognised one (other).
+function Test-TelemetryCoordinatorNamed {
+    param($Coordinator)
+    if (-not $Coordinator) { return $false }
+    $hostHint = [string](Get-PropertyValue $Coordinator 'host' '')
+    return [bool]([string](Get-PropertyValue $Coordinator 'provider' '') -or [string](Get-PropertyValue $Coordinator 'unresolved' '') -or ($hostHint -and $hostHint -ne 'unknown'))
+}
+
+# (0.6.1, U3 / F02-3) The RATING ACTOR - the judge of a mark given NOW (codex-findings.ps1 -Rate):
+# CODEX_CONSULT_COORDINATOR of THIS process, parsed exactly as the bridge parses it for the coordinator
+# warning (Resolve-CoordinatorIdentity with the reviewer roster and the Codex config's defaults; the
+# host hint of this process), classified by Get-TelemetryJudgeClass - { provider; model; source
+# rating_actor }. A value that does not parse names an actor no class fits: other / other,
+# rating_actor. $null when the variable is unset or empty - Resolve-TelemetryJudge then takes the
+# consultation's own coordinator. Never throws.
+function Get-TelemetryRatingActor {
+    $v = ([string]$env:CODEX_CONSULT_COORDINATOR).Trim()
+    if (-not $v) { return $null }
+    $none = [pscustomobject]@{ provider = 'other'; model = 'other'; source = 'rating_actor' }
+    try {
+        $roster = Read-ReviewerRoster
+        if ($roster.Error) { $roster = $null }
+        $res = Resolve-CoordinatorIdentity -Value $v -Roster $roster -Defaults (Get-CodexConfigDefaults)
+        if ($res.Error -or -not $res.Record) { return $none }
+        $c = Get-TelemetryJudgeClass -Coordinator $res.Record -Roster $roster
+        return [pscustomobject]@{ provider = $c.provider; model = $c.model; source = 'rating_actor' }
+    } catch { return $none }
+}
+
+# (0.6.1, U3) The judge of a rating event, resolved AT RATING TIME: $Actor when given
+# (Get-TelemetryRatingActor - -Rate with CODEX_CONSULT_COORDINATOR set), else the ledger entry's own
+# `coordinator` - the consult-time identity - when it names anyone (Test-TelemetryCoordinatorNamed),
+# classified by Get-TelemetryJudgeClass -> source consult_coordinator, else { other, other, unknown }
+# (an entry recorded before wave 27 has no coordinator). -BackfillRatings passes no actor: it cannot
+# know who gave an earlier mark. -Roster: Read-ReviewerRoster's object (read here when a label needs
+# it and none is given). { provider; model; source }. Never throws.
+function Resolve-TelemetryJudge {
+    param($Entry, $Actor = $null, $Roster = $null)
+    if ($Actor) { return $Actor }
+    $unknown = [pscustomobject]@{ provider = 'other'; model = 'other'; source = 'unknown' }
+    try {
+        $c = Get-PropertyValue $Entry 'coordinator' $null
+        if (-not (Test-TelemetryCoordinatorNamed $c)) { return $unknown }
+        $p = [string](Get-PropertyValue $c 'provider' '')
+        if ($null -eq $Roster -and $p -and $p -ine 'openai' -and $p -ine 'anthropic') {
+            $Roster = Read-ReviewerRoster
+            if ($Roster.Error) { $Roster = $null }
+        }
+        $cls = Get-TelemetryJudgeClass -Coordinator $c -Roster $Roster
+        return [pscustomobject]@{ provider = $cls.provider; model = $cls.model; source = 'consult_coordinator' }
+    } catch { return $unknown }
+}
+
+# (0.6.1, U3) The `judge` object as the event carries it - the allowlist of its three values: source one
+# of $script:TelemetryJudgeSources (else unknown), provider a vendor class of the table (else other),
+# model an entry of THAT class's list (else other); an unknown source is always other / other.
+function ConvertTo-TelemetryJudge {
+    param($Judge)
+    $src = [string](Get-PropertyValue $Judge 'source' '')
+    if ($script:TelemetryJudgeSources -cnotcontains $src) { $src = 'unknown' }
+    $p = [string](Get-PropertyValue $Judge 'provider' '')
+    $m = [string](Get-PropertyValue $Judge 'model' '')
+    $vendor = $null
+    if ($src -ne 'unknown' -and $p) { $vendor = @($script:TelemetryVendors | Where-Object { $_.Class -ceq $p }) | Select-Object -First 1 }
+    $model = 'other'
+    if ($vendor -and $m -and @(@($vendor.Models) | ForEach-Object { [string]$_ }) -ccontains $m) { $model = $m }
+    return [pscustomobject]@{ provider = $(if ($vendor) { [string]$vendor.Class } else { 'other' }); model = $model; source = $src }
+}
+
 # The event's `details` from a ledger entry - THE allowlist: every value is built here from a closed
 # set, a number, a boolean or (wave 28b, D1) the vendor table (Get-TelemetryVendor,
 # Get-TelemetryModelToken: the provider is a vendor class, the model (wave 28c) an entry of that
 # vendor's closed list; the roster label is never read - R24: Get-TelemetryReviewerClass). Nothing
-# else of the entry is read.
+# else of the entry is read. (0.6.1, U5) Last, `consult_ref` (Get-TelemetryConsultRef) when the entry
+# has one; -NoConsultRef (a complaint's context) leaves it out.
 function ConvertTo-TelemetryDetails {
-    param($Entry)
+    param($Entry, [switch]$NoConsultRef)
     $rc = Get-TelemetryReviewerClass $Entry
     $engine = $rc.engine
     $provider = $rc.provider
@@ -11748,7 +11965,7 @@ function ConvertTo-TelemetryDetails {
     if ($pr) { $ps = Get-TelemetryCount (Get-PropertyValue $pr 'of' $null); if ($null -ne $ps) { $panelSize = $ps } }
     $wall = Get-TelemetryCount ([Math]::Round([double](Get-PropertyValue $Entry 'wall_seconds' 0)))
     $psv = Get-TelemetryToken -Value ([string]$PSVersionTable.PSVersion) -Pattern '^[0-9][0-9A-Za-z.+-]{0,31}$'
-    return [pscustomobject]@{
+    $d = [pscustomobject]@{
         engine           = $engine
         provider         = $provider
         model            = $model
@@ -11770,6 +11987,11 @@ function ConvertTo-TelemetryDetails {
         os               = (Get-TelemetryOs)
         bridge_version   = (Get-BridgeVersion)
     }
+    if (-not $NoConsultRef) {
+        $ref = Get-TelemetryConsultRef $Entry
+        if ($ref) { $d | Add-Member -NotePropertyName 'consult_ref' -NotePropertyValue $ref }
+    }
+    return $d
 }
 
 # The event of one committed consultation (the intake's v2 event; the keys in
@@ -11813,14 +12035,18 @@ function Get-TelemetryAgeDays {
 # consultation event's code path (Get-TelemetryReviewerClass, Get-TelemetryPurpose - the vendor
 # class and the closed-list model, never the roster label), the mark (yes | partly | no; anything
 # else other), the consultation's age in whole days (Get-TelemetryAgeDays), the plugin version, the
-# OS and the PowerShell version. Nothing else of the entry or the mark is read: never the note, the
-# topics, the task, the consultation's id, n or lineage.
+# OS and the PowerShell version; (0.6.1, U3) the judge {provider, model, source} - $Judge as the caller
+# resolved it at rating time (Resolve-TelemetryJudge; $null: resolved here without a rating actor),
+# through its own allowlist (ConvertTo-TelemetryJudge); (U5) last, the entry's consult_ref when it has
+# one (Get-TelemetryConsultRef). Nothing else of the entry or the mark is read: never the note, the
+# topics, the task, the consultation's id, n or lineage, never a coordinator's label or host.
 function ConvertTo-TelemetryRatingDetails {
-    param($Entry, [string]$Mark, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow, $ConsultWhen = $null)
+    param($Entry, [string]$Mark, [DateTimeOffset]$RatedAt = [DateTimeOffset]::UtcNow, $ConsultWhen = $null, $Judge = $null)
     $rc = Get-TelemetryReviewerClass $Entry
     $m = ([string]$Mark).Trim().ToLowerInvariant()
     if ($script:TelemetryRatingMarks -cnotcontains $m) { $m = 'other' }
-    return [pscustomobject]@{
+    if ($null -eq $Judge) { $Judge = Resolve-TelemetryJudge -Entry $Entry }
+    $d = [pscustomobject]@{
         engine         = $rc.engine
         provider       = $rc.provider
         model          = $rc.model
@@ -11830,7 +12056,11 @@ function ConvertTo-TelemetryRatingDetails {
         bridge_version = (Get-BridgeVersion)
         os             = (Get-TelemetryOs)
         ps_version     = (Get-TelemetryToken -Value ([string]$PSVersionTable.PSVersion) -Pattern '^[0-9][0-9A-Za-z.+-]{0,31}$')
+        judge          = (ConvertTo-TelemetryJudge $Judge)
     }
+    $ref = Get-TelemetryConsultRef $Entry
+    if ($ref) { $d | Add-Member -NotePropertyName 'consult_ref' -NotePropertyValue $ref }
+    return $d
 }
 
 # (R24) The event of one rating (the judge's mark of a consultation, codex-findings.ps1 -Rate): the
@@ -11838,11 +12068,12 @@ function ConvertTo-TelemetryRatingDetails {
 # severity info, the mark as its title, tags [provider, model]. -RatedAt (a DateTimeOffset; null:
 # now) is when the mark was given - client_time and the age are taken from it; -ConsultWhen the
 # consultation's time as the mark recorded it (Get-TelemetryAgeDays) - both for
-# codex-telemetry.ps1 -BackfillRatings, which sends marks given earlier.
+# codex-telemetry.ps1 -BackfillRatings, which sends marks given earlier. (0.6.1) -Judge: the judge the
+# caller resolved at rating time (Resolve-TelemetryJudge; $null: the consultation's coordinator).
 function New-TelemetryRatingEvent {
-    param($Entry, [string]$Mark, [string]$InstanceId, $RatedAt = $null, $ConsultWhen = $null)
+    param($Entry, [string]$Mark, [string]$InstanceId, $RatedAt = $null, $ConsultWhen = $null, $Judge = $null)
     $at = $(if ($null -ne $RatedAt) { [DateTimeOffset]$RatedAt } else { [DateTimeOffset]::UtcNow })
-    $d = ConvertTo-TelemetryRatingDetails -Entry $Entry -Mark $Mark -RatedAt $at -ConsultWhen $ConsultWhen
+    $d = ConvertTo-TelemetryRatingDetails -Entry $Entry -Mark $Mark -RatedAt $at -ConsultWhen $ConsultWhen -Judge $Judge
     return [pscustomobject]@{
         app_id      = $script:TelemetryAppId
         app_version = (Get-BridgeVersion)
@@ -12360,9 +12591,9 @@ function Complete-TelemetryNotSpooledFold {
 # telemetry off); Forgetting }. Never throws. (R24) -RatingMark yes|partly|no: the event is the
 # RATING event of $Entry (New-TelemetryRatingEvent - codex-findings.ps1 -Rate at the mark's commit,
 # codex-telemetry.ps1 -BackfillRatings with the mark's -RatedAt and -ConsultWhen), else the
-# consultation event.
+# consultation event. (0.6.1) -Judge: the rating's judge as the caller resolved it (Resolve-TelemetryJudge).
 function Add-TelemetryEvent {
-    param($Entry, $Switch, [int]$WaitMs = 1000, [switch]$Count, [string]$RatingMark = '', $RatedAt = $null, $ConsultWhen = $null)
+    param($Entry, $Switch, [int]$WaitMs = 1000, [switch]$Count, [string]$RatingMark = '', $RatedAt = $null, $ConsultWhen = $null, $Judge = $null)
     $r = [pscustomobject]@{ Why = ''; Forgetting = $false }
     if (-not $Switch -or -not $Switch.On) { return $r }
     $held = $false
@@ -12375,7 +12606,7 @@ function Add-TelemetryEvent {
             $id = Get-TelemetryInstanceId -Create
             if (-not $id) { $r.Why = 'no instance id (the salt could not be created)' }
             else {
-                $ev = $(if ($RatingMark) { New-TelemetryRatingEvent -Entry $Entry -Mark $RatingMark -InstanceId $id -RatedAt $RatedAt -ConsultWhen $ConsultWhen } else { New-TelemetryEvent -Entry $Entry -InstanceId $id })
+                $ev = $(if ($RatingMark) { New-TelemetryRatingEvent -Entry $Entry -Mark $RatingMark -InstanceId $id -RatedAt $RatedAt -ConsultWhen $ConsultWhen -Judge $Judge } else { New-TelemetryEvent -Entry $Entry -InstanceId $id })
                 $r.Why = Add-TelemetrySpoolLine -Kind 'event' -BodyJson (ConvertTo-Json -Compress -Depth 6 -InputObject $ev) -WaitMs ([int][Math]::Max(50, $WaitMs - $watch.ElapsedMilliseconds))
             }
         }
@@ -13045,7 +13276,8 @@ function Add-TelemetryLastNote {
 
 # -Complain (codex-consult.ps1 -Task <t> -Complain, codex-telemetry.ps1 -Complain): the payload
 # {app_id, app_version, instance_id, text (at most 8 KiB of UTF-8), context {consultation - the
-# task's last ledger entry through the event's allowlist (ConvertTo-TelemetryDetails), or null;
+# task's last ledger entry through the event's allowlist (ConvertTo-TelemetryDetails; (0.6.1) without
+# the consult_ref - a complaint is not linked to a consultation's events), or null;
 # bridge_version; os; runtime}, contact (or null)} is printed in full, then `send? [y/N]` unless
 # -Yes, then sent synchronously (10 s; a 429 as in Invoke-TelemetrySend). Delivered: the
 # public_ref is printed. Not delivered: the payload is kept in the spool as a complaint line - the
@@ -13074,7 +13306,7 @@ function Invoke-TelemetryComplaint {
         instance_id = $id
         text        = $t
         context     = [pscustomobject]@{
-            consultation   = $(if ($Entry) { ConvertTo-TelemetryDetails $Entry } else { $null })
+            consultation   = $(if ($Entry) { ConvertTo-TelemetryDetails $Entry -NoConsultRef } else { $null })
             bridge_version = (Get-BridgeVersion)
             os             = (Get-TelemetryOs)
             runtime        = (Get-TelemetryRuntime)
@@ -13299,8 +13531,11 @@ function Set-RatingTelemetrySent {
 # `when` as -RatedAt (client_time) and its consult_when (age_days), spooled with up to 5 s, and
 # `telemetry_sent` written into the mark - per task under the task's store commit (the write lock,
 # findings.json re-read under it, written once at the end). A spool failure stops that task's
-# remaining marks (they stay unsent: the next run sends them). -DryRun reads without a lock, prints
-# per event the vendor class, the model, the mark and the age (never a text) and writes nothing.
+# remaining marks (they stay unsent: the next run sends them). (0.6.1, U3) The judge of such an event
+# is the consultation's own coordinator (source consult_coordinator) or unknown - the actor of an
+# earlier mark is not known (Resolve-TelemetryJudge without an actor). -DryRun reads without a lock,
+# prints per event the vendor class, the model, the mark, the age and the judge's classes (never a
+# text) and writes nothing.
 # Telemetry off: refused, nothing read or written. One line per task that has marks, then the total;
 # unless -DryRun the detached sender starts when something was spooled. Exit 0 done, 1 refused or
 # something not spooled.
@@ -13316,6 +13551,8 @@ function Invoke-TelemetryBackfillRatings {
     }
     $verb = $(if ($DryRun) { 'would send' } else { 'sent' })
     $tot = [pscustomobject]@{ Sent = 0; Already = 0; Skipped = 0; Failed = 0; Tasks = 0 }
+    # (0.6.1) the reviewer roster for the judge's label lookup, read once at the first mark to send
+    $judgeRoster = $null
     $taskDirs = @()
     if ([IO.Directory]::Exists($CollabRoot)) {
         $taskDirs = @(Get-ChildItem -LiteralPath $CollabRoot -Directory -Force | Where-Object { $_.Name -match '^[A-Za-z0-9][A-Za-z0-9._-]*$' -and [IO.File]::Exists((Join-Path $_.FullName 'findings.json')) } | Sort-Object Name)
@@ -13355,14 +13592,21 @@ function Invoke-TelemetryBackfillRatings {
                 $entry = Find-RatingLedgerEntry -Consults $consults -Mark $m
                 if ($null -eq $entry -or $script:TelemetryRatingMarks -cnotcontains $useful -or $null -eq $ratedAt) { $skipped++; continue }
                 $cw = Get-PropertyValue $m 'consult_when' $null
+                # (0.6.1, U3) the actor of an earlier mark is not known: the consultation's coordinator
+                # (consult_coordinator) or unknown - never this process's CODEX_CONSULT_COORDINATOR
+                if ($null -eq $judgeRoster) {
+                    $judgeRoster = Read-ReviewerRoster
+                    if ($judgeRoster.Error) { $judgeRoster = [pscustomobject]@{ Exists = $false; Entries = [object[]]@() } }
+                }
+                $judge = Resolve-TelemetryJudge -Entry $entry -Roster $judgeRoster
                 if ($DryRun) {
-                    $d = ConvertTo-TelemetryRatingDetails -Entry $entry -Mark $useful -RatedAt $ratedAt -ConsultWhen $cw
-                    Write-Host "codex-telemetry: would send: $($d.provider) / $($d.model) ($($d.engine)), purpose $($d.purpose), mark $($d.mark), age_days $($d.age_days), client_time $($ratedAt.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant))"
+                    $d = ConvertTo-TelemetryRatingDetails -Entry $entry -Mark $useful -RatedAt $ratedAt -ConsultWhen $cw -Judge $judge
+                    Write-Host "codex-telemetry: would send: $($d.provider) / $($d.model) ($($d.engine)), purpose $($d.purpose), mark $($d.mark), age_days $($d.age_days), client_time $($ratedAt.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ', $script:Invariant)), judge $($d.judge.provider) / $($d.judge.model) ($($d.judge.source))"
                     $sent++
                     continue
                 }
                 if ($why) { $failed++; continue }
-                $r = Add-TelemetryEvent -Entry $entry -Switch $Switch -WaitMs $script:TelemetrySpoolWaitMs -RatingMark $useful -RatedAt $ratedAt -ConsultWhen $cw
+                $r = Add-TelemetryEvent -Entry $entry -Switch $Switch -WaitMs $script:TelemetrySpoolWaitMs -RatingMark $useful -RatedAt $ratedAt -ConsultWhen $cw -Judge $judge
                 if ($r.Why) { $why = $r.Why; $failed++; continue }
                 $m | Add-Member -NotePropertyName 'telemetry_sent' -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -Force
                 $changed = $true
