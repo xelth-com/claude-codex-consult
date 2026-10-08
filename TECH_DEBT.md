@@ -103,3 +103,9 @@ seven-wave task with three consultations. Ordered by the damage they did.
   reviewer (a read-only, non-interactive `codex exec` run) is within those terms is the operator's call; the bridge
   neither checks nor enforces it. Fix (not designed): none in code - the operator records the decision in the task's
   `state.md`.
+
+- **T9 - A DATED reset followed by a zone qualifier is still read as local time.** (0.6.1, F06-5
+  residual) `Get-RetryAfter` applies `UTC`/`GMT`/`Z` and numeric offsets to the TIME-ONLY wording
+  (`try again at 21:43 UTC`); a dated or ISO wording with a trailing qualifier (`until 2026-10-08
+  21:43 UTC`) keeps the dated rule and the machine's zone - a hold off by the zone difference. No
+  provider has been seen printing that form; fix when one does (parse the qualifier on every wording).
