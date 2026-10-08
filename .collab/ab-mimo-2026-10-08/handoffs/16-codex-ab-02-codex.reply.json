@@ -1,0 +1,53 @@
+{
+  "schema_version": "1",
+  "verdict": "ADVISE",
+  "verdict_reason": "Checkpoint review: the current tree matches D4-D6 and the behavioural parts of D1-D3, but the brief's wording for D1-D3 is stale.",
+  "reply_markdown": "Checked current tree (post-wave-29c); the brief's wave-26/27 references are historical.\n\nD1. Kick acknowledgement — behaviour holds (kick checked before the wait, on each poll, and after exit; late kick recorded `kick_late`; `-Kick` waits 10 s). Drift: acknowledgement is only `<kick file>.ack {id, result: stopped|late}`; there is no pending-record `kicked` state. Exit codes are 0/1/3, plus 4 for a refused status query (F15-1).\n\nD2. Health update loss — 5 s x 3 attempts and one retry at ledger commit hold; `until`/`retry_after` are preserved and ties resolve to newest `when`, then later `until`. Drift: warnings read `machine-wide health not updated at the commit (...)` or `... by the retry after the commit (...)`, not `machine-wide health not updated (lock timeout)`; the health journal now keeps the record too (F15-2).\n\nD3. Stall detection — byte-growth reset and tool suspension hold, and the continuation says `no output for N s outside a tool call`. Drift: suspension is capped at 2 x `-StallSec` of no stream growth and then the stall cut fires naming the open call, so `one long command is never cut` is conditional; `claude` `tool_use`/`tool_result` is also supported (F15-3).\n\nD4. Legacy rating completion — holds: `Test-BlankField` treats absent, null, empty, whitespace and blank lists as missing; `JOINBLANK` covers an empty `model`.\n\nD5. Size raised by required reviewers — holds: `panel size raised: asked k, required r`, `size_asked`, `size_source: required`, and the dry-run Routing line show the request.\n\nD6. F26-6 — holds as documented in README `Roles`: hard links remain indistinguishable; the check covers reparse points and containment, not a hostile repository.",
+  "findings": [],
+  "prior_findings": [
+    {
+      "id": "F13-1",
+      "status": "still-open",
+      "note": "Partly fixed: the marker now records full-resolution `start_ticks`; the flush-lock record still stores only pid+start_time, so the pid-reuse risk remains."
+    },
+    {
+      "id": "F13-2",
+      "status": "still-open",
+      "note": "PS 5.1 `File.Replace` fallback still lacks a missing-destination branch."
+    },
+    {
+      "id": "F13-3",
+      "status": "still-open",
+      "note": "`Exit-TelemetryFlushLock` still deletes after the read handle is disposed."
+    },
+    {
+      "id": "F13-4",
+      "status": "still-open",
+      "note": "Multi-line inline asks still repeat only the first line plus a line count."
+    },
+    {
+      "id": "F13-5",
+      "status": "still-open",
+      "note": "The checkpoint drift persists: spool files are per-producer, harness count is 22, and the old commit references are stale."
+    },
+    {
+      "id": "F15-1",
+      "status": "still-open",
+      "note": "Kick ack is `.ack` only; no `kicked` state, and exit 4 exists for refused queries."
+    },
+    {
+      "id": "F15-2",
+      "status": "still-open",
+      "note": "Health warning wording changed and the journal keeps the record."
+    },
+    {
+      "id": "F15-3",
+      "status": "still-open",
+      "note": "`never cut` is conditional on the tool cap, and `claude` tool events are supported."
+    }
+  ],
+  "unproven": [
+    "The pid-reuse and lock-delete race cases in F13-1/F13-3 were not executed here."
+  ],
+  "first_run_checklist": []
+}
