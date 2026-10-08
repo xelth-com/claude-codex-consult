@@ -81,7 +81,9 @@
                    this process's CODEX_CONSULT_COORDINATOR; F06-2: rating_rev the mark's own, none
                    for a mark without one) and spooled, and `telemetry_sent` (unix seconds)
                    is written into the mark under the task's store commit - so a second run sends
-                   nothing (codex-findings.ps1 -Rate sets the field itself). One line per task
+                   nothing (codex-findings.ps1 -Rate sets the field itself; 0.6.1, F08-1: -Rate
+                   commits the mark BEFORE it spools the event, so a -Rate that died between the
+                   two leaves a committed mark without the field, sent here). One line per task
                    `<task>: sent N, already M, skipped K`, then the total; the detached sender starts
                    when something was spooled. -DryRun prints per event the vendor class, the model,
                    the mark, the age and the judge's classes - never a text - and writes nothing. Telemetry off (-Telemetry

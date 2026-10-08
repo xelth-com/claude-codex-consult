@@ -121,7 +121,7 @@ function Write-Roster {
     return $p
 }
 $fakeVars = @('FAKE_CODEX_REPLY', 'FAKE_CODEX_LOG', 'FAKE_CODEX_LOGIN', 'FAKE_CODEX_STDERR', 'FAKE_CODEX_EXIT', 'FAKE_CODEX_DELAY_MS', 'FAKE_CODEX_ENV_DUMP')
-$testVars = @('RT_ZAI_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_PANEL_SEED', 'CODEX_CONSULT_COORDINATOR', 'CODEX_CONSULT_BRIEF_PREFIX', 'CODEX_CONSULT_TELEMETRY', 'CODEX_CONSULT_TEST_TELEMETRY_ENV', 'RT_ACME_KEY', 'CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS', 'CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS', 'CODEX_CONSULT_TEST_RATE_RETRY_GATE')
+$testVars = @('RT_ZAI_KEY', 'CODEX_CONSULT_EXE', 'CODEX_CONSULT_NOW', 'CODEX_CONSULT_ROSTER', 'OPENAI_BASE_URL', 'CODEX_CONSULT_TEST_PANEL_SEED', 'CODEX_CONSULT_COORDINATOR', 'CODEX_CONSULT_BRIEF_PREFIX', 'CODEX_CONSULT_TELEMETRY', 'CODEX_CONSULT_TEST_TELEMETRY_ENV', 'RT_ACME_KEY', 'CODEX_CONSULT_TEST_TELEMETRY_REQUEST_MS', 'CODEX_CONSULT_TEST_TELEMETRY_FLUSH_MS', 'CODEX_CONSULT_TEST_RATE_RETRY_GATE', 'CODEX_CONSULT_TEST_RATE_ABORT_AFTER_COMMIT')
 function Clear-TestEnv {
     foreach ($k in ($fakeVars + $testVars)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
     foreach ($k in (Get-HostMarkerNames)) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
@@ -183,6 +183,17 @@ function Start-Script {
     $proc = Start-Process -FilePath $psExe -ArgumentList $argText -WorkingDirectory $Cwd -NoNewWindow -PassThru -RedirectStandardOutput $outP -RedirectStandardError "$outP.err" -RedirectStandardInput $inP
     if ($PSVersionTable.PSVersion.Major -lt 6) { try { $null = $proc.Handle } catch { } }
     return [pscustomobject]@{ Proc = $proc; OutP = $outP; ErrP = "$outP.err" }
+}
+# (0.6.1, F08-1) Waits (at most $TimeoutSec) until no other process holds the lock file $Path open
+# (<task>/.consult.lock): -Rate commits its mark BEFORE its first spool attempt and releases its task
+# lock only after that attempt - a harness that holds the spool through the attempt waits for this.
+function Wait-LockFree {
+    param([string]$Path, [int]$TimeoutSec = 30)
+    $w = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($w.Elapsed.TotalSeconds -lt $TimeoutSec) {
+        try { $fs = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite); $fs.Dispose(); return $true } catch { Start-Sleep -Milliseconds 100 }
+    }
+    return $false
 }
 # { Code; Out } - the process waited for (killed after $TimeoutSec), the environment restored.
 function Wait-Script {
@@ -1019,6 +1030,8 @@ if (Want 'BACKFILL') {
 
     # -Rate whose spool file is busy at the commit: the mark is committed WITHOUT the marker, the
     # retry after the locks spools the event and a second store commit writes telemetry_sent
+    # ((0.6.1, F08-1) the mark is committed before the first attempt: the spool stays held until the
+    # task lock is released - that attempt is over)
     $spoolBefore = (Spool-Lines $hb).Count
     $fOne = Join-Path $rb '.collab\bf-task-one\findings.json'
     $bdir = Join-Path $hb 'telemetry-spool'
@@ -1035,7 +1048,7 @@ if (Want 'BACKFILL') {
             if ($mm.Count -eq 1 -and $mm[0].useful -eq 'no') { $seenUnmarked = ($null -eq $mm[0].PSObject.Properties['telemetry_sent']); break }
             Start-Sleep -Milliseconds 100
         }
-        Start-Sleep -Milliseconds 1000
+        $null = Wait-LockFree (Join-Path $rb '.collab\bf-task-one\.consult.lock')
     } finally { $holdB.Dispose() }
     $xr = Wait-Script $sr
     $null = Wait-Last $hb (Get-Date).AddSeconds(-30) 20
@@ -1091,7 +1104,8 @@ if (Want 'BACKFILL') {
 
     # RC2 (0.6.1, F06-2) the bridge half: A rated with the spool held - its 1 s at the commit fails, the
     # mark (rating_rev 1) is committed and the locks released; its retry waits at the test gate
-    # (CODEX_CONSULT_TEST_RATE_RETRY_GATE) - then B rated (rating_rev 2, spooled at its commit), then A's
+    # (CODEX_CONSULT_TEST_RATE_RETRY_GATE; (F08-1) the spool held until A's task lock is free: its mark
+    # is committed before that attempt) - then B rated (rating_rev 2, spooled at its commit), then A's
     # retry released: the late event of A still carries rating_rev 1 and A's own `when`; the replacement
     # rule (per consult_ref the highest rating_rev, none = 0, a tie to the later arrival) keeps B in both
     # delivery orders
@@ -1115,6 +1129,7 @@ if (Want 'BACKFILL') {
             if ($mm.Count -eq 1) { $markA = $mm[0]; break }
             Start-Sleep -Milliseconds 100
         }
+        $null = Wait-LockFree (Join-Path $r2 ".collab\$taskName\.consult.lock")
     } finally { $hold2.Dispose() }
     # A releases both locks right after its commit; then B
     Start-Sleep -Milliseconds 500
@@ -1142,6 +1157,84 @@ if (Want 'BACKFILL') {
     $inOrder = $(if ($evA2 -and $evB2) { & $current2 @($evA2, $evB2) } else { '' })
     $reversed = $(if ($evA2 -and $evB2) { & $current2 @($evB2, $evA2) } else { '' })
     Check 'BACKFILL' 'RC2 (0.6.1, F06-2) the replacement rule over the two events: B (yes, rating_rev 2) stays current whether A''s late event arrives after B''s (as here) or before it' ($inOrder -ceq 'yes' -and $reversed -ceq 'yes') "A then B: $inOrder | B then A: $reversed"
+
+    # F08-1 RC1 (0.6.1, F08-1) the mark is committed BEFORE its event is spooled. Two consultations, each
+    # with a committed mark of rating_rev 4 (already sent). Consultation 1: A rated under openai ::
+    # gpt-6-astra with the test hook that ends the process right after the store commit, before the
+    # spool (CODEX_CONSULT_TEST_RATE_ABORT_AFTER_COMMIT=1, exit 87) - the store holds A's rating_rev 5
+    # without telemetry_sent, the spool no event; -BackfillRatings sends rev 5 with A's judge and time;
+    # then B (anthropic :: claude-opus-5-5) commits rev 6 - never 5 again - and the replacement rule
+    # keeps B in both delivery orders. Consultation 2: B rates BEFORE any backfill - rev 6 replaces the
+    # unpublished rev 5, which is never sent. A failed store write (a read-only findings.json) spools
+    # nothing, and the next rating's revision is above the last COMMITTED one.
+    $h8 = New-Home 'f081'
+    $r8 = New-Repo 'f081'
+    $c8a = Consult $r8 $h8 $dead $taskName @('-Prompt', 'x', '-ReplyName', 'p1', '-Telemetry', 'off') -Env @{ FAKE_CODEX_REPLY = $reply }
+    $c8b = Consult $r8 $h8 $dead $taskName @('-Prompt', 'y', '-ReplyName', 'p2', '-Telemetry', 'off') -Env @{ FAKE_CODEX_REPLY = $reply }
+    $e8 = @(Ledger $r8 $taskName)
+    $ref81 = $(if ($e8.Count -ge 1) { [string]$e8[0].consult_ref } else { '' })
+    $ref82 = $(if ($e8.Count -ge 2) { [string]$e8[1].consult_ref } else { '' })
+    $f8 = Join-Path $r8 ".collab\$taskName\findings.json"
+    # the seed: each consultation's first mark (telemetry off), then rating_rev 4 and telemetry_sent
+    $s8a = Rate $r8 $h8 $dead $taskName @('-Rate', '1', '-Useful', 'yes', '-Telemetry', 'off')
+    $s8b = Rate $r8 $h8 $dead $taskName @('-Rate', '2', '-Useful', 'yes', '-Telemetry', 'off')
+    $st8 = ConvertFrom-JsonKeepOffset -Text (Text $f8)
+    foreach ($m in @($st8.ratings)) { $m.rating_rev = 4; $m | Add-Member -NotePropertyName 'telemetry_sent' -NotePropertyValue ([DateTimeOffset]::UtcNow.AddDays(-1).ToUnixTimeSeconds()) -Force }
+    Write-JsonFile -Path $f8 -Object $st8
+    $marks8 = { param([int]$N) @(@((ConvertFrom-Json (Text $f8)).ratings) | Where-Object { $_.n -eq $N }) }
+    $evs8 = { param([string]$Ref) $sl = Spool-Lines $h8; @(@($sl | ForEach-Object { try { ConvertFrom-Json ([string](ConvertFrom-Json $_).body) } catch { } }) | Where-Object { [string]$_.details.consult_ref -ceq $Ref }) }
+    $body8 = { param([string]$Ref, [long]$Rev) $sl = Spool-Lines $h8; [string](@($sl | ForEach-Object { [string](ConvertFrom-Json $_).body } | Where-Object { $_.Contains('"consult_ref":"' + $Ref + '"') -and $_.Contains('"rating_rev":' + $Rev + ',') }) | Select-Object -First 1) }
+    $jt8 = { param($J) if ($J) { "$($J.provider)/$($J.model)/$($J.source)" } else { '(none)' } }
+    $seed8 = @(@(& $marks8 1) + @(& $marks8 2) | ForEach-Object { "$($_.n):$($_.rating_rev)" }) -join ','
+    $a8 = Rate $r8 $h8 $dead $taskName @('-Rate', '1', '-Useful', 'partly') -Env @{ CODEX_CONSULT_COORDINATOR = 'openai :: gpt-6-astra'; CODEX_CONSULT_TEST_RATE_ABORT_AFTER_COMMIT = '1' }
+    $mA8 = @(& $marks8 1)
+    $lA8 = (Spool-Lines $h8).Count
+    Check 'BACKFILL' 'F08-1 RC1 (0.6.1) committed marks with rating_rev 4; -Rate A (openai :: gpt-6-astra) with CODEX_CONSULT_TEST_RATE_ABORT_AFTER_COMMIT=1 ends right after the store commit, before the spool (exit 87): the store holds A''s mark - partly, rating_rev 5, judge openai/gpt-6-astra/rating_actor, NO telemetry_sent - and the spool NO event (no revision is published that is not committed)' ($c8a.Code -eq 0 -and $c8b.Code -eq 0 -and $ref81 -and $ref82 -and $s8a.Code -eq 0 -and $s8b.Code -eq 0 -and $seed8 -ceq '1:4,2:4' -and $a8.Code -eq 87 -and $a8.Out -notmatch 'rated' -and $mA8.Count -eq 1 -and $mA8[0].useful -eq 'partly' -and $mA8[0].rating_rev -eq 5 -and (& $jt8 $mA8[0].judge) -ceq 'openai/gpt-6-astra/rating_actor' -and $null -eq $mA8[0].PSObject.Properties['telemetry_sent'] -and $lA8 -eq 0) "consults $($c8a.Code)/$($c8b.Code) seed $seed8 | A exit $($a8.Code) | mark $(if ($mA8.Count) { "$($mA8[0].useful) rev $($mA8[0].rating_rev) judge $(& $jt8 $mA8[0].judge) sent $($null -ne $mA8[0].PSObject.Properties['telemetry_sent'])" }) | spool $lA8 | $($a8.Out)"
+    $tb8 = Get-Date
+    $bf8 = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings') $r8 $h8 $dead '' -Env @{ CODEX_CONSULT_COORDINATOR = 'anthropic :: claude-opus-5-5' })
+    $null = Wait-Last $h8 $tb8
+    $evA8 = @(& $evs8 $ref81)
+    $mA8b = @(& $marks8 1)
+    $ctA8 = $(if ($mA8.Count) { Format-ClientTime $mA8[0].when } else { '' })
+    $bodyA8 = & $body8 $ref81 5
+    Check 'BACKFILL' 'F08-1 RC1 then -BackfillRatings (under anthropic :: claude-opus-5-5): exit 0, "sent 1, already 1" - ONE event, consultation 1''s: mark partly, rating_rev 5, judge openai/gpt-6-astra/rating_actor (A''s, from the mark), client_time = A''s own `when`; the mark now has telemetry_sent' ($bf8.Code -eq 0 -and $bf8.Out -match "(?m)^codex-telemetry: ${taskName}: sent 1, already 1, skipped 0\r?$" -and (Spool-Lines $h8).Count -eq 1 -and $evA8.Count -eq 1 -and $evA8[0].details.mark -ceq 'partly' -and $evA8[0].details.rating_rev -eq 5 -and (& $jt8 $evA8[0].details.judge) -ceq 'openai/gpt-6-astra/rating_actor' -and $bodyA8.Contains('"client_time":"' + $ctA8 + '"') -and $mA8b.Count -eq 1 -and $mA8b[0].rating_rev -eq 5 -and $null -ne $mA8b[0].PSObject.Properties['telemetry_sent']) "exit $($bf8.Code) | $(& $bfLine $bf8.Out 'codex-telemetry:') | events $($evA8.Count) $(if ($evA8.Count) { "rev $($evA8[0].details.rating_rev) judge $(& $jt8 $evA8[0].details.judge)" }) | want client_time $ctA8 | $bodyA8"
+    $tB8 = Get-Date
+    $b8 = Rate $r8 $h8 $dead $taskName @('-Rate', '1', '-Useful', 'yes') -Env @{ CODEX_CONSULT_COORDINATOR = 'anthropic :: claude-opus-5-5' }
+    $null = Wait-Last $h8 $tB8
+    $ev81 = @(& $evs8 $ref81)
+    $revs81 = @($ev81 | ForEach-Object { [string]$_.details.rating_rev }) -join ','
+    $evB8 = @($ev81 | Where-Object { $_.details.rating_rev -eq 6 }) | Select-Object -First 1
+    $mB8 = @(& $marks8 1)
+    $cur8 = { param($Evs) $best = $null; foreach ($e in $Evs) { $rv = $(if ($null -ne $e.details.PSObject.Properties['rating_rev']) { [long]$e.details.rating_rev } else { [long]0 }); if ($null -eq $best -or $rv -ge $best.Rev) { $best = [pscustomobject]@{ Rev = $rv; Mark = [string]$e.details.mark } } }; $(if ($best) { $best.Mark } else { '' }) }
+    $evA8x = @($ev81 | Where-Object { $_.details.rating_rev -eq 5 }) | Select-Object -First 1
+    $ord8 = $(if ($evA8x -and $evB8) { "$(& $cur8 @($evA8x, $evB8))/$(& $cur8 @($evB8, $evA8x))" } else { '' })
+    Check 'BACKFILL' 'F08-1 RC1 then -Rate B (anthropic :: claude-opus-5-5): exit 0, "re-rated yes (was partly)"; the store holds rating_rev 6 (1 + the committed 5 - never 5 again) with telemetry_sent and B''s judge; the spool holds consultation 1''s events with the DISTINCT revisions 5,6 - B''s rating_rev 6, judge anthropic/claude-opus-5-5/rating_actor - and the replacement rule keeps B (yes) in both delivery orders' ($b8.Code -eq 0 -and $b8.Out -match 're-rated yes \(was partly\)' -and $mB8.Count -eq 1 -and $mB8[0].rating_rev -eq 6 -and $null -ne $mB8[0].PSObject.Properties['telemetry_sent'] -and (& $jt8 $mB8[0].judge) -ceq 'anthropic/claude-opus-5-5/rating_actor' -and $revs81 -ceq '5,6' -and $evB8 -and (& $jt8 $evB8.details.judge) -ceq 'anthropic/claude-opus-5-5/rating_actor' -and $ord8 -ceq 'yes/yes') "exit $($b8.Code) | $($b8.Out) | mark rev $(if ($mB8.Count) { $mB8[0].rating_rev }) | revs $revs81 | orders $ord8"
+    # consultation 2: A ends after its commit, B rates BEFORE any backfill
+    $a8b = Rate $r8 $h8 $dead $taskName @('-Rate', '2', '-Useful', 'no', '-Note', 'n') -Env @{ CODEX_CONSULT_COORDINATOR = 'openai :: gpt-6-astra'; CODEX_CONSULT_TEST_RATE_ABORT_AFTER_COMMIT = '1' }
+    $mA82 = @(& $marks8 2)
+    $l82 = (Spool-Lines $h8).Count
+    $tB82 = Get-Date
+    $b8b = Rate $r8 $h8 $dead $taskName @('-Rate', '2', '-Useful', 'partly') -Env @{ CODEX_CONSULT_COORDINATOR = 'anthropic :: claude-opus-5-5' }
+    $null = Wait-Last $h8 $tB82
+    $tb82 = Get-Date
+    $bf82 = Wait-Script (Start-Script $telemetryPs @('-BackfillRatings') $r8 $h8 $dead '')
+    $ev82 = @(& $evs8 $ref82)
+    $revs82 = @($ev82 | ForEach-Object { [string]$_.details.rating_rev }) -join ','
+    $mB82 = @(& $marks8 2)
+    Check 'BACKFILL' 'F08-1 RC1 B before the backfill (consultation 2): A ends after its commit (exit 87; rating_rev 5 committed without telemetry_sent, no spool line); B commits rating_rev 6 and spools it; the spool holds ONE event of consultation 2 - rating_rev 6 - and the next -BackfillRatings sends nothing ("sent 0, already 2"): the replaced rev 5 was never published' ($a8b.Code -eq 87 -and $mA82.Count -eq 1 -and $mA82[0].rating_rev -eq 5 -and $null -eq $mA82[0].PSObject.Properties['telemetry_sent'] -and $l82 -eq 2 -and $b8b.Code -eq 0 -and $mB82.Count -eq 1 -and $mB82[0].rating_rev -eq 6 -and $mB82[0].useful -eq 'partly' -and $null -ne $mB82[0].PSObject.Properties['telemetry_sent'] -and $revs82 -ceq '6' -and $bf82.Code -eq 0 -and $bf82.Out -match "(?m)^codex-telemetry: ${taskName}: sent 0, already 2, skipped 0\r?$" -and (Spool-Lines $h8).Count -eq 3) "A exit $($a8b.Code) rev $(if ($mA82.Count) { $mA82[0].rating_rev }) spool $l82 | B exit $($b8b.Code) rev $(if ($mB82.Count) { $mB82[0].rating_rev }) | revs $revs82 | backfill $($bf82.Code) $(& $bfLine $bf82.Out 'codex-telemetry:') | spool $((Spool-Lines $h8).Count)"
+    # a failed store write: findings.json read-only - the rating fails, nothing is spooled
+    $hash8 = Get-FileSha256 -Path $f8
+    $l8x = (Spool-Lines $h8).Count
+    [IO.File]::SetAttributes($f8, [IO.FileAttributes]::ReadOnly)
+    try { $x8 = Rate $r8 $h8 $dead $taskName @('-Rate', '1', '-Useful', 'no', '-Note', 'n') } finally { [IO.File]::SetAttributes($f8, [IO.FileAttributes]::Normal) }
+    $l8y = (Spool-Lines $h8).Count
+    $hash8b = Get-FileSha256 -Path $f8
+    $tB83 = Get-Date
+    $y8 = Rate $r8 $h8 $dead $taskName @('-Rate', '1', '-Useful', 'no', '-Note', 'n')
+    $null = Wait-Last $h8 $tB83
+    $revs83 = @(& $evs8 $ref81 | ForEach-Object { [string]$_.details.rating_rev }) -join ','
+    $mY8 = @(& $marks8 1)
+    Check 'BACKFILL' 'F08-1 a failed store commit spools nothing: with findings.json read-only -Rate fails (exit 1) - the store unchanged, NO spool line; rated again with the store writable: rating_rev 7 (1 + the committed 6), its event spooled - consultation 1''s events 5,6,7' ($x8.Code -eq 1 -and $hash8b -eq $hash8 -and $l8y -eq $l8x -and $y8.Code -eq 0 -and $mY8.Count -eq 1 -and $mY8[0].rating_rev -eq 7 -and $revs83 -ceq '5,6,7') "read-only exit $($x8.Code) spool $l8x -> $l8y | $($x8.First) | then exit $($y8.Code) rev $(if ($mY8.Count) { $mY8[0].rating_rev }) | revs $revs83"
 
     Check 'BACKFILL' 'telemetry off (CODEX_CONSULT_TELEMETRY=off, and -Telemetry off): -BackfillRatings is REFUSED - exit 1, "telemetry is off (...): -BackfillRatings sends nothing and writes nothing"; no spool line, no salt, both findings.json untouched; -DryRun without -BackfillRatings is refused too' ($bo.Code -eq 1 -and $bo.Out -match '^codex-telemetry: telemetry is off \(CODEX_CONSULT_TELEMETRY\): -BackfillRatings sends nothing and writes nothing' -and $bo2.Code -eq 1 -and $bo2.Out -match '^codex-telemetry: telemetry is off \(-Telemetry\)' -and $oWritten.Count -eq 0 -and (& $bfHashes $rd) -eq $hashD -and $bo3.Code -eq 1) "$($bo.Code): $(($bo.Out -split "`n")[0]) | $($bo2.Code) | $($bo3.Code): $(($bo3.Out -split "`n")[0]) | written [$($oWritten -join ',')]"
 }
@@ -1604,6 +1697,12 @@ if (Want 'DOCS') {
     $f06Docs = @('`rating_rev`', '**The replacement rule**', 'the highest `rating_rev` (a missing one counts as `0`)', 'a tie falls to the latest `created`', '`client_time` is the MARK''s own `when`', 'The mark SAVES this judge', 'PSEUDONYMOUS correlation key', 'promises no unlinkability')
     $f06Missing = @($f06Docs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
     Check 'DOCS' '(0.6.1, F06-1, F06-2, F06-6) README "Telemetry": rating_rev in the rating event, the intake''s replacement rule (per consult_ref the highest rating_rev, a missing one 0, a tie to the latest created), client_time = the mark''s own when on every path, the judge saved in the mark, consult_ref a pseudonymous correlation key (no unlinkability once a ledger is shared)' ($f06Missing.Count -eq 0) "missing: $($f06Missing -join ' | ')"
+    # (0.6.1, F08-1) the order: the mark committed, then its event spooled - README "Telemetry", the hook in the
+    # environment table, the -Rate help
+    $f08Docs = @('the mark is committed, then its event is spooled; an event is never spooled for an uncommitted mark', 'A store write that fails spools nothing', 'no revision is published that the store does not hold')
+    $f08Missing = @($f08Docs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
+    $fHelp = (Text $findingsPs) -replace '\s+', ' '
+    Check 'DOCS' '(0.6.1, F08-1) README "Telemetry": the mark is committed, then its event is spooled - never for an uncommitted mark; a failed store write spools nothing; no revision published that the store does not hold; the test hook CODEX_CONSULT_TEST_RATE_ABORT_AFTER_COMMIT in the environment table; the -Rate help says the order' ($f08Missing.Count -eq 0 -and $readme.Contains('`CODEX_CONSULT_TEST_RATE_ABORT_AFTER_COMMIT=1`') -and $fHelp.Contains('the mark is committed FIRST, then its event is spooled; an event is never spooled for an uncommitted mark')) "missing: $($f08Missing -join ' | ')"
     $bfDocs = @('**Backfilling earlier marks**', 'codex-telemetry.ps1" -BackfillRatings -DryRun', '`telemetry_sent`', 'a second run sends nothing', 'SKIPPED and counted', '`client_time` = the mark''s own `when`', 'codex-telemetry: <task>: sent N, already M, skipped K', 'refused with exit `1`')
     $bfMissing = @($bfDocs | Where-Object { $secN.IndexOf($_, [StringComparison]::Ordinal) -lt 0 })
     Check 'DOCS' '(R24) README "Telemetry": the backfill - the commands (-DryRun first), the marker telemetry_sent and the idempotency, an unfindable entry skipped, client_time = the mark''s when, the per-task line, refused when off' ($bfMissing.Count -eq 0) "missing: $($bfMissing -join ' | ')"

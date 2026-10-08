@@ -5908,6 +5908,9 @@ function ConvertFrom-ProviderErrorText {
 # DateTimeOffset, or $null when the message names no reset time.
 $script:MonthNumbers = @{ 'jan' = 1; 'feb' = 2; 'mar' = 3; 'apr' = 4; 'may' = 5; 'jun' = 6; 'jul' = 7; 'aug' = 8; 'sep' = 9; 'oct' = 10; 'nov' = 11; 'dec' = 12 }
 $script:DurationUnit = '(?:weeks?|wks?|w|days?|d|hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)\b'
+# (0.6.1, F08-2) a character of a time-only zone qualifier token: anything but a space, a comma, a
+# semicolon, a bracket, a quote, `!`, `?`, `|` or a backslash
+$script:TimeOnlyTokenChar = '[^\s,;()\[\]{}<>!?"''\u201C\u201D|\\]'
 $script:RetryAfterRe = @{
     Codex = [regex]('(?i)(?:try\s+again\s+(?:at|on|after)|resets?\s+(?:at|on)|available\s+(?:again\s+)?(?:at|on|after)|until)\s+' +
         '(?<mon>jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+' +
@@ -5917,9 +5920,16 @@ $script:RetryAfterRe = @{
     # (0.6.1) 1b - a time without a date: "try again at 9:43 PM.", "try again at 21:43"
     TimeOnly = [regex]('(?i)(?:try\s+again\s+(?:at|after)|resets?\s+at|available\s+(?:again\s+)?(?:at|after)|until)\s+' +
         '(?<hour>[0-9]{1,2}):(?<min>[0-9]{2})(?::(?<sec>[0-9]{2}))?(?![0-9:])(?:\s*(?<ampm>[ap])\.?\s?m\b\.?)?')
-    # (0.6.1, F06-5) what directly follows such a clock (spaces or an opening parenthesis between):
-    # UTC / GMT (any case) or Z, optionally with a numeric offset, or a numeric offset alone
-    TimeOnlyZone = [regex]'^[ \t]*\(?[ \t]*(?:(?<utc>(?i:UTC|GMT)|Z)[ \t]*)?(?:(?<s>[+-])(?<oh>[0-9]{1,2})(?::?(?<om>[0-9]{2}))?)?(?![A-Za-z0-9])'
+    # (0.6.1, F06-5; F08-2) what directly follows such a clock (spaces or an opening parenthesis
+    # between): the qualifier TOKEN - everything up to a space, a comma, a semicolon, a bracket, a
+    # quote, `!`, `?`, `|` or a backslash - read WHOLE and validated by Get-TimeOnlyZone (never a
+    # shorter prefix of it); TimeOnlyZoneNext: a signed token after spaces (`UTC +02:00`)
+    TimeOnlyZone = [regex]('^[ \t]*\(?[ \t]*(?<tok>' + $script:TimeOnlyTokenChar + '*)')
+    TimeOnlyZoneNext = [regex]('^[ \t]+(?<tok>[+-]' + $script:TimeOnlyTokenChar + '*)')
+    # ... its zone word: UTC / GMT (any case) or Z (not the start of a lower-case word)
+    TimeOnlyZoneWord = [regex]'^(?:(?i:UTC|GMT)|Z(?![a-z]))'
+    # ... and its numeric offset, complete: +H, +HH, +H:MM, +HH:MM or +HHMM (- likewise)
+    TimeOnlyOffset = [regex]'^(?<s>[+-])(?:(?<oh>[0-9]{1,2})(?::(?<om>[0-9]{2}))?|(?<oh>[0-9]{2})(?<om>[0-9]{2}))$'
     # ... or another zone-like word: two to five capital letters (PST, CET, CEST), case-sensitive
     TimeOnlyOtherZone = [regex]'^[ \t]*\(?[ \t]*(?<w>[A-Z]{2,5})(?![A-Za-z0-9])'
     After = [regex]('(?i)retry[- ]after[:\s]\s*(?<n>[0-9]+)(?![0-9:.\-])(?:\s*(?<u>' + $script:DurationUnit + '))?')
@@ -6052,23 +6062,59 @@ function Select-TimeOnlyReset {
     return $best
 }
 
-# (0.6.1, F06-5) The zone qualifier right after a time-only clock ($Match: the TimeOnly match in
-# $Text; spaces or an opening parenthesis between - after a period that ends the sentence, "9:43 PM.",
-# nothing more is read; the period of "p.m." is the abbreviation's): UTC, GMT (any case) or Z ->
-# offset 00:00; a numeric offset (+02:00, -0500, +2; also after UTC / GMT: UTC+2) -> that offset
-# (beyond 14 hours: declined); another zone-like word - two to five capital letters (PST, CET, CEST,
-# BST) other than AND / OR - -> declined: the bridge does not guess what an abbreviation means, the
-# time-only wording is not parsed. A comma, "and", a period or the end stays fine (no qualifier: the
-# zone's local time). { Offset (a TimeSpan, or $null: none); Declined }.
+# (0.6.1, F06-5; F08-2) The zone qualifier right after a time-only clock ($Match: the TimeOnly match
+# in $Text; spaces or an opening parenthesis between - after a period that ends the sentence,
+# "9:43 PM.", nothing more is read; the period of "p.m." is the abbreviation's). The qualifier is
+# read as a WHOLE token (up to a space, a comma, a semicolon, a bracket, a quote, `!` or `?`; a
+# sentence-ending period stripped) and must be complete: UTC, GMT (any case) or Z alone -> offset
+# 00:00; UTC / GMT followed by a numeric offset (UTC+2, UTC+05:30, also UTC +02:00) or a bare one
+# (+02:00, +0200, +02, +2, -05:30) -> that offset. A token that STARTS a qualifier (UTC, GMT, Z, a
+# sign) but is not one of these - a dangling sign (UTC+), an incomplete minute (UTC+05:3), excess
+# digits (+02:000), letters after the sign (UTC+oops), Z with an offset, beyond 14 hours or minutes of
+# 60 and more (+15:00, +02:60) - DECLINES the wording: never a shorter prefix of it. A lone sign
+# between words (`21:43 - or upgrade`) is a dash, unless a number follows it (`21:43 + 2`: declined).
+# Another zone-like word - two to five capital letters (PST, CET, CEST, BST) other than AND / OR - ->
+# declined: the bridge does not guess what an abbreviation means, the time-only wording is not
+# parsed. A comma, "and", a period or the end stays fine (no qualifier: the zone's local time).
+# { Offset (a TimeSpan, or $null: none); Declined }.
 function Get-TimeOnlyZone {
     param([string]$Text, $Match)
     $r = [pscustomobject]@{ Offset = $null; Declined = $false }
     $v = [string]$Match.Value
     if ($v.EndsWith('.') -and $v -notmatch '(?i)[ap]\.\s?m\.$') { return $r }
     $rest = $Text.Substring($Match.Index + $Match.Length)
-    $z = $script:RetryAfterRe.TimeOnlyZone.Match($rest)
-    if ($z.Success -and ($z.Groups['utc'].Success -or $z.Groups['s'].Success)) {
-        if (-not $z.Groups['s'].Success) { $r.Offset = [TimeSpan]::Zero; return $r }
+    $lead = $script:RetryAfterRe.TimeOnlyZone.Match($rest)
+    $tok = $lead.Groups['tok'].Value
+    $after = $rest.Substring($lead.Length)
+    # a period that ends the sentence ends the qualifier too: nothing after it is read
+    $ended = $tok.EndsWith('.')
+    if ($ended) { $tok = $tok.TrimEnd('.') }
+    $word = $script:RetryAfterRe.TimeOnlyZoneWord.Match($tok)
+    if ($word.Success -or $tok.StartsWith('+') -or $tok.StartsWith('-')) {
+        $zoneWord = $(if ($word.Success) { $word.Value } else { '' })
+        $offText = $tok.Substring($zoneWord.Length)
+        if (-not $zoneWord -and ($offText -ceq '+' -or $offText -ceq '-')) {
+            # a lone sign: a dash between words - unless a number follows it (a spaced offset)
+            if (-not $ended -and $after -match '^[ \t]+[0-9]') { $r.Declined = $true }
+            return $r
+        }
+        if ($zoneWord -and -not $offText -and -not $ended) {
+            # the offset after spaces (UTC +02:00); a lone sign there is a dash unless a number follows
+            $next = $script:RetryAfterRe.TimeOnlyZoneNext.Match($after)
+            if ($next.Success) {
+                $t2 = $next.Groups['tok'].Value
+                if ($t2 -ceq '+' -or $t2 -ceq '-') {
+                    if ($after.Substring($next.Length) -match '^[ \t]+[0-9]') { $r.Declined = $true; return $r }
+                } else {
+                    $offText = $t2.TrimEnd('.')
+                }
+            }
+        }
+        # Z takes no offset
+        if ($zoneWord -ceq 'Z' -and $offText) { $r.Declined = $true; return $r }
+        if (-not $offText) { $r.Offset = [TimeSpan]::Zero; return $r }
+        $z = $script:RetryAfterRe.TimeOnlyOffset.Match($offText)
+        if (-not $z.Success) { $r.Declined = $true; return $r }
         $h = [int]$z.Groups['oh'].Value
         $mm = 0
         if ($z.Groups['om'].Success) { $mm = [int]$z.Groups['om'].Value }
@@ -12704,7 +12750,7 @@ function Complete-TelemetryNotSpooledFold {
 # run warns (the console, a detached run's status record). An event met by the forgetting marker is
 # dropped at once (no retry; the caller counts it after the write lock). { Why ('' when spooled or
 # telemetry off); Forgetting }. Never throws. (R24) -RatingMark yes|partly|no: the event is the
-# RATING event of $Entry (New-TelemetryRatingEvent - codex-findings.ps1 -Rate at the mark's commit,
+# RATING event of $Entry (New-TelemetryRatingEvent - codex-findings.ps1 -Rate right after the mark's commit,
 # codex-telemetry.ps1 -BackfillRatings with the mark's -RatedAt and -ConsultWhen), else the
 # consultation event. (0.6.1) -Judge: the rating's judge - the one saved in the mark (F06-1);
 # -RatingRev: the mark's rating_rev (F06-2); -RatedAt: the mark's `when`.
@@ -13662,15 +13708,21 @@ function Test-RatingMarkSame {
 # Writes `telemetry_sent` = $Sent into the mark of <task>/findings.json that is $Mark (the same
 # consultation, rating_rev and `when`, Test-RatingMarkSame) and has none yet - through the task's store
 # commit (the write lock, findings.json re-read under it). '' when written, else why not -
-# $script:RatingMarkReplacedWhy when the mark is gone (rated again meanwhile). For -Rate's event
-# spooled only by the retry after the locks.
+# $script:RatingMarkReplacedWhy when the mark is gone (rated again meanwhile). For -Rate's event:
+# (0.6.1, F08-1) the mark is committed BEFORE its event is spooled, so the field is always a second
+# store write - with -Commit the store commit -Rate still holds (the write lock not released between
+# the mark's commit, the spool and this write; that commit's fresh store holds the mark), without it a
+# new one (the retry after the locks).
 $script:RatingMarkReplacedWhy = 'the mark is no longer in findings.json (rated again meanwhile)'
 function Set-RatingTelemetrySent {
-    param([string]$TaskDir, [string]$Task, $Mark, [long]$Sent)
-    $commit = $null
+    param([string]$TaskDir, [string]$Task, $Mark, [long]$Sent, $Commit = $null)
+    $own = ($null -eq $Commit)
+    $commit = $Commit
     try {
-        $commit = Enter-StoreCommit -TaskDir $TaskDir -Task $Task -TimeoutSec (Get-WriteLockTimeout) -NoSessions
-        if (-not $commit.Acquired) { return $commit.Message }
+        if ($own) {
+            $commit = Enter-StoreCommit -TaskDir $TaskDir -Task $Task -TimeoutSec (Get-WriteLockTimeout) -NoSessions
+            if (-not $commit.Acquired) { return $commit.Message }
+        }
         foreach ($m in @(Get-PropertyValue $commit.Findings 'ratings' @())) {
             if ($null -eq $m -or $null -ne (Get-PropertyValue $m 'telemetry_sent' $null)) { continue }
             if (Test-RatingMarkSame $m $Mark) {
@@ -13680,7 +13732,7 @@ function Set-RatingTelemetrySent {
             }
         }
         return $script:RatingMarkReplacedWhy
-    } catch { return (ConvertTo-OneLine $_.Exception.Message) } finally { $null = Exit-StoreCommit -Commit $commit }
+    } catch { return (ConvertTo-OneLine $_.Exception.Message) } finally { if ($own) { $null = Exit-StoreCommit -Commit $commit } }
 }
 
 # codex-telemetry.ps1 -BackfillRatings [-DryRun]: every mark of every task of $CollabRoot

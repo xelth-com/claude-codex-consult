@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The bridge half of the public usefulness table (`.collab/telemetry-usefulness-2026-10-08`, decisions U1-U7; the
 intake and the page at xelth.com/C3/ already read both new keys) and one parse fix, with the six findings of the
-0.6.1 diff review (F06-1..F06-6, `.collab/telemetry-usefulness-2026-10-08/handoffs/06-...`) fixed before the tag.
+0.6.1 diff review (F06-1..F06-6, `.collab/telemetry-usefulness-2026-10-08/handoffs/06-...`) and the two of its
+second round (F08-1, F08-2, `handoffs/08-...`) fixed before the tag.
 Compatible with 0.6.0 rosters, ledgers and `findings.json`: an entry without `consult_ref` sends no such key, a mark
 without `rating_rev` or `judge` (rated before 0.6.1) is sent without a `rating_rev` and with the consultation's
 coordinator as its judge.
@@ -46,9 +47,20 @@ coordinator as its judge.
   `consult_ref`) the highest `rating_rev` wins, a missing one counts as 0, a tie falls to the latest `created`. The
   retry's late write of `telemetry_sent` into a mark that was rated again meanwhile now says so instead of warning
   that a backfill would send it again (`Test-RatingMarkSame` compares `rating_rev` too). Test hook (test mode only):
-  `CODEX_CONSULT_TEST_RATE_RETRY_GATE=<path>` holds that retry until the file exists. README (the mark, "Telemetry":
-  the rating event, the replacement rule, the backfill, the test hooks), `codex-findings.ps1` and
-  `codex-telemetry.ps1` help.
+  `CODEX_CONSULT_TEST_RATE_RETRY_GATE=<path>` holds that retry until the file exists. (F08-1, which supersedes the
+  rest of F06-2) **The mark is committed, then its event is spooled**: `-Rate` writes the mark - its judge, `when`
+  and `rating_rev` - with `Complete-StoreCommit` FIRST and spools its event only after that (still inside the write
+  lock, at most 1 s); spooled, a second store write under the same lock gives the mark `telemetry_sent`
+  (`Set-RatingTelemetrySent -Commit`). Before, the event was spooled BEFORE the mark's commit: a store write that
+  failed, or a process that died between the two, left a published `rating_rev` the store did not hold, and the next
+  rating allocated that revision again - two different marks with one revision, the intake's choice between them up
+  to the delivery order. Now an event is never spooled for an uncommitted mark (a failed store write throws before
+  the spool: nothing is sent), and a process that dies between the commit and the spool leaves a committed mark
+  without `telemetry_sent` that `-BackfillRatings` sends with the mark's own `rating_rev`, judge and `when` (a
+  re-rating before that backfill replaces it: its revision is never published); the next rating allocates above it.
+  Test hook (test mode only): `CODEX_CONSULT_TEST_RATE_ABORT_AFTER_COMMIT=1` ends `-Rate` (exit 87) right after the
+  commit, before the spool. README (the mark, "Telemetry": the rating event, the replacement rule, the backfill, the
+  test hooks), `codex-findings.ps1` and `codex-telemetry.ps1` help.
 - **The rating event's `judge`** (0.6.1; U3, F02-3, F02-6). The rating event's details gain
   `judge: {provider, model, source}`, resolved AT RATING TIME: the rating actor - `CODEX_CONSULT_COORDINATOR` of the
   process that runs `-Rate`, parsed exactly as the bridge parses it for the coordinator warning
@@ -78,7 +90,13 @@ coordinator as its judge.
   backfilled under C without the roster: the event's judge is B's `rating_actor` from the mark) and RC2 (A's retry
   held at the test gate while B re-rates: A's late event keeps `rating_rev` 1 and A's `when`, the replacement rule
   keeps B in both delivery orders); DOCS. The mark shape with `rating_rev` and `judge` in `harness-roster`,
-  `harness-companions` and `harness-engines`.
+  `harness-companions` and `harness-engines`. (F08-1) `harness-telemetry` BACKFILL - RC1 of handoff 08: committed
+  marks with `rating_rev` 4; A ended by the abort hook after its commit (rev 5 committed without `telemetry_sent`,
+  no spool line), `-BackfillRatings` sends rev 5 with A's judge and time, B commits and spools rev 6 (the two
+  events distinct, the replacement rule keeps B in both orders); on a second consultation B re-rates before any
+  backfill - rev 6 replaces the unpublished rev 5, which is never sent; a read-only `findings.json` - the rating
+  fails and spools nothing, the next one is rev 7. The held-spool cases (RC2, the retry after the locks) hold the
+  spool until the task lock is free (`Wait-LockFree`): the mark is committed before the first attempt now.
 
 ### Fixed
 
@@ -101,11 +119,19 @@ coordinator as its judge.
   (`Get-TimeOnlyZone`): `UTC`, `GMT` or `Z` - that time in UTC (`resets at 21:43 UTC` on a `+02:00` machine is
   `23:43+02:00`, not `21:43+02:00`); a numeric offset (`+02:00`, `-0500`, `+2`, `UTC+2`) - that time at that offset;
   any other zone-like word (two to five capital letters: `PST`, `CET`, `PDT`, `BST`) - the wording is NOT parsed and
-  the default hold applies; a trailing comma, `and`, a sentence-ending period or the end stays fine. README
-  (`retry_after`); `harness-roster` UNIT (seven samples; F06-3..F06-5: the 30-second sample that blessed the rollover
-  replaced, the allowance, the repeated hour, the spring gap, the qualifiers - the zone by id, `W. Europe Standard
-  Time`) and TIMEONLY (the real run, the rollover, the hold ending at the parsed time; F06-3 a reset parsed 30 s late
-  ends the hold at once). The TECH_DEBT entry is removed.
+  the default hold applies; a trailing comma, `and`, a sentence-ending period or the end stays fine. (F08-2, which
+  supersedes the rest of F06-5) The qualifier is read as a WHOLE token and validated whole: `UTC`, `GMT` or `Z` alone,
+  `UTC` / `GMT` with a complete numeric offset (`UTC+2`, `UTC+05:30`, also `UTC +02:00`), or a bare complete one
+  (`+02:00`, `+0200`, `+02`, `+2`, `-05:30`); a token that starts a qualifier but is malformed - a dangling sign
+  (`UTC+`), an incomplete minute (`UTC+05:3`), excess digits (`+02:000`, `+020`), letters after the sign
+  (`UTC+oops`), `Z` with an offset, beyond 14 hours or minutes of 60 and more (`+15:00`, `+02:60`) - declines the
+  wording (the default hold), never a shorter prefix of it (before: `UTC+05:3` was read as `UTC+05`, `+02:000` as
+  `+02`, `UTC+oops` as UTC); a lone `-` between words stays a dash, a spaced sign before a number (`21:43 + 2`)
+  declines. README (`retry_after`); `harness-roster` UNIT (seven samples; F06-3..F06-5: the 30-second sample that
+  blessed the rollover replaced, the allowance, the repeated hour, the spring gap, the qualifiers - the zone by id,
+  `W. Europe Standard Time`; F08-2: 17 more - the six malformed qualifiers of handoff 08 and three more declined,
+  eight supported forms) and TIMEONLY (the real run, the rollover, the hold ending at the parsed time; F06-3 a reset
+  parsed 30 s late ends the hold at once). The TECH_DEBT entry is removed.
 
 ## [0.6.0] - 2026-10-08
 

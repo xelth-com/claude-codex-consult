@@ -256,6 +256,25 @@ if (Want 'UNIT') {
         @{ Name = 'F06-5 a trailing comma, "and", a period and the end stay fine (local)'; Msg = 'try again at 21:43, or upgrade'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
         @{ Name = 'F06-5 "... 21:43 and ..." -> local'; Msg = 'try again at 21:43 and retry'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
         @{ Name = 'F06-5 "9:43 PM. API keys ..." - the period ends the sentence -> local'; Msg = 'try again at 9:43 PM. API keys are not affected.'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        # (0.6.1, F08-2) the qualifier token is validated WHOLE: a malformed one declines the wording (null),
+        # never a shorter prefix of it; the supported forms keep their results
+        @{ Name = 'F08-2 "21:43 UTC+05:3" (an incomplete minute) -> null, not UTC+05'; Msg = 'resets at 21:43 UTC+05:3'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F08-2 "21:43 +02:000" (excess digits) -> null, not +02'; Msg = 'resets at 21:43 +02:000'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F08-2 "21:43 UTC+oops" (letters after the sign) -> null, not UTC'; Msg = 'resets at 21:43 UTC+oops'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F08-2 "21:43 UTC+" (a dangling sign) -> null'; Msg = 'try again at 21:43 UTC+'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F08-2 "21:43 +15:00" (beyond 14 hours) -> null'; Msg = 'until 21:43 +15:00'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F08-2 "21:43 +02:60" (minutes of 60) -> null'; Msg = 'until 21:43 +02:60'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F08-2 "21:43 +020" (three digits) -> null'; Msg = 'until 21:43 +020'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F08-2 "21:43 Z+02" (Z takes no offset) -> null'; Msg = 'try again at 21:43 Z+02'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F08-2 "21:43 + 2" (a spaced sign before a number) -> null'; Msg = 'try again at 21:43 + 2'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '' },
+        @{ Name = 'F08-2 "21:43 UTC+05:30." (a complete offset, the sentence''s period) -> 16:13Z next day'; Msg = 'try again at 21:43 UTC+05:30.'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-09T18:13:00+02:00' },
+        @{ Name = 'F08-2 "21:43 +0200" -> that offset'; Msg = 'until 21:43 +0200'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        @{ Name = 'F08-2 "21:43 +02" -> that offset'; Msg = 'until 21:43 +02'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        @{ Name = 'F08-2 "21:43 -05:30" -> 03:13Z next day (05:13+02:00)'; Msg = 'until 21:43 -05:30'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-09T05:13:00+02:00' },
+        @{ Name = 'F08-2 "21:43 UTC +02:00" (the offset after a space) -> that offset'; Msg = 'resets at 21:43 UTC +02:00'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        @{ Name = 'F08-2 "21:43 (GMT+2)" -> that offset'; Msg = 'resets at 21:43 (GMT+2)'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
+        @{ Name = 'F08-2 "21:43 UTC!" -> 21:43Z'; Msg = 'resets at 21:43 UTC!'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T23:43:00+02:00' },
+        @{ Name = 'F08-2 "21:43 - or upgrade" (a dash, no qualifier) -> local'; Msg = 'try again at 21:43 - or upgrade'; Ref = [DateTimeOffset]::Parse('2026-10-08T21:00:00+02:00', $inv); Want = '2026-10-08T21:43:00+02:00' },
         @{ Name = 'time only, 12:05 AM after 23:00 -> tomorrow 00:05'; Msg = 'Limit reached; resets at 12:05 AM.'; Ref = [DateTimeOffset]::Parse('2026-10-07T23:00:00+02:00', $inv); Want = '2026-10-08T00:05:00+02:00' },
         @{ Name = 'time only, tomorrow across the DST change -> the offset then (+01:00)'; Msg = 'try again at 3:30 AM'; Ref = [DateTimeOffset]::Parse('2026-10-24T23:00:00+02:00', $inv); Want = '2026-10-25T03:30:00+01:00' },
         @{ Name = 'time only, read time (-ReferenceOffset): the reference''s day and offset, rolled over'; Msg = 'try again at 9:43 PM.'; Ref = [DateTimeOffset]::Parse('2026-10-07T22:00:00-05:00', $inv); Want = '2026-10-08T21:43:00-05:00'; RefOffset = $true },
@@ -268,7 +287,7 @@ if (Want 'UNIT') {
         $gotText = if ($null -eq $got) { '' } else { Iso $got }
         if ($gotText -ne $c.Want) { $bad += "$($c.Name): got '$gotText', want '$($c.Want)'" }
     }
-    Check 'UNIT' "Get-RetryAfter: $($cases.Count) samples in zone $($berlin.Id) (Codex wording, curly apostrophe, DST change/gap/overlap, read-time reference offset, missing year, ISO, durations, nothing; 0.6.1: a time only - today, tomorrow once past, across DST, at read time, not a clock time; F06-3 the 5-minute allowance, F06-4 the repeated hour and the spring gap, F06-5 the zone qualifiers)" ($bad.Count -eq 0) ($bad -join ' | ')
+    Check 'UNIT' "Get-RetryAfter: $($cases.Count) samples in zone $($berlin.Id) (Codex wording, curly apostrophe, DST change/gap/overlap, read-time reference offset, missing year, ISO, durations, nothing; 0.6.1: a time only - today, tomorrow once past, across DST, at read time, not a clock time; F06-3 the 5-minute allowance, F06-4 the repeated hour and the spring gap, F06-5 the zone qualifiers, F08-2 the qualifier validated whole - malformed ones null)" ($bad.Count -eq 0) ($bad -join ' | ')
 
     $pf = New-ProviderFailure -Texts @($codexLimit)
     $pfWall = New-Object DateTime(2026, 9, 28, 20, 35, 0)
