@@ -117,3 +117,9 @@ seven-wave task with three consultations. Ordered by the damage they did.
   revision is current. Duplicates carry one committed revision, judge and time, so the intake's replacement rule
   collapses them (no ordering harm). Fix later: recheck `telemetry_sent` under the store lock before the retry
   publishes, and a separate wording for an already-sent mark; delivery stays at-least-once by design.
+
+- **T11 - A single-run `-Require` evaluates plan quota on the filtered roster.** (found by Astra reviewing the
+  Rust port, parity-0.6.1 handoff 11 F11-3, 2026-10-09) The required-reviewer selection keeps only the required
+  positions, so a usage limit recorded on a NON-required sibling route of the same `plan` cannot mark the
+  required entry out: `-Require #2` reports #2 available although its plan hit a limit on #3. Fix (0.6.2): keep the
+  full roster for the plan and identity resolution and filter only whose availability result is required.
