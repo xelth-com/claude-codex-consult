@@ -130,3 +130,13 @@ seven-wave task with three consultations. Ordered by the damage they did.
   already counted as outcome `quota`). Fix (0.6.2): refuse `-Rate` on an entry whose outcome is not a usable or
   invalid reply (`there is no reply to rate: consult n=<n> failed (<class>)`), unless `-Force` with a note; the
   same rule for the C3 port.
+
+- **T13 - The claude engine endpoint mode checks neither the launcher nor the transcript location.** (found by the
+  C3 parity review 2026-10-09, F25-1/F25-2 of parity-0.6.1 handoff 25) `Get-ClaudeSignIn` in `auth: endpoint` mode
+  only finds the launcher, parses the endpoint and checks the key variable; `claude auth status` never runs on that
+  route, so a non-runnable launcher passes the preflight and fails at the turn, and `Get-ClaudeLaunchProblem` reads
+  `projectsDirectory` only after `auth status`, so the guard against transcripts landing inside the reviewed
+  repository never applies in endpoint mode. Fix (0.6.2, as the C3 port did): a cached `claude --version` probe
+  without the token for the launcher; derive the projects directory as Claude Code does (`<CLAUDE_CONFIG_DIR or
+  ~/.claude>/projects`, links followed) in every auth mode. harness-claude ENDPOINT checks require that no `auth`
+  command starts on that route - the probe is `--version`, not `auth status`.
