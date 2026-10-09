@@ -123,3 +123,10 @@ seven-wave task with three consultations. Ordered by the damage they did.
   positions, so a usage limit recorded on a NON-required sibling route of the same `plan` cannot mark the
   required entry out: `-Require #2` reports #2 available although its plan hit a limit on #3. Fix (0.6.2): keep the
   full roster for the plan and identity resolution and filter only whose availability result is required.
+
+- **T12 - `-Rate` accepts a ledger entry that has no reply.** (2026-10-09, found by the coordinator rating the wrong
+  n) A consultation that failed before any reply (a usage limit, a transport failure) can be rated `yes`/`partly`/`no`
+  like a usable one, and the rating event goes to the intake, distorting the usefulness table (a quota failure is
+  already counted as outcome `quota`). Fix (0.6.2): refuse `-Rate` on an entry whose outcome is not a usable or
+  invalid reply (`there is no reply to rate: consult n=<n> failed (<class>)`), unless `-Force` with a note; the
+  same rule for the C3 port.
