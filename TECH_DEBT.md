@@ -140,3 +140,12 @@ seven-wave task with three consultations. Ordered by the damage they did.
   without the token for the launcher; derive the projects directory as Claude Code does (`<CLAUDE_CONFIG_DIR or
   ~/.claude>/projects`, links followed) in every auth mode. harness-claude ENDPOINT checks require that no `auth`
   command starts on that route - the probe is `--version`, not `auth status`.
+
+- **T14 - The machine-health journal replays applied records and keeps no applied state.** (found by the C3 parity
+  review 2026-10-09, F22-1/F29-1 of parity-0.6.1) After a failed `.bad` archival the retained journal is replayed on
+  the next update with dedup by the endpoint keys only; the 500-record cap can evict a key, after which the retained
+  record is applied AGAIN (verified against the real `Update-MachineHealth` 0.6.1). The in-place tail rewrite can also
+  tear the journal if a crash interrupts it. Fix (0.6.2): the C3 rule - append a marked copy of each record
+  (`applying:<sha256 of the health file>` before the write, `applied:true` after) and never apply a record whose
+  lines carry such a mark (an `applying` naming other bytes than the file has now counts as applied); C3 already
+  writes and honours these marks in the shared journal, and the plugin parser tolerates the extra fields.
