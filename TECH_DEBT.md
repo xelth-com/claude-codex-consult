@@ -149,3 +149,21 @@ seven-wave task with three consultations. Ordered by the damage they did.
   (`applying:<sha256 of the health file>` before the write, `applied:true` after) and never apply a record whose
   lines carry such a mark (an `applying` naming other bytes than the file has now counts as applied); C3 already
   writes and honours these marks in the shared journal, and the plugin parser tolerates the extra fields.
+
+- **T15 - The bridge knows nothing of a subscription's quota windows; one run can spend a whole 5-hour window.**
+  (2026-10-13, the C3 0.2.0 acceptance n=20) Codex CLI 0.155 writes `rate_limits` after every turn into the rollout
+  (`primary` = the 5-hour window, `secondary` = the weekly one: `used_percent`, `window_minutes`, `resets_at`) and the
+  `total_token_usage`. The bridge reads neither: the only quota knowledge it has is the text of a refusal AFTER the
+  window is gone. On a ChatGPT Plus subscription one acceptance run went 0 -> 96 % of the 5-hour window in 186 s - a
+  forked 1.2 MB thread replayed on every tool call (~700k tokens of context x 20 calls = 13.9M input, 12.1M of them
+  cached - cached tokens COUNT against the window), plus three Codex sub-agents (`features.multi_agent`, on by
+  default) replaying 1.1-1.4M each. A resume after the window re-reads it all with a cold cache: the same spend,
+  no progress. Fix (0.6.2): (a) the health journal records `used_percent`/`resets_at` of both windows from the
+  rollout after each run and `codex-providers` shows them (`5h 96 % until 18:32; weekly 15 % until Oct 20`); (b)
+  the preflight refuses a run the remaining share cannot carry - a `-Mode fork`/`resume` whose parent rollout is
+  bigger than a threshold (its bytes/4 x expected calls) says so and suggests `-Mode new`; (c) `-CodexConfig
+  features.multi_agent=false` by default for reviews (a reviewer's sub-agents multiply the replay), opt-in per run;
+  (d) `-Budget <percent>`: a watcher reads the rollout's `used_percent` during the run and stops the turn at the
+  budget, keeping the partial; (e) the review prompt carries a reading budget (no whole-file prints, hunks per path,
+  the documents first) and asks for the verdict even on an incomplete read; (f) the ledger records the run's tokens
+  (input, cached, output) so the plan's window can be calibrated from history. The same for the C3 port.
