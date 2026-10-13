@@ -19,9 +19,13 @@ if ($env:FAKE_CODEX_LOG) {
 }
 if ($env:FAKE_CODEX_PIDFILE) { [IO.File]::WriteAllText($env:FAKE_CODEX_PIDFILE, "$PID") }
 $tid = [guid]::NewGuid().ToString()
+# (wave 30) FAKE_CODEX_QUOTA=1: a UUIDv7 thread id and its rollout with rate_limits and token totals
+# (fake-rollout.ps1 - its FAKE_CODEX_QUOTA_* switches are listed there)
+if ($env:FAKE_CODEX_QUOTA -eq '1') { . (Join-Path $PSScriptRoot 'fake-rollout.ps1'); $tid = New-FakeV7Id }
 [Console]::Out.Write("{""type"":""thread.started"",""thread_id"":""$tid""}`n")
 [Console]::Out.Write("{""type"":""turn.started""}`n")
 [Console]::Out.Flush()
+if ($env:FAKE_CODEX_QUOTA -eq '1') { Write-FakeRollout -Thread $tid -Raw $raw }
 if ($env:FAKE_CODEX_TOUCH) { foreach ($t in $env:FAKE_CODEX_TOUCH.Split(';')) { if ($t) { Add-Content -LiteralPath $t -Value 'changed during review' } } }
 if ($env:FAKE_CODEX_SLEEP) { Start-Sleep -Seconds ([int]$env:FAKE_CODEX_SLEEP) }
 if ($env:FAKE_CODEX_FAIL) {

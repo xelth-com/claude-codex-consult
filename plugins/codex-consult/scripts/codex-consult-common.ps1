@@ -6381,7 +6381,7 @@ function Test-UsableOutcome {
 # burst) exactly as after a failed quota turn - and a later usable reply clears it as usual.
 function Get-EndpointHealth {
     param([object[]]$Consults, [string]$Fingerprint, [datetime]$UtcNow = [datetime]::UtcNow, [switch]$NoMachine, [string[]]$Fingerprints = @())
-    $h = [pscustomobject]@{ Auth = $null; Quota = $null; QuotaKnown = $false; LastLimit = $null; LastFailure = $null; RecentUsable = $null }
+    $h = [pscustomobject]@{ Auth = $null; Quota = $null; QuotaKnown = $false; LastLimit = $null; LastFailure = $null; RecentUsable = $null; Window = $null; WindowText = ''; WindowLow = '' }
     $fpSet = @(@($Fingerprints) + @($Fingerprint) | Where-Object { $_ } | Select-Object -Unique)
     if ($fpSet.Count -eq 0) { return $h }
     $nowOffset = New-Object DateTimeOffset ([datetime]::SpecifyKind($UtcNow, [DateTimeKind]::Utc))
@@ -6521,7 +6521,562 @@ function Get-EndpointHealth {
     if (-not $h.LastLimit -and $h.Quota) { $h.LastLimit = $h.Quota }
     if (-not $h.LastFailure -and $h.Quota) { $h.LastFailure = $h.Quota }
     $h.RecentUsable = @($sorted | Where-Object { $_.Ok -and $_.Age -le 60 }) | Select-Object -First 1
+    # (wave 30) the newest observed quota windows (Get-EndpointWindow: the ledgers' and the machine
+    # file's `quota`, the codex home's newest rollout for the built-in openai endpoint): shown
+    # (WindowText, WindowLow), and a window at QuotaBlockPercent or more whose reset lies ahead keeps
+    # the endpoint out until that reset - a Quota with a known reset, like a usage limit that named
+    # its reset time (every caller: the walk, -Require, the panel, the listing, -Short)
+    $h.Window = Get-EndpointWindow -Consults $allConsults -FpSet $fpSet -NoMachine:$NoMachine
+    if ($h.Window) {
+        $h.WindowText = Format-QuotaWindows -Quota $h.Window.Quota -UtcNow $UtcNow
+        $h.WindowLow = Format-QuotaLowWarning -Window $h.Window -UtcNow $UtcNow
+        $wrec = New-QuotaWindowRecord -Window $h.Window -UtcNow $UtcNow
+        if ($wrec -and (-not $h.Quota -or $h.Quota.Until.UtcDateTime -lt $wrec.Until.UtcDateTime)) {
+            $h.Quota = $wrec
+            $h.QuotaKnown = $true
+            if (-not $h.LastLimit) { $h.LastLimit = $wrec }
+            if (-not $h.LastFailure) { $h.LastFailure = $wrec }
+        }
+    }
     return $h
+}
+
+# ----------------------------------------------------------------------------- quota windows (wave 30, TECH_DEBT T15)
+#
+# Codex CLI (0.155) writes a token_count event into a thread's rollout,
+# <codex home>/sessions/<yyyy>/<mm>/<dd>/rollout-<timestamp>-<thread id>.jsonl, after every model
+# request:
+#   {"timestamp":"...","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":
+#    {"input_tokens":..,"cached_input_tokens":..,"output_tokens":..},"last_token_usage":{...},
+#    "model_context_window":258400},"rate_limits":{"limit_id":"codex","primary":{"used_percent":96.0,
+#    "window_minutes":300,"resets_at":<unix s>},"secondary":{...},...}}}
+# primary = the 5-hour window, secondary = the weekly one of a ChatGPT subscription (null on other
+# plans and in older rollouts). Every request writes TWO such lines: the codex one, then one with
+# "limit_id":"premium", null windows and the same totals - the reader takes the LAST line that names a
+# window, and counts a call only where the total changed. The totals are CUMULATIVE over the thread's
+# life and a fork INHERITS its parent's (measured: a fork's first event 12.46M input over its
+# parent's last 12.39M): the tokens of ONE run are its last total minus the last total before it
+# started (the parent's rollout for a fork, the same rollout for a resume) - which equals the sum of
+# its per-call inputs. Sub-agent threads (Codex feature multi_agent) are rollouts of their own whose
+# first line (session_meta) names "parent_thread_id":"<parent>"; their totals start at zero.
+# A window at or above $script:QuotaBlockPercent whose reset lies ahead keeps the endpoint out until
+# that reset (Get-EndpointHealth, like a usage limit with a known reset time); at or above
+# $script:QuotaWarnPercent the available verdict says "low quota: ...". A reset in the past means
+# the window was reset: shown, never judged.
+$script:QuotaBlockPercent = 98
+$script:QuotaWarnPercent = 80
+$script:QuotaAccountCache = @{}
+$script:RolloutUuidRe = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+
+# A number of a flat JSON object text ('"input_tokens":123'), [long] or $null.
+function Get-RolloutNumber {
+    param([string]$Text, [string]$Key)
+    if ($Text -match ('"' + [regex]::Escape($Key) + '"\s*:\s*([0-9]+)')) { return [long]$Matches[1] }
+    return $null
+}
+
+# One window of a rate_limits object ('{"used_percent":96.0,"window_minutes":300,"resets_at":
+# 1791909136}' or 'null') as the ledger records it: { used_percent; window_minutes; resets_at (ISO
+# with the local offset, or $null) } - $null for 'null' or a text without used_percent.
+function ConvertFrom-RolloutWindow {
+    param([string]$Text)
+    if (-not $Text -or $Text -notmatch '"used_percent"\s*:\s*(-?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)') { return $null }
+    $used = 0.0
+    [void][double]::TryParse($Matches[1], [System.Globalization.NumberStyles]::Float, $script:Invariant, [ref]$used)
+    $minutes = $null
+    if ($Text -match '"window_minutes"\s*:\s*([0-9]+)') { $minutes = [int]$Matches[1] }
+    $resets = $null
+    if ($Text -match '"resets_at"\s*:\s*([0-9]+)') {
+        try { $resets = Format-OffsetIso ([DateTimeOffset]::FromUnixTimeSeconds([long]$Matches[1]).ToLocalTime()) } catch { $resets = $null }
+    }
+    return [pscustomobject]@{ used_percent = $used; window_minutes = $minutes; resets_at = $resets }
+}
+
+# The text of a rollout another process may still be appending to: the whole file (at most
+# $MaxBytes - its end), or its last $TailBytes; a cut start drops the first, partial line. '' when
+# unreadable.
+function Read-RolloutText {
+    param([string]$Path, [long]$TailBytes = 0, [long]$MaxBytes = 67108864)
+    try {
+        $fs = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+        try {
+            $len = [long]$fs.Length
+            $take = $len
+            if ($TailBytes -gt 0 -and $take -gt $TailBytes) { $take = $TailBytes }
+            if ($take -gt $MaxBytes) { $take = $MaxBytes }
+            $start = $len - $take
+            $fs.Position = $start
+            $buf = New-Object byte[] ([int]$take)
+            $got = 0
+            while ($got -lt $take) { $n = $fs.Read($buf, $got, [int]($take - $got)); if ($n -le 0) { break }; $got += $n }
+            $text = $script:Utf8NoBom.GetString($buf, 0, $got)
+            if ($start -gt 0) { $cut = $text.IndexOf("`n"); $text = $(if ($cut -ge 0) { $text.Substring($cut + 1) } else { '' }) }
+            return $text
+        } finally { $fs.Dispose() }
+    } catch { return '' }
+}
+
+# The first line of a rollout (its session_meta) - at most $MaxBytes of it. '' when unreadable.
+function Read-RolloutHead {
+    param([string]$Path, [int]$MaxBytes = 65536)
+    try {
+        $fs = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+        try {
+            $take = [int][Math]::Min([long]$MaxBytes, [long]$fs.Length)
+            $buf = New-Object byte[] $take
+            $got = 0
+            while ($got -lt $take) { $n = $fs.Read($buf, $got, $take - $got); if ($n -le 0) { break }; $got += $n }
+            $nl = $(if ($got -gt 0) { [Array]::IndexOf($buf, [byte]10, 0, $got) } else { -1 })
+            return $script:Utf8NoBom.GetString($buf, 0, $(if ($nl -ge 0) { $nl } else { $got }))
+        } finally { $fs.Dispose() }
+    } catch { return '' }
+}
+
+# Every token_count event of a rollout text, in file order: { At (DateTimeOffset or $null); Total ({
+# input; cached; output } or $null); TotalText (the raw total - a new call changes it); LastInput
+# (the request's own input, or $null); ContextWindow ([long] or $null); HasLimits; LimitId; Primary;
+# Secondary (ConvertFrom-RolloutWindow) }.
+function Get-RolloutTokenEvents {
+    param([string]$Text)
+    $out = New-Object System.Collections.Generic.List[object]
+    if (-not $Text) { return , ([object[]]@()) }
+    foreach ($line in $Text.Split("`n")) {
+        if ($line.IndexOf('"token_count"', [StringComparison]::Ordinal) -lt 0) { continue }
+        $at = $null
+        if ($line -match '^\s*\{\s*"timestamp"\s*:\s*"([^"]+)"') {
+            $dto = [DateTimeOffset]::MinValue
+            if ([DateTimeOffset]::TryParse($Matches[1], $script:Invariant, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$dto)) { $at = $dto }
+        }
+        $total = $null
+        $totalText = ''
+        if ($line -match '"total_token_usage"\s*:\s*\{([^{}]*)\}') {
+            $totalText = $Matches[1]
+            $total = [pscustomobject]@{ input = (Get-RolloutNumber $totalText 'input_tokens'); cached = (Get-RolloutNumber $totalText 'cached_input_tokens'); output = (Get-RolloutNumber $totalText 'output_tokens') }
+        }
+        $lastInput = $null
+        if ($line -match '"last_token_usage"\s*:\s*\{([^{}]*)\}') { $lastInput = Get-RolloutNumber $Matches[1] 'input_tokens' }
+        $ctx = Get-RolloutNumber $line 'model_context_window'
+        $hasLimits = $false
+        $limitId = ''
+        $primary = $null
+        $secondary = $null
+        $ri = $line.IndexOf('"rate_limits"', [StringComparison]::Ordinal)
+        if ($ri -ge 0) {
+            $rl = $line.Substring($ri)
+            if ($rl -notmatch '^"rate_limits"\s*:\s*null') {
+                $hasLimits = $true
+                if ($rl -match '"limit_id"\s*:\s*"([^"]*)"') { $limitId = $Matches[1] }
+                if ($rl -match '"primary"\s*:\s*(\{[^{}]*\})') { $primary = ConvertFrom-RolloutWindow $Matches[1] }
+                if ($rl -match '"secondary"\s*:\s*(\{[^{}]*\})') { $secondary = ConvertFrom-RolloutWindow $Matches[1] }
+            }
+        }
+        $out.Add([pscustomobject]@{ At = $at; Total = $total; TotalText = $totalText; LastInput = $lastInput; ContextWindow = $ctx; HasLimits = $hasLimits; LimitId = $limitId; Primary = $primary; Secondary = $secondary })
+    }
+    return , ([object[]]$out.ToArray())
+}
+
+# What one rollout says: { Found; Path; Bytes; Window ({ Primary; Secondary; At; LimitId } of the LAST
+# token_count that names a window, else of the last one that carries rate_limits; $null when none);
+# Total (the last running total, or $null); Baseline (the last total before $Before; $null when none
+# or without $Before); Calls (the token_count events at or after $Before - all without it - whose
+# total differs from the event before: one per model request); MaxInput (the largest per-call input
+# among them); ContextWindow (the last model_context_window) }. -TailBytes: only the end of the
+# file (the budget watch; Baseline and Calls then cover only that end).
+function Get-RolloutUsage {
+    param([string]$Path, $Before = $null, [long]$TailBytes = 0)
+    $r = [pscustomobject]@{ Found = $false; Path = $Path; Bytes = [long]0; Window = $null; Total = $null; Baseline = $null; Calls = 0; MaxInput = $null; ContextWindow = $null }
+    if (-not $Path -or -not [IO.File]::Exists($Path)) { return $r }
+    $r.Found = $true
+    try { $r.Bytes = [long](New-Object IO.FileInfo($Path)).Length } catch { }
+    $beforeAt = $null
+    if ($null -ne $Before) { try { $beforeAt = [DateTimeOffset]$Before } catch { $beforeAt = $null } }
+    $prevTotal = ''
+    $lastLimits = $null
+    foreach ($ev in (Get-RolloutTokenEvents -Text (Read-RolloutText -Path $Path -TailBytes $TailBytes))) {
+        $inRun = ($null -eq $beforeAt -or ($null -ne $ev.At -and $ev.At -ge $beforeAt))
+        if ($null -ne $ev.Total) {
+            $r.Total = $ev.Total
+            if ($null -ne $beforeAt -and $null -ne $ev.At -and $ev.At -lt $beforeAt) { $r.Baseline = $ev.Total }
+            if ($inRun -and $ev.TotalText -ne $prevTotal) {
+                $r.Calls++
+                if ($null -ne $ev.LastInput -and ($null -eq $r.MaxInput -or $ev.LastInput -gt $r.MaxInput)) { $r.MaxInput = $ev.LastInput }
+            }
+            $prevTotal = $ev.TotalText
+        }
+        if ($null -ne $ev.ContextWindow) { $r.ContextWindow = $ev.ContextWindow }
+        if ($ev.HasLimits) {
+            $w = [pscustomobject]@{ Primary = $ev.Primary; Secondary = $ev.Secondary; At = $ev.At; LimitId = $ev.LimitId }
+            $lastLimits = $w
+            if ($null -ne $ev.Primary -or $null -ne $ev.Secondary) { $r.Window = $w }
+        }
+    }
+    if ($null -eq $r.Window) { $r.Window = $lastLimits }
+    return $r
+}
+
+# The creation time of a UUIDv7 (a Codex thread id): its first 48 bits, unix milliseconds. $null for
+# another version.
+function Get-UuidV7Time {
+    param([string]$Id)
+    if ($Id -notmatch '^([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-7[0-9a-fA-F]{3}-') { return $null }
+    try { return [DateTimeOffset]::FromUnixTimeMilliseconds([Convert]::ToInt64($Matches[1] + $Matches[2], 16)) } catch { return $null }
+}
+
+# (wave 30) The rollout of a Codex thread (CODEX_HOME aware): the newest
+# <codex home>/sessions/**/rollout-*-<id>.jsonl, '' when there is none. A UUIDv7 id carries its
+# creation time: that local day and the days around it are looked at first, then the whole tree.
+function Get-CodexRolloutPath {
+    param([string]$ThreadId, [string]$CodexHome = '')
+    if ($ThreadId -notmatch ('^' + $script:RolloutUuidRe + '$')) { return '' }
+    if (-not $CodexHome) { $CodexHome = Get-CodexHome }
+    if (-not $CodexHome) { return '' }
+    $root = Join-Path $CodexHome 'sessions'
+    if (-not [IO.Directory]::Exists($root)) { return '' }
+    $pattern = "rollout-*-$ThreadId.jsonl"
+    $found = @()
+    $created = Get-UuidV7Time $ThreadId
+    if ($null -ne $created) {
+        $day = $created.ToLocalTime().DateTime
+        foreach ($d in (Get-LocalDayDirs -Root $root -StartedAt $day.AddDays(-1) -Now $day.AddDays(1))) {
+            if ([IO.Directory]::Exists($d)) { $found += @(Get-ChildItem -LiteralPath $d -Filter $pattern -File -ErrorAction SilentlyContinue) }
+        }
+    }
+    if ($found.Count -eq 0) { $found = @(Get-ChildItem -LiteralPath $root -Filter $pattern -File -Recurse -ErrorAction SilentlyContinue) }
+    if ($found.Count -eq 0) { return '' }
+    return [string](@($found | Sort-Object LastWriteTimeUtc -Descending)[0].FullName)
+}
+
+# (wave 30) The sub-agent rollouts of a thread (Codex feature multi_agent): the rollouts of the local
+# days from $Since to now, written since then, whose first line names the thread - or one of its
+# sub-agents, recursively - as "parent_thread_id". string[] of paths.
+function Get-CodexSubagentRollouts {
+    param([string]$ParentThreadId, [datetime]$Since, [string]$CodexHome = '')
+    $out = New-Object System.Collections.Generic.List[string]
+    if (-not $ParentThreadId) { return , ([string[]]@()) }
+    if (-not $CodexHome) { $CodexHome = Get-CodexHome }
+    if (-not $CodexHome) { return , ([string[]]@()) }
+    $root = Join-Path $CodexHome 'sessions'
+    if (-not [IO.Directory]::Exists($root)) { return , ([string[]]@()) }
+    $files = @()
+    foreach ($d in (Get-LocalDayDirs -Root $root -StartedAt $Since -Now (Get-Date))) {
+        if ([IO.Directory]::Exists($d)) { $files += @(Get-ChildItem -LiteralPath $d -Filter 'rollout-*.jsonl' -File -ErrorAction SilentlyContinue) }
+    }
+    $cut = $Since.AddSeconds(-5)
+    $parentOf = @{}
+    $idOf = @{}
+    foreach ($f in @($files | Where-Object { $_.LastWriteTime -ge $cut })) {
+        if ($f.Name -notmatch ('(' + $script:RolloutUuidRe + ')\.jsonl$')) { continue }
+        $id = $Matches[1].ToLowerInvariant()
+        $head = Read-RolloutHead -Path $f.FullName
+        if ($head -match ('"parent_thread_id"\s*:\s*"(' + $script:RolloutUuidRe + ')"')) {
+            $parentOf[$f.FullName] = $Matches[1].ToLowerInvariant()
+            $idOf[$f.FullName] = $id
+        }
+    }
+    $parents = New-Object 'System.Collections.Generic.HashSet[string]'
+    [void]$parents.Add($ParentThreadId.ToLowerInvariant())
+    $changed = $true
+    while ($changed) {
+        $changed = $false
+        foreach ($p in @($parentOf.Keys | Sort-Object)) {
+            if ($out.Contains($p) -or -not $parents.Contains([string]$parentOf[$p])) { continue }
+            $out.Add($p)
+            [void]$parents.Add([string]$idOf[$p])
+            $changed = $true
+        }
+    }
+    return , ([string[]]$out.ToArray())
+}
+
+# (wave 30) The quota and the tokens of ONE codex run, for its ledger entry: the rollout of its thread
+# and the sub-agent rollouts of that thread written during the run. $BaselineThreadId: the thread
+# whose running total before the run is subtracted - the parent of a fork, the thread itself on a
+# resume, '' for a new thread. { Quota ({ primary; secondary; observed_at } of the newest token_count
+# that names a window - the thread's or a sub-agent's; null members when none or no rollout); Tokens
+# ({ input; cached; output (this run's share of the running total); thread_input (the running
+# total); calls; max_input; context_window; subagents { count; input; calls } }, $null when the
+# rollout was not found); Path; Bytes }.
+function Get-CodexRunQuota {
+    param([string]$ThreadId, [datetime]$StartedAt, [string]$BaselineThreadId = '', [string]$CodexHome = '')
+    $r = [pscustomobject]@{ Quota = [pscustomobject]@{ primary = $null; secondary = $null; observed_at = $null }; Tokens = $null; Path = ''; Bytes = [long]0 }
+    if (-not $ThreadId) { return $r }
+    $path = Get-CodexRolloutPath -ThreadId $ThreadId -CodexHome $CodexHome
+    if (-not $path) { return $r }
+    $r.Path = $path
+    $u = Get-RolloutUsage -Path $path -Before $StartedAt
+    $r.Bytes = $u.Bytes
+    $base = $null
+    if ($BaselineThreadId -and $BaselineThreadId -ieq $ThreadId) { $base = $u.Baseline }
+    elseif ($BaselineThreadId) {
+        $pp = Get-CodexRolloutPath -ThreadId $BaselineThreadId -CodexHome $CodexHome
+        if ($pp) { $base = (Get-RolloutUsage -Path $pp -Before $StartedAt).Baseline }
+    }
+    $win = $u.Window
+    $subCount = 0
+    $subInput = [long]0
+    $subCalls = 0
+    foreach ($sp in (Get-CodexSubagentRollouts -ParentThreadId $ThreadId -Since $StartedAt -CodexHome $CodexHome)) {
+        $su = Get-RolloutUsage -Path $sp
+        $subCount++
+        $subCalls += [int]$su.Calls
+        if ($su.Total -and $null -ne $su.Total.input) { $subInput += [long]$su.Total.input }
+        $win = Select-NewerWindow $win $su.Window
+    }
+    if ($win) { $r.Quota = [pscustomobject]@{ primary = $win.Primary; secondary = $win.Secondary; observed_at = $(if ($null -ne $win.At) { Format-OffsetIso $win.At.ToLocalTime() } else { $null }) } }
+    $minus = { param($a, $b) if ($null -eq $a) { return $null }; if ($null -eq $b) { return [long]$a }; return [long][Math]::Max([long]0, [long]$a - [long]$b) }
+    $t = $u.Total
+    $r.Tokens = [pscustomobject]@{
+        input          = $(if ($t) { & $minus $t.input $(if ($base) { $base.input } else { $null }) } else { $null })
+        cached         = $(if ($t) { & $minus $t.cached $(if ($base) { $base.cached } else { $null }) } else { $null })
+        output         = $(if ($t) { & $minus $t.output $(if ($base) { $base.output } else { $null }) } else { $null })
+        thread_input   = $(if ($t) { $t.input } else { $null })
+        calls          = [int]$u.Calls
+        max_input      = $u.MaxInput
+        context_window = $u.ContextWindow
+        subagents      = [pscustomobject]@{ count = $subCount; input = $subInput; calls = $subCalls }
+    }
+    return $r
+}
+
+# (wave 30) Of two observations ({ Primary; Secondary; At } - Get-RolloutUsage's Window), the newer
+# one that names a window; at the same instant the one whose fullest window is fuller (the threads
+# of one account report at the same moment, and some report a stale share: the highest is the
+# account's).
+function Select-NewerWindow {
+    param($A, $B)
+    $named = { param($w) return [bool]($null -ne $w -and ($null -ne $w.Primary -or $null -ne $w.Secondary)) }
+    if (-not (& $named $B) -or $null -eq $B.At) { return $A }
+    if (-not (& $named $A) -or $null -eq $A.At) { return $B }
+    if ($B.At -gt $A.At) { return $B }
+    if ($B.At -lt $A.At) { return $A }
+    $full = { param($w) return [Math]::Max($(if ($w.Primary) { [double]$w.Primary.used_percent } else { 0.0 }), $(if ($w.Secondary) { [double]$w.Secondary.used_percent } else { 0.0 })) }
+    if ((& $full $B) -gt (& $full $A)) { return $B }
+    return $A
+}
+
+# (wave 30) A window's name by its length: '5-hour window' (300 minutes), 'weekly window' (10080),
+# else '<n>-hour window' / '<n>-minute window'; -Short: '5h', 'wk', '<n>h', '<n>m'.
+function Get-QuotaWindowName {
+    param($Minutes, [switch]$Short)
+    $m = 0
+    if ($null -ne $Minutes) { [void][int]::TryParse([string]$Minutes, [ref]$m) }
+    if ($m -eq 10080) { if ($Short) { return 'wk' }; return 'weekly window' }
+    if ($m -gt 0 -and $m % 60 -eq 0) { $h = [int]($m / 60); if ($Short) { return "${h}h" }; return "$h-hour window" }
+    if ($m -gt 0) { if ($Short) { return "${m}m" }; return "$m-minute window" }
+    if ($Short) { return 'window' }
+    return 'quota window'
+}
+
+# A used share as shown: '96', '96.5'.
+function Format-QuotaPercent {
+    param([double]$Value)
+    return ([Math]::Round($Value, 1)).ToString('0.#', $script:Invariant)
+}
+
+# A reset time as the views show it, local: 'HH:mm' within 24 hours of now, else 'MMM d' ("Oct 20").
+function Format-QuotaReset {
+    param([DateTimeOffset]$When, [datetime]$UtcNow = [datetime]::UtcNow)
+    $local = $When.ToLocalTime()
+    if ([Math]::Abs(($When.UtcDateTime - $UtcNow).TotalHours) -lt 24) { return $local.ToString('HH:mm', $script:Invariant) }
+    return $local.ToString('MMM d', $script:Invariant)
+}
+
+# (wave 30) The windows of a recorded quota ({ primary; secondary }), judged at $UtcNow: object[] of {
+# Key (primary | secondary); Name; Short; Used; ResetsAt (DateTimeOffset or $null); Reset (the reset
+# lies in the past); Blocks (>= QuotaBlockPercent with its reset ahead); Low (>= QuotaWarnPercent,
+# not reset) }.
+function Get-QuotaWindowStates {
+    param($Quota, [datetime]$UtcNow = [datetime]::UtcNow)
+    $out = New-Object System.Collections.Generic.List[object]
+    if ($null -eq $Quota) { return , ([object[]]@()) }
+    foreach ($k in @('primary', 'secondary')) {
+        $w = Get-PropertyValue $Quota $k $null
+        if ($null -eq $w -or -not (Test-IsJsonObject $w)) { continue }
+        $raw = Get-PropertyValue $w 'used_percent' $null
+        if ($null -eq $raw) { continue }
+        $used = 0.0
+        if ($raw -is [double] -or $raw -is [int] -or $raw -is [long] -or $raw -is [decimal]) { $used = [double]$raw }
+        elseif (-not [double]::TryParse([string]$raw, [System.Globalization.NumberStyles]::Float, $script:Invariant, [ref]$used)) { continue }
+        $minutes = Get-PropertyValue $w 'window_minutes' $null
+        $resets = ConvertTo-WhenOffset (Get-PropertyValue $w 'resets_at' $null)
+        $reset = [bool]($null -ne $resets -and $resets.UtcDateTime -le $UtcNow)
+        $out.Add([pscustomobject]@{
+                Key = $k; Name = (Get-QuotaWindowName $minutes); Short = (Get-QuotaWindowName $minutes -Short); Used = $used; ResetsAt = $resets; Reset = $reset
+                Blocks = [bool](-not $reset -and $null -ne $resets -and $used -ge $script:QuotaBlockPercent)
+                Low = [bool](-not $reset -and $used -ge $script:QuotaWarnPercent)
+            })
+    }
+    return , ([object[]]$out.ToArray())
+}
+
+# (wave 30) The QUOTA column of codex-providers and the dry run's quota line: "5h 96% until 18:32; wk
+# 15% until Oct 20" (local times), a window whose reset lies in the past "5h reset (last 96% until
+# 18:32)"; '' when the quota names no window.
+function Format-QuotaWindows {
+    param($Quota, [datetime]$UtcNow = [datetime]::UtcNow)
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($s in (Get-QuotaWindowStates -Quota $Quota -UtcNow $UtcNow)) {
+        $pct = "$(Format-QuotaPercent $s.Used)%"
+        if ($null -eq $s.ResetsAt) { $parts.Add("$($s.Short) $pct") }
+        elseif ($s.Reset) { $parts.Add("$($s.Short) reset (last $pct until $(Format-QuotaReset -When $s.ResetsAt -UtcNow $UtcNow))") }
+        else { $parts.Add("$($s.Short) $pct until $(Format-QuotaReset -When $s.ResetsAt -UtcNow $UtcNow)") }
+    }
+    return ($parts.ToArray() -join '; ')
+}
+
+# (wave 30) The ChatGPT account's windows as the newest rollout of the codex home shows them (every
+# Codex session of the account writes them - a review, an interactive session, a sub-agent): the
+# rollouts of today and yesterday (local) - the 16 last written; a rollout of a killed run keeps the
+# write time of its start, so the newest OBSERVATION decides (Select-NewerWindow), not the file - of
+# sessions on the built-in openai provider that name a window. Cached per process and codex home for
+# 60 s. {
+# Quota { primary; secondary; observed_at }; ObservedAt; Path } or $null.
+function Get-CodexAccountWindow {
+    param([string]$CodexHome = '')
+    if (-not $CodexHome) { $CodexHome = Get-CodexHome }
+    if (-not $CodexHome) { return $null }
+    $cached = $script:QuotaAccountCache[$CodexHome]
+    if ($cached -and ([DateTime]::UtcNow - $cached.At).TotalSeconds -lt 60) { return $cached.Value }
+    $value = $null
+    $root = Join-Path $CodexHome 'sessions'
+    if ([IO.Directory]::Exists($root)) {
+        $now = Get-Date
+        $files = @()
+        foreach ($d in (Get-LocalDayDirs -Root $root -StartedAt $now.AddDays(-1) -Now $now)) {
+            if ([IO.Directory]::Exists($d)) { $files += @(Get-ChildItem -LiteralPath $d -Filter 'rollout-*.jsonl' -File -ErrorAction SilentlyContinue) }
+        }
+        $best = $null
+        $bestPath = ''
+        foreach ($f in @($files | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 16)) {
+            $head = Read-RolloutHead -Path $f.FullName
+            if ($head -match '"model_provider"\s*:\s*"([^"]*)"' -and $Matches[1] -ne 'openai') { continue }
+            $u = Get-RolloutUsage -Path $f.FullName -TailBytes 262144
+            $pick = Select-NewerWindow $best $u.Window
+            if (-not [object]::ReferenceEquals($pick, $best)) { $best = $pick; $bestPath = $f.FullName }
+        }
+        if ($best -and ($null -ne $best.Primary -or $null -ne $best.Secondary) -and $null -ne $best.At) {
+            $value = [pscustomobject]@{ Quota = [pscustomobject]@{ primary = $best.Primary; secondary = $best.Secondary; observed_at = (Format-OffsetIso $best.At.ToLocalTime()) }; ObservedAt = $best.At; Path = $bestPath }
+        }
+    }
+    $script:QuotaAccountCache[$CodexHome] = [pscustomobject]@{ At = [DateTime]::UtcNow; Value = $value }
+    return $value
+}
+
+# (wave 30) The newest observed quota windows of an endpoint: every ledger entry and machine-wide
+# record of $FpSet that carries a `quota` naming a window (its observed_at, else the entry's
+# finished_at, else its when, orders them) and - when the machine-wide health is on (not -NoMachine,
+# CODEX_CONSULT_HEALTH not none) and the set holds the built-in openai endpoint - the newest rollout of
+# the codex home (Get-CodexAccountWindow). { Quota; ObservedAt; Source (recorded | rollout);
+# Fingerprint } or $null.
+function Get-EndpointWindow {
+    param([object[]]$Consults, [string[]]$FpSet, [switch]$NoMachine)
+    $best = $null
+    foreach ($c in @($Consults | Where-Object { $null -ne $_ })) {
+        $q = Get-PropertyValue $c 'quota' $null
+        if ($null -eq $q -or -not (Test-IsJsonObject $q)) { continue }
+        if ($null -eq (Get-PropertyValue $q 'primary' $null) -and $null -eq (Get-PropertyValue $q 'secondary' $null)) { continue }
+        $rev = Get-PropertyValue $c 'reviewer' $null
+        $fp = $(if ($null -eq $rev) { $script:BuiltinOpenAiFingerprint } else { [string](Get-PropertyValue $rev 'provider_fingerprint' '') })
+        if (-not $fp -or @($FpSet) -notcontains $fp) { continue }
+        $at = ConvertTo-WhenOffset (Get-PropertyValue $q 'observed_at' $null)
+        if ($null -eq $at) { $at = ConvertTo-WhenOffset (Get-PropertyValue $c 'finished_at' $null) }
+        if ($null -eq $at) { $at = ConvertTo-WhenOffset (Get-PropertyValue $c 'when' $null) }
+        if ($null -eq $at) { continue }
+        if ($null -eq $best -or $at -gt $best.ObservedAt) { $best = [pscustomobject]@{ Quota = $q; ObservedAt = $at; Source = 'recorded'; Fingerprint = $fp } }
+    }
+    if (-not $NoMachine -and (Get-MachineHealthPath) -and @($FpSet) -contains $script:BuiltinOpenAiFingerprint) {
+        $live = Get-CodexAccountWindow
+        if ($live -and ($null -eq $best -or $live.ObservedAt -gt $best.ObservedAt)) { $best = [pscustomobject]@{ Quota = $live.Quota; ObservedAt = $live.ObservedAt; Source = 'rollout'; Fingerprint = $script:BuiltinOpenAiFingerprint } }
+    }
+    return $best
+}
+
+# (wave 30) The health record of a window that keeps its endpoint out (Get-EndpointWindow's, judged
+# at $UtcNow): the blocking window with the latest reset - Class quota, FailureKind 'window', a known
+# reset (RetryAfter = Until = resets_at), Message "<window> <n> % used" - or $null.
+function New-QuotaWindowRecord {
+    param($Window, [datetime]$UtcNow = [datetime]::UtcNow)
+    if (-not $Window) { return $null }
+    $blocking = @((Get-QuotaWindowStates -Quota $Window.Quota -UtcNow $UtcNow) | Where-Object { $_.Blocks })
+    if ($blocking.Count -eq 0) { return $null }
+    $s = @($blocking | Sort-Object -Property @{ Expression = { $_.ResetsAt.UtcDateTime }; Descending = $true })[0]
+    $obs = [DateTimeOffset]$Window.ObservedAt
+    $age = [Math]::Max(0, ($UtcNow - $obs.UtcDateTime).TotalMinutes)
+    return [pscustomobject]@{
+        At = $obs; Order = $obs; N = 0; Ok = $false; Class = 'quota'; Code = ''; Message = "$($s.Name) $(Format-QuotaPercent $s.Used) % used"
+        When = (Format-OffsetIso $obs.ToLocalTime()); AgeMinutes = [int][Math]::Floor($age); Age = $age; RetryAfter = $s.ResetsAt; RetryAfterIso = (Format-OffsetIso $s.ResetsAt)
+        RetryAfterBasis = "quota window ($($Window.Source))"; Hit = $obs; HitIso = (Format-OffsetIso $obs.ToLocalTime()); Until = $s.ResetsAt; FailureKind = 'window'; OutMinutes = 0
+        Fingerprint = $Window.Fingerprint; WindowName = $s.Name; UsedPercent = $s.Used
+    }
+}
+
+# (wave 30) The warning of an available endpoint whose newest window is at QuotaWarnPercent or more:
+# "low quota: 5-hour window 84 % until 18:32" (the fullest window), '' otherwise.
+function Format-QuotaLowWarning {
+    param($Window, [datetime]$UtcNow = [datetime]::UtcNow)
+    if (-not $Window) { return '' }
+    $low = @((Get-QuotaWindowStates -Quota $Window.Quota -UtcNow $UtcNow) | Where-Object { $_.Low } | Sort-Object -Property @{ Expression = { $_.Used }; Descending = $true })
+    if ($low.Count -eq 0) { return '' }
+    $s = $low[0]
+    return "low quota: $($s.Name) $(Format-QuotaPercent $s.Used) %$(if ($null -ne $s.ResetsAt) { " until $(Format-QuotaReset -When $s.ResetsAt -UtcNow $UtcNow)" })"
+}
+
+# (wave 30) The 5-hour (primary) window in a rollout's end, for the budget watch: { Used ([double] or
+# $null); ResetsAt (DateTimeOffset or $null); Name; Path; At (when it was observed) } - Used $null when
+# the rollout is not there (yet) or names no primary window.
+function Read-RolloutPrimaryWindow {
+    param([string]$Path)
+    $r = [pscustomobject]@{ Used = $null; ResetsAt = $null; Name = '5-hour window'; Path = $Path; At = $null }
+    if (-not $Path) { return $r }
+    $u = Get-RolloutUsage -Path $Path -TailBytes 262144
+    if (-not $u.Window -or $null -eq $u.Window.Primary) { return $r }
+    $p = $u.Window.Primary
+    $r.At = $u.Window.At
+    $r.Used = [double]$p.used_percent
+    $r.ResetsAt = ConvertTo-WhenOffset $p.resets_at
+    $r.Name = Get-QuotaWindowName $p.window_minutes
+    return $r
+}
+
+# (wave 30, T15) The replay guard of a codex fork or resume: the parent thread's rollout is replayed
+# on EVERY tool call of the run. { Path; Bytes; Kb; MaxKb (CODEX_CONSULT_FORK_MAX_KB, default 512; 0 =
+# no refusal); OverLimit; Refusal ('' or "the parent thread <id> replays <N> KB (~<N/4> k tokens) on
+# EVERY tool call of the run: use -Mode new, or raise CODEX_CONSULT_FORK_MAX_KB"); Warning ('' or the
+# same from 128 KB up to the limit); Problem ('' or why the variable was ignored) }. A rollout that
+# cannot be found is neither refused nor warned about.
+function Get-ForkReplayGuard {
+    param([string]$ThreadId, [string]$CodexHome = '')
+    $g = [pscustomobject]@{ Path = ''; Bytes = [long]0; Kb = 0; MaxKb = 512; OverLimit = $false; Refusal = ''; Warning = ''; Problem = '' }
+    $raw = ([string]$env:CODEX_CONSULT_FORK_MAX_KB).Trim()
+    if ($raw) {
+        $v = 0
+        if ([int]::TryParse($raw, [ref]$v) -and $v -ge 0) { $g.MaxKb = $v }
+        else { $g.Problem = "CODEX_CONSULT_FORK_MAX_KB='$raw' is not a number of KB (0 = no limit) - the default 512 applies" }
+    }
+    if (-not $ThreadId) { return $g }
+    $g.Path = Get-CodexRolloutPath -ThreadId $ThreadId -CodexHome $CodexHome
+    if (-not $g.Path) { return $g }
+    try { $g.Bytes = [long](New-Object IO.FileInfo($g.Path)).Length } catch { return $g }
+    $g.Kb = [int][Math]::Round($g.Bytes / 1024.0)
+    $tokensK = [int][Math]::Round($g.Kb / 4.0)
+    $what = "the parent thread $ThreadId replays $($g.Kb) KB (~$tokensK k tokens) on EVERY tool call of the run"
+    if ($g.MaxKb -gt 0 -and $g.Kb -gt $g.MaxKb) {
+        $g.OverLimit = $true
+        $g.Refusal = "${what}: use -Mode new, or raise CODEX_CONSULT_FORK_MAX_KB (now $($g.MaxKb))"
+    } elseif ($g.Kb -ge 128) {
+        $g.Warning = "$what (CODEX_CONSULT_FORK_MAX_KB $(if ($g.MaxKb -gt 0) { $g.MaxKb } else { 'off' })); -Mode new starts without that replay"
+    }
+    return $g
+}
+
+# (wave 30) The thread id of a codex event stream: its first line, {"type":"thread.started",
+# "thread_id":"<uuid>"} (the budget watch reads it while the turn runs). '' when not there yet.
+function Get-ThreadIdFromStreamHead {
+    param([string]$Path)
+    if (-not $Path -or -not [IO.File]::Exists($Path)) { return '' }
+    $head = Read-RolloutHead -Path $Path
+    if ($head -match ('"thread_id"\s*:\s*"(' + $script:RolloutUuidRe + ')"')) { return $Matches[1] }
+    return ''
 }
 
 # ----------------------------------------------------------------------------- machine-wide endpoint health (wave 26b, D13 - ROADMAP R20)
@@ -6613,10 +7168,15 @@ function ConvertTo-MachineHealthEntries {
                 $mkWhen = Get-PropertyValue $mk 'when' $null
                 $okRun = [pscustomobject]@{ quota_mark = [pscustomobject]@{ class = 'quota'; kind = [string](Get-PropertyValue $mk 'kind' ''); code = ''; message = [string](Get-PropertyValue $mk 'message' ''); when = $(if ($null -ne (ConvertTo-WhenOffset $mkWhen)) { $mkWhen } else { $when }); retry_after = $(if ($null -ne (ConvertTo-WhenOffset $mkReset)) { $mkReset } else { $null }); until = $(if ($null -ne (ConvertTo-WhenOffset $mkUntil)) { $mkUntil } else { $null }) } }
             }
-            $out.Add([pscustomobject]@{ n = 0; when = $when; finished_at = $when; bridge_outcome = 'usable reply'; reviewer = [pscustomobject]@{ provider_fingerprint = $Fingerprint }; provider_failure = $null; engine_run = $okRun })
+            $out.Add([pscustomobject]@{ n = 0; when = $when; finished_at = $when; bridge_outcome = 'usable reply'; reviewer = [pscustomobject]@{ provider_fingerprint = $Fingerprint }; provider_failure = $null; engine_run = $okRun; quota = (Get-PropertyValue $e 'quota' $null) })
             continue
         }
-        if (-not $cls) { continue }
+        # (wave 30) a record of class '' carries only the quota windows of a run: no outcome
+        if (-not $cls) {
+            $wq = Get-PropertyValue $e 'quota' $null
+            if ($null -ne $wq) { $out.Add([pscustomobject]@{ n = 0; when = $when; finished_at = $when; bridge_outcome = ''; reviewer = [pscustomobject]@{ provider_fingerprint = $Fingerprint }; provider_failure = $null; quota = $wq }) }
+            continue
+        }
         # the provider's own reset time (retry_after), when it named one - the until of a failure
         # without one is recomputed by Get-EndpointHealth (hit + 60 min, 10 for a burst)
         $resetAt = Get-PropertyValue $e 'retry_after' $null
@@ -6624,7 +7184,7 @@ function ConvertTo-MachineHealthEntries {
         # same time is the later until (Get-EndpointHealth)
         $storedUntil = Get-PropertyValue $e 'until' $null
         $pf = [pscustomobject]@{ class = $cls; kind = [string](Get-PropertyValue $e 'kind' ''); code = ''; message = [string](Get-PropertyValue $e 'message' ''); when = $when; retry_after = $(if ($null -ne (ConvertTo-WhenOffset $resetAt)) { $resetAt } else { $null }); until = $(if ($null -ne (ConvertTo-WhenOffset $storedUntil)) { $storedUntil } else { $null }) }
-        $out.Add([pscustomobject]@{ n = 0; when = $when; finished_at = $when; bridge_outcome = "failed: $cls (machine-wide health; recorded by $repo)"; reviewer = [pscustomobject]@{ provider_fingerprint = $Fingerprint }; provider_failure = $pf })
+        $out.Add([pscustomobject]@{ n = 0; when = $when; finished_at = $when; bridge_outcome = "failed: $cls (machine-wide health; recorded by $repo)"; reviewer = [pscustomobject]@{ provider_fingerprint = $Fingerprint }; provider_failure = $pf; quota = (Get-PropertyValue $e 'quota' $null) })
     }
     return , ([object[]]$out.ToArray())
 }
@@ -6796,6 +7356,8 @@ function Update-MachineHealth {
                 $u = ConvertTo-WhenOffset (Get-PropertyValue $_ 'until' '')
                 # (wave 29b, E15) an ok record stays while its quota mark still blocks
                 if ($null -eq $u) { $u = ConvertTo-WhenOffset (Get-PropertyValue (Get-PropertyValue $_ 'quota_mark' $null) 'until' '') }
+                # (wave 30) and any record while a quota window it carries still blocks
+                if ($null -eq $u) { $qb = @((Get-QuotaWindowStates -Quota (Get-PropertyValue $_ 'quota' $null) -UtcNow $now.UtcDateTime) | Where-Object { $_.Blocks }); if ($qb.Count -gt 0) { $u = $qb[0].ResetsAt } }
                 ($null -ne $w) -and (($now - $w).TotalHours -le 24 -or ($null -ne $u -and $u -gt $now))
             })
         if ($keepE.Count -gt 500) { $keepE = @($keepE | Select-Object -Last 500) }
@@ -6859,12 +7421,12 @@ function Update-MachineHealth {
 # failure ($Failure: the ledger's provider_failure; class operator is not the endpoint's). No-op
 # without a fingerprint or a file.
 function Add-MachineHealthRecord {
-    param([string]$Fingerprint, [string]$Outcome, $Failure = $null, [string]$Repo = '', [int]$Attempts = 3, [double]$AttemptSec = 0, $Record = $null, $QuotaMark = $null)
+    param([string]$Fingerprint, [string]$Outcome, $Failure = $null, [string]$Repo = '', [int]$Attempts = 3, [double]$AttemptSec = 0, $Record = $null, $QuotaMark = $null, $Quota = $null)
     # (wave 26c, D2) a record that is not written for another reason is no lock timeout
     $script:MachineHealthLastError = ''
     if (-not $Fingerprint -or -not (Get-MachineHealthPath)) { return $false }
     # (wave 28b, D13) the caller's record (the one it journaled), else built here
-    $rec = $(if ($null -ne $Record) { $Record } else { New-MachineHealthRecord -Fingerprint $Fingerprint -Outcome $Outcome -Failure $Failure -Repo $Repo -QuotaMark $QuotaMark })
+    $rec = $(if ($null -ne $Record) { $Record } else { New-MachineHealthRecord -Fingerprint $Fingerprint -Outcome $Outcome -Failure $Failure -Repo $Repo -QuotaMark $QuotaMark -Quota $Quota })
     if ($null -eq $rec) { return $false }
     return (Update-MachineHealth -AddEndpoint $rec -Attempts $Attempts -AttemptSec $AttemptSec)
 }
@@ -6875,10 +7437,11 @@ function Add-MachineHealthRecord {
 # -QuotaMark (engine_run.quota_mark of a usable reply): the ok record carries it as quota_mark {class
 # quota, kind, until (its reset, else its time + 60 min, 10 for a burst), retry_after, message, when}.
 function New-MachineHealthRecord {
-    param([string]$Fingerprint, [string]$Outcome, $Failure = $null, [string]$Repo = '', $QuotaMark = $null)
+    param([string]$Fingerprint, [string]$Outcome, $Failure = $null, [string]$Repo = '', $QuotaMark = $null, $Quota = $null)
     if (-not $Fingerprint) { return $null }
     $now = [DateTimeOffset]::Now
     $rec = $null
+    $cls = ''
     if (Test-UsableOutcome $Outcome) {
         $rec = [pscustomobject]@{ endpoint = $Fingerprint; class = 'ok'; kind = ''; until = $null; retry_after = $null; repo = $Repo; when = (Format-OffsetIso $now); message = '' }
         if ($null -ne $QuotaMark -and [string](Get-PropertyValue $QuotaMark 'class' '') -eq 'quota') {
@@ -6893,7 +7456,8 @@ function New-MachineHealthRecord {
         }
     } elseif ($null -ne $Failure) {
         $cls = [string](Get-PropertyValue $Failure 'class' '')
-        if (-not $cls -or $cls -eq 'operator') { return $null }
+    }
+    if ($null -eq $rec -and $null -ne $Failure -and $cls -and $cls -ne 'operator') {
         $when = ConvertTo-WhenOffset (Get-PropertyValue $Failure 'when' '')
         if ($null -eq $when) { $when = $now }
         $kind = [string](Get-PropertyValue $Failure 'kind' '')
@@ -6906,6 +7470,14 @@ function New-MachineHealthRecord {
         $msg = [string](Get-PropertyValue $Failure 'message' '')
         if ($msg.Length -gt 200) { $msg = $msg.Substring(0, 200) }
         $rec = [pscustomobject]@{ endpoint = $Fingerprint; class = $cls; kind = $kind; until = $(if ($null -ne $until) { Format-OffsetIso $until } else { $null }); retry_after = $(if ($null -ne $ra) { Format-OffsetIso $ra } else { $null }); repo = $Repo; when = (Format-OffsetIso $when); message = $msg }
+    }
+    # (wave 30) the quota windows the run's rollout named ({ primary; secondary; observed_at } - the
+    # ledger's `quota`) travel on the record; a run with neither a usable reply nor a provider failure
+    # (a timeout, a stall, a budget stop) writes a record of class '' that carries only them (a reader
+    # before wave 30 skips a record without a class)
+    if ($null -ne $Quota -and ($null -ne (Get-PropertyValue $Quota 'primary' $null) -or $null -ne (Get-PropertyValue $Quota 'secondary' $null))) {
+        if ($null -eq $rec) { $rec = [pscustomobject]@{ endpoint = $Fingerprint; class = ''; kind = ''; until = $null; retry_after = $null; repo = $Repo; when = (Format-OffsetIso $now); message = '' } }
+        $rec | Add-Member -NotePropertyName 'quota' -NotePropertyValue $Quota -Force
     }
     return $rec
 }
@@ -7952,7 +8524,7 @@ function Find-RosterEntry {
 # $Health: Get-EndpointHealth of the identity's endpoint ($null: none known).
 function Get-PreflightVerdict {
     param($Identity, $Config, [string]$Launcher, $Health, [hashtable]$LoginCache = $null, [switch]$Anonymous, [switch]$RosterWalk, [switch]$NoNetwork)
-    $v = [pscustomobject]@{ State = 'available'; Preflight = ''; Reason = ''; Refusal = ''; Label = ''; Kind = ''; Hit = $null; Until = $null; Credential = $null; Burst = $false }
+    $v = [pscustomobject]@{ State = 'available'; Preflight = ''; Reason = ''; Refusal = ''; Label = ''; Kind = ''; Hit = $null; Until = $null; Credential = $null; Burst = $false; QuotaWarning = '' }
     $p = [string]$Identity.Provider
     $engine = [string]$Identity.Engine
     if (-not $engine) { $engine = 'codex' }
@@ -8012,6 +8584,12 @@ function Get-PreflightVerdict {
         $v.Reason = "usage limit until $($Health.Quota.RetryAfterIso)"
         $v.Preflight = "unavailable: $($v.Reason)"
         $v.Refusal = "provider $p is not usable: its usage limit (hit at $($Health.Quota.When): $($Health.Quota.Message)) lasts until $($Health.Quota.RetryAfterIso); nothing was started (pass -SkipPreflight to launch anyway)"
+        if ([string](Get-PropertyValue $Health.Quota 'FailureKind' '') -eq 'window') {
+            # (wave 30) a quota window observed at QuotaBlockPercent or more, its reset ahead
+            $v.Reason = "$($Health.Quota.Message), resets $($Health.Quota.RetryAfterIso)"
+            $v.Preflight = "unavailable: $($v.Reason)"
+            $v.Refusal = "provider $p is not usable: its $($Health.Quota.Message) (observed at $($Health.Quota.When)) until the window resets at $($Health.Quota.RetryAfterIso); nothing was started (pass -SkipPreflight to launch anyway)"
+        }
         $v.Label = "unavailable ($($v.Reason)) - a real run is refused: $($v.Refusal)"
     } elseif ($Health -and $Health.Quota) {
         # (wave 24b, F08-7) the 60-minute rule is the verdict of every caller; (wave 24c) a burst - a
@@ -8034,6 +8612,12 @@ function Get-PreflightVerdict {
         $v.Label = "unknown ($($cred.Reason)) - a real run is refused: $($v.Refusal)"
     } else {
         $v.Label = "available ($($cred.Detail))"
+        # (wave 30) a window at QuotaWarnPercent or more: said in the verdict, the run is not refused
+        $low = [string](Get-PropertyValue $Health 'WindowLow' '')
+        if ($low) {
+            $v.QuotaWarning = $low
+            $v.Label = "available ($($cred.Detail); $low)"
+        }
     }
     return $v
 }
@@ -8123,6 +8707,8 @@ function Format-QuotaWarning {
     param($Identity, $Health, [switch]$SkipPreflight)
     if (-not $Health -or -not $Health.Quota -or -not $SkipPreflight) { return '' }
     $q = $Health.Quota
+    # (wave 30) a quota window at QuotaBlockPercent or more
+    if ([string](Get-PropertyValue $q 'FailureKind' '') -eq 'window') { return "provider $($Identity.Provider): its $($q.Message) (observed $($q.AgeMinutes) min ago) until the window resets at $($q.RetryAfterIso)" }
     if ($Health.QuotaKnown) {
         return "provider $($Identity.Provider) hit a usage limit $($q.AgeMinutes) min ago that lasts until $($q.RetryAfterIso): $($q.Message)"
     }
@@ -11173,8 +11759,20 @@ function Update-ToolFlight {
 # when the cut was an ordinary one), OpenTools = what they were ("codex command_execution item_3",
 # "agy tool step 4", "muse tool.shell t1"; several joined by ', ').
 function Wait-EngineProcess {
-    param($Process, [int]$TimeoutSec, [int]$StallSec = 0, [string]$EventsPath = '', [string]$KickPath = '', [string]$Engine = 'codex')
-    $r = [pscustomobject]@{ Exited = $false; Reason = ''; KickLate = $false; Events = 0; LastEvent = $null; Silent = 0; ToolWait = 0; Oversized = 0; ToolOpen = 0; OpenTools = '' }
+    param($Process, [int]$TimeoutSec, [int]$StallSec = 0, [string]$EventsPath = '', [string]$KickPath = '', [string]$Engine = 'codex', [int]$BudgetPercent = 0)
+    $r = [pscustomobject]@{ Exited = $false; Reason = ''; KickLate = $false; Events = 0; LastEvent = $null; Silent = 0; ToolWait = 0; Oversized = 0; ToolOpen = 0; OpenTools = ''; Budget = $null }
+    # (wave 30, T15) the quota budget (codex): every 15 s (TEST HOOK, test mode only:
+    # CODEX_CONSULT_TEST_BUDGET_POLL_MS) once the stream names its thread, the 5-hour window of the
+    # thread's rollout (Read-RolloutPrimaryWindow) - an observation of THIS turn (not older than its
+    # start) at $BudgetPercent or more, its reset ahead, ends the wait: Reason 'budget', Budget { Used;
+    # ResetsAt; Name; Path; At }
+    $budgetPollMs = [long]15000
+    $budgetHook = 0
+    if ([int]::TryParse((Get-TestHookValue 'CODEX_CONSULT_TEST_BUDGET_POLL_MS'), [ref]$budgetHook) -and $budgetHook -gt 0) { $budgetPollMs = [long]$budgetHook }
+    $nextBudgetMs = $budgetPollMs
+    $budgetThread = ''
+    $budgetRollout = ''
+    $turnStart = [DateTimeOffset]::Now.AddSeconds(-2)
     $tick = 1000
     $hook = 0
     if ([int]::TryParse((Get-TestHookValue 'CODEX_CONSULT_TEST_WAIT_TICK_MS'), [ref]$hook) -and $hook -gt 0) { $tick = $hook }
@@ -11210,6 +11808,15 @@ function Wait-EngineProcess {
             break
         }
         if ($KickPath -and [IO.File]::Exists($KickPath)) { $r.Reason = 'kick'; Confirm-Kick -KickPath $KickPath -What 'stopped'; break }
+        if ($BudgetPercent -gt 0 -and $EventsPath -and $watch.ElapsedMilliseconds -ge $nextBudgetMs) {
+            $nextBudgetMs = $watch.ElapsedMilliseconds + $budgetPollMs
+            if (-not $budgetThread) { $budgetThread = Get-ThreadIdFromStreamHead -Path $EventsPath }
+            if ($budgetThread -and -not $budgetRollout) { $budgetRollout = Get-CodexRolloutPath -ThreadId $budgetThread }
+            if ($budgetRollout) {
+                $bw = Read-RolloutPrimaryWindow -Path $budgetRollout
+                if ($null -ne $bw.Used -and $bw.Used -ge $BudgetPercent -and $null -ne $bw.At -and $bw.At -ge $turnStart -and ($null -eq $bw.ResetsAt -or $bw.ResetsAt -gt [DateTimeOffset]::Now)) { $r.Reason = 'budget'; $r.Budget = $bw; break }
+            }
+        }
         if ($stallMs -gt 0 -and $EventsPath) {
             $nowMs = $watch.ElapsedMilliseconds
             $g = Read-StreamChunk -Path $EventsPath -Offset $offset -Carry $carry -Discarding $discarding
@@ -11844,6 +12451,9 @@ function Get-TelemetryOutcome {
         return [pscustomobject]@{ Outcome = $o; Severity = 'info'; Class = '' }
     }
     $cls = [string](Get-PropertyValue (Get-PropertyValue $Entry 'provider_failure' $null) 'class' '')
+    # (wave 30, T15) a run stopped at its quota budget is reported as the class quota (its ledger says
+    # budget in its outcome and hint only - no new class in the event contract)
+    if ($bo -like 'failed: stopped at the quota budget*') { $cls = 'quota' }
     if (-not $cls) {
         if ($bo -like 'failed: timeout*') { $cls = 'timeout' }
         elseif ($bo -like 'failed: stalled*') { $cls = 'stalled' }

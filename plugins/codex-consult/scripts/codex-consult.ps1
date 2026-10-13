@@ -357,6 +357,17 @@
         turn and salvage, bridge_outcome "failed: stalled after N s without an event (process
         tree killed)", ledger stall {seconds, last_event}. Default 900; a roster entry's
         "stall_sec" overrides it for that reviewer (an explicit -StallSec wins); 0 = off
+      * (wave 30, T15) quota windows: after every codex run the ledger records the windows its
+        rollout named (`quota` {primary, secondary, observed_at}) and its tokens (`tokens` {input,
+        cached, output, thread_input, calls, max_input, context_window, subagents {count, input,
+        calls}}); -Budget <percent> (env CODEX_CONSULT_QUOTA_BUDGET, default 90, 0 = off): the
+        stall watch also reads the run's rollout every 15 s and stops the main turn once its
+        5-hour window is used to that share - "failed: stopped at the quota budget: 5-hour
+        window 91 % used, resets 18:32; the partial is kept" (no continuation); every codex run
+        passes `-c features.multi_agent=false` unless -CodexConfig names features.multi_agent
+        (ledger subagents_allowed); a -Mode fork/resume whose parent rollout is over
+        CODEX_CONSULT_FORK_MAX_KB (default 512) is refused before anything starts, from 128 KB on
+        it is warned about
       * (wave 26b, D10) -Kick -Member <NN> [-Id <id8>]: from another shell, stop ONE running
         member of a panel (or a single run) of -Task by its handoff number - a detached panel
         with -Id, a foreground panel without (the member polls <task>/.consult.kick-<NN> while
@@ -842,6 +853,12 @@ param(
     # last_event}. -1 (the default) = the roster entry's stall_sec, else 900; 0 = off. A panel
     # passes it to every member (an explicit value wins over the roster's).
     [int]$StallSec = -1,
+
+    # (wave 30, T15) The quota budget of a codex run, in percent of its 5-hour window: the stall
+    # watch also reads the run's rollout (every 15 s once the thread is known) and stops the main
+    # turn like the stall cut once the window's used_percent reaches it - the partial is kept, no
+    # continuation follows. -1 (the default) = env CODEX_CONSULT_QUOTA_BUDGET, else 90; 0 = off.
+    [int]$Budget = -1,
 
     # (wave 26b, D10) Stop ONE running member of a panel (or a single run) of -Task by its handoff
     # number: -Kick -Member <NN> [-Id <id8> of a detached run]. Writes <task>/.consult.kick-<NN>;
@@ -2041,6 +2058,11 @@ $purposeText = @{
     'stuck'         = 'The coordinator is stuck. Look for the angle they are missing and question their assumptions before proposing fixes.'
     'chore'         = 'This is a chore: a bounded search or extraction task. Report facts with file paths and line numbers, quote what you found, say what you did not find. No verdict, no findings, no recommendations beyond the ask.'
 }
+# (wave 30, T15) the reading discipline of the reviewing purposes: a reviewer that prints whole files
+# replays them on every later tool call of its thread (cached input counts against a subscription's
+# window too) - one standard block, appended to these four purpose paragraphs
+$readingDiscipline = 'Reading discipline: never print whole files. Run `git diff <range> --stat` first, then read the hunks of ONE path at a time with a line cap (`git diff <range> -- <path> | head -n 200`; more lines only where you need them); outside the diff, find with `grep -n` and read only the line ranges you need. Read the documents the brief names before the code. Give your verdict even when your reading is incomplete, and list what you did not read.'
+foreach ($rp in @('checkpoint', 'core-contract', 'acceptance', 'diff-review')) { $purposeText[$rp] = "$($purposeText[$rp]) $readingDiscipline" }
 
 # ----------------------------------------------------------------------------- panel member (internal)
 
@@ -2069,6 +2091,9 @@ if ($PanelSpec) {
     # (wave 26b, D12) the stall cut the panel run resolved for this member (-StallSec, the roster
     # entry's stall_sec, else 900)
     $StallSec = [int](Get-PropertyValue $pa 'stall_sec' 900)
+    # (wave 30) the quota budget the panel run resolved
+    $Budget = [int](Get-PropertyValue $pa 'budget' -1)
+    $budgetFromPanel = [string](Get-PropertyValue $pa 'budget_source' '')
     # (wave 24) the panel run resolved the timeout, its source, the continuation budget and the
     # range statistics once; the member inherits them
     $memberTimeoutSource = [string](Get-PropertyValue $pa 'timeout_source' 'explicit')
@@ -2217,6 +2242,22 @@ if ($ContinueSec -lt 0) { $ContinueSec = [Math]::Min($TimeoutSec, 900) }
 $stallGiven = $PSBoundParameters.ContainsKey('StallSec')
 if ($stallGiven -and $StallSec -lt 0) {
     Stop-WithError "-StallSec must be 0 (no stall cut) or a number of seconds without an event (got $StallSec)."
+}
+# (wave 30, T15) -Budget: the share of the 5-hour window at which a codex run's main turn is stopped;
+# unset = CODEX_CONSULT_QUOTA_BUDGET, else 90; 0 = off (a panel member gets the panel run's)
+$budgetSource = 'default'
+if ($panelMember -and $budgetFromPanel -and $Budget -ge 0) { $budgetSource = $budgetFromPanel }
+elseif ($PSBoundParameters.ContainsKey('Budget')) {
+    if ($Budget -lt 0 -or $Budget -gt 100) { Stop-WithError "-Budget must be 0 (off) or a share of the 5-hour window from 1 to 100 percent (got $Budget)." }
+    $budgetSource = '-Budget'
+} else {
+    $budgetEnv = ([string]$env:CODEX_CONSULT_QUOTA_BUDGET).Trim()
+    $budgetParsed = 0
+    if ($budgetEnv) {
+        if (-not [int]::TryParse($budgetEnv, [ref]$budgetParsed) -or $budgetParsed -lt 0 -or $budgetParsed -gt 100) { Stop-WithError "CODEX_CONSULT_QUOTA_BUDGET must be 0 (off) or a share of the 5-hour window from 1 to 100 percent (got '$budgetEnv')." }
+        $Budget = $budgetParsed
+        $budgetSource = 'CODEX_CONSULT_QUOTA_BUDGET'
+    } else { $Budget = 90 }
 }
 $Range = $Range.Trim()
 if ($Range -and $rangePurposes -notcontains $Purpose) {
@@ -2640,6 +2681,8 @@ function Start-PanelMember {
             timeout_source   = $Slot.TimeoutSource
             continue_sec     = $Slot.ContinueSec
             stall_sec        = $Slot.StallSec
+            budget           = $Budget
+            budget_source    = $budgetSource
             range            = $Range
             range_stat       = $rangeRecord
             reply_name       = $Slot.ReplyName
@@ -4053,6 +4096,17 @@ try {
         }
         $contextWindowRecord = [pscustomobject]@{ tokens = [long]$contextTokens; auto_compact_limit = $compactAt; items = [object[]]$contextConfig.ToArray() }
     }
+    # (wave 30, T15) sub-agents off for reviews: a reviewer's sub-agents (Codex feature multi_agent, on
+    # by default in codex-cli 0.155) each replay a large context - every codex turn gets
+    # `-c features.multi_agent=false` unless -CodexConfig or the entry's codex_config names
+    # features.multi_agent (theirs wins; the key is not refused). Ledger subagents_allowed.
+    $agentConfig = New-Object System.Collections.Generic.List[string]
+    $subagentsAllowed = $null
+    if ($isCodex) {
+        $userAgent = @($extraConfig | Where-Object { ([string]$_).Trim() -match '^features\.multi_agent\s*=' }) | Select-Object -Last 1
+        if ($userAgent) { $subagentsAllowed = [bool](([string]$userAgent).Trim() -match '=\s*true$') }
+        else { $agentConfig.Add('features.multi_agent=false'); $subagentsAllowed = $false }
+    }
     $promptParts = New-Object System.Collections.ArrayList
     # Structured mode: the output contract comes FIRST, before the ask and the brief - a
     # reviewer that reads a long brief first tends to answer in prose (handoffs 17/18).
@@ -4190,6 +4244,23 @@ try {
         }
     }
 
+    # (wave 30, T15) the replay guard: a codex fork or resume replays the parent thread's context on
+    # EVERY tool call of the run (cached input counts against a subscription's window too) - a parent
+    # rollout over CODEX_CONSULT_FORK_MAX_KB (default 512) refuses the run before anything starts;
+    # from 128 KB to the limit it is warned about (console, warnings[], the handoff header)
+    $forkGuard = $null
+    if ($isCodex -and $parentThread -and ($Mode -eq 'fork' -or $Mode -eq 'resume')) {
+        $forkGuard = Get-ForkReplayGuard -ThreadId $parentThread
+        if ($forkGuard.Problem -and -not $runWarnings.Contains($forkGuard.Problem)) { $runWarnings.Add($forkGuard.Problem) }
+        if ($forkGuard.Refusal) {
+            if (-not $DryRun -or $detachForeground) { Stop-WithError "$($forkGuard.Refusal); nothing was started." }
+            $runWarnings.Add("a real run is refused: $($forkGuard.Refusal)")
+        } elseif ($forkGuard.Warning) {
+            $runWarnings.Add($forkGuard.Warning)
+            if (-not $DryRun) { Write-Host "WARNING: $($forkGuard.Warning)" -ForegroundColor Yellow }
+        }
+    }
+
     # ------------------------------------------------------------------------- argv
 
     if (-not $isCodex) {
@@ -4246,6 +4317,7 @@ try {
         if ($identity.ProviderSource) { $argv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
         foreach ($ec in $extraConfig) { $argv += @('-c', $ec) }
         foreach ($cc in $contextConfig) { $argv += @('-c', $cc) }
+        foreach ($ac in $agentConfig) { $argv += @('-c', $ac) }
         $argv += @('-o', $lastMsgPath)
         if (-not $Raw -and $schemaTransport -eq 'output-schema') { $argv += @('--output-schema', $schemaPath) }
         if ($Mode -eq 'fork') { $argv += @('fork', $parentThread) }
@@ -4392,6 +4464,12 @@ try {
             finished_at                     = '<written at the commit>'
             commit_wait_ms                  = '<ms the commit waited for the write lock>'
         }
+        if ($isCodex) {
+            $preview | Add-Member -NotePropertyName 'quota' -NotePropertyValue '<{primary, secondary, observed_at} - the windows the run''s rollout names (null members when none)>'
+            $preview | Add-Member -NotePropertyName 'tokens' -NotePropertyValue '<{input, cached, output, thread_input, calls, max_input, context_window, subagents {count, input, calls}} from the rollout, or null>'
+            $preview | Add-Member -NotePropertyName 'subagents_allowed' -NotePropertyValue $subagentsAllowed
+            $preview | Add-Member -NotePropertyName 'budget' -NotePropertyValue $budgetRecord
+        }
         Write-Host "DRY RUN - nothing was executed and no file was written." -ForegroundColor Yellow
         Write-Host ""
         Write-Host "repo root   : $repoRoot"
@@ -4433,6 +4511,15 @@ try {
         if ($rosterLine) { Write-Host $rosterLine }
         foreach ($rw in $runWarnings) { Write-Host "WARNING: $rw" -ForegroundColor Yellow }
         if ($preflightWarning) { Write-Host "WARNING: $preflightWarning" -ForegroundColor Yellow }
+        if ($isCodex) {
+            # (wave 30, T15) the quota windows the preflight saw, the budget, the sub-agent switch, the replay guard
+            $dryWindow = $(if ($health) { [string](Get-PropertyValue $health 'WindowText' '') } else { '' })
+            $dryWindowFrom = $(if ($health -and $health.Window) { " (observed $(Format-QuotaReset -When ([DateTimeOffset]$health.Window.ObservedAt)), $($health.Window.Source))" } else { '' })
+            Write-Host "quota       : $(if ($dryWindow) { "$dryWindow$dryWindowFrom" } else { 'no window observed for this endpoint' })"
+            Write-Host "budget      : $(if ($Budget -gt 0) { "$Budget % of the 5-hour window ($budgetSource) - the main turn is stopped there, the partial kept" } else { "off ($budgetSource)" })"
+            Write-Host "sub-agents  : $(if ($subagentsAllowed) { 'allowed (-CodexConfig names features.multi_agent)' } elseif ($agentConfig.Count -gt 0) { 'off - -c features.multi_agent=false (-CodexConfig features.multi_agent=true allows them)' } else { 'off (-CodexConfig names features.multi_agent)' })"
+            if ($forkGuard -and $forkGuard.Path) { Write-Host "replay      : the parent thread's rollout is $($forkGuard.Kb) KB (CODEX_CONSULT_FORK_MAX_KB $(if ($forkGuard.MaxKb -gt 0) { $forkGuard.MaxKb } else { 'off' }))$(if ($forkGuard.Refusal) { ' - a real run is refused' } elseif ($forkGuard.Warning) { ' - warned' })" }
+        }
         Write-Host "model       : $modelLabel"
         Write-Host "purpose     : $purposeLabel (effort $(if ($null -eq $effortSent) { 'none sent' } else { $effortSent }), max words $maxWordsResolved)"
         if ($topicList.Count -gt 0) { Write-Host "topics      : $($topicList -join ', ')" }
@@ -4609,6 +4696,11 @@ try {
     $stallRecord = $null
     $mainWait = $null
     $script:RunKicked = $false
+    # (wave 30, T15) the main turn was stopped at the quota budget (-Budget): no continuation, the
+    # partial is kept; ledger budget.stopped, bridge_outcome "failed: stopped at the quota budget: ..."
+    $script:RunBudgetStopped = $false
+    $budgetStopText = ''
+    $budgetRecord = $(if ($isCodex) { [pscustomobject]@{ percent = $Budget; source = $budgetSource; stopped = $false; used_percent = $null; resets_at = $null } } else { $null })
     # (wave 26c, D1) which turn the kick stopped (main | retry | continue | repair), and the turns
     # that had already finished when their kick was found (kick_late: the outcome stays)
     $script:KickedTurn = ''
@@ -4660,7 +4752,8 @@ try {
             $null = Register-MachineRunning -Fingerprint ([string]$identity.Fingerprint) -Label ([string]$identity.Provider) -Repo $repoRoot -Task $Task -Nn $nn -Panel $(if ($panelMember) { [string]$panelMember.id } else { '' }) -Plan $(if ($rosterEntry) { [string](Get-PropertyValue $rosterEntry 'Plan' '') } else { '' })
             # (wave 26b, D10, D12) the wait watches the timeout, the stall cut (-StallSec: no event
             # line for that long) and the operator's kick file
-            $mainWait = Wait-EngineProcess -Process $proc -TimeoutSec $TimeoutSec -StallSec $StallSec -EventsPath $eventsPath -KickPath $script:KickPath -Engine $engineName
+            # (wave 30, T15) and the quota budget: the 5-hour window of the run's rollout (codex)
+            $mainWait = Wait-EngineProcess -Process $proc -TimeoutSec $TimeoutSec -StallSec $StallSec -EventsPath $eventsPath -KickPath $script:KickPath -Engine $engineName -BudgetPercent $(if ($isCodex) { $Budget } else { 0 })
             $finished = $mainWait.Exited
             if ($mainWait.KickLate) { $script:KickLateTurns.Add('the main turn') }
             # (wave 27c, D5) event lines longer than 1 MiB the bounded reader skipped: one warning
@@ -4712,6 +4805,20 @@ try {
                     $stopText = 'stopped by the operator (-Kick)'
                     $bridgeOutcome = "failed: $stopText$(if ($mainKillUnconfirmed) { " $(Format-KillText $mainKill)" })"
                     $null = Remove-PendingFile -Path $script:KickPath
+                }
+                if ($mainWait.Reason -eq 'budget') {
+                    # (wave 30, T15) stopped at the quota budget: like the kick - no continuation (it would
+                    # spend more of the window); the salvage follows
+                    $script:RunBudgetStopped = $true
+                    $mainTimedOut = $false
+                    $bwin = $mainWait.Budget
+                    $budgetStopText = "stopped at the quota budget: $($bwin.Name) $(Format-QuotaPercent $bwin.Used) % used$(if ($null -ne $bwin.ResetsAt) { ", resets $(Format-QuotaReset -When $bwin.ResetsAt)" }); the partial is kept"
+                    $stopText = $budgetStopText
+                    $bridgeOutcome = "failed: $stopText$(if ($mainKillUnconfirmed) { " $(Format-KillText $mainKill)" })"
+                    $budgetRecord.stopped = $true
+                    $budgetRecord.used_percent = [double]$bwin.Used
+                    $budgetRecord.resets_at = $(if ($null -ne $bwin.ResetsAt) { Format-OffsetIso $bwin.ResetsAt } else { $null })
+                    Write-Host "codex-consult: $budgetStopText (-Budget $Budget, $budgetSource)" -ForegroundColor Yellow
                 }
                 $mainSurvivors = $survivors.Count
                 $mainUnverified = @(Get-PropertyValue $mainKill 'Unverified' @())
@@ -5058,6 +5165,12 @@ try {
             if ($treeProblem -and $moved.Count -eq 0) { $moved.Add('the tree check') }
             if ($moved.Count -gt 0) { $continueSkip = "files changed during the run ($($moved.ToArray() -join ', '))" }
         }
+        # (wave 30, T15) a continuation spends more of the window: none once the thread's 5-hour window
+        # is already at the quota budget
+        if (-not $continueSkip -and $isCodex -and $Budget -gt 0) {
+            $contWindow = Read-RolloutPrimaryWindow -Path (Get-CodexRolloutPath -ThreadId $continueThread)
+            if ($null -ne $contWindow.Used -and $contWindow.Used -ge $Budget -and ($null -eq $contWindow.ResetsAt -or $contWindow.ResetsAt -gt [DateTimeOffset]::Now)) { $continueSkip = "the $($contWindow.Name) is $(Format-QuotaPercent $contWindow.Used) % used - at the quota budget $Budget %" }
+        }
         if (-not $continueSkip) {
             # (wave 24b, F08-3) the killed turn's OWN failure evidence (never the bridge's timeout
             # text) through the ONE classifier: the adapter's class and failure texts (an engine),
@@ -5088,6 +5201,7 @@ try {
                 if ($identity.ProviderSource) { $contArgv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
                 foreach ($ec in $extraConfig) { $contArgv += @('-c', $ec) }
                 foreach ($cc in $contextConfig) { $contArgv += @('-c', $cc) }
+                foreach ($ac in $agentConfig) { $contArgv += @('-c', $ac) }
                 $contArgv += @('-o', $continueLastPath)
                 if (-not $Raw -and $schemaTransport -eq 'output-schema') { $contArgv += @('--output-schema', $schemaPath) }
                 $contArgv += @('resume', $continueThread, '-')
@@ -5278,6 +5392,7 @@ try {
             if ($identity.ProviderSource) { $repairArgv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
             foreach ($ec in $extraConfig) { $repairArgv += @('-c', $ec) }
             foreach ($cc in $contextConfig) { $repairArgv += @('-c', $cc) }
+            foreach ($ac in $agentConfig) { $repairArgv += @('-c', $ac) }
             $repairArgv += @('-o', $repairLastPath, 'resume', $threadId, '-')
             Write-Utf8NoBom -Path $repairPromptPath -Text $repairPrompt
             $repairWatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -5556,6 +5671,12 @@ try {
     $providerFailure = $null
     if ($kickFailsRun) {
         $providerFailure = New-ProviderFailure -Texts @('stopped by the operator (-Kick)') -Class 'operator'
+    } elseif ($script:RunBudgetStopped -and $bridgeOutcome -like 'failed: stopped at the quota budget*') {
+        # (wave 30, T15) the operator's quota budget stopped the run: no endpoint's fault (class operator:
+        # the endpoint is not marked out at the budget - a window at 98 % is); the text says budget, the
+        # telemetry event says quota (Get-TelemetryOutcome)
+        $providerFailure = New-ProviderFailure -Texts @($budgetStopText) -Class 'operator'
+        if ($providerFailure.PSObject.Properties['hint']) { $providerFailure.hint = "$budgetStopText - continue after the reset, or raise -Budget" }
     } elseif ($bridgeOutcome -ne 'usable reply' -and -not $isCodex -and $agyFailureClass -eq 'permission') {
         # the tree check's forced class (D12) outranks the evidence of every turn
         $providerFailure = New-ProviderFailure -Texts @(@($agyFailureTexts) + @(($bridgeOutcome -replace '^failed:\s*', ''))) -Class $agyFailureClass
@@ -5601,7 +5722,18 @@ try {
     # the commit and into the retry after it (applying is idempotent)
     $machineHealthRetry = $false
     $machineHealthCause = ''
-    $machineHealthRecord = New-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot -QuotaMark $quotaMark
+    # (wave 30, T15) the quota windows and the tokens of this run, read from its rollout (and the
+    # sub-agent rollouts of its thread): ledger quota / tokens, the machine-wide record, the summary
+    $runQuota = $null
+    $quotaLine = ''
+    if ($isCodex) {
+        $quotaThread = $(if ($threadId) { $threadId } elseif ($continueThread) { $continueThread } else { '' })
+        $runQuota = Get-CodexRunQuota -ThreadId $quotaThread -StartedAt $startedAt -BaselineThreadId $(if ($Mode -eq 'fork' -or $Mode -eq 'resume') { $parentThread } else { '' })
+        $qText = Format-QuotaWindows -Quota $runQuota.Quota
+        $tk = $runQuota.Tokens
+        $quotaLine = "quota      : $(if ($qText) { $qText } else { 'no window in the rollout' })$(if ($tk -and $null -ne $tk.input) { "; this run $($tk.input) input tokens ($($tk.cached) cached) in $($tk.calls) calls$(if ($null -ne $tk.max_input) { ", max $($tk.max_input) per call$(if ($null -ne $tk.context_window) { " of $($tk.context_window)" })" }); sub-agents $($tk.subagents.count)$(if ($tk.subagents.count -gt 0) { " ($($tk.subagents.input) input tokens)" })" } elseif (-not $runQuota.Path) { ' (the rollout of the thread was not found)' })"
+    }
+    $machineHealthRecord = New-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot -QuotaMark $quotaMark -Quota $(if ($runQuota) { $runQuota.Quota } else { $null })
     if ($machineHealthRecord -and -not (Add-MachineHealthRecord -Fingerprint ([string]$identity.Fingerprint) -Outcome $bridgeOutcome -Failure $providerFailure -Repo $repoRoot -Record $machineHealthRecord) -and [string]$script:MachineHealthLastError) { $machineHealthRetry = $true; $machineHealthCause = [string]$script:MachineHealthLastError }
     # (wave 28c, D10 / F42-6, F44-1) a journal line that could not be applied was moved aside, never
     # dropped silently: said in warnings[] (the updates of this run so far - its registration, its outcome)
@@ -5632,7 +5764,7 @@ try {
     $continueKilled = [bool]($continueTurn -and (& $isKilled ([string]$continueTurn.Problem)))
     $retryKilled = [bool]($retryTurn -and (& $isKilled ([string]$retryTurn.Problem)))
     $repairKilled = $(if ($isCodex) { & $isKilled ([string]$repairProblem) } else { [bool]($repairTurn -and (& $isKilled ([string]$repairTurn.Problem))) })
-    $partialNeeded = [bool](($mainTimedOut -and -not $continued) -or $continueKilled -or $retryKilled -or $repairKilled -or $script:RunKicked)
+    $partialNeeded = [bool](($mainTimedOut -and -not $continued) -or $continueKilled -or $retryKilled -or $repairKilled -or $script:RunKicked -or $script:RunBudgetStopped)
     # (wave 26b, D15) ANY failed run keeps what its reviewer produced: a provider failure mid-run
     # (a 429 after retries, a 401/403 quota, a network error), a denial, a tree-check failure - when
     # an event stream of the run holds at least one agent message, reasoning text or tool call.
@@ -5661,9 +5793,10 @@ try {
         $turns = New-Object System.Collections.Generic.List[object]
         $killedAt = New-Object System.Collections.Generic.List[string]
         $mainKickedHere = [bool]($script:RunKicked -and $mainWait -and $mainWait.Reason -eq 'kick')
-        $mainNote = $(if ($mainStalled) { "stopped at $wallSeconds s: $StallSec s without an event" } elseif ($mainKickedHere) { "stopped by the operator (-Kick) at $wallSeconds s" } elseif ($mainTimedOut) { "killed at $wallSeconds s of $TimeoutSec s" } elseif ($partialOnFailure) { "it ended at $wallSeconds s: $endedWhy" } else { 'it ended by itself' })
+        $mainNote = $(if ($script:RunBudgetStopped) { "stopped at $wallSeconds s: $budgetStopText" } elseif ($mainStalled) { "stopped at $wallSeconds s: $StallSec s without an event" } elseif ($mainKickedHere) { "stopped by the operator (-Kick) at $wallSeconds s" } elseif ($mainTimedOut) { "killed at $wallSeconds s of $TimeoutSec s" } elseif ($partialOnFailure) { "it ended at $wallSeconds s: $endedWhy" } else { 'it ended by itself' })
         $turns.Add([pscustomobject]@{ Label = 'Turn 1 - the main turn'; Note = $mainNote; Salvage = (Read-TurnSalvage -Engine $engineName -Path $eventsPath) })
-        if ($mainStalled) { $killedAt.Add("$wallSeconds s, $StallSec s without an event (the main turn)") }
+        if ($script:RunBudgetStopped) { $killedAt.Add("$wallSeconds s at the quota budget (the main turn)") }
+        elseif ($mainStalled) { $killedAt.Add("$wallSeconds s, $StallSec s without an event (the main turn)") }
         elseif ($mainKickedHere) { $killedAt.Add("$wallSeconds s by the operator (the main turn)") }
         elseif ($mainTimedOut) { $killedAt.Add("$wallSeconds s of $TimeoutSec s (the main turn)") }
         if ($retryTurn) {
@@ -5697,9 +5830,18 @@ try {
             $resumeParts = New-Object System.Collections.Generic.List[string]
             $resumeParts.Add("-Task $Task")
             if ($CollabDir -ne '.collab') { $resumeParts.Add("-CollabDir $(if ($CollabDir -match '\s') { '"' + $CollabDir + '"' } else { $CollabDir })") }
-            $resumeParts.Add("-Mode resume -Thread $resumeThread")
+            # (wave 30, T15) a codex thread whose rollout is over CODEX_CONSULT_FORK_MAX_KB would be refused
+            # by the replay guard: the hint continues in a NEW thread with the brief and the partial
+            $resumeGuard = $(if ($isCodex) { Get-ForkReplayGuard -ThreadId $resumeThread } else { $null })
+            $resumeNew = [bool]($resumeGuard -and $resumeGuard.OverLimit)
+            if ($resumeNew) {
+                $resumeParts.Add('-Mode new')
+                $resumeParts.Add("-Provider $($identity.Provider) -Model $($identity.Model)")
+            } else {
+                $resumeParts.Add("-Mode resume -Thread $resumeThread")
+            }
             # without a roster the thread's reviewer must be named (with one, -Thread fixes it)
-            if (-not $roster.Exists) {
+            if (-not $roster.Exists -and -not $resumeNew) {
                 $resumeParts.Add("-Provider $($identity.Provider) -Model $($identity.Model)")
                 if (-not $isCodex) { $resumeParts.Add("-Engine $engineName") }
             }
@@ -5732,9 +5874,16 @@ try {
             if ($SkipPreflight) { $resumeParts.Add('-SkipPreflight') }
             if ($CodexExe) { $resumeParts.Add("-CodexExe $(& $qa $CodexExe)") }
             if ($EngineExe -and -not $isCodex) { $resumeParts.Add("-EngineExe $(& $qa $EngineExe)") }
-            $resumeParts.Add('-Prompt "finish your review"')
+            if ($resumeNew) {
+                if ($briefRef) { $resumeParts.Add("-Brief $(& $qa $briefRef)") }
+                if ($PSBoundParameters.ContainsKey('Budget')) { $resumeParts.Add("-Budget $Budget") }
+                $resumeParts.Add("-Prompt ""the previous run was stopped; its partial reply is $partialRel - finish the review""")
+            } else {
+                if ($PSBoundParameters.ContainsKey('Budget')) { $resumeParts.Add("-Budget $Budget") }
+                $resumeParts.Add('-Prompt "finish your review"')
+            }
             $resumeArgs = $resumeParts.ToArray() -join ' '
-            $partialFooter = "$endedText; thread $resumeThread - continue with ``$resumeArgs``"
+            $partialFooter = $(if ($resumeNew) { "$endedText; thread $resumeThread replays $($resumeGuard.Kb) KB on every tool call (over CODEX_CONSULT_FORK_MAX_KB $($resumeGuard.MaxKb)) - continue in a new thread with ``$resumeArgs``" } else { "$endedText; thread $resumeThread - continue with ``$resumeArgs``" })
             $resumeCommand = "$(if ($script:LegacyPS) { 'powershell -NoProfile -ExecutionPolicy Bypass' } else { 'pwsh -NoProfile' }) -File ""$PSCommandPath"" $resumeArgs"
         } else {
             $partialFooter = "$endedText; the thread of the $(if ($killedAt.Count -gt 0) { 'killed' } else { 'failed' }) turn is not known - no resume is possible (start again with -Mode new)"
@@ -5863,6 +6012,7 @@ try {
     $headerLines.Add("$briefLine $reviewedLine")
     foreach ($d in $driftLines) { $headerLines.Add($d) }
     $headerLines.Add("Bridge outcome: $bridgeOutcome. Wall time: $wallSeconds s. Tokens: $(if (-not $engineSpec.HasUsage) { "not reported by $engineName" } else { Format-Usage $usage }).")
+    if ($quotaLine) { $headerLines.Add("Quota (rollout): $($quotaLine -replace '^quota\s*:\s*', ''); sub-agents $(if ($subagentsAllowed) { 'allowed' } else { 'off (features.multi_agent=false)' }); budget $(if ($Budget -gt 0) { "$Budget % of the 5-hour window" } else { 'off' }).") }
     if ($engineRunRecord) { $headerLines.Add("Engine turns: $($engineRunRecord.turns)$(if ($engineName -eq 'muse') { ' (each one a Muse Code subscription prompt)' })$(if ($engineName -eq 'claude') { " (claude -p, auth $engineAuth$(if ($engineRunRecord.model_resolved) { "; model $($engineRunRecord.model_resolved)" }); init tools $(if (@($engineRunRecord.init_tools).Count -gt 0) { @($engineRunRecord.init_tools) -join ', ' } else { '(none seen)' }); permission denials $($engineRunRecord.permission_denials))" })$(if ($null -ne $engineRunRecord.max_model_steps) { "; $(if ($engineSpec.StepsFlag) { $engineSpec.StepsFlag } else { '--max-model-steps' }) $($engineRunRecord.max_model_steps)" })$(if ($null -ne $engineRunRecord.msp_schema_version) { "; MSP schema_version $($engineRunRecord.msp_schema_version)" }).") }
     if ($engineWarnings.Count -gt 0) { $headerLines.Add("Warnings: $(($engineWarnings.ToArray() | ForEach-Object { ConvertTo-OneLine $_ }) -join '; ').") }
     if ($denialRetryRecord) {
@@ -6050,6 +6200,14 @@ try {
         finished_at                     = (Get-IsoTimestamp)
         commit_wait_ms                  = $commitWaitMs
     }
+    # (wave 30, T15) a codex run's quota windows, tokens, sub-agent switch and budget - appended at the
+    # END of the entry (the order of the keys before stays as it was; an entry without them stays valid)
+    if ($isCodex) {
+        $entry | Add-Member -NotePropertyName 'quota' -NotePropertyValue $(if ($runQuota) { $runQuota.Quota } else { [pscustomobject]@{ primary = $null; secondary = $null; observed_at = $null } })
+        $entry | Add-Member -NotePropertyName 'tokens' -NotePropertyValue $(if ($runQuota) { $runQuota.Tokens } else { $null })
+        $entry | Add-Member -NotePropertyName 'subagents_allowed' -NotePropertyValue $subagentsAllowed
+        $entry | Add-Member -NotePropertyName 'budget' -NotePropertyValue $budgetRecord
+    }
     # The FRESH ledger (re-read under the write lock): created when absent, the entry
     # inserted at its place by n (a panel member that finishes first still lands after the
     # lower-n members' entries; D10).
@@ -6183,6 +6341,7 @@ try {
     if (-not (Test-UsableOutcome $bridgeOutcome)) {
         Write-Summary "codex-consult: $bridgeOutcome (wall $wallSeconds s)" Red
         if ($modeFallbackRecord) { Write-Summary "mode       : $($modeFallbackRecord.from) -> new ($($modeFallbackRecord.reason))" Yellow }
+        if ($quotaLine) { Write-Summary $quotaLine Yellow }
         # (wave 24b) the next step for a failure the bridge can explain (a context-window limit)
         if ($failureHint) { Write-Summary "hint       : $failureHint" Yellow }
         if ($continueLine) { Write-Summary $continueLine Yellow }
@@ -6208,6 +6367,7 @@ try {
 
     Write-Summary "codex-consult: $bridgeOutcome - $lineageShown, mode $Mode, thread $threadId (source: $threadSource), wall $wallSeconds s"
     if ($modeFallbackRecord) { Write-Summary "mode       : $($modeFallbackRecord.from) -> new ($($modeFallbackRecord.reason))" Yellow }
+    if ($quotaLine) { Write-Summary $quotaLine }
     if ($continueLine) { Write-Summary $continueLine Yellow }
     foreach ($pl in $partialLines) { Write-Summary $pl Yellow }
     foreach ($w in $engineWarnings) { Write-Summary "warning    : $w" Yellow }

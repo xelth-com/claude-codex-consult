@@ -237,7 +237,8 @@ if ($roster.Exists) {
 # available | unavailable (<reason>) | unknown (<reason>) - the wording of the rows before.
 function Format-RowVerdict {
     param($V, [string]$Engine)
-    if ($V.State -eq 'available') { return 'available' }
+    # (wave 30) a window at 80 % or more: "available (low quota: 5-hour window 84 % until 18:32)"
+    if ($V.State -eq 'available') { $low = [string](Get-PropertyValue $V 'QuotaWarning' ''); if ($low) { return "available ($low)" }; return 'available' }
     if ($V.State -eq 'unavailable') {
         if ($V.Kind -eq 'credentials' -and $Engine -ne 'codex' -and $V.Credential) { return "unavailable ($($V.Credential.Reason))" }
         return "unavailable ($($V.Reason))"
@@ -351,6 +352,7 @@ foreach ($name in $names) {
             roster_selected   = [bool]($walk -and $walk.Entry -and $walk.Entry.Provider -ceq $name -and $walk.Entry.Engine -eq 'codex')
             verdict           = $verdict
             health_source     = $healthSource
+            quota             = $(if ($health -and $health.Window) { [pscustomobject]@{ text = [string]$health.WindowText; primary = (Get-PropertyValue $health.Window.Quota 'primary' $null); secondary = (Get-PropertyValue $health.Window.Quota 'secondary' $null); observed_at = (Format-OffsetIso ([DateTimeOffset]$health.Window.ObservedAt).ToLocalTime()); source = [string]$health.Window.Source } } else { $null })
         })
 }
 
@@ -414,6 +416,7 @@ foreach ($el in $engineLabels) {
             roster_selected   = [bool]($walk -and $walk.Entry -and $walk.Entry.Provider -ceq $el.Name -and $walk.Entry.Engine -eq $el.Engine)
             verdict           = $verdict
             health_source     = $healthSource
+            quota             = $(if ($health -and $health.Window) { [pscustomobject]@{ text = [string]$health.WindowText; primary = (Get-PropertyValue $health.Window.Quota 'primary' $null); secondary = (Get-PropertyValue $health.Window.Quota 'secondary' $null); observed_at = (Format-OffsetIso ([DateTimeOffset]$health.Window.ObservedAt).ToLocalTime()); source = [string]$health.Window.Source } } else { $null })
         })
 }
 
@@ -462,7 +465,7 @@ if ($Json) {
 } else {
     Write-Host "codex config: $where$(if (-not $config.Exists) { ' (not found - Codex runs on its built-in defaults)' })"
     Write-Host "endpoint health: $healthSource, read at $($clock.Now.ToLocalTime().ToString('yyyy-MM-dd HH:mm', $script:Invariant)) - the ledgers of THIS repository"
-    $header = [pscustomobject]@{ verdict = 'VERDICT'; name = 'PROVIDER'; roster = 'ROSTER'; kind = 'KIND'; endpoint = 'ENDPOINT'; credentials = 'CREDENTIALS'; effort = 'EFFORT'; limit = 'LAST FAILURE' }
+    $header = [pscustomobject]@{ verdict = 'VERDICT'; name = 'PROVIDER'; roster = 'ROSTER'; kind = 'KIND'; endpoint = 'ENDPOINT'; credentials = 'CREDENTIALS'; effort = 'EFFORT'; limit = 'LAST FAILURE'; quota = 'QUOTA' }
     $lines = @($header) + @($rows | ForEach-Object {
             $rowName = $_.name
             $rowEngine = [string]$_.engine
@@ -481,10 +484,12 @@ if ($Json) {
                 credentials = $_.credentials
                 effort      = $(if ($_.engine -ne 'codex' -and $_.effort_models -ne 'any' -and $null -ne $_.effort_models) { "$($_.effort_vocabulary) ($(@($_.effort_models).Count) declared models)" } elseif ($_.engine -ne 'codex') { $_.effort_vocabulary } elseif ($_.effort_models -eq 'any') { "$($_.effort_vocabulary) (any model)" } elseif ($null -ne $_.effort_models) { "$($_.effort_vocabulary) ($(@($_.effort_models).Count) declared models)" } else { $_.effort_vocabulary })
                 limit       = $(if ($_.last_failure) { "$($failureLabel): $($_.last_failure.when) - $($_.last_failure.message)" } else { '-' })
+                quota       = $(if ($_.quota -and $_.quota.text) { [string]$_.quota.text } else { '-' })
             }
         })
-    $cols = @('verdict', 'name', 'kind', 'endpoint', 'credentials', 'effort', 'limit')
-    if ($roster.Exists) { $cols = @('verdict', 'name', 'roster', 'kind', 'endpoint', 'credentials', 'effort', 'limit') }
+    # (wave 30) QUOTA last: the newest observed windows of the endpoint ("5h 96% until 18:32; wk 15% until Oct 20")
+    $cols = @('verdict', 'name', 'kind', 'endpoint', 'credentials', 'effort', 'limit', 'quota')
+    if ($roster.Exists) { $cols = @('verdict', 'name', 'roster', 'kind', 'endpoint', 'credentials', 'effort', 'limit', 'quota') }
     $width = @{}
     foreach ($col in $cols) { $width[$col] = (@($lines | ForEach-Object { ([string]$_.$col).Length }) | Measure-Object -Maximum).Maximum }
     foreach ($l in $lines) {
@@ -506,7 +511,7 @@ if ($Json) {
 
 if ($Provider) {
     $v = [string]$rows[0].verdict
-    if ($v -eq 'available') { exit 0 }
+    if ($v -eq 'available' -or $v.StartsWith('available (')) { exit 0 }
     if ($v.StartsWith('unavailable')) { exit 2 }
     exit 3
 }

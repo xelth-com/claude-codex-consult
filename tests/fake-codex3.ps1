@@ -65,6 +65,8 @@
 #   FAKE_CODEX_ENV_DUMP=<dir>    every invocation writes <dir>\<version|login|exec>-<pid>.env: the
 #                                CODEX_*, CLAUDE*, AI_AGENT* and ZCODE_* variables it inherited,
 #                                NAME=VALUE
+#   (wave 30) FAKE_CODEX_QUOTA=1 and its FAKE_CODEX_QUOTA_* switches: the thread's rollout with
+#                                rate_limits and token totals (and a sub-agent's) - see fake-rollout.ps1
 $ErrorActionPreference = 'Stop'
 $raw = [string]$env:FAKE_CODEX_ARGS
 # "<model>=<value>|..." -> the value for $Key ('*' or a bare value: the default; $null: none)
@@ -133,10 +135,17 @@ if ($env:FAKE_CODEX_PIDFILE) { Write-FakeFile $env:FAKE_CODEX_PIDFILE "$PID" }
 if ($env:FAKE_CODEX_PIDDIR) { Write-FakeFile (Join-Path $env:FAKE_CODEX_PIDDIR "$PID.pid") "$PID $((Get-Process -Id $PID).StartTime.ToUniversalTime().Ticks)" }
 $tid = [guid]::NewGuid().ToString()
 if ($resumeOf -and -not $env:FAKE_CODEX_RESUME_NEWTHREAD) { $tid = $resumeOf }
+# (wave 30) FAKE_CODEX_QUOTA=1: a UUIDv7 thread id like the real CLI's (a resume keeps its thread)
+# and, right after turn.started, the thread's rollout (fake-rollout.ps1 - its switches are listed there)
+if ($env:FAKE_CODEX_QUOTA -eq '1') {
+    . (Join-Path $PSScriptRoot 'fake-rollout.ps1')
+    if ($raw -match ' resume ([0-9a-fA-F-]{36})' -and -not $env:FAKE_CODEX_RESUME_NEWTHREAD) { $tid = $Matches[1] } else { $tid = New-FakeV7Id }
+}
 if ($env:FAKE_CODEX_PRELINE) { [Console]::Out.Write($env:FAKE_CODEX_PRELINE + "`n") }
 if (-not $env:FAKE_CODEX_NOTHREAD) { [Console]::Out.Write("{""type"":""thread.started"",""thread_id"":""$tid""}`n") }
 [Console]::Out.Write("{""type"":""turn.started""}`n")
 [Console]::Out.Flush()
+if ($env:FAKE_CODEX_QUOTA -eq '1') { Write-FakeRollout -Thread $tid -Raw $raw }
 if ($env:FAKE_CODEX_STDERR_FIRST) {
     $b = (New-Object System.Text.UTF8Encoding($false)).GetBytes($env:FAKE_CODEX_STDERR_FIRST + "`r`n")
     $es = [Console]::OpenStandardError(); $es.Write($b, 0, $b.Length); $es.Flush()
