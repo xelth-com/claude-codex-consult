@@ -1431,6 +1431,10 @@ This is the only place field meanings are listed; other sections refer to them b
 | `engine_run` | (wave 23) `null` for codex; for an engine `{turns, max_model_steps, msp_schema_version}`: the engine turns started (the main turn, a denial retry, a format repair - each muse turn spends one Muse Code subscription prompt), `-MaxModelSteps` as sent (`null` when not), the MSP `schema_version` of a muse stream (`null` for agy); right after `compactions` (wave 28c; before: `usage`) (Wave 29) For the claude engine `{turns, max_model_steps, msp_schema_version (null), auth, init_tools, mcp_servers, permission_mode, api_key_source, model_resolved, other_models, permission_denials, denied_tools, rate_limit, quota_mark, cost_usd, child_env_allowed, switched_off}`: the init event's proof of every turn, the ONE resolved model of the thread, the raw most-severe `rate_limit_event` info, (wave 29b, E15) `quota_mark` - `null`, or the `provider_failure` a failed quota turn would record, when a rejecting `rate_limit_event` came beside a successful result (the endpoint health reads it as a quota failure right after the reply) -, `total_cost_usd` (local only; notional on a subscription), the NAMES (never values) of the environment variables the child received, and what R22 switched off. |
 | `finished_at` | (0.4.x wave 21) when the entry was committed (`when` is the reviewer's start). The endpoint health's "newest wins" orders by it (older entries: `when` + `wall_seconds`), ties by `n` - a panel's members finish in any order |
 | `commit_wait_ms` | (0.4.x wave 21) how long the commit waited for the write lock because another commit of the task held it (`0`: it was free); the console says `write lock : waited N ms for another commit of this task` when it waited |
+| `quota` | (wave 30, T15; codex runs only, after `commit_wait_ms`) the quota windows the run's rollout named: `{primary, secondary, observed_at}` - each window `{used_percent, window_minutes, resets_at}` (`resets_at` ISO with the local offset; primary = the 5-hour window, secondary = the weekly one of a ChatGPT subscription), `null` members when the rollout names none or was not found. The newest window over the thread and its sub-agents decides. "Quota windows and the reading budget" |
+| `tokens` | (wave 30) `{input, cached, output, thread_input, calls, max_input, context_window, subagents {count, input, calls}}` from the rollout: `input`/`cached`/`output` are THIS run's share of the thread's running total (the last total minus the last total before the run - of the parent's rollout for a fork, which inherits it), `thread_input` the running total itself, `calls` the model requests of the run, `max_input` the largest per-call input, `context_window` the model's; `null` when the rollout was not found |
+| `subagents_allowed` | (wave 30) `false` when the bridge passed `-c features.multi_agent=false` (the default), `true`/`false` as `-CodexConfig` (or the roster entry's `codex_config`) set `features.multi_agent` |
+| `budget` | (wave 30) `{percent, source (-Budget \| CODEX_CONSULT_QUOTA_BUDGET \| default \| a panel's), stopped, used_percent, resets_at}` - `stopped` true when the main turn was stopped at the budget |
 
 `bridge_outcome` and `verdict` are separate on purpose: a delivered `HOLD` is a success of
 the bridge. Legacy entries: the pre-0.2.0 field `outcome` (now `bridge_outcome`) is left
@@ -2198,6 +2202,91 @@ walk's, so a quota without a reset time hit within the hour exits `2` (0.5.0). W
 unavailable does not become available by retrying the bridge.
 
 ---
+
+## Quota windows and the reading budget
+
+(wave 30, 0.6.2, TECH_DEBT T15) A subscription's quota is spent in windows - on a ChatGPT plan a 5-hour
+window and a weekly one - and a single review can spend a whole 5-hour window: a forked thread replays
+its context on EVERY tool call (cached input counts against the window too), and a reviewer's own
+sub-agents replay theirs. The bridge reads what Codex itself reports and acts on it before, during and
+after a run.
+
+**Where the numbers come from.** Codex CLI (0.155) writes a `token_count` event into each thread's
+rollout, `<codex home>/sessions/<yyyy>/<mm>/<dd>/rollout-<timestamp>-<thread id>.jsonl` (`CODEX_HOME`
+aware), after every model request: `rate_limits` with `primary` (the 5-hour window) and `secondary`
+(the weekly one), each `{used_percent, window_minutes, resets_at (unix seconds)}`, and the running
+`total_token_usage`, the request's `last_token_usage` and `model_context_window`. Every request writes
+two such lines - the `codex` one, then a `premium` one with null windows and the same totals: the
+bridge takes the LAST line that names a window and counts a call only where the total changed. The
+totals are cumulative over the thread's life and a FORK INHERITS its parent's: the tokens of one run
+are its last total minus the last total before it started (the parent's rollout for a fork, the same
+rollout for a resume) - equal to the sum of its per-call inputs. Sub-agent threads (Codex feature
+`multi_agent`) are rollouts of their own whose first line names `"parent_thread_id"`; they start at
+zero and are summed separately. Older rollouts carry `"primary": null` - recorded as `null`.
+
+**What the ledger records.** After every codex run - usable, failed, timed out, stopped - the entry
+gets, AFTER `commit_wait_ms` (the keys before keep their order; an entry without them stays valid
+everywhere): `quota` `{primary, secondary, observed_at}`, `tokens` `{input, cached, output,
+thread_input, calls, max_input, context_window, subagents {count, input, calls}}`,
+`subagents_allowed` and `budget`. The summary prints one line, e.g.
+`quota      : 5h 42% until 16:27; wk 15% until Oct 16; this run 6000 input tokens (3000 cached) in 3 calls, max 3000 per call of 258400; sub-agents 0`,
+and the handoff header a `Quota (rollout): ...` line.
+
+**The endpoint health and the verdict.** The newest observation of an endpoint is its window: the
+`quota` of its ledger entries, of its records in the machine-wide health file (every record carries
+the run's `quota`; a run without an outcome record for the endpoint - a budget stop - writes a record
+of class `''` that carries only the windows, which a reader before wave 30 skips), and - for the
+built-in `openai` endpoint, while the machine-wide health is on (`CODEX_CONSULT_HEALTH` not `none`) -
+the newest rollout of the codex home on the `openai` provider (every Codex session of the account
+writes the account's windows, an interactive one too; the observation, not the file's write time,
+decides; at the same instant the fuller share wins). Then:
+
+| window | verdict |
+|---|---|
+| used >= 98 % and `resets_at` ahead | `unavailable (5-hour window 99 % used, resets <iso>)` - like a usage limit with a known reset: the roster walk skips the entry with that reason, `-Require` and the panel count it out, `-Short` says `out - openai :: gpt-5.1 (until 18:32, in 4h 21m)`, a real run is refused (`-SkipPreflight` launches anyway, with a warning) |
+| used >= 80 %, not reset | `available (...; low quota: 5-hour window 84 % until 18:32)` - the run is not refused (`codex-providers.ps1 -Provider` exits 0) |
+| `resets_at` in the past | the window was reset: shown as `5h reset (last 96% until 18:32)`, no verdict change |
+
+`codex-providers.ps1` shows the newest windows of each endpoint in its last column, QUOTA - e.g.
+`5h 96% until 18:32; wk 15% until Oct 20` (local times; a reset more than 24 hours away by its date);
+`-Json` rows carry `quota` `{text, primary, secondary, observed_at, source (recorded | rollout)}` or
+`null`. The dry run prints the same as `quota       : ... (observed <time>, recorded|rollout)`.
+
+**`-Budget <percent>`** (env `CODEX_CONSULT_QUOTA_BUDGET`, default `90`, `0` = off; a panel passes its
+budget to every member, a detached run takes it along): while a codex run's main turn runs, the stall
+watch also reads the run's rollout every 15 s once the event stream named the thread, and when the
+5-hour window's `used_percent` of an observation made during this turn reaches the budget (its reset
+still ahead), the turn is stopped like the stall cut - the process tree killed, the partial kept
+(`handoffs/NN-codex-<name>.partial.md`), NO timeout continuation (it would spend more): bridge_outcome
+`failed: stopped at the quota budget: 5-hour window 91 % used, resets 18:32; the partial is kept`,
+`provider_failure` class `operator` with that text as its hint (the endpoint is not marked out at
+the budget - a window at 98 % is), ledger `budget.stopped` true. The telemetry event reports the
+existing outcome class `quota` (no new class in the event contract). A timeout continuation is not
+started either once the thread's window is at the budget.
+
+**The replay guard - `CODEX_CONSULT_FORK_MAX_KB`** (default `512`, `0` = no refusal). A codex `-Mode
+fork` or `-Mode resume` (the automatic parent too) replays the parent thread on every tool call of the
+run. Before anything starts the bridge measures the parent's rollout: over the limit the run is
+refused - `the parent thread <id> replays <N> KB (~<N/4> k tokens) on EVERY tool call of the run: use
+-Mode new, or raise CODEX_CONSULT_FORK_MAX_KB` (the reservation is withdrawn, no ledger entry; a dry
+run says `a real run is refused: ...` and prints a `replay` line); from 128 KB up to the limit it is
+warned about (console, `warnings[]`, the handoff header). The partial's "continue with" hint after a
+failed run suggests `-Mode new` (with the brief and the partial named) instead of a resume when the
+thread is over the limit.
+
+**Sub-agents off for reviews.** Every codex turn (the main turn, the continuation, the format repair)
+gets `-c features.multi_agent=false` unless `-CodexConfig` - or the roster entry's `codex_config` -
+names `features.multi_agent` (then that value wins; the key is never refused, the bridge refuses only
+the keys it owns). Ledger `subagents_allowed`; the dry run prints `sub-agents  : off - -c
+features.multi_agent=false ...`.
+
+**The reading discipline.** The purpose paragraphs of `acceptance`, `diff-review`, `checkpoint` and
+`core-contract` end with one standard block: "Reading discipline: never print whole files. Run `git
+diff <range> --stat` first, then read the hunks of ONE path at a time with a line cap (`git diff
+<range> -- <path> | head -n 200`; more lines only where you need them); outside the diff, find with
+`grep -n` and read only the line ranges you need. Read the documents the brief names before the code.
+Give your verdict even when your reading is incomplete, and list what you did not read." A whole file
+printed once is replayed on every later call of the thread.
 
 ## Effort vocabularies (caps-v1)
 
@@ -3606,6 +3695,7 @@ nor writes it.
 | `-TimeoutSec <n>` | the purpose's default (0.5.0: 600-3600 s, "Timeouts, the continuation and the partial reply") | the main turn's process TREE is killed past it; ledger `timeout_sec`, `timeout_source` |
 | `-ContinueSec <n>` | the smaller of the timeout and 900 s | (0.5.0) the budget of the ONE continuation turn on the killed turn's thread; `0` = off; ledger `continue_sec`, `timeout_continue` |
 | `-StallSec <n>` | the roster entry's `stall_sec`, else `900` | (wave 26b, R18) the stall cut: no event line in the engine's stream for n s while its process lives - stopped like a timeout (the continuation turn, the salvage); `0` = off; a panel passes it to every member; ledger `stall` |
+| `-Budget <percent>` | `CODEX_CONSULT_QUOTA_BUDGET`, else `90` | (wave 30, T15) codex: the stall watch also reads the run's rollout every 15 s and stops the main turn once its 5-hour window is used to that share - "failed: stopped at the quota budget: ..."; the partial is kept, no continuation; `0` = off. "Quota windows and the reading budget" |
 | `-Range <from>..<to>` | — | (0.5.0) diff-review and acceptance only: `git diff --shortstat` once - the size in the prompt and the ledger (`range`), a warning above 1500 lines with a timeout below 2400 s; an unknown range and a single revision (only `base..head` / `base...head`) are refused |
 | `-ReplyName <slug>` | `reply` | names `handoffs/<NN>-codex-<slug>.*` (`<NN>-agy-<slug>.*`, `<NN>-muse-<slug>.*` for the engines) |
 | `-Artifact <path>[,<path>…]` | — | one comma-separated string; hashes built artifacts into the ledger; a missing path refuses the run |

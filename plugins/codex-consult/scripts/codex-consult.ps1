@@ -4102,6 +4102,9 @@ try {
     # features.multi_agent (theirs wins; the key is not refused). Ledger subagents_allowed.
     $agentConfig = New-Object System.Collections.Generic.List[string]
     $subagentsAllowed = $null
+    # (wave 30, T15) the ledger's budget record (codex): the -Budget of this run; `stopped` and the
+    # window when the main turn was stopped at it
+    $budgetRecord = $(if ($isCodex) { [pscustomobject]@{ percent = $Budget; source = $budgetSource; stopped = $false; used_percent = $null; resets_at = $null } } else { $null })
     if ($isCodex) {
         $userAgent = @($extraConfig | Where-Object { ([string]$_).Trim() -match '^features\.multi_agent\s*=' }) | Select-Object -Last 1
         if ($userAgent) { $subagentsAllowed = [bool](([string]$userAgent).Trim() -match '=\s*true$') }
@@ -4253,7 +4256,11 @@ try {
         $forkGuard = Get-ForkReplayGuard -ThreadId $parentThread
         if ($forkGuard.Problem -and -not $runWarnings.Contains($forkGuard.Problem)) { $runWarnings.Add($forkGuard.Problem) }
         if ($forkGuard.Refusal) {
-            if (-not $DryRun -or $detachForeground) { Stop-WithError "$($forkGuard.Refusal); nothing was started." }
+            if (-not $DryRun -or $detachForeground) {
+                # this run's reservation is withdrawn (nothing was written under its numbers), no ledger entry
+                if (-not $DryRun) { $null = Remove-PendingFile -Path $pendingPath }
+                Stop-WithError "$($forkGuard.Refusal); nothing was started."
+            }
             $runWarnings.Add("a real run is refused: $($forkGuard.Refusal)")
         } elseif ($forkGuard.Warning) {
             $runWarnings.Add($forkGuard.Warning)
@@ -4700,7 +4707,6 @@ try {
     # partial is kept; ledger budget.stopped, bridge_outcome "failed: stopped at the quota budget: ..."
     $script:RunBudgetStopped = $false
     $budgetStopText = ''
-    $budgetRecord = $(if ($isCodex) { [pscustomobject]@{ percent = $Budget; source = $budgetSource; stopped = $false; used_percent = $null; resets_at = $null } } else { $null })
     # (wave 26c, D1) which turn the kick stopped (main | retry | continue | repair), and the turns
     # that had already finished when their kick was found (kick_late: the outcome stays)
     $script:KickedTurn = ''

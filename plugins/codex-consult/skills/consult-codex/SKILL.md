@@ -121,6 +121,18 @@ wait or to proceed without them - never proceed silently. Name such a reviewer w
 before anything starts, **exit 5**, with who, why and when it is back (0.5.0); `-Require none`
 goes on without the roster's requirement once the operator agreed.
 
+**Quota windows (wave 30).** A subscription's 5-hour window can be spent by ONE review. The
+bridge reads the windows Codex writes into each thread's rollout: `codex-providers.ps1` shows them in
+its QUOTA column (`5h 96% until 18:32; wk 15% until Oct 20`), a window at 98 % or more is
+`unavailable (5-hour window 99 % used, resets <iso>)` exactly like a usage limit, 80 % or more adds
+`low quota: ...` to an available verdict - plan around it like any other outage. Every codex run
+stops its main turn at `-Budget` (default 90 % of the 5-hour window, env `CODEX_CONSULT_QUOTA_BUDGET`,
+`0` = off) and keeps the partial; it passes `-c features.multi_agent=false` (the reviewer's sub-agents
+replay their own context; `-CodexConfig features.multi_agent=true` allows them); a `-Mode fork` or
+`resume` whose parent rollout is over `CODEX_CONSULT_FORK_MAX_KB` (512) is refused - start a NEW
+thread (`-Mode new`) and point the brief at the earlier reply instead of forking a large thread. The
+ledger's `quota` and `tokens` say what each run spent (README "Quota windows and the reading budget").
+
 **If a provider you need is missing** (no `[model_providers.<name>]` row, `missing: env
 ... not set`, no roster), follow the `setup-providers` skill
 (`${CLAUDE_PLUGIN_ROOT}/skills/setup-providers/SKILL.md`) before planning work on it; never

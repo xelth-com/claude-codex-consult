@@ -4,6 +4,47 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Wave 30 - quota windows** (0.6.2, TECH_DEBT T15; `README.md` "Quota windows and the reading budget").
+  Why: on a ChatGPT Plus subscription ONE acceptance run took the 5-hour window from 0 to 96 % in 186 s
+  (the account reached 99 % by the end), and the bridge learned of the window only from a refusal text
+  afterwards. Measured in that run's rollouts: the forked thread's running total read 13.9M input
+  tokens (12.1M cached), of which 1.49M were the run's own - 15 model calls of 64k to 138k input each
+  (context window 258k); the rest is the parent's 12.39M total, which a fork INHERITS; the parent's
+  rollout was 1418 KB; three Codex sub-agents (`multi_agent`, on by default) read 1.13M to 1.41M input
+  each (3.7M together). What changed:
+  - after every codex run the ledger records `quota` `{primary, secondary, observed_at}` (the 5-hour
+    and the weekly window as the rollout names them: `used_percent`, `window_minutes`, `resets_at`)
+    and `tokens` `{input, cached, output, thread_input, calls, max_input, context_window, subagents
+    {count, input, calls}}` (the run's share of the running total, the running total itself, the
+    per-call context), plus `subagents_allowed` and `budget` - appended after `commit_wait_ms`;
+    entries without them stay valid;
+  - the endpoint health takes the newest observed windows (the ledgers, the machine-wide records -
+    which now carry `quota` -, and for the built-in openai endpoint the codex home's newest rollout):
+    a window at 98 % or more whose reset lies ahead makes the endpoint `unavailable (5-hour window 99 %
+    used, resets <iso>)` like a usage limit with a known reset (roster walk, `-Require`, panel,
+    `-Short`, a real run refused); at 80 % or more the verdict says `low quota: ...`; a reset in the
+    past only shows `5h reset (last 96% until 18:32)`; `codex-providers.ps1` has a QUOTA column
+    (`5h 96% until 18:32; wk 15% until Oct 20`) and `-Json` rows a `quota` object;
+  - `-Budget <percent>` (env `CODEX_CONSULT_QUOTA_BUDGET`, default 90, 0 = off): the stall watch also
+    reads the run's rollout every 15 s and stops the main turn at the budget - the partial kept, no
+    continuation, `failed: stopped at the quota budget: 5-hour window 91 % used, resets 18:32; the
+    partial is kept`, provider_failure class operator; the telemetry event says the existing class
+    `quota`; the detached runner and panel members do the same;
+  - the replay guard: a `-Mode fork`/`resume` whose parent rollout is over `CODEX_CONSULT_FORK_MAX_KB`
+    (default 512) is refused before anything starts, from 128 KB on it is warned about; the partial's
+    hint then suggests `-Mode new`;
+  - every codex turn passes `-c features.multi_agent=false` unless `-CodexConfig` names
+    `features.multi_agent` (theirs wins, never refused);
+  - the purpose paragraphs of acceptance, diff-review, checkpoint and core-contract carry a reading
+    discipline: `git diff <range> --stat` first, one path at a time with a line cap, the documents
+    first, the verdict even on an incomplete read with what was not read;
+  - `tests/harness-quota.ps1` (registered in `run-all.ps1`); the fakes write rollouts with
+    `FAKE_CODEX_QUOTA*` (`tests/fake-rollout.ps1`).
+
 ## [0.6.1] - 2026-10-08
 
 The bridge half of the public usefulness table (`.collab/telemetry-usefulness-2026-10-08`, decisions U1-U7; the

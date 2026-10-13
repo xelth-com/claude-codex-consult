@@ -138,6 +138,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" -Task <task> -Kick -Member <NN> -Id <id8>
 ```
 
+**Quota windows (wave 30).** Before a wave of reviews on a subscription plan, read the QUOTA column of
+`codex-providers.ps1` (`5h 96% until 18:32; wk 15% until Oct 20`): a quota window at 98 % or more makes
+the reviewer out until its reset, like a usage limit - ask the operator whether to wait or to go on
+without that reviewer. Keep review threads small: prefer `-Mode new` with a brief that names the
+earlier reply over forking a large thread (a parent rollout over `CODEX_CONSULT_FORK_MAX_KB` is refused,
+it would be replayed on every tool call); the bridge stops a run at `-Budget` (90 % by default) with its
+partial kept, and turns the reviewer's sub-agents off.
+
 A host without skills reads this text and the other skills with
 `powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/codex-consult.ps1" -Explain coordinate`
 (`consult`, `providers`). The session-start line (which reviewers are out, until when) comes from

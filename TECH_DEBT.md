@@ -150,7 +150,7 @@ seven-wave task with three consultations. Ordered by the damage they did.
   lines carry such a mark (an `applying` naming other bytes than the file has now counts as applied); C3 already
   writes and honours these marks in the shared journal, and the plugin parser tolerates the extra fields.
 
-- **T15 - The bridge knows nothing of a subscription's quota windows; one run can spend a whole 5-hour window.**
+- **T15 - The bridge knows nothing of a subscription's quota windows; one run can spend a whole 5-hour window.** **Status: implemented in wave 30 (0.6.2)** - ledger `quota`/`tokens`, the window verdict and the QUOTA column, `-Budget`, the replay guard `CODEX_CONSULT_FORK_MAX_KB`, `features.multi_agent=false`, the reading discipline (README "Quota windows and the reading budget"); the measurement corrected: the 13.9M input are the fork's running total, 12.39M of it inherited from the parent - the run's own share was 1.49M over 15 calls.
   (2026-10-13, the C3 0.2.0 acceptance n=20) Codex CLI 0.155 writes `rate_limits` after every turn into the rollout
   (`primary` = the 5-hour window, `secondary` = the weekly one: `used_percent`, `window_minutes`, `resets_at`) and the
   `total_token_usage`. The bridge reads neither: the only quota knowledge it has is the text of a refusal AFTER the

@@ -145,7 +145,6 @@ if ($env:FAKE_CODEX_PRELINE) { [Console]::Out.Write($env:FAKE_CODEX_PRELINE + "`
 if (-not $env:FAKE_CODEX_NOTHREAD) { [Console]::Out.Write("{""type"":""thread.started"",""thread_id"":""$tid""}`n") }
 [Console]::Out.Write("{""type"":""turn.started""}`n")
 [Console]::Out.Flush()
-if ($env:FAKE_CODEX_QUOTA -eq '1') { Write-FakeRollout -Thread $tid -Raw $raw }
 if ($env:FAKE_CODEX_STDERR_FIRST) {
     $b = (New-Object System.Text.UTF8Encoding($false)).GetBytes($env:FAKE_CODEX_STDERR_FIRST + "`r`n")
     $es = [Console]::OpenStandardError(); $es.Write($b, 0, $b.Length); $es.Flush()
@@ -185,6 +184,9 @@ if ($env:FAKE_CODEX_ITEMS) {
     if ($env:FAKE_CODEX_ITEMS -eq '2') { [Console]::Out.Write('{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"Q2 so far (' + $tag + ' turn): the tests cover it."}}' + "`n") }
     [Console]::Out.Flush()
 }
+# (wave 30) the thread's rollout - after the items (a budget stop then finds them in the stream), before
+# any open tool call or drip
+if ($env:FAKE_CODEX_QUOTA -eq '1') { Write-FakeRollout -Thread $tid -Raw $raw }
 # (wave 26c, D3) on a turn that is NOT `resume <thread>`:
 #   FAKE_CODEX_TOOL_OPEN=<s>   an item.started of a command_execution (no item.completed), then <s>
 #                              seconds of silence - one long tool call in flight - then its
