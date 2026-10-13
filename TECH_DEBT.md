@@ -169,3 +169,12 @@ seven-wave task with three consultations. Ordered by the damage they did.
   (input, cached, output) so the plan's window can be calibrated from history. The same for the C3 port.
 
 - **T16 - A brief whose attachment exceeds the provider's context dies with "Prompt is too long" and nothing records it.** (2026-10-13, found by the coordinator: a hand-launched `claude -p --model glm-5.3` review of a 5000-line squash patch read the file whole and failed; no ledger row, no telemetry, no retry.) Gaps: (a) the ZAI/claude engine path has no size preflight for attachments named in the brief and no automatic fallback to the `[1m]` model (`glm-5.3[1m]` + `CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000`); (b) the review prompt's reading budget (T15 e) is not applied to a patch file the brief points at - the reviewer should be told to read it in hunks with offset/limit; (c) a run launched outside the bridge leaves no trace - document loudly that reviews go through the bridge, and consider a `-Patch <file>` option that chunks the diff per path into the brief. Status: open.
+
+- **T16 - `-Kick` cannot tell a member whose tree was left alive.** (2026-10-13, found by the C3 acceptance
+  round 3/4, F40-2) C3 0.2.0 refuses to kill a reviewer tree when its kill record can be written nowhere (the pending
+  record, the fallback `<pending>-kill.json`, the codex-home copy) and acknowledges a kick as `not killed <pid>
+  (<reason>)`, exit 1. The plugin's `-Kick` only knows `stopped`: on a C3 member it reports the member as stopped
+  and returns 0 although the tree lives. Fix (0.6.2): read the `not killed` acknowledgement, print that the tree is
+  left alive and the task refused, exit with the kick's failure code; and the plugin's own kill sites should adopt
+  the same rule (no kill without a durable record; the third location under `<codex home>/codex-consult/pending-kill/`
+  read by `Get-PendingPaths`).
