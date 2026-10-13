@@ -4320,11 +4320,13 @@ try {
         # The resolved model and provider are pinned whenever they are known, so the run
         # cannot drift from what the ledger records (values are TOML strings for -c).
         if ($identity.ModelSource -ne 'unknown') { $argv += @('-m', $identity.Model) }
+        # (wave 30) the sub-agent switch right after the model, before the bridge's identity pins and the
+        # user's own -c items (which stay last before -o)
+        foreach ($ac in $agentConfig) { $argv += @('-c', $ac) }
         $argv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $effortSent) + '"'))
         if ($identity.ProviderSource) { $argv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
         foreach ($ec in $extraConfig) { $argv += @('-c', $ec) }
         foreach ($cc in $contextConfig) { $argv += @('-c', $cc) }
-        foreach ($ac in $agentConfig) { $argv += @('-c', $ac) }
         $argv += @('-o', $lastMsgPath)
         if (-not $Raw -and $schemaTransport -eq 'output-schema') { $argv += @('--output-schema', $schemaPath) }
         if ($Mode -eq 'fork') { $argv += @('fork', $parentThread) }
@@ -5203,11 +5205,13 @@ try {
                 # the main turn's exec-level options (-Mode resume semantics), its own last message
                 $contArgv = @('exec', '--sandbox', $Sandbox, '--color', 'never', '--json')
                 if ($identity.ModelSource -ne 'unknown') { $contArgv += @('-m', $identity.Model) }
+                # (wave 30) the sub-agent switch right after the model, before the bridge's identity pins and the
+                # user's own -c items (which stay last before -o)
+                foreach ($ac in $agentConfig) { $contArgv += @('-c', $ac) }
                 $contArgv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $effortSent) + '"'))
                 if ($identity.ProviderSource) { $contArgv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
                 foreach ($ec in $extraConfig) { $contArgv += @('-c', $ec) }
                 foreach ($cc in $contextConfig) { $contArgv += @('-c', $cc) }
-                foreach ($ac in $agentConfig) { $contArgv += @('-c', $ac) }
                 $contArgv += @('-o', $continueLastPath)
                 if (-not $Raw -and $schemaTransport -eq 'output-schema') { $contArgv += @('--output-schema', $schemaPath) }
                 $contArgv += @('resume', $continueThread, '-')
@@ -5394,11 +5398,13 @@ try {
             $repairEffort = Get-RepairEffort -Identity $identity -EffortPlan $effortPlan
             $repairArgv = @('exec', '--sandbox', 'read-only', '--color', 'never', '--json')
             if ($identity.ModelSource -ne 'unknown') { $repairArgv += @('-m', $identity.Model) }
+            # (wave 30) the sub-agent switch right after the model, before the bridge's identity pins and the
+            # user's own -c items (which stay last before -o)
+            foreach ($ac in $agentConfig) { $repairArgv += @('-c', $ac) }
             $repairArgv += @('-c', ('model_reasoning_effort="' + (ConvertTo-TomlBasicString $repairEffort) + '"'))
             if ($identity.ProviderSource) { $repairArgv += @('-c', ('model_provider="' + (ConvertTo-TomlBasicString $identity.Provider) + '"')) }
             foreach ($ec in $extraConfig) { $repairArgv += @('-c', $ec) }
             foreach ($cc in $contextConfig) { $repairArgv += @('-c', $cc) }
-            foreach ($ac in $agentConfig) { $repairArgv += @('-c', $ac) }
             $repairArgv += @('-o', $repairLastPath, 'resume', $threadId, '-')
             Write-Utf8NoBom -Path $repairPromptPath -Text $repairPrompt
             $repairWatch = [System.Diagnostics.Stopwatch]::StartNew()
