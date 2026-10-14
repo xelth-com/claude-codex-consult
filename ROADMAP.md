@@ -412,6 +412,12 @@ and run by users in their own browser sessions. We publish no adapter for a site
   MV3 remote-code policy, per-adapter consent + revocation, legal review of the boundary.
 - **Status:** direction recorded 2026-10-14; a reviewer panel on the design/boundary is the next step; not scheduled.
 
+
+**Operator rulings 2026-10-14 (on the panel's proposals a-f):**
+- (a) Cadence: keep natural pacing as RATE LIMITING and a plain typing speed (a courtesy to the site, user-visible), not randomised 'human' jitter designed to defeat detection. (b) Draft-only mode is the default: the extension fills the prompt, the person sends. (c) grok: no official-API assumption (the API is not known to be free); a user-land browser adapter stays possible; an `http` engine route only where a free tier exists. (d) Adapters: WASM compiled from Rust is the primary format (the whole bridge is Rust); the host also runs JS adapters for quick userscript-style work - both formats behind the same deny-by-default host API. (e) Nothing site-specific inside the product: no adapters, no site names, no selectors; the catalogue is a signed list of hashes + pointers and the user fetches the bytes; the manual-relay step 0 is likewise outside the product. (f) Vendor names removed from this section (done).
+- Motivation on record: the operator's Gemini chat subscription answers almost without limit in the browser while the Antigravity CLI on the same account hits a 3-day limit after 2-3 requests; the first build is a PRIVATE plugin for the operator (not distributed), the neutral frame is open; many users with a single $20 Claude plan will want free web reviewers, and the usefulness table (the /C3/ page, per adapter/vendor) becomes a public ranking by real usefulness - free advertising or anti-advertising for vendors, like lmarena's leaderboard.
+- Status: DIRECTION CONFIRMED with the rulings above; build order unchanged (frame first, no adapter in the repo). Owner: the C3 session.
+
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
 - **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a
