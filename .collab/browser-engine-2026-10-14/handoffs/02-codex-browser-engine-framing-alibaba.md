@@ -1,0 +1,27 @@
+# Handoff 02 - Codex: browser-engine-framing-alibaba
+
+Date: 2026-10-14 14:56 local. Author: Codex (model qwen3.8-max, effort high), Codex CLI 0.155.1.
+Reviewer: alibaba :: qwen3.8-max (provider from roster, model from roster; endpoint https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1, wire_api: responses; provider fingerprint 347c995d4325; harness codex-cli 0.155.1).
+Preflight: ok: env ALIBABA_API_KEY set.
+Roster: C:\Users\Dmytro\.codex\codex-consult-roster.json - position 9 of 10, panel 34c8b9a5 member 1 of 10.
+Effort: high sent (requested high, mapping alibaba-v1, by caps-v1: token-plan.ap-southeast-1.maas.aliyuncs.com, qwen3.8-max; not confirmed by the provider). Consultation id: ffd6bb02-bf27-4e08-a9ae-f47abdda7b9e.
+Invocation: `codex-consult.ps1` (mode: new, sandbox: read-only, purpose: framing). Argv: `codex exec --sandbox read-only --color never --json -m qwen3.8-max -c model_reasoning_effort="high" -c model_provider="alibaba" -c features.multi_agent=false -o C:\Users\Dmytro\AppData\Local\Temp\codex-consult-last-579644feab544bd08d7119ab4a51c7b5.md -` (prompt on stdin).
+Parent thread: (none - new thread). Result thread: `01a13a7c-04b0-7a82-9fc2-e30f5dc040da` (source: events).
+Brief: `.collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md` (sha256 19fb466d7f96). Reviewed: 49dde0c, base 49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30, tree sha256 99269e8342cd, 0 changed files.
+Bridge outcome: failed: codex exit 1 - exceeded retry limit, last status: 429 Too Many Requests, request id: 71b4b6a7-af60-41ad-9be8-27d6ac88f855. Wall time: 50.8 s. Tokens: unknown.
+Quota (rollout): no window in the rollout; sub-agents off (features.multi_agent=false); budget 15 % of the 5-hour window.
+Timeout: 2700 s (the roster entry's timeout_sec); continuation after a timeout kill: up to 900 s.
+Provider failure: quota - exceeded retry limit, last status: 429 Too Many Requests, request id: 71b4b6a7-af60-41ad-9be8-27d6ac88f855.
+Raw event stream: `handoffs/02-codex-browser-engine-framing-alibaba.events.jsonl`.
+Verbatim reply follows.
+
+---
+
+_(no reply captured)_
+
+Codex reported: exceeded retry limit, last status: 429 Too Many Requests, request id: 71b4b6a7-af60-41ad-9be8-27d6ac88f855
+
+```
+2026-10-14T12:56:08.496422Z ERROR codex_models_manager::manager: failed to refresh available models: stream disconnected before completion: failed to decode models response: missing field `models` at line 1 column 1404; body: {"first_id":"model-id-0","data":[{"created":1779367398,"owned_by":"system","id":"qwen3.7-max","object":"model"},{"created":1780806507,"owned_by":"system","id":"qwen3.7-plus","object":"model"},{"created":1779173747,"owned_by":"system","id":"qwen3.6-flash","object":"model"},{"created":1781605418,"owned_by":"system","id":"glm-5.2","object":"model"},{"created":1779173747,"owned_by":"system","id":"deepseek-v4-pro","object":"model"},{"created":1779173747,"owned_by":"system","id":"wan2.7-image","object":"model"},{"created":1779173747,"owned_by":"system","id":"wan2.7-image-pro","object":"model"},{"created":1785248243,"owned_by":"system","id":"qwen-audio-3.0-tts-plus","object":"model"},{"created":1785513696,"owned_by":"system","id":"deepseek-v4-flash-0731","object":"model"},{"created":1785722409,"owned_by":"system","id":"qwen3.8-max","object":"model"},{"created":1785928192,"owned_by":"system","id":"qwen-audio-3.0-realtime-plus","object":"model"},{"created":1787731683,"owned_by":"system","id":"qwen3.8-flash","object":"model"},{"created":1789351565,"owned_by":"system","id":"deepseek-v4.1-flash","object":"model"},{"created":1789541875,"owned_by":"system","id":"glm-5.3","object":"model"},{"created":1789973043,"owned_by":"system","id":"auto","object":"model"},{"created":1791856789,"owned_by":"system","id":"wan3.0-video","object":"model"}],"last_id":"model-id-15","has_more":false,"object":"list"}
+2026-10-14T12:56:08.496422Z ERROR codex_models_manager::manager: failed to refresh available models: stream disconnected before completion: failed to decode models response: missing field `models` at line 1 column 1404; body: {"first_id":"model-id-0","data":[{"created":1779367398,"owned_by":"system","id":"qwen3.7-max","object":"model"},{"created":1780806507,"owned_by":"system","id":"qwen3.7-plus","object":"model"},{"created":1779173747,"owned_by":"system","id":"qwen3.6-flash","object":"model"},{"created":1781605418,"owned_by":"system","id":"glm-5.2","object":"model"},{"created":1779173747,"owned_by":"system","id":"deepseek-v4-pro","object":"model"},{"created":1779173747,"owned_by":"system","id":"wan2.7-image","object":"model"},{"created":1779173747,"owned_by":"system","id":"wan2.7-image-pro","object":"model"},{"created":1785248243,"owned_by":"system","id":"qwen-audio-3.0-tts-plus","object":"model"},{"created":1785513696,"owned_by":"system","id":"deepseek-v4-flash-0731","object":"model"},{"created":1785722409,"owned_by":"system","id":"qwen3.8-max","object":"model"},{"created":1785928192,"owned_by":"system","id":"qwen-audio-3.0-realtime-plus","object":"model"},{"created":1787731683,"owned_by":"system","id":"qwen3.8-flash","object":"model"},{"created":1789351565,"owned_by":"system","id":"deepseek-v4.1-flash","object":"model"},{"created":1789541875,"owned_by":"system","id":"glm-5.3","object":"model"},{"created":1789973043,"owned_by":"system","id":"auto","object":"model"},{"created":1791856789,"owned_by":"system","id":"wan3.0-video","object":"model"}],"last_id":"model-id-15","has_more":false,"object":"list"}
+```

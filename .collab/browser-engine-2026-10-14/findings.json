@@ -1,0 +1,1949 @@
+{
+    "task_id":  "browser-engine-2026-10-14",
+    "findings":  [
+                     {
+                         "id":  "F03-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  5
+                                           },
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  7
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  373
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  380
+                                           }
+                                       ],
+                         "claim":  "Product-facing documents already name Gemini and grok.com as intended automation targets while asserting a neutral, adapter-only boundary, which weakens the intended separation before any adapter exists.",
+                         "trigger":  "Publishing or distributing the roadmap and brief as product documentation for the browser engine.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md lines 5-7, 9-13",
+                                              "observation":  "The brief names the target sites and desired roster entries before defining the neutral frame."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md lines 371-380",
+                                              "observation":  "The roadmap records the same vendor-specific ask directly under the product browser-engine direction."
+                                          }
+                                      ],
+                         "verification":  "Have counsel or the operator review the roadmap as published product communication and identify vendor-specific facilitation exposure.",
+                         "remedy":  "Keep product documentation generic; discuss concrete vendors only in a non-shipped legal/risk record. Use neutral examples and a local fixture adapter.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-browser-engine-framing-zai.md",
+                                        "thread":  "01a13a7c-333f-7061-8d71-714bb10168fc",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:03:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Roadmap and brief still explicitly name Gemini and grok.com as automation targets.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Roadmap and brief still name Gemini/grok targets alongside the neutral-frame claim; no rewording observed.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F03-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  382
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  390
+                                           }
+                                       ],
+                         "claim":  "Reusing gemini-mcp as the stated prior art would violate the proposed one-visible-chat-tab constraint if its extension permissions and watchdog behavior are copied unchanged.",
+                         "trigger":  "Porting the prior extension manifest/background behavior into the C3 browser engine.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\gemini-mcp\\extension\\manifest.json",
+                                              "observation":  "It requests tabs, alarms, storage, and debugger permissions."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\gemini-mcp\\extension\\background.js lines 7-10, 43-64",
+                                              "observation":  "Its watchdog can create a background pinned tab and query/reload matching tabs."
+                                          }
+                                      ],
+                         "verification":  "Compare any new extension manifest and watchdog against the prior art for tabs, debugger, host permissions, tab creation, and reload operations.",
+                         "remedy":  "Use a user-selected pinned tab, no tabs or debugger permission, no automatic creation/reload, and Native Messaging from the extension to C3.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-browser-engine-framing-zai.md",
+                                        "thread":  "01a13a7c-333f-7061-8d71-714bb10168fc",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:03:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Reusing gemini-mcp watchdog and extension permissions without audit remains in roadmap.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "No manifest/watchdog comparison possible read-only in this repo; reuse direction unchanged.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F03-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  376
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  391
+                                           }
+                                       ],
+                         "claim":  "The sketched catalogue/fetch/update/usefulness channel can turn the product into a distributor or curator of third-party automation code despite the stated boundary.",
+                         "trigger":  "The product publishes signed adapter entries or downloads/updates an adapter artifact, even when the code is authored elsewhere.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md lines 375-391",
+                                              "observation":  "The roadmap says adapters are signed, listed in a catalogue, rated, fetched, and updated through the same channel."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Distribution and curation functions versus the neutral-frame boundary",
+                                              "observation":  "Facilitating retrieval and automatic promotion of site adapters is materially different from documenting a local manifest format."
+                                          }
+                                      ],
+                         "verification":  "Trace one adapter install/update from catalogue lookup through artifact acquisition and identify every party hosting, selecting, signing, and vouching for the artifact.",
+                         "remedy":  "Ship only a local import format plus public opaque metrics; require the user manually to supply a publisher URL and digest, with no product-side recommendation or fetch.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-browser-engine-framing-zai.md",
+                                        "thread":  "01a13a7c-333f-7061-8d71-714bb10168fc",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:03:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Roadmap still describes distributing and updating adapters via usefulness channel.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Roadmap still sketches catalogue/fetch/update/usefulness distribution of adapters.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F03-4",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  389
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  391
+                                           }
+                                       ],
+                         "claim":  "The roadmap treats WASM as the sandbox without specifying the capability mediation needed to prevent prompt exfiltration, wrong-origin actions, resource exhaustion, or Chrome API escape.",
+                         "trigger":  "A signed but malicious or compromised adapter runs with a broad DOM query/click/type API on an incorrectly pinned tab.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md lines 387-391",
+                                              "observation":  "It specifies WASM and a strict host API but not worker isolation, origin pinning, operation quotas, attachment mediation, or CSP."
+                                          },
+                                          {
+                                              "kind":  "ran-command",
+                                              "reference":  "https://developer.chrome.com/docs/extensions/reference/manifest/content-security-policy",
+                                              "observation":  "Chrome disables WebAssembly under the default extension-pages CSP; using it requires an explicit policy and still depends on the host API."
+                                          }
+                                      ],
+                         "verification":  "Attempt exfiltration and cross-tab actions from the reference adapter\u0027s WASM and inspect whether every operation is denied outside the selected origin and approved turn.",
+                         "remedy":  "Run adapters in an isolated worker/sandbox with no extension APIs; expose only audited, quota-limited operations on a pinned selected tab and explicit user consent.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-browser-engine-framing-zai.md",
+                                        "thread":  "01a13a7c-333f-7061-8d71-714bb10168fc",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:03:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "WASM sandbox capability mediation and origin pinning remain unspecified.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "WASM host API still stated without capability mediation details.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F03-5",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  21
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  392
+                                           }
+                                       ],
+                         "claim":  "Adding plaintext site telemetry creates a re-identification and sensitive-browsing-history risk not justified by usefulness aggregation.",
+                         "trigger":  "A user runs adapters for uncommon or private sites and the existing default-on telemetry path sends the origin.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md lines 21-23",
+                                              "observation":  "The proposed telemetry fields include adapter_id, version, and site."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Telemetry minimization and site-origin cardinality",
+                                              "observation":  "Adapter identity is usually sufficient for aggregate quality; a site origin can reveal personal tool use."
+                                          }
+                                      ],
+                         "verification":  "Review the emitted event in a network capture for uncommon adapter origins and test whether omitting or hashing site changes any required aggregate.",
+                         "remedy":  "Use adapter id/version/digest by default; send only a salted or truncated origin hash under explicit opt-in if field diagnostics require it.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  2,
+                                        "reply":  "handoffs/03-codex-browser-engine-framing-zai.md",
+                                        "thread":  "01a13a7c-333f-7061-8d71-714bb10168fc",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:03:38+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Plaintext site telemetry proposal in brief and roadmap remains unchanged.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Plaintext site telemetry still proposed; no hashing/omission adopted.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F05-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  397
+                                           },
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  22
+                                           }
+                                       ],
+                         "claim":  "The planned adapter update channel (adapters fetched and updated through the telemetry/usefulness channel) is remotely hosted code. A Chrome Web Store extension may not fetch and execute code at runtime under the MV3 remotely-hosted-code policy; if the product ships through the Store, this channel can get it delisted, and a runtime-fetched WASM is the same violation as eval.",
+                         "trigger":  "A user enables an adapter whose bytes are downloaded after install (or the channel pushes an update) in a Store-installed build.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md:396-399",
+                                              "observation":  "\u0027adapters are fetched and updated through the same telemetry/usefulness channel (opt-in), with signatures\u0027."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md:22",
+                                              "observation":  "The brief repeats the same distribution plan as settled (\u0027adapters ... distributed through the usefulness channel with signatures\u0027)."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "Chrome Web Store developer programme policies, remotely hosted code",
+                                              "observation":  "Policy forbids fetching and executing code remotely; WebAssembly instantiated from fetched bytes falls under it. Not verified in this session."
+                                          }
+                                      ],
+                         "verification":  "Confirm the extension distribution channel and read the current Chrome Web Store policy clause on remotely hosted code and WebAssembly; then decide fetch-at-runtime vs user-supplied local file vs sideloaded build.",
+                         "remedy":  "Decide the channel first. Either (a) sideload/unpacked distribution, where the policy is not enforced, and ship adapters as user-supplied local files only, or (b) Store distribution with zero runtime code fetch: adapters must be unpacked locally by the user and imported through a file picker, and the \u0027update channel\u0027 degrades to a signed pointer list the user acts on manually.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/05-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-3133-74e0-affc-0912561f98ae",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:07:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Remotely hosted code update channel in MV3 extension remains in proposal.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Runtime fetch/update through the channel still in roadmap; Store policy decision not recorded.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F05-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  382
+                                           },
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  15
+                                           }
+                                       ],
+                         "claim":  "The lift of the gemini-mcp relay inherits an unauthenticated loopback WebSocket, and Chrome treats 127.0.0.1 as potentially trustworthy, so any web page the user visits can connect to that socket, inject prompts into the user\u0027s signed-in chat and read replies. The prior art ships its token off by default.",
+                         "trigger":  "The user browses any page that opens ws://127.0.0.1:\u003cport\u003e while a consult is running.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\gemini-mcp\\DESIGN.md - \u0027Security stance\u0027 and \u0027WebSocket message contract\u0027",
+                                              "observation":  "\u0027Optional auth. When GEMINI_MCP_WS_TOKEN is set ... off by default.\u0027 The relay binds 127.0.0.1:4455 with no other access control."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md:382-384",
+                                              "observation":  "The roadmap proposes reusing exactly this relay (\u0027extension + WS relay lifted from gemini-mcp\u0027)."
+                                          }
+                                      ],
+                         "verification":  "Start the relay without a token and try to open a WebSocket to it from a page on an unrelated https origin in the same browser; if the handshake succeeds, the exposure is real.",
+                         "remedy":  "Make authentication mandatory in the product (per-run random token, handed to the extension out of band), validate the Origin header, bind a per-run ephemeral port, and refuse frames that did not come from the pinned extension id. Treat \u0027the token is optional\u0027 as prior-art behaviour that must not be lifted.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/05-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-3133-74e0-affc-0912561f98ae",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:07:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Unauthenticated loopback WebSocket relay from gemini-mcp remains in framing.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Relay auth needs gemini-mcp sources outside this repo; not inspected here.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F05-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  20
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  388
+                                           }
+                                       ],
+                         "claim":  "The proposed contract (new_chat / send / await_answer -\u003e text / attach? / limits) has no adapter identity, no failure classification and no completion boundary, so the engine cannot tell \u0027the site refused\u0027 from \u0027the answer is empty\u0027, cannot detect DOM churn, and cannot feed the retirement/rating plan the brief depends on.",
+                         "trigger":  "The site shows a login wall, a soft rate-limit notice, an interstitial or a captcha instead of an answer; or the answer is still streaming or virtualised when it is read.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md:20",
+                                              "observation":  "The five verbs are given verbatim as the contract; none returns a status and await_answer returns only text."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md:376-377",
+                                              "observation":  "Adapters are meant to be \u0027rated by the same usefulness telemetry\u0027 and bad ones retired, which needs an outcome signal the contract does not provide."
+                                          }
+                                      ],
+                         "verification":  "Write the failure table for one real site (logged out, gate, quota, DOM changed, streaming, truncated long code block) and check which rows the five verbs can express; the count that remain is the contract gap.",
+                         "remedy":  "Extend the contract to id / site / contract_version / dom_signature / probe() -\u003e status / new_chat() / send(text) / await_answer(timeout) -\u003e {text, complete} / limits() -\u003e {max_input_tokens, max_turns, min_interval_ms, thread_continuable}, and drop attach.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/05-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-3133-74e0-affc-0912561f98ae",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:07:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "5-verb adapter contract still lacks failure classification and completion boundary.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Contract still the five verbs with no identity/failure/completion additions.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F05-4",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  400
+                                           },
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  7
+                                           }
+                                       ],
+                         "claim":  "Adding a browser engine changes a closed, shared vocabulary in both hosts, not just C3. C3 validates engine names against ENGINE_NAMES/ALL_ENGINE_NAMES and has no prompt-delivery or schema-transport variant for a browser; the PowerShell plugin validates roster engine names against its own table and rejects unknown ones (\u0027known: codex, agy, muse, claude\u0027). The brief\u0027s \u0027PowerShell parity only if needed (likely C3-only)\u0027 therefore understates the work: the roster syntax browser :: \u003csite\u003e crosses both.",
+                         "trigger":  "A roster entry or coordinator value naming [browser], or a consultation row for a browser adapter, is parsed by either implementation.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\C3\\crates\\c3-core\\src\\lineage.rs:18",
+                                              "observation":  "pub const ENGINE_NAMES: \u0026[\u0026str] = \u0026[\"codex\", \"agy\", \"muse\", \"claude\"]; with a separate ALL_ENGINE_NAMES that knows http."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\C3\\crates\\c3-core\\src\\roster.rs:355-363",
+                                              "observation":  "Roster validation rejects an unknown engine suffix and lists the known set."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\C3\\crates\\c3-core\\src\\engine.rs (EngineKind, PromptDelivery)",
+                                              "observation":  "EngineKind is a closed enum (codex, agy, muse, claude, http) and PromptDelivery covers stdin, NDJSON stdin and prompt-file only - nothing browser-shaped."
+                                          }
+                                      ],
+                         "verification":  "Grep both implementations for every engine-name table (ENGINE_NAMES, ALL_ENGINE_NAMES, engine_spec, $script:Engines, -Engine validation) and count the sites a new name must be added to; that count is the real first-step cost.",
+                         "remedy":  "Treat the browser engine as a versioned contract change to the engine vocabulary in both hosts, decide the delivery/transport enums (browser prompt delivery, PromptOnly schema transport) up front, and give the roster\u0027s browser entry an explicit site/adapter slot rather than overloading the provider field.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/05-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-3133-74e0-affc-0912561f98ae",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:07:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Closed engine vocabulary in C3 and PowerShell plugin still unaddressed.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Engine-name tables live in C3/PowerShell sources not verified in this pass.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F05-5",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  20
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  389
+                                           }
+                                       ],
+                         "claim":  "attach(file) is the one verb that invites exfiltration and usually changes the site\u0027s terms; it is carried into the contract as optional without a stated use case.",
+                         "trigger":  "A coordinator or adapter decides a pack or a focus file should be uploaded to the web chat, or a malicious adapter calls attach to move local bytes into a third-party service.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md:20",
+                                              "observation":  "The contract is given as \u0027new_chat / send / await_answer / attach? / limits\u0027."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "ROADMAP.md:392-395",
+                                              "observation":  "The design claim is \u0027nothing leaves the machine except the pack text typed into the chat tab\u0027; an upload verb contradicts that sentence."
+                                          }
+                                      ],
+                         "verification":  "Ask whether any of the three named sites needs an attachment for a review consult; if none does, the verb has no use case and only risk.",
+                         "remedy":  "Remove attach from v1 and from the catalogue schema; if it is ever needed, make it a separate, explicitly consented capability with a visible file-picker and a per-adapter flag the user must turn on.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/05-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-3133-74e0-affc-0912561f98ae",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:07:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "attach(file) verb remains in contract without clear reviewer use case.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "attach(file) still carried as optional without a stated needing site.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F05-6",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  392
+                                           },
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  21
+                                           }
+                                       ],
+                         "claim":  "The plan assumes a web reply can go through the usual findings path, but a web chat has no output-schema transport, so the reply is prompt-only; a parsing failure would need a repair turn, which on a web chat is a second real message from the user\u0027s account and is charged against the free tier\u0027s turn budget.",
+                         "trigger":  "A model answers in prose, wraps JSON in a fence with commentary, or is cut off mid-object; the FormatRetry path fires.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\C3\\crates\\c3\\src\\consult\\args.rs:78-87,439-446",
+                                              "observation":  "-FormatRetry is a 0|1 bound that enables a repair turn; the repair is an extra turn through the same engine adapter."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\C3\\crates\\c3\\src\\http_engine\\mod.rs:635,1150",
+                                              "observation":  "The http engine, the closest precedent (prompt-only schema), implements a format-repair turn and a normaliser - evidence that prompt-only transport does fail in practice."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md:392-394",
+                                              "observation":  "\u0027the reply is captured verbatim and goes through the same ledger/findings/rating path as every other engine\u0027 - no allowance for prompt-only failure."
+                                          }
+                                      ],
+                         "verification":  "Count how often the http engine\u0027s format repair actually fires from the ledger, and ask whether a free-tier site can afford a doubled turn count; if repairs are common, the browser engine needs a documented prose-only outcome.",
+                         "remedy":  "Default -FormatRetry off for the browser engine, record findings_unavailable plus the verbatim reply_markdown when the reply does not validate, and count every site turn (main or repair) against the adapter\u0027s rate limit and the ledger.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/05-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-3133-74e0-affc-0912561f98ae",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:07:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Format repair turn costs on web chat free tiers remain unaddressed.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Verbatim reply through findings path unchanged; prose-only outcome not documented.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F05-7",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  36
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  392
+                                           }
+                                       ],
+                         "claim":  "A per-adapter pack budget is asserted but has no mechanism: C3\u0027s budget is a single per-pack token number with no engine or adapter default, and the adapter\u0027s own limits are free-form, so nothing enforces a small free-tier context.",
+                         "trigger":  "A browser consult on a site whose context or answer budget is small is built with the default pack budget used for CLI engines.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\C3\\crates\\c3\\src\\pack\\budget.rs",
+                                              "observation":  "plan(candidates, budget) takes one usize budget; budget 0 keeps everything whole. There is no per-engine or per-adapter default in this file."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\C3\\crates\\c3\\src\\consult\\orchestrate.rs:3559",
+                                              "observation":  "A per-engine bound exists as an error (\u0027brief too large for this engine\u0027), so the mechanism to attach a real per-adapter budget is already present."
+                                          }
+                                      ],
+                         "verification":  "Grep for the current default pack budget and for which engines set a max prompt size; then check whether a browser engine would inherit the CLI default.",
+                         "remedy":  "Give the browser engine a declared max input bound per adapter, wire the adapter\u0027s limits() into the existing \u0027too large for this engine\u0027 preflight, and fail before sending rather than silently truncating.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/05-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-3133-74e0-affc-0912561f98ae",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:07:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Per-adapter pack token budget enforcement mechanism still absent.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Per-adapter pack budget mechanism not verified against C3 budget code here.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F05-8",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  396
+                                           },
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  39
+                                           }
+                                       ],
+                         "claim":  "The proposed telemetry fields (adapter_id/version/site) cannot support the promised retirement of bad adapters: there is no outcome class, no turn count and no repair flag, and rating by adapter_id alone makes a new version inherit a dead version\u0027s score.",
+                         "trigger":  "An adapter starts failing with a gate or a DOM change after a site update; the field data cannot distinguish that from a bad reviewer answer.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md:396-399",
+                                              "observation":  "The listed additions are adapter_id/adapter_version/site only."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\C3\\crates\\c3-core\\src\\ledger.rs",
+                                              "observation":  "The ledger entry carries engine/provider/model plus an extensible extra map, so new fields have a home; there is no existing adapter or outcome field."
+                                          }
+                                      ],
+                         "verification":  "Check whether the usefulness aggregation can key on a compound (adapter_id, adapter_version) rather than a single id; if not, retirement statistics will be attributed to the wrong version.",
+                         "remedy":  "Add outcome_class, turns_used and repair_used to the consultation row, key the aggregation on (adapter_id, contract_version, adapter_version), and publish outcome_class counts alongside the usefulness mark.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/05-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-3133-74e0-affc-0912561f98ae",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:07:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Telemetry fields lack outcome class, version compound key, and repair flags.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Telemetry fields still id/version/site without outcome class or version-keyed aggregation.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F05-9",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  5
+                                           }
+                                       ],
+                         "claim":  "The motivating example overstates the gap: the Gemini case the brief leads with is already served by the agy engine (Google\u0027s Antigravity CLI on the same subscription), so the browser engine\u0027s genuinely new capability is a small set of sites with no CLI or API path (grok.com free), which changes the cost/benefit of the whole feature.",
+                         "trigger":  "Planning the first adapter or deciding whether the engine is worth building at all.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:\\Users\\Dmytro\\C3\\crates\\c3-core\\src\\engine.rs (EngineKind, engine_spec)",
+                                              "observation":  "agy is a first-class engine in both implementations, with a model table and a credential path."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md:5-7",
+                                              "observation":  "The brief names \u0027Gemini web with a Pro plan -\u003e gemini-3.8-flash\u0027 as a reason to build the engine."
+                                          }
+                                      ],
+                         "verification":  "Compare the model a Gemini Pro plan exposes through the browser chat with what agy already returns for the same account; if they overlap, drop the Gemini adapter from the motivation.",
+                         "remedy":  "Re-scope the engine\u0027s justification to sites with no sanctioned route, and let option A or B carry the Gemini case on the existing agy engine.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  4,
+                                        "reply":  "handoffs/05-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-3133-74e0-affc-0912561f98ae",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:07:26+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Gemini web justification still overlaps with existing agy CLI engine.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Gemini motivation still leads despite agy overlap question being unanswered.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F07-1",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The brief does not consider IPFS or content-addressable storage for adapter distribution.",
+                         "trigger":  "Catalogue distribution design question.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                              "observation":  "No mention of content-addressable distribution models."
+                                          }
+                                      ],
+                         "verification":  "Check existing C3 documentation for prior use of IPFS.",
+                         "remedy":  "Use IPFS CIDs as primary catalogue pointers instead of HTTPS URLs.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/07-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-1f9e-7990-87bc-ac122c1e5079",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:00:18+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Content-addressable storage or IPFS for adapter distribution remains unconsidered.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "IPFS/content-addressable option not checked against C3 docs in this pass.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F07-2",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The brief does not specify WASM runtime memory limits or gas metering.",
+                         "trigger":  "WASM adapter sandbox design.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "assumed",
+                                              "reference":  "sandbox design",
+                                              "observation":  "Unconstrained WASM can exhaust tab memory."
+                                          }
+                                      ],
+                         "verification":  "Review gemini-mcp extension\u0027s WASM runtime configuration.",
+                         "remedy":  "Enforce 16MB memory limit and 100ms execution timeout per adapter call.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/07-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-1f9e-7990-87bc-ac122c1e5079",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:00:18+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "WASM memory limits and gas metering remain unspecified in framing.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "WASM memory/gas limits not checked against extension sources here.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F07-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "CONTRIBUTING.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The repository currently has no explicit policy rejecting site adapter PRs.",
+                         "trigger":  "Any contribution adding site-specific automation logic.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "repository structure",
+                                              "observation":  "No CONTRIBUTING.md exists prohibiting site adapters."
+                                          }
+                                      ],
+                         "verification":  "Check for existence of CONTRIBUTING.md in the repository root.",
+                         "remedy":  "Add an explicit policy: \u0027No site adapters will be merged into this repository under any circumstances.\u0027",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/07-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-1f9e-7990-87bc-ac122c1e5079",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:00:18+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "CONTRIBUTING.md policy against site-adapter PRs is still missing.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "CONTRIBUTING.md presence/policy not verified in this pass.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F07-4",
+                         "status":  "proposed",
+                         "severity":  "note",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The brief does not specify an adapter manifest format.",
+                         "trigger":  "Adapter packaging and signing.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "assumed",
+                                              "reference":  "packaging design",
+                                              "observation":  "No manifest structure is proposed."
+                                          }
+                                      ],
+                         "verification":  "Review xelth.rs extension manifest format.",
+                         "remedy":  "Define a minimal signed manifest with adapter ID, version, hash, and compatibility bounds.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  6,
+                                        "reply":  "handoffs/07-codex-browser-engine-framing-byteplus.md",
+                                        "thread":  "01a13a7c-1f9e-7990-87bc-ac122c1e5079",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:00:18+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Adapter manifest format remains unspecified in framing.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Adapter manifest format still unspecified in brief/roadmap as read.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F08-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  396
+                                           }
+                                       ],
+                         "claim":  "The planned distribution path (\u0027adapters are fetched and updated through the same telemetry/usefulness channel\u0027) makes the product host and push adapter code it did not author, contradicting the operator\u0027s hard boundary that the product ships only a neutral frame.",
+                         "trigger":  "First adapter update pushed through the usefulness channel; the company is now distributing site-automation code.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md:396-399",
+                                              "observation":  "\u0027adapters are fetched and updated through the same telemetry/usefulness channel (opt-in), with signatures\u0027"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                              "observation":  "Hard boundary: \u0027We ship no adapter... the company clearly outside the grey area\u0027"
+                                          }
+                                      ],
+                         "verification":  "Strike or reword the distribution clause to pointers+hashes and have the operator confirm the catalogue never serves adapter bytes.",
+                         "remedy":  "Catalogue entries carry author source URL + SHA-256 + signature only; the client verifies the hash of user-fetched bytes; adapters land disabled.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  7,
+                                        "reply":  "handoffs/08-codex-browser-engine-framing-kimi.md",
+                                        "thread":  "01a13a7c-1c4e-73a0-8e41-c85cdcca09d0",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:02:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Roadmap distribution clause still specifies fetching/updating adapter code.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Distribution-as-hosting tension still present in roadmap wording.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F08-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  389
+                                           }
+                                       ],
+                         "claim":  "WASM adapters as the default runtime are over-engineering: WASM cannot access the DOM, so a JS host shim is the real security boundary regardless; JS adapters behind the same host API are equally signable and much easier to maintain through DOM churn.",
+                         "trigger":  "First DOM-churn incident on gemini.google.com requiring an adapter debug/redeploy cycle in WASM toolchain.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md:389-392",
+                                              "observation":  "\u0027Adapters are WASM modules run in the extension... strict host API: DOM query/click/type/read of the chat tab only\u0027"
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:/Users/Dmytro/gemini-mcp/DESIGN.md",
+                                              "observation":  "Working production bridge is a JS content script; no WASM anywhere in the proven design"
+                                          }
+                                      ],
+                         "verification":  "Confirm no WASM runtime exists in C3 today; estimate the shim that WASM would need and show it equals the JS host API surface.",
+                         "remedy":  "v1: signed JS adapters behind the strict capability-scoped host API; keep WASM as an optional v2 sandbox layer.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  7,
+                                        "reply":  "handoffs/08-codex-browser-engine-framing-kimi.md",
+                                        "thread":  "01a13a7c-1c4e-73a0-8e41-c85cdcca09d0",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:02:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "WASM complexity over JS host shim boundary remains unaddressed in roadmap.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "WASM-by-default still the sketched shape; JS-alternative undecided.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F08-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  387
+                                           }
+                                       ],
+                         "claim":  "The inherited gemini-mcp relay defaults to no auth token (GEMINI_MCP_WS_TOKEN off by default); for a browser engine that pastes arbitrary text into the user\u0027s signed-in chat tab, any local process can drive exfiltration through the tab — a confused-deputy hole worth closing in the new engine even though gemini-mcp tolerated it.",
+                         "trigger":  "Any untrusted local process connecting to ws://127.0.0.1:4455 and submitting text with mcp_task blocks or pack content.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "C:/Users/Dmytro/gemini-mcp/src/ws.rs:423-481",
+                                              "observation":  "Token \u0027off by default because the tool surface is whatever the user configured locally\u0027; unauthenticated connections accepted with a warning"
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "ROADMAP.md:393 \u0027Nothing leaves the machine except the pack text typed into the user\u0027s own chat tab\u0027",
+                                              "observation":  "That guarantee only holds if the relay\u0027s client is the bridge, not any local process"
+                                          }
+                                      ],
+                         "verification":  "Attempt an unauthenticated WS client against the lifted relay in the C3 engine and confirm whether it can inject text into the chat tab.",
+                         "remedy":  "Require a per-install random token for the browser engine\u0027s relay (generated at setup, stored in user config), not optional.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  7,
+                                        "reply":  "handoffs/08-codex-browser-engine-framing-kimi.md",
+                                        "thread":  "01a13a7c-1c4e-73a0-8e41-c85cdcca09d0",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:02:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Confused-deputy exposure on unauthenticated local WebSocket relay remains open.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "not-checked",
+                                                     "note":  "Relay default-token claim needs gemini-mcp sources; not inspected here.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F08-4",
+                         "status":  "proposed",
+                         "severity":  "minor",
+                         "locations":  [
+
+                                       ],
+                         "claim":  "A default stateless re-send conversation model for web reviewers re-pays the full pack every turn and burns small free-tier quotas; thread continuation should be the default where the adapter supports it.",
+                         "trigger":  "A multi-turn diff-review consultation against grok.com free tier exhausting the daily question budget after a few exchanges.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "assumed",
+                                              "reference":  "brief Q4 asks \u0027whether threads can be continued\u0027",
+                                              "observation":  "No evidence gathered on grok/gemini continuation APIs; quota arithmetic inferred from free-tier limits"
+                                          }
+                                      ],
+                         "verification":  "Measure pack size vs. grok.com free daily limit with one real multi-turn consultation using continuation vs. re-send.",
+                         "remedy":  "Adapter contract includes continue_thread(); C3 prefers continuation and marks replies with a context-drift warning after N turns.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  7,
+                                        "reply":  "handoffs/08-codex-browser-engine-framing-kimi.md",
+                                        "thread":  "01a13a7c-1c4e-73a0-8e41-c85cdcca09d0",
+                                        "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                        "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T15:02:16+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "49dde0cc2b7f0ba2e40fa90c0c60536ca7965b30",
+                                             "tree_sha256":  "99269e8342cd9d6a5a7846ad9ee3c1a9a6154c3c6ca23118f78bc11cbc98d5bf"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+                                                 {
+                                                     "consult":  10,
+                                                     "when":  "2026-10-14T15:16:02+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Conversation model still defaults to stateless re-send rather than continuation.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 },
+                                                 {
+                                                     "consult":  11,
+                                                     "when":  "2026-10-14T16:28:18+02:00",
+                                                     "status":  "still-open",
+                                                     "note":  "Continuation-vs-resend default still undecided; free-tier burn risk stands.",
+                                                     "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                                     "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                                 }
+                                             ]
+                     },
+                     {
+                         "id":  "F12-1",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  null
+                                           },
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  null
+                                           }
+                                       ],
+                         "claim":  "The framing omits the lowest-risk option: no browser engine at all — manual paste-out/paste-back by the user (human-in-the-loop relay) plus the existing agy/CLI/API paths — which would serve one-off consults without building automation, distribution, or signing infrastructure.",
+                         "trigger":  "Deciding to build the engine before pricing the manual alternative that carries zero automation-ToS exposure for the product.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md:5-7",
+                                              "observation":  "Brief motivates engine from labs that \u0027answer only in the browser\u0027 and jumps to driving web chat UI through Chrome; no manual-relay or do-nothing alternative is scoped."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "ROADMAP.md:371-404",
+                                              "observation":  "A user copy-pasting the pack into their own tab and pasting the reply back needs no extension, relay, sandbox, or catalogue, so it dominates on ToS and maintenance cost for infrequent use."
+                                          }
+                                      ],
+                         "verification":  "Time one manual grok.com consult from a staged pack file and compare its cost against the estimated engine build plus per-site adapter maintenance.",
+                         "remedy":  "Add an explicit Option 0 (manual relay, possibly tool-assisted staging of pack/reply files) with a decision rule for when automation volume justifies the engine.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/12-muse-browser-engine-framing-meta.md",
+                                        "thread":  "01a13acf-0993-71d1-b37b-a3d1d626b786",
+                                        "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                        "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T16:28:18+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                             "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F12-2",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md",
+                                               "line":  21
+                                           },
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  392
+                                           }
+                                       ],
+                         "claim":  "Neither the brief nor the roadmap requires per-adapter informed consent to the user\u0027s own account risk (suspension, quota loss, subscription termination) before an adapter is enabled, leaving the heaviest cost on the least-informed party.",
+                         "trigger":  "A user enables a reference or third-party adapter for a site whose terms forbid automation and loses the account or quota.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md:9-13",
+                                              "observation":  "Boundary places site-terms responsibility on the adapter author/user but specifies no consent surface, risk disclosure, or per-site ToS attestation at enable time."
+                                          },
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md:392-395",
+                                              "observation":  "Enable path is described only as user enables per site at human cadence with rate limits; no warning or attestation step is listed."
+                                          }
+                                      ],
+                         "verification":  "Walk the enable flow in the design doc and check for a mandatory risk-disclosure plus attestation step before any adapter can send text.",
+                         "remedy":  "Require the enable flow to show the site, the automation-relevant ToS clause link as supplied by the adapter author, and an explicit \u0027I accept the account risk\u0027 confirmation recorded in telemetry as consent, not content.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/12-muse-browser-engine-framing-meta.md",
+                                        "thread":  "01a13acf-0993-71d1-b37b-a3d1d626b786",
+                                        "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                        "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T16:28:18+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                             "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     },
+                     {
+                         "id":  "F12-3",
+                         "status":  "proposed",
+                         "severity":  "major",
+                         "locations":  [
+                                           {
+                                               "path":  "ROADMAP.md",
+                                               "line":  396
+                                           }
+                                       ],
+                         "claim":  "The signing and revocation model is unspecified: who may sign, how keys are distributed and rotated, and how a compromised or ToS-violating adapter is revoked and blocked from running disable the catalogue safety story.",
+                         "trigger":  "A signed adapter is compromised or a site forbids its automation after the catalogue has listed it.",
+                         "evidence":  [
+                                          {
+                                              "kind":  "read-code",
+                                              "reference":  "ROADMAP.md:396-399",
+                                              "observation":  "Catalogue promises signatures and opt-in updates with the xelixir lands-disabled rule, but names no signer, trust root, key distribution, or revocation mechanism."
+                                          },
+                                          {
+                                              "kind":  "inferred",
+                                              "reference":  "ROADMAP.md:396-399",
+                                              "observation":  "Without revocation, a retired/bad adapter entry remains runnable from cache, so the rating/retirement loop in Q5 cannot actually retire anything in the field."
+                                          }
+                                      ],
+                         "verification":  "Inspect the catalogue format spec for signer identity, hash algorithm, revocation endpoint, and offline/stale-cache behavior.",
+                         "remedy":  "Specify pointers-and-hashes catalogue, named signers, a revocation list checked before each run, and cached-adapter expiry; keep all adapter bytes out of the product channel.",
+                         "supersedes":  [
+
+                                        ],
+                         "superseded_by":  [
+
+                                           ],
+                         "source":  {
+                                        "consult":  11,
+                                        "reply":  "handoffs/12-muse-browser-engine-framing-meta.md",
+                                        "thread":  "01a13acf-0993-71d1-b37b-a3d1d626b786",
+                                        "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                        "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                    },
+                         "history":  [
+                                         {
+                                             "when":  "2026-10-14T16:28:18+02:00",
+                                             "status":  "proposed",
+                                             "by":  "codex-consult",
+                                             "note":  "",
+                                             "evidence":  "",
+                                             "base_commit":  "9422a76baddb76f0d5321bdd0577a7c0d3fc73c3",
+                                             "tree_sha256":  "b77ed2f271017a4b0c12bc184bb8dce757481784364c276ce3b31d19104f5da2"
+                                         }
+                                     ],
+                         "reviewer_checks":  [
+
+                                             ]
+                     }
+                 ],
+    "ratings":  [
+                    {
+                        "n":  2,
+                        "consult_id":  "d2c697e0-05f4-4b53-ad7b-9f2b99c4871a",
+                        "lineage":  "ZAI :: glm-5.3",
+                        "provider":  "ZAI",
+                        "model":  "glm-5.3",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-14T14:56:13+02:00",
+                        "useful":  "yes",
+                        "note":  "GLM: boundary, Native Messaging, no-jitter and vendor-name findings were decisive",
+                        "when":  "2026-10-14T16:55:32+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "other",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791989738
+                    },
+                    {
+                        "n":  4,
+                        "consult_id":  "4484fd75-7e69-4442-b143-4d584e7763c2",
+                        "lineage":  "byteplus :: deepseek-v4.1-flash",
+                        "provider":  "byteplus",
+                        "model":  "deepseek-v4.1-flash",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-14T14:56:12+02:00",
+                        "useful":  "yes",
+                        "note":  "deepseek: manual relay step 0, spike gate, WS token, per-contract-version aggregation",
+                        "when":  "2026-10-14T16:55:51+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "other",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791989761
+                    },
+                    {
+                        "n":  7,
+                        "consult_id":  "b11bc146-ad87-4d81-889b-78963948519b",
+                        "lineage":  "kimi :: k3",
+                        "provider":  "kimi",
+                        "model":  "k3",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-14T14:56:07+02:00",
+                        "useful":  "yes",
+                        "note":  "kimi: JS over WASM, official-API alternative, hash-only catalogue",
+                        "when":  "2026-10-14T16:56:24+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "other",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791989793
+                    },
+                    {
+                        "n":  10,
+                        "consult_id":  "3026814c-ff7c-4dec-b524-8a230e07c9bd",
+                        "lineage":  "gemini :: gemini-3.8-flash-high [agy]",
+                        "provider":  "gemini",
+                        "model":  "gemini-3.8-flash-high",
+                        "engine":  "agy",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-14T15:09:55+02:00",
+                        "useful":  "yes",
+                        "note":  "gemini via agy: isolated profile, MV3 remote-code policy, hashed site",
+                        "when":  "2026-10-14T16:56:53+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "other",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791989817
+                    },
+                    {
+                        "n":  11,
+                        "consult_id":  "2316779c-7bac-4faf-8cb0-84812a742ae3",
+                        "lineage":  "meta :: muse-spark-1.3-contributor [muse]",
+                        "provider":  "meta",
+                        "model":  "muse-spark-1.3-contributor",
+                        "engine":  "muse",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-14T16:26:38+02:00",
+                        "useful":  "yes",
+                        "note":  "muse: whether-not-how challenge, consent and revocation model",
+                        "when":  "2026-10-14T16:57:17+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "other",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791989842
+                    },
+                    {
+                        "n":  6,
+                        "consult_id":  "dea7e6e4-0150-4ae7-b748-bd19533f631f",
+                        "lineage":  "byteplus :: dola-seed-2.0-pro",
+                        "provider":  "byteplus",
+                        "model":  "dola-seed-2.0-pro",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-14T14:56:08+02:00",
+                        "useful":  "partly",
+                        "note":  "dola: useful verdicts but findings rested on assumed evidence",
+                        "when":  "2026-10-14T16:57:41+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "other",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791989866
+                    },
+                    {
+                        "n":  3,
+                        "consult_id":  "e110eac9-1a1e-464c-a8aa-10839b06540d",
+                        "lineage":  "openai :: gpt-6-astra",
+                        "provider":  "openai",
+                        "model":  "gpt-6-astra",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-14T14:56:29+02:00",
+                        "useful":  "no",
+                        "note":  "Astra: quota-killed partial, no findings",
+                        "when":  "2026-10-14T16:58:06+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "other",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791989892
+                    },
+                    {
+                        "n":  9,
+                        "consult_id":  "54ab611b-911c-4d25-82aa-f4d27f3f9aa7",
+                        "lineage":  "mimo :: mimo-v2.6-pro",
+                        "provider":  "mimo",
+                        "model":  "mimo-v2.6-pro",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-14T14:56:04+02:00",
+                        "useful":  "no",
+                        "note":  "mimo: tool type web_search unsupported by the gateway",
+                        "when":  "2026-10-14T16:58:28+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "other",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791989916
+                    },
+                    {
+                        "n":  1,
+                        "consult_id":  "ffd6bb02-bf27-4e08-a9ae-f47abdda7b9e",
+                        "lineage":  "alibaba :: qwen3.8-max",
+                        "provider":  "alibaba",
+                        "model":  "qwen3.8-max",
+                        "engine":  "codex",
+                        "purpose":  "framing",
+                        "topics":  [
+
+                                   ],
+                        "consult_when":  "2026-10-14T14:56:02+02:00",
+                        "useful":  "no",
+                        "note":  "qwen: 429 Too Many Requests",
+                        "when":  "2026-10-14T16:58:54+02:00",
+                        "rating_rev":  1,
+                        "judge":  {
+                                      "provider":  "anthropic",
+                                      "model":  "other",
+                                      "source":  "consult_coordinator"
+                                  },
+                        "telemetry_sent":  1791989938
+                    }
+                ]
+}

@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a13a7c-04b0-7a82-9fc2-e30f5dc040da"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model metadata for `qwen3.8-max` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."}}
+{"type":"turn.started"}
+{"type":"error","message":"exceeded retry limit, last status: 429 Too Many Requests, request id: 71b4b6a7-af60-41ad-9be8-27d6ac88f855"}
+{"type":"turn.failed","error":{"message":"exceeded retry limit, last status: 429 Too Many Requests, request id: 71b4b6a7-af60-41ad-9be8-27d6ac88f855"}}

@@ -371,19 +371,19 @@ optional participant whose "done" is never trusted and who never closes a findin
 ### Browser engine - web-chat reviewers through the user's own Chrome tab (OPERATOR DIRECTION 2026-10-14)
 
 **Ask (operator, 2026-10-14):** many labs answer for free, or under a chat subscription the user already has, only in
-the browser (Gemini web with a Pro plan -> gemini-3.8-flash; grok.com free questions; others). Add a bridge engine that
-drives those web UIs through Chrome, so a roster can hold `browser :: gemini-web`, `browser :: grok` next to the CLI and
-API engines. Per-site adapters must be user-extensible, rated by the same usefulness telemetry, and distributed through
+the browser (a vendor's web chat the user is entitled to use, free or under a chat plan the user already has). Add a
+bridge engine that drives such web UIs through Chrome, so a roster can hold `browser :: <adapter>` entries next to the CLI
+and API engines. Per-site adapters must be user-extensible, rated by the same usefulness telemetry, and distributed through
 that channel - the xelixir/9eck model: sandboxed WASM inserts, enabled per user, scored in the field.
 **Boundary (operator):** this sits in a grey zone of the sites' terms, so it must NOT be our program: the bridge ships
 the neutral frame (engine, adapter contract, sandbox, telemetry, catalogue format); site adapters are written, enabled
 and run by users in their own browser sessions. We publish no adapter for a site whose terms forbid automation.
 
 - **Prior art to reuse (same author):** C:/Users/Dmytro/gemini-mcp - a Chrome extension + local WebSocket relay that
-  gives the free Gemini web app MCP tools; no API key, no cookies (the signed-in tab is the credential; the cookie/HTTP
+  gives a vendor's web chat app MCP tools; no API key, no cookies (the signed-in tab is the credential; the cookie/HTTP
   replay path was removed as fragile - PROTOCOL.md), DESIGN.md 'WebSocket message contract' / 'Security stance';
   C:/Users/Dmytro/xelth.rs - the Chrome extension 'DOM Heuristic Doctor' (retry loops, fuzzy selectors, status badge)
-  bridging the Gemini web UI to a local Claude Code loop.
+  bridging a web chat UI to a local Claude Code loop.
 - **Shape.** Engine `browser` (C3 first - it already has engines codex/agy/muse/claude/http and the reviewer pack): C3
   <-> local WebSocket <-> Chrome extension <-> site adapter. The adapter implements one small contract - new_chat,
   send(text), await_answer() -> text, attach(file)?, limits() - against the site's DOM. Adapters are WASM modules run
@@ -401,6 +401,15 @@ and run by users in their own browser sessions. We publish no adapter for a site
   NO built-in adapter; (2) WASM host API + catalogue format + signing; (3) telemetry fields + /C3/ per-adapter table;
   (4) a reference adapter kept OUTSIDE the product (example repo / user-land) to prove the contract; (5) PowerShell
   plugin parity only if the host-invariance rule needs it (likely C3-only).
+- **Panel 2026-10-14 (handoff 13; PROPOSED - operator to confirm):** six reviewers answered (GLM, deepseek, dola, kimi,
+  gemini, muse; synthesis in `.collab/browser-engine-2026-10-14/handoffs/13-fable-browser-engine-synthesis.md`).
+  (a) no human-mimicking jitter, fixed rate floors, draft-only mode (the human clicks Send) as the default; (b) step 0 =
+  manual paste relay + consent wording + a one-site spike as a go/no-go gate; (c) a vendor with an official API goes
+  through the existing `http` engine, not browser automation; (d) JS adapter in an isolated extension world behind a
+  deny-by-default host API, WASM deferred; (e) catalogue = signed pointers + hashes + per-(adapter, contract_version)
+  ratings, no product-hosted adapter bytes, site hashed in telemetry, revocation = signed status change; (f) no vendor
+  names in this section or any shipped doc. Gates: token-authenticated loopback WS or Native Messaging, Chrome Web Store
+  MV3 remote-code policy, per-adapter consent + revocation, legal review of the boundary.
 - **Status:** direction recorded 2026-10-14; a reviewer panel on the design/boundary is the next step; not scheduled.
 
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)

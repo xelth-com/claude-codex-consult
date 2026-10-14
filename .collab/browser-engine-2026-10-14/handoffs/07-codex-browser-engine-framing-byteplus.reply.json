@@ -1,0 +1,55 @@
+{
+  "schema_version": "1",
+  "verdict": "ADVISE",
+  "verdict_reason": "Framing review completed, identified unlisted options, boundary constraints, and implementation tradeoffs.",
+  "reply_markdown": "## Answers\n\n### Q1. Boundary design\nThe product must contain **zero site-specific logic**: no selectors, no button clicks, no user-agent overrides, no default adapters, no preconfigured catalogue entries for real sites. It should ship only:\n- A generic adapter contract interface\n- Sandboxing primitives\n- Signature validation\n- An empty catalogue loader\n- Documentation explicitly stating \"no adapters are provided; you bring your own\".\n\nPrecedents: Tampermonkey (runtime only), Selenium (driver framework only), OpenInterpreter (BYO credentials). Catalogue may list **only hashes, IDs, and metadata** - never code or DOM logic.\n\n### Q2. Technical shape\n**WASM adapters inside the extension** is the only acceptable choice:\n- Safest: No credential exposure, strictly single-tab scoped\n- Most robust: Runs inside the tab context, immune to CDP detection\n- Sandboxable: Strong WASM isolation, easily signed\n\nMinimal contract:\n```\ninterface Adapter { detect(): bool; send(text): Promise<void>; await(): Promise<string>; reset(): void }\n```\n\nReject CDP/Playwright entirely - credential and detection risk is unacceptable.\n\n### Q3. Detection/abuse\nMandatory safeguards:\n- 1.2s minimum between actions ±20% jitter\n- Always-visible status badge in the tab\n- 1 turn / 10s rate limit, 6 turns / hour hard cap\n- Reject all headless/automated Chrome contexts\n- Hard exit on any CAPTCHA, Cloudflare, or 403 antibot page\n- No tab hiding - must remain foreground/visible\n\n### Q4. Reviewer quality\n- Pack budget: 12k tokens maximum (matches free web tiers)\n- Default weight 0.6 until 3 positive ratings; cap at 0.9\n- Always stateless re-send. Never reuse site conversation state - leaks are too common and continuity provides no quality gain.\n\n### Q5. Telemetry/distribution\nTelemetry fields (no user content ever):\n- `adapter_id` (hash only)\n- `adapter_version`\n- `outcome`: ok/failed/antibot/timeout\n- `latency_ms`\n\nCatalogue: Only pointers + SHA-256 hashes, signed developer keys, opt-in updates. Retire adapters with <30% useful rating over 20 runs.\n\n### Q6. Order of work\nBuild order (blockers first):\n1. Extension relay + WebSocket protocol\n2. WASM sandbox + minimal adapter contract\n3. Signature validation\n4. Anti-detection + rate limits\n5. Catalogue loader\n6. Rating telemetry\n\n**Do NOT build:** Any site adapter, catalogue hosting, CAPTCHA solvers, headless mode, thread continuity.\n\n## Requested checks\nRC1: Run `Get-Content C:\\Users\\Dmytro\\gemini-mcp\\DESIGN.md` | Select-String \"Transport\" (read-only) - confirm extension relay security posture matches this design.",
+  "findings": [
+    {
+      "severity": "minor",
+      "locations": [{"path": ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md", "line": null}],
+      "claim": "The brief does not consider IPFS or content-addressable storage for adapter distribution.",
+      "trigger": "Catalogue distribution design question.",
+      "evidence": [{"kind": "read-code", "reference": ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md", "observation": "No mention of content-addressable distribution models."}],
+      "verification": "Check existing C3 documentation for prior use of IPFS.",
+      "remedy": "Use IPFS CIDs as primary catalogue pointers instead of HTTPS URLs.",
+      "supersedes": []
+    },
+    {
+      "severity": "minor",
+      "locations": [{"path": ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md", "line": null}],
+      "claim": "The brief does not specify WASM runtime memory limits or gas metering.",
+      "trigger": "WASM adapter sandbox design.",
+      "evidence": [{"kind": "assumed", "reference": "sandbox design", "observation": "Unconstrained WASM can exhaust tab memory."}],
+      "verification": "Review gemini-mcp extension's WASM runtime configuration.",
+      "remedy": "Enforce 16MB memory limit and 100ms execution timeout per adapter call.",
+      "supersedes": []
+    },
+    {
+      "severity": "major",
+      "locations": [{"path": "CONTRIBUTING.md", "line": null}],
+      "claim": "The repository currently has no explicit policy rejecting site adapter PRs.",
+      "trigger": "Any contribution adding site-specific automation logic.",
+      "evidence": [{"kind": "inferred", "reference": "repository structure", "observation": "No CONTRIBUTING.md exists prohibiting site adapters."}],
+      "verification": "Check for existence of CONTRIBUTING.md in the repository root.",
+      "remedy": "Add an explicit policy: 'No site adapters will be merged into this repository under any circumstances.'",
+      "supersedes": []
+    },
+    {
+      "severity": "note",
+      "locations": [{"path": ".collab/browser-engine-2026-10-14/handoffs/01-fable-browser-engine-framing.md", "line": null}],
+      "claim": "The brief does not specify an adapter manifest format.",
+      "trigger": "Adapter packaging and signing.",
+      "evidence": [{"kind": "assumed", "reference": "packaging design", "observation": "No manifest structure is proposed."}],
+      "verification": "Review xelth.rs extension manifest format.",
+      "remedy": "Define a minimal signed manifest with adapter ID, version, hash, and compatibility bounds.",
+      "supersedes": []
+    }
+  ],
+  "prior_findings": [],
+  "unproven": [
+    "Whether WASM GC pause times will be acceptable for human cadence requirements",
+    "Whether Chrome extension policy allows in-tab WASM adapters that interact with chat sites",
+    "Whether vendor antibot systems can detect the extension relay pattern"
+  ],
+  "first_run_checklist": []
+}
