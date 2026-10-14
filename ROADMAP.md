@@ -418,6 +418,42 @@ and run by users in their own browser sessions. We publish no adapter for a site
 - Motivation on record: the operator's Gemini chat subscription answers almost without limit in the browser while the Antigravity CLI on the same account hits a 3-day limit after 2-3 requests; the first build is a PRIVATE plugin for the operator (not distributed), the neutral frame is open; many users with a single $20 Claude plan will want free web reviewers, and the usefulness table (the /C3/ page, per adapter/vendor) becomes a public ranking by real usefulness - free advertising or anti-advertising for vendors, like lmarena's leaderboard.
 - Status: DIRECTION CONFIRMED with the rulings above; build order unchanged (frame first, no adapter in the repo). Owner: the C3 session.
 
+### Consilium of 2026-10-14 - the next five waves (owner: the C3 session; scheduled for the week of 2026-10-19)
+
+Two framing panels (full roster, through C3 0.2.1 - task `consilium-2026-10-14` in the C3 repository, `notes-decisions.md`)
+settled the designs below. Order fixed by the coordinator; each wave gets its own acceptance round. The C3 0.2.2 patch
+(four defects seen during the panels: a panel forks old threads by default, the detach come-back line prints the
+PowerShell spelling, single runs of one task serialise on the task lock, an instant 429 on a monthly-capped plan is
+classed as a 10-minute burst) lands first.
+
+- **R25 - Telemetry prerequisites.** The intake accepts and ignores unknown keys; `schema_v` / `vocab_version` on the
+  wire; the client's `close_event` stops dropping event types other than consultation and rating; the roster validator
+  accepts an `effort` policy key. Nothing below ships before this.
+- **R26 - Worker telemetry.** `SubagentStart` + `SubagentStop` hooks paired with a coordinator spawn registry the hook
+  reads (tier haiku|sonnet|opus|fable|other and the effort level from the registry, never guessed); a separate `worker`
+  event with closed classes (duration class, execution outcome, a coordinator `disposition` such as reworked); nothing
+  from the brief, the files or the repository; the intake's workers table (counts, error share, usefulness per tier x
+  effort). Reviewer events gain `effort` (sent), `effort_requested` (the pre-mapping tier), `effort_source`,
+  `cost_basis`, `assignment` + `cohort_ref` (same-brief pairs), `panel_role`.
+- **R27 - The watch.** `c3 watch --task <t> --since <seq>`: a closed-vocabulary answer (`nothing | changed | unknown`,
+  never a worker's STATE text - an injection path), a sequence cursor (not a timestamp), open runs judged through the
+  detached judgement (not file mtimes), a silently dead worker never `nothing`, a NEW exit code (3 is the wait timeout),
+  `--next` only for events the bridge owns (a run's budget end), and a heartbeat that still refreshes the prompt cache
+  on a skipped wake - the saving is the context read, not the request.
+- **R28 - Usage tiers for the standing consultants.** An effort policy per purpose in the roster (gpt-6-astra: chore
+  low, checkpoint/reading medium after a paired run, diff-review and acceptance high, core-contract/stuck xhigh;
+  glm-5.3: chore low, review high, stuck max); the score of a tier = confirmed findings per 1M of the run's own input
+  tokens (the window share is a routing constraint, not the score); then "scout and judge": a per-file map without a
+  verdict, machine-checked coverage, the judge always gets the diffstat and may fetch raw hunks, a call cap, budget
+  exhausted = incomplete never accept, 1 in 5 judgings on the raw diff, scout and judge from different model families.
+- **R29 - The browser engine** (the section above, now with the panel's architecture): B' - the extension is a dumb,
+  signed DOM bridge (from gemini-mcp, direction reversed), the adapters run in C3's process, the bridge protocol IS the
+  host API (a per-run token bound to adapter hash, origin and tab; no generic DOM calls); an interactive engine with its
+  own record (`awaiting-user-send` pauses the stall timers, `not-sent` is a terminal outcome, kill = abandon recorded
+  before acting, the user's tab is never closed); draft-only seats refused in detached runs and panels until the
+  operator rules; reply provenance (a replayed old reply is refused); a named signer and revocation for the catalogue;
+  usefulness rows keyed on the adapter hash. Baseline before any adapter: `c3 pack` + paste (the human relay).
+
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
 - **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a
