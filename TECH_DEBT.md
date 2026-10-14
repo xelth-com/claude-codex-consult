@@ -188,3 +188,5 @@ seven-wave task with three consultations. Ordered by the damage they did.
   C3 wave 8b did): one shared rule - a newer `observed_at` wins, on an equal one the higher primary `used_percent`
   wins (then the higher secondary) - in the recorded selection and the live replacement; harness-quota checks for
   both orders.
+
+- **T18 - `-CodexConfig` is fatal for non-codex panel members.** (2026-10-14, panel 45e31b0f on browser-engine-2026-10-14) A panel launched with `-CodexConfig features.multi_agent=false` (the wave-30 quota advice) failed its agy (gemini x2) and muse members outright: "-CodexConfig does not apply to the agy engine". The flag configures `codex exec` only and should be IGNORED (with a note in the handoff header) for members on other engines, not refuse them; also `-Budget` should be codex-only in the same way. Three seats of ten were lost to the flag. Status: open.
