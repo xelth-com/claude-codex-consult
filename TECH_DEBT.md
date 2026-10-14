@@ -178,3 +178,13 @@ seven-wave task with three consultations. Ordered by the damage they did.
   left alive and the task refused, exit with the kick's failure code; and the plugin's own kill sites should adopt
   the same rule (no kill without a durable record; the third location under `<codex home>/codex-consult/pending-kill/`
   read by `Get-PendingPaths`).
+
+- **T17 - `Get-EndpointWindow` keeps the first observation on an equal `observed_at`.** (2026-10-14, found by the
+  acceptance reviewer on the C3 port of wave 30, F46-1 of parity-0.6.1 handoff 46) Both selections in
+  `Get-EndpointWindow` (codex-consult-common.ps1 near lines 6985 and 6989) compare `observed_at` with `-gt`, so on an
+  equal timestamp the FIRST observation stays: a 30 % observation can hide a 99 % one for the same endpoint and the
+  reviewer stays available; `observed_at` is serialised without fractional seconds, so ties are likely (two runs
+  ending in the same second, a recorded observation and the live rollout read at the same instant). Fix (0.6.2, as
+  C3 wave 8b did): one shared rule - a newer `observed_at` wins, on an equal one the higher primary `used_percent`
+  wins (then the higher secondary) - in the recorded selection and the live replacement; harness-quota checks for
+  both orders.
