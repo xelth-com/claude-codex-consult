@@ -367,6 +367,42 @@ optional participant whose "done" is never trusted and who never closes a findin
   `provider`, `model`, `purpose`, `mark`, `age_days`, `bridge_version`, `os`, `ps_version`; the
   switch honoured; `-Telemetry on|off` for one rating) - README "Telemetry (on by default)",
   `harness-telemetry` RATE; `codex-telemetry.ps1 -BackfillRatings` sent the earlier marks once (0.5.1). **The site's half is live (2026-10-06):** `/C3/` renders the table from `GET /T/v2/public/usefulness?app_id=codex-consult&days=90`, the hand-collected snapshot folded below as the baseline. R24 done.
+
+### Browser engine - web-chat reviewers through the user's own Chrome tab (OPERATOR DIRECTION 2026-10-14)
+
+**Ask (operator, 2026-10-14):** many labs answer for free, or under a chat subscription the user already has, only in
+the browser (Gemini web with a Pro plan -> gemini-3.8-flash; grok.com free questions; others). Add a bridge engine that
+drives those web UIs through Chrome, so a roster can hold `browser :: gemini-web`, `browser :: grok` next to the CLI and
+API engines. Per-site adapters must be user-extensible, rated by the same usefulness telemetry, and distributed through
+that channel - the xelixir/9eck model: sandboxed WASM inserts, enabled per user, scored in the field.
+**Boundary (operator):** this sits in a grey zone of the sites' terms, so it must NOT be our program: the bridge ships
+the neutral frame (engine, adapter contract, sandbox, telemetry, catalogue format); site adapters are written, enabled
+and run by users in their own browser sessions. We publish no adapter for a site whose terms forbid automation.
+
+- **Prior art to reuse (same author):** C:/Users/Dmytro/gemini-mcp - a Chrome extension + local WebSocket relay that
+  gives the free Gemini web app MCP tools; no API key, no cookies (the signed-in tab is the credential; the cookie/HTTP
+  replay path was removed as fragile - PROTOCOL.md), DESIGN.md 'WebSocket message contract' / 'Security stance';
+  C:/Users/Dmytro/xelth.rs - the Chrome extension 'DOM Heuristic Doctor' (retry loops, fuzzy selectors, status badge)
+  bridging the Gemini web UI to a local Claude Code loop.
+- **Shape.** Engine `browser` (C3 first - it already has engines codex/agy/muse/claude/http and the reviewer pack): C3
+  <-> local WebSocket <-> Chrome extension <-> site adapter. The adapter implements one small contract - new_chat,
+  send(text), await_answer() -> text, attach(file)?, limits() - against the site's DOM. Adapters are WASM modules run
+  in the extension (browser WASM runtime; a strict host API: DOM query/click/type/read of the chat tab only, no cookies,
+  no other tabs, no network), signed and listed in a catalogue; the user enables an adapter per site.
+- **Read-only by construction.** A web reviewer has no repository tools, so it gets the reviewer pack (brief + periphery
+  within a per-adapter token budget - free tiers are small); the reply is captured verbatim and goes through the same
+  ledger/findings/rating path as every other engine. Nothing leaves the machine except the pack text typed into the
+  user's own chat tab, by the user's own session, at a human cadence (rate limits per adapter; the user sees every turn).
+- **Telemetry and distribution.** Every consultation row already carries engine/provider/model and the usefulness mark;
+  add adapter_id/adapter_version/site. The usefulness site (/C3/) aggregates per adapter; adapters are fetched and
+  updated through the same telemetry/usefulness channel (opt-in), with signatures - the xelixir WASM-shield rule
+  (installed by the user, lands disabled, enabled explicitly) applies.
+- **Order.** (1) extension + WS relay lifted from gemini-mcp into a C3 `browser` engine with the adapter contract and
+  NO built-in adapter; (2) WASM host API + catalogue format + signing; (3) telemetry fields + /C3/ per-adapter table;
+  (4) a reference adapter kept OUTSIDE the product (example repo / user-land) to prove the contract; (5) PowerShell
+  plugin parity only if the host-invariance rule needs it (likely C3-only).
+- **Status:** direction recorded 2026-10-14; a reviewer panel on the design/boundary is the next step; not scheduled.
+
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
 - **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a
