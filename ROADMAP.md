@@ -511,6 +511,14 @@ classed as a 10-minute burst) lands first.
   (`claude --cloud`, a remote Agent), (b) a self-hosted Claude Code environment (`claude -p "<task>" --environment
   <id> --ref <branch>`), and (c) any host the operator owns, reached over SSH, where `claude -p` runs as the worker in
   a clean checkout (the Agent SDK's own-VM path); the operator's own server is the first training ground for (c).
+  Nor is the MODEL Anthropic-only: an executor is host + agent runtime + model, each swappable. On a GPU box with a
+  local model (Ollama / vLLM, e.g. a Qwen coder) the runtime stays a known harness - Claude Code pointed at an
+  Anthropic-compatible proxy in front of the local server (`ANTHROPIC_BASE_URL`; LiteLLM speaks that format), or
+  Codex CLI in its `--oss` mode, which talks to Ollama directly - so the brief, the branch return and the channel do
+  not change. For the PANEL nothing new is needed at all: Ollama's OpenAI-compatible API is an http-engine roster
+  entry with a `base_url`, i.e. one more cheap reviewer. Quality of a local-model worker is unknown until measured:
+  its waves go through the same acceptance as everything else, and R26 telemetry reports tokens, wall time and the
+  accepted-wave share per model.
 
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
