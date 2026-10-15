@@ -454,6 +454,27 @@ classed as a 10-minute burst) lands first.
   operator rules; reply provenance (a replayed old reply is refused); a named signer and revocation for the catalogue;
   usefulness rows keyed on the adapter hash. Baseline before any adapter: `c3 pack` + paste (the human relay).
 
+- **R30 - Wave-boundary compaction (the coordinator's window; operator's ask 2026-10-15).** The waves work because a
+  wave's whole state lives on disk (the brief, the worker report, `state.md`, the handoffs); the coordinator's window
+  only has to carry the decisions. Economics: the window is re-read on every turn (cache reads at 0.025x, a cold
+  re-write at full price after the 1 h TTL); the operator burns the Anthropic weekly allowance about twice as fast as
+  the week passes. Rule: never trade quality for tokens - waiting beats doing worse - but a saving that costs no
+  quality is taken. Design: (1) WHEN - compact right AFTER a new wave is launched (brief written, worker or
+  consultation started), not before it: writing the brief needs the detailed review context, the wait needs none, and
+  the worker's report arrives self-contained; never mid-review (while a diff or a report is being read); idle windows
+  are covered by the host's idle compaction (Claude Code 2.1.299: 200K+ tokens idle about 54 min,
+  `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` lowers the threshold). (2) TRIGGER - the agent still cannot compact itself
+  (issue 90212 open; verified through 2.1.300), so the moment is the operator's `/compact <focus>`: the coordinate
+  skill makes the coordinator print ONE exact line right after a launch ("wave N launched - cheap moment to compact:
+  `/compact keep task <t>, handoff <NN>, detach <id>, worker <id>, HEAD <sha>`"), and `c3 consult --detach` /
+  `c3 consult --panel` print the same hint in their come-back block (the bridge knows the boundary). (3) RE-HYDRATION -
+  the plugin's SessionStart hook gains the `compact` matcher: after a compaction it prints the coordinator record from
+  disk (the task's "Where things stand" head, live detached runs via `--status`, the last handoff numbers, HEAD), so
+  the new window regains facts from files, not from the summary; subagents get `autoCompactWindow` (2.1.296) in their
+  frontmatter so a long worker compacts itself earlier. (4) MEASURE - tokens per wave before/after, from R26 worker
+  telemetry and the coordinator record; the win is the context read per turn, not the request count. Ships after R27
+  (the watch), which is the other half of a cheap wait.
+
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
 - **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a
