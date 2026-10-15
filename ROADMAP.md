@@ -475,6 +475,33 @@ classed as a 10-minute burst) lands first.
   telemetry and the coordinator record; the win is the context read per turn, not the request count. Ships after R27
   (the watch), which is the other half of a cheap wait.
 
+- **R31 - Cloud workers (opt-in; operator's ask 2026-10-15).** Work that needs no local environment - code plus
+  tests on a pushed branch, docs, reviews - can run in a Claude Code cloud session instead of the operator's machine,
+  to spend a separately granted cloud credit, to get an atomic clean environment, or simply to run beside a busy
+  laptop. DEFAULT OFF (a roster/config flag `cloud: on|off`, off unless the operator turns it on). What goes to the
+  cloud: pure build-and-test chunks with the base branch pushed to origin; the worker commits on its own branch and
+  pushes it. What never goes: anything bound to local hardware, interactive subscription logins (Codex, Gemini CLI,
+  Muse), signing, production access, the bridge's own keys. Dispatch, as documented today (code.claude.com, verified
+  2026-10-15): `claude --cloud "<task>"` from the repo (the cwd's GitHub remote at the current branch; no GitHub App ->
+  a bundle under 100 MB), `claude -p "<task>" --environment <id> --ref <branch>` for a self-hosted environment, the
+  Routines `/fire` endpoint (returns a session id + url but needs a pre-made routine), and the Agent tool with
+  `isolation: "remote"` from inside a session (works in practice, undocumented). Result path: the pushed branch plus
+  `claude --teleport <session-id>`; the docs offer NO status/poll API, no completion webhook, no transcript API, and a
+  cloud session cannot message a local session back. Hence the bridge's own return channel: the operator's server
+  database (the telemetry/priors tier of the two-tier design) gains a per-task message table - direction, time, body,
+  branch sha - the cloud worker writes progress, questions and its final report there (a ready-made write command in
+  its brief; a write token scoped to the task's namespace, delivered through the environment's network secret so no
+  key enters the sandbox), the coordinator answers in the same table, and `c3 cloud --task <t> --status|--wait`
+  surfaces it like a detached consultation. The same database carries the state a cloud worker needs and the sandbox
+  cannot keep: endpoint health and cap pairs, the roster's `out until`, the panel's priors, task and run status;
+  on the next local run the ledger rows sync back into `.collab` so acceptance and ratings stay in the repository.
+  If Claude Code later ships a cloud-to-local channel, ours stays as the durable journal. Billing: the docs say cloud
+  sessions count against the plan's usage limits with no separate VM charge; a granted cloud credit is shown on the
+  plan page separately - which bucket a remote worker draws from is measured on the first run before the flag is
+  recommended to anyone. Limits noted: ~4 vCPU / 16 GB / 30 GB, VM pauses when idle and can be reclaimed (unfinished
+  work lost), setup script cached only under ~5 min, no concurrency figure documented, GitHub required for a push
+  back. Ships after R28 (usage tiers), measured by R26 telemetry (tokens and wall time per cloud wave versus local).
+
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
 - **T1 - timeouts for big reviews.** A `-Purpose diff-review -Panel -PanelAll` run on a
