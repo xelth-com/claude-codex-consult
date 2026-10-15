@@ -492,8 +492,13 @@ classed as a 10-minute burst) lands first.
   so the bridge cannot script that leg from inside a session: `c3 cloud` prints the exact command for the operator's
   TTY (or the web UI) and takes over from the pushed branch, while a self-hosted environment (`claude -p
   --environment`, headless by design) and the SSH executor are the scriptable legs. The cloud VM is Ubuntu 24.04 with
-  Rust/Node/Python/Go/Docker preinstalled and no protoc/NASM: a setup script (root, under 5 min, exit 0) installs
-  what the build needs. Result path: the pushed branch plus
+  Rust/Node/Python/Go/Docker preinstalled; a setup script (root, under 5 min, exit 0) installs what the build
+  still needs (first real probe, 2026-10-15: root, 4 cores, NASM present, protoc installed by apt without sudo,
+  crates.io and apt reachable through the environment proxy, a cold debug build of a mid-size Rust workspace about
+  10 min wall, tests green, result returned as a `claude/...` branch). Once a session exists, follow-ups ARE
+  scriptable: `claude -p "<msg>" --cloud <session-id>` queues a message into it (the answer shows only on the web
+  page), so the bridge's launch leg is operator-typed and its steering leg is automated. A persistent target
+  directory between sessions is the open question that decides whether cold builds dominate the cost. Result path: the pushed branch plus
   `claude --teleport <session-id>`; the docs offer NO status/poll API, no completion webhook, no transcript API, and a
   cloud session cannot message a local session back. Hence the bridge's own return channel: the operator's server
   database (the telemetry/priors tier of the two-tier design) gains a per-task message table - direction, time, body,
