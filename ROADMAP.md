@@ -500,7 +500,13 @@ classed as a 10-minute burst) lands first.
   plan page separately - which bucket a remote worker draws from is measured on the first run before the flag is
   recommended to anyone. Limits noted: ~4 vCPU / 16 GB / 30 GB, VM pauses when idle and can be reclaimed (unfinished
   work lost), setup script cached only under ~5 min, no concurrency figure documented, GitHub required for a push
-  back. Ships after R28 (usage tiers), measured by R26 telemetry (tokens and wall time per cloud wave versus local).
+  back. Stage 2, the consilium relay: the same message table carries CONSULT REQUESTS from a cloud session (brief,
+  purpose, provider or panel, budget, range on the pushed branch); a local `c3 cloud --serve` agent on the operator's
+  machine picks them up, runs them through the subscriptions that live only there (Codex/Astra, Gemini CLI, Muse,
+  the roster's third-party plans), and writes the reply, the findings and the ledger rows back - so a cloud worker
+  gets the full panel and acceptance authority without any subscription login leaving the machine. The serve loop
+  honours the same budgets, the live-member rule and the one-harness-at-a-time lock as a local run. Ships after R28
+  (usage tiers), measured by R26 telemetry (tokens and wall time per cloud wave versus local).
 
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
