@@ -484,8 +484,10 @@ classed as a 10-minute burst) lands first.
   Muse), signing, production access, the bridge's own keys. Dispatch, as documented today (code.claude.com, verified
   2026-10-15): `claude --cloud "<task>"` from the repo (the cwd's GitHub remote at the current branch; no GitHub App ->
   a bundle under 100 MB), `claude -p "<task>" --environment <id> --ref <branch>` for a self-hosted environment, the
-  Routines `/fire` endpoint (returns a session id + url but needs a pre-made routine), and the Agent tool with
-  `isolation: "remote"` from inside a session (works in practice, undocumented). Result path: the pushed branch plus
+  Routines `/fire` endpoint (returns a session id + url but needs a pre-made routine). The Agent tool's
+  `isolation: "remote"` is NOT a dispatch path: a pilot on 2026-10-15 accepted the option without error and ran the
+  whole chunk on the local machine (local worktree, local toolchain, credit untouched) - so every cloud run must
+  prove where it is (hostname, uname, tool paths printed first) before its result counts. Result path: the pushed branch plus
   `claude --teleport <session-id>`; the docs offer NO status/poll API, no completion webhook, no transcript API, and a
   cloud session cannot message a local session back. Hence the bridge's own return channel: the operator's server
   database (the telemetry/priors tier of the two-tier design) gains a per-task message table - direction, time, body,
@@ -497,8 +499,10 @@ classed as a 10-minute burst) lands first.
   on the next local run the ledger rows sync back into `.collab` so acceptance and ratings stay in the repository.
   If Claude Code later ships a cloud-to-local channel, ours stays as the durable journal. Billing: the docs say cloud
   sessions count against the plan's usage limits with no separate VM charge; a granted cloud credit is shown on the
-  plan page separately - which bucket a remote worker draws from is measured on the first run before the flag is
-  recommended to anyone. Limits noted: ~4 vCPU / 16 GB / 30 GB, VM pauses when idle and can be reclaimed (unfinished
+  plan page separately - which bucket a remote worker draws from is measured on the first REAL cloud run (via
+  `claude --cloud` or the web UI on a pushed branch, timing a known test command) before the flag is recommended
+  to anyone. The branch protocol itself - worker commits and pushes its own branch, coordinator fetches and merges -
+  is already proven by the local pilot. Limits noted: ~4 vCPU / 16 GB / 30 GB, VM pauses when idle and can be reclaimed (unfinished
   work lost), setup script cached only under ~5 min, no concurrency figure documented, GitHub required for a push
   back. Stage 2, the consilium relay: the same message table carries CONSULT REQUESTS from a cloud session (brief,
   purpose, provider or panel, budget, range on the pushed branch); a local `c3 cloud --serve` agent on the operator's
