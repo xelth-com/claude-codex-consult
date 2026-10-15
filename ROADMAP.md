@@ -510,9 +510,9 @@ classed as a 10-minute burst) lands first.
   on the next local run the ledger rows sync back into `.collab` so acceptance and ratings stay in the repository.
   If Claude Code later ships a cloud-to-local channel, ours stays as the durable journal. Billing: the docs say cloud
   sessions count against the plan's usage limits with no separate VM charge; a granted cloud credit is shown on the
-  plan page separately - which bucket a remote worker draws from is measured on the first REAL cloud run (via
-  `claude --cloud` or the web UI on a pushed branch, timing a known test command) before the flag is recommended
-  to anyone. The branch protocol itself - worker commits and pushes its own branch, coordinator fetches and merges -
+  plan page separately - measured on the first real cloud run (2026-10-15): the probe above cost about 2 USD and was
+  charged to the granted cloud credit, not to the weekly plan quota - so while a credit exists, cloud waves are
+  free for the subscription, and the bridge should show the credit balance next to the plan window. The branch protocol itself - worker commits and pushes its own branch, coordinator fetches and merges -
   is already proven by the local pilot. Limits noted: ~4 vCPU / 16 GB / 30 GB, VM pauses when idle and can be reclaimed (unfinished
   work lost), setup script cached only under ~5 min, no concurrency figure documented, GitHub required for a push
   back. Stage 2, the consilium relay: the same message table carries CONSULT REQUESTS from a cloud session (brief,
