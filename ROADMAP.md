@@ -506,7 +506,11 @@ classed as a 10-minute burst) lands first.
   the roster's third-party plans), and writes the reply, the findings and the ledger rows back - so a cloud worker
   gets the full panel and acceptance authority without any subscription login leaving the machine. The serve loop
   honours the same budgets, the live-member rule and the one-harness-at-a-time lock as a local run. Ships after R28
-  (usage tiers), measured by R26 telemetry (tokens and wall time per cloud wave versus local).
+  (usage tiers), measured by R26 telemetry (tokens and wall time per cloud wave versus local). The executor is
+  PLUGGABLE, not Anthropic-only: the same brief, channel, branch return and relay serve (a) Anthropic's cloud
+  (`claude --cloud`, a remote Agent), (b) a self-hosted Claude Code environment (`claude -p "<task>" --environment
+  <id> --ref <branch>`), and (c) any host the operator owns, reached over SSH, where `claude -p` runs as the worker in
+  a clean checkout (the Agent SDK's own-VM path); the operator's own server is the first training ground for (c).
 
 ## Tech debt observed in use (2026-09-26; scheduled as the "operator visibility" wave)
 
