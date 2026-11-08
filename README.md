@@ -1,5 +1,14 @@
 # claude-codex-consult (CCC)
 
+> **Status (2026-10-22): unmaintained.** Development moved to
+> [C3](https://github.com/xelth-com/C3), the Rust implementation of this bridge for Claude Code.
+> This PowerShell bridge still works with the models and providers of its last release (0.6.1)
+> and receives no updates. If you take it over, hand the repository to an AI coding agent first:
+> add the newer models and providers to the provider tables and roster examples, re-run the
+> `tests/harness-*.ps1` suites under Windows PowerShell 5.1, then test with your hosts. The
+> unfinished coordinator-provider exclusion policy sits untested on the branch
+> `wip/coordinator-exclusion`.
+
 A plugin (`codex-consult`, version 0.6.1) for the agent that coordinates the work - the
 **coordinator**, the judge of every reply - to consult reviewers and record every
 consultation as files. This README is written for the AI coding agent that installs, wires
