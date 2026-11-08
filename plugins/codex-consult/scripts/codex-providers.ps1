@@ -184,6 +184,9 @@ $utcNow = $clock.Now.UtcDateTime
 # -Provider and -Thread would select now.
 $roster = Read-ReviewerRoster
 if ($roster.Error) { Stop-WithError $roster.Error }
+$coordinatorResolved = Resolve-CoordinatorIdentity -Value ([string]$env:CODEX_CONSULT_COORDINATOR) -Roster $roster -Defaults (Get-CodexConfigDefaults)
+if ($coordinatorResolved.Error) { Stop-WithError $coordinatorResolved.Error }
+$coordinatorRecord = $coordinatorResolved.Record
 # The provider labels of the other engines (0.4.0): one row each, in roster order.
 $engineLaunchers = @{}
 if ($EngineExe) {
@@ -229,8 +232,8 @@ if ($roster.Exists) {
     # the single-run walk itself ("would select") and every entry judged with the same verdict
     # (Select-PanelMembers -All: the -Short line, the availability line) - one login cache, so
     # `agy models` runs at most once
-    $walk = Select-RosterReviewer -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork -Cache $listingCache
-    $avail = Get-RosterAvailability -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork -Cache $listingCache
+    $walk = Select-RosterReviewer -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork -Cache $listingCache -Coordinator $coordinatorRecord
+    $avail = Get-RosterAvailability -Roster $roster -Config $config -Consults $consults -Launcher ([string]$launcher) -LoginCache $loginCache -UtcNow $utcNow -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -EngineLaunchers $engineLaunchers -NoNetwork:$NoNetwork -Cache $listingCache -Coordinator $coordinatorRecord
 }
 
 # A row's verdict text from the shared verdict (Get-PreflightVerdict -RosterWalk, wave 24 D14):

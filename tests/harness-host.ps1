@@ -471,6 +471,101 @@ if (Want 'ENV') {
     Check 'ENV' 'D3/D4 a panel: its plan (dry run and real run) warns "WARNING: coordinator: ZAI :: glm-5.3 is the coordinator''s own model ..." once; both members'' entries carry the panel run''s coordinator {ZAI, glm-5.3, host codex, explicit} and child_env_scrubbed [CODEX_THREAD_ID]; only the ZAI member''s warnings[] holds the coordinator warning; neither member''s engine child saw CODEX_THREAD_ID' ($pd.Code -eq 0 -and @(($pd.Out -split "`n") | Where-Object { $_ -match '^WARNING: coordinator: ZAI :: glm-5\.3 is the coordinator' }).Count -ge 1 -and $pr.Code -eq 0 -and $led.Count -eq 2 -and $zai.coordinator.provider -eq 'ZAI' -and $oai.coordinator.provider -eq 'ZAI' -and $oai.coordinator.host -eq 'codex' -and (@($zai.child_env_scrubbed) -join ',') -eq 'CODEX_THREAD_ID' -and (@($oai.child_env_scrubbed) -join ',') -eq 'CODEX_THREAD_ID' -and @($zai.warnings | Where-Object { ([string]$_).Contains($warnText) }).Count -eq 1 -and @($oai.warnings | Where-Object { ([string]$_).Contains($warnText) }).Count -eq 0 -and $execP.Count -eq 2 -and @($execP | Where-Object { $_.Names -contains 'CODEX_THREAD_ID' }).Count -eq 0) "dry $($pd.Code), run $($pr.Code), entries $($led.Count), dumps $($execP.Count)"
 }
 
+# =============================================================== EXCLUDE: coordinator-dependent roster eligibility
+if (Want 'EXCLUDE') {
+    $policyJson = '{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1","ext":{"exclude_coordinator_providers":["openai"],"other_bridge":{"enabled":true}}},{"provider":"ZAI","model":"glm-5.3"}]}'
+    $policyPath = Write-Roster 'coordinator-policy' $policyJson
+    Set-CaseEnv $policyPath @{}
+    $policyRoster = Read-ReviewerRoster
+    $config = Read-CodexConfigSubset -Path (Join-Path $codexHome 'config.toml')
+    Check 'EXCLUDE' 'the policy array is retained, other ext keys stay opaque, unmarked entries have no policy' (-not $policyRoster.Error -and @($policyRoster.Entries[0].ExcludeCoordinatorProviders).Count -eq 1 -and @($policyRoster.Entries[1].ExcludeCoordinatorProviders).Count -eq 0) $policyRoster.Error
+    foreach ($bad in @('null', '"openai"', '[1]', '[""]', '[" openai "]', '["openai::x"]')) {
+        $badPath = Write-Roster ('exclude-bad-' + [guid]::NewGuid().ToString('N')) ('{"roster_version":1,"reviewers":[{"provider":"openai","ext":{"exclude_coordinator_providers":' + $bad + '}}]}')
+        $badRoster = Read-ReviewerRoster -Location ([pscustomobject]@{ Path = $badPath; FromEnv = $true; Disabled = $false })
+        Check 'EXCLUDE' "invalid policy $bad refuses the roster" ($badRoster.Error -match 'ext.exclude_coordinator_providers must be an array') $badRoster.Error
+    }
+    $emptyPath = Write-Roster 'exclude-empty' ($policyJson.Replace('["openai"]', '[]'))
+    $emptyRoster = Read-ReviewerRoster -Location ([pscustomobject]@{ Path = $emptyPath; FromEnv = $true; Disabled = $false })
+    Check 'EXCLUDE' 'an empty policy array is allowed' (-not $emptyRoster.Error -and @($emptyRoster.Entries[0].ExcludeCoordinatorProviders).Count -eq 0) $emptyRoster.Error
+    $env:CODEX_THREAD_ID = 'policy-thread'
+    $inferred = (Resolve-CoordinatorIdentity -Value '' -Roster $policyRoster).Record
+    $explicit = (Resolve-CoordinatorIdentity -Value 'anthropic :: claude-opus-4' -Roster $policyRoster).Record
+    $position = (Resolve-CoordinatorIdentity -Value '#2' -Roster $policyRoster).Record
+    $openaiPosition = (Resolve-CoordinatorIdentity -Value '#1' -Roster $policyRoster).Record
+    $unresolved = (Resolve-CoordinatorIdentity -Value '#99' -Roster $policyRoster).Record
+    Check 'EXCLUDE' 'Codex thread marker infers config default OpenAI but never a model or engine' ($inferred.provider -eq 'openai' -and $null -eq $inferred.model -and $null -eq $inferred.engine -and $inferred.source -eq 'inferred') ($inferred | ConvertTo-Json -Compress)
+    Check 'EXCLUDE' 'explicit non-OpenAI identity and roster position win over Codex markers; unresolved explicit position does not infer OpenAI' ($explicit.provider -eq 'anthropic' -and $position.provider -eq 'ZAI' -and $null -eq $unresolved.provider -and $unresolved.unresolved -eq '#99') ''
+    [IO.File]::WriteAllText((Join-Path $codexHome 'config.toml'), ('model_provider = "ZAI"' + "`n" + $toml), $u8)
+    Remove-Item env:CODEX_THREAD_ID
+    $env:CODEX_SESSION_ID = 'policy-session'
+    $custom = (Resolve-CoordinatorIdentity -Value '' -Roster $policyRoster).Record
+    [IO.File]::WriteAllText((Join-Path $codexHome 'config.toml'), $toml, $u8)
+    Check 'EXCLUDE' 'Codex session marker uses configured non-OpenAI provider without guessing its model' ($custom.provider -eq 'ZAI' -and $null -eq $custom.model -and -not (Get-CoordinatorExclusion $policyRoster.Entries[0] $custom)) ($custom | ConvertTo-Json -Compress)
+    Clear-TestEnv
+    $pathOnly = (Resolve-CoordinatorIdentity -Value '' -Roster $policyRoster -ScriptPath (Join-Path $HOME '.codex\plugins\cache\example\scripts')).Record
+    Check 'EXCLUDE' 'Codex install path alone does not infer a provider or exclude a reviewer' ($pathOnly.host -eq 'codex' -and $pathOnly.host_by -eq 'path' -and $null -eq $pathOnly.provider -and -not (Get-CoordinatorExclusion $policyRoster.Entries[0] $pathOnly)) ($pathOnly | ConvertTo-Json -Compress)
+    Check 'EXCLUDE' 'provider policy matching is case-insensitive and #1 resolves before matching' ((Get-CoordinatorExclusion $policyRoster.Entries[0] ([pscustomobject]@{ provider = 'OpenAI' })) -and (Get-CoordinatorExclusion $policyRoster.Entries[0] $openaiPosition)) ''
+    Set-CaseEnv $policyPath @{}
+    $walk = Select-RosterReviewer -Roster $policyRoster -Config $config -Consults @() -Launcher $fake -SkipPreflight -Coordinator $inferred
+    $panel = Select-PanelMembers -Roster $policyRoster -Config $config -Consults @() -Launcher $fake -SkipPreflight -All -Coordinator $inferred
+    $allowed = Select-RosterReviewer -Roster $policyRoster -Config $config -Consults @() -Launcher $fake -SkipPreflight -Coordinator $explicit
+    Check 'EXCLUDE' 'walk skips the policy entry even with SkipPreflight; non-OpenAI still chooses it' (-not $walk.Error -and $walk.Entry.Position -eq 2 -and $walk.Skipped[0].reason -match '^excluded by coordinator policy' -and $allowed.Entry.Position -eq 1) $walk.Error
+    Check 'EXCLUDE' 'PanelAll plus SkipPreflight keeps policy entry skipped with a distinct coordinator reason' ($panel.Members[0].State -eq 'skipped' -and $panel.Members[0].SkipKind -eq 'coordinator' -and $null -eq $panel.Members[0].Verdict -and $panel.Members[1].State -eq 'run') $panel.Error
+    $availability = Get-RosterAvailability -Roster $policyRoster -Config $config -Consults @() -Launcher $fake -NoNetwork -Coordinator $inferred
+    Check 'EXCLUDE' 'availability preserves the policy reason and selects the eligible entry without an authentication or reset claim' ($availability.Selected.Position -eq 2 -and $availability.Records[0].State -eq 'out' -and $availability.Records[0].Kind -eq 'coordinator' -and $availability.Records[0].Reason -match '^excluded by coordinator policy' -and $null -eq $availability.Records[0].Hit -and $null -eq $availability.Records[0].Until) (Format-AvailabilityLine $availability)
+    $siblingPath = Write-Roster 'exclude-sibling' ($policyJson.Replace('{"provider":"ZAI","model":"glm-5.3"}', '{"provider":"openai","model":"gpt-5.2"}'))
+    $siblingRoster = Read-ReviewerRoster -Location ([pscustomobject]@{ Path = $siblingPath; FromEnv = $true; Disabled = $false })
+    $siblingAvailability = Get-RosterAvailability -Roster $siblingRoster -Config $config -Consults @() -Launcher $fake -NoNetwork -Coordinator $inferred
+    Check 'EXCLUDE' 'policy exclusion does not mark unmarked siblings of the same endpoint unavailable' ($siblingAvailability.Records[0].Group -eq $siblingAvailability.Records[1].Group -and $siblingAvailability.Records[0].Kind -eq 'coordinator' -and $siblingAvailability.Records[1].State -eq 'available') (Format-AvailabilityLine $siblingAvailability)
+    Restore-Env
+
+    $r = New-Repo 'exclude-integration'
+    $dry = Consult $r $policyPath @('-Prompt', 'x', '-DryRun', '-SkipPreflight') @{ CODEX_THREAD_ID = 'policy-thread' }
+    Check 'EXCLUDE' 'entrypoint auto selection infers OpenAI, selects ZAI and records the exclusion' ($dry.Code -eq 0 -and @($dry.Previews)[0].reviewer.provider -eq 'ZAI' -and @($dry.Previews)[0].coordinator.provider -eq 'openai' -and $dry.Out -match 'excluded by coordinator policy') $dry.Out
+    $non = Consult $r $policyPath @('-Prompt', 'x', '-DryRun', '-SkipPreflight') @{ CODEX_THREAD_ID = 'policy-thread'; CODEX_CONSULT_COORDINATOR = 'anthropic :: claude-opus-4' }
+    Check 'EXCLUDE' 'entrypoint explicit non-OpenAI coordinator keeps OpenAI eligible' ($non.Code -eq 0 -and @($non.Previews)[0].reviewer.provider -eq 'openai') $non.Out
+    $legacy = Consult $r $roster2 @('-Prompt', 'x', '-DryRun', '-SkipPreflight') @{ CODEX_THREAD_ID = 'policy-thread' }
+    Check 'EXCLUDE' 'an unmarked roster still chooses OpenAI from an OpenAI coordinator' ($legacy.Code -eq 0 -and @($legacy.Previews)[0].reviewer.provider -eq 'openai') $legacy.Out
+    $all = Consult $r $policyPath @('-Panel', '-PanelAll', '-Prompt', 'x', '-DryRun', '-SkipPreflight') @{ CODEX_THREAD_ID = 'policy-thread' }
+    Check 'EXCLUDE' 'entrypoint PanelAll seats only the eligible member and shows the policy reason' ($all.Code -eq 0 -and @($all.Previews).Count -eq 1 -and @($all.Previews)[0].reviewer.provider -eq 'ZAI' -and $all.Out -match 'skipped: excluded by coordinator policy') $all.Out
+    $plain = Consult $r $policyPath @('-Panel', '-Prompt', 'x', '-DryRun', '-SkipPreflight') @{ CODEX_SESSION_ID = 'policy-session' }
+    Check 'EXCLUDE' 'ordinary panel also seats only the eligible member from an inferred OpenAI coordinator' ($plain.Code -eq 0 -and @($plain.Previews).Count -eq 1 -and @($plain.Previews)[0].reviewer.provider -eq 'ZAI' -and $plain.Out -match 'skipped: excluded by coordinator policy') $plain.Out
+    $providersPs = Join-Path $scripts 'codex-providers.ps1'
+    $providerEnv = @{ CODEX_CONSULT_ROSTER = $policyPath; CODEX_THREAD_ID = 'policy-thread' }
+    $providers = Run-Raw $providersPs $r @('-CodexExe', $fake, '-NoNetwork') $providerEnv
+    Check 'EXCLUDE' 'provider diagnostics select the eligible reviewer and show the coordinator policy exclusion' ($providers.Code -eq 0 -and $providers.Out -match 'would select ZAI :: glm-5.3' -and $providers.Out -match 'availability: out - openai :: gpt-5.1 \(excluded by coordinator policy') $providers.Out
+    $short = Run-Raw $providersPs $r @('-CodexExe', $fake, '-NoNetwork', '-Short', '-Json') $providerEnv
+    $shortJson = $short.Out | ConvertFrom-Json
+    Check 'EXCLUDE' 'short JSON availability exposes coordinator exclusion, not an authentication outage' ($short.Code -eq 0 -and $shortJson.available -eq 1 -and $shortJson.out -eq 1 -and $shortJson.entries[0].kind -eq 'coordinator' -and $shortJson.entries[0].reason -match '^excluded by coordinator policy' -and $shortJson.entries[1].state -eq 'available') $short.Out
+    $providerEnv.CODEX_CONSULT_COORDINATOR = 'anthropic :: claude-opus-4'
+    $otherProviders = Run-Raw $providersPs $r @('-CodexExe', $fake, '-NoNetwork', '-Short', '-Json') $providerEnv
+    $otherJson = $otherProviders.Out | ConvertFrom-Json
+    Check 'EXCLUDE' 'explicit non-OpenAI coordinator also keeps policy reviewer eligible in provider diagnostics' ($otherProviders.Code -eq 0 -and $otherJson.available -eq 2 -and $otherJson.out -eq 0) $otherProviders.Out
+    $log = Join-Path $work 'exclude-launch.log'
+    $blockedEnv = @{ CODEX_CONSULT_COORDINATOR = '#1'; FAKE_CODEX_REPLY = $advise; FAKE_CODEX_LOG = $log }
+    $direct = Consult $r $policyPath @('-Provider', 'openai', '-Prompt', 'x', '-SkipPreflight') $blockedEnv
+    Check 'EXCLUDE' 'an explicit direct reviewer request refuses before model launch, even with SkipPreflight' ($direct.Code -ne 0 -and $direct.Out -match 'excluded by coordinator policy' -and -not (Test-Path $log) -and @(Ledger $r).Count -eq 0) $direct.Out
+    $required = Consult $r $policyPath @('-Panel', '-PanelAll', '-Require', '#1', '-Prompt', 'x', '-SkipPreflight') $blockedEnv
+    Check 'EXCLUDE' 'explicit panel Require cannot re-add an excluded member or launch any reviewer (exit 5)' ($required.Code -eq 5 -and $required.Out -match 'required reviewer excluded by coordinator policy' -and $required.Out -notmatch 'wait for|auth failed' -and -not (Test-Path $log)) $required.Out
+    $requiredPath = Write-Roster 'exclude-required' ($policyJson.Replace('{"roster_version":1,', '{"roster_version":1,"require":{"checkpoint":["#1"]},'))
+    $defaultReq = Consult $r $requiredPath @('-Panel', '-Purpose', 'checkpoint', '-Prompt', 'x', '-SkipPreflight') $blockedEnv
+    Check 'EXCLUDE' 'roster-required policy member refuses clearly instead of silently rejoining' ($defaultReq.Code -eq 5 -and $defaultReq.Out -match 'required reviewer excluded by coordinator policy' -and -not (Test-Path $log)) $defaultReq.Out
+    $singleReq = Consult $r $policyPath @('-Provider', 'ZAI', '-Require', '#1', '-Prompt', 'x', '-SkipPreflight') $blockedEnv
+    Check 'EXCLUDE' 'single chosen reviewer with a conflicting Require also refuses before launch' ($singleReq.Code -eq 5 -and $singleReq.Out -match 'required reviewer excluded by coordinator policy' -and -not (Test-Path $log)) $singleReq.Out
+    $onlyPath = Write-Roster 'exclude-only' '{"roster_version":1,"reviewers":[{"provider":"openai","model":"gpt-5.1","ext":{"exclude_coordinator_providers":["openai"]}}]}'
+    $none = Consult $r $onlyPath @('-Panel', '-PanelAll', '-Prompt', 'x', '-SkipPreflight') $blockedEnv
+    Check 'EXCLUDE' 'all-excluded panel refuses before any reviewer launch' ($none.Code -ne 0 -and $none.Out -match 'excluded by coordinator policy' -and -not (Test-Path $log)) $none.Out
+
+    $r2 = New-Repo 'exclude-detached-panel'
+    $dump = Join-Path $work 'exclude-detached-env'
+    [void][IO.Directory]::CreateDirectory($dump)
+    $fg = Consult $r2 $policyPath @('-Panel', '-PanelAll', '-Prompt', 'x', '-Detach', '-SkipPreflight') @{ CODEX_THREAD_ID = 'policy-thread'; FAKE_CODEX_REPLY = $advise; FAKE_CODEX_ENV_DUMP = $dump; CODEX_CONSULT_TEST_DETACH_GUIDS = '0000cafe-0000-4000-8000-00000000e001' }
+    $wait = Consult $r2 $policyPath @('-Wait', '-Id', '0000cafe', '-WaitTimeoutSec', '60') @{} -NoCodexExe
+    $entries = @(Ledger $r2)
+    $execs = @(@(Read-EnvDumps $dump) | Where-Object { $_.Kind -eq 'exec' })
+    Check 'EXCLUDE' 'detached panel carries inferred provider through both scrubbed child levels; only ZAI launches' ($fg.Code -eq 0 -and $wait.Code -eq 0 -and $entries.Count -eq 1 -and $entries[0].reviewer.provider -eq 'ZAI' -and $entries[0].coordinator.provider -eq 'openai' -and $entries[0].coordinator.source -eq 'inferred' -and $null -eq $entries[0].coordinator.model -and $execs.Count -eq 1 -and @($execs[0].Names) -notcontains 'CODEX_THREAD_ID') "foreground $($fg.Code), wait $($wait.Code), entries $($entries.Count), execs $($execs.Count); $($fg.Out); $($wait.Out)"
+}
+
 # =============================================================== EXPLAIN / HOOK: skill texts for a host without skills, the pointer line (D5)
 if (Want 'EXPLAIN') {
     $r = New-Repo 'explain'

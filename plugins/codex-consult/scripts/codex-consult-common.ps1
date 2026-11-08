@@ -8063,7 +8063,8 @@ function Get-CodexConfigDefaults {
 # and a detached background take their run's - never inferred again downstream): the value of
 # CODEX_CONSULT_COORDINATOR (optional) parsed by the reviewer matcher (ConvertFrom-ReviewerMatcher)
 # - `<provider> :: <model>` [` [<engine>]`], a roster position `#<n>` or a provider label - and the
-# host hint (Get-CoordinatorHostHint: markers, else the install path; no warning comes from it).
+# host hint (Get-CoordinatorHostHint: markers, else the install path). With no explicit identity,
+# Codex runtime markers infer only the config's default provider; an install path never does.
 # (wave 27c, D9 / F30-8, F32-6) A RESOLVED TRIPLE, through the same rules as a seated reviewer: `#n`
 # is that entry's provider, its model - else the model the bridge would run (the Codex config's,
 # $Defaults) - and its engine; a label is the model of its roster entry (else, for the config's
@@ -8078,7 +8079,9 @@ function Get-CodexConfigDefaults {
 function Resolve-CoordinatorIdentity {
     param([string]$Value, $Roster = $null, $Defaults = $null, [string]$ScriptPath = $PSScriptRoot)
     $hint = Get-CoordinatorHostHint -ScriptPath $ScriptPath
-    if ($null -eq $Defaults) { $Defaults = [pscustomobject]@{ Provider = 'openai'; Model = '' } }
+    if ($null -eq $Defaults) {
+        $Defaults = $(if (-not ([string]$Value).Trim() -and $hint.Host -eq 'codex' -and $hint.By -eq 'markers') { Get-CodexConfigDefaults } else { [pscustomobject]@{ Provider = 'openai'; Model = '' } })
+    }
     $r = [pscustomobject]@{ Record = $null; Error = ''; Warnings = [string[]]@() }
     $hasRoster = [bool]($Roster -and $Roster.Exists)
     $mk = {
@@ -8087,7 +8090,11 @@ function Resolve-CoordinatorIdentity {
     }
     $v = ([string]$Value).Trim()
     if (-not $v) {
-        $r.Record = & $mk $null $null $null $(if ($hint.Host -ne 'unknown') { 'inferred' } else { 'none' }) $null $null
+        # A Codex runtime marker permits provider inference from its config, never a model
+        # guess. An install-path hint alone says nothing about the coordinator's provider.
+        $providerHint = $null
+        if ($hint.Host -eq 'codex' -and $hint.By -eq 'markers') { $providerHint = [string]$Defaults.Provider; if (-not $providerHint) { $providerHint = 'openai' } }
+        $r.Record = & $mk $providerHint $null $null $(if ($hint.Host -ne 'unknown') { 'inferred' } else { 'none' }) $null $null
         return $r
     }
     $m = ConvertFrom-ReviewerMatcher -Matcher $v
@@ -8220,6 +8227,20 @@ function Format-CoordinatorWarning {
     if ($Kind -eq 'provider') { return "coordinator: $Lineage is a reviewer from the coordinator's own provider (model not named) (CODEX_CONSULT_COORDINATOR) - it may be the coordinator's own model" }
     return "coordinator: $Lineage is the coordinator's own model (CODEX_CONSULT_COORDINATOR) - a second opinion from the coordinator's own model, not an independent one"
 }
+
+# Roster policy, separate from authentication/health and the advisory own-model warning.
+# The coordinator is the record resolved by the parent run; never infer it again here.
+function Get-CoordinatorExclusion {
+    param($Entry, $Coordinator)
+    $provider = [string](Get-PropertyValue $Coordinator 'provider' '')
+    if (-not $provider) { return '' }
+    foreach ($excluded in @(Get-PropertyValue $Entry 'ExcludeCoordinatorProviders' @())) {
+        if ([string]::Equals([string]$excluded, $provider, [StringComparison]::OrdinalIgnoreCase)) {
+            return "excluded by coordinator policy: coordinator provider '$provider' matches ext.exclude_coordinator_providers"
+        }
+    }
+    return ''
+}
 function Get-RosterPath {
     $p = ([string]$env:CODEX_CONSULT_ROSTER).Trim()
     if ($p -ieq 'none') { return [pscustomobject]@{ Path = ''; FromEnv = $true; Disabled = $true } }
@@ -8245,8 +8266,8 @@ function Get-RosterPath {
 # purpose -> string[] of reviewer matchers from the top-level "require", each resolved to an
 # entry at load - D7); Error }. Error is the whole refusal message; the caller stops on it.
 # (wave 26, D12) "ext" - an object at the top level and in any entry - is the extension point of
-# other implementations that share the file: validated as an object only, never read, never
-# written.
+# other implementations that share the file. The entry's exclude_coordinator_providers is
+# an array of provider labels; other extension keys remain opaque and are never written.
 # $Location: Get-RosterPath (the default).
 # (wave 26b, D3) The first delimiter of the reviewer matcher (`::`, ` [<engine>]`) or of the
 # seed text (`|`, `,`) - or `#` (a position matcher) - found in a roster string, quoted, else ''.
@@ -8340,6 +8361,14 @@ function Read-ReviewerRoster {
                 $entryStall = [int]$item.stall_sec
             }
             if ($item.PSObject.Properties['ext'] -and -not (Test-IsJsonObject $item.ext)) { $why = "${at}: ext must be an object (the extension point of other implementations; got $(ConvertTo-Json -InputObject $item.ext -Compress))"; break }
+            $excludeCoordinatorProviders = [string[]]@()
+            if ($item.PSObject.Properties['ext'] -and $item.ext.PSObject.Properties['exclude_coordinator_providers']) {
+                $excluded = $item.ext.exclude_coordinator_providers
+                $validExcluded = Test-IsJsonArray $excluded
+                if ($validExcluded) { foreach ($p in @($excluded)) { if (Get-IdentityStringProblem $p) { $validExcluded = $false; break } } }
+                if (-not $validExcluded) { $why = "${at}: ext.exclude_coordinator_providers must be an array of non-empty provider labels without surrounding blanks"; break }
+                $excludeCoordinatorProviders = [string[]]@($excluded)
+            }
             # (wave 29b, E5) the plan (the quota a route shares with the other routes to the same
             # coding plan): a slug, on any entry of any engine
             $entryPlan = ''
@@ -8437,7 +8466,7 @@ function Read-ReviewerRoster {
                 $label = if ($model) { Format-Lineage -Provider $provider -Model $model } else { "$provider (no model)" }
                 $why = "entries $($dup.Position) and $pos are the same reviewer $label"; break
             }
-            $entries.Add([pscustomobject]@{ Position = $pos; Provider = $provider; Model = $model; CodexConfig = $cfgItems; Auth = $auth; Panel = $panelWeight; Engine = $engine; EngineDeclared = $engineDeclared; Lab = $lab; Roles = $entryRoles; TimeoutSec = $entryTimeout; StallSec = $entryStall; ContextTokens = $entryContext; Endpoint = $entryEndpoint; Plan = $entryPlan })
+            $entries.Add([pscustomobject]@{ Position = $pos; Provider = $provider; Model = $model; CodexConfig = $cfgItems; Auth = $auth; Panel = $panelWeight; Engine = $engine; EngineDeclared = $engineDeclared; Lab = $lab; Roles = $entryRoles; TimeoutSec = $entryTimeout; StallSec = $entryStall; ContextTokens = $entryContext; Endpoint = $entryEndpoint; Plan = $entryPlan; ExcludeCoordinatorProviders = $excludeCoordinatorProviders })
         }
     }
     if (-not $why -and $data.PSObject.Properties['parallel']) {
@@ -8797,7 +8826,7 @@ function Get-ContextSkip {
 }
 
 function Select-RosterReviewer {
-    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null, [int]$EstimateTokens = 0)
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null, [int]$EstimateTokens = 0, $Coordinator = $null)
     $skipped = New-Object System.Collections.Generic.List[object]
     $r = [pscustomobject]@{ Entry = $null; Identity = $null; Verdict = $null; Skipped = [object[]]@(); Considered = 0; Error = '' }
     $listing = New-Object System.Collections.Generic.List[string]
@@ -8808,6 +8837,12 @@ function Select-RosterReviewer {
         $id = Get-CachedReviewerIdentity -Cache $Cache -Config $Config -Provider $e.Provider -Model $e.Model -OpenAiBaseUrl $OpenAiBaseUrl -Engine $entryEngine -Launcher $entryLauncher -Auth ([string]$e.Auth) -Endpoint (Get-PropertyValue $e 'Endpoint' $null)
         if ($Model -and $id.Model -cne $Model) { continue }
         $r.Considered++
+        $exclusion = Get-CoordinatorExclusion -Entry $e -Coordinator $Coordinator
+        if ($exclusion) {
+            $skipped.Add([pscustomobject]@{ provider = $e.Provider; model = $id.Model; engine = $entryEngine; reason = $exclusion })
+            $listing.Add("#$($e.Position) $(Format-ReviewerLineage -Provider $id.Provider -Model $id.Model -Engine $entryEngine) ($exclusion)")
+            continue
+        }
         $block = Get-EngineLaunchBlock -Engine $entryEngine
         if ($block) {
             $skipped.Add([pscustomobject]@{ provider = $e.Provider; model = $id.Model; engine = $entryEngine; reason = "refused: $block" })
@@ -8877,7 +8912,7 @@ $script:WeightyPurposes = @('framing', 'decision', 'core-contract', 'acceptance'
 # ('' or the refusal: nobody runs / no entry for $Model) }. (wave 26) Select-PanelRouting then
 # seats the panel among the members that run (State 'not-picked' for the rest).
 function Select-PanelMembers {
-    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null, [int]$EstimateTokens = 0)
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [string]$Model = '', [string]$Purpose = '', [switch]$All, [switch]$SkipPreflight, [string]$Engine = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null, [int]$EstimateTokens = 0, $Coordinator = $null)
     $members = New-Object System.Collections.Generic.List[object]
     $r = [pscustomobject]@{ Members = [object[]]@(); Error = '' }
     $listing = New-Object System.Collections.Generic.List[string]
@@ -8895,7 +8930,9 @@ function Select-PanelMembers {
         $health = $null
         if ($id.Resolved) { $health = Get-CachedEndpointHealth -Cache $Cache -Consults $Consults -Fingerprint $id.Fingerprint -UtcNow $UtcNow }
         $block = Get-EngineLaunchBlock -Engine $entryEngine
-        if ($block) { $state = 'skipped'; $reason = "refused: $block"; $skipKind = 'refused' }
+        $exclusion = Get-CoordinatorExclusion -Entry $e -Coordinator $Coordinator
+        if ($exclusion) { $state = 'skipped'; $reason = $exclusion; $skipKind = 'coordinator' }
+        elseif ($block) { $state = 'skipped'; $reason = "refused: $block"; $skipKind = 'refused' }
         elseif (-not $SkipPreflight) {
             $verdict = Get-PreflightVerdict -Identity $id -Config $Config -Launcher $entryLauncher -Health $health -LoginCache $LoginCache -Anonymous:($e.Auth -eq 'none') -RosterWalk -NoNetwork:$NoNetwork
             # (wave 29b, E5) a usage limit on another route of the entry's plan
@@ -9828,19 +9865,22 @@ function ConvertTo-AvailabilityRecord {
 # (Get-EndpointGroups; D16: an outage recorded on an endpoint - auth, a usage limit - marks every
 # entry of its group). { Records (object[] in roster order of { Position; Provider; Model;
 # Engine; Lineage ('<provider> :: <model>'); Group; State available|out|not checked; Kind
-# (Get-PreflightVerdict's, or refused); Reason (the roster walk's reason); Short (the one-line
+# (Get-PreflightVerdict's, refused or coordinator); Reason (the roster walk's reason); Short (the one-line
 # view's phrase, local time - Format-AvailabilityLine); Hit; Until }); Groups (Get-EndpointGroups);
 # Total; Available; Out; NotChecked; Selected (the first available record - the entry the
 # single-reviewer walk selects - or $null) }.
 function Get-RosterAvailability {
-    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null)
-    $sel = Select-PanelMembers -Roster $Roster -Config $Config -Consults $Consults -Launcher $Launcher -LoginCache $LoginCache -UtcNow $UtcNow -OpenAiBaseUrl $OpenAiBaseUrl -All -EngineLaunchers $EngineLaunchers -NoNetwork:$NoNetwork -Cache $Cache
+    param($Roster, $Config, [object[]]$Consults, [string]$Launcher, [hashtable]$LoginCache = $null, [datetime]$UtcNow = [datetime]::UtcNow, [string]$OpenAiBaseUrl = '', [hashtable]$EngineLaunchers = $null, [switch]$NoNetwork, [hashtable]$Cache = $null, $Coordinator = $null)
+    $sel = Select-PanelMembers -Roster $Roster -Config $Config -Consults $Consults -Launcher $Launcher -LoginCache $LoginCache -UtcNow $UtcNow -OpenAiBaseUrl $OpenAiBaseUrl -All -EngineLaunchers $EngineLaunchers -NoNetwork:$NoNetwork -Cache $Cache -Coordinator $Coordinator
     $members = @($sel.Members | Where-Object { $_ })
     $eg = Get-EndpointGroups -Members $members
     $records = New-Object System.Collections.Generic.List[object]
     foreach ($m in $members) {
         $pos = [int]$m.Entry.Position
-        $records.Add((ConvertTo-AvailabilityRecord -Position $pos -Provider ([string]$m.Entry.Provider) -Model ([string]$m.Identity.Model) -Engine ([string]$m.Entry.Engine) -Group ([int]$eg.GroupOf[$pos]) -Verdict $m.Verdict -Block ([string]$m.Block) -UtcNow $UtcNow))
+        $rec = ConvertTo-AvailabilityRecord -Position $pos -Provider ([string]$m.Entry.Provider) -Model ([string]$m.Identity.Model) -Engine ([string]$m.Entry.Engine) -Group ([int]$eg.GroupOf[$pos]) -Verdict $m.Verdict -Block ([string]$m.Block) -UtcNow $UtcNow
+        # A policy exclusion has no credential verdict and never marks sibling entries out.
+        if ($m.SkipKind -eq 'coordinator') { $rec.State = 'out'; $rec.Kind = 'coordinator'; $rec.Reason = $m.Reason; $rec.Short = $m.Reason }
+        $records.Add($rec)
     }
     # D16: an outage recorded on the endpoint marks the whole group (an entry of it that was not
     # judged out by itself - e.g. an unresolved one - is out with the same reason)

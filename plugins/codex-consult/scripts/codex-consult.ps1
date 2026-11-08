@@ -2803,7 +2803,7 @@ if ($panelRun) {
     $panelClock = Get-ConsultClock -Peek
     if ($panelClock.Error) { Stop-WithError $panelClock.Error }
     $panelAllConsults = Read-AllTaskConsults -CollabRoot $collabRoot
-    $panelSelection = Select-PanelMembers -Roster $roster -Config $panelConfig -Consults $panelAllConsults -Launcher ([string]$codexExePath) -LoginCache @{} -UtcNow $panelClock.Now.UtcDateTime -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Model $Model -Purpose $Purpose -All:$PanelAll -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers -EstimateTokens $promptEstimate
+    $panelSelection = Select-PanelMembers -Roster $roster -Config $panelConfig -Consults $panelAllConsults -Launcher ([string]$codexExePath) -LoginCache @{} -UtcNow $panelClock.Now.UtcDateTime -OpenAiBaseUrl ([string]$env:OPENAI_BASE_URL) -Model $Model -Purpose $Purpose -All:$PanelAll -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers -EstimateTokens $promptEstimate -Coordinator $coordinatorRecord
     $panelEntries = @($panelSelection.Members)
     if ($panelEntries.Count -eq 0) { Stop-WithError $panelSelection.Error }
     # (wave 26, D7) the required reviewers - -Require, else the roster's "require" for the purpose -
@@ -2813,6 +2813,7 @@ if ($panelRun) {
     $panelRequired = Resolve-RequiredReviewers -Roster $roster -Require $Require -Purpose $Purpose -Explicit:$requireGiven -UseRoster
     if ($panelRequired.Error) { Stop-WithError "$($panelRequired.Error)." }
     $requiredProblems = New-Object System.Collections.Generic.List[string]
+    $requiredPolicyProblems = New-Object System.Collections.Generic.List[string]
     foreach ($reqPos in $panelRequired.Positions) {
         $reqPm = @($panelEntries | Where-Object { [int]$_.Entry.Position -eq [int]$reqPos }) | Select-Object -First 1
         if (-not $reqPm) {
@@ -2821,7 +2822,11 @@ if ($panelRun) {
             $requiredProblems.Add("#$reqPos $(if ($reqEntry.Model) { Format-ReviewerLineage -Provider $reqEntry.Provider -Model $reqEntry.Model -Engine $reqEntry.Engine } else { $reqEntry.Provider }) (not in this panel: $reqFilters)")
             continue
         }
-        if ($reqPm.State -eq 'skipped' -and @('weighty', 'light') -notcontains [string]$reqPm.SkipKind) { $requiredProblems.Add((Format-RequiredOutage -Member $reqPm -UtcNow $panelClock.Now.UtcDateTime)) }
+        if ($reqPm.SkipKind -eq 'coordinator') { $requiredPolicyProblems.Add((Format-RequiredOutage -Member $reqPm -UtcNow $panelClock.Now.UtcDateTime)) }
+        elseif ($reqPm.State -eq 'skipped' -and @('weighty', 'light') -notcontains [string]$reqPm.SkipKind) { $requiredProblems.Add((Format-RequiredOutage -Member $reqPm -UtcNow $panelClock.Now.UtcDateTime)) }
+    }
+    if ($requiredPolicyProblems.Count -gt 0) {
+        Stop-WithError "required reviewer excluded by coordinator policy ($($panelRequired.Source)): $($requiredPolicyProblems.ToArray() -join '; '); nothing was started - remove the conflicting requirement (-Require none drops the roster requirement); -Require and -PanelAll cannot override this policy (exit 5)." -Code 5
     }
     if ($requiredProblems.Count -gt 0) {
         Stop-WithError "required reviewer$(if ($requiredProblems.Count -ne 1) { 's' }) not available ($($panelRequired.Source)): $($requiredProblems.ToArray() -join '; '); nothing was started - wait for $(if ($requiredProblems.Count -ne 1) { 'them' } else { 'it' }), or run without $(if ($panelRequired.Source -eq '-Require') { 'that -Require' } else { 'the requirement (-Require none)' }) (exit 5)." -Code 5
@@ -3474,7 +3479,7 @@ if ($roster.Exists) {
         $rosterEntry = Find-RosterEntry -Roster $roster -Provider $identityProvider -Model $identityModel
     } else {
         $rosterRule = 'walk'
-        $walk = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -Model $Model -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers -EstimateTokens $promptEstimate
+        $walk = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -Model $Model -SkipPreflight:$SkipPreflight -Engine $Engine -EngineLaunchers $engineLaunchers -EstimateTokens $promptEstimate -Coordinator $coordinatorRecord
         if ($walk.Error) { Stop-WithError $walk.Error }
         $rosterEntry = $walk.Entry
         $rosterSkipped = @($walk.Skipped)
@@ -3496,6 +3501,12 @@ if ($roster.Exists) {
         $extraConfigSource = 'roster'
         $rosterApplied.Add('codex_config')
     }
+}
+# Enforce the policy for explicit singles, resumed threads and panel/detached children too.
+# Their coordinator record was preserved by the parent before host markers were scrubbed.
+if ($rosterEntry) {
+    $coordinatorExclusion = Get-CoordinatorExclusion -Entry $rosterEntry -Coordinator $coordinatorRecord
+    if ($coordinatorExclusion) { Stop-WithError "roster entry #$($rosterEntry.Position) $(Format-ReviewerLineage -Provider $rosterEntry.Provider -Model $rosterEntry.Model -Engine $rosterEntry.Engine): $coordinatorExclusion; nothing was started." }
 }
 # (wave 26b, D16) a single run's explicit reviewer (-Provider, -Thread) whose context window the
 # new prompt alone would fill beyond 80% is refused before anything starts (a roster walk skips it)
@@ -3526,7 +3537,11 @@ if ($requireGiven -and -not $panelRun -and -not $panelMember) {
     if ($singleRequired.Error) { Stop-WithError "$($singleRequired.Error)." }
     if (@($singleRequired.Positions).Count -gt 0) {
         $reqRoster = [pscustomobject]@{ Exists = $true; Path = $roster.Path; Entries = [object[]]@($roster.Entries | Where-Object { $singleRequired.Positions -contains [int]$_.Position }) }
-        $reqSel = Select-PanelMembers -Roster $reqRoster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -All -EngineLaunchers $engineLaunchers
+        $reqSel = Select-PanelMembers -Roster $reqRoster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -All -EngineLaunchers $engineLaunchers -Coordinator $coordinatorRecord
+        $reqPolicyOut = @(@($reqSel.Members) | Where-Object { $_.SkipKind -eq 'coordinator' } | ForEach-Object { Format-RequiredOutage -Member $_ -UtcNow $healthNow })
+        if ($reqPolicyOut.Count -gt 0) {
+            Stop-WithError "required reviewer excluded by coordinator policy (-Require): $($reqPolicyOut -join '; '); nothing was started - remove the conflicting requirement; -Require cannot override this policy (exit 5)." -Code 5
+        }
         $reqOut = @(@($reqSel.Members) | Where-Object { $_.State -ne 'run' } | ForEach-Object { Format-RequiredOutage -Member $_ -UtcNow $healthNow })
         if ($reqOut.Count -gt 0) {
             Stop-WithError "required reviewer$(if ($reqOut.Count -ne 1) { 's' }) not available (-Require, judged like the roster walk): $($reqOut -join '; '); nothing was started - wait for $(if ($reqOut.Count -ne 1) { 'them' } else { 'it' }), or run without -Require (exit 5)." -Code 5
@@ -3685,7 +3700,7 @@ if (-not $SkipPreflight) {
     $preflightRefusal = $preflightVerdict.Refusal
     if ($preflightVerdict.State -ne 'available' -and $rosterRule -eq 'thread') {
         # The thread cannot continue: say which reviewer a new thread would get.
-        $alternative = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -EngineLaunchers $engineLaunchers
+        $alternative = Select-RosterReviewer -Roster $roster -Config $codexConfigScan -Consults $allConsults -Launcher ([string]$codexExePath) -LoginCache $loginCache -UtcNow $healthNow -OpenAiBaseUrl $openAiBaseUrl -EngineLaunchers $engineLaunchers -Coordinator $coordinatorRecord
         $hint = if ($alternative.Entry) { "; to continue with another reviewer, start a new thread: -Mode new; the roster would select $(Format-ReviewerLineage -Provider $alternative.Identity.Provider -Model $alternative.Identity.Model -Engine ([string]$alternative.Identity.Engine))" } else { '; the roster has no available reviewer for a new thread either' }
         $preflightRefusal += $hint
         $preflightLabel += $hint
